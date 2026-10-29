@@ -452,10 +452,12 @@
       var n = iss.bad + iss.unsure;
       sub.innerHTML = '';
       sub.classList.add('pp-subrow');
-      var from = opts.sample ? 'Read from the sample · ' : file && file.kind === 'sheet' ? 'Read from your spreadsheet · '
-        : readMeta && readMeta.files > 1 ? 'Read from ' + (readMeta.read === readMeta.files ? readMeta.files + ' files' : readMeta.read + ' of ' + readMeta.files + ' files') + ' · '
-        : 'Read from your ' + (file && file.kind === 'pdf' ? 'PDF' : 'photo') + ' · ';
-      sub.appendChild(el('span', {}, from + st.weeks + (st.weeks === 1 ? ' week · ' : ' weeks · ') + st.days + (st.days === 1 ? ' day · ' : ' days · ') + st.sets + ' sets'));
+      // A line that wraps breaks only after a "·": a number keeps its word ("4 weeks", never "4" / "weeks").
+      var nb = ' ', dot = nb + '· ';
+      var from = opts.sample ? 'Read from the sample' + dot : file && file.kind === 'sheet' ? 'Read from your spreadsheet' + dot
+        : readMeta && readMeta.files > 1 ? 'Read from ' + (readMeta.read === readMeta.files ? readMeta.files + ' files' : readMeta.read + ' of ' + readMeta.files + ' files') + dot
+        : 'Read from your ' + (file && file.kind === 'pdf' ? 'PDF' : 'photo') + dot;
+      sub.appendChild(el('span', {}, from + st.weeks + nb + (st.weeks === 1 ? 'week' : 'weeks') + dot + st.days + nb + (st.days === 1 ? 'day' : 'days') + dot + st.sets + nb + 'sets'));
       if (n) {
         var nx = el('button', { class: 'pp-tocheck', type: 'button' }, n + ' to check');
         nx.addEventListener('click', function () { var it = draftIssues(draft).list[0]; if (it) focusCell(it.d, it.e, it.w); });

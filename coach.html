@@ -4350,6 +4350,9 @@ function renderTemplates() {
   // The laptop desk keeps templates in Programs (the list pane's Templates tab).
   if (_desk() && _deskCall('deskShowTemplates')) return;
   const area = document.getElementById('templatesArea');
+  // The phone and the iPhone app (coach-program.js): one grouped list, a template opens its sheet, Apply asks
+  // who gets it. The cards below stay the narrow web's fallback.
+  if (!_desk() && window.CoachProgram && CoachProgram.renderTemplates && CoachProgram.renderTemplates(area)) return;
   area.innerHTML = '';
   const tpls = (Store.get().programTemplates || []).filter(t => t.coachId === user.id);
   if (!tpls.length) {
@@ -4668,10 +4671,17 @@ function openSaveTemplate(prog) {
 async function confirmSaveTemplate() {
   const name = document.getElementById('tplName').value.trim();
   if (!name) return toast('Enter a name');
+  await saveProgramAsTemplate(_saveTplTarget, name);
+  closeModal('saveTplModal');
+  toast('Template saved');
+}
+// The template a program saves as: its weeks, days, sets (loads as planned), notes and set fields. The modal
+// above and the phone's own sheet (coach-program.js) both save through it. → the template.
+async function saveProgramAsTemplate(prog, name) {
   const newId = uid('tpl');
   const tpl = {
     id: newId, coachId: user.id, name, createdAt: Date.now(),
-    payload: { weeks: _saveTplTarget.weeks.map(wk => ({
+    payload: { weeks: prog.weeks.map(wk => ({
       number: wk.number,
       days: wk.days.map(d => ({
         name: d.name,
@@ -4680,13 +4690,13 @@ async function confirmSaveTemplate() {
           sets: ex.sets.map(set => ({ weight: planWeight(set), reps: set.reps, rpe: set.rpe, tempo: set.tempo || '', ...rxOf(set) }))
         }))
       }))
-    })), setFields: _saveTplTarget.setFields || null }
+    })), setFields: prog.setFields || null }
   };
   Store.update(s => { s.programTemplates = s.programTemplates || []; s.programTemplates.push(tpl); });
   await persistAddTemplate(tpl);
-  closeModal('saveTplModal');
-  toast('Template saved');
+  return tpl;
 }
+window.saveProgramAsTemplate = saveProgramAsTemplate;
 
 let _applyTplTarget = null;
 function openApplyTemplate(tpl) {
@@ -4766,13 +4776,21 @@ function buildProgramFromTemplate(tpl, athleteId) {
 async function confirmApplyTemplate() {
   const ids = _applyTplCheckedIds();
   if (!ids.length) return toast('Pick at least one athlete');
-
+  await applyTemplateToLifters(_applyTplTarget, ids, { beforeToast: () => closeModal('applyTplModal') });
+}
+// A template given to these lifters (ids): the modal above and the phone's own sheet (coach-program.js) both
+// apply through it. opts.noun names them in the toast ('athletes' here, 'lifters' on the phone); opts.beforeToast
+// runs once the programs are saved (the modal closes there, as it always did).
+async function applyTemplateToLifters(tpl, ids, opts) {
+  opts = opts || {};
+  const noun = opts.noun || 'athletes';
+  if (!tpl || !ids || !ids.length) return;
   // Build all programs first, then commit to the Store in a single update so the
   // roster/program panes re-render once. Each athlete's existing program (if any)
   // is replaced by id, matching the single-athlete behaviour.
   // Programs with logged training are kept as past blocks before the template replaces them.
   for (const aid of ids) { const ex = Store.get().programs.find(p => p.athleteId === aid); if (ex) await archiveProgramIfTrained(ex); }
-  const built = ids.map(aid => buildProgramFromTemplate(_applyTplTarget, aid));
+  const built = ids.map(aid => buildProgramFromTemplate(tpl, aid));
   Store.update(s => {
     s.programs = s.programs.filter(p => !ids.includes(p.athleteId));
     built.forEach(p => s.programs.push(p));
@@ -4785,15 +4803,17 @@ async function confirmApplyTemplate() {
       catch (e) { console.error('apply template →', prog.athleteId, e); failed++; }
     }
   }
-  closeModal('applyTplModal');
+  if (opts.beforeToast) opts.beforeToast();
   if (failed) toast('Applied to ' + (built.length - failed) + ' of ' + built.length + ' – ' + failed + ' failed');
-  else toast(built.length === 1 ? 'Template applied' : ('Template applied to ' + built.length + ' athletes'));
+  else toast(built.length === 1 ? 'Template applied' : ('Template applied to ' + built.length + ' ' + noun));
 
   // Jump to the builder focused on the first athlete we just assigned.
   const firstId = ids[0];
   document.querySelector('[data-tab="program"]').click();
   setTimeout(() => { document.getElementById('progAthlete').value = firstId; activeWeekIdx = 0; loadProgram(); }, 50);
 }
+
+window.applyTemplateToLifters = applyTemplateToLifters;
 
 // Hook the AI assistant's "Insert into builder" button. The program goes to the lifter the chat was
 // about (opts.athleteId: ai-chat.js reads who the coach named); with nobody named, a sheet asks which

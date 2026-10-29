@@ -1336,6 +1336,9 @@ html:not(.desk) .cp-maxes { display: inline-flex; align-items: center; gap: 8px;
 html:not(.desk) .cp-maxes b { color: var(--text); font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-maxes b i { display: inline-block; width: 7px; height: 7px; margin: 0 5px 0 1px; border-radius: 50%; background: var(--lc); vertical-align: 1px; }
 html:not(.desk) .cp-maxes svg { width: 15px; height: 15px; }
+html:not(.desk) .cp-maxes :is(.cp-mx-l, .cp-mx-lift) { white-space: nowrap; }
+html:not(.desk) .cp-maxes svg { flex: none; }
+@media (max-width: 389px) { html:not(.desk) .cp-maxes .cp-mx-more { display: none; } }
 html:not(.desk) .cp-maxes:active { transform: scale(0.97); transition-duration: 90ms; }
 html:not(.desk) .cp-done { margin: 14px 0 0; font-size: 15px; color: var(--text-2); }
 html:not(.desk) .cp-hero .ca-btn { margin-top: 12px; }
@@ -1357,7 +1360,7 @@ html:not(.desk) .cp-weeks { flex: 1; min-width: 0; display: flex; gap: 2px; padd
 html:not(.desk) .cp-weeks::-webkit-scrollbar { display: none; }
 html:not(.desk) .cp-wk { position: relative; flex: 1 0 auto; min-width: 44px; height: 38px; padding: 0 12px; border: 0; border-radius: 11px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer; transition: background-color 200ms ease-out, color 200ms ease-out, box-shadow 200ms ease-out; }
 html:not(.desk) .cp-wk.on { background: var(--pl-raise); color: var(--text) !important; box-shadow: var(--pl-raise-shade); }
-html:not(.desk) .cp-wk.is-now::after { content: ''; position: absolute; top: 7px; right: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--acc); }
+html:not(.desk) .cp-wk.is-now::before { content: ''; position: absolute; top: 7px; right: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--acc); }
 html:not(.desk) .cp-wk-add { flex: 0 0 44px; padding: 0; color: var(--text-3) !important; display: inline-grid; place-items: center; }
 html:not(.desk) .cp-wk-add svg { width: 18px; height: 18px; }
 
@@ -1413,9 +1416,8 @@ html:not(.desk) .cp-lifted .is-over::before { content: ''; display: inline-block
 html:not(.desk) .cp-lifted s { color: var(--text-3); }
 html:not(.desk) .cp-lifted i { font-style: normal; color: var(--text-3); }
 html:not(.desk) .cp-exrow > svg { flex: none; width: 18px; height: 18px; margin-top: 11px; color: var(--text-3); }
-html:not(.desk) .cp-rest { display: flex; flex-direction: column; gap: 4px; padding: 6px 16px 20px; }
-html:not(.desk) .cp-rest b { font-size: 17px; font-weight: 600; color: var(--text); }
-html:not(.desk) .cp-rest span { font-size: 15px; color: var(--text-2); }
+/* an empty day (a rest day, or one with nothing in it yet): one line under its name, never the name again */
+html:not(.desk) .cp-rest { margin: 0; padding: 2px 16px 20px; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
 html:not(.desk) .cp-addcard { padding: 20px 16px 16px; }
 html:not(.desk) .cp-add-t { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; color: var(--text); }
 html:not(.desk) .cp-add-s { margin: 6px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-2); }
@@ -1436,16 +1438,24 @@ html:not(.desk) .cp-fab:active { transform: scale(0.95); filter: brightness(0.92
 html:not(.desk) .cp-fab.is-soft { background: var(--pl-raise); color: var(--text) !important; }
 html:not(.desk) .cp-fab.is-hidden { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.96); pointer-events: none; }
 
-/* the editor sheet: the top set is the object (lit by its lift, its load drawn as the bar a loader would load),
-   the back-offs insets under it, four steppers each, then one More */
+/* the ⋯ menus (coach-program.js menu): rows on the scale (17), the groups apart as iOS draws them, and the row
+   that takes something away last, in ink beside its bin (red is the screen's one action, never a menu row) */
+html:not(.desk) body.powa-app .cp-menu .ui-sheet > button { font-size: 17px; }
+html:not(.desk) body.powa-app .cp-menu .ui-sheet > button.cp-sep { position: relative; margin-top: 9px; }
+html:not(.desk) body.powa-app .cp-menu .ui-sheet > button.cp-sep::before { content: ''; position: absolute; top: -5px; left: 12px; right: 12px; height: 1px; background: var(--ca-hair); pointer-events: none; }
+html:not(.desk) body.powa-app .cp-menu .ui-sheet > button.danger { color: var(--text); }
+html:not(.desk) body.powa-app .cp-menu .ui-sheet > button.danger svg { color: var(--text-2); }
+
+/* the editor sheet: the top set is the object (lit by its lift; no bar drawn: plate paint, and loading is the
+   lifter's job), the back-offs insets under it, four steppers each, then one More */
 html:not(.desk) .cp-sheet { position: relative; }
 /* ⋯ and Done sit top right, where iOS puts a sheet's Done (the editor saves as you go; Done only closes) */
 html:not(.desk) .cp-ed-tools { position: absolute; top: 12px; right: 10px; display: flex; align-items: center; gap: 2px; }
 html:not(.desk) body.powa-app .cp-ed-done { min-width: 44px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 12px; background: none; color: var(--text); font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), opacity 150ms ease-out; }
 html:not(.desk) body.powa-app .cp-ed-done:active { transform: scale(0.95); opacity: 0.7; transition-duration: 90ms; }
 html:not(.desk) .cp-sheet .ui-sheet-h { padding-right: 112px; }
-html:not(.desk) .cp-ed-sub { margin-top: -6px !important; }
-html:not(.desk) .cp-ed-last { margin: 4px 0 0; font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+html:not(.desk) .cp-ed-sub { margin-top: 0 !important; margin-bottom: 0 !important; }
+html:not(.desk) .cp-ed-last { margin: 10px 0 0; font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-ed-note { margin: 10px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-3); }
 html:not(.desk) .cp-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
 @media (prefers-reduced-motion: reduce) { html:not(.desk) .cp-blkmore svg { transition: none; } }
@@ -1462,13 +1472,6 @@ html:not(.desk) .cp-blk.is-top {
 html[data-theme="light"]:not(.desk) .cp-blk.is-top { background: radial-gradient(130% 110% at 100% 0%, color-mix(in srgb, var(--pfl) 9%, transparent) 0%, transparent 60%), var(--pl-inset); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pfl) 30%, transparent); }
 html:not(.desk) .cp-blk-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
 html:not(.desk) .cp-blk-t { font-family: var(--font-num); font-size: 15px; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
-/* the bar, loaded to the block's load: one sleeve, heaviest plates in, the collar on (app.js uiBarbell, the
-   lifter app's own drawing). The set being set is the one real load on this screen, so it's drawn. */
-html:not(.desk) .pl-sleeve { flex: none; display: block; height: 58px; margin: -10px -4px -8px 0; filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.55)); }
-html[data-theme="light"]:not(.desk) .pl-sleeve { filter: drop-shadow(0 5px 7px rgba(15, 15, 25, 0.18)); }
-html:not(.desk) .pl-sleeve:empty { display: none; }
-html:not(.desk) .pl-sleeve .ui-barbell { height: 100%; }
-html:not(.desk) .pl-sleeve .ui-barbell .bb-plate { animation: none; }
 /* More: one quiet row under the steppers (it names the set fields it holds); what a block rarely needs
    opens under it: its load and effort switches, its set fields, Remove these sets */
 html:not(.desk) .cp-blk.has-more { padding-bottom: 2px; }
@@ -1503,6 +1506,9 @@ html:not(.desk) .cp-step .ui-stepper .st-btn:active { transform: scale(0.9); bac
 html:not(.desk) .cp-step .ui-stepper .st-btn::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; }
 html:not(.desk) .cp-step .ui-stepper .st-val { min-width: 0; overflow: hidden; font-size: 22px; font-weight: 800; font-stretch: 104%; color: var(--text); white-space: nowrap; letter-spacing: -0.02em; }
 html:not(.desk) .cp-step .ui-stepper .st-val.is-tight { font-size: 17px; }
+/* a range too wide for one line even at 17 (162.5–167.5 in a 375 or 393 pt phone's cell): its two ends stack,
+   "162.5–" over "167.5" (it breaks after the dash), centred in the stepper's 40 pt height */
+html:not(.desk) .cp-step .ui-stepper .st-val.is-stack { font-size: 17px; line-height: 1.05; white-space: normal; overflow-wrap: normal; letter-spacing: -0.03em; }
 html:not(.desk) .cp-step .ui-stepper .st-val .st-word { font-family: var(--font-body); font-size: 15px; font-weight: 600; font-stretch: 100%; color: var(--text-2); letter-spacing: 0; }
 html:not(.desk) .cp-step .ui-stepper .st-val small { font-size: 13px; font-weight: 600; color: var(--text-3); letter-spacing: 0; }
 html:not(.desk) .cp-calc { font-size: 13px; color: var(--text-3); text-align: center; font-variant-numeric: tabular-nums; }
@@ -1522,6 +1528,8 @@ html:not(.desk) body.powa-app .cp-hint-use:active { transform: scale(0.95); tran
 /* The load and % are typeable: a faint dotted rule under the number says so */
 html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable { cursor: text; text-decoration: underline dotted color-mix(in srgb, currentColor 32%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 6px; border-radius: 8px; }
 html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable:focus-visible { outline: 2px solid var(--text-3); outline-offset: 2px; }
+/* a stacked range keeps one dotted rule, under its second line (an underline per line ran through it) */
+html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable.is-stack { text-decoration: none; padding-bottom: 3px; border-bottom: 1.5px dotted color-mix(in srgb, currentColor 32%, transparent); border-radius: 0; }
 html:not(.desk) body.powa-app .cp-step .st-input.cp-type { width: 100%; min-width: 0; height: 40px; padding: 0; border: 0 !important; border-radius: 10px; background: var(--pl-inset) !important; box-shadow: none !important; color: var(--text); font-family: var(--font-num); font-size: 22px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-pick-on { display: inline-grid; place-items: center; width: 24px; height: 24px; color: var(--acc); }
 html:not(.desk) .cp-pick-on svg { width: 20px; height: 20px; }
@@ -1536,6 +1544,253 @@ html:not(.desk) .cp-pick-sub .ca-dot { margin-top: calc((1.4em - 8px) / 2); }
 html:not(.desk) .cp-pick-sub.sev-alert .ca-dot { background: var(--ca-pain); }
 html:not(.desk) .cp-empty .cp-hero { padding: 20px; }
 
+/* chips you pick one of (the lift, its variant): the days' chips on the page, the one picked in ink */
+html:not(.desk) .cp-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+html:not(.desk) body.powa-app .cp-chip {
+  position: relative; flex: none; display: inline-flex; align-items: center; gap: 7px; height: 38px; min-width: 44px; padding: 0 12px; border: 0; border-radius: 999px;
+  background: var(--pl-inset-2); color: var(--text-2) !important; font: inherit; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background-color 200ms ease-out, color 200ms ease-out, transform var(--pl-d-press) var(--pl-spring);
+}
+html:not(.desk) body.powa-app .cp-chip::after { content: ''; position: absolute; inset: -3px -2px; }
+html:not(.desk) body.powa-app .cp-chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--lc, var(--text-3)); }
+html:not(.desk) body.powa-app .cp-chip.on { background: var(--text); color: var(--bg) !important; }
+html:not(.desk) body.powa-app .cp-chip.on i { box-shadow: 0 0 0 1.5px var(--text); }
+html:not(.desk) body.powa-app .cp-chip:active { transform: scale(0.95); transition-duration: 90ms; transition-timing-function: ease-out; }
+html:not(.desk) body.powa-app .cp-chip:focus-visible { outline: 2px solid var(--text-3); outline-offset: 2px; }
+html:not(.desk) .cp-chips-br { flex: 0 0 100%; height: 0; }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) body.powa-app :is(.cp-chip, .cp-addx #presetSeg button, .cp-addx .btn-primary, #goalModal #goalBuildBtn):active { transform: none; } }
+
+/* Add exercise (coach.html's form, dressed by coach-program.js dressAdd): which day it adds to under the title,
+   the lift and its variant as chips (the selects stay, hidden, for the form's own code), the sets as fields on
+   the app's insets, the note for the lifter, and the one red saying where it goes */
+html:not(.desk) body.powa-app #addExerciseModal .modal.cp-addx { padding: 30px 16px calc(env(safe-area-inset-bottom) + 20px); overflow-y: auto; overscroll-behavior: contain; }
+html:not(.desk) body.powa-app .cp-addx h3 { margin: 0 52px 0 0; }
+html[data-theme="light"]:not(.desk) body.powa-app :is(#addExerciseModal, #saveTplModal, #applyTplModal, #goalModal) .modal-close { background: rgba(15, 15, 25, 0.07); }
+html:not(.desk) body.powa-app .cp-addx .cp-addx-sub { margin: 4px 0 20px; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
+html:not(.desk) body.powa-app .cp-addx .cp-addx-lifts { margin-bottom: 4px; }
+html:not(.desk) body.powa-app .cp-addx .cp-addx-lifts .cp-chip.is-main + .cp-chip:not(.is-main) { margin-left: 0; }
+html:not(.desk) body.powa-app .cp-addx .form-row { display: block; margin: 0; }
+html:not(.desk) body.powa-app .cp-addx .form-row > .form-group:first-child { display: none; }
+html:not(.desk) body.powa-app .cp-addx #exVariant { display: none; }
+html:not(.desk) body.powa-app .cp-addx .form-group { margin: 20px 0 0; }
+html:not(.desk) body.powa-app .cp-addx label, html:not(.desk) body.powa-app .cp-addx #setsHeader label { display: block; margin: 0 2px 8px; font-size: 13px !important; font-weight: 600; letter-spacing: 0; color: var(--text-3); }
+html:not(.desk) body.powa-app .cp-addx .cp-addx-vars { margin-top: 0; }
+html:not(.desk) body.powa-app .cp-addx :is(select, input[type="text"], textarea) {
+  width: 100%; min-height: 48px; padding: 0 14px; border: 0 !important; border-radius: 12px; background-color: var(--pl-inset-2) !important; box-shadow: none !important;
+  color: var(--text); font-family: var(--font-body); font-size: 17px; font-weight: 500;
+}
+html:not(.desk) body.powa-app .cp-addx textarea { min-height: 80px; padding: 12px 14px; line-height: 1.4; resize: vertical; }
+html:not(.desk) body.powa-app .cp-addx :is(select, input, textarea):focus { outline: 2px solid color-mix(in srgb, var(--text) 45%, transparent); outline-offset: 1px; }
+html:not(.desk) body.powa-app .cp-addx #setsHeader { margin: 24px 0 10px !important; display: block; }
+html:not(.desk) body.powa-app .cp-addx #setsHeader label { margin-bottom: 8px; }
+html:not(.desk) body.powa-app .cp-addx #presetSeg { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: 100%; padding: 0; border: 0; border-radius: 0; background: none; }
+html:not(.desk) body.powa-app .cp-addx #presetSeg[style*="none"] { display: none !important; }
+html:not(.desk) body.powa-app .cp-addx #presetSeg button { position: relative; min-width: 0; height: 38px; min-height: 0; padding: 0 4px; border: 0; border-radius: 999px; background: var(--pl-inset-2); color: var(--text) !important; font-family: var(--font-num); font-size: 15px !important; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; box-shadow: none; transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out; }
+html:not(.desk) body.powa-app .cp-addx #presetSeg button::after { content: ''; position: absolute; inset: -3px -2px; }
+html:not(.desk) body.powa-app .cp-addx #presetSeg button:active { transform: scale(0.95); background: var(--fill-4, rgba(255, 255, 255, 0.14)); transition-duration: 90ms; }
+html:not(.desk) body.powa-app .cp-addx .set-row { grid-template-columns: 48px repeat(3, minmax(0, 1fr)) 40px; gap: 8px; margin: 0 0 8px; }
+html:not(.desk) body.powa-app .cp-addx .set-row.set-head { margin-bottom: 4px; }
+html:not(.desk) body.powa-app .cp-addx .set-row .set-label { font-size: 15px; color: var(--text-2); }
+html:not(.desk) body.powa-app .cp-addx .set-row input { height: 44px; padding: 0 6px; border: 0 !important; border-radius: 12px; background: var(--pl-inset-2) !important; box-shadow: none !important; color: var(--text); font-family: var(--font-num); font-size: 17px; font-weight: 650; text-align: center; font-variant-numeric: tabular-nums; }
+html:not(.desk) body.powa-app .cp-addx .set-row > .btn-icon { color: var(--text-3) !important; }
+html:not(.desk) body.powa-app .cp-addx #addSetRowBtn { display: inline-flex; align-items: center; gap: 6px; height: 40px; min-height: 0; margin-top: 4px; padding: 0 16px 0 12px; border: 0; border-radius: 999px; background: var(--pl-inset-2); color: var(--text) !important; font-size: 15px !important; font-weight: 600; box-shadow: none; }
+html:not(.desk) body.powa-app .cp-addx #addSetRowBtn svg { width: 16px; height: 16px; }
+html:not(.desk) body.powa-app .cp-addx .form-group.mt-24 { margin-top: 24px; }
+html:not(.desk) body.powa-app .cp-addx .flex.gap-12.mt-24 { margin-top: 24px; }
+html:not(.desk) body.powa-app .cp-addx .btn-primary {
+  min-height: 52px; border: 0; border-radius: 999px; background: var(--pl-red); color: var(--pl-red-ink) !important; font-size: 17px !important; font-weight: 650; letter-spacing: -0.01em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+html[data-theme="light"]:not(.desk) body.powa-app .cp-addx .btn-primary { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(120, 10, 20, 0.18), 0 6px 14px -8px rgba(120, 10, 20, 0.45); }
+html:not(.desk) body.powa-app .cp-addx .btn-primary:active { transform: scale(0.97); filter: brightness(0.92); }
+
+/* the one red on an empty Programs or Templates (uiEmpty's primary): the crimson with its white label */
+html:not(.desk) body.powa-app :is(section[data-pane="program"], section[data-pane="templates"]) .ui-empty .btn-primary {
+  min-height: 52px; border: 0; border-radius: 999px; background: var(--pl-red); color: var(--pl-red-ink) !important; font-size: 17px !important; font-weight: 650;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+html:not(.desk) body.powa-app :is(section[data-pane="program"], section[data-pane="templates"]) .ui-empty .ui-text-btn { min-height: 44px; color: var(--text) !important; font-weight: 600; }
+html:not(.desk) body.powa-app section[data-pane="templates"] .ui-empty :is(.btn, .ui-text-btn) { font-size: 17px; }
+
+/* Templates: one grouped list (the newest first). A row: its glyph, its name, its line, and Apply; the rest of
+   the row opens it. Under the list, the quiet way to bring one in. */
+html:not(.desk) .cp-tpls { padding-bottom: 32px; }
+html:not(.desk) .cp-tpl { position: relative; display: flex; align-items: center; gap: 8px; padding-right: 14px; }
+html:not(.desk) .cp-tpl + .cp-tpl::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--ca-hair); }
+html:not(.desk) .cp-tpl-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; min-height: 68px; padding: 12px 0 12px 16px; border: 0; background: none; text-align: left; cursor: pointer; transition: opacity 140ms ease-out; }
+html:not(.desk) .cp-tpl-main:active { opacity: 0.6; }
+html:not(.desk) .cp-tpl-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+html:not(.desk) .cp-tpl-t { font-size: 17px; font-weight: 600; line-height: 1.3; color: var(--text); overflow-wrap: anywhere; text-wrap: balance; }
+html:not(.desk) .cp-tpl-s { font-size: 15px; line-height: 1.35; color: var(--text-2); font-variant-numeric: tabular-nums; }
+html:not(.desk) .cp-tpl-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 24px 4px 0; }
+html:not(.desk) body.powa-app .cp-tpl-imp { margin: 0; min-height: 44px; }
+html:not(.desk) .cp-tpl-hint { margin: 0; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
+
+/* the Programs sheets (a template, who gets it, save as a template): a small heading, the one red at the foot,
+   the quiet rows under it */
+html:not(.desk) .cp-sheet-h { margin: 8px 2px 8px; font-size: 13px; font-weight: 600; color: var(--text-3); }
+html:not(.desk) body.powa-app .ui-sheet .cp-sheet-go { margin-top: 20px; }
+html:not(.desk) body.powa-app .ui-sheet .cp-sheet-go:disabled { opacity: 0.4; pointer-events: none; }
+html:not(.desk) body.powa-app .ui-sheet .cp-sheet-foot { --cp-foot-bg: var(--bg-1); position: sticky; bottom: 0; z-index: 2; margin: 8px -16px calc(-18px - env(safe-area-inset-bottom)); padding: 12px 16px calc(18px + env(safe-area-inset-bottom)); background: var(--cp-foot-bg); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .ui-sheet .cp-sheet-foot { --cp-foot-bg: #111114; }
+/* rows scrolling under the foot fade into it rather than meet a hard edge */
+html:not(.desk) body.powa-app .ui-sheet .cp-sheet-foot::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 16px; background: linear-gradient(to top, var(--cp-foot-bg), transparent); pointer-events: none; }
+html:not(.desk) body.powa-app .ui-sheet .cp-sheet-foot .cp-sheet-go { margin-top: 0; }
+html:not(.desk) body.powa-app .ui-sheet .cp-sheet-quiet {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; margin-top: 6px; padding: 0 12px;
+  border: 0; border-radius: 999px; background: none; color: var(--text) !important; font: inherit; font-size: 17px !important; font-weight: 600; cursor: pointer; transition: opacity 140ms ease-out;
+}
+html:not(.desk) body.powa-app .ui-sheet .cp-sheet-quiet svg { width: 18px; height: 18px; color: var(--text-2); }
+html:not(.desk) body.powa-app .ui-sheet .cp-sheet-quiet:active { opacity: 0.6; }
+html:not(.desk) .cp-sheet-none { margin: 4px 2px 0; font-size: 15px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
+html:not(.desk) .cp-tpl-sheet .ui-row-title, html:not(.desk) .cp-apply-sheet .ui-row-title { font-size: 17px; }
+html:not(.desk) .cp-tpl-sheet .ui-row-sub, html:not(.desk) .cp-apply-sheet .ui-row-sub { font-size: 15px; color: var(--text-2); }
+html:not(.desk) .cp-tpl-dots { width: 32px; justify-content: center; flex: none; }
+html:not(.desk) .cp-tpl-dots:empty::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--pl-inset-2); }
+/* who gets it: a row you tick (its check fills), its line says whose block it replaces, with the orange mark
+   once it's ticked (it will replace something), the words staying ink */
+html:not(.desk) .cp-apply-top { display: flex; justify-content: flex-end; margin: -6px 2px 6px; }
+html:not(.desk) body.powa-app .cp-apply-all { align-self: auto; margin: 0; min-height: 44px; }
+html:not(.desk) .cp-check { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--text-3); color: transparent; transition: background-color 160ms ease-out, box-shadow 160ms ease-out, color 160ms ease-out; }
+html:not(.desk) .cp-check svg { width: 16px; height: 16px; }
+html:not(.desk) .cp-pickrow.is-on .cp-check { background: var(--text); box-shadow: none; color: var(--bg); }
+html:not(.desk) .cp-pickrow.is-on .cp-replaces { color: var(--text); }
+html:not(.desk) .cp-pickrow.is-on .cp-replaces::before { content: ''; display: inline-block; width: 9px; height: 8px; margin: 0 6px 0 0; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) .cp-check { transition: none; } }
+/* a field in a sheet: its label above, the app's inset under it */
+html:not(.desk) .cp-field { display: block; margin-top: 4px; text-transform: none; letter-spacing: 0; }
+html:not(.desk) .cp-field-l { display: block; margin: 0 2px 8px; font-size: 13px; font-weight: 600; color: var(--text-3); }
+html:not(.desk) body.powa-app .cp-field-in { width: 100%; min-height: 48px; padding: 0 14px; border: 0 !important; border-radius: 12px; background: var(--pl-inset-2) !important; box-shadow: none !important; color: var(--text); font-family: var(--font-body); font-size: 17px; font-weight: 500; }
+html:not(.desk) body.powa-app .cp-field-in:focus { outline: 2px solid color-mix(in srgb, var(--text) 45%, transparent); outline-offset: 1px; }
+
+/* Build from a goal (app.js, the block's ⋯ and an empty block): each lift one line in sentence case (the caps
+   label cut "Deadlift" off at 393), the fields on the app's insets, the verdict an ink word under its numbers with
+   its mark (green when it fits, the orange triangle when it's a stretch or won't fit), the crimson to build it and
+   a quiet Cancel under it */
+html:not(.desk) body.powa-app #goalModal .modal { padding: 30px 16px calc(env(safe-area-inset-bottom) + 20px); }
+html:not(.desk) body.powa-app #goalModal h3 { margin: 0 52px 8px 0; }
+html:not(.desk) body.powa-app #goalModal .modal > p.dim { margin: 0 0 20px; font-size: 15px !important; line-height: 1.45; color: var(--text-2); }
+html:not(.desk) body.powa-app #goalModal .goal-grid { gap: 12px; }
+html:not(.desk) body.powa-app #goalModal .goal-row { grid-template-columns: 80px minmax(0, 1fr) 16px minmax(0, 1fr) 22px; gap: 8px; row-gap: 4px; }
+html:not(.desk) body.powa-app #goalModal .goal-lift { font-size: 15px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text); }
+html:not(.desk) body.powa-app #goalModal .goal-row input, html:not(.desk) body.powa-app #goalModal .form-group :is(input, select) {
+  height: 44px; min-height: 44px; padding: 0 10px; border: 0 !important; border-radius: 12px; background-color: var(--pl-inset-2) !important; box-shadow: none !important;
+  color: var(--text); font-family: var(--font-num); font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums;
+}
+html:not(.desk) body.powa-app #goalModal .form-group :is(input, select) { padding: 0 14px; text-align: left; }
+html:not(.desk) body.powa-app #goalModal .goal-row input::placeholder { color: var(--text-3); font-weight: 500; }
+html:not(.desk) body.powa-app #goalModal .goal-arrow { color: var(--text-3); text-align: center; }
+html:not(.desk) body.powa-app #goalModal .goal-unit { font-size: 13px; text-transform: none; color: var(--text-3); }
+html:not(.desk) body.powa-app #goalModal .goal-verdict { grid-column: 2 / -1; text-align: left; font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-2); }
+html:not(.desk) body.powa-app #goalModal .goal-verdict:empty { display: none; }
+html:not(.desk) body.powa-app #goalModal .goal-verdict:is(.ok, .warn, .bad) { color: var(--text); }
+html:not(.desk) body.powa-app #goalModal .goal-verdict::before { content: none; }
+html:not(.desk) body.powa-app #goalModal .goal-verdict.ok::before { content: ''; display: inline-block; width: 7px; height: 7px; margin: 0 7px 1px 1px; border-radius: 50%; background: var(--ca-up); vertical-align: middle; }
+html:not(.desk) body.powa-app #goalModal :is(.goal-verdict.warn, .goal-verdict.bad, .goal-msg.bad strong)::before { content: ''; display: inline-block; width: 9px; height: 8px; margin: 0 7px 1px 0; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: middle; }
+html:not(.desk) body.powa-app #goalModal .form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+html:not(.desk) body.powa-app #goalModal .form-row .form-group { margin: 0; }
+html:not(.desk) body.powa-app #goalModal label { display: block; margin: 0 2px 8px; font-size: 13px !important; font-weight: 600; color: var(--text-3); }
+html:not(.desk) body.powa-app #goalModal .goal-readout { margin-top: 20px; min-height: 0; }
+html:not(.desk) body.powa-app #goalModal .goal-readout p { margin: 0; font-size: 15px !important; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
+html:not(.desk) body.powa-app #goalModal .goal-msg { padding: 12px 14px; border: 0; border-radius: 14px; background: var(--pl-inset); }
+html:not(.desk) body.powa-app #goalModal .flex.gap-8.mt-16 { flex-direction: column; gap: 4px; margin-top: 20px !important; }
+html:not(.desk) body.powa-app #goalModal #goalBuildBtn {
+  width: 100%; min-height: 52px; border: 0; border-radius: 999px; background: var(--pl-red); color: var(--pl-red-ink) !important; font-size: 17px !important; font-weight: 650;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+html:not(.desk) body.powa-app #goalModal #goalBuildBtn:disabled { opacity: 0.4; }
+html:not(.desk) body.powa-app #goalModal .btn-ghost { width: 100%; min-height: 48px; border: 0; background: none; color: var(--text) !important; font-size: 17px !important; font-weight: 600; box-shadow: none; }
+
+/* Bring a program in (coach.html openSheetImport): the paste box in the app's own type (it was a monospace
+   slab), the photo tile on the scale */
+html:not(.desk) body.powa-app .imp-sheet .imp-text { min-height: 168px; border-radius: 14px; background: var(--pl-inset-2); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+html:not(.desk) body.powa-app .imp-sheet .imp-text::placeholder { color: var(--text-3); }
+html:not(.desk) body.powa-app .imp-sheet .imp-stats { font-size: 15px; }
+html:not(.desk) body.powa-app .imp-sheet .imp-day { font-size: 13px; }
+html:not(.desk) body.powa-app .imp-sheet .imp-name-row { min-height: 48px; border-radius: 12px; background: var(--pl-inset-2); font-size: 15px; }
+html:not(.desk) body.powa-app .imp-sheet .imp-name-row input { font-size: 17px; }
+html:not(.desk) body.powa-app .imp-sheet .ui-row-title { font-size: 17px; }
+html:not(.desk) body.powa-app .imp-sheet .ui-row-sub { font-size: 15px; color: var(--text-2); }
+html:not(.desk) body.powa-app .pp-pick { border-radius: 20px; background: var(--pl-inset); }
+html:not(.desk) body.powa-app .pp-pick-ic { background: var(--pl-inset-2); }
+html:not(.desk) body.powa-app .pp-pick-t { font-size: 17px; }
+html:not(.desk) body.powa-app .pp-pick-s { font-size: 15px; color: var(--text-2); }
+
+/* the photo, checked (program-photo.js): what needs a look is an ink word beside the orange triangle, never
+   coloured words or a reddened field; the cells and names on the scale */
+html:not(.desk) body.powa-app .pp-sheet .pp-sub { font-size: 15px; color: var(--text-2); text-wrap: balance; }
+html:not(.desk) body.powa-app .pp-sheet .pp-tocheck { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; color: var(--text); }
+html:not(.desk) body.powa-app .pp-sheet :is(.pp-tocheck, .pp-why, .pp-note.is-bad, .pp-note.is-unsure)::before { content: ''; flex: none; display: inline-block; width: 9px; height: 8px; margin-right: 7px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
+html:not(.desk) body.powa-app .pp-sheet .pp-tocheck::before { margin: 0; }
+html:not(.desk) body.powa-app .pp-sheet .pp-tocheck { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--text) 35%, transparent); text-underline-offset: 3px; }
+html:not(.desk) body.powa-app .pp-sheet :is(.pp-why, .pp-why.is-bad, .pp-note.is-bad, .pp-note.is-unsure) { color: var(--text); }
+html:not(.desk) body.powa-app .pp-sheet .pp-note { font-size: 15px; color: var(--text-2); }
+html:not(.desk) body.powa-app .pp-sheet textarea.pp-cell { font-size: 17px; background: var(--pl-inset-2); }
+html:not(.desk) body.powa-app .pp-sheet :is(textarea.pp-cell.is-bad, textarea.pp-cell.is-unsure, input.pp-name.is-unsure) { background: var(--pl-inset-2); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ca-warn) 75%, transparent); }
+html:not(.desk) body.powa-app .pp-sheet input.pp-name { font-size: 17px; }
+html:not(.desk) body.powa-app .pp-sheet .pp-file { font-size: 15px; }
+html:not(.desk) body.powa-app .pp-sheet .pp-readnotes { background: var(--pl-inset); font-size: 15px; }
+/* the photo keeps its edge on either sheet (a white printout on the light sheet blurred into it) */
+html:not(.desk) body.powa-app .pp-sheet .pp-pic img { outline: 1px solid rgba(15, 15, 25, 0.1); outline-offset: -1px; }
+html:not([data-theme="light"]):not(.desk) body.powa-app .pp-sheet .pp-pic img { outline-color: rgba(255, 255, 255, 0.1); }
+html:not(.desk) body.powa-app .pp-sheet .pp-namerow { background: var(--pl-inset-2); }
+html:not(.desk) body.powa-app .pp-sheet .pp-namerow input.pp-pname { font-size: 17px; }
+
+/* Maxes for % work: the three fields on the app's insets (no outlined boxes), each lift's best on the scale */
+html:not(.desk) body.powa-app .mx-sheet .mx-row { border-radius: 14px; background: var(--pl-inset); }
+html:not(.desk) body.powa-app .mx-sheet .mx-lift { font-size: 17px; }
+html:not(.desk) body.powa-app .mx-sheet .mx-hint { font-size: 13px; color: var(--text-2); }
+html:not(.desk) body.powa-app .mx-sheet .mx-input { border: 0; background: var(--pl-inset-2); }
+html:not(.desk) body.powa-app .mx-sheet .mx-input:focus { outline: 2px solid color-mix(in srgb, var(--text) 45%, transparent); outline-offset: 1px; }
+
+/* Set fields: the switches save as they go, so Done only closes: graphite, not the red (red says what it does) */
+html:not(.desk) body.powa-app .sf-sheet .btn-primary { background: var(--pl-inset-2); color: var(--text) !important; box-shadow: none; }
+html:not(.desk) body.powa-app .sf-sheet .ui-label { font-size: 20px; }
+html:not(.desk) body.powa-app .sf-sheet .sf-add input.sf-add-in { height: 44px; border: 0 !important; border-radius: 12px; background: var(--pl-inset-2) !important; box-shadow: none !important; font-size: 17px; }
+html:not(.desk) body.powa-app .sf-sheet .pg-fill-btn { height: 44px; padding: 0 16px; background: var(--pl-inset-2); font-size: 15px; }
+html:not(.desk) body.powa-app .sf-sheet .sf-note { font-size: 13px; color: var(--text-2); }
+
+/* 44 pt to the touch everywhere in Programs, without moving what's drawn: the block and day names grow their
+   field (negative margins keep the line), the segments and chips reach into their container's padding, the
+   typed values fill their stepper's height, the small round buttons carry a hit area past their edge */
+html:not(.desk) body.powa-app .cp-name { height: 44px; margin-top: -2px; margin-bottom: -2px; }
+html:not(.desk) body.powa-app .cp-dayname { height: 44px; margin-top: -5px; margin-bottom: -5px; }
+html:not(.desk) .cp-maxes { min-height: 44px; }
+html:not(.desk) .cp-wk::after { content: ''; position: absolute; inset: -3px 0; }
+html:not(.desk) .cp-day { position: relative; }
+html:not(.desk) .cp-day::after { content: ''; position: absolute; inset: -3px -4px; }
+html:not(.desk) .cp-step .ui-stepper { min-height: 44px; align-items: center; }
+html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable { align-self: stretch; display: grid; place-items: center; min-height: 44px; }
+html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable.is-stack { place-content: center; }
+html:not(.desk) .cp-seg button { position: relative; }
+html:not(.desk) .cp-seg button::after { content: ''; position: absolute; inset: -4px 0; }
+html:not(.desk) body.powa-app .cp-blkmore-body .cp-sf .sf-field input.sf-in { align-self: stretch; height: auto; min-height: 44px; }
+html:not(.desk) body.powa-app :is(#addExerciseModal, #goalModal) .modal-close::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html:not(.desk) body.powa-app #addExerciseModal .cp-addx .set-row { grid-template-columns: 48px repeat(3, minmax(0, 1fr)) 44px; }
+html:not(.desk) body.powa-app #addExerciseModal .cp-addx .set-row > .btn-icon { width: 44px; }
+/* the sheets' rows and buttons on the scale: a row's title 17, its line 15, a button 17 */
+html:not(.desk) body.powa-app :is(.nb-sheet, .sf-sheet, .mx-sheet) .ui-row-title { font-size: 17px; }
+html:not(.desk) body.powa-app :is(.nb-sheet, .sf-sheet, .mx-sheet) .ui-row-sub { font-size: 15px; color: var(--text-2); }
+html:not(.desk) body.powa-app :is(.nb-sheet, .sf-sheet, .mx-sheet, .imp-sheet) .btn { font-size: 17px !important; }
+html:not(.desk) body.powa-app .sf-sheet .sf-col-rm { position: relative; }
+html:not(.desk) body.powa-app .sf-sheet .sf-col-rm::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html:not(.desk) body.powa-app .cp-addx #addSetRowBtn { height: 44px; }
+html:not(.desk) body.powa-app .pp-sheet .pp-x { position: relative; }
+html:not(.desk) body.powa-app .pp-sheet .pp-x::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html:not(.desk) body.powa-app .pp-sheet .pp-pic-more { height: 36px; }
+html:not(.desk) body.powa-app .pp-sheet .pp-pic-more::after { content: ''; position: absolute; inset: -4px -2px; }
+html:not(.desk) body.powa-app .pp-sheet .pp-weeks button::after { content: ''; position: absolute; inset: -4px -3px; }
+html:not(.desk) body.powa-app .pp-sheet input.pp-dayname { min-height: 44px; }
+html:not(.desk) body.powa-app .pp-sheet input.pp-name { min-height: 44px; }
+html:not(.desk) body.powa-app .pp-sheet textarea.pp-cell { min-height: 46px; }
+html:not(.desk) body.powa-app .pp-sheet .pp-rm { width: 44px; height: 44px; margin: -7px -7px -7px 0; }
+
+/* an exercise just added rises into its place on the day (the job: where did it go?), once */
+@keyframes cpNewRow { from { opacity: 0.45; transform: translate3d(0, 12px, 0); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.desk) .cp-exrow.is-new { animation: cpNewRow var(--pl-d-state) var(--pl-spring) 120ms backwards; }
+}
+
 /* =================================================================== THE TYPE SCALE ON SHARED PIECES
    13 · 15 · 17 · 20 · 22 · 28 · 32 · 64 (11 only for a badge's count). The app's shared rows, buttons and
    sheets are 16 by default (styles.css --fs-row); on these screens a row's title and a button are 17, a
@@ -1547,7 +1802,7 @@ html:not(.desk) body.powa-app .ca-pg .fb-reply .ui-btn-soft { font-size: 15px; }
 html:not(.desk) body.powa-app .ca-client .cs-pk b { font-size: 17px; }
 html:not(.desk) body.powa-app .ca-charts .cl-mplan { font-size: 15px; }
 html:not(.desk) body.powa-app section[data-pane="athletes"] .fr-side > .ui-label { font-size: 20px; }
-html:not(.desk) body.powa-app .cp-sheet .sf-field { font-size: 13px; }
+html:not(.desk) body.powa-app .cp-sheet .sf-field { font-size: 13px; color: var(--text-2); }   /* a field's name (Tempo, Belt) in the secondary ink: the third read 4.18:1 on its inset at night */
 /* an action sheet (uiActionSheet: a ⋯ menu's items and its Cancel) is rows: 17, not the shared 16 */
 html:not(.desk) body.powa-app .ui-sheet:has(> .ui-sheet-cancel) > button { font-size: 17px; }
 html:not(.desk) body.powa-app .cp-sheet .sf-edit input.sf-in { font-size: 17px; }
@@ -1658,8 +1913,6 @@ html:not(.desk) #challengesArea .chl-h { display: none; }
      push/pop  a lifter comes in from the right, back goes the way it came (the bar's push and pop).
      carry     the face you tapped is the face on the page: it travels there (coach-app.js, WAAPI).
      press     down in 90 ms, back on the press spring: the release is the spring, never a bounce.
-     load      the bar on the top set reloads only when its load settles (300 ms after the last tap): the
-               collar comes off, the plates that change slide off, the new ones go on heaviest first.
      value     a stepper's number ticks 6 pt the way it moved. */
 @keyframes plRise { from { opacity: 0.45; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
 @keyframes plSet { from { opacity: 0.45; transform: translate3d(0, 16px, 0) scale(0.985); } to { opacity: 1; transform: none; } }
@@ -1681,11 +1934,7 @@ html:not(.desk) .is-carry { position: relative; z-index: 6; will-change: transfo
   /* the carry: the page settles in place while its face travels to it (coach-app.js carry) */
   html.native:not(.desk) body.powa-app:is([data-nav="carry"], [data-nav="carry-back"]) .dash-main > section[data-pane]:not(.hidden) { animation: plFade 240ms ease-out backwards; }
   html:not(.desk) .ui-sheet.cp-sheet, html:not(.desk) .ui-sheet.cp-picker { animation: plSheetUp var(--pl-d-state) var(--pl-spring); }
-  html:not(.desk) .pl-sleeve .ui-barbell .bb-plate.is-off { animation: bbOff 220ms cubic-bezier(0.4, 0, 1, 1) calc(var(--i, 0) * 40ms + 120ms) both; }
-  html:not(.desk) .pl-sleeve .ui-barbell .bb-plate.is-on { animation: plPlateOn var(--pl-d-heavy) var(--pl-spring) calc(var(--i, 0) * 90ms + 300ms) both; }
-  html:not(.desk) .pl-sleeve .ui-barbell .bb-collar.is-moving { animation: plCollar calc(var(--pl-d-heavy) + 300ms + var(--n, 1) * 90ms) var(--ca-ease) both; }
 }
-@keyframes plPlateOn { from { transform: translateX(30px); opacity: 0; } 30% { opacity: 1; } to { transform: none; opacity: 1; } }
 /* the week fills once a visit (Home's first render, .is-first): its lifted sessions light up round the ring in
    order, then each day's column rises from the baseline, Monday first. Never again until the app is reopened:
    Home is opened tens of times a day, and a chart that replays is noise. Transform and opacity only. */
@@ -1695,8 +1944,6 @@ html:not(.desk) .is-carry { position: relative; z-index: 6; will-change: transfo
   html:not(.desk) .ca-home.is-first .ca-tring-fill { animation: plSegIn 240ms var(--ca-ease) calc(160ms + var(--i, 0) * 28ms) backwards; }
   html:not(.desk) .ca-home.is-first .ca-sday-bar:not(.is-zero) { animation: plColUp var(--pl-d-state) var(--pl-spring) calc(240ms + var(--i, 0) * 36ms) backwards; }
 }
-/* the collar: off, out of the way while the plates change, back on, and still (no settle past its seat) */
-@keyframes plCollar { 0% { transform: translateX(var(--dx)); } 18% { transform: translateX(var(--out)); } 70% { transform: translateX(var(--out)); } 100% { transform: none; } }
 @media (hover: hover) and (pointer: fine) {
   html:not(.desk) :is(.ca-tile, .ca-rowcard, .ca-lrow, .ca-row, .ca-act):hover { background-color: color-mix(in srgb, var(--text) 4%, var(--ca-card)); }
 }
@@ -1706,5 +1953,4 @@ html:not(.desk) #powa-conn-banner:not(.show) .pcb-dot { animation: none; }
   html:not(.desk) body.powa-app [data-pane] .ca-rise { animation: none !important; }
   html:not(.desk) :is(.ca-btn, .ca-pill, .ca-tile, .ca-rowcard, .ca-fb, .ca-chip, .ca-act, .ca-ov, .ca-hbtn, .cp-day, .cp-fab, .st-btn, .cp-ibtn, .cp-hint-use):active { transform: none !important; }
   html:not(.desk) .cp-fab.is-hidden { transform: none; }
-  html:not(.desk) .pl-sleeve .ui-barbell :is(.bb-plate, .bb-collar) { animation: none !important; }
 }

@@ -54,10 +54,11 @@
     var head = L.load ? L.load + (L.reps ? ' × ' + L.reps : '') : (L.reps ? plural(Number(L.reps), 'rep') : '');
     return (head + (L.effort ? (L.rir ? ' · ' : ' ') + L.effort : '')).trim();
   }
-  // A day's summary: "2 exercises · 7 sets", "Rest", "No exercises yet".
+  // A day's summary: "2 exercises · 7 sets", "No exercises yet". A rest day has none: its name already says
+  // Rest, and the card says what a day off means once (the owner, 29 Oct: "a rest day says Rest once").
   function cpDayMeta(day) {
     var ex = (day && day.exercises) || [], sets = ex.reduce(function (s, e) { return s + ((e.sets || []).length); }, 0);
-    if (!ex.length) return REST_RX.test((day && day.name) || '') ? 'Rest' : 'No exercises yet';
+    if (!ex.length) return REST_RX.test((day && day.name) || '') ? '' : 'No exercises yet';
     return plural(ex.length, 'exercise') + ' · ' + plural(sets, 'set');
   }
   // Which day to open in a week: the first with a set still to do, else the first.
@@ -153,6 +154,24 @@
     if (st.pending) return { text: 'Saved on this phone, not sent yet.', retry: true, waiting: true };
     return { text: 'Changes save as you make them.', retry: false, waiting: false };
   }
+  // A stepper value that is still too wide at 17 (stillOver): a range stacks its two ends on two lines
+  // ('is-stack'); anything else stays one line at 17 ('is-tight').
+  function cpFitClass(text, stillOver) { return stillOver && /\d\s*–\s*\d/.test(String(text || '')) ? 'is-stack' : 'is-tight'; }
+  // The exercise ⋯'s switches for every block at once. Blocks all written one way offer the other way; blocks
+  // written both ways (a top set in kg over back-offs in %) offer both, so either way is one tap. sets: the
+  // exercise's sets still to do. → [{ kind: 'pct' | 'rir', on }] (pct only for a main lift; none for cardio).
+  function cpEveryChoices(sets, isMain, isCardio) {
+    sets = (sets || []).filter(Boolean);
+    if (!sets.length || isCardio) return [];
+    var nPct = sets.filter(function (x) { return x.pct != null && x.pct !== ''; }).length, nRir = sets.filter(function (x) { return !!x.rir; }).length, out = [];
+    if (isMain) {
+      if (nPct < sets.length) out.push({ kind: 'pct', on: true });
+      if (nPct > 0) out.push({ kind: 'pct', on: false });
+    }
+    if (nRir < sets.length) out.push({ kind: 'rir', on: true });
+    if (nRir > 0) out.push({ kind: 'rir', on: false });
+    return out;
+  }
   // Whether a block gets "about N kg for them": the first block (the top set), or a block with no load yet.
   // Never a later block with a load: back-offs are often written light on purpose (the owner's call, 28 Oct).
   function cpWantsHint(bi, blk) { return Number(bi) === 0 || !(Number(blk && blk.weight) > 0); }
@@ -160,7 +179,7 @@
   /* ====================================================================================================
      STATE: whose program, which week, which day (per lifter and week)
      ==================================================================================================== */
-  var S = { aid: null, days: {}, area: null, bg: null, sheetRepaint: null, moreOpen: {}, sleeve: {} };
+  var S = { aid: null, days: {}, area: null, bg: null, sheetRepaint: null, moreOpen: {} };
   // The programs this coach opened last on this phone, newest first (the picker leads with them). The key names its
   // account, like the desk's own records per coach (app.js, what a sign-out leaves): no other account reads it, and
   // deleting the account takes it with every key that names it.
@@ -191,10 +210,13 @@
     if (sel) sel.value = aid;
   }
   // A lifter newly opened here lands on the week they're in and the next day they train.
+  // A block just given to them (a template's Apply) opens on its first week, whatever week their old one was in.
   function enter(aid, prog) {
     if (S.aid === aid) return;
     S.aid = aid;
-    var r = rowOf(aid), wk = r && r.status && r.status.week;
+    var fresh = !!S.landFresh && S.landFresh === aid;
+    if (fresh) S.landFresh = null;   // the tab's own first draw (whoever was open) leaves it for them
+    var r = fresh ? null : rowOf(aid), wk = r && r.status && r.status.week;
     var wi = wk && wk.idx != null && prog.weeks[wk.idx] ? wk.idx : 0;
     setWeek(wi);
     S.days[dayKey(aid, wi)] = cpNextDay(prog.weeks[wi]);
@@ -206,6 +228,7 @@
   function render(area, aid) {
     if (!area || !hasDom) return false;
     S.area = area;
+    S.applyFor = null;   // Use a template's lifter is for the Templates visit it opened
     // Before the roster is in: the program's skeleton (or, if it couldn't load, the card with Try again).
     if (window.CoachApp && CoachApp.gate && CoachApp.gate(area, 'program')) return true;
     area.removeAttribute('data-ca-state');
@@ -248,11 +271,34 @@
       var d = S.days[dayKey(aid, curWeek())] || 0;
       var day = wk.days[d];
       if (!day) return;
-      if (typeof openAddExercise === 'function') openAddExercise(curWeek(), d);
+      if (typeof openAddExercise === 'function') { openAddExercise(curWeek(), d); dressAdd(aid, curWeek(), d); }
     });
     root.appendChild(fab);
+    // An exercise just added (Add exercise's Add to day) rises into its place on the day, so the coach sees
+    // where it went; then it is an ordinary row.
+    var added = S.added;
+    S.added = null;
+    if (added && added.aid === aid && added.wi === wi) {
+      var aday = (wk.days || [])[added.di];
+      if (aday && (aday.exercises || []).length === added.n + 1) {
+        di = added.di; S.days[dayKey(aid, wi)] = di;
+        var rows = pager.children[di] ? pager.children[di].querySelectorAll('.cp-exrow') : [];
+        var row = rows[rows.length - 1];
+        if (row) row.classList.add('is-new');
+      }
+    }
     // Land on the remembered day without an animation, then follow the swipe.
-    requestAnimationFrame(function () { scrollToDay(pager, di, false); syncDay(root, pager, aid, wk, true); });
+    requestAnimationFrame(function () {
+      scrollToDay(pager, di, false); syncDay(root, pager, aid, wk, true);
+      // The new row in view above Add exercise and the tab bar (they float over the page's foot).
+      var nw = root.querySelector('.cp-exrow.is-new');
+      if (nw) {
+        var r = nw.getBoundingClientRect(), f = root.querySelector('.cp-fab'), bar = document.querySelector('.bottom-tabs');
+        var floor = f && !f.classList.contains('is-hidden') ? f.getBoundingClientRect().top - 12 : bar ? bar.getBoundingClientRect().top - 12 : innerHeight;
+        var by = r.bottom - floor;
+        if (by > 0) { try { window.scrollBy({ top: by, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); } catch (e) { window.scrollBy(0, by); } }
+      }
+    });
     wirePager(root, pager, aid, wk);
     return true;
   }
@@ -367,9 +413,13 @@
     // The maxes % sets work from: shown when the block uses them.
     if (allSets.some(function (x) { return x.pct != null; }) || (prog.maxes && Object.keys(prog.maxes).length)) {
       // Each max carries its lift's dot (lift colours live on lift data).
-      var bits = MAIN.map(function (L) { var v = typeof programMaxKg === 'function' ? programMaxKg(prog, aid, L) : 0; return v > 0 ? '<i class="lift-' + L + '" aria-hidden="true"></i>' + LIFT_NAME[L].charAt(0) + ' ' + Math.round(disp(v)) : null; }).filter(Boolean);
-      var mx = el('button', { type: 'button', class: 'cp-maxes' });
-      mx.innerHTML = '<span>Maxes for %</span><b>' + (bits.length ? bits.join(' · ') + ' ' + esc(unit()) : 'not set') + '</b>' + ic('chev', 2.4);
+      // Each lift's max is one unit that never breaks ("S 210", the unit with the last); on a 375 pt phone the
+      // label says "Maxes" (it read "Maxes for / %" and "D 255 / kg" there). The button says it all out loud.
+      var said = [];
+      var bits = MAIN.map(function (L) { var v = typeof programMaxKg === 'function' ? programMaxKg(prog, aid, L) : 0; if (!(v > 0)) return null; said.push(LIFT_NAME[L] + ' ' + Math.round(disp(v))); return '<i class="lift-' + L + '" aria-hidden="true"></i>' + LIFT_NAME[L].charAt(0) + ' ' + Math.round(disp(v)); }).filter(Boolean);
+      if (bits.length) bits[bits.length - 1] += ' ' + esc(unit());
+      var mx = el('button', { type: 'button', class: 'cp-maxes', 'aria-label': 'Maxes for % work: ' + (said.length ? said.join(', ') + ' ' + unit() : 'not set') });
+      mx.innerHTML = '<span class="cp-mx-l">Maxes<span class="cp-mx-more"> for %</span></span><b>' + (bits.length ? bits.map(function (b) { return '<span class="cp-mx-lift">' + b + '</span>'; }).join(' · ') : 'not set') + '</b>' + ic('chev', 2.4);
       mx.addEventListener('click', function () { if (typeof openMaxesSheet === 'function') openMaxesSheet(prog.id, aid); });
       h.appendChild(mx);
     }
@@ -381,11 +431,27 @@
     }
     return h;
   }
+  // The block's ⋯: the same actions as the laptop's (programMenuActions), in the groups a coach reaches for
+  // them: tell them, what comes next, how it's written, keep or share it, and Delete apart at the end. Add
+  // week is the weeks' + already, so it isn't here twice; an action added there later still shows.
   function programMenu(prog, aid) {
-    var acts = typeof programMenuActions === 'function' ? programMenuActions(prog, aid) : [];
-    acts = acts.filter(Boolean);
-    acts.splice(Math.min(4, acts.length), 0, { label: 'Your templates', icon: ICONS.copy, onClick: function () { var t = document.getElementById('tab-templates'); if (t) t.click(); } });
-    uiActionSheet(prog.name || 'Program', acts);
+    var acts = (typeof programMenuActions === 'function' ? programMenuActions(prog, aid) : []).filter(Boolean), used = [];
+    var take = function (re, patch) {
+      var a = acts.find(function (x) { return used.indexOf(x) < 0 && re.test(x.label); });
+      if (!a) return null;
+      used.push(a);
+      return patch ? Object.assign({}, a, patch) : a;
+    };
+    var tell = [take(/^Notify/, { icon: ic('msg') })];
+    var next = [take(/^Start the next block/, { icon: ic('steps') }), take(/^Rebuild from goal/, { icon: ic('trend') }), take(/imported program/, { icon: ic('clip') })];
+    var how = [take(/^Maxes for %/, { icon: ic('gauge') }), take(/^Update % loads/, { icon: ic('chart') }), take(/^Set fields/, { icon: ic('list') })];
+    var keep = [take(/^Save as template/, { icon: ic('copy'), onClick: function () { openSaveSheet(prog); } }),
+      { label: 'Your templates', icon: ic('note'), onClick: toTemplates },
+      take(/^Export/, { label: 'Export as a file', icon: ic('down') })];
+    take(/^Add week/);
+    var del = take(/^Delete program/);
+    var rest = acts.filter(function (a) { return used.indexOf(a) < 0; });
+    menu(prog.name || 'Program', [tell, next, how.concat(rest), keep, [del]]);
   }
 
   // The weeks: an iOS segmented control (it scrolls when a block is long), + adds one, ⋯ the week's menu.
@@ -414,11 +480,11 @@
     more.addEventListener('click', function () {
       var wi = curWeek(), w = prog.weeks[wi];
       if (!w) return;
-      uiActionSheet('Week ' + (Number(w.number) || wi + 1), [
-        { label: 'Duplicate week', icon: ICONS.copy, onClick: function () { duplicateWeekAction(prog.id, wi); } },
-        { label: 'Add day', icon: ICONS.plus, onClick: function () { addDayAndGo(aid, wi, false); } },
-        { label: 'Add rest day', icon: ICONS.plus, onClick: function () { addDayAndGo(aid, wi, true); } },
-        { label: 'Remove week', icon: ICONS.trash, danger: true, onClick: function () { deleteWeek(wi); } }
+      menu('Week ' + (Number(w.number) || wi + 1), [
+        [{ label: 'Duplicate week', icon: ic('copy'), onClick: function () { duplicateWeekAction(prog.id, wi); } },
+          { label: 'Add day', icon: ic('plus'), onClick: function () { addDayAndGo(aid, wi, false); } },
+          { label: 'Add rest day', icon: ic('plus'), onClick: function () { addDayAndGo(aid, wi, true); } }],
+        [{ label: 'Remove week', icon: ICONS.trash, danger: true, onClick: function () { removeDayOrWeek(aid, wi, null); } }]
       ]);
     });
     wrap.appendChild(more);
@@ -455,7 +521,7 @@
     var addPage = el('div', { class: 'cp-page is-add', 'data-day': String((wk.days || []).length) });
     var card = el('div', { class: 'cp-daycard cp-addcard' });
     card.appendChild(el('h3', { class: 'cp-add-t' }, 'Add a day to week ' + (Number(wk.number) || wi + 1)));
-    card.appendChild(el('p', { class: 'cp-add-s' }, 'A training day gets its exercises from Add exercise. A rest day counts toward their streak.'));
+    card.appendChild(el('p', { class: 'cp-add-s' }, 'A training day gets its exercises from Add exercise. A rest day never breaks their streak.'));
     var b1 = el('button', { type: 'button', class: 'ca-btn is-soft' }); b1.innerHTML = PLUS + '<span>Add day</span>';
     b1.addEventListener('click', function () { addDayAndGo(aid, wi, false); });
     // Critical fix #1: the Add rest day button stays (addRestDay names it "Rest", the isRestDay heuristic reads it).
@@ -479,23 +545,27 @@
     nm.addEventListener('change', function () { if (typeof updateDayName === 'function') updateDayName(wi, di, nm.value); var c = document.querySelector('.cp-day[data-day="' + di + '"] span:last-child'); if (c) c.textContent = nm.value || 'Day ' + (di + 1); });
     nm.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); nm.blur(); } });
     id.appendChild(nm);
-    id.appendChild(el('span', { class: 'cp-daymeta' }, cpDayMeta(day)));
+    var meta = cpDayMeta(day);
+    if (meta) id.appendChild(el('span', { class: 'cp-daymeta' }, meta));
     head.appendChild(id);
     var more = el('button', { type: 'button', class: 'cp-ibtn', 'aria-label': (day.name || 'Day') + ' options', html: DOTS });
     more.addEventListener('click', function () {
-      uiActionSheet(day.name || 'Day', [
-        di > 0 ? { label: 'Move earlier in the week', icon: ICONS.arrowUp, onClick: function () { reorderDay(prog.id, wi, di, -1); persistProgram(prog.id); S.days[dayKey(aid, wi)] = di - 1; loadProgram(); } } : null,
-        di < wk.days.length - 1 ? { label: 'Move later in the week', icon: ICONS.arrowDown, onClick: function () { reorderDay(prog.id, wi, di, 1); persistProgram(prog.id); S.days[dayKey(aid, wi)] = di + 1; loadProgram(); } } : null,
-        { label: 'Duplicate day', icon: ICONS.copy, onClick: function () { duplicateDay(prog.id, wi, di); persistProgram(prog.id); S.days[dayKey(aid, wi)] = di + 1; loadProgram(); } },
-        { label: 'Delete day', icon: ICONS.trash, danger: true, onClick: function () { S.days[dayKey(aid, wi)] = Math.max(0, di - 1); deleteDay(wi, di); } }
+      menu(day.name || 'Day', [
+        [di > 0 ? { label: 'Move earlier in the week', icon: ICONS.arrowUp, onClick: function () { reorderDay(prog.id, wi, di, -1); persistProgram(prog.id); S.days[dayKey(aid, wi)] = di - 1; loadProgram(); } } : null,
+          di < wk.days.length - 1 ? { label: 'Move later in the week', icon: ICONS.arrowDown, onClick: function () { reorderDay(prog.id, wi, di, 1); persistProgram(prog.id); S.days[dayKey(aid, wi)] = di + 1; loadProgram(); } } : null,
+          { label: 'Duplicate day', icon: ic('copy'), onClick: function () { duplicateDay(prog.id, wi, di); persistProgram(prog.id); S.days[dayKey(aid, wi)] = di + 1; loadProgram(); } }],
+        [{ label: 'Delete day', icon: ICONS.trash, danger: true, onClick: function () { removeDayOrWeek(aid, wi, di); } }]
       ]);
     });
     head.appendChild(more);
     card.appendChild(head);
     var exs = day.exercises || [];
     if (!exs.length) {
-      if (REST_RX.test(day.name || '')) card.appendChild(el('div', { class: 'cp-rest' }, el('b', {}, 'A day off'), el('span', {}, 'No training. Rename the day to train on it.')));
-      else card.appendChild(el('div', { class: 'cp-rest' }, el('b', {}, 'No exercises yet'), el('span', {}, 'Add the first with Add exercise below.')));
+      // One line each, never the name or the meta said again: a rest day's name is "Rest", an empty day's meta
+      // is "No exercises yet".
+      card.classList.add('is-empty');
+      if (REST_RX.test(day.name || '')) card.appendChild(el('p', { class: 'cp-rest' }, 'It never breaks their streak. Rename the day to train on it.'));
+      else card.appendChild(el('p', { class: 'cp-rest' }, 'Add the first with Add exercise below.'));
     } else {
       var list = el('div', { class: 'cp-exs' });
       exs.forEach(function (ex, ei) { list.appendChild(exRowEl(prog, aid, wi, di, ex, ei)); });
@@ -538,17 +608,182 @@
     return b;
   }
 
+  /* ---------------------------------------------------------------- Add exercise (coach.html's form, dressed) */
+  // The form stays coach.html's own (openAddExercise, onLiftChange, confirmAddExercise and its ids, which the
+  // laptop shares); on the phone it says which day it adds to, picks the lift and its variant with chips like
+  // the days above it (a select per choice was a web form), names the note for the lifter, and its one red
+  // says where the exercise goes ("Add to Deadlift Day").
+  function nameOf(aid) { return ((Store.get().athletes || []).find(function (a) { return a.id === aid; }) || {}).name || ''; }
+  function chip(label, on, cls, onPick, dot) {
+    var b = el('button', { type: 'button', class: 'cp-chip' + (on ? ' on' : '') + (cls ? ' ' + cls : ''), role: 'radio', 'aria-checked': on ? 'true' : 'false' });
+    b.innerHTML = (dot ? '<i class="lift-' + dot + '" aria-hidden="true"></i>' : '') + '<span>' + esc(label) + '</span>';
+    b.addEventListener('click', onPick);
+    return b;
+  }
+  function dressAdd(aid, wi, di) {
+    var m = document.getElementById('addExerciseModal'), box = m && m.querySelector('.modal');
+    var liftSel = document.getElementById('exLift'), varSel = document.getElementById('exVariant');
+    var prog = progOf(aid), wk = prog && prog.weeks[wi], day = wk && wk.days[di];
+    if (!box || !liftSel || !varSel || !day) return;
+    // The day's own lift comes picked (the form opens on a squat): a Deadlift Day's next exercise is a deadlift
+    // variant or an accessory far more often than a squat. Its first main lift, as the day's light; its loads follow.
+    var leadEx = (day.exercises || []).filter(function (e) { return MAIN.indexOf(e.lift) >= 0; })[0];
+    if (leadEx && liftSel.value !== leadEx.lift && Array.prototype.some.call(liftSel.options, function (o) { return o.value === leadEx.lift; })) {
+      liftSel.value = leadEx.lift;
+      if (typeof onLiftChange === 'function') onLiftChange();
+    }
+    box.classList.add('cp-addx');
+    var h = box.querySelector('h3'), sub = box.querySelector('.cp-addx-sub');
+    if (!sub && h) { sub = el('p', { class: 'cp-addx-sub' }); h.insertAdjacentElement('afterend', sub); }
+    var dayName = String(day.name || 'Day ' + (di + 1));
+    if (sub) sub.textContent = dayName + ' \u00b7 Week ' + (Number(wk.number) || wi + 1);
+    var row = liftSel.closest('.form-row');
+    var lifts = box.querySelector('.cp-addx-lifts');
+    if (!lifts && row) { lifts = el('div', { class: 'cp-chips cp-addx-lifts', role: 'radiogroup', 'aria-label': 'Exercise' }); row.insertAdjacentElement('beforebegin', lifts); }
+    var vg = document.getElementById('variantGroup'), vars = box.querySelector('.cp-addx-vars');
+    if (!vars && vg) { vars = el('div', { class: 'cp-chips cp-addx-vars', role: 'radiogroup', 'aria-label': 'Variant' }); vg.appendChild(vars); }
+    var paintVars = function () {
+      if (!vars) return;
+      vars.innerHTML = '';
+      Array.prototype.forEach.call(varSel.options, function (o) {
+        vars.appendChild(chip(o.textContent, o.value === varSel.value, '', function () { varSel.value = o.value; paintVars(); }));
+      });
+    };
+    // An accessory picked after a main lift: loads still at the main lift's suggestion (177.5 for a squat) become
+    // this exercise's own (their last set of it, or blank), as a main lift's do (coach.html onLiftChange);
+    // loads the coach typed stay.
+    var exSel = document.getElementById('exName');
+    var reloadOwn = function () {
+      var lift = liftSel.value;
+      if (MAIN.indexOf(lift) >= 0 || lift === 'cardio') return;
+      try {
+        if (!Array.isArray(buildingSets) || !buildingSets.length || !buildingSets.every(function (b) { return Number(b.weight) === Number(_autoLoad); })) return;
+        var who = (document.getElementById('progAthlete') || {}).value || aid;   // the change listener outlives this call
+        var w = typeof suggestNewLoad === 'function' ? suggestNewLoad(who, lift, '', exSel && exSel.value || '', 5, 7) : 0;
+        buildingSets.forEach(function (b) { b.weight = w; });
+        _autoLoad = w;
+        if (typeof renderSetsBuilder === 'function') renderSetsBuilder();
+      } catch (e) {}
+    };
+    if (exSel && !exSel._cpWired) { exSel._cpWired = true; exSel.addEventListener('change', reloadOwn); }
+    var paintLifts = function () {
+      if (!lifts) return;
+      lifts.innerHTML = '';
+      Array.prototype.forEach.call(liftSel.options, function (o, k) {
+        var main = MAIN.indexOf(o.value) >= 0;
+        // the main lifts on their own line, the rest under them
+        if (k && !main && MAIN.indexOf(liftSel.options[k - 1].value) >= 0) lifts.appendChild(el('span', { class: 'cp-chips-br', 'aria-hidden': 'true' }));
+        lifts.appendChild(chip(String(o.textContent).replace(/\s*\(accessory\)\s*$/i, ''), o.value === liftSel.value, main ? 'is-main' : '', function () {
+          if (liftSel.value === o.value) return;
+          liftSel.value = o.value;
+          if (typeof onLiftChange === 'function') onLiftChange();
+          reloadOwn();
+          paintLifts(); paintVars();
+        }, main ? o.value : ''));
+      });
+    };
+    paintLifts(); paintVars();
+    var note = document.getElementById('exNote'), nl = note && note.closest('.form-group') && note.closest('.form-group').querySelector('label');
+    if (nl) nl.textContent = 'Note for ' + (first(nameOf(aid)) || 'them');
+    if (note) note.placeholder = 'Slow down, pause at the bottom, belt on...';
+    var go = box.querySelector('[onclick^="confirmAddExercise"]');
+    if (go) {
+      go.textContent = 'Add to ' + dayName;
+      if (!go._cpWired) {
+        go._cpWired = true;
+        // Before coach.html adds it: remember the day and its count, so the new row can rise into place.
+        go.addEventListener('click', function () {
+          var t = typeof addExerciseTarget === 'object' && addExerciseTarget ? addExerciseTarget : { wi: wi, di: di };
+          var p2 = progOf(S.aid), d2 = p2 && p2.weeks[t.wi] && p2.weeks[t.wi].days[t.di];
+          S.added = d2 ? { aid: S.aid, wi: t.wi, di: t.di, n: (d2.exercises || []).length } : null;
+        }, true);
+      }
+    }
+  }
+
+  /* ---------------------------------------------------------------- the ⋯ menus */
+  // A ⋯ menu in groups, as iOS draws one (a gap between them); the row that takes something away comes last,
+  // in ink with its bin glyph: red is the screen's one action, never a menu row (coach-app.css .cp-menu).
+  function menu(title, groups) {
+    var flat = [], firsts = [];
+    (groups || []).forEach(function (g) {
+      var items = (g || []).filter(Boolean);
+      if (!items.length) return;
+      if (flat.length) firsts.push(flat.length);
+      flat = flat.concat(items);
+    });
+    var close = uiActionSheet(title, flat, { veilCls: 'cp-menu' });
+    var veil = document.body.lastElementChild;
+    if (veil && veil.classList.contains('cp-menu')) {
+      var btns = veil.querySelectorAll('.ui-sheet > button:not(.ui-sheet-cancel)');
+      firsts.forEach(function (i) { if (btns[i]) btns[i].classList.add('cp-sep'); });
+    }
+    return close;
+  }
+  // Remove takes the exercise off at once (no question first) and offers it back for a few seconds.
+  function removeExercise(aid, wi, di, ei) {
+    var ex = liveEx(aid, wi, di, ei), prog = progOf(aid);
+    if (!ex || !prog || typeof deleteExercise !== 'function') return;
+    var copy = JSON.parse(JSON.stringify(ex)), name = exTitle(ex), pid = prog.id;
+    deleteExercise(wi, di, ei);
+    if (typeof toastAction !== 'function') return;
+    toastAction(name + ' removed', 'Undo', function () {
+      Store.update(function (s) {
+        var p = (s.programs || []).find(function (x) { return x.id === pid; }), d = p && p.weeks[wi] && p.weeks[wi].days[di];
+        if (d) d.exercises.splice(Math.min(ei, d.exercises.length), 0, copy);
+      });
+      if (typeof persistProgram === 'function') persistProgram(pid);
+      if (typeof loadProgram === 'function') loadProgram();
+    });
+  }
+  // Delete day and Remove week work the same way: gone at once, back with Undo. The system's "Delete this
+  // day?" alert answered with an OK that said nothing; Undo is the last word, and it is the coach's.
+  // di == null: the week wi. (The laptop keeps coach.html deleteDay / deleteWeek and their question.)
+  function removeDayOrWeek(aid, wi, di) {
+    var prog = progOf(aid), isWeek = di == null;
+    var src = prog && prog.weeks[wi] ? (isWeek ? prog.weeks[wi] : (prog.weeks[wi].days || [])[di]) : null;
+    if (!src) return;
+    var pid = prog.id, copy = JSON.parse(JSON.stringify(src));
+    var name = isWeek ? 'Week ' + (Number(src.number) || wi + 1) + ' removed' : String(src.name || 'Day ' + (di + 1)) + ' deleted';
+    var find = function (s) { return (s.programs || []).find(function (x) { return x.id === pid; }); };
+    Store.update(function (s) { var p = find(s); if (!p || !p.weeks[wi]) return; if (isWeek) p.weeks.splice(wi, 1); else p.weeks[wi].days.splice(di, 1); });
+    if (isWeek) setWeek(Math.max(0, wi - 1)); else S.days[dayKey(aid, wi)] = Math.max(0, di - 1);
+    if (typeof persistProgram === 'function') persistProgram(pid);
+    if (typeof loadProgram === 'function') loadProgram();
+    if (typeof toastAction !== 'function') return;
+    toastAction(name, 'Undo', function () {
+      Store.update(function (s) {
+        var p = find(s);
+        if (!p) return;
+        if (isWeek) p.weeks.splice(Math.min(wi, p.weeks.length), 0, copy);
+        else if (p.weeks[wi]) p.weeks[wi].days.splice(Math.min(di, p.weeks[wi].days.length), 0, copy);
+      });
+      if (isWeek) setWeek(wi); else S.days[dayKey(aid, wi)] = di;
+      if (typeof persistProgram === 'function') persistProgram(pid);
+      if (typeof loadProgram === 'function') loadProgram();
+    });
+  }
+
   /* ---------------------------------------------------------------- the pager: swipe or tap a day */
   function scrollToDay(pager, i, smooth) {
     if (!pager.children[i]) return;
     var x = i * pager.clientWidth;   // every page is the pager's width
     if (smooth && pager.scrollTo) pager.scrollTo({ left: x, behavior: 'smooth' }); else pager.scrollLeft = x;
   }
+  // The day on show keeps its chip in view, the page's 16 pt gutter from either edge, moving only the chips:
+  // scrollIntoView pressed it flush to the glass and could pull the whole page up under a finger mid-swipe.
+  function chipInView(c) {
+    var row = c.parentNode;
+    if (!row || row.scrollWidth <= row.clientWidth) return;
+    var rr = row.getBoundingClientRect(), cr = c.getBoundingClientRect(), g = 16;
+    if (cr.left < rr.left + g) row.scrollLeft -= rr.left + g - cr.left;
+    else if (cr.right > rr.right - g) row.scrollLeft += cr.right - (rr.right - g);
+  }
   function syncDay(root, pager, aid, wk, quiet) {
     var w = pager.clientWidth || 1;
     var i = Math.max(0, Math.min(pager.children.length - 1, Math.round(pager.scrollLeft / w)));
     S.days[dayKey(aid, curWeek())] = i;
-    root.querySelectorAll('.cp-day').forEach(function (c) { var on = Number(c.getAttribute('data-day')) === i; c.classList.toggle('on', on); c.setAttribute('aria-selected', on ? 'true' : 'false'); if (on && !quiet) c.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });
+    root.querySelectorAll('.cp-day').forEach(function (c) { var on = Number(c.getAttribute('data-day')) === i; c.classList.toggle('on', on); c.setAttribute('aria-selected', on ? 'true' : 'false'); if (on && !quiet) chipInView(c); });
     var day = (wk.days || [])[i];
     var fab = root.querySelector('.cp-fab');
     if (fab) fab.classList.toggle('is-hidden', !day || cpIsRestDay(day));
@@ -592,21 +827,24 @@
         if (!d) return;
         var exNow = liveEx(aid, wi, di, ei) || ex0, live = (exNow.sets || []).filter(function (x) { return !x.completed; });
         var isMain = MAIN.indexOf(exNow.lift) >= 0 && exNow.lift !== 'cardio';
-        var allPct = live.length > 0 && live.every(function (x) { return x.pct != null; }), allRir = live.length > 0 && live.every(function (x) { return x.rir; });
         var maxKg = isMain && typeof programMaxKg === 'function' ? programMaxKg(prog, aid, exNow.lift) : 0;
-        // How every block writes its load and effort (each block's More switches its own).
+        // How every block writes its load and effort (each block's More switches its own). Blocks written both
+        // ways offer both ways (cpEveryChoices): the coach picks which way they all go.
         var every = function (kind, on) {
           var ss = ((liveEx(aid, wi, di, ei) || exNow).sets || []).slice(), pt = cpModePatches(ss, kind, on, maxKg);
           setExerciseRx(wi, di, ei, function (st) { applyPatch(st, pt[ss.indexOf(st)] || cpModePatch(st, kind, on, maxKg)); });
           if (S.sheetRepaint) S.sheetRepaint();
         };
-        uiActionSheet(exTitle(exNow), [
-          ei > 0 ? { label: 'Move up', icon: ICONS.arrowUp, onClick: function () { close(); reorderExercise(prog.id, wi, di, ei, -1); persistProgram(prog.id); loadProgram(); } } : null,
-          ei < d.exercises.length - 1 ? { label: 'Move down', icon: ICONS.arrowDown, onClick: function () { close(); reorderExercise(prog.id, wi, di, ei, 1); persistProgram(prog.id); loadProgram(); } } : null,
-          { label: 'Duplicate', icon: ICONS.copy, onClick: function () { close(); copyExercise(prog.id, wi, di, ei); persistProgram(prog.id); loadProgram(); } },
-          live.length && isMain ? { label: allPct ? 'Every block in ' + unit() : 'Every block in % of max', icon: ICONS.weight, onClick: function () { every('pct', !allPct); } } : null,
-          live.length && exNow.lift !== 'cardio' ? { label: allRir ? 'Every block as RPE' : 'Every block as reps in reserve', icon: ICONS.flame, onClick: function () { every('rir', !allRir); } } : null,
-          { label: 'Remove', icon: ICONS.trash, danger: true, onClick: function () { close(); deleteExercise(wi, di, ei); } }
+        var label = { pct1: 'Every block in % of max', pct0: 'Every block in ' + unit(), rir1: 'Every block as reps in reserve', rir0: 'Every block as RPE' };
+        var ways = cpEveryChoices(live, isMain, exNow.lift === 'cardio').map(function (c) {
+          return { label: label[c.kind + (c.on ? 1 : 0)], icon: c.kind === 'pct' ? ICONS.weight : ICONS.flame, onClick: function () { every(c.kind, c.on); } };
+        });
+        menu(exTitle(exNow), [
+          [ei > 0 ? { label: 'Move up', icon: ICONS.arrowUp, onClick: function () { close(); reorderExercise(prog.id, wi, di, ei, -1); persistProgram(prog.id); loadProgram(); } } : null,
+            ei < d.exercises.length - 1 ? { label: 'Move down', icon: ICONS.arrowDown, onClick: function () { close(); reorderExercise(prog.id, wi, di, ei, 1); persistProgram(prog.id); loadProgram(); } } : null,
+            { label: 'Duplicate', icon: ic('copy'), onClick: function () { close(); copyExercise(prog.id, wi, di, ei); persistProgram(prog.id); loadProgram(); } }],
+          ways,
+          [{ label: 'Remove', icon: ICONS.trash, danger: true, onClick: function () { close(); removeExercise(aid, wi, di, ei); } }]
         ]);
       });
       tools.appendChild(more); tools.appendChild(doneTop);
@@ -615,7 +853,6 @@
       var paint = function () { paintEditor(body, aid, wi, di, ei, close); };
       S.sheetRepaint = paint;
       S.moreOpen = {};
-      S.sleeve = {};   // the bar opens loaded as written; it moves only when the load changes
       paint();
       // The saving line follows the connection and the queue while the sheet is open.
       S.onSync = function () { var p = sheet.querySelector('.cp-ed-saved'); if (p) paintSaved(p, aid); };
@@ -709,22 +946,8 @@
     };
     paintHead();
     head.appendChild(headT);
-    // The top set's load as the bar a loader would load for it (the lifter app's own drawing, app.js
-    // uiBarbell): the one real load on this screen, so it's drawn. It reloads when the load settles.
-    var sleeve = null;
-    if (bi === 0 && main && !logged && typeof uiBarbell === 'function') {
-      sleeve = el('span', { class: 'pl-sleeve' });
-      head.appendChild(sleeve);
-    }
-    var sleeveKey = String(ex.id || ei) + ':' + wi + ':' + di;
-    var paintSleeve = function () {
-      if (!sleeve) return;
-      var kg = Number(blk.weight) > 0 ? Number(blk.weight) : 0, was = S.sleeve[sleeveKey];
-      sleeve.innerHTML = kg ? uiBarbell(kg, was != null && was !== kg ? { from: was } : {}) : '';
-      S.sleeve[sleeveKey] = kg;
-    };
-    var sleeveT = null, sleeveSoon = function () { if (!sleeve) return; clearTimeout(sleeveT); sleeveT = setTimeout(paintSleeve, 300); };
-    paintSleeve();
+    // No bar drawn here (29 Oct): its red and blue plates were plate paint, and loading the bar is the
+    // lifter's job (Train draws it for them). The block's line and its numbers say the load.
     box.appendChild(head);
     if (logged) {
       box.appendChild(el('p', { class: 'cp-blk-logged' }, 'Logged. A set they lifted keeps what it was; edit the next week instead.'));
@@ -753,7 +976,7 @@
       var onPct = function (v) {
         var kg = maxKg ? pctLoadKg(v, maxKg) : 0, hi = span ? v + span : null, kgHi = hi && maxKg ? pctLoadKg(hi, maxKg) : 0;
         setBlockRx(wi, di, ei, blk.startIdx, blk.count, { pct: v, pctHi: hi, weight: kg || blk.weight || 0, weightHi: kgHi > kg ? kgHi : null });
-        blk.pct = v; blk.pctHi = hi; if (kg) blk.weight = kg; blk.weightHi = kgHi > kg ? kgHi : null; paintCalc(); paintHead(); bgRefresh(); sleeveSoon();
+        blk.pct = v; blk.pctHi = hi; if (kg) blk.weight = kg; blk.weightHi = kgHi > kg ? kgHi : null; paintCalc(); paintHead(); bgRefresh();
       };
       var pctSt = uiStepper({ value: Number(blk.pct) || 0, step: cpLoadStep(true), min: 0, max: 120, label: 'percent', fmt: function (v) { return n2(v) + (span ? '–' + n2(v + span) : '') + '%'; }, onChange: onPct });
       grid.appendChild(stepCell('% of max', typeable(pctSt, 'Type the percent', onPct), calc));
@@ -763,7 +986,7 @@
       var onLoad = function (v) {
         var kg = v > 0 && typeof displayToKg === 'function' ? displayToKg(v) : v, hk = hiD && v > 0 && typeof displayToKg === 'function' ? displayToKg(v + hiD) : null;
         setBlockRx(wi, di, ei, blk.startIdx, blk.count, { weight: kg, weightHi: hk });
-        blk.weight = kg; blk.weightHi = hk; bgRefresh(); paintHead(); paintHint(); sleeveSoon();
+        blk.weight = kg; blk.weightHi = hk; bgRefresh(); paintHead(); paintHint();
       };
       // The unit sits in the label ("Load · kg"), so 162.5 fits beside its buttons on a 375 pt phone.
       var loadSt = uiStepper({ value: wD, step: cpLoadStep(false, u), min: 0, max: 1000, label: 'load', fmt: function (v) { return v > 0 ? n2(v) + (hiD ? '–' + n2(v + hiD) : '') : '<span class="st-word">By feel</span>'; }, onChange: onLoad });
@@ -776,7 +999,7 @@
         onChange: function (v) { var rpe = 10 - (v + rSpan), rpeHi = rSpan ? 10 - v : null; setBlockRx(wi, di, ei, blk.startIdx, blk.count, { rpe: rpe, rpeHi: rpeHi }); blk.rpe = rpe; blk.rpeHi = rpeHi; bgRefresh(); paintHead(); paintHint(); } })));
     } else {
       var eSpan = blk.rpeHi != null && blk.rpeHi > blk.rpe ? Number(blk.rpeHi) - Number(blk.rpe) : 0;
-      grid.appendChild(stepCell('RPE', uiStepper({ value: blk.rpe != null ? Number(blk.rpe) : 4.5, step: 0.5, min: 4.5, max: 10 - eSpan, label: 'RPE', fmt: function (v) { return v < 5 ? '<span class="st-word">None</span>' : '@ ' + n2(v) + (eSpan ? '–' + n2(v + eSpan) : ''); },
+      grid.appendChild(stepCell('RPE', uiStepper({ value: blk.rpe != null ? Number(blk.rpe) : 4.5, step: 0.5, min: 4.5, max: 10 - eSpan, label: 'RPE', fmt: function (v) { return v < 5 ? '<span class="st-word">None</span>' : '@\u00a0' + n2(v) + (eSpan ? '–' + n2(v + eSpan) : ''); },
         onChange: function (v) { var rpe = v < 5 ? null : v, hi = rpe != null && eSpan ? v + eSpan : null; setBlockRx(wi, di, ei, blk.startIdx, blk.count, { rpe: rpe, rpeHi: hi }); blk.rpe = rpe; blk.rpeHi = hi; bgRefresh(); paintHead(); paintHint(); } })));
     }
     box.appendChild(grid);
@@ -883,10 +1106,19 @@
     c.appendChild(el('span', { class: 'cp-step-l' }, label));
     c.appendChild(stepper);
     if (extra) c.appendChild(extra);
-    // A value wider than its cell (a range like 160–165) steps down to 17, never under its buttons.
+    // A value wider than its cell steps down to 17, never under its buttons; a range still too wide for one
+    // line (162.5–167.5 kg in a 375 or 393 pt phone's cell) stacks its two ends, "162.5–" over "167.5"
+    // (cpFitClass). The block's line above keeps the range on one line.
     var val = stepper.querySelector('.st-val');
     if (val && typeof MutationObserver === 'function') {
-      var fit = function () { val.classList.remove('is-tight'); if (val.scrollWidth > val.clientWidth + 1) val.classList.add('is-tight'); };
+      var fit = function () {
+        val.classList.remove('is-tight', 'is-stack');
+        var over = function () { return val.scrollWidth > val.clientWidth + 1; };
+        if (!over()) return;
+        val.classList.add('is-tight');
+        var k = cpFitClass(val.textContent, over());
+        if (k !== 'is-tight') { val.classList.remove('is-tight'); val.classList.add(k); }
+      };
       var last = cpNum(val.textContent);
       new MutationObserver(function () {
         requestAnimationFrame(fit);
@@ -907,6 +1139,186 @@
     var cs = getComputedStyle(document.body), ease = (cs.getPropertyValue('--pl-spring') || '').trim() || 'cubic-bezier(0.23, 1, 0.32, 1)';
     var ms = parseFloat(cs.getPropertyValue('--pl-d-press')) || 200, frames = [{ transform: 'translate3d(0,' + (dir * 6) + 'px,0)', opacity: 0.55 }, { transform: 'none', opacity: 1 }];
     try { node._tick = node.animate(frames, { duration: ms, easing: ease }); } catch (e) { try { node._tick = node.animate(frames, { duration: 200, easing: 'ease-out' }); } catch (e2) {} }
+  }
+
+  /* ====================================================================================================
+     TEMPLATES (the phone's Templates: one grouped list; a template opens its sheet; Apply asks who gets it)
+     ==================================================================================================== */
+  function tplWeeks(t) { return (t && t.payload && Array.isArray(t.payload.weeks)) ? t.payload.weeks : []; }
+  // A template's line: "3 weeks · 4 days a week · saved 29 Oct" (days: week 1's training days). saved: its date,
+  // already written for the screen. Numbers only from its own arrays.
+  function cpTplLine(t, saved) {
+    var weeks = tplWeeks(t), w1 = weeks[0], days = w1 ? (w1.days || []).filter(function (d) { return (d.exercises || []).length; }).length : 0;
+    return [plural(weeks.length, 'week'), days ? (days === 1 ? '1 day a week' : days + ' days a week') : null, saved ? 'saved ' + saved : null].filter(Boolean).join(' · ');
+  }
+  function tplSaved(t) {
+    if (!t || !t.createdAt) return '';
+    try { var iso = typeof isoLocal === 'function' ? isoLocal(new Date(t.createdAt)) : new Date(t.createdAt).toISOString().slice(0, 10); return typeof fmtDateShort === 'function' ? fmtDateShort(iso) : iso; } catch (e) { return ''; }
+  }
+  function myTemplates() {
+    var u = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+    return (Store.get().programTemplates || []).filter(function (t) { return u && t.coachId === u.id; })
+      .slice().sort(function (a, b) { return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0); });
+  }
+  function toTemplates() { var t = document.getElementById('tab-templates'); if (t) t.click(); }
+  function renderTemplates(area) {
+    if (!area || !hasDom) return false;
+    var h = document.querySelector('section[data-pane="templates"] > .dash-header h2');
+    if (h) h.textContent = 'Templates';
+    area.innerHTML = '';
+    var root = el('div', { class: 'cp cp-tpls ca-root' });
+    area.appendChild(root);
+    var tpls = myTemplates();
+    if (!tpls.length) {
+      root.appendChild(uiEmpty({
+        icon: ICONS.copy, title: 'No templates yet',
+        text: 'Bring a program in from a photo or a file, or save a lifter’s block from its ⋯ in Programs. Then give it to anyone in one tap.',
+        primary: { label: 'Bring a program in', onClick: function () { openSheetImport(null); } }
+      }));
+      return true;
+    }
+    var list = el('div', { class: 'ca-list cp-tpl-list ca-rise' });
+    tpls.forEach(function (t) { list.appendChild(tplRow(t)); });
+    root.appendChild(list);
+    var more = el('div', { class: 'cp-tpl-foot' });
+    var imp = el('button', { type: 'button', class: 'ca-link cp-tpl-imp' }, 'Bring a program in');
+    imp.addEventListener('click', function () { openSheetImport(null); });
+    more.appendChild(imp);
+    more.appendChild(el('p', { class: 'cp-tpl-hint' }, 'Or save a lifter’s block from its ⋯ in Programs.'));
+    root.appendChild(more);
+    return true;
+  }
+  // A row: its name, its size, and Apply (who gets it). The rest of the row opens it (with when it was saved).
+  function tplRow(t) {
+    var line = cpTplLine(t, '');
+    var row = el('div', { class: 'cp-tpl' });
+    var open = el('button', { type: 'button', class: 'cp-tpl-main', 'aria-label': (t.name || 'Template') + '. ' + line });
+    open.innerHTML = '<span class="cp-tpl-tx"><span class="cp-tpl-t">' + esc(t.name || 'Template') + '</span><span class="cp-tpl-s">' + esc(line) + '</span></span>';
+    open.addEventListener('click', function () { openTemplateSheet(t); });
+    var apply = el('button', { type: 'button', class: 'ca-pill cp-tpl-apply', 'aria-label': 'Apply ' + (t.name || 'this template') }, 'Apply');
+    apply.addEventListener('click', function () { openApplySheet(t); });
+    row.appendChild(open);
+    row.appendChild(apply);
+    return row;
+  }
+  // A template, opened: its line, week 1 day by day (what a lifter gets first), Apply as the one red, Delete apart.
+  function openTemplateSheet(t) {
+    if (typeof uiSheet !== 'function') return;
+    uiSheet(t.name || 'Template', function (sheet, close) {
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, cpTplLine(t, tplSaved(t))));
+      var w1 = tplWeeks(t)[0];
+      if (w1 && (w1.days || []).length) {
+        sheet.appendChild(el('h4', { class: 'cp-sheet-h' }, 'Week 1'));
+        sheet.appendChild(uiList((w1.days || []).slice(0, 7).map(function (d, i) {
+          var exs = d.exercises || [], lifts = MAIN.filter(function (L) { return exs.some(function (e) { return e.lift === L; }); });
+          var lead = el('span', { class: 'cp-dots cp-tpl-dots', 'aria-hidden': 'true', html: lifts.map(function (L) { return '<i class="lift-' + L + '"></i>'; }).join('') });
+          return uiRow({ lead: lead, title: String(d.name || 'Day ' + (i + 1)), sub: exs.length ? exs.map(exTitle).join(' · ') : cpDayMeta(d) });
+        })));
+      }
+      var go = el('button', { type: 'button', class: 'ca-btn is-red cp-sheet-go' }, 'Apply to lifters');
+      go.addEventListener('click', function () { close(); setTimeout(function () { openApplySheet(t); }, 230); });
+      sheet.appendChild(go);
+      if (!document.documentElement.classList.contains('native') && typeof openPublishModal === 'function') {
+        var pub = el('button', { type: 'button', class: 'cp-sheet-quiet' }, 'Sell it on the marketplace');
+        pub.addEventListener('click', function () { close(); setTimeout(function () { openPublishModal(t); }, 230); });
+        sheet.appendChild(pub);
+      }
+      var del = el('button', { type: 'button', class: 'cp-sheet-quiet cp-sheet-del' });
+      del.innerHTML = ICONS.trash + '<span>Delete template</span>';
+      del.addEventListener('click', function () {
+        if (!confirm('Delete “' + (t.name || 'this template') + '”? Lifters who have it keep their block.')) return;
+        Store.update(function (s) { s.programTemplates = (s.programTemplates || []).filter(function (x) { return x.id !== t.id; }); });
+        if (typeof persistDeleteTemplate === 'function') persistDeleteTemplate(t.id);
+        close();
+        renderTemplates(document.getElementById('templatesArea'));
+      });
+      sheet.appendChild(del);
+    }, { cls: 'cp-tpl-sheet' });
+  }
+  // Who gets it: every lifter, those with a block say whose block it replaces; one red names who it goes to.
+  // ids → coach.html applyTemplateToLifters (the same path as the laptop's): what they logged stays a past block.
+  function cpApplyLabel(names) {
+    names = names || [];
+    if (!names.length) return 'Pick who gets it';
+    return names.length === 1 ? 'Apply to ' + first(names[0]) : 'Apply to ' + names.length + ' lifters';
+  }
+  function openApplySheet(t) {
+    if (typeof uiSheet !== 'function') return;
+    var list = roster().slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    uiSheet('Who gets it?', function (sheet, close) {
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, '“' + (t.name || 'This template') + '” replaces the block they have now. What they logged stays as a past block.'));
+      if (!list.length) {
+        sheet.appendChild(el('p', { class: 'cp-sheet-none' }, 'No lifters yet. Invite one, then give them this in one tap.'));
+        var inv = el('button', { type: 'button', class: 'ca-btn is-red cp-sheet-go' }, 'Invite a lifter');
+        inv.addEventListener('click', function () { close(); setTimeout(function () { if (typeof openInviteModal === 'function') openInviteModal(); }, 230); });
+        sheet.appendChild(inv);
+        return;
+      }
+      // From a lifter with no block yet (their Use a template): they're already ticked.
+      var picked = S.applyFor && list.some(function (a) { return a.id === S.applyFor; }) && !progOf(S.applyFor) ? [S.applyFor] : [];
+      var go = el('button', { type: 'button', class: 'ca-btn is-red cp-sheet-go' });
+      var all = el('button', { type: 'button', class: 'ca-link cp-apply-all' });
+      var rows = [];
+      var paint = function () {
+        var names = list.filter(function (a) { return picked.indexOf(a.id) >= 0; }).map(function (a) { return a.name; });
+        go.textContent = cpApplyLabel(names);
+        go.disabled = !names.length;
+        all.textContent = picked.length === list.length ? 'Clear' : 'Select all';
+        rows.forEach(function (r) { var on = picked.indexOf(r.aid) >= 0; r.node.classList.toggle('is-on', on); r.node.setAttribute('aria-checked', on ? 'true' : 'false'); });
+      };
+      if (list.length > 1) {
+        all.addEventListener('click', function () { picked = picked.length === list.length ? [] : list.map(function (a) { return a.id; }); paint(); });
+        sheet.appendChild(el('div', { class: 'cp-apply-top' }, all));
+      }
+      sheet.appendChild(uiList(list.map(function (a) {
+        var p = progOf(a.id);
+        var node = uiRow({ av: a.name, avUrl: a.avatarUrl, title: a.name, sub: p ? 'Replaces ' + (p.name || 'their block') : 'No block yet',
+          endHtml: '<span class="cp-check" aria-hidden="true">' + ic('check', 2.8) + '</span>',
+          onClick: function () { var k = picked.indexOf(a.id); if (k >= 0) picked.splice(k, 1); else picked.push(a.id); paint(); } });
+        node.setAttribute('role', 'checkbox');
+        node.classList.add('cp-pickrow');
+        if (p) { var sub = node.querySelector('.ui-row-sub'); if (sub) sub.classList.add('cp-replaces'); }
+        rows.push({ aid: a.id, node: node });
+        return node;
+      })));
+      go.addEventListener('click', function () {
+        if (!picked.length || typeof applyTemplateToLifters !== 'function') return;
+        var ids = list.filter(function (a) { return picked.indexOf(a.id) >= 0; }).map(function (a) { return a.id; });
+        close();
+        S.aid = null; S.landFresh = ids[0];   // Programs lands on the first of them, on week 1 of the new block
+        applyTemplateToLifters(t, ids, { noun: 'lifters' });
+      });
+      // The red stays in reach under a long roster: the list scrolls behind it.
+      sheet.appendChild(el('div', { class: 'cp-sheet-foot' }, go));
+      paint();
+    }, { cls: 'cp-apply-sheet' });
+  }
+  // Save as a template (the block's ⋯): its name, then the one red. coach.html saveProgramAsTemplate saves it
+  // as the laptop's does; Templates is one tap from the note that says so.
+  function openSaveSheet(prog) {
+    if (typeof uiSheet !== 'function' || typeof saveProgramAsTemplate !== 'function') { if (typeof openSaveTemplate === 'function') openSaveTemplate(prog); return; }
+    uiSheet('Save as a template', function (sheet, close) {
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Its weeks, days, sets and notes, ready to give anyone. What they logged stays theirs.'));
+      var lab = el('label', { class: 'cp-field' });
+      lab.appendChild(el('span', { class: 'cp-field-l' }, 'Name'));
+      var inp = el('input', { type: 'text', class: 'cp-field-in', maxlength: '80', autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Template name' });
+      inp.value = String(prog.name || 'Program');
+      lab.appendChild(inp);
+      sheet.appendChild(lab);
+      var go = el('button', { type: 'button', class: 'ca-btn is-red cp-sheet-go' }, 'Save template');
+      var save = function () {
+        var name = inp.value.trim();
+        if (!name) { inp.focus(); return; }
+        go.setAttribute('aria-busy', 'true');
+        Promise.resolve(saveProgramAsTemplate(prog, name)).then(function () {
+          close();
+          if (typeof toastAction === 'function') toastAction('Saved as a template', 'See it', toTemplates); else if (typeof toast === 'function') toast('Template saved');
+        }, function () { go.removeAttribute('aria-busy'); if (typeof toast === 'function') toast('That didn’t save. Try again'); });
+      };
+      go.addEventListener('click', save);
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+      sheet.appendChild(go);
+    }, { cls: 'cp-save-sheet' });
   }
 
   /* ---------------------------------------------------------------- empty states */
@@ -937,7 +1349,7 @@
     var tplN = (Store.get().programTemplates || []).filter(function (t) { var u = getCurrentUser(); return u && t.coachId === u.id; }).length;
     var rows = [
       { icon: 'trend', title: 'Build from their goal', sub: 'A full block from their lifts and where they want to be', run: function () { openGoalModal(aid); } },
-      tplN ? { icon: 'copy', title: 'Use a template', sub: plural(tplN, 'template') + ' saved', run: function () { var t = document.getElementById('tab-templates'); if (t) t.click(); } } : null,
+      tplN ? { icon: 'copy', title: 'Use a template', sub: plural(tplN, 'template') + ' saved', run: function () { S.applyFor = aid; toTemplates(); } } : null,
       { icon: 'clip', title: 'Bring a program in', sub: 'A photo, a screenshot or a paste from your sheet', run: function () { openSheetImport(aid); } }
     ].filter(Boolean);
     var list = el('div', { class: 'ca-plain ca-rowsx' });
@@ -956,9 +1368,10 @@
 
   window.CoachProgram = {
     render: render, openEditor: openEditor, openPicker: openPicker, reset: reset,
+    renderTemplates: renderTemplates, openTemplateSheet: openTemplateSheet, openApplySheet: openApplySheet, openSaveSheet: openSaveSheet,
     day: function () { return S.aid ? S.days[dayKey(S.aid, curWeek())] || 0 : 0; },
     // pure, for tests
     cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep, cpExpectedLoad: cpExpectedLoad,
-    cpWantsHint: cpWantsHint, cpModePatch: cpModePatch, cpModePatches: cpModePatches, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm, cpSaveLine: cpSaveLine
+    cpWantsHint: cpWantsHint, cpFitClass: cpFitClass, cpEveryChoices: cpEveryChoices, cpTplLine: cpTplLine, cpApplyLabel: cpApplyLabel, cpModePatch: cpModePatch, cpModePatches: cpModePatches, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm, cpSaveLine: cpSaveLine
   };
 })();

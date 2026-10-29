@@ -8125,7 +8125,8 @@ test('coach-written values are read as numbers, never markup', () => {
 });
 test('a day: its summary, rest days, the day to open', () => {
   eq(CPg.cpDayMeta({ name: 'Squat Day', exercises: [{ sets: [{}, {}] }, { sets: [{}] }] }), '2 exercises · 3 sets');
-  eq(CPg.cpDayMeta({ name: 'Rest', exercises: [] }), 'Rest');
+  eq(CPg.cpDayMeta({ name: 'Rest', exercises: [] }), '', 'a rest day says Rest once: its name, no meta saying it again');
+  eq(CPg.cpDayMeta({ name: 'Active recovery', exercises: [] }), '', 'the same for any rest-day name');
   eq(CPg.cpDayMeta({ name: 'Day 4', exercises: [] }), 'No exercises yet');
   eq(CPg.cpIsRestDay({ name: 'Active recovery', exercises: [] }), true, 'the builder’s rest heuristic');
   eq(CPg.cpIsRestDay({ name: 'Rest', exercises: [{ sets: [] }] }), false, 'a "rest" day with exercises trains');
@@ -8210,6 +8211,43 @@ test('the Programs picker: the last opened, then who needs you, then everyone by
   const many = Array.from({ length: 60 }, (_, i) => ({ id: 'l' + i, name: 'Lifter ' + (60 - i), prog: i % 2 ? 'Peak' : 'Base' }));
   const t0 = Date.now(); for (let k = 0; k < 50; k++) CPg.cpPickGroups(many, { current: 'l3', recent: ['l9', 'l1'], need: ['l5', 'l7', 'l11'], q: k % 2 ? 'peak' : '' });
   assert(Date.now() - t0 < 250, '60 lifters, 50 times over, well under a frame each');
+});
+test('a stepper value too wide for its cell: 17 first, then a range stacks its two ends', () => {
+  eq(CPg.cpFitClass('162.5–167.5', true), 'is-stack', 'a half-kilo range in a 375 or 393 pt cell');
+  eq(CPg.cpFitClass('@\u00a07.5–8.5', true), 'is-stack', 'an RPE range');
+  eq(CPg.cpFitClass('72.5–77.5%', true), 'is-stack', 'a % range');
+  eq(CPg.cpFitClass('162.5–167.5', false), 'is-tight', 'fits at 17: one line');
+  eq(CPg.cpFitClass('1002.5', true), 'is-tight', 'one number never stacks');
+  eq(CPg.cpFitClass('', true), 'is-tight');
+});
+test('the exercise ⋯: blocks written one way offer the other, blocks written both ways offer both', () => {
+  const C = (sets, main, cardio) => CPg.cpEveryChoices(sets, main, cardio).map(c => c.kind + (c.on ? '+' : '-')).join(' ');
+  eq(C([{ weight: 100 }, { weight: 90 }], true), 'pct+ rir+', 'all in kg and RPE: to % and to RIR');
+  eq(C([{ pct: 80 }, { pct: 70, rir: true }], true), 'pct- rir+ rir-', 'all in %: back to kg; effort mixed: both');
+  eq(C([{ weight: 180, rpe: 8 }, { pct: 70, rpe: 7 }], true), 'pct+ pct- rir+', 'a top set in kg over back-offs in %: both ways');
+  eq(C([{ rir: true, rpe: 8 }, { rir: true, rpe: 7 }], true), 'pct+ rir-', 'all as RIR: back to RPE');
+  eq(C([{ weight: 40, pct: 50 }], false), 'rir+', 'an accessory has no % of max');
+  eq(C([{ weight: 30 }], true, true), '', 'cardio: none');
+  eq(C([], true), '', 'nothing left to do: none');
+  eq(C([{ pct: '' }, { pct: 70 }], true), 'pct+ pct- rir+', 'an empty % is not a %');
+});
+test('Build from a goal: the total gain counts only lifts with a target', () => {
+  eq(goalTotalGain({ squat: 226.5, bench: 150, deadlift: 277.5 }, { squat: 240 }), 13.5, 'one target: its gain, not +-414');
+  eq(goalTotalGain({ squat: 200, bench: 150, deadlift: 250 }, { squat: 210, bench: 155, deadlift: 260 }), 25, 'all three');
+  eq(goalTotalGain({ squat: 200 }, { squat: 190 }), -10, 'a lower target is a drop');
+  eq(goalTotalGain({ bench: 0 }, { bench: 100 }), 0, 'no current number: nothing to count from');
+  eq(goalTotalGain({}, {}), 0);
+});
+test('Templates: a template’s line, and who Apply names', () => {
+  const t = { payload: { weeks: [{ days: [{ exercises: [{ sets: [{}] }] }, { exercises: [] }, { exercises: [{ sets: [] }] }] }, { days: [] }, { days: [] }] } };
+  eq(CPg.cpTplLine(t, 'Oct 29'), '3 weeks · 2 days a week · saved Oct 29', 'week 1’s training days; a rest day is not one');
+  eq(CPg.cpTplLine(t, ''), '3 weeks · 2 days a week', 'the row leaves the date to its sheet');
+  eq(CPg.cpTplLine({ payload: { weeks: [{ days: [{ exercises: [{}] }] }] } }, ''), '1 week · 1 day a week');
+  eq(CPg.cpTplLine({ payload: {} }, ''), '0 weeks', 'no weeks: says so');
+  eq(CPg.cpTplLine({ payload: { weeks: '<b>x</b>' } }, ''), '0 weeks', 'weeks are read as a list, never as markup');
+  eq(CPg.cpApplyLabel([]), 'Pick who gets it', 'nobody picked: the button says what it waits for');
+  eq(CPg.cpApplyLabel(['Arjun Mehta']), 'Apply to Arjun');
+  eq(CPg.cpApplyLabel(['Arjun Mehta', 'Tom Boyle', 'Nina Petrova']), 'Apply to 3 lifters');
 });
 test('the load hint: the top set, or a block with no load yet; never a later block with a load', () => {
   eq(CPg.cpWantsHint(0, { weight: 160 }), true, 'the first block, loaded: the top set');
