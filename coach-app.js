@@ -913,7 +913,7 @@
     var f = X.lead && X.lead[0], skip = f && f.job && /^(meet|meetday)$/.test(f.job.type) ? (f.rows || [f.r]).map(function (r) { return r.athlete.id; }) : [];
     return {
       t: t, range: range, week: W, lastWeek: LW, strip: strip, lastStrip: lastStrip, quiet: quiet, behind: behind,
-      strength: caTeamStrength(mom), line: line, effort: caEffortSplit(sets), lane: lane, groups: groups, countdown: caCountdown(groups, skip),
+      strength: caTeamStrength(mom), line: line, effort: caEffortSplit(sets), lane: lane, groups: groups, countdown: caCountdown(groups, skip), skip: skip,
       wins: wins, prs: wins.reduce(function (n, w) { return n + w.lifts.length; }, 0), roster: ids.length
     };
   }
@@ -1146,8 +1146,11 @@
     var who = C.ids.map(firstOf);
     var big = C.days <= 0 ? 'Today' : C.days === 1 ? 'Tomorrow' : C.days + ' days';
     var sub = nameList(who, 3);
-    if (C.skipped.length) sub += ' · ' + nameList(C.skipped.reduce(function (a, g) { return a.concat(g.ids.map(firstOf)); }, []), 2) + ' compete' + (C.skipped.reduce(function (n, g) { return n + g.ids.length; }, 0) === 1 ? 's' : '') + (C.skipped[0].days <= 0 ? ' today' : C.skipped[0].days === 1 ? ' tomorrow' : ' in ' + C.skipped[0].days + ' days');
-    else if (C.after) sub += ' · then ' + nameList(C.after.ids.map(firstOf), 1) + ' ' + (C.after.days === 1 ? 'tomorrow' : 'in ' + C.after.days + ' days');
+    // The meet Needs you leads with (Tom's, on the day) is said once, in its focal card above: the tile never adds
+    // "Tom competes today" under another meet (29 Oct, the owner's carry-over). What comes next still reads here,
+    // unless that is the focal card's meet too.
+    var said = function (g) { return !!g && S.skip && S.skip.length > 0 && g.ids.every(function (id) { return S.skip.indexOf(id) >= 0; }); };
+    if (C.after && !said(C.after)) sub += ' · then ' + nameList(C.after.ids.map(firstOf), 1) + ' ' + (C.after.days <= 0 ? 'today' : C.after.days === 1 ? 'tomorrow' : 'in ' + C.after.days + ' days');
     var faces = G.map(function (g, i) {
       var when = g.days <= 0 ? 'today' : g.days === 1 ? 'tomorrow' : 'in ' + g.days + ' days';
       var one = g.ids.length === 1, a = athleteOf(g.ids[0]);
