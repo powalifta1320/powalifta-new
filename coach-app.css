@@ -176,6 +176,11 @@ html:not(.desk) .ca-tic svg { width: 18px; height: 18px; }
 html:not(.desk) :is(.t-club, .t-clients, .t-you, .t-checkins, .t-msg, .t-tpl, .t-prog, .t-report, .t-neutral, .t-step) { --th: var(--text-2); }
 html:not(.desk) .t-meet { --th: var(--ca-gold); }
 html:not(.desk) .t-done { --th: var(--ca-live); }
+/* a status on a shared row (pain, over, missed, off pace: .ui-row-sub.alert) and a row's bad dot: the orange
+   triangle beside ink words, as everywhere on the coach phone (styles.css drew a coral, in light a brick red, dot) */
+html:not(.desk) body.powa-app .ui-row-sub.alert::before,
+html[data-theme="light"]:not(.desk) body.powa-app .ui-row-sub.alert::before { top: calc(0.7em - 4px); width: 9px; height: 8px; border-radius: 0; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+html:not(.desk) body.powa-app .ui-dot.bad { width: 9px; height: 8px; border-radius: 0; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 
 /* faces: an avatar inside its week ring. The ring is the lifter's lip: its filled segments (sessions this
    week) take their plate family; on plan they stay ink. The live dot sits still at the shoulder. */
