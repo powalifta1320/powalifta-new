@@ -900,26 +900,10 @@ html:not(.desk) body.powa-app .jr-no { position: relative; min-height: 44px; pad
 html:not(.desk) .jr-no:active { opacity: 0.55; }
 html:not(.desk) .jr-yes::after { inset: -4px -4px; }
 
-/* the Lifters tab with nobody yet (coach.html buildLiftersEmpty): the answer in plain words on the app's lit card, the
-   invite as the one red, the import as the quiet way; then what a lifter looks like here (the real rows, Sample) */
+/* the Lifters tab with nobody yet (coach.html buildLiftersEmpty): the first run's lit welcome card every tab shares
+   (coach-you.css .cy-fr: the answer, the invite as the one red, the import as the quiet way), then what a lifter looks
+   like here (the real rows, Sample). Its .le-* classes are hooks for the tab's flows; the card's look is the welcome's. */
 html:not(.desk) .le-wrap { padding-top: 4px; }
-html:not(.desk) .le-card {
-  display: flex; flex-direction: column; padding: 20px 16px 12px; border-radius: 20px;
-  background: radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%), var(--pl-obj);
-  border: 1px solid var(--pl-obj-edge); box-shadow: var(--pl-obj-shade);
-}
-html[data-theme="light"]:not(.desk) .le-card { background: var(--pl-obj); }
-html:not(.desk) .le-t { font-size: 28px; font-weight: 800; letter-spacing: -0.024em; line-height: 1.1; color: var(--text); text-wrap: balance; }
-html:not(.desk) .le-p { margin: 8px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
-html:not(.desk) .le-card .le-go { margin-top: 20px; }
-html:not(.desk) body.powa-app .le-alt {
-  align-self: center; min-height: 44px; margin-top: 4px; padding: 0 16px; border: 0; border-radius: 999px; background: none;
-  color: var(--text) !important; font-family: inherit; font-size: 17px !important; font-weight: 600; letter-spacing: -0.01em; cursor: pointer; transition: opacity 140ms ease-out;
-}
-html:not(.desk) .le-alt:active { opacity: 0.55; }
-html:not(.desk) .le-sample .ca-h { margin-bottom: 4px; }
-html:not(.desk) .le-sample .fr-sample { opacity: 0.86; }
-html:not(.desk) .le-cap { margin: 10px 4px 0; font-size: 13px; line-height: 1.4; color: var(--text-3); text-wrap: pretty; }
 html:not(.desk) body.powa-app section[data-pane="athletes"] .le-wrap ~ #invitesWrap, html:not(.desk) body.powa-app section[data-pane="athletes"] #invitesWrap.after-first-run { margin-top: 32px; }
 
 /* the invite sheet on the phone (coach.html openInviteModal): the share as the one red (the sheet rule above),

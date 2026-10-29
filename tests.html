@@ -117,6 +117,7 @@
 <script src="coach-app.js"></script>
 <script src="coach-program.js"></script>
 <script src="notify.js"></script>
+<script src="coach-you.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -8405,6 +8406,55 @@ group('data scale (index, memos, snapshot)');
       eq([...m.keys()].sort().join(), 'powa-outbox,powa-snapshot-not-a-uuid,powa-theme', 'signed out: mine go, the rest stay');
     });
   } finally { Store.set(saved); }
+})();
+
+/* ===========================================================
+   You and the first run (coach-you.js, 29 Oct): Your plan on You says "4 of 25" lifters, the bar's parts are
+   the plan's seats (an invite out holds one, as the database counts it), the line under it is the one that
+   matters next; the plan's status and date read the way Plan & billing's card reads them.
+   =========================================================== */
+group('you and the first run (coach-you.js)');
+(() => {
+  const CY = typeof CoachYou !== 'undefined' ? CoachYou : (window.CoachYou || null);
+  if (!CY) { skip('coach-you.js', 'not loaded'); return; }
+  test('Your plan: lifters of the plan, an invite out holding a seat, then the renewal', () => {
+    const m = CY.planModel({ athletes: 4, pending: 1, limit: 25, when: 'Renews 17 Nov' });
+    eq(m.big, 4); eq(m.of, 25); eq(m.unlimited, false); eq(m.room, 20);
+    close(m.used, 4 / 25, 1e-9); close(m.held, 1 / 25, 1e-9); close(m.cap, 1, 1e-9);
+    eq(m.foot, '1 invite out, holding a seat · Renews 17 Nov'); eq(m.footWarn, false);
+    eq(CY.planModel({ athletes: 1, pending: 2, limit: 10 }).foot, '2 invites out, holding seats');
+  });
+  test('Your plan: the room left, in lifters (a new coach reads 0 of 3)', () => {
+    const f = CY.planModel({ athletes: 0, pending: 0, limit: 3 });
+    eq(f.big, 0); eq(f.of, 3); eq(f.foot, 'Room for 3 more lifters'); eq(f.used, 0);
+    eq(CY.planModel({ athletes: 2, pending: 0, limit: 3 }).foot, 'Room for 1 more lifter');
+  });
+  test('Your plan: full and over are said with the triangle, and everyone stays', () => {
+    const full = CY.planModel({ athletes: 2, pending: 1, limit: 3 });
+    eq(full.full, true); eq(full.room, 0); eq(full.footWarn, true); eq(full.foot, 'Full: the next lifter needs a bigger plan');
+    const over = CY.planModel({ athletes: 5, pending: 0, limit: 3, when: 'Ended 2 Oct' });
+    eq(over.over, 2); eq(over.full, false); eq(over.footWarn, true);
+    eq(over.foot, 'Over by 2. Everyone stays; a new lifter needs a bigger plan · Ended 2 Oct');
+    close(over.used, 1, 1e-9, 'the bar spans everyone on it'); close(over.cap, 3 / 5, 1e-9, 'the plan ends 3 of 5 along');
+  });
+  test('Your plan: no limit has no bar and no room line', () => {
+    const u = CY.planModel({ athletes: 40, pending: 3, limit: 9999 });
+    eq(u.unlimited, true); eq(u.of, null); eq(u.room, null); eq(u.used, 0); eq(u.foot, '3 invites out, holding seats');
+    eq(CY.planModel({ athletes: 40, pending: 0, limit: 9999, when: 'Renews 1 Dec' }).foot, 'Renews 1 Dec');
+  });
+  test('the plan\'s status and date read as Plan & billing reads them', () => {
+    const d = (x) => x ? 'D' : '';
+    const pro = CY.planState({ subscriptionTier: 'pro', billingProvider: 'apple', subscriptionStatus: 'active', subscriptionPeriodEnd: '2026-11-17' }, 'pro', d);
+    eq(pro.label, 'Pro'); eq(pro.info.label, 'Active'); eq(pro.info.tone, 'ok'); eq(pro.when, 'Renews D');
+    const ending = CY.planState({ subscriptionTier: 'basic', billingProvider: 'ls', subscriptionStatus: 'cancelled', subscriptionPeriodEnd: '2026-11-17' }, 'basic', d);
+    eq(ending.when, 'Ends D, then Free'); eq(ending.info.tone, 'warn');
+    const lapsed = CY.planState({ subscriptionTier: 'pro', billingProvider: 'ls', subscriptionStatus: 'expired', subscriptionPeriodEnd: '2026-10-02' }, 'free', d);
+    eq(lapsed.lapsed, true); eq(lapsed.info.label, 'Ended'); eq(lapsed.when, 'Ended D'); eq(lapsed.label, 'Free');
+    const comp = CY.planState({ subscriptionTier: 'premium' }, 'premium', d);
+    eq(comp.comped, true); eq(comp.info.label, 'Complimentary'); eq(comp.when, '');
+    const free = CY.planState({}, 'free', d);
+    eq(free.info, null); eq(free.when, ''); eq(free.label, 'Free');
+  });
 })();
 
 /* ===========================================================

@@ -441,7 +441,7 @@ var Challenges = (function () {
       nb.addEventListener('click', function () { openNew(); });
       acts.appendChild(nb);
     } else if (typeof root.openInviteModal === 'function') {
-      var inv = E('button', { type: 'button', class: 'chl-btn' }, 'Invite a lifter');
+      var inv = E('button', { type: 'button', class: 'chl-btn is-invite' }, 'Invite a lifter');   // a first run's one action (coach-you.css: the crimson)
       inv.addEventListener('click', function () { root.openInviteModal(); });
       acts.appendChild(inv);
     }

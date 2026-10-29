@@ -33,6 +33,7 @@
 <link rel="stylesheet" href="challenges.css"><!-- COACH CHALLENGES: the challenge card, its board and New challenge (challenges.js) -->
 <link rel="stylesheet" href="coach-app.css"><!-- the iPhone app's coach screens (28 Oct): Home, Lifters, a lifter, Programs (coach-app.js, coach-program.js); never the laptop desk -->
 <link rel="stylesheet" href="notify.css"><!-- ALLOW NOTIFICATIONS: the card for coach Home (notify.js) -->
+<link rel="stylesheet" href="coach-you.css"><!-- the iPhone app's You and every tab's first run (29 Oct, coach-you.js); never the laptop desk -->
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 </head>
@@ -394,6 +395,7 @@
 <script src="coach-lifters.js"></script><!-- Lifters: everyone then one (desk Roster + the phone Lifters tab and its lifter page) -->
 <script src="coach-app.js"></script><!-- The iPhone app's coach screens (28 Oct): Home, the Lifters hub, a lifter's card (CoachApp); phone only -->
 <script src="coach-program.js"></script><!-- The iPhone app's Programs: one day per page, sets you read like Train, an editor sheet with steppers (CoachProgram); phone only -->
+<script src="coach-you.js"></script><!-- The iPhone app's You (Your plan, Get set up) and the brand-new coach's first run on Lifters, Messages and Programs (CoachYou); phone only -->
 <script src="weekly-note.js"></script><!-- The week's note (Today's queue on the laptop, a lifter's page on the phone), saved replies, message everyone -->
 <script src="coach-report.js"></script><!-- The coach's week: one core for Last week's report, the Monday push + email and the Thursday check (a byte-identical copy runs in the send-weekly-digest edge function) -->
 <script src="coach-report-ui.js"></script><!-- Last week's report: a sheet on the phone, a card on the laptop (Today › This week, Lifters › This week, Settings › Notifications, the Monday push ?report=week) -->
@@ -560,35 +562,39 @@ function _coachReady() {
 // ONBOARDING TOUR — coach flow
 // =========================================================
 function maybeStartCoachTour() {
+  // The tabs in the bar's order (Home, Lifters, Messages, Programs, You), in the coach's words: a brand-new coach's
+  // first minute on the phone (29 Oct; it used to name a Roster tab and athletes, and skipped Home).
+  const go = (tab) => () => { const t = document.getElementById('tab-' + tab); if (t) t.click(); };
   const steps = [
     {
-      selector: '#tab-athletes',
-      title: 'Your roster lives here',
-      body: 'Every athlete you coach shows up in the Roster tab. From here you generate invite codes, see who logged today, and drill into anyone\'s training.',
-      before: () => { const t = document.getElementById('tab-athletes'); if (t) t.click(); }
+      selector: '#tab-home',
+      title: 'Who needs you, first',
+      body: 'Home is your team\'s week: who needs you first with the fix beside it, then meets and PRs. It fills in as your lifters train.',
+      before: go('home')
     },
     {
       selector: '#btn-invite',
-      title: 'Invite your first athlete',
-      body: 'Tap this to generate a 6-character invite code. Send it to your athlete via text/email/IG. They sign up with that code and join your roster automatically.'
-    },
-    {
-      selector: '#tab-program',
-      title: 'Build their training',
-      body: 'Pick an athlete, build their program week-by-week. Top sets, back-down sets, accessories: full PL coverage with RPE-native programming.',
-      before: () => { const t = document.getElementById('tab-program'); if (t) t.click(); }
-    },
-    {
-      selector: '#tab-you',
-      title: 'Progress, templates, settings',
-      body: 'Each athlete\'s e1RM trends, PRs and check-ins live under You → Lifter progress, next to your templates and plan.',
-      before: () => { const t = document.getElementById('tab-you'); if (t) t.click(); }
+      title: 'Bring in your lifters',
+      body: 'Tap + to send a lifter their own link. They sign up with it and land here, on your roster.',
+      before: go('athletes')
     },
     {
       selector: '#tab-messages',
-      title: 'Message your roster',
-      body: 'Every athlete conversation in one place, plus their form-check videos. Pick a name to open the thread and reply. They get it on their dashboard and as a push.',
-      before: () => { const t = document.getElementById('tab-messages'); if (t) t.click(); }
+      title: 'Every lifter, one thread',
+      body: 'What they write beside what they lifted: their logged sets arrive as cards you can answer, form checks too.',
+      before: go('messages')
+    },
+    {
+      selector: '#tab-program',
+      title: 'Write their training',
+      body: 'A lifter\'s block, a day at a time: top sets and back-offs by RPE or %. They see it on Train the moment you save.',
+      before: go('program')
+    },
+    {
+      selector: '#tab-you',
+      title: 'Your account',
+      body: 'Your profile, plan, branding and notifications, with check-in questions and templates. Replay this tour under Help on You.',
+      before: go('you')
     },
   ];
   // Apple 3.1.1: this step names the free tier + an "upgrade" path AND points at
@@ -597,8 +603,8 @@ function maybeStartCoachTour() {
     steps.push({
       selector: '#planPill',
       title: 'Your plan',
-      body: 'Free tier covers 3 athletes. When you grow past that, click here anytime to upgrade. Tap "Show tour again" in settings to replay this walkthrough.',
-      before: () => { const t = document.getElementById('tab-athletes'); if (t) t.click(); }
+      body: 'Free covers 3 lifters. When you grow past that, upgrade here any time.',
+      before: go('athletes')
     });
   }
   startTour('coach', steps);
@@ -606,22 +612,33 @@ function maybeStartCoachTour() {
 window.maybeStartCoachTour = maybeStartCoachTour;
 window.replayCoachTour = () => { resetTour('coach'); maybeStartCoachTour(); };
 
-// YOU (coach) — roster numbers up top, then Coaching / Account rows.
+// YOU (coach): who you are, your plan, then Coaching / Settings / Help / your account, as grouped rows.
+// The phone (29 Oct, the approved look): the coach's own page, in the family of a lifter's. Their face and name on
+// the ground (no stats: Home owns the week's numbers), Edit profile as the quiet action, and for a brand-new coach
+// the invite as the one red. Your plan as one card ("4 of 25" lifters and its seats) where plans show at all; the
+// rows once each (Edit profile is the profile, the plan card is Plan & billing, the header's Ask is the assistant).
+// Log out and Delete account are ink: red is the logo and the one action (Delete account confirms in its own
+// sheet, where "Delete everything" is that sheet's one action).
 function renderCoachYou() {
   const area = document.getElementById('youArea');
   if (!area) return;
   // The laptop desk: Settings in two columns (desk.js). The phone keeps the You list.
-  area.classList.remove('dk-set');
+  area.classList.remove('dk-set', 'cy-you');
   if (_desk() && typeof deskRenderSettings === 'function') { deskRenderSettings(area); return; }
   const roster = getRosterOverview(user.id);
-  const activeWeek = roster.filter(r => r.ago != null && r.ago <= 7).length;
   const tier = getCurrentTier();
   const inShell = document.documentElement.classList.contains('native');
   const showPlan = !inShell || !!window._iapReady;
+  const fresh = !roster.length;
   const club = window.PowaClubs && PowaClubs.cachedName ? PowaClubs.cachedName() : null;
   const go = (tab) => () => { const t = document.getElementById('tab-' + tab); if (t) t.click(); };
   // A row renamed to say "lifter" (like the tab) keeps the icon its old label had in YOU_ROW_META.
   const rowIcon = (k) => (typeof YOU_ROW_META !== 'undefined' && YOU_ROW_META[k]) ? { icon: YOU_ROW_META[k].icon(), tint: YOU_ROW_META[k].tint } : {};
+  const svg = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+  const overdue = window.ClientsUI && roster.length ? ClientsUI.overdueCount() : 0;
+  const setup = fresh ? coachSetupSteps() : [];
+  // The shared Settings rows, each once: the profile is the hero's Edit profile, the plan is the plan card.
+  const settings = youSettingsRows('coach', () => renderCoachYou()).filter(r => r && r.label !== 'Profile' && !(window.CoachYou && r.label === 'Plan & billing'));
   renderYouHub(area, {
     name: user.name,
     avatarUrl: user.avatarUrl,
@@ -629,37 +646,43 @@ function renderCoachYou() {
     tiktok: user.tiktok,
     onAvatar: () => pickAvatar(() => renderCoachYou()),
     edit: () => openProfileSheet(() => renderCoachYou()),
-    sub: ['Coach', club].filter(Boolean).join(' · '),
-    // Nobody on the roster yet: no row of zeros, the setup steps instead (Coaching, first row).
-    stats: !roster.length ? [] : [
-      { label: 'Lifters', value: roster.length },
-      { label: 'Trained', value: activeWeek + '/' + roster.length, unit: '' },
-      showPlan ? { label: 'Plan', value: (TIER_LABELS && TIER_LABELS[tier]) || tier } : { label: 'Notes', value: (Store.get().sessionNotes || []).filter(n => roster.some(r => r.athlete.id === n.athleteId) && !n.coachComment).length }
-    ],
+    // The team's size under the name, unless the plan card below already says it ("4 of 25 lifters").
+    sub: ['Coach', roster.length && !(showPlan && window.CoachYou) ? roster.length + (roster.length === 1 ? ' lifter' : ' lifters') : null, club].filter(Boolean).join(' · '),
+    stats: [],
+    // Nobody on the roster yet: the invite is this screen's one red too (every tab of a first run has it).
+    primary: fresh ? { label: 'Invite a lifter', icon: svg('<path d="M12 5v14M5 12h14"/>'), onClick: () => openInviteModal() } : null,
+    afterHero: window.CoachYou ? CoachYou.planCard({ showPlan, onOpen: () => openPlanSheet() }) : null,
     groups: [
       { title: 'Coaching', rows: [
-        !roster.length ? { label: 'Get set up', value: coachSetupSteps().filter(x => x.done).length + ' of 3', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/></svg>', tint: 'gold', onClick: go('athletes') } : null,
-        window.ClientsUI && roster.length ? { label: 'Clients', value: ClientsUI.overdueCount() ? ClientsUI.overdueCount() + ' overdue' : '', icon: ClientsUI.ICON, tint: 'green', onClick: go('clients') } : null,
+        fresh ? { label: 'Get set up', value: setup.filter(x => x.done).length + ' of ' + setup.length, icon: svg('<path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/>'), tint: 'gold', onClick: () => (window.CoachYou ? CoachYou.openSetup() : go('athletes')()) } : null,
+        window.ClientsUI && roster.length ? { label: 'Clients', value: overdue ? overdue + ' overdue' : '', warn: !!overdue, icon: ClientsUI.ICON, tint: 'green', onClick: go('clients') } : null,
         // How many more lifters fit your hours (capacity.js): room left, in lifters.
         window.CapacityUI ? { label: 'Capacity', value: CapacityUI.rowValue(), icon: CapacityUI.ICON, tint: 'iris', onClick: go('capacity') } : null,
         Object.assign({ label: 'Lifter progress', onClick: go('progress') }, rowIcon('Athlete progress')),
-        { label: 'Check-in questions', value: String((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id && q.active !== false).length || ''), icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/></svg>', tint: 'blue', onClick: () => openCheckinQuestionsSheet() },
+        { label: 'Check-in questions', value: String((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id && q.active !== false).length || ''), icon: svg('<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/>'), tint: 'blue', onClick: () => openCheckinQuestionsSheet() },
         // How next week moves (progression.js): a screen of its own, pushed from here.
         window.ProgressionUI && roster.length ? { label: 'Progression rules', value: ProgressionUI.summary(), icon: ProgressionUI.ICON, tint: 'teal', onClick: go('rules') } : null,
         brandRow(tier, showPlan),
         { label: 'Templates', onClick: go('templates') },
         inShell ? null : { label: 'Marketplace listings', onClick: go('marketplace') },
-        Object.assign({ label: 'Invite a lifter', onClick: () => openInviteModal() }, rowIcon('Invite an athlete'))
+        // A brand-new coach has the invite as the red above: the row would say it twice.
+        fresh ? null : Object.assign({ label: 'Invite a lifter', onClick: () => openInviteModal() }, rowIcon('Invite an athlete'))
       ] },
-      { title: 'Settings', rows: youSettingsRows('coach', () => renderCoachYou()).concat([{ label: 'Refer a lifter', onClick: () => openReferralSheet() }]) },
+      { title: 'Settings', rows: settings.concat([{ label: 'Refer a lifter', onClick: () => openReferralSheet() }]) },
       { title: 'Help', rows: [
-        { label: 'Ask AI', onClick: () => openAIAssistant() },
-        { label: 'Replay the tour', onClick: () => window.replayCoachTour && window.replayCoachTour() },
-        { label: 'Help & support', onClick: () => openAIAssistant('support') }
+        { label: 'Help & support', onClick: () => openAIAssistant('support') },
+        { label: 'Replay the tour', onClick: () => window.replayCoachTour && window.replayCoachTour() }
       ] },
-      { title: '', rows: [ { label: 'Log out', tone: 'plain', onClick: () => logout() } ] }
+      { title: '', rows: [
+        { label: 'Log out', tone: 'plain', onClick: () => logout() },
+        { label: 'Delete account', tone: 'plain', icon: svg('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>'), tint: 'gray', onClick: () => deleteMyAccount() }
+      ] }
     ]
   });
+  // The approved look's entrance (coach-app.css .ca-rise): the page's pieces rise once, heaviest first, 40 ms apart.
+  // The rows rise with their group (the shared row-by-row entrance steps aside here: coach-you.css).
+  area.classList.add('cy-you');
+  Array.from(area.children).forEach((n, i) => { n.classList.add('ca-rise'); n.style.setProperty('--i', String(Math.min(i, 6))); });
 }
 window.renderCoachYou = renderCoachYou;
 
@@ -1099,7 +1122,7 @@ function openBrandSheet() {
   const canUpgrade = !document.documentElement.classList.contains('native') || !!window._iapReady;
   const st = { name: user.brandName || '', color: user.brandColor || null, logoUrl: user.brandLogoUrl || null };
   uiSheet('Branding', (sheet, close) => {
-    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, pro ? 'Your team name, logo and colour on your athletes\' app.' : 'Your team name, logo and colour on your athletes\' app. Set it up now: they see it once you\'re on Pro.'));
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, pro ? 'Your team name, logo and colour on your lifters\' app.' : 'Your team name, logo and colour on your lifters\' app. Set it up now: they see it once you\'re on Pro.'));
     // What Train looks like to them.
     const pv = el('div', { class: 'bs-preview', 'aria-label': 'Preview of your athletes\' Train screen' });
     const pvBrand = el('div', { class: 'bs-pv-brand' });
@@ -1183,7 +1206,7 @@ function openBrandSheet() {
       }
       user.brandName = fields.name; user.brandColor = fields.color; user.brandLogoUrl = fields.logoUrl;
       close();
-      toast(window._demoMode ? 'Saved in the demo' : pro ? 'Saved. Your athletes see it next time they open the app' : 'Saved. Your athletes see it once you\'re on Pro');
+      toast(window._demoMode ? 'Saved in the demo' : pro ? 'Saved. Your lifters see it next time they open the app' : 'Saved. Your lifters see it once you\'re on Pro');
       try { renderCoachYou(); } catch (e) {}
     });
     acts.appendChild(save);
@@ -1205,7 +1228,7 @@ function openCheckinQuestionsSheet() {
       const body = el('div', { class: 'ciq-body' });
       const qs = _myCheckinQs().slice().sort((a, b) => (a.position || 0) - (b.position || 0));
       if (!qs.length) {
-        body.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Your own questions, answered in seconds on Train: sleep, soreness, pain, anything. Daily or weekly, for everyone or for chosen athletes. Answers show on each athlete\'s sheet with averages.'));
+        body.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Your own questions, answered in seconds on Train: sleep, soreness, pain, anything. Daily or weekly, for everyone or for chosen lifters. Answers show on each lifter\'s page with averages.'));
         const starter = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Start with four good ones');
         starter.addEventListener('click', async () => {
           starter.disabled = true;
@@ -1221,7 +1244,7 @@ function openCheckinQuestionsSheet() {
         sheet.querySelector('.ciq-foot') ? sheet.insertBefore(body, sheet.querySelector('.ciq-foot')) : sheet.appendChild(body);
         return;
       }
-      body.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Your athletes answer these on Train. Tap one to change it.'));
+      body.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Your lifters answer these on Train. Tap one to change it.'));
       body.appendChild(uiList(qs.map(q => uiRow({
         title: q.prompt,
         sub: [CHECKIN_KINDS[q.kind] + (q.kind === 'choice' && q.choices ? ': ' + q.choices.join(', ') : ''), q.cadence === 'daily' ? 'Every day' : 'Every week', _ciWho(q), q.active === false ? 'Paused' : ''].filter(Boolean).join(' · '),
@@ -1475,32 +1498,15 @@ function buildCoachSetup() {
   card.appendChild(list);
   return card;
 }
-// The iPhone app's Lifters tab with nobody on it yet (the approved look): this tab is only about lifters (Home's
-// welcome carries the other first steps). The answer in plain words, the invite as the screen's one red, the client
-// list import as the quiet way, then what a lifter will look like here, drawn with the real rows and marked Sample.
-function _liftersEmptyOwn() { return !_desk() && document.documentElement.classList.contains('native') && !!(window.CoachApp && CoachApp.faceHtml); }
+// The iPhone app's Lifters tab with nobody on it yet (the approved look, 29 Oct): the first run's lit welcome card that
+// Messages and Programs open on too (coach-you.js), saying what this tab is for, the invite as the screen's one red
+// and the client list import as the quiet way; then what a lifter will look like here, drawn with the real rows
+// and marked Sample, and what the ring means. (The .le-* hooks are this tab's, the .cy-fr* ones the first run's.)
+function _liftersEmptyOwn() { return !_desk() && !!(window.CoachYou && CoachYou.liftersWelcome); }
 function buildLiftersEmpty() {
   const wrap = el('div', { class: 'ca-hub ca-root le-wrap' });
-  const card = el('div', { class: 'le-card ca-rise' });
-  card.appendChild(el('b', { class: 'le-t' }, 'Your lifters land here'));
-  card.appendChild(el('p', { class: 'le-p' }, 'Send a lifter your link. They get the app, sign up and show up on this list with their week.'));
-  const inv = el('button', { class: 'ca-btn is-red le-go', type: 'button', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Invite a lifter</span>' });
-  inv.addEventListener('click', () => openInviteModal());
-  card.appendChild(inv);
-  if (window.SwitchKit && SwitchKit.openIntake) {
-    const imp = el('button', { class: 'le-alt', type: 'button' }, 'Import a client list');
-    imp.addEventListener('click', () => SwitchKit.openIntake({ mode: 'roster' }));
-    card.appendChild(imp);
-  }
-  wrap.appendChild(card);
-  const sec = el('div', { class: 'ca-sec le-sample' });
-  const h = el('div', { class: 'ca-h' });
-  h.appendChild(el('h2', {}, 'How a lifter shows'));
-  h.appendChild(el('span', { class: 'ca-chip-sample' }, 'Sample'));
-  sec.appendChild(h);
-  sec.appendChild(buildRosterSample());
-  sec.appendChild(el('p', { class: 'le-cap' }, 'Worst first. The ring is their week: a mark for each session, lit when they train.'));
-  wrap.appendChild(sec);
+  const alt = (window.SwitchKit && SwitchKit.openIntake) ? { label: 'Import a client list', cls: 'le-alt', onClick: () => SwitchKit.openIntake({ mode: 'roster' }) } : null;
+  wrap.appendChild(CoachYou.liftersWelcome(buildRosterSample(), { alt: alt, own: true }));
   return wrap;
 }
 // The roster with athletes in it, drawn by the real components from a made-up week. Not tappable.
@@ -1896,7 +1902,7 @@ function renderRoster() {
   // One red per screen: once anyone is on the roster the header's + is a quiet circle like the
   // assistant and the bell beside it (coach-ui.css); with nobody yet it is the screen's red action.
   const inviteBtn = document.getElementById('btn-invite');
-  // (The phone's empty tab carries the invite as its red in the card, so the + stays quiet there too.)
+  // (The phone's empty tab carries the invite as its red in the first-run card, so the + stays quiet there too.)
   if (inviteBtn) inviteBtn.classList.toggle('is-quiet', overview.length > 0 || _liftersEmptyOwn());
 
   // Join requests (coach discovery) stay pinned at the top, even with no roster.
@@ -1910,6 +1916,9 @@ function renderRoster() {
     renderRosterTable(area);
     appendRosterExtras(area);
   } else if (!overview.length && _liftersEmptyOwn()) {
+    // The first run (29 Oct): the welcome card every tab of a first run shares (coach-you.js), the invite as the
+    // screen's one red and the client list import as the quiet way, then what Lifters becomes. The three setup
+    // steps live on Home (While you wait) and You (Get set up).
     area.appendChild(buildLiftersEmpty());
   } else if (!overview.length) {
     const fr = el('div', { class: 'fr-wrap' });
@@ -2498,6 +2507,14 @@ async function renderMessages(opts) {
 
   const roster = getRosterOverview(user.id).map(o => o.athlete);
   _msgAllBtn(roster.length > 0);
+  if (!roster.length && window.CoachYou) {
+    area.innerHTML = '';
+    // Nobody yet (29 Oct): the invite as the screen's one red, then a sample of the thread it becomes (coach-you.js).
+    const wrap = el('div', { class: 'fr-msgs' });
+    wrap.appendChild(CoachYou.messagesWelcome(_sampleThread()));
+    area.appendChild(wrap);
+    return;
+  }
   if (!roster.length) {
     area.innerHTML = '';
     // Nobody yet: a sample of the thread it becomes (a logged set arrives as a card), then the invite.
@@ -2957,7 +2974,7 @@ function populateAthleteSelect(selectId, onChange) {
   const myAthletes = s.athletes.filter(a => a.coachId === user.id);
   const cur = sel.value;
   sel.innerHTML = '';
-  if (!myAthletes.length) sel.appendChild(el('option', { value: '' }, 'No athletes yet'));
+  if (!myAthletes.length) sel.appendChild(el('option', { value: '' }, 'No lifters yet'));
   else {
     // The progress view gets a roster-wide overview as its default (empty value).
     if (selectId === 'progressAthlete') sel.appendChild(el('option', { value: '' }, 'Whole roster'));

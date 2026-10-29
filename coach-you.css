@@ -1,0 +1,218 @@
+/* coach-you.css: the coach iPhone app's You tab, its sheets, and the brand-new coach's first run on every tab
+   (29 Oct: the approved look, Plates, rolled out; coach-you.js). Loaded on coach.html after coach-app.css, and
+   every rule sits under html:not(.desk): the laptop desk never matches one. It reads coach-app.css's tokens
+   (--ca-card, --ca-edge, --pl-lip, --pl-inset, --ca-warn...) and its pieces (.ca-btn, .ca-welcome, .ca-lrow).
+
+   You is the coach's own page, in the family of a lifter's (coach-app.css .ca-ph): the face and the name on the
+   ground, Edit profile as the quiet action (a brand-new coach's invite above it as the red), Your plan as one
+   card, then the grouped rows on the coach scale (17 for a row, 13 under it, 20 for a group's title). Red is the
+   logo and the one action: Log out and Delete account are ink, an over or overdue is the orange triangle beside
+   an ink word, the two-factor "Off" is a plain word. Motion: the page's pieces rise once (.ca-rise), presses
+   answer on touch-down; nothing else moves. */
+
+/* =================================================================== YOU */
+/* the face and the name, centred on the ground under the screen's light */
+html:not(.desk) body.powa-app #youArea.cy-you .you-hero {
+  display: flex; flex-direction: column; align-items: center; margin: 0; padding: 4px 8px 0; overflow: visible;
+  background: none; border: 0; border-radius: 0; box-shadow: none; text-align: center;
+}
+html:not(.desk) body.powa-app #youArea.cy-you .you-head { flex-direction: column; align-items: center; gap: 0; margin: 0; }
+html:not(.desk) body.powa-app #youArea.cy-you .you-av {
+  width: 88px; height: 88px; font-family: var(--font-body); font-stretch: 100%; font-size: 28px; font-weight: 800; letter-spacing: -0.02em;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transition: transform var(--pl-d-press, 200ms) var(--pl-spring, ease-out);
+}
+html[data-theme="light"]:not(.desk) body.powa-app #youArea.cy-you .you-av { box-shadow: inset 0 0 0 1px rgba(15, 15, 25, 0.06); }
+html:not(.desk) body.powa-app #youArea.cy-you .you-av.is-tap:active { transform: scale(0.96); transition-duration: 90ms; transition-timing-function: ease-out; }
+html:not(.desk) body.powa-app #youArea.cy-you .you-av-cam { right: -2px; bottom: -2px; width: 30px; height: 30px; background: var(--pl-raise, #2c2c32); color: var(--text); box-shadow: 0 0 0 3px var(--bg); }
+html[data-theme="light"]:not(.desk) body.powa-app #youArea.cy-you .you-av-cam { box-shadow: 0 0 0 3px var(--bg), 0 1px 3px rgba(15, 15, 25, 0.18); }
+html:not(.desk) body.powa-app #youArea.cy-you .you-av-cam svg { width: 15px; height: 15px; }
+html:not(.desk) body.powa-app #youArea.cy-you .you-id { display: flex; flex-direction: column; align-items: center; min-width: 0; max-width: 100%; }
+html:not(.desk) body.powa-app #youArea.cy-you .you-id h2 {
+  margin: 12px 0 0; font-family: var(--font-body); font-stretch: 100%; font-size: 28px; font-weight: 800; letter-spacing: -0.024em; line-height: 1.1;
+  color: var(--text); text-wrap: balance; overflow-wrap: anywhere;
+}
+html:not(.desk) body.powa-app #youArea.cy-you .you-sub { margin-top: 6px; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: balance; }
+html:not(.desk) body.powa-app #youArea.cy-you .you-hero .social-chips { justify-content: center; margin-top: 12px; }
+html:not(.desk) body.powa-app #youArea.cy-you .you-hero .social-chips .ig-chip { width: 44px; height: 44px; }   /* a 44 pt target each */
+/* the actions: a brand-new coach's invite (the one red, full width), then Edit profile, the quiet one */
+html:not(.desk) body.powa-app #youArea.cy-you .you-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; margin-top: 20px; }
+html:not(.desk) body.powa-app #youArea.cy-you .you-primary { width: 100%; }
+html:not(.desk) body.powa-app #youArea.cy-you .you-action {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; width: auto; min-width: 156px; min-height: 44px; margin: 0; padding: 0 22px;
+  border: 0; border-radius: 999px; background: var(--pl-inset-2); box-shadow: none; color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -0.005em;
+  transition: transform var(--pl-d-press, 200ms) var(--pl-spring, ease-out), background-color 150ms ease-out;
+}
+html:not(.desk) body.powa-app #youArea.cy-you .you-action:active { transform: scale(0.96); background: var(--fill-4, rgba(255, 255, 255, 0.14)); transition-duration: 90ms; transition-timing-function: ease-out; }
+html[data-theme="light"]:not(.desk) body.powa-app #youArea.cy-you .you-action:active { background: rgba(15, 15, 25, 0.12); }
+
+/* Your plan: one card, one answer ("4 of 25" lifters), its seats as one bar, the line that matters next.
+   The card opens Plan & billing. */
+html:not(.desk) body.powa-app #youArea .cy-plan {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: 10px; width: 100%; margin: 0; padding: 16px 16px 16px;
+  background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip);
+  color: var(--text); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform var(--pl-d-press, 200ms) var(--pl-spring, ease-out);
+}
+html:not(.desk) body.powa-app #youArea .cy-plan:active { transform: scale(0.985); transition-duration: 90ms; transition-timing-function: ease-out; }
+html:not(.desk) body.powa-app #youArea .cy-plan:focus-visible { outline: 2px solid color-mix(in srgb, var(--acc) 70%, #fff); outline-offset: 2px; }
+html:not(.desk) .cy-plan-top { grid-column: 1; grid-row: 1; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-width: 0; }
+html:not(.desk) .cy-plan-name { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+html:not(.desk) .cy-plan-st { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--pl-inset); font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; }
+html:not(.desk) .cy-plan-st::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ca-live); }
+html:not(.desk) .cy-plan-st:is(.t-warn, .t-bad)::before { width: 9px; height: 8px; border-radius: 0; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+html:not(.desk) .cy-plan-go { grid-column: 2; grid-row: 1; display: grid; place-items: center; align-self: center; color: var(--text-3); }
+html:not(.desk) .cy-plan-go svg { width: 16px; height: 16px; }
+html:not(.desk) .cy-plan-num { grid-column: 1 / -1; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; }
+html:not(.desk) .cy-plan-num b {
+  font-family: var(--font-num); font-stretch: 112%; font-size: 44px; font-weight: 800; line-height: 0.9; letter-spacing: -0.04em; color: var(--text);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+html:not(.desk) .cy-plan-num small { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-2); font-variant-numeric: tabular-nums; }
+/* the seats: the lifters in ink, an invite out holding a seat in faint ink, the room left as the track */
+html:not(.desk) .cy-plan-bar { grid-column: 1 / -1; position: relative; display: block; height: 8px; margin-top: 4px; border-radius: 999px; background: var(--pl-inset-2); overflow: hidden; }
+html:not(.desk) .cy-plan-bar i { position: absolute; top: 0; bottom: 0; left: 0; width: calc(var(--w, 0) * 100%); }
+html:not(.desk) .cy-pb-used { background: var(--text); border-radius: 999px; }
+html:not(.desk) .cy-pb-held { left: calc(var(--x, 0) * 100%) !important; background: color-mix(in srgb, var(--text) 34%, transparent); }
+html:not(.desk) .cy-pb-cap { left: calc(var(--x, 0) * 100%) !important; width: 2px !important; margin-left: -1px; background: var(--ca-warn); }
+html:not(.desk) .cy-plan-foot { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 6px; font-size: 13px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
+html:not(.desk) .cy-plan-foot.is-warn { color: var(--text); }
+html:not(.desk) .cy-plan-foot.is-warn::before { content: ''; flex: none; width: 9px; height: 8px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); transform: translateY(-0.5px); }
+
+/* the groups: the coach scale's section title, one inset grouped list each */
+html:not(.desk) body.powa-app #youArea.cy-you .you-group { margin: 0; }
+html:not(.desk) body.powa-app #youArea.cy-you .you-group .yg-title {
+  margin: 32px 4px 12px; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; line-height: 1.2;
+  text-transform: none; color: var(--text);
+}
+html:not(.desk) body.powa-app #youArea.cy-you .you-group.no-title { margin-top: 32px; }
+html:not(.desk) body.powa-app #youArea.cy-you .yg-list { background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip); }
+/* a row: its glyph on a graphite chip, its name, the one value worth going there for, the chevron */
+html:not(.desk) body.powa-app #youArea.cy-you .you-row {
+  position: relative; display: flex; align-items: center; gap: 14px; min-height: 56px; padding: 10px 14px 10px 16px; border: 0;
+  font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); background: none;
+  transition: background-color 140ms ease-out;
+}
+html:not(.desk) body.powa-app #youArea.cy-you .yg-list .you-row:not(:last-child)::after { left: 62px; background: var(--ca-hair); }
+html:not(.desk) body.powa-app #youArea.cy-you .you-row:active { background: var(--ca-press); }
+html:not(.desk) body.powa-app #youArea.cy-you .you-row:active::after, html:not(.desk) body.powa-app #youArea.cy-you .you-row:has(+ .you-row:active)::after { opacity: 0; }
+html:not(.desk) body.powa-app #youArea.cy-you .yr-ic { width: 32px; height: 32px; border-radius: 10px; background: var(--pl-inset-2); color: var(--text-2); box-shadow: none; }
+html:not(.desk) body.powa-app #youArea.cy-you .yr-ic svg { width: 18px; height: 18px; }
+html:not(.desk) body.powa-app #youArea.cy-you .yr-label { flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; }
+html:not(.desk) body.powa-app #youArea.cy-you .yr-two { display: flex; flex-direction: column; gap: 2px; }
+html:not(.desk) body.powa-app #youArea.cy-you .yr-sub { font-size: 13px; font-weight: 400; letter-spacing: 0; line-height: 1.35; color: var(--text-3); }
+html:not(.desk) body.powa-app #youArea.cy-you .yr-value { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 500; letter-spacing: 0; color: var(--text-3); font-variant-numeric: tabular-nums; }
+html:not(.desk) body.powa-app #youArea.cy-you .yr-value:empty { display: none; }
+html:not(.desk) body.powa-app #youArea.cy-you :is(.yr-value, .yr-sub).is-warn { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
+html:not(.desk) body.powa-app #youArea.cy-you :is(.yr-value, .yr-sub).is-warn::before { content: ''; flex: none; width: 9px; height: 8px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+html:not(.desk) body.powa-app #youArea.cy-you .yr-chev { width: 16px; height: 16px; color: var(--text-3); }
+/* a keyboard's focus ring, in the screen's hue (inside a row, so the list's rounded edge never clips it) */
+html:not(.desk) body.powa-app #youArea.cy-you :is(.you-av, .you-action, .you-primary):focus-visible { outline: 2px solid color-mix(in srgb, var(--acc) 70%, #fff); outline-offset: 3px; }
+html:not(.desk) body.powa-app #youArea.cy-you .you-row:focus-visible { outline: 2px solid color-mix(in srgb, var(--acc) 70%, #fff); outline-offset: -3px; border-radius: 16px; }
+/* your account: Log out and Delete account, ink (red is the logo and the one action, never a word) */
+html:not(.desk) body.powa-app #youArea.cy-you .you-row.tone-plain .yr-label { color: var(--text); }
+@media (hover: hover) and (pointer: fine) {
+  html:not(.desk) body.powa-app #youArea.cy-you .you-row:hover { background: color-mix(in srgb, var(--text) 4%, var(--ca-card)); }
+}
+/* the entrance is the page's own (.ca-rise on each piece, coach-you.js): the shared one steps aside here */
+html:not(.desk) body.powa-app.screen-enter [data-pane]:not(.hidden) #youArea.cy-you :is(.ui-list > *, .ui-hero) { animation: none; }
+html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]):not([data-nav="carry-back"]) [data-pane]:not(.hidden) #youArea.cy-you .you-hero.ca-rise { animation: plRise var(--pl-d-state) var(--pl-spring) 0ms backwards; }
+
+/* =================================================================== THE FIRST RUN (every tab of a brand-new coach) */
+/* the card is Home's welcome (coach-app.css .ca-welcome); here it leads Lifters, Messages and Programs */
+html:not(.desk) .cy-fr-wrap { display: flex; flex-direction: column; min-width: 0; }
+html:not(.desk) .cy-fr .ca-welcome-t { margin-top: 8px; }
+html:not(.desk) .cy-fr .ca-hero-sub { text-wrap: pretty; }
+html:not(.desk) .cy-fr .ca-btn svg { width: 20px; height: 20px; }
+html:not(.desk) .cy-fr-sample { margin-top: 32px; }
+html:not(.desk) .cy-fr-h { margin-bottom: 12px; }
+html:not(.desk) .cy-fr-sample .fr-sample { gap: 0; }
+html:not(.desk) .cy-fr-cap { margin: 12px 4px 0; font-size: 13px; line-height: 1.4; color: var(--text-3); text-wrap: pretty; }
+html:not(.desk) .cy-fr-rows { margin-top: 20px; }
+/* the screen's one quiet alternative under the red (Lifters: Import a client list): a text button, 44 pt, never a
+   second fill; the card's foot tightens so the label sits where the padding was */
+html:not(.desk) .cy-fr:has(> .cy-fr-alt) { padding-bottom: 8px; }
+html:not(.desk) body.powa-app .cy-fr-alt {
+  display: block; min-height: 44px; margin: 4px auto 0; padding: 0 16px; border: 0; border-radius: 999px; background: none;
+  color: var(--text) !important; font-family: inherit; font-size: 17px !important; font-weight: 600; letter-spacing: -0.01em; cursor: pointer;
+  transition: opacity 140ms ease-out;
+}
+html:not(.desk) .cy-fr-alt:active { opacity: 0.55; }
+/* Messages: the sample thread under the card, its own Sample chip on the coach scale */
+html:not(.desk) .fr-msgs .cy-fr-wrap { max-width: none; }
+html:not(.desk) .cy-fr-sample .fr-thread { background: var(--ca-card); border-color: var(--ca-edge); box-shadow: var(--pl-lip); border-radius: 20px; }
+html:not(.desk) .cy-fr-sample .fr-chip { padding: 4px 10px; background: var(--pl-inset); color: var(--text-3); font-size: 13px; font-weight: 600; letter-spacing: 0; }
+/* Programs: the card in the Programs light (coach-app.css section[data-pane="program"] .cp-hero), its quiet row */
+html:not(.desk) .cp-empty.cy-fr-wrap .cp-hero.cy-fr { padding: 20px; }
+/* Lifters' header +: quiet while the card below carries the invite as the labelled red (coach.html renderRoster) */
+/* Home › Challenges with nobody to challenge: its one button is the invite, so it is the crimson (challenges.js) */
+html:not(.desk) body.powa-app .chl-acts .chl-btn.is-invite {
+  height: 52px; border: 0; border-radius: 999px; background: var(--crimson); color: var(--crimson-ink); font-size: 17px; font-weight: 650; letter-spacing: -0.01em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+  transition: transform var(--pl-d-press, 200ms) var(--pl-spring, ease-out), filter 160ms ease-out;
+}
+html:not(.desk) body.powa-app .chl-acts .chl-btn.is-invite:active { transform: scale(0.97); filter: brightness(0.92); transition-duration: 90ms; transition-timing-function: ease-out; }
+
+/* =================================================================== YOU'S SHEETS */
+/* Get set up: the three steps, numbered; the one still to do next reads first */
+html:not(.desk) .cy-setup-sheet .cy-steps { margin-top: 4px; }
+html:not(.desk) .cy-setup-sheet .cy-step-n { font-size: 15px; font-weight: 700; color: var(--text); background: var(--pl-inset-2); font-variant-numeric: tabular-nums; }
+html:not(.desk) .cy-setup-sheet .cy-step.is-done .cy-step-n { color: var(--ca-live); background: color-mix(in srgb, var(--ca-live) 15%, transparent); }
+html:not(.desk) .cy-setup-sheet .cy-step.is-done .ca-lrow-t { color: var(--text-2); }
+html:not(.desk) .cy-setup-sheet .cy-step.is-next .cy-step-n { color: var(--bg); background: var(--text); }
+
+/* the settings sheets on the coach scale: a group's label 13, a row 17 over 13, the notes 13 */
+html:not(.desk) body.powa-app .settings-sheet .email-pref-row .epr-label { font-size: 17px; letter-spacing: -0.01em; }
+html:not(.desk) body.powa-app .settings-sheet .email-pref-row .epr-sub { font-size: 13px; }
+html:not(.desk) body.powa-app .settings-sheet .email-pref-row { min-height: 60px; }
+/* Security: two-factor's state is a word, never a red one (Off is a choice; On keeps the green of done) */
+html:not(.desk) body.powa-app .settings-sheet .mfa-state[style*="brand-red"] { color: var(--text-2) !important; font-weight: 600; }
+/* Your data: deleting the account is a quiet button with its line above it; its own sheet asks, with the red */
+html:not(.desk) body.powa-app .settings-sheet .set-danger { border-top-color: var(--ca-hair); }
+html:not(.desk) body.powa-app .settings-sheet .set-danger p { font-size: 13px; color: var(--text-2); }
+html:not(.desk) body.powa-app .settings-sheet .set-danger .btn-danger { min-height: 52px; border: 0; border-radius: 999px; background: var(--pl-inset-2); color: var(--text); font-size: 17px; font-weight: 600; box-shadow: none; }
+html:not(.desk) body.powa-app .settings-sheet .set-danger .btn-danger:active { background: var(--fill-4, rgba(255, 255, 255, 0.14)); transform: scale(0.97); }
+/* Refer a lifter: the sheet's title says it once (the card's own label steps aside); the progress in ink */
+html:not(.desk) body.powa-app .settings-sheet .set-sheet-box:has(#refLinkInput) > p.text-sm:first-child { display: none; }
+html:not(.desk) body.powa-app .settings-sheet .set-sheet-box:has(#refLinkInput) > p.text-xs { margin-top: 4px; font-size: 15px; line-height: 1.4; color: var(--text-2); }
+html:not(.desk) body.powa-app .settings-sheet #refList [style*="brand-red"] { background: var(--text) !important; }
+html:not(.desk) body.powa-app .settings-sheet #refList { font-size: 13px; }
+html:not(.desk) body.powa-app .settings-sheet #refLinkInput { min-height: 44px; border-radius: 12px; }
+html:not(.desk) body.powa-app .settings-sheet #refCopyBtn { min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--pl-inset-2); color: var(--text); font-size: 15px; font-weight: 600; }
+/* Plan & billing: the plan's name on the scale, its status a word with its mark, the trouble line in ink */
+html:not(.desk) body.powa-app .settings-sheet .plan-card-tier { font-family: var(--font-body); font-stretch: 100%; font-size: 28px; font-weight: 800; letter-spacing: -0.024em; }
+html:not(.desk) body.powa-app .settings-sheet .plan-card-badge { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border: 0; background: var(--pl-inset); color: var(--text); font-size: 13px; font-weight: 600; }
+html:not(.desk) body.powa-app .settings-sheet .plan-card-badge::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ca-live); }
+html:not(.desk) body.powa-app .settings-sheet .plan-card-badge:is(.tone-warn, .tone-bad)::before { width: 9px; height: 8px; border-radius: 0; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+html:not(.desk) body.powa-app .settings-sheet .plan-card-lines p { font-size: 15px; line-height: 1.45; color: var(--text-2); }
+html:not(.desk) body.powa-app .settings-sheet .plan-card-problem { display: flex; gap: 8px; color: var(--text); font-size: 13px; }
+html:not(.desk) body.powa-app .settings-sheet .plan-card-problem::before { content: ''; flex: none; width: 9px; height: 8px; margin-top: 5px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+html:not(.desk) body.powa-app .settings-sheet .plan-card-note { font-size: 13px; }
+html:not(.desk) body.powa-app .settings-sheet .plan-card-actions .btn { min-height: 52px; border-radius: 999px; font-size: 15px; font-weight: 600; }
+/* the plan picker (the App Store's, or the web's): the popular plan is named by its badge and its edge, with no red
+   wash behind it; the badge is the graphite chip, the plan's own button the one crimson */
+html:not(.desk) body.powa-app :is(#iapPaywallModal, #upgradeModal) .upgrade-tier.featured { background: var(--bg-2); }
+html:not(.desk) body.powa-app :is(#iapPaywallModal, #upgradeModal) .upgrade-badge { top: -12px; padding: 4px 12px; background: var(--text); color: var(--bg); font-size: 11px; letter-spacing: 0.02em; }
+html:not(.desk) body.powa-app :is(#iapPaywallModal, #upgradeModal) .upgrade-tier.current { background: var(--bg-2); }
+/* Branding and Check-in questions: their labels on the scale */
+html:not(.desk) body.powa-app .brand-sheet .bs-label { font-size: 13px; }
+html:not(.desk) body.powa-app .brand-sheet .bs-pv-btn { height: 52px; font-weight: 650; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
+html:not(.desk) body.powa-app .brand-sheet .bs-hint { font-size: 13px; }
+
+/* Delete account: one sheet, one red. Its words on the scale, Cancel the quiet button, "Delete everything" the
+   crimson once DELETE is typed (dim until then, so the red is never offered before the answer). */
+html:not(.desk) body.powa-app #deleteAccountModal .modal h3 { font-family: var(--font-body); font-stretch: 100%; font-size: 22px; font-weight: 750; letter-spacing: -0.02em; text-transform: none; }
+html:not(.desk) body.powa-app #deleteAccountModal .modal :is(p.text-sm, p.text-xs, label.text-xs) { font-size: 15px !important; }
+html:not(.desk) body.powa-app #deleteAccountModal .modal div > p.text-xs { font-size: 13px !important; }
+html:not(.desk) body.powa-app #deleteAccountModal .modal [style*="--red"] { color: var(--text) !important; }
+html:not(.desk) body.powa-app #deleteAccountModal .modal input#delAcctInput { min-height: 48px; font-size: 17px; letter-spacing: 0.08em; }
+html:not(.desk) body.powa-app #deleteAccountModal .modal .btn { min-height: 52px; border-radius: 999px; font-size: 17px; font-weight: 600; }
+html:not(.desk) body.powa-app #deleteAccountModal .modal .btn:not(.btn-danger) { border: 0; background: var(--pl-inset-2); color: var(--text); box-shadow: none; }
+html:not(.desk) body.powa-app #deleteAccountModal .modal .btn-danger { border: 0; background: var(--crimson); color: var(--crimson-ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
+html:not(.desk) body.powa-app #deleteAccountModal .modal .btn-danger:disabled { background: var(--pl-inset-2); color: var(--text-3); box-shadow: none; opacity: 1; }
+html:not(.desk) body.powa-app #deleteAccountModal #delAcctError { color: var(--text) !important; font-size: 13px; }
+
+/* =================================================================== REDUCED MOTION */
+@media (prefers-reduced-motion: reduce) {
+  html:not(.desk) body.powa-app #youArea.cy-you :is(.you-av, .you-action, .cy-plan):active { transform: none !important; }
+}
