@@ -2873,7 +2873,7 @@ function openInviteModal() {
 
     // Email, for coaches who'd rather send it from here.
     sheet.appendChild(el('div', { class: 'inv-or' }, 'Or email it'));
-    const mail = el('input', { type: 'email', class: 'inv-mail', placeholder: 'athlete@email.com', autocomplete: 'email', 'aria-label': 'Athlete email' });
+    const mail = el('input', { type: 'email', class: 'inv-mail', placeholder: 'lifter@email.com', autocomplete: 'email', 'aria-label': 'Lifter’s email' });
     const send = el('button', { class: 'btn btn-lg ui-btn-soft', type: 'button' }, 'Send');
     const mailRow = el('div', { class: 'inv-mail-row' }, mail, send);
     const status = el('p', { class: 'inv-status', role: 'status' });
