@@ -19,6 +19,17 @@ failure) — open `tests.html` in a browser for the full count.
 
 Good for a pre-commit / CI gate on the shared logic in `app.js`.
 
+## Sessions in a URL (no dependencies)
+
+Which sign-in sessions in an address db.js lets supabase-js take (login CSRF, security sweep of
+28 Oct): this tab's own Apple/Google return yes, a reset link only on reset-password.html (its own
+unsaved client), anything else refused and cleaned out of the address. db.js runs in a vm against a
+stub client, so nothing reaches Supabase.
+
+```bash
+node test/url-session.test.cjs
+```
+
 ## Coach alerts and the Monday report (no dependencies)
 
 The report's core (`coach-report.js`, and that its copy in `supabase/functions/_shared` is
@@ -30,6 +41,17 @@ dry runs that write nothing, the coach report's push and email, the Thursday pus
 node test/coach-report.test.mjs
 node test/coach-jobs.test.mjs
 node test/send-weekly-digest.test.mjs
+```
+
+## Two-factor in the edge functions (no dependencies)
+
+The eight functions that act for a signed-in user, run for real under Node with the supabase client,
+web-push, jose and fetch faked: an account with a verified authenticator gets 403 `aal2_required` at
+aal1 (or with no or unreadable claims) and nothing else happens; at aal2, and for accounts without a
+verified factor, every function answers exactly as it does without the guard.
+
+```bash
+node test/edge-aal.test.mjs
 ```
 
 ## Mobile overflow check (needs puppeteer)

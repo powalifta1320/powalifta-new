@@ -6,16 +6,45 @@
 // until they say so, and nothing is kept on the server.
 // The demo (?demo=1) reads a bundled sample (demo-media/sample-program.jpg) with a canned result, so a
 // pitch works offline and never calls the function.
+// IMPORTS (2026-10-28): a few files in a row (Everfit prints one workout per PDF): read one after another at
+// the reader's pace (3 a minute, 15 a day per coach: program-read), lined up by day and week (mergeReads);
+// a spreadsheet chosen here goes to the import intake (SwitchKit.openIntake, import-ui.js), and a program
+// read from a spreadsheet comes back into this same check (openReview({ read, source })).
 (function () {
   'use strict';
 
-  var MAX_SIDE = 2000, JPEG_Q = 0.85, MAX_SEND = 6 * 1024 * 1024, MAX_PICK = 40 * 1024 * 1024;
+  var MAX_SIDE = 2000, JPEG_Q = 0.85, MAX_SEND = 6 * 1024 * 1024, MAX_PICK = 40 * 1024 * 1024, MAX_FILES = 8;
+  var SHEET_FILE = /\.(csv|tsv|txt|xlsx|xlsm|xls|ods|numbers|zip|json)$/i;
+  var SENT = [];   // when this page last sent files to the reader (its burst limit is 3 a minute)
   var TYPES = /^(image\/(jpeg|png|webp|heic|heif|gif)|application\/pdf)$/i;
   var SAMPLE_IMG = 'demo-media/sample-program.jpg';
   var IC_PHOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M21 15.5l-4.6-4.6a1.5 1.5 0 0 0-2.1 0L5.5 19.5"/></svg>';
   var IC_DOC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>';
+  var IC_SHEET = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M3.5 15h17M9.5 4v16"/></svg>';
   var IC_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
+  // The new parts of the check (several files, a spreadsheet as the source); coach-ui.css styles the rest.
+  function ensureCss() {
+    if (document.getElementById('pp-more-style')) return;
+    var st = document.createElement('style'); st.id = 'pp-more-style';
+    st.textContent = [
+      '.pp-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px}',
+      '.pp-pager span{font-size:13px;font-weight:600;color:var(--text-2);font-variant-numeric:tabular-nums}',
+      '.pp-pager button{display:grid;place-items:center;width:36px;height:36px;border:0;border-radius:50%;background:var(--ch-fill-3,rgba(255,255,255,.08));color:var(--text);cursor:pointer}',
+      '.pp-pager button:disabled{opacity:.4;cursor:default}',
+      '.pp-pager svg{width:16px;height:16px}',
+      '.pp-readnotes{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--ch-warn,#ffb35c) 12%,transparent);color:var(--text);font-size:14px;line-height:1.45}',
+      '.pp-readnotes p{margin:0}.pp-readnotes p+p{margin-top:4px}',
+      '.pp-sheet.is-sheet .pp-pic{max-height:none}',
+      '.pp-sheet.is-sheet .pp-file{padding:14px 16px}',
+      /* the name field fills its row, so the row is the tap target; the picked week reads in light too (--bg-0 isn't a token) */
+      '.pp-sheet .pp-namerow{padding-top:0;padding-bottom:0}',
+      '.pp-sheet .pp-namerow input.pp-pname{min-height:44px;padding:10px 0}',
+      '.pp-sheet .pp-weeks button.on{color:var(--bg,#0b0b0c)}',
+      '@media (prefers-reduced-motion:reduce){.pp-pager button{transition:none}}'
+    ].join('\n');
+    (document.head || document.documentElement).appendChild(st);
+  }
   function isDeskNow() { return typeof isDesk === 'function' && isDesk(); }
   function clean(v, n) { return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n || 200).trim(); }
   function nid(p) { return typeof uid === 'function' ? uid(p) : p + Math.random().toString(36).slice(2, 10); }
@@ -103,6 +132,61 @@
     return { weeks: weeks, stats: stats };
   }
 
+  // Several reads (a few files in a row) → one read. Days line up by name: a day already filled in a week
+  // puts its next copy in the following week (a PDF per workout, or a PDF per week of the same days); a day
+  // not seen yet joins the list. A file of several weeks keeps them. The unsure marks follow their day.
+  function mergeReads(reads) {
+    reads = (reads || []).filter(function (r) { return r && Array.isArray(r.days); });
+    if (!reads.length) return null;
+    if (reads.length === 1) return reads[0];
+    var out = { name: reads[0].name || '', unit: reads[0].unit === 'lb' ? 'lb' : 'kg', weeks: 1, days: [], unsure: [] };
+    var key = function (n) { return String(n || '').trim().toLowerCase().replace(/\s+/g, ' '); };
+    var filled = {};
+    reads.forEach(function (r) {
+      var widest = 0;
+      r.days.forEach(function (d) { ((d && d.exercises) || []).forEach(function (e) { if (e && Array.isArray(e.cells)) widest = Math.max(widest, e.cells.length); }); });
+      var w = Math.max(1, Math.min(16, Math.round(Number(r.weeks)) || widest || 1));
+      var where = {};   // this read's 'day.exercise' (1-based) → the merged one
+      r.days.forEach(function (d, di) {
+        if (!d) return;
+        var k = key(d.name) || 'day ' + (di + 1);
+        var day = null;
+        for (var x = 0; x < out.days.length; x++) if (out.days[x]._k === k) day = out.days[x];
+        if (!day) { day = { _k: k, name: d.name || 'Day ' + (out.days.length + 1), exercises: [] }; out.days.push(day); }
+        var at = filled[k] || 0, seen = {};
+        ((d.exercises) || []).forEach(function (e, ei) {
+          if (!e) return;
+          var ek = key(e.name), occ = seen[ek] = (seen[ek] || 0) + 1;
+          var same = day.exercises.filter(function (z) { return z._k === ek; });
+          var row = same[occ - 1];
+          if (!row) { row = { _k: ek, name: e.name, note: e.note || '', cells: [] }; day.exercises.push(row); }
+          if (!row.note && e.note) row.note = e.note;
+          for (var c = 0; c < w; c++) row.cells[at + c] = Array.isArray(e.cells) ? (e.cells[c] || '') : '';
+          where[(di + 1) + '.' + (ei + 1)] = { day: out.days.indexOf(day) + 1, exercise: day.exercises.indexOf(row) + 1, at: at };
+        });
+        filled[k] = at + w;
+      });
+      (Array.isArray(r.unsure) ? r.unsure : []).forEach(function (u) {
+        var m = u && where[(Number(u.day) || 0) + '.' + (Number(u.exercise) || 0)];
+        if (m) out.unsure.push({ day: m.day, exercise: m.exercise, week: Number(u.week) > 0 ? m.at + Number(u.week) : 0, why: u.why });
+      });
+    });
+    Object.keys(filled).forEach(function (k) { out.weeks = Math.max(out.weeks, filled[k]); });
+    out.weeks = Math.min(16, out.weeks);
+    out.days.forEach(function (d) {
+      delete d._k;
+      d.exercises.forEach(function (e) { delete e._k; for (var c = 0; c < out.weeks; c++) if (e.cells[c] == null) e.cells[c] = ''; e.cells.length = out.weeks; });
+    });
+    return out;
+  }
+  // How long to wait before the next file goes to the reader (it takes 3 a minute): 0, or until the
+  // oldest of the last three sends is a minute old, plus a second spare. sent: times in ms.
+  function readWait(sent, now) {
+    var recent = (sent || []).filter(function (t) { return now - t < 60000; }).sort(function (a, b) { return a - b; });
+    if (recent.length < 3) return 0;
+    return Math.max(0, recent[recent.length - 3] + 61000 - now);
+  }
+
   // ===================================================================== the file
   function fileToB64(blob) {
     return new Promise(function (res, rej) {
@@ -155,17 +239,27 @@
     var tile = el('div', { class: 'pp-pick' + (demo ? ' is-demo' : '') });
     var ic = el('span', { class: 'pp-pick-ic', html: IC_PHOTO });
     var main = el('div', { class: 'pp-pick-main' });
-    main.appendChild(el('b', { class: 'pp-pick-t' }, 'From a photo or screenshot'));
+    main.appendChild(el('b', { class: 'pp-pick-t' }, 'From a photo, a PDF or a file'));
     main.appendChild(el('span', { class: 'pp-pick-s' }, demo
-      ? 'With your account it reads your own photo, screenshot or PDF. Here, try a sample.'
-      : 'A screenshot, a photo of a printout, or a PDF. You check every number before it\'s saved.'));
+      ? 'With your account it reads your own photos, PDFs and spreadsheet files. Here, try a sample.'
+      : 'Screenshots, photos of a printout or PDFs (a few at once), or a spreadsheet file. You check every number before it\'s saved.'));
     var acts = el('div', { class: 'pp-pick-acts' });
-    var input = el('input', { type: 'file', accept: 'image/*,application/pdf,.pdf,.heic,.heif', hidden: '', 'aria-label': 'Choose a photo, screenshot or PDF of a program' });
-    var go = function (file) {
-      if (!file) return;
+    var input = el('input', { type: 'file', multiple: '', accept: 'image/*,application/pdf,.pdf,.heic,.heif,.csv,.tsv,.txt,.xlsx,.xlsm,.ods,.zip,.json,.xls,.numbers',
+      hidden: '', 'aria-label': 'Choose photos, PDFs or a spreadsheet file of a program' });
+    var go = function (list) {
+      var files = [].slice.call(list && list.length != null ? list : (list ? [list] : [])).filter(Boolean);
+      if (!files.length) return;
       if (demo) { toast('In the demo, try the sample. With your account it reads your own'); return; }
+      // A spreadsheet (or a zip, a .json) is read by the import intake: a grid of weeks comes back here.
+      var sheetFile = files.find(function (f) { return SHEET_FILE.test(f.name || '') || /csv|spreadsheet|excel|zip|json/i.test(f.type || ''); });
+      if (sheetFile && window.SwitchKit && SwitchKit.openIntake) {
+        if (opts.closeImport) opts.closeImport();
+        SwitchKit.openIntake({ mode: 'program', athleteId: opts.athleteId, files: [sheetFile] });
+        return;
+      }
       if (opts.closeImport) opts.closeImport();
-      openReview({ athleteId: opts.athleteId, file: file });
+      if (files.length > MAX_FILES) toast('Reading the first ' + MAX_FILES + ' files. Bring the rest in after these.', 3600);
+      openReview({ athleteId: opts.athleteId, files: files.slice(0, MAX_FILES) });
     };
     if (demo) {
       var sb = el('button', { class: 'btn ui-btn-soft pp-pick-btn', type: 'button' }, 'Read a sample program');
@@ -177,7 +271,7 @@
       cb.addEventListener('click', function () { input.click(); });
       acts.appendChild(cb);
       if (isDeskNow()) acts.appendChild(el('span', { class: 'pp-pick-hint' }, 'or drop it here, or paste it with ⌘V'));
-      input.addEventListener('change', function () { go(input.files && input.files[0]); input.value = ''; });
+      input.addEventListener('change', function () { go(input.files); input.value = ''; });
     }
     main.appendChild(acts);
     tile.insertBefore(ic, tile.firstChild);
@@ -191,16 +285,16 @@
       sheet.addEventListener('dragover', over);
       sheet.addEventListener('dragleave', function (e) { if (!sheet.contains(e.relatedTarget)) tile.classList.remove('is-over'); });
       sheet.addEventListener('drop', function (e) {
-        var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        var fs = e.dataTransfer && e.dataTransfer.files;
         tile.classList.remove('is-over');
-        if (f) { e.preventDefault(); go(f); }
+        if (fs && fs.length) { e.preventDefault(); go(fs); }
       });
       var onPaste = function (e) {
         if (!document.body.contains(sheet)) { document.removeEventListener('paste', onPaste); return; }
         var items = [].slice.call((e.clipboardData && e.clipboardData.items) || []);
         var hasText = items.some(function (it) { return it.kind === 'string' && it.type === 'text/plain'; });
         var img = items.find(function (it) { return it.kind === 'file' && /^image\//.test(it.type); });
-        if (img && !hasText) { e.preventDefault(); document.removeEventListener('paste', onPaste); go(img.getAsFile()); }
+        if (img && !hasText) { e.preventDefault(); document.removeEventListener('paste', onPaste); go([img.getAsFile()]); }
       };
       document.addEventListener('paste', onPaste);
     }
@@ -261,13 +355,39 @@
     var foot = el('div', { class: 'pp-foot' });
     sheet.appendChild(head); sheet.appendChild(body); sheet.appendChild(foot);
 
-    var file = null, draft = null, dirty = false;
+    var file = null, draft = null, dirty = false, pics = [], picAt = 0, readMeta = null, readNotes = [];
     ov.guard(function () { return !!draft; });
+    ensureCss();
 
     // ---- the picture ----
+    var legend = function () {
+      return el('p', { class: 'pp-legend', html: (file && file.kind === 'sheet' ? '' : '<b>Click the photo to zoom.</b> ') + 'Cells read like the builder: <code>3x5 @8</code> · <code>1x3 @8, 3x5 75%</code> · <code>4x6 140kg</code> · <code>3x8 2RIR</code> · <code>3x5 @7 tempo 3-1-0</code> · <code>4x3 70% paused 2s</code>. Leave a cell empty when it isn\'t done that week.' });
+    };
+    // Several files: one at a time, with a pager over it.
+    var paintPics = function () {
+      paintPic(pics[picAt]);
+      if (pics.length < 2) return;
+      var pager = el('div', { class: 'pp-pager' });
+      var prev = el('button', { type: 'button', 'aria-label': 'Previous file', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>' });
+      var next = el('button', { type: 'button', 'aria-label': 'Next file', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' });
+      if (picAt === 0) prev.disabled = true;
+      if (picAt >= pics.length - 1) next.disabled = true;
+      prev.addEventListener('click', function () { if (picAt > 0) { picAt--; paintPics(); } });
+      next.addEventListener('click', function () { if (picAt < pics.length - 1) { picAt++; paintPics(); } });
+      pager.appendChild(prev);
+      pager.appendChild(el('span', { 'aria-live': 'polite' }, 'File ' + (picAt + 1) + ' of ' + pics.length));
+      pager.appendChild(next);
+      pic.insertBefore(pager, pic.firstChild);
+    };
     var paintPic = function (f) {
       pic.innerHTML = '';
       if (!f) return;
+      if (f.kind === 'sheet') {
+        sheet.classList.add('is-sheet');
+        pic.appendChild(el('div', { class: 'pp-file', html: IC_SHEET + '<span>' + escHtml(f.name || 'Your spreadsheet') + '</span>' }));
+        if (desk) pic.appendChild(legend());
+        return;
+      }
       if (f.kind === 'pdf') {
         var ob = el('object', { class: 'pp-pdf', data: f.url, type: 'application/pdf', 'aria-label': 'Your PDF' });
         ob.appendChild(el('div', { class: 'pp-file', html: IC_DOC + '<span>' + escHtml(f.name || 'PDF') + '</span>' }));
@@ -281,7 +401,7 @@
       zoom.addEventListener('click', function () { var on = pic.classList.toggle('is-zoom'); zoom.setAttribute('aria-pressed', on ? 'true' : 'false'); });
       pic.appendChild(zoom);
       // The laptop has room under the photo: how a cell reads, so every edit lands the way the builder reads it.
-      if (desk) pic.appendChild(el('p', { class: 'pp-legend', html: '<b>Click the photo to zoom.</b> Cells read like the builder: <code>3x5 @8</code> · <code>1x3 @8, 3x5 75%</code> · <code>4x6 140kg</code> · <code>3x8 2RIR</code> · <code>3x5 @7 tempo 3-1-0</code> · <code>4x3 70% paused 2s</code>. Leave a cell empty when it isn\'t done that week.' }));
+      if (desk) pic.appendChild(legend());
       if (!desk) {
         var more = el('button', { class: 'pp-pic-more', type: 'button' }, 'Show the whole photo');
         more.addEventListener('click', function () { var on = pic.classList.toggle('is-open'); more.textContent = on ? 'Show less' : 'Show the whole photo'; });
@@ -332,8 +452,10 @@
       var n = iss.bad + iss.unsure;
       sub.innerHTML = '';
       sub.classList.add('pp-subrow');
-      sub.appendChild(el('span', {}, (opts.sample ? 'Read from the sample · ' : 'Read from your ' + (file && file.kind === 'pdf' ? 'PDF' : 'photo') + ' · ') +
-        st.weeks + (st.weeks === 1 ? ' week · ' : ' weeks · ') + st.days + (st.days === 1 ? ' day · ' : ' days · ') + st.sets + ' sets'));
+      var from = opts.sample ? 'Read from the sample · ' : file && file.kind === 'sheet' ? 'Read from your spreadsheet · '
+        : readMeta && readMeta.files > 1 ? 'Read from ' + (readMeta.read === readMeta.files ? readMeta.files + ' files' : readMeta.read + ' of ' + readMeta.files + ' files') + ' · '
+        : 'Read from your ' + (file && file.kind === 'pdf' ? 'PDF' : 'photo') + ' · ';
+      sub.appendChild(el('span', {}, from + st.weeks + (st.weeks === 1 ? ' week · ' : ' weeks · ') + st.days + (st.days === 1 ? ' day · ' : ' days · ') + st.sets + ' sets'));
       if (n) {
         var nx = el('button', { class: 'pp-tocheck', type: 'button' }, n + ' to check');
         nx.addEventListener('click', function () { var it = draftIssues(draft).list[0]; if (it) focusCell(it.d, it.e, it.w); });
@@ -453,6 +575,11 @@
     };
     var paintMain = function () {
       main.innerHTML = '';
+      if (readNotes.length) {
+        var nb = el('div', { class: 'pp-readnotes', role: 'status' });
+        readNotes.forEach(function (t) { nb.appendChild(el('p', {}, t)); });
+        main.appendChild(nb);
+      }
       main.appendChild(desk ? gridNode() : listNode());
       paintSub();
     };
@@ -508,24 +635,79 @@
       setTimeout(function () { if (!ov.isClosed()) review(PP_SAMPLE_READ); }, 1500);
       return;
     }
-    prepFile(opts.file).then(function (f) {
-      file = f;
-      paintPic(f);
-      if (ov.isClosed()) return null;
+    // A program the import intake read from a spreadsheet: straight to the check.
+    if (opts.read) {
+      file = { kind: 'sheet', name: (opts.source && opts.source.name) || 'Your spreadsheet' };
+      paintPic(file);
+      review(opts.read);
+      return;
+    }
+    readFiles(opts.files || (opts.file ? [opts.file] : []));
+
+    // One file, or a few in a row: each goes to the reader in turn (it takes 3 a minute, so a fourth waits
+    // with a countdown), and the reads line up into one program (mergeReads). A file that doesn't read is
+    // left out and named; the day's limit stops the rest and keeps what was read.
+    function readFiles(files) {
+      var reads = [], i = 0, retried = {}, many = files.length > 1;
       var unit = typeof getUnit === 'function' && getUnit() === 'lbs' ? 'lb' : 'kg';
-      return DB.readProgramPhoto({ file: f.b64, mime: f.mime, unit: unit }).then(function (res) {
+      var say = function (t) { var p = main.querySelector('.pp-reading p'); if (p) p.textContent = t; };
+      var wait = function (ms) {
+        return new Promise(function (res) {
+          var end = Date.now() + ms;
+          var tick = function () {
+            if (ov.isClosed()) return res();
+            var left = Math.ceil((end - Date.now()) / 1000);
+            if (left <= 0) return res();
+            say('Next file in ' + left + ' s. The reader takes 3 a minute.');
+            setTimeout(tick, 500);
+          };
+          tick();
+        });
+      };
+      var finish = function () {
         if (ov.isClosed()) return;
-        if (!res || !res.read) { failed(); return; }
-        review(res.read);
-      });
-    }).catch(function (e) {
-      if (ov.isClosed()) return;
-      var d = e && e.detail, st = e && e.status;
-      var msg = (d && d.message) || (e && e.code && e.message) || '';
-      if (!msg && st === 404) msg = 'Reading photos isn\'t switched on yet. Paste the text instead.';
-      if (!msg && typeof navigator !== 'undefined' && navigator.onLine === false) msg = 'No connection. Try again when you\'re back online, or paste the text.';
-      failed(msg || 'Couldn\'t read that one. Try a sharper picture, or paste the text.');
-    });
+        if (!reads.length) { failed(readNotes.join(' ') || 'Couldn\'t read those. Try sharper pictures, or paste the text.'); readNotes = []; return; }
+        if (many) readMeta = { files: files.length, read: reads.length };
+        review(mergeReads(reads));
+      };
+      var step = function () {
+        if (ov.isClosed()) return;
+        if (i >= files.length) return finish();
+        var f = files[i], label = (f && f.name) || 'File ' + (i + 1);
+        if (many) { h.textContent = 'Reading ' + (i + 1) + ' of ' + files.length; sub.textContent = 'About 10 seconds each. Nothing is saved until you say so.'; }
+        var gotPic = pics.length > i ? Promise.resolve(pics[i]) : prepFile(f).then(function (pf) { pics.push(pf); if (pics.length === 1) file = pf; picAt = pics.length - 1; paintPics(); return pf; });
+        gotPic.then(function (pf) {
+          return wait(readWait(SENT, Date.now())).then(function () {
+            if (ov.isClosed()) return null;
+            say(many ? 'Reading ' + label + '.' : 'Reading the weeks, the days, and every set, rep, load and RPE.');
+            SENT.push(Date.now());
+            return DB.readProgramPhoto({ file: pf.b64, mime: pf.mime, unit: unit });
+          });
+        }).then(function (res) {
+          if (ov.isClosed() || res === null) return;
+          if (res && res.read) reads.push(res.read);
+          else readNotes.push(label + ' didn\'t read as a program, so it\'s left out.');
+          i++; step();
+        }).catch(function (e) {
+          if (ov.isClosed()) return;
+          var d = e && e.detail, st = e && e.status;
+          var msg = (d && d.message) || (e && e.code && e.message) || '';
+          // The burst limit (3 a minute, maybe from another tab): wait a full minute and try once more.
+          if (st === 429 && /moment/i.test(msg) && !retried[i]) { retried[i] = 1; var now = Date.now(); SENT.push(now, now, now); return step(); }
+          if (st === 429) {
+            var left = files.length - i;
+            readNotes.push((msg || 'You\'ve read the most programs for today.') + (many && reads.length ? ' ' + (left === 1 ? '1 file waits' : left + ' files wait') + ' for tomorrow.' : ''));
+            return finish();
+          }
+          if (!msg && st === 404) msg = 'Reading photos isn\'t switched on yet. Paste the text instead.';
+          if (!msg && typeof navigator !== 'undefined' && navigator.onLine === false) msg = 'No connection. Try again when you\'re back online, or paste the text.';
+          if (!many) { failed(msg || 'Couldn\'t read that one. Try a sharper picture, or paste the text.'); return; }
+          readNotes.push(label + ': ' + (msg || 'couldn\'t read it') .replace(/\.$/, '') + '. It\'s left out.');
+          i++; step();
+        });
+      };
+      step();
+    }
   }
 
   // The demo's sample (demo-media/sample-program.jpg) as the reader returns it. Week 3 of the Spoto
@@ -555,5 +737,6 @@
     unsure: [{ day: 2, exercise: 2, week: 3, why: 'The reps are smudged in the photo' }]
   };
 
-  window.PhotoImport = { pickTile: pickTile, openReview: openReview, draftFromRead: draftFromRead, draftToWeeks: draftToWeeks, draftIssues: draftIssues, cellRead: cellRead, SAMPLE: PP_SAMPLE_READ };
+  window.PhotoImport = { pickTile: pickTile, openReview: openReview, draftFromRead: draftFromRead, draftToWeeks: draftToWeeks, draftIssues: draftIssues, cellRead: cellRead, SAMPLE: PP_SAMPLE_READ,
+    mergeReads: mergeReads, readWait: readWait };
 })();

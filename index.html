@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>/* A coach invite, club or referral code in the address never travels on as the next page's referrer, which Plausible reads (sweep 2026-10-28 #13). Before anything here can navigate. */(function(){try{if(/[?&](code|club|ref)=/.test(location.search)){var m=document.createElement('meta');m.name='referrer';m.content='strict-origin';document.head.appendChild(m);}}catch(e){}})();</script>
 <title>POWALIFTA | The powerlifting app for lifters and coaches</title>
 <meta name="description" content="Log every set with RPE, watch your e1RM move and run meet day from your phone. Free for lifters. Coaches get a live desk, free up to 3 athletes.">
 <meta property="og:site_name" content="POWALIFTA">
@@ -113,7 +114,7 @@
   ]
 }
 </script>
-<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 <script defer src="cookie-consent.js"></script>
 </head>
@@ -937,6 +938,9 @@ bootstrap(null, () => {
     }
     document.documentElement.classList.remove('has-session'); // show welcome if session was stale
   }
+  // Signed out without choosing it (app.js), or back from an email-confirmation link (db.js): say so once.
+  if (typeof showSignedOutNote === 'function') showSignedOutNote();
+  if (window._powaEmailConfirmed && !window._user) toast('Your email is confirmed. Log in to carry on.', 6000);
   renderNav('#nav');
   // The website's two live lists. Never inside the app: the welcome screen covers the
   // site there, so the network calls would be wasted.
@@ -1064,7 +1068,8 @@ async function doLogin() {
     const aal = await DB.mfaAssurance();
     if (aal && aal.ok && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
       const passed = await promptMfaChallenge();
-      if (!passed) { await DB.signOut(); throw new Error('Two-factor verification required'); }
+      // Cancel ends this half-finished sign-in on this device only, never the person's other sessions.
+      if (!passed) { await DB.signOut('local'); throw new Error('Two-factor verification required'); }
     }
     const session = await DB.getSession();
     const profile = await DB.getProfile(session.user.id);
@@ -1077,57 +1082,8 @@ async function doLogin() {
   }
 }
 
-// Login-time 2FA challenge (#37). Resolves true once the code verifies (session
-// elevates to AAL2), false on cancel. Self-contained modal reusing the shared
-// .modal-backdrop styles; DB.mfaChallengeVerify does the challenge+verify.
-function promptMfaChallenge() {
-  return new Promise((resolve) => {
-    let modal = document.getElementById('mfaChallengeModal');
-    if (!modal) {
-      const wrap = document.createElement('div');
-      wrap.innerHTML = '<div class="modal-backdrop" id="mfaChallengeModal">' +
-        '<div class="modal">' +
-          '<h2 style="margin-bottom:6px">Two-factor verification</h2>' +
-          '<p class="dim text-sm mb-16" style="line-height:1.5">Enter the 6-digit code from your authenticator app to finish signing in.</p>' +
-          '<div class="form-group"><label>Code</label>' +
-            '<input type="text" id="mfaChalCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="letter-spacing:0.3em;text-align:center;font-size:1.1rem"></div>' +
-          '<div id="mfaChalErr" class="text-xs" style="color:var(--red);min-height:16px;margin-bottom:8px"></div>' +
-          '<button class="btn btn-primary btn-block" id="mfaChalVerify">Verify</button>' +
-          '<button class="btn btn-block btn-ghost mt-8" id="mfaChalCancel">Cancel</button>' +
-        '</div>' +
-      '</div>';
-      modal = wrap.firstChild;
-      document.body.appendChild(modal);
-    }
-    const codeInp = modal.querySelector('#mfaChalCode');
-    const err = modal.querySelector('#mfaChalErr');
-    const verifyBtn = modal.querySelector('#mfaChalVerify');
-    const cancelBtn = modal.querySelector('#mfaChalCancel');
-    codeInp.value = ''; err.textContent = '';
-    modal.classList.add('open');
-    setTimeout(function () { try { codeInp.focus(); } catch (_) {} }, 50);
-
-    function cleanup(result) {
-      modal.classList.remove('open');
-      verifyBtn.onclick = null; cancelBtn.onclick = null; codeInp.onkeydown = null;
-      resolve(result);
-    }
-    async function attempt() {
-      const code = (codeInp.value || '').replace(/\D/g, '');
-      if (code.length !== 6) { err.textContent = 'Enter the 6-digit code.'; return; }
-      verifyBtn.disabled = true; verifyBtn.textContent = 'Verifying…'; err.textContent = '';
-      const res = await DB.mfaChallengeVerify(code);
-      verifyBtn.disabled = false; verifyBtn.textContent = 'Verify';
-      if (res.ok) return cleanup(true);
-      err.textContent = /invalid|incorrect|expired|match/i.test(res.reason || '')
-        ? 'That code didn\'t match. Try the current one.' : (res.reason || 'Verification failed.');
-    }
-    verifyBtn.onclick = attempt;
-    cancelBtn.onclick = function () { cleanup(false); };
-    codeInp.onkeydown = function (e) { if (e.key === 'Enter') attempt(); };
-  });
-}
-window.promptMfaChallenge = promptMfaChallenge;
+// The two-factor code prompt (#37) is app.js promptMfaChallenge(): the dashboards ask for the code too
+// when a session still owes it (bootstrap), so it lives where every page has it.
 
 async function doSignup() {
   const btn = event && event.target;

@@ -11,6 +11,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { rateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
+import { owesSecondFactor, SECOND_FACTOR } from '../_shared/aal.ts';
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const FROM = 'POWALIFTA <noreply@powalifta.com>';
@@ -107,6 +108,8 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const { data: caller, error: callerErr } = await admin.auth.getUser(jwt);
   if (callerErr || !caller?.user) return jsonResponse(401, { error: 'Invalid session' });
+  // Two-factor (migration-mfa-aal2): an account with an authenticator acts here only at aal2 (_shared/aal.ts).
+  if (owesSecondFactor(jwt, caller.user)) return jsonResponse(403, SECOND_FACTOR);
 
   // Per-coach ceiling so a looping session can't spam program-assigned mail.
   // Fails open if the meter (rl_bump) isn't deployed yet.
@@ -145,12 +148,13 @@ Deno.serve(async (req) => {
     if (!res.ok) {
       const detail = await res.text();
       console.error('Resend error:', res.status, detail);
-      return jsonResponse(502, { error: 'Email send failed', status: res.status, detail });
+      // The provider's own words stay in the function log; the caller gets the plain reason.
+      return jsonResponse(502, { error: 'Email send failed', status: res.status });
     }
     const body = await res.json();
     return jsonResponse(200, { sent: true, id: body?.id });
   } catch (e) {
     console.error('Program-assigned email crashed:', e);
-    return jsonResponse(500, { error: 'Unhandled exception', message: String((e as any)?.message || e) });
+    return jsonResponse(500, { error: 'Email send failed' });
   }
 });

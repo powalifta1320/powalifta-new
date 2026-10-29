@@ -32,14 +32,94 @@ const defaultStore = () => ({
   scheduleRequests: []
 });
 
+// _v moves on every change the Store is told about (set, update, reset, a live burst, bump/touch);
+// the roster log index (below) rebuilds when it moves, or when workoutLogs is a new list or a new
+// length (a push or a reassignment outside Store.update still counts). _deep moves on the changes
+// that may have edited rows in place (set, update, reset, bump): every memo built on the logs goes.
+// A write that edits a logged set's fields without Store.update must call Store.bump().
 const Store = {
   _data: defaultStore(),
+  _v: 0,
+  _deep: 0,
   get() { return this._data; },
-  set(s) { this._data = s; },
-  update(fn) { fn(this._data); return this._data; },
-  reset() { this._data = defaultStore(); }
+  set(s) { this._data = s; this.bump(); },
+  update(fn) { try { fn(this._data); } finally { this.bump(); } return this._data; },
+  reset() { this._data = defaultStore(); this.bump(); },
+  bump() { this._v++; this._deep++; },
+  touch() { this._v++; }
 };
 window.Store = Store;
+
+// =========================================================
+// ROSTER LOG INDEX + PER-LIFTER MEMOS (2026-10-28)
+// =========================================================
+// A coach's Store holds every lifter's sets (tens of thousands once db.js pages them all in), and
+// the desk asked "this lifter's sets" with a filter over all of them several times per lifter per
+// paint. Now they're grouped by lifter once per data version: the same rows, in the same order, as
+// that filter gave. What is worked out from one lifter's sets is kept per lifter (_lmemoGet) while
+// their stamp holds: it changes when their sets do (a set landing for one lifter leaves the others'
+// numbers as they were) and for everyone after a change that may have edited sets in place.
+const _lix = { list: null, len: -1, v: -1, deep: -1, by: new Map(), stamps: new Map(), seq: 0 };
+function _logIndex() {
+  const list = (Store._data && Store._data.workoutLogs) || [];
+  if (_lix.list === list && _lix.len === list.length && _lix.v === Store._v) return _lix;
+  const by = new Map();
+  for (let i = 0; i < list.length; i++) {
+    const l = list[i];
+    if (!l) continue;
+    const g = by.get(l.athleteId);
+    if (g) g.push(l); else by.set(l.athleteId, [l]);
+  }
+  const keep = _lix.deep === Store._deep, stamps = new Map();
+  by.forEach((g, k) => {
+    const old = keep ? _lix.by.get(k) : null;
+    let same = !!old && old.length === g.length;
+    for (let i = 0; same && i < g.length; i++) same = g[i] === old[i];
+    stamps.set(k, same ? _lix.stamps.get(k) : ++_lix.seq);
+  });
+  _lix.list = list; _lix.len = list.length; _lix.v = Store._v; _lix.deep = Store._deep; _lix.by = by; _lix.stamps = stamps;
+  return _lix;
+}
+// One lifter's sets in Store order: the index's own array, so read it and never change it.
+function _logsOf(athleteId) {
+  if (athleteId !== athleteId) return [];   // NaN: the filter never matched it
+  return _logIndex().by.get(athleteId) || [];
+}
+// The same as a copy, for code outside app.js: (Store.get().workoutLogs).filter(l => l.athleteId === id).
+function rosterLogsFor(athleteId) { return _logsOf(athleteId).slice(); }
+window.rosterLogsFor = rosterLogsFor;
+const _lmemo = new Map();
+function _lmemoOf(athleteId) {
+  const st = _logIndex().stamps.get(athleteId) || 0;
+  let m = _lmemo.get(athleteId);
+  if (!m || m.stamp !== st) { m = { stamp: st, vals: new Map() }; _lmemo.set(athleteId, m); }
+  return m.vals;
+}
+// fn() worked out from this lifter's sets alone (and key's arguments), once per stamp.
+function _lmemoGet(athleteId, key, fn) {
+  const vals = _lmemoOf(athleteId);
+  if (vals.has(key)) return vals.get(key);
+  const v = fn();
+  vals.set(key, v);
+  return v;
+}
+// The days this lifter trained (a Set of their log dates; shared, read it only).
+function logDateSet(athleteId) { return _lmemoGet(athleteId, 'dates', () => new Set(_logsOf(athleteId).map(l => l.date))); }
+window.logDateSet = logDateSet;
+// Every other per-lifter list the desk reads (check-in answers, check-ins, notes, pain, health,
+// food, weigh-ins, meets), grouped the same way: rebuilt when the list, its length or the Store
+// version moves. Rows are read live, never copied, so a field changed in place still shows.
+const _byAthIx = new WeakMap();
+function _ofAthlete(list, athleteId) {
+  if (!Array.isArray(list) || athleteId !== athleteId) return [];
+  let e = _byAthIx.get(list);
+  if (!e || e.len !== list.length || e.v !== Store._v) {
+    const by = new Map();
+    for (let i = 0; i < list.length; i++) { const r = list[i]; if (!r) continue; const g = by.get(r.athleteId); if (g) g.push(r); else by.set(r.athleteId, [r]); }
+    _byAthIx.set(list, e = { len: list.length, v: Store._v, by });
+  }
+  return e.by.get(athleteId) || [];
+}
 
 // =========================================================
 // AUTH
@@ -112,19 +192,118 @@ function requireAuth(expectedType) {
   }
   return user;
 }
-// Everything of the outgoing user that lives on this device: the snapshot, the offline
-// write queue and the pending-set queue (they'd replay under the next account and be
-// rejected by RLS, burning the attempt counters), and the Home Screen widget.
-function _wipeLocalUserData() {
-  try { if (window._user && window._user.id) _clearSnapshot(window._user.id); } catch (e) {}
-  // Queued (unsent) voice notes are audio on this phone: they leave with the account.
-  try { if (window._user && window._user.id && window.PowaVoice && PowaVoice.clearFor) window._voiceWipe = PowaVoice.clearFor(window._user.id).catch(() => {}); } catch (e) {}
+// The per-user copies kept on this device: the offline snapshot, and the copies db.js kept before a
+// table existed (coach notes, coach settings, clients' packages and payments, the intake, teams;
+// all of those tables are live, so anything left is stale). They go when the user signs out, is
+// signed out, or deletes the account.
+const _USER_CACHE_KEYS = ['powa-snapshot-', 'powa-coach-notes-', 'powa-coach-settings-', 'powa-client-billing-', 'powa-client-payments-', 'powa-intake-', 'powa-teams-'];
+// (storage: localStorage, or a stand-in in the tests.)
+function _wipeUserCaches(uid, storage) {
+  const ls = storage || localStorage;
+  if (!uid) return;
+  _USER_CACHE_KEYS.forEach(p => { try { ls.removeItem(p + uid); } catch (e) {} });
+}
+// Signed in as uid: another account's copies on this device (a sign-out that never ran its wipe)
+// have no reason to stay.
+function _sweepOtherUsersCaches(uid, storage) {
+  const ls = storage || localStorage;
+  if (!uid) return;
+  try {
+    const drop = [];
+    for (let i = 0; i < ls.length; i++) {
+      const k = ls.key(i);
+      const p = k && _USER_CACHE_KEYS.find(x => k.indexOf(x) === 0);
+      if (p && k.slice(p.length) !== uid && /^[0-9a-f-]{36}$/i.test(k.slice(p.length))) drop.push(k);
+    }
+    drop.forEach(k => { try { ls.removeItem(k); } catch (e) {} });
+  } catch (e) {}
+}
+// What one account keeps on this device, by what a sign-out does with it (sweep 2026-10-28 #4 and #6,
+// and its review). Device settings (theme, units, layout, consent) aren't account keys: they always stay.
+//   private  copies of server data and private records: the offline snapshot, lifters' names, intake
+//            answers, Apple Health readings (sleep, heart, food), billing, notes, teams, challenges, a busy
+//            week, cut targets, a form check's drawings, readiness picks, the club's cache, and meet-day
+//            boards and attempt plans with nothing left to send. Every sign-out removes them.
+//   own      the account's own settings and records that exist only on this device, kept like theme and
+//            unit: a coach's saved replies and weekly-note records, the lifter's OpenPowerlifting link, the
+//            Apple Health switch and its bookkeeping (which weigh-ins came from Health, which sessions went
+//            in, a switch-off still to confirm). Each key names its account, so no other account reads it.
+//            Only deleting the account takes them, with every other key that names it (the desk's drafts too).
+//   pending  meet-day work not sent yet: a board whose marks, lifters, settings or the board itself still
+//            have to go up, and the list of boards started on this laptop. Like the sets queue: kept for the
+//            same account through a sign-out it didn't choose, named before a chosen log-out drops it, and
+//            dropped when another account signs in.
+// Not account keys, so a sign-out leaves them too: the desk's own records per coach (next week's
+// unpublished drafts powa-desk-pend-, reviews and snoozes powa-desk-review-, the first-run answers
+// powa-coach-style-, the last-published program cells powa-pb-pub-), read marks (powa-signals-read-,
+// powa-pr-pushed-); each names its account, like the own keys, and a deletion takes them. A few lifter
+// keys name no account and stay with the device until they are keyed per account: powa-meet-live,
+// powa-meet-date, powa-meet-strategy, powa-cmd-log, powa-bouncer-log, powa-sex, powa-week-goal.
+const _ACCOUNT_KEY_RE = /^powa-(snapshot-|intake-|health-|opl-|cut-|saved-replies-|weekly-notes-|week-changes-|coach-notes-|coach-settings-|client-|teams-|fca-|ready-|md-|challenge|busy-week-)|^powa-(ds-names|attempt-plans|club-stats|club-name|club-board)$/;
+const _OWN_KEY_RE = /^powa-(saved-replies-|weekly-notes-|week-changes-|opl-|health-(on|access|decided|imported|sessions|share|since|times)-)/;
+// A meet-day board as meetday.js keeps it (persist), with something still to go up.
+function _mdUnsent(b) {
+  const n = (o) => (o && typeof o === 'object') ? Object.keys(o).length : 0;
+  return !!(b && typeof b === 'object' && (b.pendingCreate || b.dirtyDay || n(b.outbox) || n(b.dirtyLifters)));
+}
+// 'private' | 'own' | 'pending' for an account key, null for anything else (a device setting).
+function _accountKeyKind(k) {
+  if (!k || !_ACCOUNT_KEY_RE.test(k)) return null;
+  if (_OWN_KEY_RE.test(k)) return 'own';
+  if (/^powa-md-/.test(k) && !/^powa-md-demo-/.test(k)) {
+    let v = null;
+    try { v = JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { v = null; }
+    if (/^powa-md-local-/.test(k)) return Array.isArray(v) && v.length ? 'pending' : 'private';   // the boards started here
+    return _mdUnsent(v) ? 'pending' : 'private';
+  }
+  return 'private';
+}
+function _accountKeys(kind) {
+  kind = kind || 'private';
+  const out = [];
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && _accountKeyKind(k) === kind) out.push(k); } } catch (e) {}
+  return out;
+}
+// Meet-day boards on this device with something not sent yet (the list of boards started here isn't one).
+function _pendingBoardCount() { return _accountKeys('pending').filter(k => !/^powa-md-local-/.test(k)).length; }
+// Removes the private keys; opts.pending: unsent meet-day work too (a chosen log-out, after asking; a deletion).
+function _sweepAccountKeys(opts) {
+  const keys = _accountKeys('private').concat(opts && opts.pending ? _accountKeys('pending') : []);
+  keys.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  return keys.length;
+}
+// A deleted account: every key that names it goes too (its own settings and records above, the desk's
+// drafts and review state, read marks). Other accounts' keys on this device stay.
+function _forgetAccountKeys(uid) {
+  if (!uid || String(uid).length < 8) return 0;
+  const keys = [];
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf('powa-') === 0 && k.indexOf(uid) >= 0) keys.push(k); } } catch (e) {}
+  keys.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  return keys.length;
+}
+// Everything of the outgoing user that lives on this device: the snapshot, the Home Screen widget and
+// the private keys above. A chosen log-out or a deleted account also takes the offline queues (sets and
+// changes not sent yet, queued voice notes, unsent meet-day boards): signed out they can't be sent, and
+// the next account must never send them. opts.keepQueue (a sign-out the person didn't choose) keeps them
+// for this same account instead: tagged with its id, sent only when it signs back in (another account
+// signing in on this device drops them). The account's own settings and records stay either way;
+// opts.deleted takes them too. opts.uid: the account, when window._user is already gone. opts.demo (the
+// demo's Log out): the demo queued nothing, so the queues on this device are a real account's (kept for it
+// through a sign-out it didn't choose) and stay exactly as they are: neither dropped nor tagged.
+function _wipeLocalUserData(opts) {
+  opts = opts || {};
+  const uid = opts.uid || (window._user && window._user.id) || null;
+  try { if (uid) _wipeUserCaches(uid); } catch (e) {}   // the snapshot and the copies kept before their tables existed
+  // Queued (unsent) voice notes are audio on this phone: they leave with the account, unless it was
+  // signed out without choosing to (voice.js only ever sends the signed-in sender's own notes).
+  if (!opts.keepQueue) {
+    try { if (uid && window.PowaVoice && PowaVoice.clearFor) window._voiceWipe = PowaVoice.clearFor(uid).catch(() => {}); } catch (e) {}
+  }
   try { if (window.PowaNative) PowaNative.updateWidget(null); } catch (e) {}
-  try { [_OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY].forEach(k => localStorage.removeItem(k)); } catch (e) {}
-  // MEET DAY hook (meetday.js): boards (lifters' names, weigh-ins, rack heights) and attempt plans kept on this laptop.
-  try { Object.keys(localStorage).filter(k => /^powa-md-|^powa-challenge/.test(k) || k === 'powa-attempt-plans').forEach(k => localStorage.removeItem(k)); } catch (e) {}
-  // A busy week kept on this phone before its table existed (db.js): their days and their note go with them.
-  try { Object.keys(localStorage).filter(k => /^powa-busy-week-/.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  if (opts.demo) { /* a real account's queues: left as they are */ }
+  else if (opts.keepQueue) _tagQueueOwner(uid); else _dropQueues();
+  _sweepAccountKeys();
+  if (opts.deleted) _forgetAccountKeys(uid);
 }
 // Stop this device getting the signed-out account's pushes (their coach's messages
 // would otherwise keep arriving for whoever signs in next, and the next account
@@ -148,16 +327,129 @@ async function _forgetPushOnThisDevice() {
   })().catch(() => {});
   await Promise.race([work, new Promise(r => setTimeout(r, 2500))]);
 }
+// "3 sets, 1 change and 1 meet-day board": what waits unsent for the signed-in account (powaSyncState()
+// and _pendingBoardCount()).
+function _unsyncedWords(st) {
+  const p = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  const parts = [st.sets ? p(st.sets, 'set') : '', st.changes ? p(st.changes, 'change') : '', st.boards ? p(st.boards, 'meet-day board') : ''].filter(Boolean);
+  return parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : (parts[0] || '');
+}
+// A chosen log-out takes this account's unsynced sets, changes and meet-day boards with it. Online the
+// sets and changes are sent first; whatever still waits is named and the person decides. → true to go on.
+async function _okToDropUnsynced() {
+  const waiting = () => { const st = powaSyncState(); return { sets: st.sets, changes: st.changes, boards: _pendingBoardCount() }; };
+  let st = waiting();
+  if (!(st.sets + st.changes + st.boards)) return true;
+  if (navigator.onLine && st.sets + st.changes) {
+    try { await Promise.race([Promise.all([flushPendingLogs(), flushOutbox()]), new Promise(r => setTimeout(r, 4000))]); } catch (e) {}
+    st = waiting();
+    if (!(st.sets + st.changes + st.boards)) return true;
+  }
+  const one = st.sets + st.changes + st.boards === 1;
+  return confirm(_unsyncedWords(st) + (one ? ' hasn’t' : ' haven’t') + ' synced yet. Log out now and ' + (one ? 'it’s' : 'they’re') + ' lost. Log out anyway?');
+}
+// The demo's Log out (window._demoMode): its own keys go (attempt plans, its meet-day boards, the club cache), but
+// a real account's work kept on this device (a tagged sets queue, an unsent meet-day board) stays for it, and
+// nothing is sent: no sign-out call (the demo signed nobody in; a session stored here is a real account's).
 async function logout() {
-  if (!window._demoMode) await _forgetPushOnThisDevice();
+  const uid = window._user && window._user.id;
+  const demo = !!window._demoMode;
+  if (!demo && !(await _okToDropUnsynced())) return;
+  window._signingOut = true;   // from here nothing writes this account's snapshot back (pagehide, visibilitychange)
+  if (!demo) await _forgetPushOnThisDevice();
   liveStop();
-  _wipeLocalUserData();
-  try { await DB.signOut(); } catch (e) { console.warn(e); }
+  _wipeLocalUserData({ uid, demo });
+  if (!demo) { try { await DB.signOut(); } catch (e) { console.warn(e); } }
   try { await Promise.race([window._voiceWipe, new Promise(r => setTimeout(r, 800))]); } catch (e) {}
   window._user = null;
   Store.reset();
+  _sweepAccountKeys({ pending: !demo });   // once more: nothing written while signing out survives it
   _toWelcome();
 }
+// Signed out without choosing it: the server refused this session (a password change or "sign out
+// everywhere" on another device, a deleted account, a revoked token), or it ended in another tab.
+// The device forgets the account's private data like a chosen log-out does (snapshot, names, notes,
+// the widget, this browser's push), except the unsynced sets, changes, voice notes and meet-day boards:
+// they stay for this same account until it signs back in (sweep 2026-10-28 #6). The welcome screen
+// then says so. The account's own settings and records stay, as on any sign-out.
+// opts.signOut false: the session is already gone (SIGNED_OUT). opts.deleted: the account itself is gone
+// (deleted on another device, Auth says so): nothing waits for a log-in that can't come, so its queues, boards
+// and own keys go as a deletion's do, and the note doesn't say anything waits.
+async function _signedOutByServer(uid, opts) {
+  opts = opts || {};
+  uid = uid || (window._user && window._user.id) || null;
+  window._signingOut = true;   // nothing writes the snapshot back from here (pagehide)
+  try { liveStop(); } catch (e) {}
+  _wipeLocalUserData(opts.deleted ? { uid, deleted: true } : { uid, keepQueue: true });
+  window._user = null;
+  Store.reset();
+  if (opts.signOut !== false) { try { await DB.signOut('local'); } catch (e) {} }   // this device only: the server has refused the session already
+  // supabase-js keeps the session when that call itself fails (no network): the server refused it, so it goes anyway,
+  // or the welcome screen would route straight back into the dashboard.
+  try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && /^sb-.*-auth-token$/.test(k)) localStorage.removeItem(k); } } catch (e) {}
+  await _forgetPushOnThisDevice();   // the browser's push subscription goes; the server row needs the account's own session
+  _sweepAccountKeys();
+  _noteSignedOut(opts.deleted ? { deleted: true } : undefined);
+}
+// The profile read found no row ("Profile not found"): an account deleted elsewhere, but only when Auth agrees
+// the account itself is gone (GET /user answers user_not_found). A profile the database hides (two-factor
+// owed, row 60) or never made is no deletion: that sign-out keeps what waits, as any other.
+function _isProfileMissing(e) { return /^Profile not found\b/.test(String((e && e.message) || '')); }
+// Pure: an Auth error that means the account itself is gone (GoTrue: 403 user_not_found, "User from sub claim in
+// JWT does not exist"), as opposed to an ended session (session_not_found), a network failure or no error.
+function authErrorUserGone(error) {
+  if (!error) return false;
+  const code = String(error.code || error.error_code || ''), msg = String(error.message || error.msg || '');
+  return (Number(error.status) === 403 && code === 'user_not_found') || /sub claim in JWT does not exist/i.test(msg);
+}
+async function _accountGone(e) {
+  if (!_isProfileMissing(e)) return false;
+  try { return !!(window.DB && typeof DB.authUserError === 'function' && authErrorUserGone(await DB.authUserError())); } catch (x) { return false; }
+}
+// Nobody is signed in on this device: wipe the private data an account left here (a session that ended
+// while it refreshed, an account deleted elsewhere, or a copy the app wrote back before this fix).
+// The queues stay for their own account, and every account's own settings stay. → true when an account
+// was here (its offline copy was): the demo's own keys (a meet-day board, attempt plans) are swept
+// quietly, with no "signed out" note.
+function _forgetLeftovers() {
+  if (window._demoMode) return false;
+  const keys = _accountKeys();
+  if (!keys.length) return false;
+  const hadAccount = keys.some(k => k.indexOf(_SNAP_PREFIX) === 0);
+  _wipeLocalUserData({ uid: _lastSnapshotUid(), keepQueue: true });
+  if (hadAccount) _forgetPushOnThisDevice();
+  return hadAccount;
+}
+// The one account whose snapshot is on this device (the queue's owner when it was never tagged), or null.
+function _lastSnapshotUid() {
+  const ids = _accountKeys().filter(k => k.indexOf(_SNAP_PREFIX) === 0).map(k => k.slice(_SNAP_PREFIX.length));
+  return ids.length === 1 ? ids[0] : null;
+}
+// The welcome screen after a sign-out the person didn't choose: why, and what waits on this device.
+// opts.deleted: nothing waits (a deleted account's queues went with it), so the note says only that.
+function _signedOutNote(opts) {
+  if (opts && opts.deleted) return { sets: 0, changes: 0, boards: 0 };
+  return { sets: _readPendingLogs().length, changes: _readOutbox().length, boards: _pendingBoardCount() };
+}
+function _noteSignedOut(opts) {
+  try { sessionStorage.setItem('powa-signed-out', JSON.stringify(_signedOutNote(opts))); } catch (e) {}
+}
+// The toast for that note: what waits (sets and changes sync when the account logs back in; a meet-day
+// board goes up when it's opened again, so it only waits).
+function signedOutNoteText(note) {
+  const sets = Number(note && note.sets) || 0, changes = Number(note && note.changes) || 0, boards = Number(note && note.boards) || 0;
+  const n = sets + changes + boards;
+  if (!n) return 'You were signed out. Log in to carry on.';
+  const words = 'You were signed out. ' + _unsyncedWords({ sets, changes, boards }) + (n === 1 ? ' waits' : ' wait') + ' on this device';
+  return boards ? words + ' for when you log back in.' : words + ' and sync' + (n === 1 ? 's' : '') + ' when you log back in.';
+}
+function showSignedOutNote() {
+  let note = null;
+  try { note = JSON.parse(sessionStorage.getItem('powa-signed-out') || 'null'); sessionStorage.removeItem('powa-signed-out'); } catch (e) {}
+  if (!note || window._user) return;
+  toast(signedOutNoteText(note), 6000);
+}
+window.showSignedOutNote = showSignedOutNote;
 
 // =========================================================
 // LIVE DEMO MODE — the full athlete dashboard with a generated
@@ -964,6 +1256,9 @@ function _isAuthError(e) {
   if (st === 401 || st === 403) return true;
   const code = String((e && e.code) || '');
   if (code === 'PGRST301' || code === 'PGRST302' || code === 'PGRST116') return true;   // expired / bad JWT, or no profile row (a deleted account)
+  // DB.getProfile finds no row for a session the server still accepts: the account was deleted (here or on
+  // another device). Before this, the dashboard opened from the deleted account's snapshot (sweep 2026-10-28 #4).
+  if (/^Profile not found\b/.test(String((e && e.message) || ''))) return true;
   return /jwt|invalid claim|not authenticated|refresh token|token (has )?expired/i.test(String((e && e.message) || ''));
 }
 // The signed-in user's id from the stored session, without the network (for the snapshot).
@@ -985,9 +1280,25 @@ function _bootFromSnapshot(uid, expectedType, onReady) {
   if (!snap || !snap.user || !snap.store || snap.user.userType !== expectedType) return false;
   window._user = snap.user;
   Store._data = snap.store;
+  _reconcileQueueOwner(snap.user.id);
+  _watchSignOut();
   try { _refreshConnBanner(); } catch (e) {}
   onReady && onReady();
   return true;
+}
+// A dashboard whose session ends without this page asking (refused while it refreshed, signed out in
+// another tab) leaves at once, like a session refused at start-up (sweep 2026-10-28 #6). A chosen
+// log-out or a deletion sets window._signingOut first, so this stays out of their way.
+let _signOutWatched = false;
+function _watchSignOut() {
+  if (_signOutWatched || window._demoMode || !(window.DB && DB.onSignedOut)) return;
+  _signOutWatched = true;
+  DB.onSignedOut(() => {
+    if (window._signingOut || !window._user) return;
+    const uid = window._user.id;
+    // Never inside supabase-js's own callback (its auth lock is held there): next tick.
+    setTimeout(() => { _signedOutByServer(uid, { signOut: false }).then(_toWelcome, _toWelcome); }, 0);
+  });
 }
 // No snapshot either: say so and try again, a few times, instead of leaving or signing out.
 let _bootTries = 0;
@@ -1039,8 +1350,18 @@ async function bootstrap(expectedType, onReady, opts) {
     return;
   }
   _bootTries = 0;
+  // Two-factor (migration-mfa-aal2-2026-10-28.sql): a session that still owes its code asks for it here,
+  // in place, before anything reads data. Sign out instead: this device only, then signed out as usual.
+  if (session) {
+    const step = await _mfaStepUp();
+    if (step === 'out') session = null;
+    else if (step === 'in') { try { session = (await DB.getSession()) || session; } catch (e) {} }
+  }
   if (!session) {
-    if (expectedType) { _toWelcome(); return; }
+    // Nobody is signed in: no account's data stays on this device (the session ended while it refreshed,
+    // or the account was deleted elsewhere). Unsynced sets stay for their own account.
+    const hadAccount = _forgetLeftovers();
+    if (expectedType) { if (hadAccount) _noteSignedOut(); _toWelcome(); return; }
     // The homepage draws (and its Log in button appears) without waiting for the coach list.
     if (opts.coachesLater) {
       onReady && onReady();
@@ -1058,7 +1379,10 @@ async function bootstrap(expectedType, onReady, opts) {
     // Only a refused token or account signs anyone out. Offline, a timeout or a server hiccup: a dashboard
     // opens from this device's snapshot (or keeps trying); the homepage goes on to the remembered dashboard.
     if (_isAuthError(e)) {
-      try { await DB.signOut(); } catch {}
+      // The device forgets the account like a chosen log-out (its unsynced sets stay for it): sweep 2026-10-28 #6.
+      // Deleted on another device (no profile row, and Auth says the account is gone): as a deletion.
+      const gone = await _accountGone(e);
+      await _signedOutByServer(session.user.id, gone ? { deleted: true } : undefined);
       if (!expectedType) { onReady && onReady(); return; }
       _toWelcome();
       return;
@@ -1101,6 +1425,10 @@ async function bootstrap(expectedType, onReady, opts) {
     appleBilled: billingProviderOf(profile) === 'apple'
   };
 
+  // Another account's unsynced sets (it was signed out here without choosing to) are never sent as this one.
+  _reconcileQueueOwner(profile.id);
+  if (expectedType && !window._demoMode) _watchSignOut();
+
   // kg / lb follows the lifter across devices (profiles.unit, migration-program-integrity-2026-10-22.sql).
   try { window._user.unit = unitFromDb(profile.unit); syncUnitWithProfile(profile.unit, 'unit' in profile); } catch (e) {}
 
@@ -1135,8 +1463,7 @@ async function bootstrap(expectedType, onReady, opts) {
   }
 
   try {
-    Store._data = await DB.hydrateAll(profile);
-    _saveSnapshot(window._user, Store._data);
+    Store.set(await DB.hydrateAll(profile));
   } catch (e) {
     console.error('hydrate failed', e);
     // Flaky / offline: fall back to the cached snapshot so the dashboard still
@@ -1157,8 +1484,20 @@ async function bootstrap(expectedType, onReady, opts) {
   if (opts.onFail) opts._tries = 0;
   onReady && onReady();
   liveStart();   // sets land on the coach's desk as they're logged; a coach's edit reaches the lifter
+  // The offline snapshot right after the first paint (never in front of it), and another account's
+  // copies left on this device go; then whatever this account still has queued goes up.
+  _snapshotSoon();
+  _sweepOtherUsersCaches(profile.id);
+  _flushQueuesSoon();
 }
 window.bootstrap = bootstrap;
+let _snapSoonT = null;
+function _snapshotSoon() {
+  if (_snapSoonT) return;
+  const run = () => { if (!_snapSoonT) return; clearTimeout(_snapSoonT); _snapSoonT = null; try { _snapshotNow(); } catch (e) {} };
+  _snapSoonT = setTimeout(run, 1500);
+  try { requestAnimationFrame(() => setTimeout(run, 0)); } catch (e) {}
+}
 
 // =========================================================
 // THEME (light / dark)
@@ -1309,28 +1648,64 @@ const PowaPush = {
       return !!(await reg.pushManager.getSubscription());
     } catch { return false; }
   },
-  // Ask permission, subscribe, persist. Returns true on success.
-  async enable() {
+  // Ask permission, subscribe, persist. Returns true on success; PowaPush._last says how it went:
+  // 'on' | 'denied' | 'dismissed' (the prompt closed with no answer) | 'error' | 'unsupported' |
+  // 'signin' | 'demo'. { quiet: true } (the allow-notifications card, notify.js): no toast for
+  // 'on' or 'dismissed', the card answers those in place, and none for a "Don't Allow" / "Block"
+  // given just now (an answer to respect, not to argue with); every other failure still says why.
+  // { local: true } (iPhone app): the promise is an alert from the phone itself (rest is up, the
+  // morning weigh-in), so iOS's yes is the whole job; Apple's token follows in the background.
+  async enable(opts) {
+    const quiet = !!(opts && opts.quiet);
     // Native shell: register with APNs/FCM through the Capacitor plugin instead
     // of Web Push. The rest of the app (Settings toggle, send-push) is unchanged.
     if (_isNativeShell()) {
-      if (window._demoMode) { toast('Notifications need a real account'); return false; }
+      if (window._demoMode) { this._last = 'demo'; toast('Notifications need a real account'); return false; }
       try { localStorage.removeItem('powa-push-off'); } catch (e) {}
-      const ok = await PowaNative.registerPush();
-      try { if (ok && PowaNative._token) sessionStorage.setItem('powa-push-token', PowaNative._token); } catch (e) {}
-      toast(ok ? 'Notifications on' : 'Couldn’t turn them on. Allow notifications in iPhone Settings → Notifications → POWALIFTA.');
-      return ok;
+      if (opts && opts.local && PowaNative.askPermission) {
+        const p = await PowaNative.askPermission();
+        if (p === 'granted') {
+          this._last = 'on';
+          // Server pushes too, once Apple answers: no prompt, nothing to wait for here.
+          Promise.resolve(PowaNative.registerPush(true)).then((ok) => {
+            try { if (ok && PowaNative._token) sessionStorage.setItem('powa-push-token', PowaNative._token); } catch (e) {}
+          }, () => {});
+          if (!quiet) toast('Notifications on');
+          return true;
+        }
+        this._last = p === 'denied' ? 'denied' : 'error';
+      } else {
+        const ok = await PowaNative.registerPush();
+        try { if (ok && PowaNative._token) sessionStorage.setItem('powa-push-token', PowaNative._token); } catch (e) {}
+        // iOS never closes its prompt without an answer: not on is either "Don't Allow" (now or
+        // earlier) or a registration that didn't come back from Apple (or couldn't be saved).
+        this._last = ok ? 'on' : PowaNative._perm === 'denied' ? 'denied' : 'error';
+        if (ok) { if (!quiet) toast('Notifications on'); return true; }
+      }
+      if (this._last === 'denied') {
+        if (!(quiet && PowaNative._asked)) toast('Notifications are off for POWALIFTA. Turn them on in iPhone Settings → Notifications → POWALIFTA.', 5000);
+      } else if (opts && opts.local) toast('Couldn’t turn alerts on. Try again in a minute.', 4000);
+      else if (PowaNative._regErr === 'save') toast('Couldn’t save your alert settings. Please try again', 4000);
+      else toast('Couldn’t reach Apple to turn alerts on. Try again in a minute.', 4000);
+      return false;
     }
-    if (!this.supported()) { toast('Notifications are not supported on this browser'); return false; }
-    if (!this.configured()) { toast('Push not configured yet. Add a VAPID key'); return false; }
-    if (window._demoMode) { toast('Notifications need a real account'); return false; }
+    if (!this.supported()) { this._last = 'unsupported'; toast('Notifications are not supported on this browser'); return false; }
+    if (!this.configured()) { this._last = 'error'; toast('Push not configured yet. Add a VAPID key'); return false; }
+    if (window._demoMode) { this._last = 'demo'; toast('Notifications need a real account'); return false; }
 
+    const before = Notification.permission;
     const perm = await Notification.requestPermission();
-    if (perm !== 'granted') { toast(perm === 'denied' ? 'Notifications blocked: enable them in browser settings' : 'Notifications not enabled'); return false; }
+    if (perm !== 'granted') {
+      this._last = perm === 'denied' ? 'denied' : 'dismissed';
+      // Blocked from before (no prompt could show), or asked from You → Notifications: where to change it.
+      if (perm === 'denied') { if (!(quiet && before !== 'denied')) toast('Notifications blocked: enable them in browser settings'); }
+      else if (!quiet) toast('Notifications not enabled');
+      return false;
+    }
 
     // Need a real signed-in user before we subscribe — there's nowhere to save it otherwise.
     const userId = window.DB ? await DB.getUserId() : null;
-    if (!userId) { toast('Sign in to enable notifications'); return false; }
+    if (!userId) { this._last = 'signin'; toast('Sign in to enable notifications'); return false; }
 
     // 1) Subscribe with the browser's push service (FCM / Mozilla / Apple).
     //    This is the step that fails on http origins or browsers without a push service.
@@ -1346,6 +1721,7 @@ const PowaPush = {
       }
     } catch (err) {
       console.warn('Push subscribe failed:', err);
+      this._last = 'error';
       toast(window.isSecureContext
         ? 'Your browser couldn’t reach a push service. Try Chrome or the installed app'
         : 'Notifications need HTTPS or the installed app');
@@ -1359,11 +1735,14 @@ const PowaPush = {
     } catch (err) {
       console.warn('Saving push subscription failed:', err);
       try { await sub.unsubscribe(); } catch {}
+      this._last = 'error';
       toast('Couldn’t save your alert settings. Please try again');
       return false;
     }
 
-    toast('Notifications on');
+    try { localStorage.removeItem('powa-push-off'); } catch (e) {}
+    this._last = 'on';
+    if (!quiet) toast('Notifications on');
     return true;
   },
   // Unsubscribe this device and forget it server-side.
@@ -1385,6 +1764,7 @@ const PowaPush = {
         if (window.DB) { try { await DB.deletePushSubscription(sub.endpoint); } catch {} }
         await sub.unsubscribe();
       }
+      try { localStorage.setItem('powa-push-off', '1'); } catch (e) {}   // a choice: the allow-notifications card (notify.js) never asks again
       toast('Notifications off');
       return true;
     } catch (err) {
@@ -3140,6 +3520,9 @@ function liveApplyBatch(store, items, ctx) {
     }
   });
   if (!events.length) return Object.assign(out, { detail: null });
+  // Rows went in or were replaced: the Store's version moves (the roster log index and the per-lifter
+  // lists rebuild; a lifter whose sets didn't change keeps what was worked out for them).
+  Store.touch();
   const top = events.find(e => e.kind === 'set') || events.find(e => e.kind === 'program') || events[events.length - 1];
   return Object.assign(out, { detail: { kind: top.kind, athleteId: top.athleteId, programId: top.programId, items: events, landed, days } });
 }
@@ -3361,6 +3744,54 @@ const _PENDING_ATTEMPTS_KEY = 'powa-pending-log-attempts';
 // athlete, malformed row) must not live in the queue forever — past this many
 // attempts we drop it so it can't block every future flush.
 const _MAX_LOG_ATTEMPTS = 5;
+// Whose unsynced work the two queues (sets here, other changes in the outbox below) and the unsent
+// meet-day boards (meetday.js, one key per board) hold: the account that made it (sweep 2026-10-28 #6).
+// Only that account ever sends it, and never while nobody is signed in: a chosen log-out drops it
+// (logout() asks first when something still waits); a sign-out the person didn't choose keeps it for
+// the same account; another account signing in on this device drops it before it queues anything. A
+// queue from before this tag belongs to whoever signs in next, as it always did.
+const _QUEUE_OWNER_KEY = 'powa-queue-owner';
+function _queueOwner() { try { return localStorage.getItem(_QUEUE_OWNER_KEY) || null; } catch (e) { return null; } }
+function _queueHasItems() { return _readPendingLogs().length + _readOutbox().length > 0 || _accountKeys('pending').length > 0; }
+// The signed-in account may send (and count) what's queued: it queued it, or the queue predates the tag.
+function _queueIsMine() {
+  const me = window._user && window._user.id;
+  if (!me) return false;
+  const owner = _queueOwner();
+  return !owner || owner === me;
+}
+// Something was queued: the signed-in account owns the queue now.
+function _claimQueue() {
+  const me = window._user && window._user.id;
+  if (!me) return;
+  try { if (!_queueOwner()) localStorage.setItem(_QUEUE_OWNER_KEY, me); } catch (e) {}
+}
+// Signed out without choosing to: the queue stays, tagged with this account (when we know it).
+function _tagQueueOwner(uid) {
+  if (!uid || !_queueHasItems()) return;
+  try { if (!_queueOwner()) localStorage.setItem(_QUEUE_OWNER_KEY, uid); } catch (e) {}
+}
+function _dropQueues() {
+  const boards = _accountKeys('pending');   // unsent meet-day boards, and the list of boards started here
+  try { [_OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY, _QUEUE_OWNER_KEY].concat(boards).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+}
+// An account has signed in on this device: another account's queue is never sent as this one. (A tag
+// left with nothing under it just goes.)
+function _reconcileQueueOwner(uid) {
+  const owner = _queueOwner();
+  if (!uid || !owner || owner === uid) return;
+  if (_queueHasItems()) console.warn('Another account\'s unsynced changes were on this device: removed (only that account could send them).');
+  _dropQueues();
+}
+// Both queues empty: nobody owns them any more.
+function _releaseQueueIfEmpty() {
+  try { if (!_queueHasItems()) localStorage.removeItem(_QUEUE_OWNER_KEY); } catch (e) {}
+}
+// A dashboard is up: send what this account has waiting now, not only at the next reconnect.
+function _flushQueuesSoon() {
+  if (window._demoMode) return;
+  setTimeout(() => { if (navigator.onLine && _queueIsMine() && _queueHasItems()) { flushPendingLogs(); flushOutbox(); } }, 1500);
+}
 function _readPendingLogs() {
   try { return JSON.parse(localStorage.getItem(_PENDING_LOGS_KEY) || '[]'); } catch (e) { return []; }
 }
@@ -3377,11 +3808,13 @@ function _queuePendingLog(log) {
   const q = _readPendingLogs();
   if (!q.some(l => l.id === log.id)) q.push(log);
   _writePendingLogs(q);
+  _claimQueue();
 }
 let _flushingLogs = false;
 async function flushPendingLogs() {
   if (window._demoMode) return;
-  if (_flushingLogs) return;
+  if (!_queueIsMine()) return;   // nobody signed in, or another account's sets: never sent as someone else
+  if (_flushingLogs || window._mfaStepUpPending) return;   // _mfaStepUp flushes once the code is in
   const q = _readPendingLogs();
   if (!q.length) return;
   _flushingLogs = true;
@@ -3413,6 +3846,7 @@ async function flushPendingLogs() {
   for (const id of Object.keys(attempts)) { if (!stillQueued.has(id)) delete attempts[id]; }
   _writePendingLogs(failed);
   _writeLogAttempts(attempts);
+  _releaseQueueIfEmpty();
   _flushingLogs = false;
   if (synced > 0 && !failed.length) _markSyncDrained();
   if (synced > 0 && !failed.length) toast(synced + (synced === 1 ? ' set' : ' sets') + ' synced');
@@ -3437,7 +3871,7 @@ async function persistDeleteLog(id) {
   // If the set is still waiting in the offline queue, deleting it just means
   // removing it from the queue (it never reached the server).
   const q = _readPendingLogs();
-  if (q.some(l => l.id === id)) { _writePendingLogs(q.filter(l => l.id !== id)); return; }
+  if (q.some(l => l.id === id)) { _writePendingLogs(q.filter(l => l.id !== id)); _releaseQueueIfEmpty(); return; }
   try { await DB.deleteLog(id); } catch (e) { console.error('deleteLog', e); }
 }
 async function persistAddInvite(inv)      { if (window._demoMode) return; try { await DB.addInvite(inv); } catch (e) { console.error('addInvite', e); toast('Could not save invite'); } }
@@ -3461,11 +3895,90 @@ async function persistDeleteTemplate(id)  { if (window._demoMode) return; try { 
 // =========================================================
 const _SNAP_PREFIX = 'powa-snapshot-';
 function _snapKey(uid) { return _SNAP_PREFIX + uid; }
-function _saveSnapshot(user, store) {
-  if (window._demoMode || !user || !user.id || !store) return;
+// localStorage holds ~5 MB an origin on iPhones, shared with the outbox and the unsent sets, so the
+// snapshot keeps to 2 M characters (4 MB as UTF-16, the rest left for them). Past that it degrades: the big lists keep
+// their newest rows (365 days, then 120, 42, 14, 7; the sets also keep each lifter's best set of every
+// lift from before, so a PR offline is still a PR), then the big lists go. If even that won't fit,
+// the old snapshot goes too (an out-of-date one would open a stale program offline). Each step is
+// said once a session (the console and error-log.js); nothing fails silently.
+const _SNAP_BUDGET = 2000000;
+const _SNAP_LISTS = [['workoutLogs', 'date'], ['bodyweight', 'date'], ['sessionNotes', 'date'], ['checkinAnswers', 'period'], ['messages', 'createdAt'],
+  ['checkins', 'weekStart'], ['healthDaily', 'day'], ['nutritionDaily', 'day'], ['painReports', 'day'], ['programBlocks', 'endedOn'], ['coachNotes', 'createdAt']];
+const _SNAP_STEPS = [null, 365, 120, 42, 14, 7, 0];
+let _snapSaid = '';
+function _snapSay(what, detail) {
+  if (_snapSaid === what) return;
+  _snapSaid = what;
   try {
-    localStorage.setItem(_snapKey(user.id), JSON.stringify({ user, store, ts: Date.now() }));
-  } catch (e) { /* quota (e.g. big coach roster) — skip; online still works */ }
+    if (typeof window.__powaWarn === 'function') window.__powaWarn('snapshot: ' + what, detail || null);   // error-log.js: kept, forwarded, on the console
+    else console.warn('[POWA] snapshot: ' + what, detail || '');
+  } catch (e) {}
+}
+// The rows of a big list worth keeping offline from `since` on. Sets also keep, per lifter and lift,
+// the best set from before (pure; tested).
+function snapshotTrimList(key, list, field, since) {
+  if (!Array.isArray(list)) return list;
+  if (since == null) return list;
+  const inWin = (r) => !!r && String(r[field] || '').slice(0, 10) >= since;
+  if (key !== 'workoutLogs') return list.filter(inWin);
+  const best = new Map();
+  list.forEach(l => {
+    if (!l || inWin(l) || !(Number(l.e1rmComp) > 0)) return;
+    const k = l.athleteId + '\u0001' + l.lift, b = best.get(k);
+    if (!b || Number(l.e1rmComp) > Number(b.e1rmComp)) best.set(k, l);
+  });
+  const keep = new Set(best.values());
+  return list.filter(l => inWin(l) || keep.has(l));
+}
+// The store as the snapshot keeps it at one step: null = all of it, n = the big lists' last n days.
+function snapshotStoreAt(store, days, todayIso) {
+  if (days == null) return store;
+  const out = Object.assign({}, store);
+  const since = days > 0 ? _addDaysISO(todayIso || todayISO(), -days) : null;
+  _SNAP_LISTS.forEach(([k, f]) => { if (Array.isArray(store[k])) out[k] = days > 0 ? snapshotTrimList(k, store[k], f, since) : []; });
+  return out;
+}
+// Rough size of a store as JSON, from a sample of each big list (no full stringify of 60 000 sets).
+function _snapEstimate(store) {
+  let n = 0;
+  const big = new Set(_SNAP_LISTS.map(x => x[0]));
+  Object.keys(store || {}).forEach(k => {
+    const v = store[k];
+    if (big.has(k) && Array.isArray(v) && v.length > 64) {
+      const step = v.length / 64, sample = [];
+      for (let i = 0; i < 64; i++) sample.push(v[Math.floor(i * step)]);
+      n += Math.ceil(JSON.stringify(sample).length / 64 * v.length);
+    } else { try { n += JSON.stringify(v === undefined ? null : v).length; } catch (e) {} }
+  });
+  return n;
+}
+// → true (saved: whole, or at the step it says in trimmedTo) | false (nothing kept). opts: { storage,
+// budget, today } stand-ins for the tests.
+function _saveSnapshot(user, store, opts) {
+  opts = opts || {};
+  // window._signingOut: a log-out, a deletion or a refused session is wiping this device. The pagehide /
+  // visibilitychange save used to write the whole account back right after the wipe (sweep 2026-10-28 #4).
+  if (window._demoMode || window._signingOut || !user || !user.id || !store) return;
+  const ls = opts.storage || localStorage, budget = opts.budget || _SNAP_BUDGET;
+  const key = _snapKey(user.id), today = opts.today || todayISO();
+  const full = _snapEstimate(store);
+  for (let i = 0; i < _SNAP_STEPS.length; i++) {
+    const days = _SNAP_STEPS[i];
+    if (days == null && full > budget) continue;   // too big whole: straight to the steps
+    const s = snapshotStoreAt(store, days, today);
+    if (days != null && i < _SNAP_STEPS.length - 1 && _snapEstimate(s) > budget) continue;   // still too big: the next step
+    let text;
+    try { text = JSON.stringify({ user, store: s, ts: Date.now(), trimmedTo: days }); } catch (e) { continue; }
+    if (text.length > budget) continue;
+    try {
+      ls.setItem(key, text);
+      if (days != null) _snapSay(days > 0 ? 'kept the last ' + days + ' days of the big lists' : 'left the big lists out', { estimate: full });
+      return true;
+    } catch (e) { /* quota: the next, smaller step */ }
+  }
+  try { ls.removeItem(key); } catch (e) {}
+  _snapSay('not saved (too big for this device); the old one was removed', { estimate: full });
+  return false;
 }
 function _readSnapshot(uid) {
   try {
@@ -3585,11 +4098,13 @@ function _enqueueOutbox(kind, payload, key) {
   const q = _readOutbox().filter(e => e.key !== key); // coalesce: replace any older edit of this row
   q.push({ key, kind, payload, ts: Date.now() });
   _writeOutbox(q);
+  _claimQueue();
   _scheduleConnBanner();
 }
 let _flushingOutbox = false;
 async function flushOutbox() {
-  if (window._demoMode || _flushingOutbox) return;
+  if (window._demoMode || _flushingOutbox || window._mfaStepUpPending) return;   // _mfaStepUp flushes once the code is in
+  if (!_queueIsMine()) return;   // nobody signed in, or another account's changes: never sent as someone else
   const q = _readOutbox();
   if (!q.length) return;
   _flushingOutbox = true;
@@ -3617,6 +4132,7 @@ async function flushOutbox() {
   for (const k of Object.keys(attempts)) { if (!stillQueued.has(k)) delete attempts[k]; }
   _writeOutbox(keep);
   _writeOutboxAttempts(attempts);
+  _releaseQueueIfEmpty();
   _flushingOutbox = false;
   if (synced > 0 && !failed.length && !_readPendingLogs().length) _markSyncDrained();
   if (synced > 0 && !failed.length) toast('Changes synced');
@@ -3630,13 +4146,15 @@ async function flushOutbox() {
 // browser is offline (or while queued writes drain on reconnect),
 // hides once everything is reconciled. Reduced-motion safe.
 // =========================================================
-function _pendingCount() { return _readOutbox().length + _readPendingLogs().length; }
+// Only the signed-in account's own queue counts (another account's waits unseen until it signs back in).
+function _pendingCount() { return _queueIsMine() ? _readOutbox().length + _readPendingLogs().length : 0; }
 // The sync chip on Train (syncChipState): what is waiting, and when the queue last drained.
 function _markSyncDrained() { try { localStorage.setItem('powa-last-drain', String(Date.now())); } catch (e) {} }
 function powaSyncState() {
   let lastDrain = 0;
   try { lastDrain = Number(localStorage.getItem('powa-last-drain')) || 0; } catch (e) {}
-  return { sets: _readPendingLogs().length, changes: _readOutbox().length, lastDrain };
+  const mine = _queueIsMine();
+  return { sets: mine ? _readPendingLogs().length : 0, changes: mine ? _readOutbox().length : 0, lastDrain };
 }
 function _connBannerEl() {
   let b = document.getElementById('powa-conn-banner');
@@ -4086,11 +4604,119 @@ window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
 
 // ---------- Two-factor authentication (#37) ----------
-// Client-only TOTP 2FA on top of Supabase Auth's native MFA. No secret, no
-// edge function, no migration — see DB.mfa* wrappers in db.js. The Settings
-// card shows status + enable/disable; the enroll modal renders the QR + secret
-// and verifies a code; the login-time challenge lives in index.html's doLogin.
+// TOTP 2FA on Supabase Auth's native MFA (DB.mfa* wrappers in db.js). The database holds it:
+// an account with a verified authenticator reads and writes nothing until its session has
+// entered the code (aal2; sql/migration-mfa-aal2-2026-10-28.sql), and the edge functions
+// check the same (supabase/functions/_shared/aal.ts). Here: the Settings card (status +
+// enable/disable), the enroll sheet (QR + secret + code), and the code prompt, which the
+// sign-in screens (index.html doLogin, native-onboard.js, social-auth.js) and bootstrap()
+// share: a session that still owes its code asks for it before anything reads data.
 let _mfaPendingFactor = null;
+
+// The code prompt. Resolves true once the code verifies (the session is now aal2), false when
+// the person cancels: the second button, Esc, or anything else closing the modal (a tap on
+// the backdrop doesn't: data-sticky). opts.cancelLabel: 'Cancel' on the sign-in screens,
+// 'Sign out' at boot, where cancelling is exactly that. opts.client: the supabase-js client whose
+// session owes the code (reset-password.html's link client; default db.js's). opts.lead: the line
+// under the title. One prompt at a time: asked again while one is open for the same session (bootstrap
+// and a sign-in screen racing after an Apple / Google return, say), the open one's answer is the answer
+// (the same promise); another client's prompt waits until it's answered, then opens.
+let _mfaOpen = null;   // { promise, client } while a prompt is open
+function promptMfaChallenge(opts) {
+  opts = opts || {};
+  const client = opts.client || null;
+  if (_mfaOpen) return _mfaOpen.client === client ? _mfaOpen.promise : _mfaOpen.promise.then(() => promptMfaChallenge(opts));
+  let open = null;
+  const promise = new Promise((resolve) => {
+    let modal = document.getElementById('mfaChallengeModal');
+    if (!modal) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = '<div class="modal-backdrop" id="mfaChallengeModal" data-sticky="1">' +
+        '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="mfaChalTitle">' +
+          '<h3 id="mfaChalTitle" style="margin-bottom:6px">Two-factor verification</h3>' +
+          '<p class="dim text-sm mb-16" id="mfaChalLead" style="line-height:1.5"></p>' +
+          '<div class="form-group"><label for="mfaChalCode">Code</label>' +
+            '<input type="text" id="mfaChalCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="letter-spacing:0.3em;text-align:center;font-size:1.1rem"></div>' +
+          '<div id="mfaChalErr" class="text-xs" role="alert" style="color:var(--brand-red);min-height:16px;margin-bottom:8px"></div>' +
+          '<button type="button" class="btn btn-primary btn-block" id="mfaChalVerify">Verify</button>' +
+          '<button type="button" class="btn btn-block btn-ghost mt-8" id="mfaChalCancel">Cancel</button>' +
+        '</div>' +
+      '</div>';
+      modal = wrap.firstChild;
+      document.body.appendChild(modal);
+    }
+    const codeInp = modal.querySelector('#mfaChalCode');
+    const err = modal.querySelector('#mfaChalErr');
+    const verifyBtn = modal.querySelector('#mfaChalVerify');
+    const cancelBtn = modal.querySelector('#mfaChalCancel');
+    const lead = modal.querySelector('#mfaChalLead');
+    if (lead) lead.textContent = opts.lead || 'Enter the 6-digit code from your authenticator app to finish signing in.';
+    codeInp.value = ''; err.textContent = '';
+    verifyBtn.disabled = false; verifyBtn.textContent = 'Verify';
+    cancelBtn.textContent = opts.cancelLabel || 'Cancel';
+    let settled = false;
+    // Esc (closeAllModals) or any other script taking .open away counts as Cancel, so the caller
+    // never waits on a prompt nobody can see.
+    const watch = new MutationObserver(() => { if (!modal.classList.contains('open')) cleanup(false); });
+    function cleanup(result) {
+      if (settled) return;
+      settled = true;
+      if (_mfaOpen === open) _mfaOpen = null;   // answered: the next ask opens a new prompt
+      watch.disconnect();
+      modal.classList.remove('open');
+      verifyBtn.onclick = null; cancelBtn.onclick = null; codeInp.onkeydown = null;
+      resolve(result);
+    }
+    async function attempt() {
+      const code = (codeInp.value || '').replace(/\D/g, '');
+      if (code.length !== 6) { err.textContent = 'Enter the 6-digit code.'; return; }
+      verifyBtn.disabled = true; verifyBtn.textContent = 'Verifying…'; err.textContent = '';
+      const res = await DB.mfaChallengeVerify(code, opts.client);
+      if (settled) return;
+      verifyBtn.disabled = false; verifyBtn.textContent = 'Verify';
+      if (res.ok) return cleanup(true);
+      err.textContent = /invalid|incorrect|expired|match/i.test(res.reason || '')
+        ? 'That code didn\'t match. Try the current one.' : (res.reason || 'Verification failed.');
+    }
+    verifyBtn.onclick = attempt;
+    cancelBtn.onclick = function () { cleanup(false); };
+    codeInp.onkeydown = function (e) { if (e.key === 'Enter') attempt(); };
+    // index.html hides the page while it works out where a signed-in visitor goes (html.auth-pending on
+    // the website, back from Apple / Google too; html.has-session's splash in the app): a prompt that
+    // opens then must be seen, so the page shows behind it.
+    try { document.documentElement.classList.remove('auth-pending', 'auth-returning', 'has-session'); } catch (e) {}
+    modal.classList.add('open');
+    watch.observe(modal, { attributes: true, attributeFilter: ['class'] });
+    setTimeout(function () { try { codeInp.focus(); } catch (_) {} }, 50);
+  });
+  open = { promise, client };
+  // The executor ran synchronously: still unanswered, this is the open prompt.
+  if (document.querySelector('#mfaChallengeModal.open')) _mfaOpen = open;
+  return promise;
+}
+window.promptMfaChallenge = promptMfaChallenge;
+
+// bootstrap(): a session that still owes its code (the password step is done, the code isn't:
+// a reload during the sign-in prompt, or /athlete.html or /coach.html opened straight after the
+// password) asks for it in place, before anything reads data. The check reads the stored session
+// (no network); the database refuses such a session anyway. Returns 'none' (nothing owed, or it
+// couldn't tell), 'in' (code entered: the session is aal2) or 'out' (they chose to sign out:
+// this device only, never their other sessions).
+async function _mfaStepUp() {
+  let aal = null;
+  try { aal = await DB.mfaAssurance(); } catch (e) { aal = null; }
+  if (!aal || !aal.ok || aal.nextLevel !== 'aal2' || aal.currentLevel === 'aal2') return 'none';
+  window._mfaStepUpPending = true;   // the offline queues wait: replayed at aal1 they'd be refused and burn their tries
+  let passed = false;
+  try { passed = await promptMfaChallenge({ cancelLabel: 'Sign out' }); } catch (e) { passed = false; }
+  window._mfaStepUpPending = false;
+  if (passed) {
+    setTimeout(() => { try { if (navigator.onLine) { flushPendingLogs(); flushOutbox(); } } catch (e) {} }, 1200);
+    return 'in';
+  }
+  try { await DB.signOut('local'); } catch (e) {}
+  return 'out';
+}
 
 // Status line + tinted pill, mirroring renderPlanManageCard's badge treatment.
 // One row like the rest of Security (title, what it does, On / Off at the end), then one button.
@@ -4516,7 +5142,7 @@ async function renderNotifPrefs(container) {
 
   const deviceHtml = () => {
     const wrap = (inner) => '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px">' + inner + '</div>';
-    if (!supported) return wrap('<span class="dim text-xs">This browser doesn’t support push. On iPhone, add POWALIFTA to your Home Screen to get alerts.</span>');
+    if (!supported) return wrap('<span class="dim text-xs">This browser can’t get alerts. On iPhone, they come through the POWALIFTA app.</span>');
     if (perm === 'denied') return wrap('<span class="dim text-xs">' + (_isNativeShell()
       ? 'Notifications are off for POWALIFTA. Turn them on in iPhone Settings → Notifications → POWALIFTA.'
       : 'Alerts are blocked: turn notifications back on for POWALIFTA in your browser settings.') + '</span>');
@@ -5045,6 +5671,39 @@ function _msgTime(iso) {
   } catch (e) { return ''; }
 }
 
+// A thread takes writes (a message, a reaction, a read mark) only while its coach-lifter link is live:
+// the lifter's coach is this thread's coach. A former coach, and a lifter who left, can still read the
+// thread but nothing else (migration-security-fixes-2026-10-28.sql, row 59; the server refuses the rest
+// with 42501). Answered from what this page already holds: the coach's roster (only lifters whose
+// coach_id is this coach load into it), or the lifter's own coachId. Pure on its inputs:
+// me = { id, coachId }, roster = [{ id, coachId }].
+function msgThreadLive(coachId, athleteId, me, roster) {
+  if (me === undefined) me = window._user;
+  if (!coachId || !athleteId || !me || !me.id) return false;
+  if (me.id === athleteId) return me.coachId === coachId;
+  if (me.id === coachId) {
+    if (roster === undefined) { try { roster = Store.get().athletes; } catch (e) { roster = []; } }
+    return (roster || []).some(a => a && a.id === athleteId && a.coachId === coachId);
+  }
+  return false;
+}
+window.msgThreadLive = msgThreadLive;
+// The server refused a write in a thread because the link has ended (RLS 42501), as opposed to a
+// network or server hiccup.
+function msgLinkRefused(e) {
+  if (!e) return false;
+  if (e.linkGone) return true;
+  return String(e.code || '') === '42501' || /row-level security/i.test(String(e.message || e.error || ''));
+}
+window.msgLinkRefused = msgLinkRefused;
+// What a read-only thread says at its end, in the viewer's words.
+function msgClosedText(viewerIsCoach, otherName) {
+  const who = String(otherName || '').trim();
+  return viewerIsCoach ? (who || 'This lifter') + ' is no longer on your roster, so this thread is read-only.'
+    : (who || 'This coach') + ' is no longer your coach, so this thread is read-only.';
+}
+window.msgClosedText = msgClosedText;
+
 // Renders one coach<->athlete conversation: chat bubbles PLUS the session notes
 // for this pair, merged into a single time-ordered history. Notes are read-only
 // context (replying to a note still happens in the Notes inbox), so they render
@@ -5054,10 +5713,17 @@ async function renderMessageThread(container, opts) {
   const { coachId, athleteId, viewerId, otherName } = opts || {};
   const weaveNotes = !opts || opts.weaveNotes !== false;
   const demo = !!window._demoMode;
+  // A thread whose coach-lifter link has ended is read-only (row 59): no composer, no reactions, nothing
+  // marked read, and one line at its end saying why. opts.live (true / false) overrides msgThreadLive.
+  // The link can also end while the thread is open: the server refuses the next write, and the thread
+  // closes then (closeThread) instead of showing the refusal.
+  let live = (opts && typeof opts.live === 'boolean') ? opts.live : msgThreadLive(coachId, athleteId);
+  const closedText = () => msgClosedText(viewerId === coachId, otherName);
   // markRead: false (the desk's side pane) waits until the viewer touches the thread before it
   // marks anything read, so stepping through a queue never sends "Seen". opts.onRead runs then.
   let markRead = !opts || opts.markRead !== false;
   const markNow = () => {
+    if (!live) return;   // a read-only thread marks nothing read (the server would refuse it)
     if (demo) {
       (Store.get().messages || []).forEach(m => {
         if (m.coachId === coachId && m.athleteId === athleteId && m.senderId !== viewerId && !m.readAt) m.readAt = new Date().toISOString();
@@ -5094,7 +5760,7 @@ async function renderMessageThread(container, opts) {
   if (viewerId && viewerId === coachId && window.WeeklyNote && WeeklyNote.replyButton) composer.appendChild(WeeklyNote.replyButton(ta, { coachId: coachId }));
   composer.appendChild(ta);
   composer.appendChild(sendBtn);
-  wrap.appendChild(composer);
+  if (live) wrap.appendChild(composer);   // read-only: the closing line at the thread's end takes its place
   container.appendChild(wrap);
   if (!markRead) {
     // Deferred read: the first focus in the composer or click in the thread counts as opening it.
@@ -5110,9 +5776,10 @@ async function renderMessageThread(container, opts) {
   }
   // Voice notes (voice.js): hold the mic to record; it shows while the box is empty, the send
   // arrow once there's text. The laptop pane can drive the same control (container._voice).
-  const voice = (window.PowaVoice && !(opts && opts.noVoice)) ? PowaVoice.attachComposer(composer, { onSend: (rec) => sendVoice(rec) }) : null;
+  const voice = (live && window.PowaVoice && !(opts && opts.noVoice)) ? PowaVoice.attachComposer(composer, { onSend: (rec) => sendVoice(rec) }) : null;
   container._voice = voice;
   let pendingVoice = [];   // recorded offline, waiting to go
+  let unsent = [];         // text the server refused once the link had ended: kept on screen to copy, never sent
   const cleanups = [];
 
   // Reactions: messageId → [{ userId, reaction }]. Demo keeps them in memory.
@@ -5134,6 +5801,7 @@ async function renderMessageThread(container, opts) {
       kind: 'msg', id: p.id, ts: p.createdAt || '', mine: true, body: '', pending: true, readAt: null,
       meta: { type: 'voice', dur: p.dur, peaks: p.peaks, mime: p.mime }
     }); });
+    unsent.forEach(u => items.push({ kind: 'msg', id: u.id, ts: u.ts, mine: true, body: u.body, meta: null, readAt: null, pending: true, unsent: true }));
     (notes || []).forEach(n => {
       if (n.note && n.note.trim()) items.push({
         kind: 'note', label: 'Session note', ts: (n.date || '') + 'T00:00:01Z', body: n.note, meta: ''
@@ -5186,9 +5854,12 @@ async function renderMessageThread(container, opts) {
     lastItems = items;
     const prevTop = list.scrollTop;
     list.innerHTML = '';
+    // Read-only: one quiet line at the thread's end says why there's no reply box.
+    const closedLine = () => { if (!live) list.appendChild(el('div', { class: 'msg-closed' }, closedText())); };
     if (!items.length) {
-      list.appendChild(el('div', { class: 'msg-empty dim text-sm' },
+      if (live) list.appendChild(el('div', { class: 'msg-empty dim text-sm' },
         (opts && opts.emptyText) || ('No messages yet. Say hi to ' + (otherName || 'them') + '.')));
+      closedLine();
       return;
     }
     // The most recent message I sent is the only one that carries a Sent/Seen
@@ -5220,13 +5891,14 @@ async function renderMessageThread(container, opts) {
       if (isCard) bubble.appendChild(setCard(it.meta));
       else if (isVoice) bubble.appendChild(PowaVoice.player(it.meta, { messageId: it.id }));
       else bubble.appendChild(el('div', { class: 'msg-body' }, it.body));
-      bubble.appendChild(el('div', { class: 'msg-meta' }, it.pending ? 'Will send when online' : _msgTime(it.ts)));
+      bubble.appendChild(el('div', { class: 'msg-meta' }, it.unsent ? 'Not sent' : it.pending ? 'Will send when online' : _msgTime(it.ts)));
       if (sum.total) {
-        const tb = el('button', { class: 'msg-react', type: 'button', 'aria-label': 'Reactions' });
+        // Read-only: the reactions still show, as a label (nothing to change).
+        const tb = live ? el('button', { class: 'msg-react', type: 'button', 'aria-label': 'Reactions' }) : el('span', { class: 'msg-react' });
         Object.keys(sum.counts).forEach(k => tb.appendChild(el('span', {}, REACT_EMOJI[k])));
         if (sum.total > 1) tb.appendChild(el('b', {}, String(sum.total)));
         if (sum.mine) tb.classList.add('mine');
-        tb.addEventListener('click', (e) => { e.stopPropagation(); openPicker(it, bubble); });
+        if (live) tb.addEventListener('click', (e) => { e.stopPropagation(); openPicker(it, bubble); });
         bubble.appendChild(tb);
       }
       uiLongPress(bubble, () => openPicker(it, bubble));
@@ -5239,6 +5911,7 @@ async function renderMessageThread(container, opts) {
           seen ? ('Seen' + (rt ? ' · ' + rt : '')) : 'Sent'));
       }
     });
+    closedLine();
     list.scrollTop = keepScroll ? prevTop : list.scrollHeight;
   }
 
@@ -5246,12 +5919,29 @@ async function renderMessageThread(container, opts) {
   function openPicker(it, bubble) {
     const sum = reactionSummary(reacts[it.id], viewerId);
     const extra = [];
+    if (!(it.meta && it.meta.type) && navigator.clipboard) extra.push({ label: 'Copy', onClick: () => { navigator.clipboard.writeText(it.body || '').then(() => toast('Copied'), () => {}); } });
+    if (it.unsent) {   // refused once the link had ended: it can be copied, never sent
+      if (extra.length) openReactionPicker(bubble, [], null, () => {}, extra);
+      return;
+    }
     if (it.pending) {   // not sent yet: nothing to react to, but it can be taken back
       openReactionPicker(bubble, [], null, () => {}, [{ label: 'Delete', onClick: () => { PowaVoice.discard(it.id); } }]);
       return;
     }
-    if (!(it.meta && it.meta.type) && navigator.clipboard) extra.push({ label: 'Copy', onClick: () => { navigator.clipboard.writeText(it.body || '').then(() => toast('Copied'), () => {}); } });
+    if (!live) {   // read-only: copy, no reactions
+      if (extra.length) openReactionPicker(bubble, [], null, () => {}, extra);
+      return;
+    }
     openReactionPicker(bubble, MSG_REACT_KEYS, sum.mine, (key) => react(it, key), extra);
+  }
+  // The link ended while this thread was open (the server refused a write): read-only from here, as if
+  // it had opened that way. note: the toast that says so.
+  function closeThread(note) {
+    live = false;
+    if (composer.parentNode) composer.remove();
+    container._voice = null;
+    paint(buildTimeline(messages, notes), true);
+    if (note) toast(note, 6000);
   }
   async function react(it, key) {
     const before = (reacts[it.id] || []).map(x => Object.assign({}, x));
@@ -5266,8 +5956,10 @@ async function renderMessageThread(container, opts) {
     try {
       await DB.setMessageReaction({ messageId: it.id, coachId, athleteId, userId: viewerId, reaction: key });
     } catch (e) {
-      reacts[it.id] = before; paint(lastItems, true);
-      toast(e.message || 'Could not react');
+      reacts[it.id] = before;
+      if (msgLinkRefused(e)) { closeThread(closedText()); return; }   // never the server's own words
+      paint(lastItems, true);
+      toast(e && e.notReady ? e.message : 'Could not react. Check your connection and try again.');
     }
   }
 
@@ -5319,7 +6011,7 @@ async function renderMessageThread(container, opts) {
           if (messages.some(x => x.id === m.id)) return;
           messages.push(m);
           paint(buildTimeline(messages, notes));
-          if (m.senderId !== viewerId && markRead) DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
+          if (m.senderId !== viewerId && markRead && live) DB.markThreadRead(coachId, athleteId, viewerId).catch(() => {});
         })
       : null;
     // Live read-receipts — when the other party opens the thread, their read of
@@ -5356,7 +6048,9 @@ async function renderMessageThread(container, opts) {
   if (cleanups.length) container._msgCleanup = () => { cleanups.forEach(fn => { try { fn(); } catch (e) {} }); };
 
   async function sendVoice(rec) {
-    const r = await PowaVoice.send({ coachId, athleteId, senderId: viewerId, rec });
+    let r;
+    try { r = await PowaVoice.send({ coachId, athleteId, senderId: viewerId, rec }); }
+    catch (e) { if (msgLinkRefused(e)) closeThread('Not sent: ' + closedText()); throw e; }   // voice.js says nothing for this one
     if (r && r.msg && !messages.some(x => x.id === r.msg.id)) messages.push(r.msg);
     if (r && r.queued) toast('Saved on this phone. It sends when you\'re back online');
     paint(buildTimeline(messages, notes));
@@ -5398,10 +6092,20 @@ async function renderMessageThread(container, opts) {
       autosize();
       syncSend();   // the arrow goes quiet again once the box is empty
     } catch (e) {
+      if (msgLinkRefused(e)) {
+        // The link ended while this thread was open: what was typed stays on screen (Not sent, it can be
+        // copied) and the thread turns read-only, instead of the server's refusal.
+        console.warn('sendMessage: the coach-lifter link has ended', e);
+        unsent.push({ id: 'unsent-' + Date.now(), ts: new Date().toISOString(), body });
+        ta.value = '';
+        closeThread('Not sent: ' + closedText());
+        return;
+      }
       console.error('sendMessage', e);
-      toast('Could not send: are you still connected to them?');
+      toast('Could not send. Check your connection and try again.');
     } finally {
-      sendBtn.disabled = false; ta.disabled = false; ta.focus();
+      sendBtn.disabled = false; ta.disabled = false;
+      if (live) ta.focus();
     }
   }
   sendBtn.addEventListener('click', doSend);
@@ -5532,12 +6236,22 @@ async function confirmDeleteMyAccount() {
   if (!input || input.value.trim().toUpperCase() !== 'DELETE') return;
   if (err) err.textContent = '';
   if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+  const uid = window._user && window._user.id;
   const res = await DB.deleteAccount();
   if (res && res.ok) {
+    // Only now, with the account gone: a failed deletion keeps working (and keeps its offline copy).
+    // From here nothing writes the account back: the pagehide save used to put the whole working set
+    // (a coach's roster, notes, intake answers) back on the device right after this wipe (sweep 2026-10-28 #4).
+    window._signingOut = true;
     toast('Account deleted. Signing you out…');
-    _wipeLocalUserData();
+    // Everything of it: its own settings and records too (saved replies, the Health switch, the desk's drafts).
+    _wipeLocalUserData({ uid, deleted: true });
     try { await DB.signOut(); } catch (_) {}
     try { await Promise.race([window._voiceWipe, new Promise(r => setTimeout(r, 800))]); } catch (_) {}
+    window._user = null;
+    Store.reset();
+    _sweepAccountKeys({ pending: true });
+    _forgetAccountKeys(uid);
     _toWelcome();
     return;
   }
@@ -5561,12 +6275,12 @@ function renderCalendarHeatmap(container, opts) {
 
   container.innerHTML = '';
 
-  const trainSet = new Set(Store.get().workoutLogs.filter(l => l.athleteId === athleteId).map(l => l.date));
+  const trainSet = new Set(_logsOf(athleteId).map(l => l.date));
   const restSet = new Set(Store.get().restDays.filter(r => r.athleteId === athleteId).map(r => r.date));
 
   // Volume per day (count of sets logged)
   const volume = {};
-  Store.get().workoutLogs.filter(l => l.athleteId === athleteId).forEach(l => {
+  _logsOf(athleteId).forEach(l => {
     volume[l.date] = (volume[l.date] || 0) + 1;
   });
   const maxV = Math.max(1, ...Object.values(volume));
@@ -5635,8 +6349,9 @@ window.closeAllModals = function() {
   document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
 };
 document.addEventListener('click', function(e) {
-  // If user clicked the backdrop element itself (not a child), close it
-  if (e.target.classList && e.target.classList.contains('modal-backdrop') && e.target.classList.contains('open')) {
+  // If user clicked the backdrop element itself (not a child), close it. Not a data-sticky one
+  // (the two-factor prompt): a stray tap beside it must not count as Cancel and sign them out.
+  if (e.target.classList && e.target.classList.contains('modal-backdrop') && e.target.classList.contains('open') && !e.target.hasAttribute('data-sticky')) {
     e.target.classList.remove('open');
   }
 });
@@ -5651,12 +6366,22 @@ document.addEventListener('keydown', function(e) {
 // AND on initial page load. Works on whatever page has the modals (homepage).
 // =========================================================
 function checkHashForModal() {
-  if (location.hash === '#login' && typeof window.openLoginModal === 'function') {
+  // A two-factor code owed at load (bootstrap's _mfaStepUp, or its prompt already open): #login / #signup must
+  // not close it (closeAllModals would count as Cancel and sign them out). The page's own modal can wait.
+  if (window._mfaStepUpPending || document.querySelector('#mfaChallengeModal.open')) return;
+  const h = location.hash;
+  if (h === '#login' && typeof window.openLoginModal === 'function') {
     window.closeAllModals();
     window.openLoginModal();
-  } else if (location.hash === '#signup' && typeof window.openSignupModal === 'function') {
+  } else if (/^#signup(-solo|-athlete|-coach)?$/.test(h) && typeof window.openSignupModal === 'function') {
+    // Read the hash the way index.html's own _openHashModal does (#signup = a lifter on their own): this
+    // runs 50 ms after it and on every hash change, so it must agree or it flips the sign-up to
+    // "Lifter, with a coach" under the visitor's eyes. Already open as that type: leave it be.
+    const type = h === '#signup-athlete' ? 'athlete' : h === '#signup-coach' ? 'coach' : 'solo';
+    const modal = document.getElementById('signupModal'), sel = document.getElementById('signupType');
+    if (modal && modal.classList.contains('open') && sel && sel.value === type) return;
     window.closeAllModals();
-    window.openSignupModal('athlete');
+    window.openSignupModal(type);
   }
 }
 window.addEventListener('hashchange', checkHashForModal);
@@ -8299,8 +9024,7 @@ function deleteTemplate(templateId) {
 // LAST SET FOR EXERCISE (for "see last RPE" while programming)
 // =========================================================
 function getLastSetForExercise(athleteId, lift, variant, exerciseName) {
-  const logs = Store.get().workoutLogs.filter(l => {
-    if (l.athleteId !== athleteId) return false;
+  const logs = _logsOf(athleteId).filter(l => {
     if (l.lift !== lift) return false;
     if (MAIN_LIFTS.includes(lift)) return l.variant === variant;
     return l.exerciseName === exerciseName;
@@ -8310,8 +9034,7 @@ function getLastSetForExercise(athleteId, lift, variant, exerciseName) {
 }
 
 function getProgressionHint(athleteId, lift, variant, exerciseName, prescribedWeight, prescribedRpe) {
-  const logs = Store.get().workoutLogs.filter(l => {
-    if (l.athleteId !== athleteId) return false;
+  const logs = _logsOf(athleteId).filter(l => {
     if (l.lift !== lift) return false;
     if (MAIN_LIFTS.includes(lift)) return l.variant === variant;
     return l.exerciseName === exerciseName;
@@ -8329,7 +9052,47 @@ function getProgressionHint(athleteId, lift, variant, exerciseName, prescribedWe
 // PRs
 // =========================================================
 // Was this log a new comp-equivalent PR for the lift (any variant)?
+// Per lifter and lift, their sets sorted by (date, id) with the running best are kept until the
+// lifter's sets change (_prIndex), so each check is a binary search, not a pass over the roster.
+// The plain filter below answers whenever the rows aren't the usual shape (a date or an id that
+// isn't a string, or an id seen twice): both give the same answer on the same rows.
+function _prIndex(athleteId, lift) {
+  const vals = _lmemoOf(athleteId);
+  let byLift = vals.get('pr');
+  if (!byLift) vals.set('pr', byLift = new Map());
+  if (byLift.has(lift)) return byLift.get(lift);
+  const arr = [], at = new Map();
+  let ok = true;
+  for (const l of _logsOf(athleteId)) {
+    if (l.lift !== lift) continue;
+    if (typeof l.date !== 'string' || typeof l.id !== 'string' || at.has(l.id)) { ok = false; break; }
+    at.set(l.id, l); arr.push(l);
+  }
+  let ix = null;
+  if (ok) {
+    arr.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const best = new Array(arr.length + 1);
+    best[0] = -Infinity;
+    for (let i = 0; i < arr.length; i++) best[i + 1] = Math.max(best[i], arr[i].e1rmComp);
+    ix = { arr, best, at };
+  }
+  byLift.set(lift, ix);
+  return ix;
+}
 function isPRForLog(athleteId, log) {
+  if (log && typeof log.date === 'string' && typeof log.id === 'string') {
+    const ix = _prIndex(athleteId, log.lift);
+    const self = ix && ix.at.get(log.id);
+    if (ix && (!self || self.date === log.date)) {
+      let lo = 0, hi = ix.arr.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1, x = ix.arr[mid];
+        if (x.date < log.date || (x.date === log.date && x.id < log.id)) lo = mid + 1; else hi = mid;
+      }
+      if (!lo) return false;
+      return log.e1rmComp > ix.best[lo] + 0.05;
+    }
+  }
   const earlier = Store.get().workoutLogs.filter(l =>
     l.athleteId === athleteId &&
     l.lift === log.lift &&
@@ -8338,12 +9101,13 @@ function isPRForLog(athleteId, log) {
   );
   // A lift's first set beats nothing yet: no PR moment, no club PR points on day one.
   if (!earlier.length) return false;
-  const prevMax = Math.max(...earlier.map(l => l.e1rmComp));
+  let prevMax = -Infinity;   // Math.max over them (no spread: a long history overflows the arguments)
+  for (let i = 0; i < earlier.length; i++) prevMax = Math.max(prevMax, earlier[i].e1rmComp);
   return log.e1rmComp > prevMax + 0.05;
 }
 
 function getLifetimePRs(athleteId) {
-  const logs = Store.get().workoutLogs.filter(l => l.athleteId === athleteId);
+  const logs = _logsOf(athleteId);
   const result = {};
   ['squat', 'bench', 'deadlift'].forEach(lift => {
     const liftLogs = logs.filter(l => l.lift === lift);
@@ -8387,7 +9151,7 @@ function prTimeline(logs, athleteId, opts) {
 window.prTimeline = prTimeline;
 
 function getWeeklyDelta(athleteId) {
-  const logs = Store.get().workoutLogs.filter(l => l.athleteId === athleteId);
+  const logs = _logsOf(athleteId);
   const today = new Date(); today.setHours(0,0,0,0);
   const range = (offset) => {
     const end = new Date(today); end.setDate(end.getDate() - 7 * offset);
@@ -8413,7 +9177,7 @@ function getRosterOverview(coachId) {
   const s = Store.get();
   return s.athletes.filter(a => a.coachId === coachId).map(a => {
     const prog = s.programs.find(p => p.athleteId === a.id);
-    const logs = s.workoutLogs.filter(l => l.athleteId === a.id);
+    const logs = _logsOf(a.id).slice();   // a copy: sorted below
     const lastLog = logs.sort((x, y) => y.date.localeCompare(x.date))[0];
     const today = new Date(); today.setHours(0,0,0,0);
     const ago = lastLog ? Math.round((today - new Date(lastLog.date)) / 86400000) : null;
@@ -8421,7 +9185,7 @@ function getRosterOverview(coachId) {
     const allSets = prog ? prog.weeks.flatMap(w => w.days).flatMap(d => d.exercises).flatMap(e => e.sets) : [];
     const completed = allSets.filter(s => s.completed).length;
     const total = allSets.length;
-    const lastNote = (s.sessionNotes.filter(n => n.athleteId === a.id).sort((x, y) => y.date.localeCompare(x.date))[0]) || null;
+    const lastNote = (_ofAthlete(s.sessionNotes, a.id).slice().sort((x, y) => y.date.localeCompare(x.date))[0]) || null;
     const lastRpe = lastLog ? lastLog.rpe : null;
     return { athlete: a, program: prog, lastLog, ago, flag, completedSets: completed, totalSets: total, lastNote, lastRpe };
   });
@@ -8437,20 +9201,41 @@ function getRosterOverview(coachId) {
 // is paired across both windows and NONE improved past `tol` — i.e. flat or
 // regressing across the board. Pure read over Store; no DB.
 // =========================================================
+// Kept per lifter for the day: with every main-lift date a whole UTC day ('YYYY-MM-DD', or not a
+// date at all), the windows' edges only cross a set when ceil(now / day) moves, so the answer holds
+// until then. Otherwise (a date with a time in it, a window that isn't whole days) it's worked out
+// each time.
 function getE1RMMomentum(athleteId, windowDays) {
   const win = windowDays || 21;
+  const now = Date.now();
+  if (!Number.isInteger(win) || !_lmemoGet(athleteId, 'momDays', () => {
+    const seen = new Set();
+    return _logsOf(athleteId).every(l => {
+      if (!MAIN_LIFTS.includes(l.lift) || seen.has(l.date)) return true;
+      seen.add(l.date);
+      const t = Date.parse(l.date);
+      return isNaN(t) || t % 86400000 === 0;
+    });
+  })) return _e1rmMomentum(athleteId, win, now);
+  const m = _lmemoGet(athleteId, 'mom|' + win + '|' + Math.ceil(now / 86400000), () => _e1rmMomentum(athleteId, win, now));
+  const perLift = {};
+  Object.keys(m.perLift).forEach(k => { perLift[k] = Object.assign({}, m.perLift[k]); });
+  return { perLift, hasData: m.hasData, stalling: m.stalling };
+}
+function _e1rmMomentum(athleteId, win, now) {
   const tol = 0.05; // kg — ignore float noise
   const dayMs = 86400000;
-  const now = Date.now();
   const recentFrom = now - win * dayMs;
   const priorFrom = now - 2 * win * dayMs;
-  const logs = Store.get().workoutLogs.filter(l => l.athleteId === athleteId && MAIN_LIFTS.includes(l.lift));
+  const logs = _logsOf(athleteId).filter(l => MAIN_LIFTS.includes(l.lift));
   const perLift = {};
   let anyPaired = false, anyUp = false;
+  const parsed = new Map();   // Date.parse once per distinct date
+  const tOf = (d) => { let v = parsed.get(d); if (v === undefined) { v = Date.parse(d); parsed.set(d, v); } return v; };
   MAIN_LIFTS.forEach(lift => {
     const ll = logs.filter(l => l.lift === lift);
     const bestIn = (from, to) => ll.reduce((mx, l) => {
-      const t = Date.parse(l.date);
+      const t = tOf(l.date);
       return (t >= from && t < to && l.e1rmComp > mx) ? l.e1rmComp : mx;
     }, 0);
     const recent = bestIn(recentFrom, now + dayMs);
@@ -8503,11 +9288,11 @@ function getRosterAttention(coachId) {
       }
     }
     // 4) Pain the lifter told you about (open, last 14 days)
-    const pain = painFlagFor(aId, Store.get().painReports || []);
+    const pain = painFlagFor(aId, _ofAthlete(Store.get().painReports, aId));
     if (pain) { reasons.unshift({ type: 'pain', text: pain.text, count: pain.count, severity: pain.severity }); severity = Math.max(severity, pain.severity); }
     // Wins — main-lift PRs in the last 7 days
-    const prCount = Store.get().workoutLogs.filter(l =>
-      l.athleteId === aId && MAIN_LIFTS.includes(l.lift) && Date.parse(l.date) >= weekAgo && isPRForLog(aId, l)
+    const prCount = _logsOf(aId).filter(l =>
+      MAIN_LIFTS.includes(l.lift) && Date.parse(l.date) >= weekAgo && isPRForLog(aId, l)
     ).length;
     return { athlete: o.athlete, overview: o, reasons, severity, momentum, prCount };
   });
@@ -8521,7 +9306,7 @@ function getRosterAttention(coachId) {
 // =========================================================
 function getStreak(athleteId) {
   const s = Store.get();
-  const trainSet = new Set(s.workoutLogs.filter(l => l.athleteId === athleteId).map(l => l.date));
+  const trainSet = logDateSet(athleteId);
   const restSet = new Set(s.restDays.filter(r => r.athleteId === athleteId).map(r => r.date));
   if (!trainSet.size) return 0;
 
@@ -8560,7 +9345,7 @@ function removeRestDay(athleteId, date) {
   Store.update(s => { s.restDays = s.restDays.filter(r => !(r.athleteId === athleteId && r.date === date)); });
 }
 function hasAnyLogOnDate(athleteId, date) {
-  return Store.get().workoutLogs.some(l => l.athleteId === athleteId && l.date === date);
+  return _logsOf(athleteId).some(l => l.date === date);
 }
 
 // =========================================================
@@ -9254,7 +10039,7 @@ function computeSignals() {
       out.push({ id: 'cci-' + c.id, type: 'checkin', title: nameOf(c.athleteId) + ' submitted a check-in', body: 'Feeling ' + c.feel + '/10 · sleep ' + c.sleep + '/10 · calm ' + c.stress + '/10', ts: c.createdAt || c.weekStart, tab: 'athletes' });
     });
     (s.athletes || []).filter(a => a.coachId === u.id).forEach(a => {
-      const logs = (s.workoutLogs || []).filter(l => l.athleteId === a.id);
+      const logs = _logsOf(a.id);
       if (!logs.length) return;
       const last = logs.reduce((m, l) => l.date > m ? l.date : m, logs[0].date);
       const days = Math.floor((Date.now() - Date.parse(last)) / 86400000);
@@ -11045,12 +11830,13 @@ function coachAthleteStatus(athleteId, opts) {
   const s = Store.get();
   const todayIso = opts.today || todayISO();
   const prog = (s.programs || []).find(p => p.athleteId === athleteId) || null;
-  const logs = (s.workoutLogs || []).filter(l => l.athleteId === athleteId);
-  const lastDate = logs.reduce((m, l) => (l.date > m ? l.date : m), '');
+  // This lifter's sets (the roster index) and what comes from them alone, kept until they change.
+  const logs = _logsOf(athleteId);
+  const lastDate = _lmemoGet(athleteId, 'last', () => logs.reduce((m, l) => (l.date > m ? l.date : m), ''));
   const ago = lastDate ? Math.round((Date.parse(todayIso + 'T12:00:00Z') - Date.parse(lastDate + 'T12:00:00Z')) / 86400000) : null;
   const week = programWeekState(prog);
   const mon = _monISO(todayIso);
-  const weekDates = logs.filter(l => l.date >= mon && l.date <= todayIso).map(l => l.date);
+  const weekDates = _lmemoGet(athleteId, 'weekDates|' + mon + '|' + todayIso, () => logs.filter(l => l.date >= mon && l.date <= todayIso).map(l => l.date)).slice();
   const done = new Set(weekDates).size;
   // A busy week the coach approved (busy-week.js): this week's plan is the days agreed, so training on
   // them is never "missed" and the count reads against what was agreed.
@@ -11072,22 +11858,22 @@ function coachAthleteStatus(athleteId, opts) {
   }
   // 2. Pain and check-in answers (today or yesterday)
   const myQs = (s.checkinQuestions || []).filter(q => !opts.coachId || q.coachId === opts.coachId);
-  if (myQs.length) checkinAlerts(myQs, s.checkinAnswers, athleteId, todayIso).forEach(a => add('checkin', a.text, a.severity));
+  if (myQs.length) checkinAlerts(myQs, _ofAthlete(s.checkinAnswers, athleteId), athleteId, todayIso).forEach(a => add('checkin', a.text, a.severity));
   // Pain the lifter told you about: "Pain · Low back · Deadlift · 6/10 · 2nd this week". The check-in's
   // "Pain yesterday" says the same thing less well, so it goes (one flag per fact).
-  const pain = painFlagFor(athleteId, s.painReports || [], todayIso);
+  const pain = painFlagFor(athleteId, _ofAthlete(s.painReports, athleteId), todayIso);
   if (pain) {
     for (let i = flags.length - 1; i >= 0; i--) if (flags[i].type === 'checkin' && /^Pain\b/.test(flags[i].text)) flags.splice(i, 1);
     add('pain', pain.text, pain.severity);
   }
   // Readiness (shared Apple Health, Watch lifters only): a dot for the desk, a quiet flag here.
-  const hRows = (s.healthDaily || []).filter(r => r.athleteId === athleteId);
+  const hRows = _ofAthlete(s.healthDaily, athleteId);
   const readiness = hRows.length ? readinessFrom(hRows, todayIso) : null;
   if (readiness && readiness.state === 'low') add('readiness', readiness.flag, 1);
   // The cut: off pace for the class by the date.
   const cut = athleteCut(athleteId, todayIso);
   if (cut && cut.offPace) add('offpace', cut.flag, cut.weeksLeft != null && cut.weeksLeft <= 2 ? 3 : 2);
-  const nRows = (s.nutritionDaily || []).filter(r => r.athleteId === athleteId);
+  const nRows = _ofAthlete(s.nutritionDaily, athleteId);
   const nutrition = nRows.length ? nutritionWeek(nRows, todayIso) : null;
   // 3. Over what was written (last 7 days): "Bench RPE 9.5 (wrote 8)"
   if (prog) {
@@ -11109,11 +11895,11 @@ function coachAthleteStatus(athleteId, opts) {
   }
   flags.sort((a, b) => b.severity - a.severity);
   const weekAgo = Date.parse(_addDaysISO(todayIso, -7) + 'T00:00:00Z');
-  const prCount = logs.filter(l => MAIN_LIFTS.includes(l.lift) && Date.parse(l.date + 'T12:00:00Z') >= weekAgo && isPRForLog(athleteId, l)).length;
-  const series = strengthSeries(logs, 'total', { weeks: 8, today: todayIso }).map(p => p.value);
+  const prCount = _lmemoGet(athleteId, 'prWeek|' + todayIso, () => logs.filter(l => MAIN_LIFTS.includes(l.lift) && Date.parse(l.date + 'T12:00:00Z') >= weekAgo && isPRForLog(athleteId, l)).length);
+  const series = _lmemoGet(athleteId, 'total8|' + todayIso, () => strengthSeries(logs, 'total', { weeks: 8, today: todayIso }).map(p => p.value)).slice();
   const trendDelta = series.length >= 2 ? series[series.length - 1] - series[Math.max(0, series.length - 5)] : null;
-  const ciDates = (s.checkinAnswers || []).filter(a => a.athleteId === athleteId).map(a => a.period)
-    .concat((s.checkins || []).filter(c => c.athleteId === athleteId).map(c => String(c.createdAt || c.weekStart || '').slice(0, 10)));
+  const ciDates = _ofAthlete(s.checkinAnswers, athleteId).map(a => a.period)
+    .concat(_ofAthlete(s.checkins, athleteId).map(c => String(c.createdAt || c.weekStart || '').slice(0, 10)));
   const lastCi = ciDates.reduce((m, d) => (d > m ? d : m), '');
   const checkinAgo = lastCi ? Math.max(0, Math.round((Date.parse(todayIso + 'T12:00:00Z') - Date.parse(lastCi + 'T12:00:00Z')) / 86400000)) : null;
   return { flags, prCount, week, sessions: { done, planned }, ago, lastDate, trend: { values: series, delta: trendDelta }, checkinAgo, program: prog,
@@ -11365,7 +12151,7 @@ function deskWorstOvershoot(prog, todayIso) {
 // The next meet on the calendar (today or later): { meet, days } or null.
 function deskNextMeet(athleteId, todayIso) {
   const t = todayIso || todayISO();
-  const m = (Store.get().meets || []).filter(x => x.athleteId === athleteId && x.date && String(x.date).slice(0, 10) >= t)
+  const m = _ofAthlete(Store.get().meets, athleteId).filter(x => x.date && String(x.date).slice(0, 10) >= t)
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0];
   return m ? { meet: m, days: _deskDays(t, m.date) } : null;
 }
@@ -11375,7 +12161,7 @@ function deskBodyweightVsClass(athleteId, meet) {
   if (!meet || !meet.weightClass || /\+/.test(meet.weightClass)) return null;
   const cls = parseFloat(String(meet.weightClass).replace(',', '.'));
   if (!(cls > 0)) return null;
-  const last = (Store.get().bodyweight || []).filter(b => b.athleteId === athleteId && Number(b.weight) > 0)
+  const last = _ofAthlete(Store.get().bodyweight, athleteId).filter(b => Number(b.weight) > 0)
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
   if (!last) return null;
   const bw = Number(last.weight);
@@ -11384,7 +12170,7 @@ function deskBodyweightVsClass(athleteId, meet) {
 // Resting heart rate today against the lifter's own recent norm (shared from Apple Health).
 // { delta, tone: 'ok' | 'warn', text } or null without at least four days.
 function deskReadiness(athleteId) {
-  const days = (Store.get().healthDaily || []).filter(h => h.athleteId === athleteId && Number(h.rhr) > 0)
+  const days = _ofAthlete(Store.get().healthDaily, athleteId).filter(h => Number(h.rhr) > 0)
     .sort((a, b) => String(b.day).localeCompare(String(a.day)));
   if (days.length < 4) return null;
   const base = days.slice(1, 31).reduce((s, h) => s + Number(h.rhr), 0) / Math.min(30, days.length - 1);
@@ -11413,6 +12199,37 @@ function deskThreadDigest(coachId, rows) {
   });
   return out;
 }
+// The coach's own message, sent from this desk or heard live (m: the server's row, created_at and all):
+// who wrote last in its thread moves to it, unless the thread already shows something newer. Marked
+// local, so a digest read before it went (deskThreadsMerge) can't put the lifter's older message back.
+// threads: the desk's { athleteId: thread }, changed in place. → true when it changed.
+function deskThreadSaw(threads, m) {
+  if (!threads || !m || !m.athleteId) return false;
+  const t = threads[m.athleteId];
+  const at = m.createdAt || new Date().toISOString();
+  const ms = Date.parse(at), tms = t ? Date.parse(t.lastAt) : NaN;
+  if (t && isFinite(tms) && isFinite(ms) && (tms > ms || (tms === ms && t.lastSenderId === m.senderId))) return false;
+  const next = Object.assign({ athleteId: m.athleteId }, t || {}, { lastAt: at, lastSenderId: m.senderId, lastBody: m.body || '', local: true });
+  if (m.meta && m.meta.weekly && !(Date.parse(next.weeklyAt) >= ms)) next.weeklyAt = at;
+  threads[m.athleteId] = next;
+  return true;
+}
+// The desk's threads after a fresh digest (rows: DB.coachInbox's or listThreadsForCoach's): the
+// server's word, except a thread where this desk knows of a newer message of the coach's own
+// (deskThreadSaw) than the read has: a read already on its way when the reply went comes back without
+// it. Server times on both sides (created_at). → a new { athleteId: thread }.
+function deskThreadsMerge(prev, rows) {
+  const out = deskThreadDigest(null, rows || []);
+  Object.keys(prev || {}).forEach(id => {
+    const p = prev[id];
+    if (!p || !p.local) return;
+    const s = out[id], pa = Date.parse(p.lastAt), sa = s ? Date.parse(s.lastAt) : NaN;
+    if (s && isFinite(sa) && !(pa > sa)) return;   // the read has it, or something newer
+    const weekly = p.weeklyAt && !(s && Date.parse(s.weeklyAt) >= Date.parse(p.weeklyAt)) ? { weeklyAt: p.weeklyAt } : {};
+    out[id] = Object.assign({}, s || {}, { athleteId: id, lastAt: p.lastAt, lastSenderId: p.lastSenderId, lastBody: p.lastBody, local: true }, weekly);
+  });
+  return out;
+}
 // Why this athlete needs the coach, worst first. opts: { coachId, today, now, status, threads,
 // formChecks }. Each: { type, group, text, tone: alert | warn | info | meet, detail }.
 function deskReasons(athleteId, opts) {
@@ -11426,7 +12243,7 @@ function deskReasons(athleteId, opts) {
   const add = (type, group, text, tone, detail, extra) => out.push(Object.assign({ type, group, text, tone, detail: detail || '' }, extra || {}));
   // 1 · pain, and 6 · the other check-in answers worth a look
   const myQs = (s.checkinQuestions || []).filter(q => !opts.coachId || q.coachId === opts.coachId);
-  (myQs.length ? checkinAlerts(myQs, s.checkinAnswers, athleteId, t) : []).forEach(a => {
+  (myQs.length ? checkinAlerts(myQs, _ofAthlete(s.checkinAnswers, athleteId), athleteId, t) : []).forEach(a => {
     if (/^Pain/.test(a.text)) add('pain', 1, a.text, 'alert', 'Said yes to pain on their check-in ' + a.text.replace(/^Pain /, ''));
     else add('checkin', 6, a.text.replace(/(\d) h$/, '$1h'), a.severity >= 2 ? 'warn' : 'info', 'From their check-in');
   });
@@ -11451,7 +12268,7 @@ function deskReasons(athleteId, opts) {
     if (dr && dr.avg >= 0.5 && dr.n >= 3) add('drift', 3, 'RPE +' + dr.avg + ' this week', 'warn', 'Across ' + dr.n + ' logged sets');
   }
   // 4 · their words waiting on a reply: session notes, and a message older than 12 hours
-  const waiting = (s.sessionNotes || []).filter(n => n.athleteId === athleteId && n.note && String(n.note).trim() && !n.coachComment)
+  const waiting = _ofAthlete(s.sessionNotes, athleteId).filter(n => n.note && String(n.note).trim() && !n.coachComment)
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   if (waiting.length) {
     const d = Math.max(0, _deskDays(waiting[0].date, t));
@@ -11484,22 +12301,26 @@ function deskWins(athleteId, opts) {
   opts = opts || {};
   const t = opts.today || todayISO();
   const s = Store.get();
-  const logs = (s.workoutLogs || []).filter(l => l.athleteId === athleteId);
+  const logs = _logsOf(athleteId);
   const out = [];
   const since = _addDaysISO(t, -6);
-  const prLifts = [];
-  logs.filter(l => MAIN_LIFTS.includes(l.lift) && l.date >= since && l.date <= t && isPRForLog(athleteId, l))
-    .forEach(l => { if (!prLifts.includes(l.lift)) prLifts.push(l.lift); });
+  const prLifts = _lmemoGet(athleteId, 'winPRs|' + t, () => {
+    const got = [];
+    logs.filter(l => MAIN_LIFTS.includes(l.lift) && l.date >= since && l.date <= t && isPRForLog(athleteId, l))
+      .forEach(l => { if (!got.includes(l.lift)) got.push(l.lift); });
+    return got;
+  }).slice();
   if (prLifts.length) {
     const names = MAIN_LIFTS.filter(L => prLifts.includes(L)).map(L => LIFT_LABELS[L]);
     out.push({ type: 'pr', text: names.length === 3 ? '3 lift PRs' : names.join(' + ') + ' PR', lifts: prLifts });
   }
   // Consecutive weeks with training, counting back from this week.
-  const weeks = new Set(logs.map(l => _monISO(l.date)));
+  // The Mondays they trained (from each distinct log date once: the same set as one per log).
+  const weeks = _lmemoGet(athleteId, 'weeks', () => new Set(Array.from(logDateSet(athleteId), _monISO)));
   let streak = 0;
   for (let wk = _monISO(t); weeks.has(wk); wk = _addDaysISO(wk, -7)) streak++;
   if (streak >= 4 && streak % 4 === 0) out.push({ type: 'streak', text: streak + '-week streak' });
-  const meets = (s.meets || []).filter(m => m.athleteId === athleteId && !isPlannedMeet(m) && m.date && String(m.date).slice(0, 10) <= t);
+  const meets = _ofAthlete(s.meets, athleteId).filter(m => !isPlannedMeet(m) && m.date && String(m.date).slice(0, 10) <= t);
   const tot = (m) => (Number(m.squat) || 0) + (Number(m.bench) || 0) + (Number(m.deadlift) || 0);
   const recent = meets.filter(m => _deskDays(m.date, t) <= 10).sort((a, b) => tot(b) - tot(a))[0];
   if (recent && tot(recent) > 0 && meets.filter(m => m !== recent && String(m.date) < String(recent.date)).every(m => tot(m) < tot(recent))) {
@@ -11510,7 +12331,11 @@ function deskWins(athleteId, opts) {
 // The e1RM total over the last 8 weeks, counted only from the week all three lifts have a number
 // (a new lifter's first squat-only week would otherwise read as a +200 jump). { values, delta }.
 function deskTotalTrend(athleteId, todayIso) {
-  const logs = (Store.get().workoutLogs || []).filter(l => l.athleteId === athleteId);
+  if (!todayIso) return _deskTotalTrend(_logsOf(athleteId), todayIso);   // "today" read inside: not kept
+  const r = _lmemoGet(athleteId, 'totalTrend|' + todayIso, () => _deskTotalTrend(_logsOf(athleteId), todayIso));
+  return { values: r.values.slice(), delta: r.delta };
+}
+function _deskTotalTrend(logs, todayIso) {
   const per = {};
   MAIN_LIFTS.forEach(L => {
     per[L] = strengthSeries(logs, L, { weeks: 8, today: todayIso });
@@ -12394,7 +13219,7 @@ function athleteCut(athleteId, todayIso) {
   const s = Store.get();
   const g = (s.goals || []).find(x => x.athleteId === athleteId);
   if (!g || !(Number(g.targetClass) > 0)) return null;
-  const series = (s.bodyweight || []).filter(b => b.athleteId === athleteId && Number(b.weight) > 0)
+  const series = _ofAthlete(s.bodyweight, athleteId).filter(b => Number(b.weight) > 0)
     .sort((a, b) => String(a.date).localeCompare(String(b.date))).map(b => ({ date: b.date, weight: Number(b.weight) }));
   return cutPlan(series, g.targetClass, g.cutBy || null, todayIso);
 }

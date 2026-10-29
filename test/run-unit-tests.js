@@ -67,6 +67,12 @@ class El {
   }
   appendChild(c) { c.parentNode = this; this.childNodes.push(c); if (c instanceof El) this.children.push(c); return c; }
   removeChild(c) { this.childNodes = this.childNodes.filter(x => x !== c); this.children = this.children.filter(x => x !== c); return c; }
+  replaceChild(n, old) {   // PowaNotify.placeCoach puts the card where its spot was
+    const i = this.childNodes.indexOf(old); if (i < 0) return old;
+    n.parentNode = this; this.childNodes[i] = n; old.parentNode = null;
+    this.children = this.childNodes.filter(x => x instanceof El);
+    return old;
+  }
   remove() { if (this.parentNode) this.parentNode.removeChild(this); }
   setAttribute(k, v) { this.attributes[k] = String(v); if (k === 'class') this.className = String(v); if (k === 'id') this.id = String(v); }
   getAttribute(k) { if (k === 'class') return this.className || null; return k in this.attributes ? this.attributes[k] : null; }
@@ -153,9 +159,15 @@ sandbox.getComputedStyle = () => domStub;
 sandbox.alert = () => {}; sandbox.confirm = () => true; sandbox.prompt = () => null;
 sandbox.URL = URL; sandbox.URLSearchParams = URLSearchParams;
 sandbox.Intl = Intl; sandbox.crypto = require('crypto').webcrypto;
+sandbox.TextDecoder = TextDecoder; sandbox.TextEncoder = TextEncoder;   // IMPORTS: decoding a file's bytes (browsers have both)
 sandbox.btoa = s => Buffer.from(s, 'binary').toString('base64');
 sandbox.atob = s => Buffer.from(s, 'base64').toString('binary');
 vm.createContext(sandbox);
+// IMPORTS: the vendored file readers (SheetJS mini, fflate) as tests.html loads them, each in its own script so their
+// minified code stays out of the duplicate-function check below. The app itself loads them only when a file needs them.
+for (const lib of ['import-lib-xlsx.js', 'import-lib-fflate.js']) {
+  if (fs.existsSync(path.join(ROOT, lib))) vm.runInContext(fs.readFileSync(path.join(ROOT, lib), 'utf8'), sandbox, { filename: lib });
+}
 
 // ---- assemble app.js + the tests.html assertion block -------------------------
 // tests.html loads app.js then clubs.js; mirror that so the club helpers
@@ -164,6 +176,8 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   fs.readFileSync(path.join(ROOT, 'clubs.js'), 'utf8') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'health.js')) ? fs.readFileSync(path.join(ROOT, 'health.js'), 'utf8') : '') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'switch-kit.js')) ? fs.readFileSync(path.join(ROOT, 'switch-kit.js'), 'utf8') : '') + '\n;\n' +
+  // IMPORTS: the intake's parsers, recognisers, layout classifier and mapper (tests.html "imports (import-core.js)")
+  (fs.existsSync(path.join(ROOT, 'import-core.js')) ? fs.readFileSync(path.join(ROOT, 'import-core.js'), 'utf8') : '') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'voice.js')) ? fs.readFileSync(path.join(ROOT, 'voice.js'), 'utf8') : '') + '\n;\n' +
   // VIDEO REVIEW hook: the review tool's pure geometry (tests.html "video review")
   (fs.existsSync(path.join(ROOT, 'video-review.js')) ? fs.readFileSync(path.join(ROOT, 'video-review.js'), 'utf8') : '') + '\n;\n' +
@@ -203,7 +217,9 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   // THE IPHONE APP'S COACH SCREENS: Home, Lifters, a lifter (coach-app.js) and Programs (coach-program.js):
   // their pure helpers (tests.html "coach app (coach-app.js)", "programs (coach-program.js)")
   (fs.existsSync(path.join(ROOT, 'coach-app.js')) ? fs.readFileSync(path.join(ROOT, 'coach-app.js'), 'utf8') : '') + '\n;\n' +
-  (fs.existsSync(path.join(ROOT, 'coach-program.js')) ? fs.readFileSync(path.join(ROOT, 'coach-program.js'), 'utf8') : '');
+  (fs.existsSync(path.join(ROOT, 'coach-program.js')) ? fs.readFileSync(path.join(ROOT, 'coach-program.js'), 'utf8') : '') + '\n;\n' +
+  // ALLOW NOTIFICATIONS: when to ask, what to say, what the device can do, the demo card (tests.html "allow notifications (notify.js)")
+  (fs.existsSync(path.join(ROOT, 'notify.js')) ? fs.readFileSync(path.join(ROOT, 'notify.js'), 'utf8') : '');
 // ---- a function declared twice: the later one silently wins for the whole page ------------
 // (27 Oct 2026: a second rpeLoadPct, a percent where the first was a fraction, made every
 // RPE-only load suggestion 100× too heavy on the live site.) Top-level declarations only.

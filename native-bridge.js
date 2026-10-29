@@ -30,6 +30,9 @@
     _subscribed: false,
     _perm: 'default',
     _token: null,
+    _asked: false,        // the last ask really showed iOS's prompt (it never asks again after "Don't Allow")
+    _regErr: null,        // why the last registerPush failed: 'apns' | 'timeout' | 'save' | null
+    _displayPerm: null,   // the last answer from iOS about showing alerts: 'granted' | 'denied' | 'prompt'
 
     // Haptic tap — native Haptics on the shell, navigator.vibrate on the web.
     haptic: function (style) {
@@ -69,14 +72,23 @@
     // Register for native push. Resolves true once the OS hands back a token and
     // we've stored it. No-op (false) on web — the web path stays on PowaPush/VAPID.
     // quiet = never show the permission prompt (the launch refresh below).
+    // The token comes back through AppDelegate.swift, which forwards Apple's answer to Capacitor
+    // (native/scripts/inject-push.rb puts that in, with the aps-environment entitlement).
     registerPush: async function (quiet) {
       if (!isNative) return false;
       var Push = plugins().PushNotifications;
       if (!Push) return false;
+      this._regErr = null;
+      if (!quiet) this._asked = false;
       try {
         var perm = await Push.checkPermissions();
-        if (perm.receive !== 'granted' && !quiet) perm = await Push.requestPermissions();
+        if (perm.receive !== 'granted' && !quiet) {
+          var before = perm.receive;
+          perm = await Push.requestPermissions();
+          this._asked = before !== 'denied';
+        }
         this._perm = perm.receive;
+        this._displayPerm = perm.receive === 'granted' ? 'granted' : perm.receive === 'denied' ? 'denied' : 'prompt';
         if (perm.receive !== 'granted') return false;
         var self = this;
         var handles = [];
@@ -96,17 +108,52 @@
               self._token = token.value;
               self._subscribed = true;
               finish(true, resolve);
-            } catch (e) { console.warn('native push save failed', e); finish(false, resolve); }
+            } catch (e) { console.warn('native push save failed', e); self._regErr = 'save'; finish(false, resolve); }
           }));
           handles.push(Push.addListener('registrationError', function (e) {
             if (done) return; done = true;
             console.warn('native push registration error', e);
+            self._regErr = 'apns';
             finish(false, resolve);
           }));
           Push.register();
-          setTimeout(function () { if (!done) { done = true; finish(false, resolve); } }, 8000);
+          setTimeout(function () { if (!done) { done = true; self._regErr = 'timeout'; finish(false, resolve); } }, 8000);
         });
       } catch (e) { console.warn('registerPush failed', e); return false; }
+    },
+
+    // Ask iOS for permission to show alerts, without registering with Apple: one system prompt
+    // covers pushes and the phone's own alerts (rest is up, the morning weigh-in) alike. Only from
+    // a tap. 'granted' | 'denied' | 'prompt' | 'error'; _asked says whether iOS showed its prompt.
+    askPermission: async function () {
+      this._asked = false;
+      if (!isNative) return 'error';
+      var Push = plugins().PushNotifications;
+      if (!Push) return 'error';
+      try {
+        var perm = await Push.checkPermissions();
+        if (perm.receive !== 'granted' && perm.receive !== 'denied') {
+          perm = await Push.requestPermissions();
+          this._asked = true;
+        }
+        this._perm = perm.receive;
+        var p = perm.receive === 'granted' ? 'granted' : perm.receive === 'denied' ? 'denied' : 'prompt';
+        this._displayPerm = p;
+        return p;
+      } catch (e) { console.warn('notification permission failed', e); return 'error'; }
+    },
+
+    // Whether iOS lets POWALIFTA show alerts, never asking: 'granted' | 'denied' | 'prompt' (not
+    // asked yet) | null (no plugin). Kept in _displayPerm so a sheet can draw its switch at once.
+    notifyPermission: async function () {
+      if (!isNative) return null;
+      var LN = plugins().LocalNotifications;
+      if (!LN) return null;
+      try {
+        var p = await LN.checkPermissions();
+        PowaNative._displayPerm = p.display === 'granted' ? 'granted' : p.display === 'denied' ? 'denied' : 'prompt';
+        return PowaNative._displayPerm;
+      } catch (e) { return null; }
     },
 
     // At launch, once signed in: if this iPhone already allows POWALIFTA's
@@ -120,6 +167,7 @@
       try {
         var perm = await Push.checkPermissions();
         this._perm = perm.receive;
+        this._displayPerm = perm.receive === 'granted' ? 'granted' : perm.receive === 'denied' ? 'denied' : 'prompt';
         var off = false;
         try { off = localStorage.getItem('powa-push-off') === '1'; } catch (e) {}
         if (perm.receive !== 'granted' || off) return false;
@@ -142,8 +190,12 @@
     // (powa-weigh-remind = '0') in the weigh-in sheet. Press-and-hold the
     // notification and type the number: the "Log weight" text action opens the
     // app with it, and the athlete dashboard saves it (applyPendingWeighIn).
-    scheduleWeightReminder: async function () {
+    // { quiet: true } (the dashboard's launch): schedule only when iOS already allows
+    // notifications, never show the prompt. The prompt follows a tap: Turn on in the
+    // allow-notifications card (notify.js) or the reminder's own switch in the weigh-in sheet.
+    scheduleWeightReminder: async function (opts) {
       if (!isNative) return false;
+      var quiet = !!(opts && opts.quiet);
       var LN = plugins().LocalNotifications;
       if (!LN) return false;
       try {
@@ -157,7 +209,8 @@
         } catch (e) {}
         if (!on) return true;
         var perm = await LN.checkPermissions();
-        if (perm.display !== 'granted') perm = await LN.requestPermissions();
+        if (perm.display !== 'granted' && !quiet) perm = await LN.requestPermissions();
+        PowaNative._displayPerm = perm.display === 'granted' ? 'granted' : perm.display === 'denied' ? 'denied' : 'prompt';
         if (perm.display !== 'granted') return false;
         try {
           await LN.registerActionTypes({ types: [{ id: 'POWA_WEIGH_IN', actions: [
@@ -180,8 +233,8 @@
     // can't make a sound when it ends, so a lifter with the phone in a pocket missed it. When
     // the app leaves the screen mid-rest the page schedules one local notification for the
     // end; coming back, stopping, pausing or finishing cancels it. Never asks for permission
-    // mid-set: it only schedules when notifications are already allowed (the weigh-in
-    // reminder asks once, at sign-in).
+    // mid-set: it only schedules when notifications are already allowed (Turn on in the
+    // allow-notifications card, notify.js, or the weigh-in reminder's switch).
     scheduleRestEnd: async function (endTimeMs, nextLabel) {
       if (!isNative) return false;
       var LN = plugins().LocalNotifications;
@@ -412,7 +465,11 @@
           // A weight typed into the morning reminder: keep it until the athlete
           // dashboard is up, which saves it as today's weigh-in.
           if (action && action.actionId === 'log' && action.inputValue) {
-            try { localStorage.setItem('powa-pending-weighin', JSON.stringify({ v: String(action.inputValue).slice(0, 16), at: Date.now() })); } catch (e) {}
+            // With the account it was typed under (the signed-in one, or the session stored on this phone):
+            // only that account saves it, never whoever signs in next (sweep 2026-10-28 #6).
+            var owner = null;
+            try { owner = (window._user && window._user.id) || (typeof _storedUserId === 'function' ? _storedUserId() : null) || null; } catch (e) {}
+            try { localStorage.setItem('powa-pending-weighin', JSON.stringify({ v: String(action.inputValue).slice(0, 16), at: Date.now(), uid: owner })); } catch (e) {}
             if (typeof window.applyPendingWeighIn === 'function') { window.applyPendingWeighIn(); return; }
           }
           var url = action && action.notification && action.notification.extra && action.notification.extra.url;

@@ -1020,6 +1020,17 @@
       '<button type="button" class="cl-everything" data-go="all"><span class="cl-ev-t">Everything</span><span class="cl-ev-sub">' + esc(sub) + '</span>' + ic('chev') + '</button></div>';
   }
 
+  // ALLOW NOTIFICATIONS (notify.js): the calm ask for alerts ("Get a ping for PRs, messages and missed
+  // sessions.") fills the spot left for it after the lifters who need the coach, so the one red fix
+  // stays on top, and before This week. No card (alerts on or blocked, "Not now", no lifters yet):
+  // the spot goes. Safe on every re-render: notify.js keeps the answer and plays the entrance once.
+  var PN_SPOT = '<div class="pn-host" hidden></div>';
+  function placeNotify(root, lifters) {
+    try { if (window.PowaNotify && PowaNotify.placeCoach) { PowaNotify.placeCoach(root, lifters); return; } } catch (e) {}
+    var spot = root && root.querySelector('.pn-host');
+    if (spot && spot.parentNode) spot.parentNode.removeChild(spot);
+  }
+
   /* =====================================================================================
      TODAY (laptop): Do first, This week, then every other job by kind.
      ===================================================================================== */
@@ -1041,6 +1052,7 @@
     html += '<div class="cl-sh' + rz(1) + '"><h2>Do first</h2></div>';
     html += doFirst.length ? '<div class="cl-do' + rz(2) + '">' + doFirst.map(function (it, i) { return jobHtml(it, { big: true, red: i === 0 }); }).join('') + '</div>'
       : '<div class="cl-calm' + rz(2) + '"><span class="cl-tic">' + ic('check') + '</span><span><b>Nothing urgent.</b> ' + (M.open.length ? 'The rest is below, by job.' : 'Everyone is on plan.') + '</span></div>';
+    html += PN_SPOT;
     // This week's quiet ways on: last week's report (coach-report-ui.js) and the week's notes (weekly-note.js,
     // the count still to write).
     html += '<div class="cl-sh' + rz(3) + '"><h2>This week</h2><span class="cl-sh-end">' + (window.CoachReportUI && M.rows.length ? CoachReportUI.entryHtml() : '') +
@@ -1048,6 +1060,7 @@
     if (rest.length || M.done) html += '<div class="cl-sh' + rz(5) + '"><h2>Also on your list</h2><span>' + plural(rest.length, 'job') + ', most urgent first</span></div><div class="cl-wrap-c' + rz(6) + '">' + columnsHtml(rest, M) + '</div>';
     html += '</div>';
     host.innerHTML = html;
+    placeNotify(host, M.rows.length);
     host._clM = M;
     if (!host._clWired) { host._clWired = true; wire(host, { today: true }); }
     paint(host);
@@ -1147,10 +1160,11 @@
 
       (M.rows.length > 8 ? '<label class="cl-search cl-search-ph">' + ic('search') + '<input class="cl-q" type="search" placeholder="Find a lifter" aria-label="Find a lifter" autocomplete="off" spellcheck="false" value="' + esc(S.q) + '"></label>' : '') +
       '<div class="cl-groups">' + groupsHtml(M, { phone: !wide, sel: wide ? S.sel : null }) + '</div>' +
-      (window.ClientsUI ? ClientsUI.dueLineHtml() : '') +
+      (window.ClientsUI ? ClientsUI.dueLineHtml() : '') + PN_SPOT +
       '<div class="cl-pweek"><div class="cl-gh-row"><h2 class="cl-gh">This week</h2>' + (window.CoachReportUI ? CoachReportUI.entryHtml() : '') + '</div>' +
         teamTilesHtml(clTeam(M.rows, { today: todayIso() }), { compact: true }) + '</div></div>';
     wrap.innerHTML = wide ? list + '<div class="cl-wpage" id="clWidePage"></div>' : list;
+    placeNotify(wrap, M.rows.length);
     wrap._clM = M;
     wire(wrap, { desk: false, wide: wide });
     area.appendChild(wrap);

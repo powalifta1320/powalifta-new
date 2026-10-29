@@ -44,14 +44,15 @@ export function pick<T>(index: Map<string, T[]>, ids: string[]): T[] {
   return out
 }
 
-// Programs as the report needs them: the sessions planned this week, the block's JSON dropped as soon
-// as it's read (it is the heaviest thing the job touches).
+// Programs as the report needs them: the sessions planned this week (worked out by the database when
+// the row says so, programs_planned; else from the block's JSON, dropped as soon as it's read: it is
+// the heaviest thing the job touches).
 export function leanPrograms(rows: Row[]): { athlete_id: unknown; coach_id: unknown; updated_at: unknown; planned: number }[] {
   return (rows || []).map((r) => ({
     athlete_id: r.athlete_id,
     coach_id: r.coach_id ?? null,
     updated_at: r.updated_at ?? null,
-    planned: CR.plannedPerWeek(r.weeks),
+    planned: r.weeks === undefined && r.planned != null && isFinite(Number(r.planned)) ? Math.max(0, Math.round(Number(r.planned))) : CR.plannedPerWeek(r.weeks),
   }))
 }
 

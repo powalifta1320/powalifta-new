@@ -42,9 +42,11 @@ class Q {
     db.calls.push({ t: this.t, op: this.op });
     if (db.missing.has(this.t)) return { data: null, error: { code: 'PGRST205', message: "Could not find the table 'public." + this.t + "' in the schema cache" } };
     const cols = this.cols === '*' ? [] : this.cols.split(',').map(s => s.trim());
-    const gone = cols.find(c => (db.missingCols[this.t] || []).includes(c));
+    const gone = cols.map(c => c.split(':').pop()).find(c => (db.missingCols[this.t] || []).includes(c));
     if (gone) return { data: null, error: { code: '42703', message: 'column ' + this.t + '.' + gone + ' does not exist' } };
-    if (this.inMax > 200) return { data: null, error: { message: 'URI too long: ' + this.inMax + ' ids' } };
+    if (this.inMax > 100) return { data: null, error: { message: 'URI too long: ' + this.inMax + ' ids' } };
+    db.reads.push({ t: this.t, cols: this.cols, ids: this.inMax, range: this.rng });
+    if (db.onRead) db.onRead(this.t, this.rng, db);   // a test changes the table between pages
     const rows = rowsOf(db, this.t);
     if (this.op === 'upsert') {
       db.writes.push({ t: this.t, op: 'upsert', row: this.row, opts: this.opts });
@@ -65,10 +67,23 @@ class Q {
     if (b - a + 1 > PAGE_CAP) return { data: null, error: { message: 'range over the cap' } };
     list = list.slice(a, Math.min(b + 1, a + PAGE_CAP));
     if (this.lim) list = list.slice(0, this.lim);
-    const proj = r => cols.length ? Object.fromEntries(cols.map(c => [c, r[c] === undefined ? null : r[c]])) : Object.assign({}, r);
+    // alias:column, and the computed field programs_planned (sql/migration-data-scale-2026-10-28.sql),
+    // worked out the way the SQL function does.
+    const field = (r, c) => (c === 'programs_planned' && this.t === 'programs' ? plannedPerWeek(r.weeks) : r[c]);
+    const proj = r => cols.length ? Object.fromEntries(cols.map(c => { const [a, b] = c.includes(':') ? c.split(':') : [c, c]; const v = field(r, b); return [a, v === undefined ? null : v]; })) : Object.assign({}, r);
     if (this.one) return { data: list[0] ? proj(list[0]) : null, error: null };
     return { data: list.map(proj), error: null };
   }
+}
+function plannedPerWeek(weeks) {   // = public.program_planned_per_week (PGlite-tested against coach-report.js)
+  if (typeof weeks === 'string') { try { weeks = JSON.parse(weeks); } catch (e) { weeks = null; } }
+  if (!Array.isArray(weeks)) return 0;
+  const open = s => !!s && !s.completed && !s.skipped;
+  for (const w of weeks) {
+    const days = ((w && w.days) || []).filter(d => ((d && d.exercises) || []).some(e => e && Array.isArray(e.sets) && e.sets.length > 0));
+    if (days.some(d => d.exercises.some(e => ((e && e.sets) || []).some(open)))) return days.length;
+  }
+  return 0;
 }
 function stats(db, p) {
   const out = [];
@@ -90,7 +105,7 @@ export function createClient() {
     rpc: async (name, p) => {
       db.calls.push({ t: 'rpc:' + name, op: 'rpc', n: p.p_athletes.length });
       if (db.noStats) return { data: null, error: { code: 'PGRST202', message: 'Could not find the function public.coach_week_stats(p_athletes, p_from, p_to) in the schema cache' } };
-      if (p.p_athletes.length > 200) return { data: null, error: { message: 'too many ids' } };
+      if (p.p_athletes.length > 100) return { data: null, error: { message: 'too many ids' } };
       return { data: stats(db, p), error: null };
     }
   };
@@ -136,7 +151,7 @@ ok(typeof handler === 'function', 'Deno.serve got a handler');
 // ---------------------------------------------------------------- the data
 const block = (perWeek, doneWeeks) => Array.from({ length: 4 }, (_, wi) => ({ days: Array.from({ length: perWeek }, () => ({ exercises: [{ lift: 'squat', sets: [{ completed: wi < doneWeeks }] }] })) }));
 function freshDB() {
-  const db = { tables: {}, calls: [], writes: [], missing: new Set(), missingCols: {}, noStats: false };
+  const db = { tables: {}, calls: [], writes: [], reads: [], missing: new Set(), missingCols: {}, noStats: false };
   const P = (id, name, user_type, coach_id, email) => ({ id, name, user_type, coach_id: coach_id || null, email: email || null, unit: 'kg' });
   db.tables.profiles = [
     P('c1', 'Mia Coach', 'coach', null, 'mia.coach@example.com'), P('c2', 'Dan Coach', 'coach', null, 'dan@example.com'), P('c3', 'Quiet Coach', 'coach', null, 'quiet@example.com'),
@@ -290,7 +305,7 @@ await t('Thursday: one push per coach with someone behind, nothing else', async 
 });
 
 // ---------------------------------------------------------------- paging
-await t('a coach with 1,050 lifters: every one read (pages of 1000, ids in 200s)', async () => {
+await t('a coach with 1,050 lifters: every one read (pages of 1000, ids in 100s)', async () => {
   const db = reset();
   for (let i = 0; i < 1050; i++) {
     const id = 'big-' + String(i).padStart(4, '0');
@@ -301,8 +316,70 @@ await t('a coach with 1,050 lifters: every one read (pages of 1000, ids in 200s)
   const big = r.json['coach-report'].preview.find(p => p.coach === 'c3');
   ok(big, 'c3 now has a report');
   eq(big.push.body, '525 of 1051 trained');
-  ok(db.calls.filter(c => c.t === 'rpc:coach_week_stats').every(c => c.n <= 200), 'stats asked 200 ids at a time');
+  ok(db.calls.filter(c => c.t === 'rpc:coach_week_stats').every(c => c.n <= 100), 'stats asked 100 ids at a time');
+  ok(db.reads.every(r => r.ids <= 100), 'every read 100 ids at most');
 });
+
+// ---------------------------------------------------------------- the programs, lean
+await t('programs: only who, when and the planned sessions (programs_planned); before the migration, the JSON 25 lifters a read, same report', async () => {
+  let db = reset();
+  const lean = await call({ today: '2026-10-26', job: 'coach-report', dryRun: true });
+  const progReads = db.reads.filter(r => r.t === 'programs');
+  ok(progReads.length && progReads.every(r => !/weeks/.test(r.cols) && /planned:programs_planned/.test(r.cols)), 'no JSON: ' + JSON.stringify(progReads.map(r => r.cols)));
+  db = reset();
+  db.missingCols.programs = ['programs_planned'];   // before sql/migration-data-scale-2026-10-28.sql
+  const old = await call({ today: '2026-10-26', job: 'coach-report', dryRun: true });
+  const jsonReads = db.reads.filter(r => r.t === 'programs' && /weeks/.test(r.cols));
+  ok(jsonReads.length && jsonReads.every(r => r.ids <= 25), 'the JSON read 25 lifters at a time');
+  eq(old.json['coach-report'], lean.json['coach-report'], 'the same report either way');
+  db = reset(); db.missingCols.programs = ['programs_planned'];
+  const thu = await call({ today: '2026-10-29', dryRun: true });
+  eq([thu.json.midweek.pushes, thu.json.midweek.preview.length], [0, 2], 'Thursday the same without it');
+});
+
+// ---------------------------------------------------------------- the lifters' digest, paged
+await t('the lifters\' digest: 1,200 opted-in lifters and 1,500 sets one week, all of them read (ids 100 a read, pages of 1000)', async () => {
+  const db = reset();
+  for (let i = 0; i < 1200; i++) {
+    const id = 'dg-' + String(i).padStart(4, '0');
+    db.tables.profiles.push({ id, name: 'Digest ' + i, user_type: 'athlete', coach_id: null, email: id + '@example.com', unit: 'kg' });
+    db.tables.email_preferences.push({ user_id: id, weekly_digest: true, unsub_token: 'tok-' + id });
+    if (i % 100 === 0) db.tables.workout_logs.push({ id: 'dl' + i, athlete_id: id, date: '2026-10-22', lift: 'squat', e1rm_comp: 150, weight: 120, reps: 3 });
+  }
+  for (let k = 0; k < 1500; k++) db.tables.workout_logs.push({ id: 'big' + String(k).padStart(5, '0'), athlete_id: 'dg-0000', date: '2026-10-2' + (k % 5), lift: 'bench', e1rm_comp: 100 + (k % 40), weight: 80, reps: 5 });
+  for (let k = 0; k < 1100; k++) db.tables.bodyweight = (db.tables.bodyweight || []).concat([{ id: 'bw' + k, athlete_id: 'dg-0001', date: '2026-' + String(8 + Math.floor(k / 400)).padStart(2, '0') + '-01', weight: 80 }]);
+  const r = await call({ today: '2026-10-26', job: 'digest', dryRun: true });
+  const d = r.json.digest;
+  eq(d.audience, 1201, 'every opted-in lifter with an email (Arjun + 1,200)');
+  const big = d.preview.find(p => p.email === 'dg-0000@example.com');
+  eq(big && big.sets, 1501, 'all 1,501 sets of the week (the read used to stop at 1000 rows)');
+  eq(d.preview.length, 13, 'everyone who trained: Arjun + 12');
+  ok(db.reads.every(x => x.ids <= 100), 'every read 100 ids at most');
+  ok(db.reads.filter(x => x.t === 'email_preferences').length >= 2, 'the preferences paged');
+});
+
+// A set deleted or logged while the 1,500-set read is between pages (Monday 14:00 UTC is a busy hour).
+for (const [what, change, want] of [
+  ['deleted', (db) => { db.tables.workout_logs = db.tables.workout_logs.filter(l => l.id !== 'big00010'); }, 1501],
+  ['logged', (db) => { db.tables.workout_logs.push({ id: 'big00005a', athlete_id: 'dg-0000', date: '2026-10-23', lift: 'bench', e1rm_comp: 101, weight: 80, reps: 5 }); }, 1501],
+]) {
+  await t('the lifters\' digest: a set ' + what + ' between two pages of a read neither comes twice nor pushes another set out', async () => {
+    const db = reset();
+    for (let i = 0; i < 3; i++) {
+      const id = 'dg-' + String(i).padStart(4, '0');
+      db.tables.profiles.push({ id, name: 'Digest ' + i, user_type: 'athlete', coach_id: null, email: id + '@example.com', unit: 'kg' });
+      db.tables.email_preferences.push({ user_id: id, weekly_digest: true, unsub_token: 'tok-' + id });
+    }
+    db.tables.workout_logs.push({ id: 'dl0', athlete_id: 'dg-0000', date: '2026-10-22', lift: 'squat', e1rm_comp: 150, weight: 120, reps: 3 });
+    for (let k = 0; k < 1500; k++) db.tables.workout_logs.push({ id: 'big' + String(k).padStart(5, '0'), athlete_id: 'dg-0000', date: '2026-10-2' + (k % 5), lift: 'bench', e1rm_comp: 100 + (k % 40), weight: 80, reps: 5 });
+    let done = false;
+    db.onRead = (tb, rng) => { if (tb === 'workout_logs' && rng && rng[0] > 0 && !done) { done = true; change(db); } };
+    const r = await call({ today: '2026-10-26', job: 'digest', dryRun: true });
+    ok(done, 'the read went past one page');
+    const big = r.json.digest.preview.find(p => p.email === 'dg-0000@example.com');
+    eq(big && big.sets, want, 'every set the read started with, once (a set ' + what + ' mid-read)');
+  });
+}
 
 if (fail) console.log('server logs:\n  ' + LOGS.join('\n  '));
 console.log(`\nRESULT: ${pass} passed, ${fail} failed`);

@@ -557,9 +557,11 @@ function dkCtxClear() {
   host.innerHTML = '';
 }
 // A realtime event (a message, a form check, a logged set): repaint in place, then re-read who
-// wrote last.
-function deskRefresh() {
+// wrote last. opts.threads (DB.coachInbox's digest, read with the unread badges): use it, one repaint.
+// A digest never takes back a reply this desk knows went after it was read (app.js deskThreadsMerge).
+function deskRefresh(opts) {
   if (!isDesk() || !_dk.booted) return;
+  if (opts && opts.threads) { clearTimeout(_dk.threadT); _dk.threads = deskThreadsMerge(_dk.threads, opts.threads); dkRepaint(); return; }
   dkRepaint();
   dkFetchThreads(1200);
 }
@@ -599,14 +601,21 @@ function dkFetchThreads(delay) {
   _dk.threadT = setTimeout(function () {
     var u = _dkUser();
     if (!u) return;
-    DB.listThreadsForCoach(u.id).then(function (rows) { _dk.threads = deskThreadDigest(null, rows || []); dkRepaint(); }).catch(function () {});
+    DB.listThreadsForCoach(u.id).then(function (rows) { _dk.threads = deskThreadsMerge(_dk.threads, rows || []); dkRepaint(); }).catch(function () {});
   }, delay || 0);
 }
-// The coach just wrote to them: their "Message" reason clears now, not at the next fetch.
-function dkNoteSent(athleteId, body) {
+// The coach just wrote to them: their "Message" reason clears now, not at the next fetch. m: the message
+// as the server stored it (its created_at, so a read already on its way can't put the reason back).
+function dkNoteSent(athleteId, body, m) {
   if (!_dk.threads) return;
   var u = _dkUser();
-  _dk.threads[athleteId] = { athleteId: athleteId, lastAt: new Date().toISOString(), lastSenderId: u && u.id, lastBody: body || '' };
+  deskThreadSaw(_dk.threads, { athleteId: athleteId, senderId: u && u.id, body: body || '', createdAt: (m && m.createdAt) || new Date().toISOString(), meta: m && m.meta });
+}
+// The coach's own message heard live (coach.html's roster channel: this desk's echo, or a reply they
+// sent from their phone): who wrote last moves to it at once, no read.
+function deskHeard(m) {
+  if (!isDesk() || !_dk.booted || !_dk.threads || !m || !m.athleteId) return;
+  if (deskThreadSaw(_dk.threads, m)) dkRepaint();
 }
 
 // ---------- the sidebar ----------
@@ -893,7 +902,7 @@ function dkThreadInto(host, a, opts) {
   renderMessageThread(box, { coachId: u.id, athleteId: a.id, viewerId: u.id, otherName: _dkFirst(a.name),
     markRead: !opts.peek, onRead: onRead, emptyText: opts.emptyText, draft: opts.draft || '',
     onSent: function (m) {
-      dkNoteHandled(a.id, 'reply'); dkNoteSent(a.id, m && m.body);
+      dkNoteHandled(a.id, 'reply'); dkNoteSent(a.id, m && m.body, m);
       var sub = host.querySelector('.dk-card-who span'); if (sub) sub.textContent = 'Last message ' + _dkAgoTime(new Date().toISOString());
       // Today repaints itself (dkRepaint); a Lifters page asked for its own refresh when it opened the card.
       var cb = _dk.cardSent && _dk.cardSent.aid === a.id && _dk.screen !== 'today' ? _dk.cardSent.fn : null;
@@ -1469,7 +1478,7 @@ async function dkSendMessage(athleteId, body, meta) {
       return true;
     }
     var m = await DB.sendMessage({ coachId: u.id, athleteId: athleteId, senderId: u.id, body: body, meta: meta || undefined });
-    if (m) dkNoteSent(athleteId, body);
+    if (m) dkNoteSent(athleteId, body, m);
     if (m && typeof DB.sendPush === 'function') {
       DB.sendPush({ toUserId: athleteId, title: 'New message from ' + _dkFirst(u.name), body: body.slice(0, 140), url: '/athlete.html', tag: 'powa-msg-' + athleteId, category: 'messages' }).catch(function () {});
     }
@@ -5507,7 +5516,7 @@ function dkOpenThread(id, opts) {
     onRead: function () { var un = _dkUnread(); if (un[a.id]) { un[a.id] = 0; if (typeof refreshUnreadBadges === 'function') { try { refreshUnreadBadges(); } catch (e) {} } } dkPaintRail(); setTimeout(dkPaintMsgList, 0); },
     onSent: function (m) {
       dkNoteHandled(a.id, 'reply');
-      dkNoteSent(a.id, m && m.body);
+      dkNoteSent(a.id, m && m.body, m);
       var done = centre.querySelector('.dk-msg-head .dk-btn');   // answered: nothing left to mark done
       if (done) done.remove();
       setTimeout(function () { dkPaintMsgList(); dkPaintRail(); }, 0);
@@ -6089,6 +6098,7 @@ function deskSeedDemo(store, h) {
     l.e1rm = calcE1RM(l.weight, l.reps, l.rpe);
     l.e1rmComp = calcCompE1RM(l.weight, l.reps, l.rpe, l.lift, l.variant || 'Competition');
   });
+  if (window.Store && Store.bump) Store.bump();   // sets edited in place: anything worked out from them is redone
 }
 function dkNoise(n) { var x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return (x - Math.floor(x)) * 2 - 1; }
 // A month of Apple Health for one demo lifter: resting HR, HRV and sleep around their own norm.

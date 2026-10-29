@@ -55,7 +55,8 @@ with checks(n, migration, applied) as (values
   (22, 'migration-rls-hardening-3.sql',
         exists (select 1 from pg_trigger where tgname = 'trg_guard_profile_privileged_cols_insert')),
   (23, 'migration-admin-plan-comp.sql',
-        exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'profiles' and policyname = 'profiles_admin_update')),
+        exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'profiles'
+                 and policyname in ('profiles_admin_update', 'profiles_update'))),   -- row 55 merges it into profiles_update
   (24, 'migration-rls-hardening-4.sql',
         exists (select 1 from pg_proc p join pg_namespace s on s.oid = p.pronamespace
                  where s.nspname = 'public' and p.proname = 'guard_profile_privileged_cols' and p.prosrc like '%powa.link_ok%')),
@@ -106,7 +107,8 @@ with checks(n, migration, applied) as (values
                  where table_schema = 'public' and table_name = 'meets' and column_name = 'status')
         and exists (select 1 from information_schema.columns
                      where table_schema = 'public' and table_name = 'programs' and column_name = 'starts_on')
-        and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'meets' and policyname = 'meets_coach_plan_insert')),
+        and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'meets'
+                     and policyname in ('meets_coach_plan_insert', 'meets_insert'))),   -- row 55 merges it into meets_insert
   (42, 'migration-team-programs-2026-10-22.sql  (team programs; needs row 36 first, and row 31 so a replaced block with logged sets is kept)',
         to_regclass('public.program_group_members') is not null
         and to_regprocedure('public.push_group_programs(uuid, bigint, jsonb)') is not null
@@ -129,14 +131,14 @@ with checks(n, migration, applied) as (values
             and tablename in ('programs', 'workout_logs', 'form_checks', 'checkins', 'checkin_answers', 'session_notes')) = 6),
   (46, 'migration-social-sign-in-2026-10-25.sql  (Continue with Apple / Google: finish_social_signup + the guard''s exemption)',
         to_regprocedure('public.finish_social_signup(text, text)') is not null
-        and position('powa.social_role' in pg_get_functiondef('public.guard_profile_privileged_cols()'::regprocedure)) > 0),
+        and coalesce(position('powa.social_role' in pg_get_functiondef(to_regprocedure('public.guard_profile_privileged_cols()'))) > 0, false)),
   (47, 'migration-clients-2026-10-27.sql  (Clients + payments: the coach''s own record of packages and payments, never the athlete''s; after row 43)',
         to_regclass('public.client_billing') is not null
         and to_regclass('public.client_payments') is not null),
   (48, 'migration-intake-2026-10-27.sql  (the intake questionnaire a lifter fills in on joining a coach; after row 43)',
         to_regclass('public.intake') is not null),
   (49, 'migration-invite-brand-2026-10-27.sql  (the invite page wears the coach''s team name, logo and colour on Pro / Premium)',
-        position('brand_name' in pg_get_function_result('public.invite_preview(text)'::regprocedure)) > 0),
+        coalesce(position('brand_name' in pg_get_function_result(to_regprocedure('public.invite_preview(text)'))) > 0, false)),
   (50, 'migration-coach-challenges-2026-10-28.sql  (coach challenges: the coach''s own lifters on a board of their own in Club; needs only profiles)',
         to_regclass('public.coach_challenges') is not null
         and to_regclass('public.challenge_entries') is not null
@@ -145,13 +147,57 @@ with checks(n, migration, applied) as (values
         and exists (select 1 from pg_trigger where tgname = 'trg_challenge_entries_guard')),
   (51, 'migration-coach-settings-2026-10-28.sql  (a coach''s own settings: progression rules, the capacity check; coach-only)',
         to_regclass('public.coach_settings') is not null
-        and (select count(*) from pg_policies where schemaname = 'public' and tablename = 'coach_settings') = 4),
+        and (select count(*) from pg_policies where schemaname = 'public' and tablename = 'coach_settings'
+              and policyname <> 'powa_mfa_aal2') = 4),   -- row 60 adds its two-factor policy to every table
   (52, 'migration-schedule-requests-2026-10-28.sql  (busy weeks: a lifter''s days for the week and the plan, their coach approves; after row 43)',
         to_regclass('public.schedule_requests') is not null
         and exists (select 1 from pg_trigger where tgname = 'trg_schedule_requests_guard')),
   (53, 'migration-coach-alerts-2026-10-28.sql  (coach alerts: the PRs and missed sessions switch, and the Monday report''s week stats; after migration-email-preferences.sql)',
         exists (select 1 from information_schema.columns
                  where table_schema = 'public' and table_name = 'email_preferences' and column_name = 'push_alerts')
-        and to_regprocedure('public.coach_week_stats(uuid[], date, date)') is not null)
+        and to_regprocedure('public.coach_week_stats(uuid[], date, date)') is not null),
+  (54, 'migration-security-tidy-2026-10-28.sql  (trigger functions callable by nobody, a fixed search_path on ten functions, the edge functions'' own tables said to be theirs)',
+        coalesce(not has_function_privilege('anon', to_regprocedure('public.handle_new_user()'), 'execute'), false)
+        and coalesce(not has_function_privilege('authenticated', to_regprocedure('public.club_members_guard()'), 'execute'), false)
+        and exists (select 1 from pg_proc where oid = to_regprocedure('public.touch_email_preferences()') and proconfig is not null)
+        and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'edge_rate_limits' and policyname = 'service role only')),
+  (55, 'migration-rls-perf-2026-10-28.sql  (speed only, nobody''s access changes: policies work out auth.uid() once per query, 26 merged policies, 7 indexes; after row 53, before or after row 54)',
+        to_regclass('public.workout_logs_athlete_date_idx') is not null
+        and to_regclass('public.programs_coach_idx') is not null
+        and (select count(*) from pg_policies where schemaname = 'public'
+              and policyname in ('profiles_select', 'profiles_update', 'meets_insert', 'clubs_select', 'marketplace_programs_select', 'schedule_requests_update')) = 6),
+  (56, 'migration-data-scale-2026-10-28.sql  (the Monday report reads each block''s planned sessions, not its JSON: programs_planned; send-weekly-digest only)',
+        to_regprocedure('public.program_planned_per_week(jsonb)') is not null
+        and to_regprocedure('public.programs_planned(public.programs)') is not null),
+  (57, 'migration-email-prefs-on-signup-2026-10-28.sql  (every new account gets its email and push settings row, and the ones without get it now; after migration-email-preferences.sql)',
+        exists (select 1 from pg_trigger where tgname = 'trg_profiles_email_prefs')),
+  (58, 'migration-account-delete-fk-2026-10-28.sql  (a coach who left session-note feedback can delete their account: session_notes.coach_id on delete set null)',
+        exists (select 1 from pg_constraint where conname = 'session_notes_coach_id_fkey' and confdeltype = 'n')),
+  (59, 'migration-security-fixes-2026-10-28.sql  (28 Oct sweep: a coach link only through an invite or an accepted request, coach_release_lifter, session-note replies are the coach''s, a former coach is read-only, signed-in-only policies TO authenticated, invite seats, invite_preview''s IP; after row 58)',
+        (select count(*) from pg_proc p where p.pronamespace = 'public'::regnamespace
+          and p.proname in ('guard_profile_privileged_cols', 'guard_profile_privileged_cols_insert', 'accept_coach_request', 'guard_session_notes_update',
+                            'invite_preview', 'coach_release_lifter', 'guard_session_notes_insert', 'guard_invite_seats')
+          and position('migration-security-fixes-2026-10-28' in p.prosrc) > 0) = 8
+        and (select count(*) from pg_trigger where tgname in ('trg_guard_session_notes_insert', 'trg_guard_invite_seats')) = 2
+        and (select count(*) from pg_policies where schemaname = 'public'
+              and policyname in ('msg_member_update', 'msg_sender_delete', 'mr_own_insert', 'mr_own_update', 'mr_own_delete')
+              and coalesce(qual, '') || coalesce(with_check, '') like '%FROM profiles p%') = 5
+        and (select count(*) from pg_policies where schemaname = 'public' and roles = '{authenticated}'
+              and policyname in ('checkins_athlete_all', 'checkins_coach_select', 'client_errors_admin_read', 'mp_coach_delete_own',
+                                 'mp_coach_insert', 'mp_coach_update_own', 'ps_admin_all', 'ps_buyer_read', 'ps_coach_read',
+                                 'session_notes_coach_insert', 'session_notes_coach_select', 'session_notes_coach_update')) = 12),
+  (60, 'migration-mfa-aal2-2026-10-28.sql  (two-factor in the database: an account with an authenticator enters its code before it reads or writes anything; run it after every other row, and again after any migration that adds a table)',
+        coalesce((select r.rolbypassrls or r.rolsuper from pg_proc p join pg_roles r on r.oid = p.proowner
+                   where p.oid = to_regprocedure('public.powa_mfa_ok()') and p.prosecdef), false)
+        -- the check fails closed, so false here means it would refuse everyone: its owner must be able to read the factors
+        -- (SELECT on auth.mfa_factors) and the table must not force row-level security
+        and coalesce((select has_table_privilege(p.proowner, to_regclass('auth.mfa_factors'), 'select') from pg_proc p
+                       where p.oid = to_regprocedure('public.powa_mfa_ok()')), false)
+        and coalesce((select not c.relforcerowsecurity from pg_class c where c.oid = to_regclass('auth.mfa_factors')), false)
+        and exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'powa_mfa_aal2')
+        and not exists (select 1 from pg_class c join pg_namespace s on s.oid = c.relnamespace
+                         where s.nspname = 'public' and c.relkind in ('r', 'p')
+                           and not exists (select 1 from pg_policies p where p.schemaname = 'public' and p.tablename = c.relname
+                                            and p.policyname = 'powa_mfa_aal2' and p.permissive = 'RESTRICTIVE')))
 )
 select n, migration, applied from checks order by n;

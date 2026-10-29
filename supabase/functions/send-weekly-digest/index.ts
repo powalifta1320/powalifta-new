@@ -25,10 +25,11 @@
 // email's one-click unsubscribe has a token; the link carries r=coach so the page says "Monday report".
 // MIDWEEK (Thursdays): Monday to Wednesday count as gone; a lifter on N sessions should have
 // floor(N × 3/7) done. One push per coach naming who's behind (alerts again); no email.
-// Reads are paged (PostgREST returns at most 1000 rows a read) in chunks of 200 ids, logs are summed
+// Reads are paged (PostgREST returns at most 1000 rows a read) in chunks of 100 ids, logs are summed
 // in the database (public.coach_week_stats, sql/migration-coach-alerts-2026-10-28.sql), programs are
-// read lean (planned sessions kept, the JSON dropped). At a few thousand lifters, move the planned
-// sessions into SQL and the emails to Resend's batch endpoint.
+// read lean: the planned sessions worked out in the database (programs_planned,
+// sql/migration-data-scale-2026-10-28.sql), or the JSON 25 lifters at a time and dropped before it.
+// At a few thousand lifters, move the emails to Resend's batch endpoint.
 //
 // AUTH MODEL: "Verify JWT" is OFF (a cron scheduler has no user session),
 // so the function gates itself on a shared secret. The caller MUST send
@@ -72,12 +73,6 @@ const UNSUB_BASE = Deno.env.get('UNSUB_BASE') || 'https://powalifta.com/unsubscr
 const MAIN_LIFTS = ['squat', 'bench', 'deadlift'] as const;
 const LIFT_LABELS: Record<string, string> = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
 const DAY_MS = 86400000;
-
-// Query caps. This is a batch job; at real scale the log pull should move to
-// a SQL view / RPC that pre-aggregates per athlete. For now bound every read.
-const MAX_PREFS = 5000;
-const MAX_LOGS = 50000;
-const MAX_BW = 20000;
 
 interface LogRow { athlete_id: string; lift: string; weight: number; reps: number; e1rm_comp: number; date: string; }
 interface BwRow { athlete_id: string; date: string; weight: number; }
@@ -254,49 +249,39 @@ async function runLifterDigest(admin: any, apiKey: string, dryRun: boolean): Pro
   const now = Date.now();
   const cutoff90 = new Date(now - 90 * DAY_MS).toISOString().slice(0, 10);
 
+  // Every read is paged (PostgREST hands back 1000 rows at most, whatever .limit() says) and takes
+  // its ids 100 at a time (a short URL): the reads used to stop at 1000 rows, and to put every
+  // opted-in id in one URL.
   // 1) Opted-in preferences (weekly_digest = true), with unsub token.
-  const { data: prefs, error: prefErr } = await admin
-    .from('email_preferences')
-    .select('user_id, unsub_token')
-    .eq('weekly_digest', true)
-    .limit(MAX_PREFS);
-  if (prefErr) { console.error('prefs read', prefErr); return { error: 'Preferences read failed' }; }
-  if (!prefs || !prefs.length) return { sent: 0, note: 'No opted-in athletes' };
+  let prefs: Row[];
+  try { prefs = await readAll((f, t) => admin.from('email_preferences').select('user_id, unsub_token').eq('weekly_digest', true).order('user_id').range(f, t), 'user_id'); }
+  catch (e) { console.error('prefs read', errMsg(e)); return { error: 'Preferences read failed' }; }
+  if (!prefs.length) return { sent: 0, note: 'No opted-in athletes' };
 
-  const ids = prefs.map(p => p.user_id);
+  const ids = prefs.map(p => String(p.user_id));
   const tokenById: Record<string, string | null> = {};
-  prefs.forEach(p => { tokenById[p.user_id] = p.unsub_token || null; });
+  prefs.forEach(p => { tokenById[String(p.user_id)] = p.unsub_token ? String(p.unsub_token) : null; });
 
   // 2) Their profiles — athletes with a real email only.
-  const { data: profs, error: profErr } = await admin
-    .from('profiles')
-    .select('id, name, email, user_type')
-    .in('id', ids);
-  if (profErr) { console.error('profiles read', profErr); return { error: 'Profiles read failed' }; }
-  const recipients = (profs || []).filter(p => p.user_type === 'athlete' && p.email && String(p.email).includes('@'));
+  let profs: Row[];
+  try { profs = await byIds(ids, (c) => readAll((f, t) => admin.from('profiles').select('id, name, email, user_type').in('id', c).order('id').range(f, t))); }
+  catch (e) { console.error('profiles read', errMsg(e)); return { error: 'Profiles read failed' }; }
+  // deno-lint-ignore no-explicit-any
+  const recipients = profs.filter(p => p.user_type === 'athlete' && p.email && String(p.email).includes('@')) as any[];
   if (!recipients.length) return { sent: 0, note: 'No athlete recipients' };
-  const recipIds = recipients.map(p => p.id);
+  const recipIds = recipients.map(p => String(p.id));
 
-  // 3) One bounded pull of the last 90d of logs + bodyweight for those athletes;
-  //    grouped in memory (no per-athlete round-trips).
-  const { data: logs, error: logErr } = await admin
-    .from('workout_logs')
-    .select('athlete_id, lift, weight, reps, e1rm_comp, date')
-    .in('athlete_id', recipIds)
-    .gte('date', cutoff90)
-    .limit(MAX_LOGS);
-  if (logErr) { console.error('logs read', logErr); return { error: 'Logs read failed' }; }
-  const { data: bws } = await admin
-    .from('bodyweight')
-    .select('athlete_id, date, weight')
-    .in('athlete_id', recipIds)
-    .gte('date', cutoff90)
-    .limit(MAX_BW);
+  // 3) The last 90 days of logs + bodyweight for those athletes, grouped in memory (no per-athlete
+  //    round trips).
+  let logs: Row[];
+  try { logs = await byIds(recipIds, (c) => readAll((f, t) => admin.from('workout_logs').select('id, athlete_id, lift, weight, reps, e1rm_comp, date').in('athlete_id', c).gte('date', cutoff90).order('id').range(f, t))); }
+  catch (e) { console.error('logs read', errMsg(e)); return { error: 'Logs read failed' }; }
+  const bws = await optional('bodyweight', () => byIds(recipIds, (c) => readAll((f, t) => admin.from('bodyweight').select('id, athlete_id, date, weight').in('athlete_id', c).gte('date', cutoff90).order('id').range(f, t))));
 
   const logsBy: Record<string, LogRow[]> = {};
-  (logs || []).forEach(l => { (logsBy[l.athlete_id] ||= []).push(l as LogRow); });
+  logs.forEach(l => { (logsBy[String(l.athlete_id)] ||= []).push(l as unknown as LogRow); });
   const bwBy: Record<string, BwRow[]> = {};
-  (bws || []).forEach(b => { (bwBy[b.athlete_id] ||= []).push(b as BwRow); });
+  bws.forEach(b => { (bwBy[String(b.athlete_id)] ||= []).push(b as unknown as BwRow); });
 
   // 4) Build + send. Skip athletes with zero sessions in the last 7 days —
   //    a "you did nothing" email is worse than no email.
@@ -328,29 +313,47 @@ async function runLifterDigest(admin: any, apiKey: string, dryRun: boolean): Pro
 // ---------------------------------------------------------------- the coaches' jobs
 type Row = Record<string, unknown>;
 const PAGE = 1000;        // PostgREST's most rows a read
-const IDS = 200;          // ids per .in() read
-const MAX_ROWS = 100000;  // a runaway guard per read
+const IDS = 100;          // ids per .in() read (a short URL)
+const PROG_IDS = 25;      // a program's JSON is the heaviest row there is: 25 lifters a read when it's read whole
+const MAX_ROWS = 100000;  // a runaway guard per read (it says so when it stops a read)
 const SEND_GAP_MS = 550;  // Resend's default is 2 emails a second
 const DEADLINE_MS = 120000;
 function errMsg(e: unknown): string { return String((e as { message?: string })?.message || e).slice(0, 300); }
 function isMissing(e: unknown): boolean { return /does not exist|could not find|schema cache|PGRST20[0-9]|42P01|42703/i.test(errMsg(e) + ' ' + String((e as { code?: string })?.code || '')); }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// Every page of a read (ordered, so pages don't overlap).
+// Every page of a read, ordered by a unique key the read selects (`key`, 'id' unless said). Pages overlap by
+// OVERLAP rows and each row is kept once by its key, so a row written or deleted while a big read is going
+// neither comes twice nor pushes another out of it (db.js _readAll does the same in the app). A read whose
+// rows don't carry the key pages edge to edge as before, and says so.
+const OVERLAP = 50;
 // deno-lint-ignore no-explicit-any
-async function readAll(build: (from: number, to: number) => any): Promise<Row[]> {
+async function readAll(build: (from: number, to: number) => any, key = 'id'): Promise<Row[]> {
   const out: Row[] = [];
-  for (let from = 0; from < MAX_ROWS; from += PAGE) {
+  const seen = new Set<string>();
+  let keyed: boolean | null = null;
+  for (let from = 0; ; from += keyed ? PAGE - OVERLAP : PAGE) {
+    if (from >= MAX_ROWS) { console.warn('send-weekly-digest: a read stopped at ' + MAX_ROWS + ' rows'); break; }
     const { data, error } = await build(from, from + PAGE - 1);
     if (error) throw error;
-    out.push(...(data || []));
-    if (!data || data.length < PAGE) break;
+    const rows: Row[] = data || [];
+    if (keyed === null && rows.length) {
+      keyed = rows[0][key] != null;
+      if (!keyed && rows.length === PAGE) console.warn('send-weekly-digest: a paged read without its key column (' + key + ')');
+    }
+    for (const r of rows) {
+      if (!keyed) { out.push(r); continue; }
+      const k = String(r[key]);
+      if (seen.has(k)) continue;
+      seen.add(k); out.push(r);
+    }
+    if (rows.length < PAGE) break;
   }
   return out;
 }
-async function byIds(ids: string[], read: (c: string[]) => Promise<Row[]>): Promise<Row[]> {
+async function byIds(ids: string[], read: (c: string[]) => Promise<Row[]>, size?: number): Promise<Row[]> {
   const out: Row[] = [];
-  for (const c of chunk(ids, IDS)) out.push(...await read(c));
+  for (const c of chunk(ids, size || IDS)) out.push(...await read(c));
   return out;
 }
 // A table an older project may not have yet (pain_reports, client_billing, schedule_requests…): the
@@ -378,13 +381,22 @@ async function loadTeams(admin: any, from: string, to: string) {
     coaches = await byIds(coachIds, (c) => readAll((f, t) => admin.from('profiles').select('id, name, email').in('id', c).order('id').range(f, t)));
   }
   const prefs = await optional('email_preferences', async () => {
-    try { return await byIds(coachIds, (c) => readAll((f, t) => admin.from('email_preferences').select('user_id, weekly_digest, unsub_token, push_alerts').in('user_id', c).order('user_id').range(f, t))); }
+    try { return await byIds(coachIds, (c) => readAll((f, t) => admin.from('email_preferences').select('user_id, weekly_digest, unsub_token, push_alerts').in('user_id', c).order('user_id').range(f, t), 'user_id')); }
     catch (e) {
       if (!isMissing(e)) throw e;
-      return await byIds(coachIds, (c) => readAll((f, t) => admin.from('email_preferences').select('user_id, weekly_digest, unsub_token').in('user_id', c).order('user_id').range(f, t)));
+      return await byIds(coachIds, (c) => readAll((f, t) => admin.from('email_preferences').select('user_id, weekly_digest, unsub_token').in('user_id', c).order('user_id').range(f, t), 'user_id'));
     }
   });
-  const programs = await byIds(athleteIds, async (c) => leanPrograms(await readAll((f, t) => admin.from('programs').select('id, athlete_id, coach_id, weeks, updated_at').in('athlete_id', c).order('id').range(f, t))));
+  // Programs: only what the report reads (whose, when it changed, the sessions it plans this week). The
+  // database works the sessions out (programs_planned, sql/migration-data-scale-2026-10-28.sql); before
+  // that runs, the block's JSON is read 25 lifters at a time and dropped as each page is read.
+  let programs: Row[];
+  try {
+    programs = await byIds(athleteIds, async (c) => leanPrograms(await readAll((f, t) => admin.from('programs').select('id, athlete_id, coach_id, updated_at, planned:programs_planned').in('athlete_id', c).order('id').range(f, t))));
+  } catch (e) {
+    if (!isMissing(e)) throw e;
+    programs = await byIds(athleteIds, async (c) => leanPrograms(await readAll((f, t) => admin.from('programs').select('id, athlete_id, coach_id, weeks, updated_at').in('athlete_id', c).order('id').range(f, t))), PROG_IDS);
+  }
   const stats = await byIds(athleteIds, async (c) => {
     const { data, error } = await admin.rpc('coach_week_stats', { p_athletes: c, p_from: from, p_to: to });
     if (error) throw new Error('coach_week_stats failed (run sql/migration-coach-alerts-2026-10-28.sql): ' + errMsg(error));

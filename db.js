@@ -22,10 +22,102 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   } catch (e) {}
 })();
 
+// A session in the address (login CSRF, sweep 2026-10-28 #9 and #12). supabase-js takes any session
+// it finds in the URL (#access_token=… or ?access_token=…) and saves it over whoever is signed in
+// here, so a link someone sends could sign this browser into their account. Two real flows bring a
+// session in the URL, and only these are taken:
+//   · Apple / Google sign-in on the website, back on the page it left from: this tab saved
+//     social-auth.js's pending state before it went (sessionStorage; taken up to an hour later, so a
+//     slow Apple ID or two-factor step still signs in). The person asked for it in this tab, so it
+//     may replace whoever was signed in.
+//   · A password-reset link (type=recovery): only reset-password.html reads it, into a client of its
+//     own that never saves it, so it never becomes this browser's sign-in and never replaces one.
+// Anything else is refused and its tokens leave the address bar: a link someone sent, or an email
+// confirmation (the email is confirmed by then and the person logs in, as the sign-up toast says;
+// signed out, the log-in opens). Nothing else in the app puts a session in a URL: the iPhone app signs
+// in with Apple / Google tokens (signInWithIdToken), its links carry invite codes only.
+// Pure (test/url-session.test.cjs): o = { params, path, pending, now } → 'none' (no session in the
+// URL) | 'adopt' | 'recovery' (reset-password.html's own client takes it) | 'forward' (routeRecoveryLink
+// above is moving it there) | 'refuse'.
+const POWA_SOCIAL_PENDING_KEY = 'powa-social-pending';
+const POWA_SOCIAL_PENDING_TTL_MS = 60 * 60 * 1000;   // social-auth.js keeps what the modal knew for 15 minutes; past that it asks again
+const POWA_URL_SESSION_KEYS = ['access_token', 'refresh_token', 'provider_token', 'provider_refresh_token', 'expires_in', 'expires_at', 'token_type', 'type'];
+function powaUrlSessionVerdict(o) {
+  o = o || {};
+  const p = o.params || {};
+  if (!p.access_token && !p.refresh_token) return 'none';
+  if (p.type === 'recovery') return /\/reset-password\.html$/.test(String(o.path || '')) ? 'recovery' : 'forward';
+  let pend = o.pending;
+  try { if (typeof pend === 'string') pend = JSON.parse(pend); } catch (e) { pend = null; }
+  const at = pend && pend.v === 1 ? Number(pend.at) : 0;
+  const now = Number(o.now) || Date.now();
+  return at > 0 && now - at <= POWA_SOCIAL_PENDING_TTL_MS ? 'adopt' : 'refuse';
+}
+// The address without a session's parameters (hash or query); everything else stays.
+function powaUrlWithoutSession(href) {
+  const u = new URL(href);
+  POWA_URL_SESSION_KEYS.forEach(k => u.searchParams.delete(k));
+  let hash = u.hash.replace(/^#/, '');
+  if (hash) {
+    const hp = new URLSearchParams(hash);
+    if (POWA_URL_SESSION_KEYS.some(k => hp.has(k))) { POWA_URL_SESSION_KEYS.forEach(k => hp.delete(k)); hash = hp.toString(); }
+  }
+  const q = u.searchParams.toString();
+  return u.pathname + (q ? '?' + q : '') + (hash ? '#' + hash : '');
+}
+function _powaUrlParams(loc) {
+  const params = {};
+  try { new URLSearchParams(String(loc.hash || '').replace(/^#/, '')).forEach((v, k) => { params[k] = v; }); } catch (e) {}
+  try { new URLSearchParams(String(loc.search || '')).forEach((v, k) => { params[k] = v; }); } catch (e) {}
+  return params;
+}
+function _powaSocialPending() { try { return sessionStorage.getItem(POWA_SOCIAL_PENDING_KEY); } catch (e) { return null; } }
+// A refused session leaves the address before supabase-js (or social-auth.js) reads it.
+(function refuseUrlSession() {
+  try {
+    const params = _powaUrlParams(location);
+    const verdict = powaUrlSessionVerdict({ params, path: location.pathname, pending: _powaSocialPending(), now: Date.now() });
+    // A reset session in the query string (not a real link: Supabase puts it in the hash, which routeRecoveryLink
+    // moves) goes nowhere either: refused like any other.
+    const stray = verdict === 'forward' && !/(^|[#&])type=recovery(&|$)/.test(location.hash);
+    if (verdict !== 'refuse' && !stray) return;
+    let signedIn = false;
+    for (let i = 0; i < localStorage.length; i++) { if (/^sb-.*-auth-token$/.test(localStorage.key(i) || '')) { signedIn = true; break; } }
+    console.warn('POWALIFTA: a session in this link was not used (only this tab\'s own Apple or Google sign-in, or a password-reset link, signs in from a link).');
+    // An Apple / Google return this tab can't take (it started in another tab or window, or over an hour
+    // ago), seen by nobody signed in: social-auth.js says the sign-in didn't finish instead of nothing.
+    if (verdict === 'refuse' && !signedIn && (params.provider_token || !params.type)) window._powaSocialRefused = true;
+    let clean = powaUrlWithoutSession(location.href);
+    if (params.type === 'signup' && !signedIn && clean.indexOf('#') < 0) { clean += '#login'; window._powaEmailConfirmed = true; }
+    history.replaceState(history.state, '', clean);
+  } catch (e) {}
+})();
+
 if (!window.supabase || !window.supabase.createClient) {
   console.error('Supabase JS not loaded. Make sure <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> is included BEFORE db.js');
 }
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    // Only the sign-ins above come from the address (powaUrlSessionVerdict). It must answer at once:
+    // supabase-js 2.110 calls it without await, so a Promise would count as yes.
+    detectSessionInUrl: (url, params) => {
+      params = params || {};
+      const v = powaUrlSessionVerdict({ params, path: url && url.pathname, pending: _powaSocialPending(), now: Date.now() });
+      if (v === 'none') return !!(params.error || params.error_description || params.error_code);   // as before: a provider's error
+      return v === 'adopt';
+    }
+  }
+});
+// Two-factor (sql/migration-mfa-aal2-2026-10-28.sql): supabase-js gives Realtime a new token only on SIGNED_IN /
+// TOKEN_REFRESHED. After a code is entered (MFA_CHALLENGE_VERIFIED: at sign-in, at boot, or turning 2FA on) the
+// socket would keep the aal1 token, on which the database sends a 2FA account nothing: hand it the aal2 one.
+try {
+  sb.auth.onAuthStateChange((ev, s) => {
+    if (ev === 'MFA_CHALLENGE_VERIFIED' && s && s.access_token) {
+      try { Promise.resolve(sb.realtime.setAuth(s.access_token)).catch(() => {}); } catch (e) {}
+    }
+  });
+} catch (e) {}
 
 // ============================================================
 // MAPPERS — DB row (snake_case) ↔ JS object (camelCase)
@@ -660,6 +752,188 @@ function mapJsRest(r) { return { id: r.id, athlete_id: r.athleteId, date: r.date
 function mapDbInvite(r) { return { code: r.code, coachId: r.coach_id, email: r.email, used: r.used, createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now() }; }
 function mapJsInvite(i) { return { code: i.code, coach_id: i.coachId, email: i.email, used: !!i.used }; }
 
+// ============================================================
+// PAGED READS (2026-10-28)
+// PostgREST hands back at most 1,000 rows a read (the project's max-rows), however big .limit() is.
+// Every read that can pass that goes through _readAll: a stable order (the columns asked for, then a
+// tiebreak), .range() pages, and, when the first page comes back full, the exact count it asked for
+// plans the rest, which go out together (6 at a time across every read). A failed page is tried twice
+// more. Past the ceiling the read stops and says so (the console and error-log.js), never silently.
+// A row written or deleted while the pages are read moves every row after it one place, across the
+// page edges. So: the rows are told apart by their key (_raPlan: id when the order has it, else the
+// whole order, which is unique; it has to be among the columns read, or it's said); each page after
+// the first starts 50 rows into the one before (_RA_OVERLAP), so a row deleted mid-read can't let
+// another slip between two pages, and the rows read twice come once; a page that comes back full is
+// followed by another (rows written mid-read push the oldest past the plan); and two pages that no
+// longer meet (more rows gone mid-read than the overlap) read the whole thing again, once, then say so.
+//   build(countOpt) → a fresh query: sb.from(t).select(cols, countOpt) plus its filters (no order, no range)
+//   opts: { order: [['date', true], ['created_at', true]] (true = ascending), tiebreak: ['id'] | [] ,
+//           count (default true), ceiling (default _RA_CEILING), page (default 1000) }
+//   → { rows, count (null when unknown), capped, partial, error }  (error with rows [] = the first page failed)
+// ============================================================
+const _RA_PAGE = 1000;
+const _RA_POOL = 6;
+const _RA_CEILING = 200000;
+const _RA_OVERLAP = 50;
+const _raQ = { active: 0, waiting: [] };
+function _raSlot(fn) {
+  return new Promise((resolve, reject) => {
+    const run = () => {
+      _raQ.active++;
+      Promise.resolve().then(fn).then(resolve, reject).finally(() => { _raQ.active--; const next = _raQ.waiting.shift(); if (next) next(); });
+    };
+    if (_raQ.active < _RA_POOL) run(); else _raQ.waiting.push(run);
+  });
+}
+function _raWarn(label, detail) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.__powaWarn === 'function') window.__powaWarn(label, detail);   // error-log.js: kept, forwarded, on the console
+    else console.warn('[POWA] ' + label, detail);
+  } catch (e) {}
+}
+const _raWait = (ms) => new Promise(r => setTimeout(r, ms));
+// A read's order (the columns asked for, then the tiebreak's) and its key: the columns that tell two of
+// its rows apart (id when the order has it, else the whole order).
+function _raPlan(opts) {
+  opts = opts || {};
+  const tie = opts.tiebreak === undefined ? ['id'] : (opts.tiebreak || []);
+  const order = (opts.order || []).slice();
+  tie.forEach(c => { if (!order.some(o => o[0] === c)) order.push([c, true]); });
+  return { order, key: order.some(o => o[0] === 'id') ? ['id'] : order.map(o => o[0]) };
+}
+async function _readAll(label, build, opts) {
+  opts = opts || {};
+  const PAGE = opts.page || _RA_PAGE;
+  const ceiling = Math.max(PAGE, opts.ceiling || _RA_CEILING);
+  const { order, key } = _raPlan(opts);
+  const page = (from, countOpt) => {
+    let q = build(countOpt);
+    order.forEach(o => { q = q.order(o[0], { ascending: o[1] !== false }); });
+    return q.range(from, from + PAGE - 1);
+  };
+  const tries = async (from) => {
+    let last = null;
+    for (let i = 0; i < 3; i++) {
+      if (i) await _raWait(250 * i * i + 50);
+      const r = await page(from);
+      if (!r.error) return r;
+      last = r;
+    }
+    return last;
+  };
+  const first = await page(0, opts.count === false ? undefined : { count: 'exact' });
+  if (first.error) return { rows: [], count: null, capped: false, partial: false, error: first.error, status: first.status };   // status: 0 = no connection (listAthletesForCoach)
+  const p0 = first.data || [];
+  const count = typeof first.count === 'number' ? first.count : null;
+  if (p0.length < PAGE) return { rows: p0.slice(), count: count == null ? p0.length : count, capped: false, partial: false, error: null };
+  // Rows that can't be told apart (a key column isn't read): pages edge to edge, as before, and said.
+  const keyed = key.length > 0 && key.every(c => Object.prototype.hasOwnProperty.call(p0[0] || {}, c));
+  if (!keyed) _raWarn(label + ': its rows carry no ' + (key.join(' + ') || 'order') + ', so a row written mid-read can come twice', null);
+  const OV = keyed && PAGE >= 4 ? Math.min(_RA_OVERLAP, Math.floor(PAGE / 4)) : 0;
+  const STEP = PAGE - OV;
+  const keyOf = (r) => { if (!r) return null; const v = key.map(c => r[c]); return v.some(x => x == null) ? null : v.join('\u0001'); };
+  const pages = [p0];
+  let error = null, partial = false, at = 0;   // at: where the last page read starts
+  if (count != null) {
+    // Planned from the count: the rest go out together, kept in page order.
+    const want = Math.min(count, ceiling), starts = [];
+    for (let s = STEP; s - STEP + PAGE < want; s += STEP) starts.push(s);
+    const got = await Promise.all(starts.map(s => _raSlot(() => tries(s))));
+    for (let i = 0; i < got.length; i++) {
+      if (got[i].error) { error = got[i].error; partial = true; break; }
+      pages.push(got[i].data || []);
+      at = starts[i];
+    }
+  }
+  // A last page that came back full may not be the last (no count, or rows written mid-read pushed the
+  // oldest past the plan): on, a page at a time, until a short one or the ceiling.
+  while (!partial && pages[pages.length - 1].length === PAGE && at + PAGE < ceiling) {
+    const r = await _raSlot(() => tries(at + STEP));
+    if (r.error) { error = r.error; partial = true; break; }
+    pages.push(r.data || []);
+    at += STEP;
+  }
+  // Each page after a full one holds one of that page's last OV rows, or rows between the two were
+  // never read (more gone mid-read than the overlap covers): then the whole read goes again, once.
+  let torn = false;
+  for (let i = 1; OV && i < pages.length && !torn; i++) {
+    if (pages[i - 1].length < PAGE) continue;
+    const tail = new Set(pages[i - 1].slice(-OV).map(keyOf).filter(k => k != null));
+    torn = tail.size > 0 && !pages[i].some(r => tail.has(keyOf(r)));
+  }
+  if (torn && !opts._again) { await _raWait(200); return _readAll(label, build, Object.assign({}, opts, { _again: true })); }
+  // Every row once, in page order.
+  let rows = [];
+  if (keyed) {
+    const seen = new Set();
+    pages.forEach(pg => pg.forEach(r => {
+      const k = keyOf(r);
+      if (k != null) { if (seen.has(k)) return; seen.add(k); }
+      rows.push(r);
+    }));
+  } else pages.forEach(pg => { rows.push(...pg); });
+  if (rows.length > ceiling) rows = rows.slice(0, ceiling);
+  const capped = count != null ? count > ceiling : (!partial && pages[pages.length - 1].length === PAGE);
+  if (capped) _raWarn(label + ': read stopped at ' + rows.length + ' rows', { total: count });
+  if (partial) _raWarn(label + ': a page failed, ' + rows.length + ' rows kept', { total: count, error: String((error && error.message) || error) });
+  if (torn) { partial = true; _raWarn(label + ': rows moved too far while it was read (twice), ' + rows.length + ' rows kept', { total: count }); }
+  return { rows, count, capped, partial, error };
+}
+// The same over an id list (athlete_id in the roster…): `size` ids a read (a short URL, a small sort
+// per page), the reads together, the rows in id-chunk order (each chunk in the read's own order).
+//   build(ids, countOpt) → a fresh query for those ids.
+async function _readAllIn(label, ids, size, build, opts) {
+  const list = (ids || []).filter(x => x != null);
+  if (!list.length) return { rows: [], count: 0, capped: false, partial: false, error: null };
+  const chunks = [];
+  for (let i = 0; i < list.length; i += size) chunks.push(list.slice(i, i + size));
+  const res = await Promise.all(chunks.map(c => _readAll(label, (countOpt) => build(c, countOpt), opts)));
+  const firstErr = res.find(r => r.error && !r.rows.length);
+  if (firstErr && res.every(r => r.error && !r.rows.length)) return { rows: [], count: null, capped: false, partial: false, error: firstErr.error };
+  // Some groups came, some didn't (a blip, not a missing table): those go again once, then it's said.
+  for (let i = 0; i < res.length; i++) {
+    if (!(res[i].error && !res[i].rows.length)) continue;
+    await _raWait(300);
+    res[i] = await _readAll(label, (countOpt) => build(chunks[i], countOpt), opts);
+    if (res[i].error && !res[i].rows.length) _raWarn(label + ': ' + chunks[i].length + ' of ' + list.length + ' ids could not be read', { error: String((res[i].error && res[i].error.message) || res[i].error) });
+  }
+  const rows = [];
+  res.forEach(r => rows.push(...r.rows));
+  return { rows, count: res.every(r => r.count != null) ? res.reduce((a, r) => a + r.count, 0) : null,
+    capped: res.some(r => r.capped), partial: res.some(r => r.partial || (r.error && !r.rows.length)), error: (res.find(r => r.error) || {}).error || null };
+}
+// Bumped by every message this page sends or hears live: a thread read already on its way when one
+// lands can't stand in for a read asked for after it (DB._coachThreadRows).
+let _threadSeq = 0;
+// The pain channel (DB.subscribePainReports): one at a time, for the roster it was given.
+const _pain = { ch: null, cb: null, ids: [] };
+const _PAIN_UNDO_MS = 10000;   // the lifter's Undo stays up 4.6 s (app.js toastAction): looked up again after that
+function _painStop(cb) {
+  if (cb && _pain.cb !== cb) return;
+  if (_pain.ch) { try { sb.removeChannel(_pain.ch); } catch (e) {} }
+  _pain.ch = null; _pain.cb = null; _pain.ids = [];
+}
+async function _painRecheck(ch, id, onChange) {
+  if (_pain.ch !== ch || !id) return;
+  try {
+    const { data, error } = await sb.from('pain_reports').select('id').in('id', [id]);
+    if (error || _pain.ch !== ch) return;
+    if (!data || !data.length) onChange({ id }, 'DELETE');
+  } catch (e) {}
+}
+// workout_logs as the app maps them (mapDbLog): the import columns (source, import_key, imported_by)
+// and created_at stay on the server. gear arrives with migration-program-integrity-2026-10-22.sql.
+const _LOG_COLS = 'id, athlete_id, lift, variant, exercise_name, weight, reps, rpe, e1rm, e1rm_comp, note, date';
+let _noLogGear = false;
+const _logCols = () => _LOG_COLS + (_noLogGear ? '' : ', gear');
+// Read newest first (a read that ever stops at its ceiling, or keeps its pages after one fails, keeps
+// the newest sets), then turned round: the lifter's own order everywhere is by date, then as logged
+// (created_at), then id. created_at stays on the server: the pages are joined up by id (_raPlan).
+const _LOG_ORDER_DESC = [['date', false], ['created_at', false], ['id', false]];
+const _BW_COLS = 'id, athlete_id, date, weight';
+const _NOTE_COLS = 'id, athlete_id, week_id, day_id, note, date, coach_comment, coach_comment_at, coach_id';
+const _ANSWER_COLS = 'id, question_id, athlete_id, coach_id, period, value_num, value_text, updated_at';
+
 // Rescale every exercise weight in a program by the buyer's relative strength.
 // Both coach1RMs and buyer1RMs are { squat, bench, deadlift } in kg.
 // Per-lift exercises scale by their own ratio; accessories scale by the average.
@@ -976,8 +1250,27 @@ const DB = {
     if (error) throw error;
     return data;
   },
-  async signOut() {
-    await sb.auth.signOut();
+  // scope 'local': this device only (a session the server already refused, or a cancelled two-factor prompt: the
+  // person's other sessions stay signed in). Default: every device (a chosen log-out).
+  async signOut(scope) {
+    await sb.auth.signOut(scope === 'local' ? { scope: 'local' } : undefined);
+  },
+  // What Auth answers for this session's account (GET /user): null when it knows the user, else its error
+  // (app.js authErrorUserGone tells a deleted account from an ended session or a network failure).
+  async authUserError() {
+    try {
+      const { error } = await sb.auth.getUser();
+      return error || null;
+    } catch (e) { return e || new Error('getUser failed'); }
+  },
+  // fn() when this browser's session ends: a log-out (here or in another tab), or one the server
+  // refused while it refreshed. fn must not await supabase-js inside (its auth lock is held there).
+  // → unsubscribe function.
+  onSignedOut(fn) {
+    try {
+      const { data } = sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') { try { fn(); } catch (e) {} } });
+      return () => { try { data.subscription.unsubscribe(); } catch (e) {} };
+    } catch (e) { return () => {}; }
   },
 
   // Password reset — sends an email with a recovery link that lands on
@@ -998,8 +1291,10 @@ const DB = {
   },
 
   // ---------- 2FA / MFA (TOTP, Supabase Auth native) ----------
-  // All of this runs entirely against Supabase Auth (GoTrue) with the anon
-  // client — NO service role, NO edge function, NO migration, NO new secret.
+  // These run against Supabase Auth (GoTrue) with the anon client. The database
+  // enforces the result (sql/migration-mfa-aal2-2026-10-28.sql: an account with a
+  // verified factor reads and writes nothing below aal2), so do the edge functions
+  // (supabase/functions/_shared/aal.ts); the prompt is app.js promptMfaChallenge().
   // Every wrapper is soft-failing: it returns {ok:false, reason} instead of
   // throwing, so the UI can degrade gracefully if the project has TOTP MFA
   // disabled in the dashboard (Authentication → Multi-Factor). `unsupported`
@@ -1058,24 +1353,26 @@ const DB = {
   },
   // Current vs required assurance level. After a password login on an account
   // WITH 2FA, currentLevel='aal1' + nextLevel='aal2' → a challenge is owed.
-  async mfaAssurance() {
+  // client: another supabase-js client (reset-password.html's link client); default this one.
+  async mfaAssurance(client) {
     try {
-      const { data, error } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+      const { data, error } = await (client || sb).auth.mfa.getAuthenticatorAssuranceLevel();
       if (error) return { ok: false, reason: error.message };
       return { ok: true, currentLevel: data.currentLevel, nextLevel: data.nextLevel };
     } catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
   },
   // Login-time step-up: verify a 6-digit code against the first VERIFIED TOTP
-  // factor to lift the fresh session from AAL1 → AAL2.
-  async mfaChallengeVerify(code) {
+  // factor to lift the fresh session from AAL1 → AAL2. client: as mfaAssurance.
+  async mfaChallengeVerify(code, client) {
+    const c = client || sb;
     try {
-      const list = await sb.auth.mfa.listFactors();
+      const list = await c.auth.mfa.listFactors();
       if (list.error) return { ok: false, reason: list.error.message };
       const factor = ((list.data && list.data.totp) || []).find(f => f.status === 'verified');
       if (!factor) return { ok: false, reason: 'no verified authenticator on this account' };
-      const ch = await sb.auth.mfa.challenge({ factorId: factor.id });
+      const ch = await c.auth.mfa.challenge({ factorId: factor.id });
       if (ch.error) return { ok: false, reason: ch.error.message };
-      const { error } = await sb.auth.mfa.verify({ factorId: factor.id, challengeId: ch.data.id, code: String(code || '').trim() });
+      const { error } = await c.auth.mfa.verify({ factorId: factor.id, challengeId: ch.data.id, code: String(code || '').trim() });
       if (error) return { ok: false, reason: error.message };
       return { ok: true };
     } catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
@@ -1207,6 +1504,21 @@ const DB = {
     }
     if (error) throw error;
   },
+  // A coach takes a lifter off their roster (the lifter's coach_id becomes null; their training stays
+  // theirs) through coach_release_lifter: a coach's direct update of the lifter's profile is refused
+  // live (42501). Throws a plain-words Error; .notReady when this database doesn't have the function
+  // yet, and then nothing has changed.
+  async releaseLifter(athleteId) {
+    if (!athleteId) throw new Error('No lifter to remove');
+    const { data, error } = await sb.rpc('coach_release_lifter', { p_athlete: athleteId });
+    if (error) {
+      if (error.code === 'PGRST202' || error.code === '42883' || /could not find the function|schema cache/i.test(String(error.message || ''))) {
+        const e = new Error('Removing a lifter switches on with the next update. Nothing changed.'); e.notReady = true; e.cause = error; throw e;
+      }
+      throw error;
+    }
+    return data;
+  },
   async listCoaches() {
     // Public directory: safe columns only (migration-profiles-privacy.sql). Before
     // that migration runs the function doesn't exist and we fall back to the old read.
@@ -1254,7 +1566,7 @@ const DB = {
     if (error) throw error;
     return data;
   },
-  // Coach declines → ordinary status UPDATE (allowed by cr_coach_update).
+  // Coach declines → ordinary status UPDATE (allowed by coach_requests_update, its coach_id = auth.uid() arm; cr_coach_update before migration-rls-perf-2026-10-28.sql).
   async declineCoachRequest(requestId) {
     const { error } = await sb.from('coach_requests')
       .update({ status: 'declined', updated_at: new Date().toISOString() }).in('id', [requestId]);
@@ -1466,26 +1778,28 @@ const DB = {
     // with user_type filter, this returns only athletes coached by current user.
     // Filter on coach_id too: an admin who also coaches can read every profile,
     // and must still only load their own roster.
-    let q = sb.from('profiles').select('*').eq('user_type', 'athlete');
-    if (coachId) q = q.eq('coach_id', coachId);
-    const { data, error, status } = await q;
-    if (error) {
+    // Paged (_readAll: past 1,000 lifters every row comes, once, in order).
+    const res = await _readAll('listAthletesForCoach', (countOpt) => {
+      const q = sb.from('profiles').select('*', countOpt).eq('user_type', 'athlete');
+      return coachId ? q.eq('coach_id', coachId) : q;
+    }, { count: false });
+    if (res.error && !res.rows.length) {
       // No connection is not "no lifters": the boot opens this device's copy, or says it couldn't load
       // (coach.html's Try again), instead of a coach with a roster seeing "Bring in your first lifter".
-      if (!status || /fetch|network|timed? ?out|load failed/i.test(String(error.message || ''))) {
-        const e = new Error('The roster did not load: ' + (error.message || 'network')); e.transient = true; throw e;
+      if (!res.status || /fetch|network|timed? ?out|load failed/i.test(String(res.error.message || ''))) {
+        const e = new Error('The roster did not load: ' + (res.error.message || 'network')); e.transient = true; throw e;
       }
-      console.warn('listAthletesForCoach', error); return [];
+      console.warn('listAthletesForCoach', res.error); return [];
     }
-    return (data || []).map(mapDbProfileToAthlete);
+    return res.rows.map(mapDbProfileToAthlete);
   },
 
   // ---------- INVITES ----------
   async listInvites(coachId) {
     // RLS already filters to current coach's invites — no need for explicit eq
-    const { data, error } = await sb.from('invites').select('*');
-    if (error) { console.warn('listInvites', error); return []; }
-    return (data || []).map(mapDbInvite);
+    const res = await _readAll('listInvites', (countOpt) => sb.from('invites').select('*', countOpt), { tiebreak: ['code'], count: false });
+    if (res.error && !res.rows.length) { console.warn('listInvites', res.error); return []; }
+    return res.rows.map(mapDbInvite);
   },
   async addInvite(invite) {
     const { error } = await sb.from('invites').insert(mapJsInvite(invite));
@@ -1880,15 +2194,15 @@ const DB = {
   async listProgramsForAthlete(athleteId) {
     // RLS gives athlete access to their own program only (or coach to programs they coach).
     // Use .in() instead of .eq() — .eq() fails on UUID columns with RLS in this project.
-    const { data, error } = await sb.from('programs').select('*').in('athlete_id', [athleteId]);
-    if (error) { console.warn('listProgramsForAthlete', error); return []; }
-    return (data || []).map(mapDbProgram);
+    const res = await _readAll('listProgramsForAthlete', (countOpt) => sb.from('programs').select('*', countOpt).in('athlete_id', [athleteId]), { count: false });
+    if (res.error && !res.rows.length) { console.warn('listProgramsForAthlete', res.error); return []; }
+    return res.rows.map(mapDbProgram);
   },
   async listProgramsForCoach(coachId) {
     // RLS already filters to current coach's programs. No need for explicit filter.
-    const { data, error } = await sb.from('programs').select('*');
-    if (error) { console.warn('listProgramsForCoach', error); return []; }
-    return (data || []).map(mapDbProgram);
+    const res = await _readAll('listProgramsForCoach', (countOpt) => sb.from('programs').select('*', countOpt), { count: false });
+    if (res.error && !res.rows.length) { console.warn('listProgramsForCoach', res.error); return []; }
+    return res.rows.map(mapDbProgram);
   },
   // Compare-and-swap: the save carries the rev it was edited from. When the row has moved on
   // (another device, the coach, the lifter's set log), the server says powa_rev_conflict; we fetch
@@ -2043,20 +2357,22 @@ const DB = {
   async listNutritionDaily(athleteIds) {
     if (!athleteIds || !athleteIds.length) return [];
     const since = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
-    const { data, error } = await sb.from('nutrition_daily').select('athlete_id, day, kcal, protein_g').in('athlete_id', athleteIds).gte('day', since).order('day', { ascending: false });
-    if (error) { if (!_isNotReady(error)) console.warn('listNutritionDaily', error); return []; }
-    return (data || []).map(r => ({ athleteId: r.athlete_id, day: r.day, kcal: r.kcal, proteinG: r.protein_g == null ? null : Number(r.protein_g) }));
+    const res = await _readAllIn('listNutritionDaily', athleteIds, 100, (c, countOpt) => sb.from('nutrition_daily').select('athlete_id, day, kcal, protein_g', countOpt).in('athlete_id', c).gte('day', since),
+      { order: [['day', false]], tiebreak: ['athlete_id'] });
+    if (res.error && !res.rows.length) { if (!_isNotReady(res.error)) console.warn('listNutritionDaily', res.error); return []; }
+    return res.rows.map(r => ({ athleteId: r.athlete_id, day: r.day, kcal: r.kcal, proteinG: r.protein_g == null ? null : Number(r.protein_g) }));
   },
   // A coach: the shared rows of their roster (RLS hands over only what's shared), last 14 days.
   // 35 days: readiness compares the last days with the lifter's own 28 before them.
   async listHealthDaily(athleteIds) {
     if (!athleteIds || !athleteIds.length) return [];
     const since = new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 10);
-    const q = (cols) => sb.from('health_daily').select(cols).in('athlete_id', athleteIds).gte('day', since).order('day', { ascending: false }).limit(5000);
-    let { data, error } = await q('athlete_id, day, sleep_min, rhr_bpm, hrv_ms');
-    if (error && _missingCol(error, ['hrv_ms'])) ({ data, error } = await q('athlete_id, day, sleep_min, rhr_bpm'));
-    if (error) { if (!_isNotReady(error)) console.warn('listHealthDaily', error); return []; }
-    return (data || []).map(r => ({ athleteId: r.athlete_id, day: r.day, sleepMin: r.sleep_min, rhr: r.rhr_bpm == null ? null : Number(r.rhr_bpm), hrv: r.hrv_ms == null ? null : Number(r.hrv_ms) }));
+    const q = (cols) => _readAllIn('listHealthDaily', athleteIds, 100, (c, countOpt) => sb.from('health_daily').select(cols, countOpt).in('athlete_id', c).gte('day', since),
+      { order: [['day', false]], tiebreak: ['athlete_id'] });
+    let res = await q('athlete_id, day, sleep_min, rhr_bpm, hrv_ms');
+    if (res.error && !res.rows.length && _missingCol(res.error, ['hrv_ms'])) res = await q('athlete_id, day, sleep_min, rhr_bpm');
+    if (res.error && !res.rows.length) { if (!_isNotReady(res.error)) console.warn('listHealthDaily', res.error); return []; }
+    return res.rows.map(r => ({ athleteId: r.athlete_id, day: r.day, sleepMin: r.sleep_min, rhr: r.rhr_bpm == null ? null : Number(r.rhr_bpm), hrv: r.hrv_ms == null ? null : Number(r.hrv_ms) }));
   },
 
   // ---------- PAIN FLAGS (migration-pain-reports-2026-10-22.sql) ----------
@@ -2065,9 +2381,10 @@ const DB = {
   async listPainReports(athleteIds, sinceIso) {
     if (!athleteIds || !athleteIds.length) return [];
     const since = sinceIso || new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
-    const { data, error } = await sb.from('pain_reports').select('*').in('athlete_id', athleteIds).gte('day', since).order('created_at', { ascending: false }).limit(500);
-    if (error) { if (!_isNotReady(error)) console.warn('listPainReports', error); return []; }
-    return (data || []).map(mapDbPainReport);
+    const res = await _readAllIn('listPainReports', athleteIds, 100, (c, countOpt) => sb.from('pain_reports').select('*', countOpt).in('athlete_id', c).gte('day', since),
+      { order: [['created_at', false]], count: false });
+    if (res.error && !res.rows.length) { if (!_isNotReady(res.error)) console.warn('listPainReports', res.error); return []; }
+    return res.rows.map(mapDbPainReport);
   },
   // Idempotent by id (an outbox replay of a report that did land is fine).
   async addPainReport(r) {
@@ -2091,23 +2408,43 @@ const DB = {
     if (error) throw error;
     return data && data[0] ? mapDbPainReport(data[0]) : null;
   },
-  // Live: a new, resolved or deleted report (RLS decides what arrives). onChange(report, eventType);
-  // on 'DELETE' the report is just { id }. Returns an unsubscribe, or null.
-  subscribePainReports(onChange) {
+  // Live: a new or resolved report of the roster's (athleteIds), filtered server-side like the live
+  // desk's bindings (athlete_id=in.(…), 100 ids a binding) and still RLS-checked. No DELETE listener
+  // (a DELETE can't be filtered or RLS-checked, so it would reach every subscriber): instead a new
+  // report is looked up again once the lifter's Undo has had its moment, and reported as 'DELETE'
+  // ({ id }) if it has gone. onChange(report, eventType). Calling it again (a new roster) replaces
+  // the channel. Returns an unsubscribe, or null.
+  subscribePainReports(onChange, athleteIds) {
     if (typeof onChange !== 'function') return null;
+    const ids = Array.from(new Set((athleteIds || []).filter(id => /^[0-9a-f-]{36}$/i.test(String(id))))).sort();
+    if (_pain.ch) { try { sb.removeChannel(_pain.ch); } catch (e) {} }
+    _pain.ch = null; _pain.cb = onChange; _pain.ids = ids;
+    if (!ids.length) return () => { _painStop(onChange); };   // nobody to hear: an unfiltered channel would hear everyone
     try {
-      const ch = sb.channel('pain:' + Math.random().toString(36).slice(2, 8))
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pain_reports' },
-          payload => {
-            try {
-              // A DELETE (the lifter's Undo on a mis-tap) carries only the old row's id.
-              if (payload.eventType === 'DELETE') { if (payload.old && payload.old.id) onChange({ id: payload.old.id }, 'DELETE'); return; }
-              if (payload.new && payload.new.id) onChange(mapDbPainReport(payload.new), payload.eventType);
-            } catch (e) { console.warn('subscribePainReports cb', e); }
-          })
-        .subscribe();
-      return () => { try { sb.removeChannel(ch); } catch (e) {} };
+      const ch = sb.channel('pain:' + Math.random().toString(36).slice(2, 8));
+      const hear = payload => {
+        try {
+          if (_pain.ch !== ch || !payload || !payload.new || !payload.new.id) return;
+          const r = mapDbPainReport(payload.new);
+          onChange(r, payload.eventType);
+          if (payload.eventType === 'INSERT') setTimeout(() => _painRecheck(ch, r.id, onChange), _PAIN_UNDO_MS);
+        } catch (e) { console.warn('subscribePainReports cb', e); }
+      };
+      for (let i = 0; i < ids.length; i += _LIVE_IN_MAX) {
+        const filter = 'athlete_id=in.(' + ids.slice(i, i + _LIVE_IN_MAX).join(',') + ')';
+        ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pain_reports', filter }, hear)
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pain_reports', filter }, hear);
+      }
+      _pain.ch = ch;
+      ch.subscribe();
+      return () => { _painStop(onChange); };
     } catch (e) { console.warn('subscribePainReports', e); return null; }
+  },
+  // The roster the pain channel listens for (liveSubscribe passes the coach's, so a lifter who joins is heard).
+  _painRoster(athleteIds) {
+    if (!_pain.cb) return;
+    const ids = Array.from(new Set((athleteIds || []).filter(id => /^[0-9a-f-]{36}$/i.test(String(id))))).sort();
+    if (ids.join(',') !== _pain.ids.join(',')) this.subscribePainReports(_pain.cb, ids);
   },
 
   // ---------- COACH BRANDING (migration-coach-brand-2026-10-22.sql) ----------
@@ -2141,9 +2478,9 @@ const DB = {
   // ---------- PAST BLOCKS (migration-blocks-2026-10-22.sql) ----------
   async listProgramBlocks(athleteIds) {
     if (!athleteIds || !athleteIds.length) return [];
-    const { data, error } = await sb.from('program_blocks').select(_BLOCK_COLS).in('athlete_id', athleteIds).order('ended_on', { ascending: false }).limit(300);
-    if (error) { if (!_isNotReady(error)) console.warn('listProgramBlocks', error); return []; }
-    return (data || []).map(mapDbBlock);
+    const res = await _readAllIn('listProgramBlocks', athleteIds, 100, (c, countOpt) => sb.from('program_blocks').select(_BLOCK_COLS, countOpt).in('athlete_id', c), { order: [['ended_on', false]], count: false });
+    if (res.error && !res.rows.length) { if (!_isNotReady(res.error)) console.warn('listProgramBlocks', res.error); return []; }
+    return res.rows.map(mapDbBlock);
   },
   async getProgramBlockWeeks(id) {
     const { data, error } = await sb.from('program_blocks').select('weeks').in('id', [id]).maybeSingle();
@@ -2177,13 +2514,14 @@ const DB = {
   },
   _cnNew(n) { return { id: n.id || ('local-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)), coachId: n.coachId, athleteId: n.athleteId, body: String(n.body || '').slice(0, 4000), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), local: true }; },
   async listCoachNotes(coachId) {
-    const { data, error } = await sb.from('coach_notes').select(_COACH_NOTE_COLS).eq('coach_id', coachId).order('created_at', { ascending: false }).limit(2000);
+    const res = await _readAll('listCoachNotes', (countOpt) => sb.from('coach_notes').select(_COACH_NOTE_COLS, countOpt).eq('coach_id', coachId), { order: [['created_at', false]], count: false });
+    const error = res.rows.length ? null : res.error;
     if (error) {
       if (_isNotReady(error)) this._cnReady = false; else console.warn('listCoachNotes', error);
       return this._cnLocal(coachId).map(n => Object.assign(n, { local: true }));
     }
     this._cnReady = true;
-    const out = (data || []).map(mapDbCoachNote);
+    const out = res.rows.map(mapDbCoachNote);
     const loc = this._cnLocal(coachId);
     if (loc.length) {
       const rows = loc.map(n => ({ coach_id: coachId, athlete_id: n.athleteId, body: n.body }));
@@ -2324,13 +2662,14 @@ const DB = {
   },
   async listClientBilling(coachId) {
     if (!coachId) return [];
-    const { data, error } = await sb.from('client_billing').select(_CLIENT_BILLING_COLS).eq('coach_id', coachId).limit(1000);
+    const res = await _readAll('listClientBilling', (countOpt) => sb.from('client_billing').select(_CLIENT_BILLING_COLS, countOpt).eq('coach_id', coachId), { count: false });
+    const error = res.rows.length ? null : res.error;
     if (error) {
       if (_isNotReady(error)) this._cbReady = false; else console.warn('listClientBilling', error);
       return this._clLocal('billing', coachId).map(b => Object.assign(b, { local: true }));
     }
     this._cbReady = true;
-    const out = (data || []).map(mapDbClientBilling);
+    const out = res.rows.map(mapDbClientBilling);
     // Device rows go up, except for a lifter the server already has a package for (that one was
     // saved after the tables arrived, so it's the newer).
     const all = this._clLocal('billing', coachId);
@@ -2367,20 +2706,16 @@ const DB = {
   async listClientPayments(coachId) {
     if (!coachId) return [];
     const since = (() => { const d = new Date(); d.setDate(d.getDate() - 400); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
-    const PAGE = 1000, out = [];
     const newestFirst = (list) => list.filter(p => !p.paidOn || p.paidOn >= since)
       .sort((a, b) => String(b.paidOn).localeCompare(String(a.paidOn)) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-    for (let from = 0; from < 20000; from += PAGE) {
-      const { data, error } = await sb.from('client_payments').select(_CLIENT_PAYMENT_COLS).eq('coach_id', coachId).gte('paid_on', since)
-        .order('paid_on', { ascending: false }).order('id', { ascending: true }).range(from, from + PAGE - 1);
-      if (error) {
-        if (from > 0) { console.warn('listClientPayments', error); break; }   // keep the pages that came
-        if (_isNotReady(error)) this._cpReady = false; else console.warn('listClientPayments', error);
-        return newestFirst(this._clLocal('payments', coachId).filter(Boolean).map(p => Object.assign(p, { local: true })));
-      }
-      out.push(...(data || []).map(mapDbClientPayment));
-      if (!data || data.length < PAGE) break;
+    // Paged (_readAll; the pages that came are kept if a later one fails).
+    const res = await _readAll('listClientPayments', (countOpt) => sb.from('client_payments').select(_CLIENT_PAYMENT_COLS, countOpt).eq('coach_id', coachId).gte('paid_on', since),
+      { order: [['paid_on', false]], ceiling: 20000, count: false });
+    if (res.error && !res.rows.length) {
+      if (_isNotReady(res.error)) this._cpReady = false; else console.warn('listClientPayments', res.error);
+      return newestFirst(this._clLocal('payments', coachId).filter(Boolean).map(p => Object.assign(p, { local: true })));
     }
+    const out = res.rows.map(mapDbClientPayment);
     this._cpReady = true;
     const all = this._clLocal('payments', coachId);
     if (all.length) {
@@ -2500,15 +2835,15 @@ const DB = {
   async listIntakes(coachId, athleteIds) {
     if (!coachId) return [];
     if (Array.isArray(athleteIds) && !athleteIds.length) return [];
-    let q = sb.from('intake').select(_INTAKE_COLS);
-    q = Array.isArray(athleteIds) ? q.in('athlete_id', athleteIds) : q.neq('athlete_id', coachId);
-    const { data, error } = await q.limit(1000);
-    if (error) {
-      if (_isNotReady(error)) this._inReady = false; else console.warn('listIntakes', error);
+    const res = Array.isArray(athleteIds)
+      ? await _readAllIn('listIntakes', athleteIds, 100, (c, countOpt) => sb.from('intake').select(_INTAKE_COLS, countOpt).in('athlete_id', c), { tiebreak: ['athlete_id'], count: false })
+      : await _readAll('listIntakes', (countOpt) => sb.from('intake').select(_INTAKE_COLS, countOpt).neq('athlete_id', coachId), { tiebreak: ['athlete_id'], count: false });
+    if (res.error && !res.rows.length) {
+      if (_isNotReady(res.error)) this._inReady = false; else console.warn('listIntakes', res.error);
       return [];   // a lifter's answers are on their own device until the table exists
     }
     this._inReady = true;
-    return (data || []).map(mapDbIntake);
+    return res.rows.map(mapDbIntake);
   },
 
   // ---------- BUSY WEEKS (migration-schedule-requests-2026-10-28.sql) ----------
@@ -2584,14 +2919,14 @@ const DB = {
   },
   async listScheduleRequests(coachId) {
     if (!coachId) return [];
-    const { data, error } = await sb.from('schedule_requests').select(_SR_COLS).eq('coach_id', coachId).gte('week_start', _srWeekAgo())
-      .order('week_start', { ascending: false }).order('created_at', { ascending: false }).limit(500);
-    if (error) {
-      if (_isNotReady(error)) this._srReady = false; else console.warn('listScheduleRequests', error);
+    const res = await _readAll('listScheduleRequests', (countOpt) => sb.from('schedule_requests').select(_SR_COLS, countOpt).eq('coach_id', coachId).gte('week_start', _srWeekAgo()),
+      { order: [['week_start', false], ['created_at', false]], count: false });
+    if (res.error && !res.rows.length) {
+      if (_isNotReady(res.error)) this._srReady = false; else console.warn('listScheduleRequests', res.error);
       return [];
     }
     this._srReady = true;
-    return (data || []).map(mapDbScheduleRequest);
+    return res.rows.map(mapDbScheduleRequest);
   },
   async decideScheduleRequest(id, status) {
     if (!id || !['approved', 'declined'].includes(status)) return { ok: false, error: new Error('Approve or decline') };
@@ -2604,9 +2939,9 @@ const DB = {
   // ---------- PROGRAM TEMPLATES ----------
   async listTemplates(coachId) {
     // RLS already filters to current coach's templates
-    const { data, error } = await sb.from('program_templates').select('*');
-    if (error) { console.warn('listTemplates', error); return []; }
-    return (data || []).map(mapDbTemplate);
+    const res = await _readAll('listTemplates', (countOpt) => sb.from('program_templates').select('*', countOpt), { count: false });
+    if (res.error && !res.rows.length) { console.warn('listTemplates', res.error); return []; }
+    return res.rows.map(mapDbTemplate);
   },
   async addTemplate(tpl) {
     const { error } = await sb.from('program_templates').insert(mapJsTemplate(tpl));
@@ -2618,17 +2953,22 @@ const DB = {
   },
 
   // ---------- WORKOUT LOGS ----------
+  // Every set, paged (_readAll): the lifter's own oldest first and as logged within a day, the
+  // roster's 10 lifters a read (a small sort a page; each lifter's sets in that same order). Use
+  // .in() — .eq() fails on UUID columns under RLS in this project.
+  async _readLogs(label, ids, size, ceiling) {
+    const run = () => _readAllIn(label, ids, size, (c, countOpt) => sb.from('workout_logs').select(_logCols(), countOpt).in('athlete_id', c), { order: _LOG_ORDER_DESC, tiebreak: ['id'], ceiling });
+    let res = await run();
+    if (res.error && !res.rows.length && !_noLogGear && _missingCol(res.error, ['gear'])) { _noLogGear = true; res = await run(); }
+    if (res.error && !res.rows.length) { console.warn(label, res.error); return []; }
+    return res.rows.reverse().map(mapDbLog);
+  },
   async listLogsForAthlete(athleteId) {
-    // Use .in() — .eq() fails on UUID columns under RLS in this project.
-    const { data, error } = await sb.from('workout_logs').select('*').in('athlete_id', [athleteId]).order('date', { ascending: true });
-    if (error) { console.warn('listLogsForAthlete', error); return []; }
-    return (data || []).map(mapDbLog);
+    return this._readLogs('listLogsForAthlete', [athleteId], 1);
   },
   async listLogsForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
-    const { data, error } = await sb.from('workout_logs').select('*').in('athlete_id', athleteIds);
-    if (error) { console.warn('listLogsForAthletes', error); return []; }
-    return (data || []).map(mapDbLog);
+    return this._readLogs('listLogsForAthletes', athleteIds, 10);
   },
   async addLog(log) {
     const { error } = await sb.from('workout_logs').insert(mapJsLog(log));
@@ -2641,15 +2981,15 @@ const DB = {
 
   // ---------- BODYWEIGHT ----------
   async listBwForAthlete(athleteId) {
-    const { data, error } = await sb.from('bodyweight').select('*').in('athlete_id', [athleteId]).order('date', { ascending: true });
-    if (error) { console.warn('listBw', error); return []; }
-    return (data || []).map(mapDbBw);
+    const res = await _readAll('listBw', (countOpt) => sb.from('bodyweight').select(_BW_COLS, countOpt).in('athlete_id', [athleteId]), { order: [['date', true]] });
+    if (res.error && !res.rows.length) { console.warn('listBw', res.error); return []; }
+    return res.rows.map(mapDbBw);
   },
   async listBwForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
-    const { data, error } = await sb.from('bodyweight').select('*').in('athlete_id', athleteIds);
-    if (error) { console.warn('listBwForAthletes', error); return []; }
-    return (data || []).map(mapDbBw);
+    const res = await _readAllIn('listBwForAthletes', athleteIds, 100, (c, countOpt) => sb.from('bodyweight').select(_BW_COLS, countOpt).in('athlete_id', c), { order: [['date', true]] });
+    if (res.error && !res.rows.length) { console.warn('listBwForAthletes', res.error); return []; }
+    return res.rows.map(mapDbBw);
   },
   async upsertBw(b) {
     const { error } = await sb.from('bodyweight').upsert(mapJsBw(b), { onConflict: 'athlete_id,date' });
@@ -2658,15 +2998,15 @@ const DB = {
 
   // ---------- MEETS (competition results) ----------
   async listMeetsForAthlete(athleteId) {
-    const { data, error } = await sb.from('meets').select('*').in('athlete_id', [athleteId]).order('meet_date', { ascending: false });
-    if (error) { console.warn('listMeets', error); return []; }
-    return (data || []).map(mapDbMeet);
+    const res = await _readAll('listMeets', (countOpt) => sb.from('meets').select('*', countOpt).in('athlete_id', [athleteId]), { order: [['meet_date', false]], count: false });
+    if (res.error && !res.rows.length) { console.warn('listMeets', res.error); return []; }
+    return res.rows.map(mapDbMeet);
   },
   async listMeetsForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
-    const { data, error } = await sb.from('meets').select('*').in('athlete_id', athleteIds).order('meet_date', { ascending: false });
-    if (error) { console.warn('listMeetsForAthletes', error); return []; }
-    return (data || []).map(mapDbMeet);
+    const res = await _readAllIn('listMeetsForAthletes', athleteIds, 100, (c, countOpt) => sb.from('meets').select('*', countOpt).in('athlete_id', c), { order: [['meet_date', false]], count: false });
+    if (res.error && !res.rows.length) { console.warn('listMeetsForAthletes', res.error); return []; }
+    return res.rows.map(mapDbMeet);
   },
   // Insert (no id) or update (id present) — upsert on the PK. Returns the saved
   // row so the caller picks up the DB-generated id on first save.
@@ -2764,7 +3104,8 @@ const DB = {
     }
     this._teamsReady = true;
     const ids = (g.data || []).map(r => r.id);
-    const m = ids.length ? await sb.from('program_group_members').select('*').in('group_id', ids) : { data: [] };
+    const mr = ids.length ? await _readAllIn('listTeams members', ids, 100, (c, countOpt) => sb.from('program_group_members').select('*', countOpt).in('group_id', c), { tiebreak: ['group_id', 'athlete_id'], count: false }) : { rows: [] };
+    const m = { data: mr.rows };
     const out = (g.data || []).map(r => this._mapTeam(r, m.data || []));
     // Teams kept on this device before the migration: up they go (members who left are skipped).
     const loc = this._tmLocal(coachId);
@@ -2958,15 +3299,15 @@ const DB = {
 
   // ---------- SESSION NOTES ----------
   async listNotesForAthlete(athleteId) {
-    const { data, error } = await sb.from('session_notes').select('*').in('athlete_id', [athleteId]);
-    if (error) { console.warn('listNotes', error); return []; }
-    return (data || []).map(mapDbNote);
+    const res = await _readAll('listNotes', (countOpt) => sb.from('session_notes').select(_NOTE_COLS, countOpt).in('athlete_id', [athleteId]), { order: [['date', true], ['created_at', true]] });
+    if (res.error && !res.rows.length) { console.warn('listNotes', res.error); return []; }
+    return res.rows.map(mapDbNote);
   },
   async listNotesForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
-    const { data, error } = await sb.from('session_notes').select('*').in('athlete_id', athleteIds);
-    if (error) { console.warn('listNotesForAthletes', error); return []; }
-    return (data || []).map(mapDbNote);
+    const res = await _readAllIn('listNotesForAthletes', athleteIds, 100, (c, countOpt) => sb.from('session_notes').select(_NOTE_COLS, countOpt).in('athlete_id', c), { order: [['date', true], ['created_at', true]] });
+    if (res.error && !res.rows.length) { console.warn('listNotesForAthletes', res.error); return []; }
+    return res.rows.map(mapDbNote);
   },
   async addNote(n) {
     const { error } = await sb.from('session_notes').insert(mapJsNote(n));
@@ -3011,21 +3352,15 @@ const DB = {
 
   // ---------- CHECK-INS ----------
   async listCheckins(athleteId) {
-    const { data, error } = await sb.from('checkins')
-      .select('*')
-      .eq('athlete_id', athleteId)
-      .order('week_start', { ascending: false });
-    if (error) { console.warn('listCheckins', error); return []; }
-    return (data || []).map(mapDbCheckin);
+    const res = await _readAll('listCheckins', (countOpt) => sb.from('checkins').select('*', countOpt).eq('athlete_id', athleteId), { order: [['week_start', false]], count: false });
+    if (res.error && !res.rows.length) { console.warn('listCheckins', res.error); return []; }
+    return res.rows.map(mapDbCheckin);
   },
   async listCheckinsForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
-    const { data, error } = await sb.from('checkins')
-      .select('*')
-      .in('athlete_id', athleteIds)
-      .order('week_start', { ascending: false });
-    if (error) { console.warn('listCheckinsForAthletes', error); return []; }
-    return (data || []).map(mapDbCheckin);
+    const res = await _readAllIn('listCheckinsForAthletes', athleteIds, 100, (c, countOpt) => sb.from('checkins').select('*', countOpt).in('athlete_id', c), { order: [['week_start', false]], count: false });
+    if (res.error && !res.rows.length) { console.warn('listCheckinsForAthletes', res.error); return []; }
+    return res.rows.map(mapDbCheckin);
   },
   // Upsert by (athlete_id, week_start) — if a check-in for that week exists, replace it.
   async upsertCheckin(c) {
@@ -3070,11 +3405,12 @@ const DB = {
   },
   // Answers since a date (YYYY-MM-DD): a coach gets their roster's, an athlete their own.
   async listCheckinAnswers(sinceIso) {
-    let q = sb.from('checkin_answers').select('*').order('period', { ascending: false }).limit(2000);
-    if (sinceIso) q = q.gte('period', sinceIso);
-    const { data, error } = await q;
-    if (error) { if (!_isNotReady(error)) console.warn('listCheckinAnswers', error); return []; }
-    return (data || []).map(mapDbCheckinAnswer);
+    const res = await _readAll('listCheckinAnswers', (countOpt) => {
+      const q = sb.from('checkin_answers').select(_ANSWER_COLS, countOpt);
+      return sinceIso ? q.gte('period', sinceIso) : q;
+    }, { order: [['period', false]] });
+    if (res.error && !res.rows.length) { if (!_isNotReady(res.error)) console.warn('listCheckinAnswers', res.error); return []; }
+    return res.rows.map(mapDbCheckinAnswer);
   },
   async saveCheckinAnswers(answers) {
     if (!answers || !answers.length) return { ok: true };
@@ -3092,9 +3428,9 @@ const DB = {
   },
   async listGoalsForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
-    const { data, error } = await sb.from('goals').select('*').in('athlete_id', athleteIds);
-    if (error) { console.warn('listGoalsForAthletes', error); return []; }
-    return (data || []).map(mapDbGoals);
+    const res = await _readAllIn('listGoalsForAthletes', athleteIds, 100, (c, countOpt) => sb.from('goals').select('*', countOpt).in('athlete_id', c), { tiebreak: ['athlete_id'], count: false });
+    if (res.error && !res.rows.length) { console.warn('listGoalsForAthletes', res.error); return []; }
+    return res.rows.map(mapDbGoals);
   },
   async upsertGoals(g) {
     const row = mapJsGoals(g);
@@ -3111,9 +3447,9 @@ const DB = {
 
   // ---------- REST DAYS ----------
   async listRestForAthlete(athleteId) {
-    const { data, error } = await sb.from('rest_days').select('*').in('athlete_id', [athleteId]);
-    if (error) { console.warn('listRest', error); return []; }
-    return (data || []).map(mapDbRest);
+    const res = await _readAll('listRest', (countOpt) => sb.from('rest_days').select('*', countOpt).in('athlete_id', [athleteId]), { order: [['date', true]], count: false });
+    if (res.error && !res.rows.length) { console.warn('listRest', res.error); return []; }
+    return res.rows.map(mapDbRest);
   },
   async upsertRest(r) {
     const { error } = await sb.from('rest_days').upsert(mapJsRest(r), { onConflict: 'athlete_id,date' });
@@ -3189,12 +3525,9 @@ const DB = {
 
   // Coach: list every marketplace program I've published (any status)
   async listMyPublishedPrograms(coachId) {
-    const { data, error } = await sb.from('marketplace_programs')
-      .select(MP_COLS)
-      .eq('coach_id', coachId)
-      .order('created_at', { ascending: false });
-    if (error) { console.warn('listMyPublishedPrograms', error); return []; }
-    return (data || []).map(mapDbMarketplaceProgram);
+    const res = await _readAll('listMyPublishedPrograms', (countOpt) => sb.from('marketplace_programs').select(MP_COLS, countOpt).eq('coach_id', coachId), { order: [['created_at', false]], count: false });
+    if (res.error && !res.rows.length) { console.warn('listMyPublishedPrograms', res.error); return []; }
+    return res.rows.map(mapDbMarketplaceProgram);
   },
 
   // Single program fetch for the buy page
@@ -3206,12 +3539,9 @@ const DB = {
 
   // Sales — buyer side: list everything I've ever bought
   async listMyPurchases(buyerId) {
-    const { data, error } = await sb.from('program_sales')
-      .select('*')
-      .eq('buyer_id', buyerId)
-      .order('created_at', { ascending: false });
-    if (error) { console.warn('listMyPurchases', error); return []; }
-    return (data || []).map(mapDbSale);
+    const res = await _readAll('listMyPurchases', (countOpt) => sb.from('program_sales').select('*', countOpt).eq('buyer_id', buyerId), { order: [['created_at', false]], count: false });
+    if (res.error && !res.rows.length) { console.warn('listMyPurchases', res.error); return []; }
+    return res.rows.map(mapDbSale);
   },
 
   // Buyer claims a program they've purchased. This is the manual fallback when the
@@ -3308,12 +3638,9 @@ const DB = {
 
   // Sales — coach side: list every sale of my programs (earnings dashboard)
   async listMySales(coachId) {
-    const { data, error } = await sb.from('program_sales')
-      .select('*')
-      .eq('coach_id', coachId)
-      .order('created_at', { ascending: false });
-    if (error) { console.warn('listMySales', error); return []; }
-    return (data || []).map(mapDbSale);
+    const res = await _readAll('listMySales', (countOpt) => sb.from('program_sales').select('*', countOpt).eq('coach_id', coachId), { order: [['created_at', false]], count: false });
+    if (res.error && !res.rows.length) { console.warn('listMySales', res.error); return []; }
+    return res.rows.map(mapDbSale);
   },
 
   // ----- Marketplace reviews -------------------------------------------------
@@ -3415,6 +3742,7 @@ const DB = {
       ({ data, error } = await sb.from('messages').insert(row).select('*'));
     }
     if (error) throw error;
+    _threadSeq++;
     const m = data && data[0] ? mapDbMessage(data[0]) : null;
     if (m && !m.meta && meta) m.meta = meta;
     return m;
@@ -3462,13 +3790,14 @@ const DB = {
     catch (e) { res = { error: e }; }
     if (res.error && /duplicate|unique|23505/i.test(String(res.error.message || '') + ' ' + res.error.code)) {
       const again = await sb.from('messages').select('*').eq('id', id).maybeSingle();
-      if (again && again.data) return mapDbMessage(again.data);
+      if (again && again.data) { _threadSeq++; return mapDbMessage(again.data); }
     }
     if (res.error) {
       // The row didn't land: take the file back out (best effort; the queue re-uploads on retry).
       try { await sb.storage.from('voice-notes').remove([path]); } catch (e) {}
       throw this._voiceErr(res.error);
     }
+    _threadSeq++;
     const m = res.data && res.data[0] ? mapDbMessage(res.data[0]) : null;
     if (m && !m.meta) m.meta = meta;
     return m;
@@ -3502,9 +3831,10 @@ const DB = {
   async _myVoicePaths(uid) {
     if (!uid) return [];
     try {
-      const { data, error } = await sb.from('messages').select('meta').eq('sender_id', uid).eq('meta->>type', 'voice').limit(5000);
-      if (error) return [];
-      return (data || []).map(r => r.meta && r.meta.path).filter(p => typeof p === 'string' && p.indexOf(uid + '/') > 0);
+      // Every one of them (paged: a .limit() past 1000 still stopped at 1000, and the rest stayed in storage).
+      const res = await _readAll('voice notes to remove', (countOpt) => sb.from('messages').select('id, meta', countOpt).eq('sender_id', uid).eq('meta->>type', 'voice'), { count: false });
+      if (res.error && !res.rows.length) return [];
+      return res.rows.map(r => r.meta && r.meta.path).filter(p => typeof p === 'string' && p.indexOf(uid + '/') > 0);
     } catch (e) { return []; }
   },
   async _removeVoicePaths(paths) {
@@ -3527,7 +3857,9 @@ const DB = {
     const { error } = await sb.from('message_reactions').upsert({
       message_id: messageId, user_id: userId, coach_id: coachId, athlete_id: athleteId, reaction: reaction || null
     }, { onConflict: 'message_id,user_id' });
-    if (error) { const e = new Error(_isNotReady(error) ? 'Reactions switch on with the next update' : (error.message || 'Could not react')); e.notReady = _isNotReady(error); throw e; }
+    // .code rides along: 42501 is the coach-lifter link having ended (row 59), which the thread shows as
+    // read-only (app.js msgLinkRefused) instead of these words.
+    if (error) { const e = new Error(_isNotReady(error) ? 'Reactions switch on with the next update' : (error.message || 'Could not react')); e.notReady = _isNotReady(error); e.code = error.code || ''; throw e; }
     return true;
   },
   subscribeMessageReactions(filter, onChange) {
@@ -3572,6 +3904,7 @@ const DB = {
   // user did NOT send (i.e. the ones addressed to them). Clears their badge.
   async markThreadRead(coachId, athleteId, viewerId) {
     if (!coachId || !athleteId || !viewerId) return false;
+    _threadSeq++;   // a thread read already on its way left before this: the badge refresh after it reads again
     const { error } = await sb.from('messages')
       .update({ read_at: new Date().toISOString() })
       .eq('coach_id', coachId)
@@ -3583,16 +3916,55 @@ const DB = {
   },
 
   // All messages addressed TO this user that are still unread — used to paint
-  // per-athlete (coach side) or single (athlete side) unread badges. One query.
+  // per-athlete (coach side) or single (athlete side) unread badges. Paged, and only
+  // the columns a badge needs (no bodies).
   async listUnreadForUser(viewerId) {
     if (!viewerId) return [];
-    const { data, error } = await sb.from('messages')
-      .select('*')
+    const res = await _readAll('listUnreadForUser', (countOpt) => sb.from('messages')
+      .select('id, coach_id, athlete_id, sender_id, created_at, read_at', countOpt)
       .neq('sender_id', viewerId)
       .is('read_at', null)
-      .or('coach_id.eq.' + viewerId + ',athlete_id.eq.' + viewerId);
-    if (error) { console.warn('listUnreadForUser', error); return []; }
-    return (data || []).map(mapDbMessage);
+      .or('coach_id.eq.' + viewerId + ',athlete_id.eq.' + viewerId), { order: [['created_at', true]] });
+    if (res.error && !res.rows.length) { console.warn('listUnreadForUser', res.error); return []; }
+    return res.rows.map(mapDbMessage);
+  },
+  // The coach's newest 500 messages (the thread digest's rows). → { rows (mapped), error }. Callers at
+  // the same moment (the badges and the desk at boot) share one read; a later call always reads again,
+  // and so does one made after a message was sent or heard live while the shared read was on its way
+  // (_threadSeq): that read can't have it.
+  _coachThreadRows(coachId) {
+    const k = String(coachId);
+    const cur = this._threadReads && this._threadReads[k];
+    if (cur && cur.seq === _threadSeq) return cur.p;
+    const p = (async () => {
+      const { data, error } = await sb.from('messages')
+        .select('*')
+        .eq('coach_id', coachId)
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) return { rows: [], error };
+      return { rows: (data || []).map(mapDbMessage), error: null };
+    })();
+    const entry = { p, seq: _threadSeq };
+    (this._threadReads || (this._threadReads = {}))[k] = entry;
+    const done = () => { if (this._threadReads[k] === entry) delete this._threadReads[k]; };
+    p.then(done, done);
+    return p;
+  },
+  // The coach's inbox: the thread digest (listThreadsForCoach's: who wrote last, per lifter) and the
+  // unread messages (listUnreadForUser's) for the badges and the desk, which used to take two reads
+  // and two repaints a message. One read of the newest 500 gives both when those are all the coach's
+  // messages; past 500 the unread are read on their own (two). Read every time, never kept: a digest
+  // kept between reads and topped up from Realtime went stale whenever Realtime missed the coach's own
+  // reply, and put "Message waiting" back on a lifter they had answered. → { threads (null when the
+  // read failed: the desk keeps its own and reads them again shortly), unread }
+  async coachInbox(coachId) {
+    if (!coachId) return { threads: [], unread: [] };
+    const got = await this._coachThreadRows(coachId);
+    if (got.error) { console.warn('coachInbox', got.error); return { threads: null, unread: await this.listUnreadForUser(coachId) }; }
+    const threads = this._threadDigest(got.rows, coachId);
+    const unread = got.rows.length < 500 ? got.rows.filter(m => m.senderId != null && m.senderId !== coachId && !m.readAt).reverse() : await this.listUnreadForUser(coachId);
+    return { threads, unread };
   },
 
   // Thread digest for a coach's Messages inbox: the most-recent message per
@@ -3602,18 +3974,17 @@ const DB = {
   // unread }], newest thread first.
   async listThreadsForCoach(coachId) {
     if (!coachId) return [];
-    const { data, error } = await sb.from('messages')
-      .select('*')
-      .eq('coach_id', coachId)
-      .order('created_at', { ascending: false })
-      .limit(500);
-    if (error) { console.warn('listThreadsForCoach', error); return []; }
+    const got = await this._coachThreadRows(coachId);
+    if (got.error) { console.warn('listThreadsForCoach', got.error); return []; }
+    return this._threadDigest(got.rows, coachId);
+  },
+  _threadDigest(messages, coachId) {
     const byAthlete = {};
     // The coach's own work in the last four weeks (capacity.js): messages sent and weekly notes, over the
     // weeks these rows cover (500 rows can reach back less than 28 days on a big roster).
     const now = Date.now(), since = now - 28 * 864e5;
     let sent = 0, weekly = 0, oldest = null;
-    (data || []).map(mapDbMessage).forEach(m => {
+    (messages || []).forEach(m => {
       const at = Date.parse(m.createdAt);
       if (isFinite(at)) {
         if (oldest == null || at < oldest) oldest = at;
@@ -3649,7 +4020,7 @@ const DB = {
       const ch = sb.channel(tag)
         .on('postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'messages', filter: filter.column + '=eq.' + filter.value },
-          payload => { try { onInsert(mapDbMessage(payload.new)); } catch (e) { console.warn('subscribeMessages cb', e); } })
+          payload => { _threadSeq++; try { onInsert(mapDbMessage(payload.new)); } catch (e) { console.warn('subscribeMessages cb', e); } })
         .subscribe();
       return () => { try { sb.removeChannel(ch); } catch (e) {} };
     } catch (e) { console.warn('subscribeMessages', e); return null; }
@@ -4471,6 +4842,8 @@ Object.assign(DB, {
     _liveDrop();
     _live.spec = { role: spec.role === 'coach' ? 'coach' : 'athlete', uid: spec.uid, athleteIds: (spec.athleteIds || []).slice().sort() };
     _live.handlers = handlers || {};
+    // The pain channel follows the same roster (a lifter who joins is heard, one who left isn't).
+    if (_live.spec.role === 'coach') { try { DB._painRoster(_live.spec.athleteIds); } catch (e) {} }
     if (!same) _live.everUp = {};
     _live.chans = {};
     if (document.visibilityState === 'hidden') { _live.paused = true; return () => DB.liveUnsubscribe(); }
@@ -4663,13 +5036,15 @@ Object.assign(DB, {
     }
     const out = [];
     for (let i = 0; i < list.length; i += 100) {
-      const { data, error } = await sb.from('challenge_entries').select('*').in('challenge_id', list.slice(i, i + 100)).limit(5000);
+      const res = await _readAll('listChallengeEntries', (countOpt) => sb.from('challenge_entries').select('*', countOpt).in('challenge_id', list.slice(i, i + 100)),
+        { tiebreak: ['challenge_id', 'athlete_id'], count: false });
+      const error = res.rows.length ? null : res.error;
       if (error) {
         if (_isNotReady(error) && coachIdForLocal) return this._chLocal(coachIdForLocal, 'entries').filter(e => list.indexOf(e.challengeId) >= 0);
         if (!_isNotReady(error)) console.warn('listChallengeEntries', error);
         return out;
       }
-      (data || []).forEach(r => out.push(mapDbChallengeEntry(r)));
+      res.rows.forEach(r => out.push(mapDbChallengeEntry(r)));
     }
     // A coach's local challenges (not up yet) keep their boards here.
     if (coachIdForLocal) this._chLocal(coachIdForLocal, 'entries').forEach(e => { if (list.indexOf(e.challengeId) >= 0 && !out.some(x => x.challengeId === e.challengeId && x.athleteId === e.athleteId)) out.push(e); });
@@ -4697,5 +5072,37 @@ Object.assign(DB, {
     if (error && _isNotReady(error)) { this._chReady = false; return local(); }
     if (error) { console.warn('upsertChallengeEntry', error); return { ok: false, error }; }
     return { ok: true };
+  }
+});
+
+// ---------- IMPORTS hook (import-ui.js · import-core.js: bring your coaching in) ----------
+// Two writes the import intake needs that the app had no bulk path for. Reads, history sets and
+// past blocks go through the switch kit's DB methods above (skListAll, skImportLogs, skAddImportedBlock).
+Object.assign(DB, {
+  // Invites from a client list, 100 a request: the coach's own rows (RLS invites_owner). The plan's
+  // seats are counted before this is called: the server counts lifters on the roster, the app also
+  // counts invites not used yet, and only the app can stop a coach going past the plan with codes.
+  // → { ok: true, saved: [codes] } | { ok: false, saved: [codes written before the error], error }
+  async imAddInvites(invites) {
+    const saved = [];
+    for (let i = 0; i < invites.length; i += 100) {
+      const rows = invites.slice(i, i + 100).map(mapJsInvite);
+      const { error } = await sb.from('invites').insert(rows);
+      if (error) { console.warn('imAddInvites', error); return { ok: false, saved, error }; }
+      rows.forEach(r => saved.push(r.code));
+    }
+    return { ok: true, saved };
+  },
+  // A lifter's own weigh-ins from their file, 500 a request, one a day (their own rows: RLS).
+  // → { ok: true, saved: n } | { ok: false, saved, error }
+  async imUpsertBodyweights(rows) {
+    let saved = 0;
+    for (let i = 0; i < rows.length; i += 500) {
+      const part = rows.slice(i, i + 500).map(mapJsBw);
+      const { error } = await sb.from('bodyweight').upsert(part, { onConflict: 'athlete_id,date' });
+      if (error) { console.warn('imUpsertBodyweights', error); return { ok: false, saved, error }; }
+      saved += part.length;
+    }
+    return { ok: true, saved };
   }
 });

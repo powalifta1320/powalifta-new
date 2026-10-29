@@ -39,7 +39,8 @@
    Hooks in shared files (each marked "MEET DAY hook"): coach.html + athlete.html
    (script tags), coach.html renderAthletePage + desk.js dkWsMeets (plannerLink on the planned meet),
    athlete.html (getMeetPlan, meet mode's next-attempt slab, the bouncer names the coach's plan),
-   app.js _wipeLocalUserData (boards and plans leave with the account),
+   app.js _wipeLocalUserData (boards and plans leave with the account; a board with something not
+   sent yet stays for it through a sign-out it didn't choose, and a log-out names it: _accountKeyKind),
    db.js (attempt_plan mapping + the DB methods at the end), sw.js (precache),
    tests.html + test/run-unit-tests.js, support-kb.js.
    ===================================================================== */

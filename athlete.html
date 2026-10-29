@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>/* A coach invite, club or referral code in the address never travels on as the next page's referrer, which Plausible reads (sweep 2026-10-28 #13). Before anything here can navigate. */(function(){try{if(/[?&](code|club|ref)=/.test(location.search)){var m=document.createElement('meta');m.name='referrer';m.content='strict-origin';document.head.appendChild(m);}}catch(e){}})();</script>
 <!-- Native shell detect — runs before app scripts so html.native + viewport-fit=cover are
      set on the first frame (env(safe-area-*) resolves immediately, no nav-under-island
      flash). native-bridge.js re-applies later (idempotent). No-op on the web. -->
@@ -25,8 +26,9 @@
 <link rel="stylesheet" href="dash-fx.css">
 <link rel="stylesheet" href="ai-chat.css"><!-- AI assistant (ai-chat branch, localhost only) -->
 <link rel="stylesheet" href="challenges.css"><!-- COACH CHALLENGES: the coach's challenge at the top of Club (challenges.js) -->
+<link rel="stylesheet" href="notify.css"><!-- ALLOW NOTIFICATIONS: the card after a finished session (notify.js) -->
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
-<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 </head>
 <body class="powa-app">
@@ -350,8 +352,21 @@
 <script src="intake.js"></script><!-- INTAKE: the lifter's questionnaire for their coach (IntakeUI: the Train row, the sheet, You › Your intake) -->
 <script src="career.js"></script><!-- CAREER: the lifelong record (careerEvents) and its screen, You › Career -->
 <script src="busy-week.js"></script><!-- BUSY WEEKS: the days you can train this week, the plan, sent to your coach (BusyWeekUI: Train's row, the sheet, the picker's entry) -->
+<script src="notify.js"></script><!-- ALLOW NOTIFICATIONS: one calm ask after a finished session, with the reason that fits (PowaNotify.lifterCard) -->
 <script>
 let user;
+// The full program's selected week number (survives re-renders) and its opened day ids. Up here because
+// ?tab=program opens that screen inside the demo's synchronous first render (TDZ otherwise).
+let _fpWeek = null;
+const _fpOpen = new Set();
+// The same for the self-coached builder's week (?demo=1&solo=1&tab=program) and the marketplace's state
+// (?tab=marketplace): both screens can draw in that first render.
+let _selfBuilderActiveWeek = 0;
+let _marketplaceCache = null;
+let _marketplaceStats = {};   // programId → { avg, count } for rating badges
+let _marketplaceDetailId = null;
+let _athMktPage = 1;
+const ATH_MKT_PER_PAGE = 6;
 // The RPE a lifter has picked for a set that isn't logged yet (key exId_si).
 // Declared up here because the first render runs inside bootstrap (TDZ).
 const _feltRpe = {};
@@ -546,8 +561,10 @@ bootstrap('athlete', () => {
 
   // Native shell: mirror the five into an iOS-style bottom bar (no-op on the web).
   buildBottomTabs(['today', 'progress', 'club', _selfCoached ? 'program' : 'coach', 'you']);
-  // Native shell: schedule the daily weigh-in reminder (no-op on web; skipped in demo).
-  if (window.PowaNative && PowaNative.scheduleWeightReminder && !window._demoMode) PowaNative.scheduleWeightReminder();
+  // Native shell: schedule the daily weigh-in reminder (no-op on web; skipped in demo). Quietly: on
+  // a first open iOS's prompt would come with no reason and a "Don't Allow" is for good, so the
+  // ask waits for a tap (Turn on after a finished session, notify.js, or the reminder's switch).
+  if (window.PowaNative && PowaNative.scheduleWeightReminder && !window._demoMode) PowaNative.scheduleWeightReminder({ quiet: true });
   if (!window._demoMode) applyPendingWeighIn();
   // Came in through a club invite (QR / link) before signing up: take them to it.
   try {
@@ -630,10 +647,12 @@ bootstrap('athlete', () => {
   // Deep-link: ?tab=<name> opens that tab on load — e.g. an athlete who signed
   // up "with a coach" but skipped the invite code is dropped on the Coach tab,
   // where the "Join coach" input is waiting.
+  // Only a tab's own name opens anything: the value is compared with each tab's data-tab and never
+  // goes into a selector, where "],.nav-logout,[x=" once clicked Log out at load (sweep 2026-10-28 #8).
   (function () {
     const want = new URLSearchParams(location.search).get('tab');
-    if (!want) return;
-    const t = document.querySelector('.sidebar-tab[data-tab="' + want + '"]');
+    if (!want || !/^[a-z]{2,20}$/.test(want)) return;
+    const t = Array.prototype.find.call(document.querySelectorAll('.sidebar-tab[data-tab]'), b => b.getAttribute('data-tab') === want);
     if (t) t.click();
   })();
 
@@ -2531,7 +2550,10 @@ function openWeighInSheet(onSaved) {
       try { if (typeof renderAthleteYou === 'function') renderAthleteYou(); } catch (e) {}
     });
     sheet.appendChild(save);
-    // iPhone: a morning notification you can answer with the number itself.
+    // iPhone: a morning notification you can answer with the number itself. The switch shows what
+    // will happen: on only while the lifter wants it AND iOS lets POWALIFTA show alerts (the app no
+    // longer asks at first open, so that yes may not have been given yet). Turning it on asks iOS,
+    // from this tap; a no flips it back and says where to change it.
     if (window.PowaNative && PowaNative.isNative && PowaNative.isNative() && PowaNative.scheduleWeightReminder) {
       const getOn = () => { try { return localStorage.getItem('powa-weigh-remind') !== '0'; } catch (e) { return true; } };
       const getTime = () => { try { return localStorage.getItem('powa-weigh-time') || '08:00'; } catch (e) { return '08:00'; } };
@@ -2541,15 +2563,37 @@ function openWeighInSheet(onSaved) {
       remMain.appendChild(el('span', { class: 'ui-row-sub' }, 'Press and hold it to type your weight. No need to open the app'));
       remRow.appendChild(remMain);
       const time = el('input', { type: 'time', class: 'bw-remind-time', value: getTime(), 'aria-label': 'Reminder time' });
-      time.disabled = !getOn();
-      time.addEventListener('change', () => { try { localStorage.setItem('powa-weigh-time', time.value || '08:00'); } catch (e) {} PowaNative.scheduleWeightReminder(); });
+      time.addEventListener('change', () => {
+        // The demo is a preview (the iPhone app's welcome links to it): nothing is stored, nothing scheduled.
+        if (window._demoMode) { toast('Preview only in demo mode.'); return; }
+        try { localStorage.setItem('powa-weigh-time', time.value || '08:00'); } catch (e) {}
+        PowaNative.scheduleWeightReminder();
+      });
       remRow.appendChild(time);
-      remRow.appendChild(uiSwitch(getOn(), (on) => {
+      let busy = false;
+      const sw = uiSwitch(getOn() && PowaNative._displayPerm === 'granted', async (on) => {
+        // Demo: the switch flips and that's all. No iOS prompt, no reminder on the phone, nothing stored.
+        if (window._demoMode) { time.disabled = !on; toast('Preview only in demo mode.'); return; }
         try { localStorage.setItem('powa-weigh-remind', on ? '1' : '0'); } catch (e) {}
         time.disabled = !on;
-        PowaNative.scheduleWeightReminder();
-      }, 'Morning weigh-in reminder'));
+        if (!on) { PowaNative.scheduleWeightReminder(); return; }   // cancels it
+        busy = true;
+        const ok = await PowaNative.scheduleWeightReminder();       // iOS asks now if it hasn't yet
+        busy = false;
+        if (ok) return;
+        sw.input.checked = false; time.disabled = true;
+        const p = PowaNative.notifyPermission ? await PowaNative.notifyPermission() : null;
+        toast(p === 'denied' ? 'Notifications are off for POWALIFTA. Turn them on in iPhone Settings → Notifications → POWALIFTA.' : 'Couldn’t set the reminder. Try again in a minute.', 5000);
+      }, 'Morning weigh-in reminder');
+      time.disabled = !sw.input.checked;
+      remRow.appendChild(sw);
       sheet.appendChild(uiList([remRow]));
+      // What iOS says right now (iPhone Settings may have changed it since the app last asked).
+      if (PowaNative.notifyPermission) PowaNative.notifyPermission().then((p) => {
+        const on = getOn() && p === 'granted';
+        if (busy || sw.input.checked === on) return;
+        sw.input.checked = on; time.disabled = !on;
+      });
     }
   }, { cls: 'weigh-sheet' });
 }
@@ -2560,7 +2604,10 @@ window.openWeighInSheet = openWeighInSheet;
 async function applyPendingWeighIn() {
   let p = null;
   try { p = JSON.parse(localStorage.getItem('powa-pending-weighin') || 'null'); localStorage.removeItem('powa-pending-weighin'); } catch (e) {}
-  if (!p || window._demoMode || !user) return;
+  if (!p || typeof p !== 'object' || window._demoMode || !user) return;
+  // Typed under another account (or with nobody signed in): never saved as this one's (sweep 2026-10-28 #6).
+  // A note from before the owner was kept (no uid at all) is taken as before.
+  if ('uid' in p && p.uid !== user.id) return;
   if (Date.now() - (Number(p.at) || 0) > 36 * 3600 * 1000) return;
   const v = parseFloat(String(p.v || '').replace(',', '.').replace(/[^0-9.]/g, ''));
   if (!(v > 20 && v < 700)) { toast('Couldn\'t read "' + String(p.v).slice(0, 12) + '" as a weight. Log it here instead'); return; }
@@ -3229,6 +3276,14 @@ async function _postToCoach(body, meta) {
     toastAction('Sent to your coach', 'Open chat', () => { const t = document.getElementById('tab-coach'); if (t) t.click(); });
     return true;
   } catch (e) {
+    // The coach ended the link since this page loaded (row 59 refuses the message): say that, not "connection".
+    if (typeof msgLinkRefused === 'function' && msgLinkRefused(e)) {
+      console.warn('send to coach: the coach-lifter link has ended', e);
+      const c = (Store.get().coaches || []).find(x => x.id === user.coachId);
+      const first = c && c.name ? String(c.name).split(' ')[0] : '';
+      toast('Not sent: ' + (first ? first + ' is no longer your coach.' : 'you\'re no longer connected to that coach.'), 6000);
+      return false;
+    }
     console.error('send to coach', e);
     toast('Could not send. Check your connection');
     return false;
@@ -3559,6 +3614,18 @@ function renderToday() {
   }
 
   area.appendChild(buildTodayHero(cur));
+  // ALLOW NOTIFICATIONS (notify.js): today's session is done, so ask once, with the reason that fits
+  // (the coach's reply, a buddy's nudge, rest is up). Never in the first minute on a new phone,
+  // never while alerts are on or blocked; "Not now" waits two weeks.
+  if (!nextKey && date === todayISO() && window.PowaNotify) {
+    const nc = PowaNotify.lifterCard({
+      coached: !!user.coachId,
+      club: !!(window.PowaClubs && PowaClubs.cachedName && PowaClubs.cachedName()),
+      // Alerts on in the iPhone app: the morning weigh-in reminder starts (its switch is in the weigh-in sheet).
+      onOn: () => { try { if (window.PowaNative && PowaNative.scheduleWeightReminder) PowaNative.scheduleWeightReminder({ quiet: true }); } catch (e) {} }
+    });
+    if (nc) area.appendChild(nc);
+  }
 
   // Around the work, one grouped list: the coach's note for this session, the
   // morning weigh-in (bodyweight is a daily habit, so it lives here), and the
@@ -6084,9 +6151,12 @@ async function drainWidgetPending() {
     // on this device until the program has loaded (takePending has already cleared them).
     let held = [];
     try { held = JSON.parse(localStorage.getItem('powa-widget-sets') || '[]') || []; } catch (e) {}
+    // Held sets carry the account that held them: another account's are never logged as this one's
+    // (sweep 2026-10-28 #6). Untagged ones (held before this) are taken as before.
+    held = held.filter(x => x && (!x.uid || x.uid === user.id));
     const wsets = held.concat(r.sets || []).filter(x => x && x.key && x.date === todayISO());
     if (wsets.length && !getCurrentDay()) {
-      try { localStorage.setItem('powa-widget-sets', JSON.stringify(wsets.slice(-20))); } catch (e) {}
+      try { localStorage.setItem('powa-widget-sets', JSON.stringify(wsets.slice(-20).map(x => Object.assign({}, x, { uid: user.id })))); } catch (e) {}
     } else {
       try { localStorage.removeItem('powa-widget-sets'); } catch (e) {}
       let logged = 0;
@@ -6910,7 +6980,7 @@ function renderProgress() {
       title: 'Your progress starts here',
       text: 'Log one set and your e1RM, total and PRs show up.',
       primary: { label: 'Log your first set', onClick: () => document.getElementById('tab-today')?.click() },
-      secondary: { label: 'Import history', onClick: () => openImportModal() }
+      secondary: { label: 'Import history', onClick: () => (window.SwitchKit && SwitchKit.openMyImport ? SwitchKit.openMyImport() : openImportModal()) }   // IMPORTS hook: the import intake (old modal as fallback)
     }));
     return;
   }
@@ -7123,7 +7193,7 @@ function renderProgOverview(area, logs) {
   tool(ICONS.scale, 'Weigh-in', lastBw ? formatWeight(lastBw.weight) + ' · ' + _relDay(lastBw.date) : 'Log your bodyweight', () => openWeighInSheet(() => { try { renderProgress(); } catch (e) {} }));
   const wkS = new Set(wkLogs.map(l => l.date)).size;
   tool(ICONS.share, 'Share my week', wkS + (wkS === 1 ? ' session' : ' sessions') + ' this week', () => shareWeekCard());
-  tool(SV('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>'), 'Import history', 'From a file', () => openImportModal());
+  tool(SV('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>'), 'Import history', 'From Strong, Hevy or a spreadsheet', () => (window.SwitchKit && SwitchKit.openMyImport ? SwitchKit.openMyImport() : openImportModal()));   // IMPORTS hook
   area.appendChild(uiList(tools));
 }
 
@@ -8042,11 +8112,8 @@ window.maybeShowPurchaseToast = maybeShowPurchaseToast;
 // Lists all published programs with category filter + search.
 // Click a program → opens detail with Buy button. Buy → LS checkout.
 // =========================================================
-let _marketplaceCache = null;
-let _marketplaceStats = {};   // programId → { avg, count } for rating badges
-let _marketplaceDetailId = null;
-let _athMktPage = 1;
-const ATH_MKT_PER_PAGE = 6;
+// (Its state, _marketplaceCache, _marketplaceStats, _marketplaceDetailId, _athMktPage and ATH_MKT_PER_PAGE,
+// is declared next to `let user`: ?tab=marketplace draws this inside the demo's first render.)
 
 async function renderMarketplace() {
   if (!_marketplaceCache) {
@@ -8242,7 +8309,7 @@ window.buyMarketplaceProgram = buyMarketplaceProgram;
 // SELF-COACHED PROGRAM BUILDER
 // Streamlined version of the coach builder, scoped to the athlete's own program.
 // =========================================================
-let _selfBuilderActiveWeek = 0;
+// (_selfBuilderActiveWeek is declared next to `let user`: ?tab=program draws this in the demo's first render.)
 
 function getOrCreateSelfProgram() {
   let prog = getProgram();
@@ -8787,9 +8854,8 @@ function sbDeleteBlock(progId, wi, di, ei, startIdx, count) {
   renderSelfBuilder();
 }
 
-// One week at a time: week chips, then the days as rows you open in place.
-let _fpWeek = null;               // selected week number (survives re-renders)
-const _fpOpen = new Set();        // opened day ids
+// One week at a time: week chips, then the days as rows you open in place. (_fpWeek and _fpOpen,
+// the selected week and the opened days, are declared next to `let user`: TDZ.)
 function _fpSetsLine(ex) {
   const isCardio = ex.lift === 'cardio';
   const sum = formatSetsSummary(ex.sets, isCardio);

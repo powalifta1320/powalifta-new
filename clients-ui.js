@@ -498,7 +498,9 @@
   function downloadCsv() {
     var pays = (st().clientPayments || []).slice().sort(function (a, b) { return String(b.paidOn).localeCompare(String(a.paidOn)); });
     if (!pays.length) { toast('No payments recorded yet'); return; }
-    var q = function (v) { var s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    // app.js _csvEscape, like every other export: a lifter names themselves, and a name like =HYPERLINK(…)
+    // must stay text when the coach opens the file in Excel or Sheets (sweep 2026-10-28 #7).
+    var q = function (v) { return _csvEscape(v); };
     var lines = [['Date', 'Lifter', 'Amount', 'Currency', 'Method', 'For', 'Note'].join(',')];
     pays.forEach(function (p) { lines.push([p.paidOn, athleteOf(p.athleteId).name, ((Number(p.amountCents) || 0) / 100).toFixed(2), p.currency, METHOD[p.method] || '', p.period || '', p.note || ''].map(q).join(',')); });
     var blob = new Blob([lines.join('\n') + '\n'], { type: 'text/csv' });

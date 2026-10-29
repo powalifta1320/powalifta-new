@@ -27,6 +27,8 @@ const PRECACHE = [
   '/meetday.css',
   '/challenges.js',  // coach challenges at the top of Club (both dashboards)
   '/challenges.css',
+  '/notify.js',      // the allow-notifications card (both dashboards)
+  '/notify.css',
   '/app.js',
   '/voice.js',
   '/db.js',

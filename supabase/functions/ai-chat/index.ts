@@ -33,6 +33,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { rateLimit } from '../_shared/rate-limit.ts';
+import { owesSecondFactor, SECOND_FACTOR } from '../_shared/aal.ts';
 
 // Provider endpoints. Gemini is primary (cheapest); Groq is the automatic
 // fallback so the assistant stays LIVE even when Gemini's billing/quota hiccups.
@@ -107,18 +108,18 @@ function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
-// Decode the `sub` (user id) from a JWT without a network round-trip.
-// Verify-JWT is ON at the gateway, so the token is already validated by
-// the time we get here; we only need to read the user id from it.
-function userIdFromJwt(authHeader: string | null): string | null {
-  if (!authHeader) return null;
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
+// Who is calling, verified. Verify-JWT is on at the gateway as well, but the function asks Auth itself
+// (one call) rather than trusting a token it has only decoded: a deploy without the gateway check, or a
+// signed-out token, gets a 401 here either way. Two-factor (migration-mfa-aal2): owes2fa = the account has an
+// authenticator and this token is not at aal2 (_shared/aal.ts); such a caller gets a 403, not an answer.
+async function verifiedCaller(authHeader: string | null): Promise<{ id: string; owes2fa: boolean } | null> {
+  const token = String(authHeader || '').replace(/^Bearer\s+/i, '').trim();
+  const url = Deno.env.get('SUPABASE_URL');
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!token || token.split('.').length !== 3 || !url || !key) return null;
   try {
-    const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const json = JSON.parse(atob(payload + '==='.slice((payload.length + 3) % 4)));
-    return typeof json.sub === 'string' ? json.sub : null;
+    const { data, error } = await createClient(url, key, { auth: { persistSession: false } }).auth.getUser(token);
+    return !error && data?.user?.id ? { id: data.user.id, owes2fa: owesSecondFactor(token, data.user) } : null;
   } catch {
     return null;
   }
@@ -129,8 +130,10 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
 
   // ---- who is calling --------------------------------------------------
-  const uid = userIdFromJwt(req.headers.get('Authorization'));
-  if (!uid) return jsonResponse(401, { error: 'Not authenticated' });
+  const caller = await verifiedCaller(req.headers.get('Authorization'));
+  if (!caller) return jsonResponse(401, { error: 'Not authenticated' });
+  if (caller.owes2fa) return jsonResponse(403, SECOND_FACTOR);
+  const uid = caller.id;
 
   // ---- parse + sanitise the request ------------------------------------
   let payload: any;

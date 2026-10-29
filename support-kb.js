@@ -122,7 +122,7 @@ window.POWA_SUPPORT_KB = [
    "remove athlete",
    "remove from roster"
   ],
-  "a": "Open Roster, tap ⋯ on the athlete's row and choose \"Remove from roster\", then confirm. Their logs, bodyweight and goals stay with them; they lose access to the programs you assigned and need a new invite code to rejoin."
+  "a": "Open Roster, tap ⋯ on the athlete's row and choose \"Remove from roster\", then confirm. They keep their logs, bodyweight, goals and the program you wrote for them (you stop seeing them), and need a new invite code to rejoin."
  },
  {
   "id": "mobile-app",
@@ -261,7 +261,7 @@ window.POWA_SUPPORT_KB = [
    "weigh in reminder"
   ],
   "a": "Reminders are only in the iPhone app. On the web, weigh in from the Morning weigh-in tile on Train each day; your trend and streak still build up.",
-  "app": "In the iPhone app the morning weigh-in reminder is on by default at 08:00 once you allow notifications. To change the time or switch it off, open the Weigh-in sheet (tap Morning weigh-in on Train before you have weighed in today, or Progress → Tools → Weigh-in) and use the \"Morning reminder\" row. When the notification arrives, press and hold it, tap Log weight, type your weight and tap Save: the app opens and saves it as today's weigh-in."
+  "app": "In the iPhone app the morning weigh-in reminder is on by default at 08:00 once you allow notifications. To change the time or switch it off, open the Weigh-in sheet (tap Morning weigh-in on Train before you have weighed in today, or Progress → Tools → Weigh-in) and use the \"Morning reminder\" row; until you allow notifications its switch shows off, and turning it on asks iOS. When the notification arrives, press and hold it, tap Log weight, type your weight and tap Save: the app opens and saves it as today's weigh-in."
  },
  {
   "id": "lock-screen-log-set",
@@ -640,15 +640,23 @@ window.POWA_SUPPORT_KB = [
   "q": "How do I import my old training history from a spreadsheet?",
   "t": [
    "csv import",
+   "fitnotes",
+   "hevy csv",
    "import",
+   "import excel",
    "import from spreadsheet",
    "import history",
+   "import my training",
+   "import workouts",
+   "import xlsx",
    "migrate my data",
    "old logs",
-   "paste rows"
+   "paste rows",
+   "strong export"
   ],
-  "a": "Go to Progress → Overview and scroll to Tools → Import history. Paste rows into the Data box or tap \"Choose CSV file\"; the first line must be a header such as date,lift,weight,reps,rpe (a bodyweight column, or a row whose lift says bodyweight, is picked up too). Set \"Weights are in\" to kg or lb, tap Preview to see how many sets and weigh-ins were found and which rows will be skipped, then tap \"Import N entries\" (choosing a file previews automatically)."
- },
+  "a": "Lifters: Progress → Tools → **Import history** (or You → Your data → **Import your training history**). Choose the CSV your app exports (Strong, Hevy, FitNotes), a spreadsheet (.xlsx, .ods or .csv), or paste the cells. Columns POWALIFTA knows are matched; any it can't place gets a dropdown, and it remembers your choice. You see every set, the PRs it makes and the rows it leaves out (with why) before anything is saved, and the same file twice adds nothing. Weigh-ins in the file come in too. Coaches: **Bring your coaching in** (Settings → Your data, or ⌘K on a laptop), or **Import their history** from a lifter, then pick whose sets they are.",
+  "app": "Lifters: Progress → Tools → **Import history** (or You → Your data → **Import your training history**). Choose the CSV your app exports (Strong, Hevy, FitNotes), a spreadsheet (.xlsx, .ods or .csv), or paste the cells. Columns POWALIFTA knows are matched; any it can't place gets a dropdown, and it remembers your choice. You see every set, the PRs it makes and the rows it leaves out (with why) before anything is saved, and the same file twice adds nothing. Weigh-ins in the file come in too. Coaches: You → Your data → **Bring your coaching in**, then pick whose sets they are."
+ },,
  {
   "id": "clubs",
   "q": "What are clubs, and how do the boards work?",
@@ -889,8 +897,28 @@ window.POWA_SUPPORT_KB = [
    "turn off notifications",
    "weekly email"
   ],
-  "a": "Go to You → Notifications. Under Push notifications tap \"Enable on this device\" (or \"Turn off\"), then choose what gets pushed: Messages, Form-check replies and Program updates. Under Email switch the Weekly progress email and Product tips & announcements on or off; the weekly email also has an unsubscribe link at the bottom. Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the Monday report (on a laptop: Settings → Notifications). On an iPhone browser, push only works once you add POWALIFTA to your Home Screen.",
-  "app": "Go to You → Notifications and tap \"Enable on this device\"; iOS asks for permission. Then choose what gets pushed: Messages, Form-check replies and Program updates, and switch the Weekly progress email or Product tips & announcements on or off (the weekly email also has an unsubscribe link). Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the Monday report. To stop all alerts, or if you said no to iOS, change it in iPhone Settings → Notifications → POWALIFTA."
+  "a": "Go to You → Notifications. Under Push notifications tap \"Enable on this device\" (or \"Turn off\"), then choose what gets pushed: Messages, Form-check replies and Program updates. Under Email switch the Weekly progress email and Product tips & announcements on or off; the weekly email also has an unsubscribe link at the bottom. Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the Monday report (on a laptop: Settings → Notifications). The app may also offer **Turn on** once, after a finished session (coaches: on your first screen); **Not now** waits two weeks. On an iPhone, alerts come through the POWALIFTA app: a browser tab can't get them.",
+  "app": "Go to You → Notifications and tap \"Enable on this device\"; iOS asks for permission. Then choose what gets pushed: Messages, Form-check replies and Program updates, and switch the Weekly progress email or Product tips & announcements on or off (the weekly email also has an unsubscribe link). Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the Monday report. The app may also offer **Turn on** once, after a finished session (coaches: on your first screen); iOS only asks when you tap it, and **Not now** waits two weeks. To stop all alerts, or if you said no to iOS, change it in iPhone Settings → Notifications → POWALIFTA."
+ },
+ {
+  "id": "allow-notifications",
+  "q": "Why did the app ask me to turn on notifications?",
+  "t": [
+   "alerts card",
+   "ask again",
+   "asked me to turn on notifications",
+   "get a ping",
+   "not now",
+   "notifications card",
+   "ping when my coach replies",
+   "ping when rest is up",
+   "stop asking",
+   "turn on alerts",
+   "turn on card",
+   "why did it ask"
+  ],
+  "a": "Once today's session is done, POWALIFTA asks once whether you want alerts, with the reason that fits you: your coach's replies, a training buddy's nudge, or (in the iPhone app) rest being up with the app closed. Coaches see it on their first screen, for PRs, messages and missed sessions. Your browser only asks for permission after you tap **Turn on**. **Not now** puts it away for two weeks, and after a second Not now it stops asking. Turn alerts on any time in You → Notifications (on a laptop: Settings → Notifications). On an iPhone, alerts come through the POWALIFTA app: a browser tab can't get them.",
+  "app": "Once today's session is done, POWALIFTA asks once whether you want alerts, with the reason that fits you: your coach's replies, a training buddy's nudge, or rest being up with the app closed. Coaches see it on their first screen, for PRs, messages and missed sessions. iOS only asks for permission after you tap **Turn on**. **Not now** puts it away for two weeks, and after a second Not now it stops asking. Turn alerts on any time in You → Notifications. If you tapped Don't Allow, change it in iPhone Settings → Notifications → POWALIFTA."
  },
  {
   "id": "gym-plates",
@@ -948,7 +976,8 @@ window.POWA_SUPPORT_KB = [
    "switch from spreadsheet",
    "import history"
   ],
-  "a": "Coaches: on a laptop, click an athlete on the Roster and choose Import history in their preview, or press ⌘K and type \"import\"; on the phone, You → Your data → Import an athlete's history, then pick the athlete. Paste rows from a spreadsheet or choose a CSV. One row per set works best: date, exercise, weight, reps, and RPE if you have it. Exports from Strong, Hevy and FitNotes work as they are, so does a written log (\"2 Mar 2026\" then \"Squat 180x5 @8\"), and a block written like a program is kept as a past block. Before anything is saved you see the sets it read, the rows it skipped and why, the dates and the PRs it makes; set kg or lb and the RPE to assume for sets without one. Importing the same file twice adds nothing, and Undo (or importing the same file again → Remove) takes an import back out. Lifters on their own use Progress → Tools → Import history."
+  "a": "Coaches: on a laptop, click a lifter on the Roster and choose Import their history, or press ⌘K and choose Import history…; on the phone, You → Your data → Bring your coaching in, then pick the lifter. Choose a file (a CSV, an Excel or Google Sheets workbook, an .ods, a .zip of CSVs or a .json export) or paste the cells; a workbook asks which tab. One row per set works best (date, exercise, weight, reps, RPE if you have it), and so does a row per exercise with Set 1, Set 2 … across. Exports from Strong, Hevy and FitNotes work as they are, so does a written log (\"2 Mar 2026\" then \"Squat 180x5 @8\"), and a block written like a program is kept as a past block. Columns it can't place get a dropdown, and it remembers your choices for the next file like it. Before anything is saved you see the sets it read, the first few as they'll be saved, the rows it left out and why, the dates and the PRs it makes; set kg or lb, day or month first, and the RPE to assume for sets without one. Importing the same file twice adds nothing, and Undo (or importing the same file again → Remove) takes an import back out. A lifter not on your roster yet can bring it in themselves: Progress → Tools → Import history.",
+  "app": "Coaches: You → Your data → Bring your coaching in, then pick the lifter. Choose a file (a CSV, an Excel or Google Sheets workbook, an .ods, a .zip of CSVs or a .json export) or paste the cells; a workbook asks which tab. One row per set works best (date, exercise, weight, reps, RPE if you have it), and so does a row per exercise with Set 1, Set 2 … across. Exports from Strong, Hevy and FitNotes work as they are, and a block written like a program is kept as a past block. Columns it can't place get a dropdown, and it remembers your choices. Before anything is saved you see the sets it read, the rows it left out and why, the dates and the PRs it makes. Importing the same file twice adds nothing, and Undo takes an import back out. A lifter not on your roster yet can bring it in themselves: Progress → Tools → Import history."
  },
  {
   "id": "delete-account",
@@ -1694,8 +1723,8 @@ window.POWA_SUPPORT_KB = [
    "lifter hit a pr",
    "thursday notification"
   ],
-  "a": "Yes. Turn notifications on (on a laptop Settings → Notifications, on the phone You → Notifications, then **Enable on this device**) and keep these on:\n\n- **Messages**: when a lifter writes to you.\n- **Form checks**: when a lifter sends one (\"Arjun sent a squat form check\").\n- **PRs and missed sessions**: a lifter's PR as they log it (\"Arjun hit a squat PR · 182.5 × 3 · e1RM 205 kg\", once per lift a day), on Thursday the lifters behind on their week (Monday to Wednesday count, so 1 of 3 or 4 sessions, 2 of 5 or 6; an agreed busy week counts its agreed days), and Monday's summary of the team's week.\n\nA pain report reaches you as \"sent you a training update\": a notification never names the body part. Each switch applies on every device where notifications are on.",
-  "app": "Yes. Go to You → Notifications, tap **Enable on this device**, and keep these on: **Messages** (when a lifter writes to you), **Form checks** (when a lifter sends one) and **PRs and missed sessions**: a lifter's PR as they log it (once per lift a day), on Thursday who's behind on their week, and Monday's summary of the team's week. A pain report reaches you as \"sent you a training update\": a notification never names the body part."
+  "a": "Yes. Turn notifications on (on a laptop Settings → Notifications, on the phone You → Notifications, then **Enable on this device**, or tap **Turn on** when the app offers it on your first screen) and keep these on:\n\n- **Messages**: when a lifter writes to you.\n- **Form checks**: when a lifter sends one (\"Arjun sent a squat form check\").\n- **PRs and missed sessions**: a lifter's PR as they log it (\"Arjun hit a squat PR · 182.5 × 3 · e1RM 205 kg\", once per lift a day), on Thursday the lifters behind on their week (Monday to Wednesday count, so 1 of 3 or 4 sessions, 2 of 5 or 6; an agreed busy week counts its agreed days), and Monday's summary of the team's week.\n\nA pain report reaches you as \"sent you a training update\": a notification never names the body part. Each switch applies on every device where notifications are on.",
+  "app": "Yes. Go to You → Notifications and tap **Enable on this device** (or tap **Turn on** when the app offers it on your first screen), and keep these on: **Messages** (when a lifter writes to you), **Form checks** (when a lifter sends one) and **PRs and missed sessions**: a lifter's PR as they log it (once per lift a day), on Thursday who's behind on their week, and Monday's summary of the team's week. A pain report reaches you as \"sent you a training update\": a notification never names the body part."
  },
  {
   "id": "coach-monday-report",
@@ -1713,5 +1742,144 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "Every Monday you get your team's last week (Monday to Sunday) as a push and an email: how many lifters trained and how many sessions of the ones you wrote, then who needs you (pain reported, behind, form checks waiting, no check-in), the PRs with their e1RM, meets in the next 4 weeks and payments overdue. **Open Today** in the email takes you to your list.\n\nThe same report is in the app any time: **Today › This week › Last week's report** on a laptop, **Lifters › This week › Last week's report** on the phone, and **See an example of the Monday report** in Settings › Notifications. **Start with** opens the first lifter who needs you. Switch the email off with **Monday report** in Settings › Notifications or the link at the bottom of the email; the push goes with **PRs and missed sessions**. A week where nobody trained and nothing is waiting sends nothing.",
   "app": "Every Monday you get your team's last week as a push and an email: how many lifters trained, who needs you (pain reported, behind, form checks waiting, no check-in), the PRs with their e1RM, meets in the next 4 weeks and payments overdue. The same report is in the app: Lifters › This week › **Last week's report**, and **Start with** opens the first lifter who needs you. Switch the email off with **Monday report** in You › Notifications or the link at the bottom of the email."
+ },
+ {
+  "id": "bring-coaching-in",
+  "q": "How do I move my coaching over from another app or a spreadsheet?",
+  "t": [
+   "bring my coaching in",
+   "bring your coaching in",
+   "coming from",
+   "import a workbook",
+   "import from another app",
+   "import my clients",
+   "leave my old app",
+   "migrate from",
+   "move my clients",
+   "move my coaching",
+   "move over",
+   "switch apps",
+   "switch to powalifta"
+  ],
+  "a": "Use **Bring your coaching in**: on a laptop press ⌘K and choose it (or Settings → Your data); on the phone, You → Your data. Choose a file: an Excel or Google Sheets workbook (.xlsx, every tab comes with it), an .ods, a CSV, a .zip of CSVs or a .json export, or paste the cells. POWALIFTA works out what it is:\n\n- **A client list** becomes invites. Your plan's seats show first (each lifter and each unused invite holds one); you tick who to invite and it can email each one. A list without a header row works too.\n- **Training history** (a row per set, or Set 1, Set 2 … across a row) goes to the lifter you pick. Columns it knows are matched, the rest get a dropdown, and it remembers your choices for the next file like it. You see every set, the PRs it makes and the rows it leaves out before anything is saved; the same file twice adds nothing.\n- **A program** (exercises down and weeks across, or a week / day / exercise table) opens in the program check, every cell shown before it's saved.\n\nPDFs and screenshots of programs go through **Bring a program in**, a few at once. Card and payment columns, and any column holding card numbers whatever it's called, are dropped as the file is read: never shown, never kept. Each app's export steps: ask \"coming from TrueCoach\" (or TrainHeroic, Trainerize, Everfit, CoachRx, Hevy Coach, a spreadsheet).",
+  "app": "Open You → Your data → **Bring your coaching in** and choose a file: an Excel or Google Sheets workbook (.xlsx, every tab comes with it), an .ods, a CSV, a .zip of CSVs or a .json export, or paste the cells. POWALIFTA works out what it is:\n\n- **A client list** becomes invites. How many more lifters you have room for shows first (each lifter and each unused invite takes a place); you tick who to invite and it can email each one. A list without a header row works too.\n- **Training history** goes to the lifter you pick. Columns it knows are matched, the rest get a dropdown, and it remembers your choices. You see every set, the PRs it makes and the rows it leaves out before anything is saved; the same file twice adds nothing.\n- **A program** opens in the program check, every cell shown before it's saved.\n\nPDFs and screenshots of programs go through **Bring a program in**, a few at once. Card and payment columns, and any column holding card numbers whatever it's called, are dropped as the file is read: never shown, never kept."
+ },
+ {
+  "id": "import-client-list",
+  "q": "How do I invite my whole client list at once?",
+  "t": [
+   "bulk invite",
+   "client list",
+   "coachrx clients",
+   "csv of clients",
+   "import client list",
+   "import clients",
+   "import roster",
+   "invite all my clients",
+   "invite everyone",
+   "invite my athletes",
+   "trainerize clients",
+   "trainheroic athletes",
+   "truecoach clients"
+  ],
+  "a": "Open **Invite a lifter** and tap **Import a client list** at the bottom (or use Bring your coaching in). Choose the list your old app exports, or any CSV or spreadsheet with names and emails; TrueCoach, CoachRx, Trainerize and TrainHeroic lists are read as they are. At the top you see the seats your plan has left: each lifter on your roster and each invite not used yet holds one, so POWALIFTA ticks only as many people as fit, leaves archived clients unticked, and marks anyone already on your roster or already invited. Tick who you want, choose whether to email them, and tap **Create N invites**. Each person gets their own link (copy them one at a time or all at once); emails go out one by one, up to 40 an hour. A list without a header row works too. Only names, emails, groups and statuses are kept: phone numbers, birthdays and the rest stay in the file and only their column names show, and card and payment columns (any column holding card numbers too) are dropped as the file is read, never shown or kept.",
+  "app": "Open **Invite a lifter** and tap **Import a client list** at the bottom (or use Bring your coaching in). Choose the list your old app exports, or any CSV or spreadsheet with names and emails; TrueCoach, CoachRx, Trainerize and TrainHeroic lists are read as they are. At the top you see how many more lifters you have room for: each lifter on your roster and each invite not used yet takes a place, so POWALIFTA ticks only as many people as fit, leaves archived clients unticked, and marks anyone already on your roster or already invited. Tick who you want, choose whether to email them, and tap **Create N invites**. Each person gets their own link (copy them one at a time or all at once); emails go out one by one, up to 40 an hour. A list without a header row works too. Only names, emails, groups and statuses are kept: phone numbers, birthdays and the rest stay in the file and only their column names show, and card and payment columns (any column holding card numbers too) are dropped as the file is read, never shown or kept."
+ },
+ {
+  "id": "switch-from-spreadsheet",
+  "q": "How do I bring my Google Sheets or Excel training sheets over?",
+  "t": [
+   "coming from a spreadsheet",
+   "excel",
+   "from a spreadsheet",
+   "google sheets",
+   "import a sheet",
+   "my sheets",
+   "my training sheet",
+   "several tabs",
+   "spreadsheet",
+   "workbook",
+   "xlsx"
+  ],
+  "a": "Bring the whole workbook: in Google Sheets, File → Download → Microsoft Excel (.xlsx); in Excel, choose the .xlsx itself (saving as CSV keeps only the tab that's open). Then open **Bring your coaching in** (Settings → Your data, or ⌘K on a laptop), choose it and pick the tab. A log (a row per set, or Set 1, Set 2 … across a row) becomes a lifter's history with e1RM and PRs; a program grid (exercises down, weeks across) or a week / day / exercise table opens in the program check; a client list becomes invites. Dates in either order, kg or lb, RPE, RIR, % and \"3x5 @8\" are read the way you write them, and Excel's dates and % cells come through as dates and %. Save an old .xls or a Numbers file as .xlsx first. You can also paste the cells straight in.",
+  "app": "Bring the whole workbook: in Google Sheets, File → Download → Microsoft Excel (.xlsx); in Excel, choose the .xlsx itself (saving as CSV keeps only the tab that's open). Then open You → Your data → **Bring your coaching in**, choose it and pick the tab. A log becomes a lifter's history with e1RM and PRs; a program grid or a week / day / exercise table opens in the program check; a client list becomes invites. Dates in either order, kg or lb, RPE, RIR, % and \"3x5 @8\" are read the way you write them. Save an old .xls or a Numbers file as .xlsx first."
+ },
+ {
+  "id": "switch-from-trainheroic",
+  "q": "How do I move over from TrainHeroic?",
+  "t": [
+   "coming from trainheroic",
+   "from trainheroic",
+   "leaving trainheroic",
+   "train heroic",
+   "trainheroic",
+   "trainheroic export"
+  ],
+  "a": "In three parts, from TrainHeroic's own help pages. **Your athlete list**: on the web, Athletes → ⋯ (top right) → Export Athletes → pick a team or group → Download CSV (active athletes only); bring it in with **Import a client list** to send invites. **Each athlete's history**: a coach can't export it, but each athlete can, at account.trainheroic.com/data-export on a computer → Export, and a zip downloads. They send it to you, or import it themselves (You → Your data → Import your training history). TrainHeroic doesn't publish what's in the zip, so POWALIFTA opens it and asks about any column it can't place; RPE lives in exercise notes there, so you pick what sets without one count as. **Programs**: TrainHeroic has no program export; print the calendar to PDF or take screenshots, then **Bring a program in**, a few files at once."
+ },
+ {
+  "id": "switch-from-truecoach",
+  "q": "How do I move over from TrueCoach?",
+  "t": [
+   "coming from truecoach",
+   "from truecoach",
+   "leaving truecoach",
+   "true coach",
+   "truecoach",
+   "truecoach export"
+  ],
+  "a": "From TrueCoach's own help pages. **Your client list**: Clients → Export, and the CSV comes by email (archived clients: show archived first; one group: search it, select it, then Export). Bring it in with **Import a client list**: names and emails become invites, Client Type becomes groups, archived clients start unticked; phone numbers, birthdays, height and weight stay in the file. **Programs**: open the program, click its first workout, Shift-click the last → Print Workouts → Save as PDF, then **Bring a program in** (a few PDFs at once). **Workout history**: a client's workout calendar → Export (top right) → a time frame and your email, and a .txt arrives. TrueCoach doesn't publish its layout: if it reads as a training journal it comes in; if not, send it to us and we'll make it read."
+ },
+ {
+  "id": "switch-from-trainerize",
+  "q": "How do I move over from Trainerize?",
+  "t": [
+   "abc trainerize",
+   "coming from trainerize",
+   "from trainerize",
+   "leaving trainerize",
+   "trainerize",
+   "trainerize export"
+  ],
+  "a": "From Trainerize's own help pages. **Your client list**: Clients → select everyone (or some) → Export → CSV, with first and last name, email, phone and trainer. Bring it in with **Import a client list** to send invites (phone numbers stay in the file). **Programs**: print a program and choose Save as PDF, then **Bring a program in**. **Workout history** can't leave Trainerize (they say so), so history here starts with the first set your lifters log."
+ },
+ {
+  "id": "switch-from-everfit",
+  "q": "How do I move over from Everfit?",
+  "t": [
+   "coming from everfit",
+   "everfit",
+   "everfit export",
+   "everfit pdf",
+   "from everfit",
+   "leaving everfit"
+  ],
+  "a": "Everfit prints each workout as its own PDF (from its help pages): a client's Training calendar → a workout's ⋯ → Print Workout. In **Bring a program in**, choose several of those PDFs at once: they're read one after another (the reader takes 3 a minute and 15 a day) and lined up by day, with the same day again counted as the next week. You check every cell before it's saved. Everfit doesn't document a client list or history export, so invite your lifters by link."
+ },
+ {
+  "id": "switch-from-coachrx",
+  "q": "How do I move over from CoachRx?",
+  "t": [
+   "coach rx",
+   "coachrx",
+   "coachrx export",
+   "coming from coachrx",
+   "from coachrx",
+   "leaving coachrx"
+  ],
+  "a": "From CoachRx's own help pages. **Your client list**: Clients (owners: Business Suite → Customers) → Export All or Export Filtered List → pick the columns → download. Bring it in with **Import a client list**: names, emails, tags as groups, and archived clients start unticked. Card, payment and revenue columns are dropped the moment the file is read, never shown or kept; untick them in CoachRx if you'd rather they never leave. **Workouts**: the calendar → Export → PDF or text, with a date range, sent by email. The PDF comes in through **Bring a program in**; the text layout isn't published yet."
+ },
+ {
+  "id": "switch-from-hevy-coach",
+  "q": "How do I move over from Hevy Coach?",
+  "t": [
+   "coming from hevy",
+   "from hevy coach",
+   "hevy coach",
+   "hevy export",
+   "hevy workouts",
+   "leaving hevy"
+  ],
+  "a": "Hevy Coach has no export on the coach side, but each client can export from the Hevy app (Hevy's help pages): Profile → Settings → Export & Import Data → Export Data → Export Workouts. They send you the CSV (bring it in under **Bring your coaching in**, or Import their history from their page) or import it themselves in POWALIFTA (You → Your data → Import your training history). Hevy's CSV is read as it is: warm-ups left out, kg or lb from the file, RPE where they logged one. Routines don't export: screenshots come in through **Bring a program in**."
  }
 ];

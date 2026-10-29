@@ -32,7 +32,8 @@
 <link rel="stylesheet" href="coach-ui.css"><!-- the coach side's new screens (coach-home.js): Home on the desk and the phone -->
 <link rel="stylesheet" href="challenges.css"><!-- COACH CHALLENGES: the challenge card, its board and New challenge (challenges.js) -->
 <link rel="stylesheet" href="coach-app.css"><!-- the iPhone app's coach screens (28 Oct): Home, Lifters, a lifter, Programs (coach-app.js, coach-program.js); never the laptop desk -->
-<script defer data-domain="powalifta.com" src="https://plausible.io/js/script.js"></script>
+<link rel="stylesheet" href="notify.css"><!-- ALLOW NOTIFICATIONS: the card for coach Home (notify.js) -->
+<script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 </head>
 <body class="powa-app">
@@ -408,6 +409,7 @@
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the form-check review tool (openVideoReview) -->
 <script src="meetday.js"></script><!-- MEET DAY hook: attempt planner + meet-day board (openAttemptPlanner, openMeetDayBoard, renderMeetsScreen) -->
 <script src="program-photo.js"></script><!-- Program from a photo: the AI reads a picture or PDF into the builder's cells; the coach checks every one (PhotoImport) -->
+<script src="notify.js"></script><!-- ALLOW NOTIFICATIONS: PowaNotify.coachCard() returns the ask for coach Home (where it goes: notify.js header) -->
 <script>
 // The desk's hooks, guarded: if desk.js ever fails to load (offline, a stale bundle), the phone
 // dashboard still boots. Function declarations, so the first render can call them.
@@ -987,7 +989,7 @@ window.exportRosterCsv = exportRosterCsv;
 // Which of the last n days an athlete logged anything (oldest → today).
 function trainingDays(athleteId, n) {
   const days = [];
-  const set = new Set((Store.get().workoutLogs || []).filter(l => l.athleteId === athleteId).map(l => l.date));
+  const set = logDateSet(athleteId);   // app.js: the lifter's log dates, kept until their sets change
   const t = new Date(); t.setHours(12, 0, 0, 0);
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date(t.getTime() - i * 86400000);
@@ -2113,12 +2115,16 @@ window.notifyAthleteAssigned = notifyAthleteAssigned;
 async function removeAthleteFromRoster(athleteId, athleteName) {
   if (!athleteId) return;
   if (window._demoMode) { toast('Preview only in demo mode'); return; }
+  // What the server does (coach_release_lifter, then trg_programs_release_on_coach_change): the program
+  // you wrote becomes the lifter's own copy, and you stop seeing their training.
   const msg = 'Remove ' + athleteName + ' from your roster?\n\n' +
-              'Their training data (logs, programs, bodyweight, goals) stays with them. ' +
-              'They lose access to programs you assigned, and they\'ll need a new invite code to rejoin.';
+              'They keep their training, including the program you wrote for them, and you stop seeing it. ' +
+              'They\'ll need a new invite to rejoin.';
   if (!confirm(msg)) return;
   try {
-    await DB.updateProfile(athleteId, { coach_id: null });
+    // Through the server (DB.releaseLifter → coach_release_lifter): the coach's own update of the
+    // lifter's profile is refused live (42501).
+    await DB.releaseLifter(athleteId);
     Store.update(s => {
       s.athletes = (s.athletes || []).filter(a => a.id !== athleteId);
       s.programs = (s.programs || []).filter(p => p.athleteId !== athleteId);
@@ -2127,7 +2133,7 @@ async function removeAthleteFromRoster(athleteId, athleteName) {
     if (typeof renderRoster === 'function') renderRoster();
   } catch (e) {
     console.error('removeAthleteFromRoster failed', e);
-    toast('Could not remove ' + athleteName + '. Try again');
+    toast(e && e.notReady ? e.message : 'Could not remove ' + athleteName + '. Try again');
   }
 }
 window.removeAthleteFromRoster = removeAthleteFromRoster;
@@ -2167,9 +2173,20 @@ async function refreshUnreadBadges() {
       const sig = _unreadSig(map);
       if (sig === _demoUnreadPainted) { _unreadByAthlete = map; return; }
       _demoUnreadPainted = sig;
+    } else if (_desk() && DB.coachInbox) {
+      // The desk wants who wrote last too: one read gives the thread digest and the unread (two past
+      // 500 messages), then one repaint. No digest (that read failed): the desk reads its own shortly.
+      const inbox = await DB.coachInbox(user.id);
+      // As below: only threads with a live link count (a former lifter's thread is read-only, row 59).
+      inbox.unread.forEach(m => { if (m.coachId === user.id && msgThreadLive(user.id, m.athleteId)) map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
+      _unreadByAthlete = map;
+      _deskCall('deskRefresh', inbox.threads ? { threads: inbox.threads } : undefined);
+      return;
     } else {
       const unread = await DB.listUnreadForUser(user.id);
-      unread.forEach(m => { map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
+      // Only threads with a live link count: a former lifter's thread is read-only (row 59), so its unread
+      // messages can never be marked read and would hold the Messages count up for good.
+      unread.forEach(m => { if (m.coachId === user.id && msgThreadLive(user.id, m.athleteId)) map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
     }
     _unreadByAthlete = map;
     _unreadState = 'ready';
@@ -2207,6 +2224,7 @@ window.addEventListener('powa:program-merged', (e) => {
 });
 // Pain flags arrive live (migration-pain-reports-2026-10-22.sql puts pain_reports in Realtime):
 // the roster repaints with the new flag. Hook for the desk: the Store's painReports + 'powa:pain'.
+// Only this roster's reports (filtered server-side; db.js keeps the channel on the live roster).
 var _painSubCleanup = null;
 function subscribePainReports() {
   if (window._demoMode || !user || _painSubCleanup || typeof DB.subscribePainReports !== 'function') return;
@@ -2216,7 +2234,7 @@ function subscribePainReports() {
     else Store.update(s => { const list = s.painReports || (s.painReports = []); const i = list.findIndex(x => x.id === r.id); if (i >= 0) list[i] = r; else list.unshift(r); });
     try { window.dispatchEvent(new CustomEvent('powa:pain', { detail: Object.assign({ eventType: ev || 'INSERT' }, r) })); } catch (e) {}
     _repaintRosterSoon();
-  });
+  }, (Store.get().athletes || []).map(a => a.id));
 }
 var _rosterRepaintT = null;
 function _repaintRosterSoon() {
@@ -2229,7 +2247,10 @@ function _repaintRosterSoon() {
 function subscribeRosterMessages() {
   if (window._demoMode || !user || _rosterMsgCleanup || typeof DB.subscribeMessages !== 'function') return;
   _rosterMsgCleanup = DB.subscribeMessages({ column: 'coach_id', value: user.id }, (m) => {
-    if (!m || m.senderId === user.id) return;
+    if (!m) return;
+    // The coach's own (this device or another): no badge changes. The desk takes it as who wrote last
+    // at once (desk.js deskHeard: a reply from their phone clears "Message waiting" here too), no read.
+    if (m.senderId === user.id) { _deskCall('deskHeard', m); return; }
     scheduleUnreadRefresh();
   });
 }
@@ -2238,7 +2259,8 @@ function subscribeRosterMessages() {
 // reads Store.messages and sends locally, nothing leaves the page). draft: words to start the reply with
 // (a fix's suggested message); the coach edits or sends it.
 function openAthleteMessages(athleteId, athleteName, draft) {
-  document.getElementById('messageModalTitle').textContent = 'Message ' + athleteName;
+  // A former lifter's thread opens read-only (row 59): the title is just their name.
+  document.getElementById('messageModalTitle').textContent = (msgThreadLive(user.id, athleteId) ? 'Message ' : '') + athleteName;
   const host = document.getElementById('messageThreadHost');
   host.innerHTML = '';
   openModal('messageModal');
@@ -2630,6 +2652,7 @@ function openInviteModal() {
     mail.addEventListener('keydown', (e) => { if (e.key === 'Enter') send.click(); });
     sheet.appendChild(mailRow);
     sheet.appendChild(status);
+    if (window.SwitchKit && SwitchKit.inviteHook) SwitchKit.inviteHook(sheet, close);   // IMPORTS hook: invite a whole client list (import-ui.js)
   }, { cls: 'invite-sheet' });
 }
 function _copyText(t) {
