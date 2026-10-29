@@ -1047,6 +1047,7 @@ html:not(.desk) .bd-sheet .bd-pick { border-radius: 20px; }
 html:not(.desk) .bd-sheet .bd-name { font-size: 17px; }
 html:not(.desk) .bd-sheet .bd-h3 { font-size: 20px; line-height: 1.2; letter-spacing: -0.016em; }
 html:not(.desk) .bd-sheet .bd-chip { background: var(--pl-inset-2); }
+html:not(.desk) .bd-sheet .bd-chip b { color: var(--text-2); }
 html:not(.desk) .bd-sheet .bd-chip.is-down span { display: inline-flex; align-items: center; gap: 3px; color: var(--text); }
 html:not(.desk) .bd-sheet .bd-chip.is-down span::before { content: ''; flex: none; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--ca-warn); }
 html:not(.desk) .bd-sheet .bd-align { border-radius: 20px; background: var(--ca-card); box-shadow: inset 0 0 0 1px var(--ca-edge); }
@@ -1117,6 +1118,8 @@ html:not(.desk) body.powa-app .mr-phone .mr-foot .mr-go {
 /* The attempt planner from a lifter (meetday.js): each lift's name a row title (17); a reach is ink beside the
    triangle (it wore the warning colour on its words) */
 html:not(.desk) body.powa-app .md-root.md-planner .md-pl-liftname { font-size: 17px; }
+/* the chosen plan sits on a lighter fill: its unit and odds step up to the second ink (they read 4.3:1 there) */
+html:not(.desk) body.powa-app .md-root.md-planner .md-opt.on :is(.md-opt-n small, .md-odds) { color: var(--text-2); }
 html:not(.desk) body.powa-app .md-root.md-planner :is(.md-odds.is-reach, .md-odds.is-reach b) { color: var(--text-2); }
 html:not(.desk) body.powa-app .md-root.md-planner .md-odds.is-reach::before { content: ''; align-self: center; flex: none; width: 9px; height: 8px; margin-right: 2px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 
