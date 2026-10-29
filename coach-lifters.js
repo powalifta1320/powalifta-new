@@ -447,7 +447,9 @@
   // Everything a lifter's summary shows, from the store. → { total, lifts, weeks, planned, effort, bw, words, ring }
   function clLifter(r) {
     var a = r.athlete, s = typeof Store !== 'undefined' ? Store.get() : {}, t = todayIso(), st = r.status || {};
-    var logs = (s.workoutLogs || []).filter(function (l) { return l.athleteId === a.id; });
+    // app.js rosterLogsFor: this lifter's sets from the per-lifter index (the same rows in the same order), not a
+    // filter over every lifter's sets each time a lifter is drawn.
+    var logs = typeof rosterLogsFor === 'function' ? rosterLogsFor(a.id) : (s.workoutLogs || []).filter(function (l) { return l.athleteId === a.id; });
     var ok = typeof strengthSeries === 'function';
     var tot = ok ? strengthSeries(logs, 'total', { weeks: 12, today: t }) : [];
     var last = tot[tot.length - 1] || null;

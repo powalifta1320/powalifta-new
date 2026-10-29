@@ -1369,7 +1369,8 @@ function openAthleteSheet(athleteId) {
       sheet.appendChild(uiList(ciRows));
     }
     if (o.lastLog) {
-      const day = (Store.get().workoutLogs || []).filter(l => l.athleteId === a.id && l.date === o.lastLog.date);
+      // app.js rosterLogsFor: this lifter's sets from the per-lifter index, not a pass over the roster's.
+      const day = rosterLogsFor(a.id).filter(l => l.date === o.lastLog.date);
       const ton = day.reduce((x, l) => x + (Number(l.weight) || 0) * (Number(l.reps) || 0), 0);
       sheet.appendChild(uiList([uiRow({ title: 'Last session · ' + fmtDateShort(o.lastLog.date), sub: day.length + (day.length === 1 ? ' set · ' : ' sets · ') + Math.round(kgToDisplay(ton)).toLocaleString() + ' ' + unitLabel() + ' moved' + (o.lastRpe ? ' · last RPE ' + o.lastRpe : '') })]));
     }
@@ -1624,7 +1625,7 @@ function renderAthletePage(athleteId) {
   if (_desk() && typeof deskRenderWorkspace === 'function') { deskRenderWorkspace(host, athleteId); return; }
   const st = coachAthleteStatus(athleteId, { coachId: user.id });
   const u = unitLabel();
-  const logs = (Store.get().workoutLogs || []).filter(l => l.athleteId === athleteId);
+  const logs = rosterLogsFor(athleteId);
   const back = el('button', { class: 'ap-back', type: 'button', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>' + (_desk() ? deskBackLabel() : 'Lifters') + '</span>' });
   back.addEventListener('click', () => { try { history.back(); } catch (e) { document.getElementById('tab-athletes').click(); } });
   host.appendChild(back);
