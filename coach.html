@@ -646,7 +646,8 @@ function renderCoachYou() {
     tiktok: user.tiktok,
     onAvatar: () => pickAvatar(() => renderCoachYou()),
     edit: () => openProfileSheet(() => renderCoachYou()),
-    sub: ['Coach', club].filter(Boolean).join(' · '),
+    // The team's size under the name, unless the plan card below already says it ("4 of 25 lifters").
+    sub: ['Coach', roster.length && !(showPlan && window.CoachYou) ? roster.length + (roster.length === 1 ? ' lifter' : ' lifters') : null, club].filter(Boolean).join(' · '),
     stats: [],
     // Nobody on the roster yet: the invite is this screen's one red too (every tab of a first run has it).
     primary: fresh ? { label: 'Invite a lifter', icon: svg('<path d="M12 5v14M5 12h14"/>'), onClick: () => openInviteModal() } : null,
