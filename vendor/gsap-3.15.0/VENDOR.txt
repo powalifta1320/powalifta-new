@@ -1,4 +1,4 @@
-Vendored scripts for the website (the site's CSP allows scripts from self; nothing third-party is loaded from a CDN).
+Vendored scripts for the website (vendor/gsap-3.15.0/) (the site's CSP allows scripts from self; nothing third-party is loaded from a CDN).
 
 gsap.min.js            GSAP 3.15.0 (core)
 ScrollTrigger.min.js   ScrollTrigger 3.15.0 (plugin)
@@ -14,5 +14,8 @@ SHA-256:
 Licence:  GreenSock Standard "No Charge" License, https://gsap.com/standard-license . Free to use, including
           commercially, with every plugin, since GSAP 3.13. The copyright header stays in each file.
 Loading:  index.html's head script adds both (in order, async = false) after the page's load event and once the
-          arrival animation has settled; 46 KB gzipped together. Upgrading: replace both files with the same version,
-          update the hashes above and the version in home.js's header.
+          arrival animation has settled; 46 KB gzipped together.
+Caching:  the folder carries the version, so a file's address changes whenever the file does: vercel.json lets
+          browsers keep vendor/ for a year (immutable). Upgrading means a new folder (vendor/gsap-<version>/), the
+          paths in index.html's head script, the hashes above and the version in home.js's header; never new
+          bytes under an old folder.

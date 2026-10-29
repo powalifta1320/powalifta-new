@@ -70,7 +70,7 @@
   function still() { h.classList.remove('m'); document.dispatchEvent(new Event('fx:still')); }
   function load() {
     window.__fxFallback = setTimeout(still, 4000);
-    var src = ['/vendor/gsap.min.js', '/vendor/ScrollTrigger.min.js'], n = 0;
+    var src = ['/vendor/gsap-3.15.0/gsap.min.js', '/vendor/gsap-3.15.0/ScrollTrigger.min.js'], n = 0;
     src.forEach(function (u) {
       var s = document.createElement('script'); s.src = u; s.async = false;
       s.onload = function () { if (++n === src.length) document.dispatchEvent(new Event('fx:gsap')); };
