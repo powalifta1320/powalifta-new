@@ -504,7 +504,7 @@ body.site .unsub-saving { min-height: 20px; margin-top: 10px; font-size: 14px; c
 body.site .email-pref-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin: 0; padding: 14px 0; border-bottom: 1px solid var(--hair); cursor: pointer; text-transform: none; letter-spacing: normal; }
 body.site .email-pref-row:last-of-type { border-bottom: 0; }
 body.site .email-pref-row .epr-label { font-size: 16px; font-weight: 650; color: var(--text); }
-body.site .email-pref-row .epr-sub { font-size: 14px; line-height: 1.45; color: var(--text-3); }
+body.site .email-pref-row .epr-sub { font-size: 14px; font-weight: 500; line-height: 1.45; color: var(--text-3); }   /* the row is a label: not its 650 */
 body.site .email-pref-row input[type=checkbox] { flex: none; width: 20px; height: 20px; margin-top: 2px; accent-color: var(--text); cursor: pointer; }
 
 /* =====================================================================

@@ -10084,6 +10084,9 @@ function _barPillStepsBack(bar) {
   scan();
   try { new MutationObserver(scan).observe(main, { childList: true, subtree: true }); } catch (e) {}
 }
+// The inside pages draw their bar in HTML and load app.js at the end of the body: the step back starts now, not after
+// bootstrap's sign-in check and coach list (offline, supabase-js retries that list for about 14 s).
+try { if (document.body && document.body.classList.contains('site')) _barPillStepsBack(document.querySelector('header.bar')); } catch (e) {}
 
 // The website links to the programs shop only once it has something in it: three published
 // programs. html.has-programs reveals every [data-needs-programs] link (site.css). The count is
