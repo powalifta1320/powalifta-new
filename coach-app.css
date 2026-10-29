@@ -1223,7 +1223,7 @@ html:not(.desk) .cp-chips-br { flex: 0 0 100%; height: 0; }
 html:not(.desk) body.powa-app #addExerciseModal .modal.cp-addx { padding: 30px 16px calc(env(safe-area-inset-bottom) + 20px); overflow-y: auto; overscroll-behavior: contain; }
 html:not(.desk) body.powa-app .cp-addx h3 { margin: 0 52px 0 0; }
 html[data-theme="light"]:not(.desk) body.powa-app :is(#addExerciseModal, #saveTplModal, #applyTplModal, #goalModal) .modal-close { background: rgba(15, 15, 25, 0.07); }
-html:not(.desk) body.powa-app .cp-addx .cp-addx-sub { margin: 4px 0 20px; font-size: 15px; line-height: 1.4; color: var(--text-2); }
+html:not(.desk) body.powa-app .cp-addx .cp-addx-sub { margin: 4px 0 20px; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
 html:not(.desk) body.powa-app .cp-addx .cp-addx-lifts { margin-bottom: 4px; }
 html:not(.desk) body.powa-app .cp-addx .cp-addx-lifts .cp-chip.is-main + .cp-chip:not(.is-main) { margin-left: 0; }
 html:not(.desk) body.powa-app .cp-addx .form-row { display: block; margin: 0; }
@@ -1277,18 +1277,21 @@ html:not(.desk) .cp-tpl + .cp-tpl::before { content: ''; position: absolute; top
 html:not(.desk) .cp-tpl-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; min-height: 68px; padding: 12px 0 12px 16px; border: 0; background: none; text-align: left; cursor: pointer; transition: opacity 140ms ease-out; }
 html:not(.desk) .cp-tpl-main:active { opacity: 0.6; }
 html:not(.desk) .cp-tpl-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-html:not(.desk) .cp-tpl-t { font-size: 17px; font-weight: 600; line-height: 1.3; color: var(--text); overflow-wrap: anywhere; }
+html:not(.desk) .cp-tpl-t { font-size: 17px; font-weight: 600; line-height: 1.3; color: var(--text); overflow-wrap: anywhere; text-wrap: balance; }
 html:not(.desk) .cp-tpl-s { font-size: 15px; line-height: 1.35; color: var(--text-2); font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-tpl-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 24px 4px 0; }
 html:not(.desk) body.powa-app .cp-tpl-imp { margin: 0; min-height: 44px; }
-html:not(.desk) .cp-tpl-hint { margin: 0; font-size: 15px; line-height: 1.4; color: var(--text-2); }
+html:not(.desk) .cp-tpl-hint { margin: 0; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
 
 /* the Programs sheets (a template, who gets it, save as a template): a small heading, the one red at the foot,
    the quiet rows under it */
 html:not(.desk) .cp-sheet-h { margin: 8px 2px 8px; font-size: 13px; font-weight: 600; color: var(--text-3); }
 html:not(.desk) body.powa-app .ui-sheet .cp-sheet-go { margin-top: 20px; }
 html:not(.desk) body.powa-app .ui-sheet .cp-sheet-go:disabled { opacity: 0.4; pointer-events: none; }
-html:not(.desk) body.powa-app .ui-sheet .cp-sheet-foot { position: sticky; bottom: 0; z-index: 2; margin: 8px -16px calc(-18px - env(safe-area-inset-bottom)); padding: 12px 16px calc(18px + env(safe-area-inset-bottom)); background: inherit; }
+html:not(.desk) body.powa-app .ui-sheet .cp-sheet-foot { --cp-foot-bg: var(--bg-1); position: sticky; bottom: 0; z-index: 2; margin: 8px -16px calc(-18px - env(safe-area-inset-bottom)); padding: 12px 16px calc(18px + env(safe-area-inset-bottom)); background: var(--cp-foot-bg); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .ui-sheet .cp-sheet-foot { --cp-foot-bg: #111114; }
+/* rows scrolling under the foot fade into it rather than meet a hard edge */
+html:not(.desk) body.powa-app .ui-sheet .cp-sheet-foot::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 16px; background: linear-gradient(to top, var(--cp-foot-bg), transparent); pointer-events: none; }
 html:not(.desk) body.powa-app .ui-sheet .cp-sheet-foot .cp-sheet-go { margin-top: 0; }
 html:not(.desk) body.powa-app .ui-sheet .cp-sheet-quiet {
   display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; margin-top: 6px; padding: 0 12px;
@@ -1296,7 +1299,7 @@ html:not(.desk) body.powa-app .ui-sheet .cp-sheet-quiet {
 }
 html:not(.desk) body.powa-app .ui-sheet .cp-sheet-quiet svg { width: 18px; height: 18px; color: var(--text-2); }
 html:not(.desk) body.powa-app .ui-sheet .cp-sheet-quiet:active { opacity: 0.6; }
-html:not(.desk) .cp-sheet-none { margin: 4px 2px 0; font-size: 15px; line-height: 1.45; color: var(--text-2); }
+html:not(.desk) .cp-sheet-none { margin: 4px 2px 0; font-size: 15px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
 html:not(.desk) .cp-tpl-sheet .ui-row-title, html:not(.desk) .cp-apply-sheet .ui-row-title { font-size: 17px; }
 html:not(.desk) .cp-tpl-sheet .ui-row-sub, html:not(.desk) .cp-apply-sheet .ui-row-sub { font-size: 15px; color: var(--text-2); }
 html:not(.desk) .cp-tpl-dots { width: 32px; justify-content: center; flex: none; }
@@ -1345,7 +1348,7 @@ html:not(.desk) body.powa-app #goalModal .form-row { display: grid; grid-templat
 html:not(.desk) body.powa-app #goalModal .form-row .form-group { margin: 0; }
 html:not(.desk) body.powa-app #goalModal label { display: block; margin: 0 2px 8px; font-size: 13px !important; font-weight: 600; color: var(--text-3); }
 html:not(.desk) body.powa-app #goalModal .goal-readout { margin-top: 20px; min-height: 0; }
-html:not(.desk) body.powa-app #goalModal .goal-readout p { margin: 0; font-size: 15px !important; line-height: 1.45; color: var(--text-2); }
+html:not(.desk) body.powa-app #goalModal .goal-readout p { margin: 0; font-size: 15px !important; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
 html:not(.desk) body.powa-app #goalModal .goal-msg { padding: 12px 14px; border: 0; border-radius: 14px; background: var(--pl-inset); }
 html:not(.desk) body.powa-app #goalModal .flex.gap-8.mt-16 { flex-direction: column; gap: 4px; margin-top: 20px !important; }
 html:not(.desk) body.powa-app #goalModal #goalBuildBtn {
@@ -1384,6 +1387,9 @@ html:not(.desk) body.powa-app .pp-sheet :is(textarea.pp-cell.is-bad, textarea.pp
 html:not(.desk) body.powa-app .pp-sheet input.pp-name { font-size: 17px; }
 html:not(.desk) body.powa-app .pp-sheet .pp-file { font-size: 15px; }
 html:not(.desk) body.powa-app .pp-sheet .pp-readnotes { background: var(--pl-inset); font-size: 15px; }
+/* the photo keeps its edge on either sheet (a white printout on the light sheet blurred into it) */
+html:not(.desk) body.powa-app .pp-sheet .pp-pic img { outline: 1px solid rgba(15, 15, 25, 0.1); outline-offset: -1px; }
+html:not([data-theme="light"]):not(.desk) body.powa-app .pp-sheet .pp-pic img { outline-color: rgba(255, 255, 255, 0.1); }
 html:not(.desk) body.powa-app .pp-sheet .pp-namerow { background: var(--pl-inset-2); }
 html:not(.desk) body.powa-app .pp-sheet .pp-namerow input.pp-pname { font-size: 17px; }
 
