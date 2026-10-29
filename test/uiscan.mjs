@@ -71,6 +71,11 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-client-paid' + suf, page: C, theme, eval: "ClientsUI.markPaid('demo-a3')" },
     { name: 'sh-client-package' + suf, page: C, theme, eval: "ClientsUI.editPackage('demo-a2')" },
     { name: 'sh-remove' + suf, page: C, theme, eval: "openRemoveLifterSheet('demo-a2', 'Sarah Kim')" },
+    // Lifters past six (24, searched), with two join requests, a pending invite's menu; a paid-up client's sheet.
+    { name: 'c-athletes-many' + suf, page: C, theme, eval: "Store.update(st => { for (let i = 0; i < 20; i++) st.athletes.push(Object.assign({}, st.athletes.find(a => a.id === 'demo-a2'), { id: 'demo-x' + i, name: ['Leo', 'Priya', 'Marcus', 'Elena', 'Mei', 'Dev', 'Sofia', 'Jonah', 'Aisha', 'Tom\u00e1s'][i % 10] + ' ' + ['Grant', 'Shah', 'Doyle', 'Rossi', 'Tanaka', 'Patel', 'Alvarez', 'Reed', 'Okafor', 'Silva'][(i * 3) % 10] + (i >= 10 ? ' Jr' : ''), email: 'x' + i + '@demo.com', avatarUrl: null })); });" + tab('athletes') + ";setTimeout(() => { const q = document.querySelector('.ca-search .ca-q'); q.value = 'pri'; q.dispatchEvent(new Event('input')); }, 400)" },
+    { name: 'c-athletes-join' + suf, page: C, theme, eval: tab('athletes') + ";setTimeout(() => { const h = document.createElement('div'); document.getElementById('rosterArea').prepend(h); h.appendChild(_joinRequestsPhone([{ id: 'r1', athleteName: 'Leo Grant', note: 'Meet in March, want a coach for the peak' }, { id: 'r2', athleteName: 'Priya Shah', note: '' }])); }, 400)" },
+    { name: 'sh-invite-menu' + suf, page: C, theme, eval: tab('athletes') + ";setTimeout(() => document.querySelector('#invitesList .inv-row-p .ui-icon-btn').click(), 500)" },
+    { name: 'sh-client-ok' + suf, page: C, theme, eval: tab('clients') + ";ClientsUI.openClient('demo-a4')" },
     { name: 'sh-athlete' + suf, page: C, theme, eval: "openAthleteSheet('demo-a1')" },
     { name: 'sh-security' + suf, page: C, theme, eval: 'openSecuritySheet()' },
     { name: 'sh-profile' + suf, page: A, theme, eval: 'openProfileSheet()' },
