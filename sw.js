@@ -11,17 +11,25 @@
 // specifically to avoid serving stale code after a deploy. Network-first preserves
 // that guarantee — the cache is only ever read when the network actually fails.
 
-const CACHE = 'powa-v3';
+const CACHE = 'powa-v3';   // same name as before: the copies a phone already holds stay put
 
-// The app shell: enough to boot the dashboards offline. User DATA is never precached
-// (it comes from Supabase, cross-origin, and is left to pass straight through).
-const PRECACHE = [
+// What every page needs. Nothing else is fetched up front for a visit to the website.
+const CORE = ['/manifest.json', '/favicon.svg', '/icon-192.png', '/icon-512.png'];
+
+// The app shell: enough to boot the dashboards offline. Fetched only for someone who uses a dashboard
+// (2026-10-29): when the worker installs from one, and when a dashboard asks for it (app.js posts
+// 'powa-precache' after it registers), never because someone read the homepage. The homepage's own
+// files are here so its offline fallback (below) reads as a page: its two stylesheets, not its pictures.
+// User DATA is never precached (it comes from Supabase, cross-origin, and passes straight through).
+const DASH_SHELL = [
   '/',
   '/index.html',
+  '/site.css',
+  '/home.css',
   '/athlete.html',
   '/coach.html',
-  '/desk.js',
-  '/desk-season.js',  // the desk's season: Teams, the roster calendar, Plan a meet       // the coach's laptop desk (coach.html, html.desk only)
+  '/desk.js',         // the coach's laptop desk (coach.html, html.desk only)
+  '/desk-season.js',  // the desk's season: Teams, the roster calendar, Plan a meet
   '/desk.css',
   '/meetday.js',    // the attempt planner + meet-day board (works offline at the venue)
   '/meetday.css',
@@ -34,20 +42,33 @@ const PRECACHE = [
   '/db.js',
   '/social-auth.js',   // Continue with Apple / Google (index.html's modals + the native sheets)
   '/styles.css',
-  '/manifest.json',
-  '/favicon.svg',
-  '/icon-192.png',
-  '/icon-512.png',
 ];
+const isDashboard = (url) => { try { return /\/(athlete|coach|admin)\.html$/.test(new URL(url).pathname); } catch (e) { return false; } };
+
+// Best-effort: one missing file must not abort the rest. With `onlyMissing`, files already
+// cached are left alone (the network-first fetch below keeps those fresh).
+async function precacheShell(onlyMissing) {
+  const cache = await caches.open(CACHE);
+  await Promise.allSettled(DASH_SHELL.map(async (url) => {
+    if (onlyMissing && await cache.match(url)) return;
+    await cache.add(url);
+  }));
+}
 
 self.addEventListener('install', event => {
   self.skipWaiting();
-  // Best-effort precache: one missing file must not abort the whole install.
-  event.waitUntil(
-    caches.open(CACHE).then(cache =>
-      Promise.allSettled(PRECACHE.map(url => cache.add(url)))
-    )
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    await Promise.allSettled(CORE.map(url => cache.add(url)));
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (wins.some(c => isDashboard(c.url))) await precacheShell(false);
+  })());
+});
+
+// A dashboard asks for its shell once the worker is ready (the worker may have been installed
+// from the homepage, which never fetches it).
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'powa-precache') event.waitUntil(precacheShell(true));
 });
 
 self.addEventListener('activate', event => {

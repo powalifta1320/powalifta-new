@@ -1622,7 +1622,12 @@ if ('serviceWorker' in navigator) {
     try { if (window.caches && caches.keys) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => {}); } catch (e) {}
   } else {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW register failed:', err));
+      navigator.serviceWorker.register('/sw.js').then(() => {
+        // A dashboard keeps its own files for offline (sw.js 'powa-precache'); the homepage never asks.
+        if (document.querySelector('.dash-main') || /\/(athlete|coach|admin)\.html$/.test(location.pathname)) {
+          navigator.serviceWorker.ready.then(r => { if (r.active) r.active.postMessage({ type: 'powa-precache' }); }).catch(() => {});
+        }
+      }).catch(err => console.warn('SW register failed:', err));
     });
   }
 }
