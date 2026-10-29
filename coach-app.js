@@ -1446,7 +1446,10 @@
     var counts = caFilterCounts(X.rows, { need: X.need, week: X.week });
     if (!counts[L.filter]) L.filter = 'all';
     var search = X.rows.length > 6 ? '<label class="ca-search ca-rise">' + ic('search') + '<input class="ca-q" type="search" placeholder="Find a lifter" aria-label="Find a lifter" autocomplete="off" spellcheck="false" value="' + esc(L.q) + '"></label>' : '';
-    var chips = '<div class="ca-seg is-hero ca-rise" role="tablist" aria-label="Show">' + FILTERS.map(function (f) {
+    // The chosen filter sits on a thumb that slides to the next one (a segmented control's own motion: where the
+    // choice went, on transform only; it jumps under reduced motion). --k is the chosen one's place.
+    var k = FILTERS.map(function (f) { return f[0]; }).indexOf(L.filter);
+    var chips = '<div class="ca-seg is-hero has-thumb ca-rise" role="tablist" aria-label="Show" style="--k:' + Math.max(0, k) + '"><i class="ca-seg-thumb" aria-hidden="true"></i>' + FILTERS.map(function (f) {
       var on = L.filter === f[0];
       return '<button type="button" class="ca-seg-b' + (on ? ' on' : '') + '" role="tab" aria-selected="' + on + '" data-filter="' + f[0] + '" aria-label="' + esc(f[1] + ', ' + counts[f[0]]) + '"' + (counts[f[0]] || f[0] === 'all' ? '' : ' disabled') + '><b>' + counts[f[0]] + '</b><span>' + esc(f[1]) + '</span></button>';
     }).join('') + '</div>';
@@ -1487,14 +1490,26 @@
         '<span class="ca-row-l' + (sev ? ' sev-' + sev : '') + '">' + (sev ? '<i class="ca-dot" aria-hidden="true"></i>' : '') + '<span>' + keepDots(esc(line)) + '</span></span></span>' +
       (n.tone !== 'none' ? '<span class="ca-row-end t-' + esc(n.tone) + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b><small>' + esc(unit()) + '</small></span>' : '') + '</button>';
   }
+  // A new filter's list settles in from .45 (a short fade, opacity only, WAAPI so the next tap cancels it): the rows
+  // changed under the same place, and the eye is told so. None under reduced motion.
+  function settleRows(wrap) {
+    var host = wrap && wrap.querySelector('.ca-rows-host');
+    if (!host || reducedMotion() || typeof host.animate !== 'function') return;
+    if (host._caFade) { try { host._caFade.cancel(); } catch (e) {} }
+    host._caFade = host.animate([{ opacity: 0.45 }, { opacity: 1 }], { duration: 220, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+  }
   function wireHub(wrap) {
     wrap.addEventListener('click', function (e) {
       var t = e.target, b;
       if ((b = t.closest('[data-filter]'))) {
         e.preventDefault();
+        var was = L.filter;
         L.filter = b.getAttribute('data-filter');
         wrap.querySelectorAll('.ca-seg-b').forEach(function (c) { var on = c === b; c.classList.toggle('on', on); c.setAttribute('aria-selected', String(on)); });
+        var seg = wrap.querySelector('.ca-seg');
+        if (seg) seg.style.setProperty('--k', String(Math.max(0, FILTERS.map(function (f) { return f[0]; }).indexOf(L.filter))));
         paintRows(wrap);
+        if (was !== L.filter) settleRows(wrap);
         return;
       }
       if ((b = t.closest('[data-clear-q]'))) {

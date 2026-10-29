@@ -898,6 +898,7 @@ async function renderJoinRequests(host) {
   let reqs = [];
   try { reqs = await DB.listCoachRequestsForCoach(user.id); } catch (e) { return; }
   if (!reqs.length) return;
+  if (!_desk()) { host.appendChild(_joinRequestsPhone(reqs)); return; }
 
   const card = el('div', { class: 'card', style: 'margin-bottom:16px; border-color:var(--line-red); box-shadow:0 0 0 1px var(--red-glow-2);' });
   const head = el('div', { class: 'roster-sec-head' });
@@ -923,6 +924,35 @@ async function renderJoinRequests(host) {
     card.appendChild(row);
   });
   host.appendChild(card);
+}
+
+// Join requests on the phone (the approved look): a section like every other, one calm row each (face, name, their
+// note in their words), Decline quiet and Accept in graphite. No glow and no red: a request isn't an alarm, and the
+// screen's one red stays the invite. The same accept and decline as the desk's card.
+function _joinRequestsPhone(reqs) {
+  const sec = el('div', { class: 'jr-sec' });
+  const h = el('div', { class: 'ca-h' });
+  h.appendChild(el('h2', {}, 'Join requests'));
+  h.appendChild(el('span', { class: 'ca-h-meta' }, reqs.length + ' waiting'));
+  sec.appendChild(h);
+  const list = el('div', { class: 'ca-list jr-list' });
+  reqs.forEach(req => {
+    const name = req.athleteName || 'A lifter';
+    const row = el('div', { class: 'jr-row' });
+    row.appendChild(el('span', { class: 'ui-av jr-av av-h' + avatarHue(name), 'data-name': name, 'aria-hidden': 'true' }, initials(name)));
+    const tx = el('div', { class: 'jr-tx' });
+    tx.appendChild(el('b', {}, name));
+    tx.appendChild(el('span', {}, req.note ? '\u201c' + String(req.note).trim() + '\u201d' : 'Wants to train with you'));
+    row.appendChild(tx);
+    const decline = el('button', { class: 'jr-no', type: 'button', 'aria-label': 'Decline ' + name }, 'Decline');
+    const accept = el('button', { class: 'ca-pill jr-yes', type: 'button', 'aria-label': 'Accept ' + name }, 'Accept');
+    accept.onclick = () => acceptJoinRequest(req, row, accept, decline);
+    decline.onclick = () => declineJoinRequest(req, row);
+    row.appendChild(el('div', { class: 'jr-acts' }, decline, accept));
+    list.appendChild(row);
+  });
+  sec.appendChild(list);
+  return sec;
 }
 
 async function acceptJoinRequest(req, rowEl, acceptBtn, declineBtn) {
@@ -1439,6 +1469,34 @@ function buildCoachSetup() {
   card.appendChild(list);
   return card;
 }
+// The iPhone app's Lifters tab with nobody on it yet (the approved look): this tab is only about lifters (Home's
+// welcome carries the other first steps). The answer in plain words, the invite as the screen's one red, the client
+// list import as the quiet way, then what a lifter will look like here, drawn with the real rows and marked Sample.
+function _liftersEmptyOwn() { return !_desk() && document.documentElement.classList.contains('native') && !!(window.CoachApp && CoachApp.faceHtml); }
+function buildLiftersEmpty() {
+  const wrap = el('div', { class: 'ca-hub ca-root le-wrap' });
+  const card = el('div', { class: 'le-card ca-rise' });
+  card.appendChild(el('b', { class: 'le-t' }, 'Your lifters land here'));
+  card.appendChild(el('p', { class: 'le-p' }, 'Send a lifter your link. They get the app, sign up and show up on this list with their week.'));
+  const inv = el('button', { class: 'ca-btn is-red le-go', type: 'button', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Invite a lifter</span>' });
+  inv.addEventListener('click', () => openInviteModal());
+  card.appendChild(inv);
+  if (window.SwitchKit && SwitchKit.openIntake) {
+    const imp = el('button', { class: 'le-alt', type: 'button' }, 'Import a client list');
+    imp.addEventListener('click', () => SwitchKit.openIntake({ mode: 'roster' }));
+    card.appendChild(imp);
+  }
+  wrap.appendChild(card);
+  const sec = el('div', { class: 'ca-sec le-sample' });
+  const h = el('div', { class: 'ca-h' });
+  h.appendChild(el('h2', {}, 'How a lifter shows'));
+  h.appendChild(el('span', { class: 'ca-chip-sample' }, 'Sample'));
+  sec.appendChild(h);
+  sec.appendChild(buildRosterSample());
+  sec.appendChild(el('p', { class: 'le-cap' }, 'Worst first. The ring is their week: a mark for each session, lit when they train.'));
+  wrap.appendChild(sec);
+  return wrap;
+}
 // The roster with athletes in it, drawn by the real components from a made-up week. Not tappable.
 function buildRosterSample() {
   // The phone shows what Lifters becomes, drawn with its real rows (coach-app.js, 28 Oct: the face in its week
@@ -1832,7 +1890,8 @@ function renderRoster() {
   // One red per screen: once anyone is on the roster the header's + is a quiet circle like the
   // assistant and the bell beside it (coach-ui.css); with nobody yet it is the screen's red action.
   const inviteBtn = document.getElementById('btn-invite');
-  if (inviteBtn) inviteBtn.classList.toggle('is-quiet', overview.length > 0);
+  // (The phone's empty tab carries the invite as its red in the card, so the + stays quiet there too.)
+  if (inviteBtn) inviteBtn.classList.toggle('is-quiet', overview.length > 0 || _liftersEmptyOwn());
 
   // Join requests (coach discovery) stay pinned at the top, even with no roster.
   const reqHost = el('div', {});
@@ -1844,6 +1903,8 @@ function renderRoster() {
   if (overview.length && _rosterWide()) {
     renderRosterTable(area);
     appendRosterExtras(area);
+  } else if (!overview.length && _liftersEmptyOwn()) {
+    area.appendChild(buildLiftersEmpty());
   } else if (!overview.length) {
     const fr = el('div', { class: 'fr-wrap' });
     fr.appendChild(buildCoachSetup());
@@ -2037,9 +2098,30 @@ function _paintRosterInvites() {
           } }
         ]);
       });
-      return uiRow({ title: i.code, sub: i.email || 'Any lifter · powalifta.com/j/' + i.code, endNode: more });
+      if (_desk()) return uiRow({ title: i.code, sub: i.email || 'Any lifter · powalifta.com/j/' + i.code, endNode: more });
+      // The phone (the approved look): who it's for, the link and when it went, ⋯ for the rest; the whole row is
+      // the menu's target too (the ⋯ stays the control a screen reader meets).
+      const sent = _inviteSent(i.createdAt);
+      const row = uiRow({ lead: el('span', { class: 'ca-tic inv-tic', 'aria-hidden': 'true', html: _invIc() }), title: i.email || 'Any lifter',
+        sub: 'powalifta.com/j/' + i.code + (sent ? ' · ' + sent : ''), endNode: more });
+      row.classList.add('inv-row-p');
+      row.addEventListener('click', (e) => { if (!e.target.closest('button')) more.click(); });
+      return row;
     })));
   }
+}
+// The invite row's glyph (a link) and when it went out, in the coach's words ("sent today", "sent 3 days ago").
+// Functions, not vars: the demo draws the roster while this script is still running.
+function _invIc() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L12 5.6"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4L12 18.4"/></svg>'; }
+function _inviteSent(at) {
+  const t = typeof at === 'number' ? at : Date.parse(at || '');
+  if (!isFinite(t) || !t) return '';
+  const day = isoLocal(new Date(t));   // the coach's own day, like todayISO
+  const d = Math.round((Date.parse(todayISO() + 'T12:00:00') - Date.parse(day + 'T12:00:00')) / 86400000);
+  if (d <= 0) return 'sent today';
+  if (d === 1) return 'sent yesterday';
+  if (d < 14) return 'sent ' + d + ' days ago';
+  return 'sent ' + fmtDateShort(day);
 }
 
 function openAthleteProgram(athleteId) {

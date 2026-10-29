@@ -836,6 +836,81 @@ html:not(.desk) .ca-rows-cap { display: flex; align-items: baseline; justify-con
 /* pending invites (coach.html #invitesWrap) after the hub: a section's gap and the one title size */
 html:not(.desk) body.powa-app section[data-pane="athletes"] #invitesWrap { margin-top: 32px; }
 html:not(.desk) body.powa-app section[data-pane="athletes"] #invitesWrap > .ui-label { margin: 0 4px 12px; padding: 0; font-size: 20px; font-weight: 700; }
+/* the filters' thumb (coach-app.js renderLifters --k): the chosen count sits on it and it slides to the next one,
+   on transform only, the press weight of the spring; under reduced motion it jumps */
+html:not(.desk) .ca-seg.has-thumb { position: relative; }
+html:not(.desk) .ca-seg.has-thumb .ca-seg-b { position: relative; z-index: 1; }
+html:not(.desk) .ca-seg.has-thumb .ca-seg-b.on { background: none; box-shadow: none; }
+html:not(.desk) .ca-seg-thumb {
+  position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 20px) / 4); border-radius: 16px;
+  background: var(--pl-inset-2); transform: translate3d(calc(var(--k, 0) * (100% + 4px)), 0, 0);
+  transition: transform var(--pl-d-press) var(--pl-spring);
+}
+@media (prefers-reduced-motion: reduce) { html:not(.desk) .ca-seg-thumb { transition: none; } }
+
+/* pending invites on the phone (coach.html _paintRosterInvites): the app's rows on the app's surface. A link chip,
+   who it's for, the link and when it went, the ⋯ (a 44 pt target); the row opens the same menu. */
+html:not(.desk) body.powa-app section[data-pane="athletes"] #invitesList .ui-list { overflow: hidden; border-radius: 20px; background: var(--ca-card); border: 1px solid var(--ca-edge); box-shadow: var(--pl-lip); }
+html:not(.desk) body.powa-app #invitesList .inv-row-p { position: relative; gap: 12px; min-height: 68px; padding: 10px 8px 10px 14px; cursor: pointer; transition: background-color 140ms ease-out; }
+html:not(.desk) body.powa-app #invitesList .inv-row-p:active { background: var(--ca-press); }
+html:not(.desk) body.powa-app #invitesList .inv-row-p + .inv-row-p { border-top: 0; }
+html:not(.desk) body.powa-app #invitesList .inv-row-p + .inv-row-p::before { content: ''; position: absolute; top: 0; left: 58px; right: 0; height: 1px; background: var(--ca-hair); }
+html:not(.desk) body.powa-app #invitesList .inv-tic { background: var(--pl-inset-2); color: var(--text-2); }
+html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-row-title { font-family: var(--font-body); font-stretch: 100%; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: normal; overflow-wrap: anywhere; }
+html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-row-sub { font-size: 13px; line-height: 1.35; color: var(--text-3); overflow-wrap: anywhere; }
+html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-icon-btn { position: relative; width: 44px; height: 44px; border-radius: 50%; color: var(--text-2); }
+html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-icon-btn:active { background: var(--pl-inset-2); }
+
+/* join requests on the phone (coach.html _joinRequestsPhone): a section like the rest, a calm row each, Decline quiet
+   and Accept in graphite. No glow, no red. */
+html:not(.desk) .jr-sec { margin: 0 0 24px; }
+html:not(.desk) .jr-list { display: flex; flex-direction: column; }
+html:not(.desk) .jr-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 12px 12px 12px 14px; }
+html:not(.desk) .jr-row + .jr-row::before { content: ''; position: absolute; top: 0; left: 70px; right: 0; height: 1px; background: var(--ca-hair); }
+html:not(.desk) body.powa-app .jr-av { flex: none; width: 44px; height: 44px; font-size: 15px; font-weight: 800; }
+html:not(.desk) .jr-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+html:not(.desk) .jr-tx b { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); overflow-wrap: anywhere; }
+html:not(.desk) .jr-tx span { font-size: 15px; line-height: 1.35; color: var(--text-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
+html:not(.desk) .jr-acts { flex: none; display: flex; align-items: center; gap: 2px; }
+html:not(.desk) body.powa-app .jr-no { position: relative; min-height: 44px; padding: 0 10px; border: 0; background: none; color: var(--text-2) !important; font-family: inherit; font-size: 15px !important; font-weight: 600; cursor: pointer; }
+html:not(.desk) .jr-no:active { opacity: 0.55; }
+html:not(.desk) .jr-yes::after { inset: -4px -4px; }
+
+/* the Lifters tab with nobody yet (coach.html buildLiftersEmpty): the answer in plain words on the app's lit card, the
+   invite as the one red, the import as the quiet way; then what a lifter looks like here (the real rows, Sample) */
+html:not(.desk) .le-wrap { padding-top: 4px; }
+html:not(.desk) .le-card {
+  display: flex; flex-direction: column; padding: 20px 16px 12px; border-radius: 20px;
+  background: radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%), var(--pl-obj);
+  border: 1px solid var(--pl-obj-edge); box-shadow: var(--pl-obj-shade);
+}
+html[data-theme="light"]:not(.desk) .le-card { background: var(--pl-obj); }
+html:not(.desk) .le-t { font-size: 28px; font-weight: 800; letter-spacing: -0.024em; line-height: 1.1; color: var(--text); text-wrap: balance; }
+html:not(.desk) .le-p { margin: 8px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
+html:not(.desk) .le-card .le-go { margin-top: 20px; }
+html:not(.desk) body.powa-app .le-alt {
+  align-self: center; min-height: 44px; margin-top: 4px; padding: 0 16px; border: 0; border-radius: 999px; background: none;
+  color: var(--text) !important; font-family: inherit; font-size: 17px !important; font-weight: 600; letter-spacing: -0.01em; cursor: pointer; transition: opacity 140ms ease-out;
+}
+html:not(.desk) .le-alt:active { opacity: 0.55; }
+html:not(.desk) .le-sample .ca-h { margin-bottom: 4px; }
+html:not(.desk) .le-sample .fr-sample { opacity: 0.86; }
+html:not(.desk) .le-cap { margin: 10px 4px 0; font-size: 13px; line-height: 1.4; color: var(--text-3); text-wrap: pretty; }
+html:not(.desk) body.powa-app section[data-pane="athletes"] .le-wrap ~ #invitesWrap, html:not(.desk) body.powa-app section[data-pane="athletes"] #invitesWrap.after-first-run { margin-top: 32px; }
+
+/* the invite sheet on the phone (coach.html openInviteModal): the share as the one red (the sheet rule above),
+   Copy and the QR in graphite, the email as an inset field like every form here (no outline), Send in graphite */
+html:not(.desk) body.powa-app .invite-sheet .inv-row .btn { min-height: 52px; border-radius: 999px; font-size: 17px; font-weight: 600; }
+html:not(.desk) body.powa-app .invite-sheet .inv-or { margin: 24px 4px 10px; font-size: 13px; font-weight: 600; color: var(--text-3); }
+html:not(.desk) body.powa-app .invite-sheet .inv-or::before, html:not(.desk) body.powa-app .invite-sheet .inv-or::after { background: var(--ca-hair); }
+html:not(.desk) body.powa-app .invite-sheet .inv-mail { height: 52px; padding: 0 14px; border: 1px solid transparent; border-radius: 12px; background: var(--pl-inset-2); font-size: 17px; box-shadow: none; }
+html:not(.desk) body.powa-app .invite-sheet .inv-mail:focus { border-color: color-mix(in srgb, var(--text) 32%, transparent); box-shadow: none; }
+html:not(.desk) body.powa-app .invite-sheet .inv-mail::placeholder { color: var(--text-3); }
+html:not(.desk) body.powa-app .invite-sheet .inv-mail-row .btn { min-height: 52px; border-radius: 999px; font-size: 17px; font-weight: 600; }
+html:not(.desk) body.powa-app .invite-sheet .inv-status { font-size: 13px; color: var(--text-2); }
+html:not(.desk) body.powa-app .invite-sheet .inv-qr-cap { font-size: 13px; color: var(--text-2); }
+html:not(.desk) body.powa-app .invite-sheet .sk-invite-list { margin-top: 24px; }
+
 /* Remove from roster (coach.html openRemoveLifterSheet): who, the same honest words as the laptop's confirm, the one
    red saying what it does, the way out under it in ink */
 html:not(.desk) body.powa-app .rm-sheet .rm-face { flex: none; display: inline-grid; place-items: center; width: 56px; height: 56px; margin: 8px 0 14px; font-size: 20px; font-weight: 800; }
