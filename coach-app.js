@@ -1730,7 +1730,8 @@
     var ciRows = qs.map(function (q) {
       var sm = typeof checkinSummary === 'function' ? checkinSummary(q, s.checkinAnswers, a.id) : null;
       if (!sm || !sm.last) return null;
-      return uiRow({ title: q.prompt, sub: typeof checkinSummaryText === 'function' ? checkinSummaryText(q, sm) : '' });
+      // A low answer wears the triangle (coach.html checkinAnswerLow, the Everything sheet's rule).
+      return uiRow({ title: q.prompt, sub: typeof checkinSummaryText === 'function' ? checkinSummaryText(q, sm) : '', subTone: typeof checkinAnswerLow === 'function' && checkinAnswerLow(q, sm) ? 'alert' : null });
     }).filter(Boolean);
     if (ciRows.length) { any = true; host.appendChild(el('h3', { class: 'ca-h3' }, 'Check-in answers')); host.appendChild(uiList(ciRows)); }
     var weekly = (s.checkins || []).filter(function (c) { return c.athleteId === a.id; }).sort(function (x, y) { return String(y.weekStart).localeCompare(String(x.weekStart)); });

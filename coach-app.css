@@ -1000,6 +1000,8 @@ html:not(.desk) body.powa-app .ca-charts .cl-mplan:not(.is-warn) svg { color: va
 html:not(.desk) body.powa-app .ca-charts .cl-mplan:active { transform: scale(0.95); background: var(--fill-4, rgba(255, 255, 255, 0.14)); transition-duration: 90ms; transition-timing-function: ease-out; }
 html:not(.desk) .ca-charts .cl-warn::before { width: 9px; height: 8px; margin-right: 6px; border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
 html:not(.desk) .ca-charts .cl-tile .cl-tf { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
+/* a lift's top set on the smallest phones: two lines (217.5 × 5 / @7.5) instead of '217.5 × 5 @…' */
+html:not(.desk) .ca-charts .cl-lift .cl-lf { white-space: normal; overflow: visible; text-overflow: clip; }
 
 /* Notes & check-ins: a reply being written is a field and the screen's two kinds of button */
 html:not(.desk) body.powa-app .ca-pg .fb-input { font-size: 17px; line-height: 1.45; border-radius: 14px; }
@@ -1025,10 +1027,12 @@ html:not(.desk) .ca-fcs .ca-fcrow.is-waiting .ca-tic { color: var(--ca-msg); bac
 html:not(.desk) .ca-fcs .ca-fc-go { pointer-events: none; }
 
 /* the sheets a lifter's page opens: the one action is the crimson pill (52 pt, 17) every coach screen uses */
-html:not(.desk) body.powa-app .ui-sheet:is(.wn-sheet:not(.wn-bsheet), .bd-sheet, .athlete-sheet, :has(> textarea.pain-note)) .btn.btn-lg {
+html:not(.desk) body.powa-app .ui-sheet:is(.wn-sheet:not(.wn-bsheet), .bd-sheet, .rb-sheet, .athlete-sheet, :has(> textarea.pain-note)) .btn.btn-lg {
   min-height: 52px; height: auto; padding: 0 20px; border-radius: 999px; font-size: 17px !important; font-weight: 650; letter-spacing: -0.01em;
 }
-html:not(.desk) body.powa-app .ui-sheet:is(.wn-sheet:not(.wn-bsheet), .bd-sheet, .athlete-sheet, :has(> textarea.pain-note)) .btn-primary { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
+html:not(.desk) body.powa-app .ui-sheet:is(.wn-sheet:not(.wn-bsheet), .bd-sheet, .rb-sheet, .athlete-sheet, :has(> textarea.pain-note)) .btn-primary { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
+/* waiting for a choice (Use for another lifter's Pick a lifter) or sending: it looks like it can't be pressed yet */
+html:not(.desk) body.powa-app .ui-sheet:is(.wn-sheet:not(.wn-bsheet), .bd-sheet, .rb-sheet, .athlete-sheet, :has(> textarea.pain-note)) .btn-primary:disabled { opacity: 0.45; box-shadow: none; }
 html:not(.desk) body.powa-app .ui-sheet:has(> textarea.pain-note) textarea.pain-note { font-size: 17px; line-height: 1.45; }
 
 /* The week's note: the draft on the sheet's inset at 17, like every field a coach types into here */
@@ -1050,6 +1054,8 @@ html:not(.desk) .bd-sheet :is(.bd-pfp2, .bd-ptops) { background: var(--pl-inset)
 html:not(.desk) .bd-sheet .bd-ptop { font-size: 17px; }
 html:not(.desk) body.powa-app .bd-sheet .bd-pback { font-size: 17px; }
 html:not(.desk) .bd-sheet .bd-empty b { font-size: 17px; }
+/* Use for another lifter (reuse-block.js), opened from a block's page: the lifters as 17 pt rows */
+html:not(.desk) body.powa-app .rb-sheet .ui-row-title { font-size: 17px; }
 
 /* Career: the total is the sheet's object (the lifter page's e1RM card, lit neutral: no red light on a record),
    the one numeral at 44; the moments and PRs read as rows (17) */
@@ -1115,6 +1121,8 @@ html:not(.desk) body.powa-app .md-root.md-planner .md-odds.is-reach::before { co
 
 /* A form check's review (video-review.js), opened from Form checks or the flag: its title 17, Send the crimson */
 html:not(.desk) body.powa-app .vr .vr-title { font-size: 17px; }
+html:not(.desk) body.powa-app .vr .vr-frame { font-size: 13px; }
+html:not(.desk) body.powa-app .vr :is(.vr-tag, .vr-empty) { font-size: 15px; }
 html:not(.desk) body.powa-app .vr .btn-primary.vr-send { min-height: 44px; background: var(--pl-red); color: var(--pl-red-ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
 
 /* sheets: find anything, check-ins */
