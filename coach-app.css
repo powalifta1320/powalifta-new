@@ -836,6 +836,14 @@ html:not(.desk) .ca-rows-cap { display: flex; align-items: baseline; justify-con
 /* pending invites (coach.html #invitesWrap) after the hub: a section's gap and the one title size */
 html:not(.desk) body.powa-app section[data-pane="athletes"] #invitesWrap { margin-top: 32px; }
 html:not(.desk) body.powa-app section[data-pane="athletes"] #invitesWrap > .ui-label { margin: 0 4px 12px; padding: 0; font-size: 20px; font-weight: 700; }
+/* Remove from roster (coach.html openRemoveLifterSheet): who, the same honest words as the laptop's confirm, the one
+   red saying what it does, the way out under it in ink */
+html:not(.desk) body.powa-app .rm-sheet .rm-face { flex: none; display: inline-grid; place-items: center; width: 56px; height: 56px; margin: 8px 0 14px; font-size: 20px; font-weight: 800; }
+html:not(.desk) body.powa-app .rm-sheet .ui-sheet-h { margin: 0 0 8px; text-wrap: balance; }
+html:not(.desk) body.powa-app .rm-sheet .rm-words { margin: 0 0 24px; font-size: 17px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
+html:not(.desk) .rm-acts { display: flex; flex-direction: column; gap: 4px; }
+html:not(.desk) body.powa-app .rm-sheet .rm-keep { background: none; color: var(--text) !important; box-shadow: none; }
+html:not(.desk) body.powa-app .rm-sheet .rm-keep:active { background: var(--pl-inset-2); }
 
 /* =================================================================== A LIFTER (the card) */
 html:not(.desk) #lifterPage { padding-bottom: 24px; }

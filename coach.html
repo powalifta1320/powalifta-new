@@ -2113,15 +2113,20 @@ async function notifyAthleteAssigned(aidArg) {
 }
 window.notifyAthleteAssigned = notifyAthleteAssigned;
 
-async function removeAthleteFromRoster(athleteId, athleteName) {
-  if (!athleteId) return;
-  if (window._demoMode) { toast('Preview only in demo mode'); return; }
+// What removing a lifter does, in the words both asks use (the browser's confirm on the laptop, the sheet on the phone).
+// A function, not a const: hoisted, so no first-render path can meet it in the TDZ.
+function _removeLifterWords() {
+  return 'They keep their training, including the program you wrote for them, and you stop seeing it. ' +
+         'They\'ll need a new invite to rejoin.';
+}
+// opts.confirmed: the phone's sheet (openRemoveLifterSheet) has already asked. → true once they're off the roster.
+async function removeAthleteFromRoster(athleteId, athleteName, opts) {
+  if (!athleteId) return false;
+  if (window._demoMode) { toast('Preview only in demo mode'); return false; }
   // What the server does (coach_release_lifter, then trg_programs_release_on_coach_change): the program
   // you wrote becomes the lifter's own copy, and you stop seeing their training.
-  const msg = 'Remove ' + athleteName + ' from your roster?\n\n' +
-              'They keep their training, including the program you wrote for them, and you stop seeing it. ' +
-              'They\'ll need a new invite to rejoin.';
-  if (!confirm(msg)) return;
+  const msg = 'Remove ' + athleteName + ' from your roster?\n\n' + _removeLifterWords();
+  if (!(opts && opts.confirmed) && !confirm(msg)) return false;
   try {
     // Through the server (DB.releaseLifter → coach_release_lifter): the coach's own update of the
     // lifter's profile is refused live (42501).
@@ -2132,11 +2137,49 @@ async function removeAthleteFromRoster(athleteId, athleteName) {
     });
     toast(athleteName + ' removed from roster');
     if (typeof renderRoster === 'function') renderRoster();
+    return true;
   } catch (e) {
     console.error('removeAthleteFromRoster failed', e);
     toast(e && e.notReady ? e.message : 'Could not remove ' + athleteName + '. Try again');
+    return false;
   }
 }
+// The phone asks in the app's own sheet (the laptop's menu keeps the confirm above): who, what happens in the
+// same honest words, one red that says what it does, and the way out. From the demo nothing is sent (the red
+// says so in a toast, like everywhere else in the demo). opts.onDone(): after they're off the roster, so the
+// sheet it was opened from can close with it.
+function openRemoveLifterSheet(athleteId, athleteName, opts) {
+  if (!athleteId) return;
+  if (_desk() || typeof uiSheet !== 'function') { removeAthleteFromRoster(athleteId, athleteName); return; }
+  const a = (Store.get().athletes || []).find(x => x.id === athleteId) || { name: athleteName };
+  const name = String(athleteName || a.name || '').trim() || 'this lifter';
+  const first = name.split(/\s+/)[0];
+  uiSheet('Remove ' + name + ' from your roster?', (sheet, close) => {
+    const h = sheet.querySelector('.ui-sheet-h');
+    const face = el('span', { class: 'ui-av rm-face av-h' + avatarHue(name), 'data-name': name, 'aria-hidden': 'true' }, initials(name));
+    if (a.avatarUrl) face.innerHTML = '<img src="' + escHtml(a.avatarUrl) + '" alt="">';
+    if (h) sheet.insertBefore(face, h); else sheet.appendChild(face);
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub rm-words' }, _removeLifterWords()));
+    const go = el('button', { class: 'ca-btn is-red rm-go', type: 'button' }, 'Remove ' + first);
+    const keep = el('button', { class: 'ca-btn rm-keep', type: 'button' }, 'Keep ' + first);
+    go.addEventListener('click', async () => {
+      if (go.getAttribute('aria-busy') === 'true') return;
+      go.setAttribute('aria-busy', 'true');
+      const ok = await removeAthleteFromRoster(athleteId, name, { confirmed: true });
+      go.removeAttribute('aria-busy');
+      close();
+      if (!ok) return;
+      try { if (window.ClientsUI && ClientsUI.refresh) ClientsUI.refresh(); } catch (e) {}
+      // Their page can't stay open once they're gone: back to Lifters.
+      const lp = document.querySelector('section[data-pane="lifter"]');
+      if (lp && !lp.classList.contains('hidden')) { const t = document.getElementById('tab-athletes'); if (t) t.click(); }
+      if (opts && opts.onDone) { try { opts.onDone(); } catch (e) {} }
+    });
+    keep.addEventListener('click', close);
+    sheet.appendChild(el('div', { class: 'rm-acts' }, go, keep));
+  }, { cls: 'rm-sheet' });
+}
+window.openRemoveLifterSheet = openRemoveLifterSheet;
 window.removeAthleteFromRoster = removeAthleteFromRoster;
 
 // Jump from the notes inbox to that athlete's progress view (where notes + replies live)
