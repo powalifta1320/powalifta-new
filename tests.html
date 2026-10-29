@@ -8192,6 +8192,13 @@ test('the exercise ⋯: blocks written one way offer the other, blocks written b
   eq(C([], true), '', 'nothing left to do: none');
   eq(C([{ pct: '' }, { pct: 70 }], true), 'pct+ pct- rir+', 'an empty % is not a %');
 });
+test('Build from a goal: the total gain counts only lifts with a target', () => {
+  eq(goalTotalGain({ squat: 226.5, bench: 150, deadlift: 277.5 }, { squat: 240 }), 13.5, 'one target: its gain, not +-414');
+  eq(goalTotalGain({ squat: 200, bench: 150, deadlift: 250 }, { squat: 210, bench: 155, deadlift: 260 }), 25, 'all three');
+  eq(goalTotalGain({ squat: 200 }, { squat: 190 }), -10, 'a lower target is a drop');
+  eq(goalTotalGain({ bench: 0 }, { bench: 100 }), 0, 'no current number: nothing to count from');
+  eq(goalTotalGain({}, {}), 0);
+});
 test('Templates: a template’s line, and who Apply names', () => {
   const t = { payload: { weeks: [{ days: [{ exercises: [{ sets: [{}] }] }, { exercises: [] }, { exercises: [{ sets: [] }] }] }, { days: [] }, { days: [] }] } };
   eq(CPg.cpTplLine(t, 'Oct 29'), '3 weeks · 2 days a week · saved Oct 29', 'week 1’s training days; a rest day is not one');
