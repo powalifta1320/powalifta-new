@@ -64,6 +64,13 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
   if (theme === 'dark') screens.push({ name: 'sh-busy-solo', page: SO, eval: 'BusyWeekUI.open()' }, { name: 'c-lifter-busy', page: C, eval: "CoachLifters.open('demo-a4')" });
   screens.push(
     { name: 'sh-invite' + suf, page: C, theme, eval: 'openInviteModal()' },
+    // Clients on the phone (You › Clients) and its sheets, a brand-new coach's, and Remove from roster's own ask.
+    { name: 'c-clients' + suf, page: C, theme, eval: tab('clients') },
+    { name: 'f-clients' + suf, page: F, theme, eval: tab('clients') },
+    { name: 'sh-client' + suf, page: C, theme, eval: tab('clients') + ";ClientsUI.openClient('demo-a3')" },
+    { name: 'sh-client-paid' + suf, page: C, theme, eval: "ClientsUI.markPaid('demo-a3')" },
+    { name: 'sh-client-package' + suf, page: C, theme, eval: "ClientsUI.editPackage('demo-a2')" },
+    { name: 'sh-remove' + suf, page: C, theme, eval: "openRemoveLifterSheet('demo-a2', 'Sarah Kim')" },
     { name: 'sh-athlete' + suf, page: C, theme, eval: "openAthleteSheet('demo-a1')" },
     { name: 'sh-security' + suf, page: C, theme, eval: 'openSecuritySheet()' },
     { name: 'sh-profile' + suf, page: A, theme, eval: 'openProfileSheet()' },
