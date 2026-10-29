@@ -6,9 +6,9 @@
 <!-- iPhone app: tag the document as native before first paint (same snippet as athlete.html). -->
 <script>(function(){try{var C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform()){document.documentElement.classList.add('native');if(!localStorage.getItem('powa-theme'))document.documentElement.setAttribute('data-theme','dark');var vp=document.querySelector('meta[name="viewport"]');if(vp&&!/viewport-fit/.test(vp.getAttribute('content')||'')){vp.setAttribute('content',(vp.getAttribute('content')||'')+', viewport-fit=cover');}}}catch(e){}})();</script>
 <title>Coach | POWALIFTA</title>
-<meta name="description" content="Powerlifting coach profile on POWALIFTA. See their programs, training philosophy, and athlete results.">
+<meta name="description" content="Powerlifting coach profile on POWALIFTA: who they are, their programs and how to train with them.">
 <meta property="og:title" content="Coach on POWALIFTA">
-<meta property="og:description" content="Powerlifting coach profile: programs, philosophy, athlete results.">
+<meta property="og:description" content="Powerlifting coach profile: who they are, their programs and how to train with them.">
 <meta property="og:type" content="profile">
 <link rel="canonical" href="https://www.powalifta.com/coach-profile.html">
 <meta property="og:url" content="https://www.powalifta.com/coach-profile.html">
@@ -53,7 +53,7 @@
 </header>
 
 <main id="cpRoot">
-  <div class="cp-loading">Loading coach…</div>
+  <div class="cp-loading s-wrap">Loading coach…</div>
 </main>
 
 <footer class="foot">
@@ -80,13 +80,21 @@ function getCoachIdFromUrl() {
   return params.get('id') || params.get('coach') || '';
 }
 
+// The homepage's quiet link with its arrow (back: the arrow points the other way).
+const CP_ARR = '<svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg>';
+function cpQuiet(href, label, back, cls) {
+  const a = el('a', { href, class: 'quiet' + (back ? ' quiet-back' : '') + (cls ? ' ' + cls : '') });
+  a.innerHTML = back ? CP_ARR + escHtml(label) : escHtml(label) + CP_ARR;
+  return a;
+}
+
 function renderError(title, message) {
   const root = document.getElementById('cpRoot');
   root.innerHTML = '';
-  const wrap = el('div', { class: 'cp-error container' });
-  wrap.appendChild(el('h2', {}, title));
+  const wrap = el('div', { class: 'cp-error s-wrap' });
+  wrap.appendChild(el('h1', {}, title));
   wrap.appendChild(el('p', {}, message));
-  wrap.appendChild(el('p', { style: 'margin-top:18px' }, el('a', { href: 'index.html', class: 'btn btn-ghost' }, '← Back to home')));
+  wrap.appendChild(cpQuiet('index.html', 'Back to POWALIFTA', true));
   root.appendChild(wrap);
 }
 
@@ -106,7 +114,7 @@ async function renderCoachProfile() {
     return;
   }
 
-  // Athlete count is read from the public profiles list (listCoaches already returns it as athleteCount if mapped, otherwise we count via the coach.athleteCount field that mapDbProfileToCoach sets — fall back to 0).
+  // Lifter count is read from the public profiles list (listCoaches already returns it as athleteCount if mapped, otherwise we count via the coach.athleteCount field that mapDbProfileToCoach sets — fall back to 0).
   const athleteCount = (typeof coach.athleteCount === 'number') ? coach.athleteCount : 0;
 
   // Aggregate marketplace rating across this coach's catalog — social proof.
@@ -119,10 +127,10 @@ async function renderCoachProfile() {
   const root = document.getElementById('cpRoot');
   root.innerHTML = '';
 
-  // Hero
-  const hero = el('section', { class: 'cp-hero' });
-  const heroIn = el('div', { class: 'container' });
-  heroIn.appendChild(el('a', { href: 'index.html', class: 'cp-back' }, '← Back to POWALIFTA'));
+  // The coach: their face, name (the page's one headline), words and numbers
+  const hero = el('div', { class: 'cp-hero' });
+  const heroIn = el('div', { class: 's-wrap' });
+  heroIn.appendChild(cpQuiet('index.html', 'POWALIFTA', true, 'cp-back'));
   const card = el('div', { class: 'cp-card' });
   const av = el('div', { class: 'cp-av' });
   if (coach.avatarUrl) {
@@ -132,7 +140,7 @@ async function renderCoachProfile() {
   }
   card.appendChild(av);
   const meta = el('div', { class: 'cp-meta' });
-  const nameEl = el('div', { class: 'cp-name' });
+  const nameEl = el('h1', { class: 'cp-name' });
   nameEl.textContent = coach.name;
   if (coach.countryCode) {
     const flag = document.createElement('span');
@@ -147,7 +155,7 @@ async function renderCoachProfile() {
   stats.appendChild(el('div', { class: 'cp-stat' }, 'Coach on POWALIFTA'));
   if (athleteCount > 0) {
     const a = el('div', { class: 'cp-stat' });
-    a.innerHTML = '<strong>' + athleteCount + '</strong> athlete' + (athleteCount === 1 ? '' : 's');
+    a.innerHTML = '<strong>' + athleteCount + '</strong> lifter' + (athleteCount === 1 ? '' : 's');
     stats.appendChild(a);
   }
   if (coachReviewStats.count > 0) {
@@ -168,25 +176,20 @@ async function renderCoachProfile() {
   hero.appendChild(heroIn);
   root.appendChild(hero);
 
-  // How to join
-  const how = el('section', { class: 'cp-section' });
-  const howIn = el('div', { class: 'container' });
-  howIn.appendChild(el('div', { class: 'section-title' },
-    el('div', { class: 'section-tag' }, 'How to join'),
+  // How to join: a real sequence, so the homepage's numbered steps
+  const how = el('div', { class: 'cp-section' });
+  const howIn = el('div', { class: 's-wrap' });
+  howIn.appendChild(el('div', { class: 'cp-section-head' },
     el('h2', {}, 'Train with ' + coach.name.split(' ')[0]),
-    el('p', { class: 'dim' }, 'Three steps to start training under a real coach.')
+    el('p', {}, 'Three steps to start training under a real coach.')
   ));
-  const grid = el('div', { class: 'cp-step-grid' });
+  const grid = el('ol', { class: 's-steps cp-steps' });
   [
-    { n: '01', h: 'Reach out', p: 'Contact ' + coach.name.split(' ')[0] + ' to discuss your goals, training history, and meet timeline.' },
-    { n: '02', h: 'Get your invite code', p: 'They\'ll generate a unique 6-character code from their POWALIFTA dashboard and send it to you.' },
-    { n: '03', h: 'Sign up & start training', p: 'Use the code to sign up here. Your program will appear in your athlete dashboard.' }
+    { h: 'Reach out.', p: 'Contact ' + coach.name.split(' ')[0] + ' to discuss your goals, training history and meet timeline.' },
+    { h: 'Get your invite link.', p: 'They send it from POWALIFTA, or its 6-character code.' },
+    { h: 'Sign up and start training.', p: 'Open the link, or sign up with the code, and your program appears in your app.' }
   ].forEach(s => {
-    const c = el('div', { class: 'cp-step-card' });
-    c.appendChild(el('div', { class: 'cp-step-num' }, s.n));
-    c.appendChild(el('h4', {}, s.h));
-    c.appendChild(el('p', {}, s.p));
-    grid.appendChild(c);
+    grid.appendChild(el('li', {}, el('b', {}, s.h), el('span', {}, s.p)));
   });
   howIn.appendChild(grid);
   how.appendChild(howIn);
@@ -199,12 +202,11 @@ async function renderCoachProfile() {
     .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
     .slice(0, 6);
   if (written.length) {
-    const tSec = el('section', { class: 'cp-section', style: 'padding-top:0' });
-    const tIn = el('div', { class: 'container' });
-    tIn.appendChild(el('div', { class: 'section-title' },
-      el('div', { class: 'section-tag' }, 'What lifters say'),
-      el('h2', {}, 'Reviews from athletes who ran the programs'),
-      el('p', { class: 'dim web-only' }, 'Verified buyers on the POWALIFTA marketplace.')
+    const tSec = el('div', { class: 'cp-section' });
+    const tIn = el('div', { class: 's-wrap' });
+    tIn.appendChild(el('div', { class: 'cp-section-head' },
+      el('h2', {}, 'Reviews from lifters who ran the programs'),
+      el('p', { class: 'web-only' }, 'Verified buyers on the POWALIFTA marketplace.')
     ));
     const tGrid = el('div', { class: 'cp-review-grid' });
     written.forEach(r => {
@@ -222,15 +224,14 @@ async function renderCoachProfile() {
   }
 
   // CTA
-  const ctaSec = el('section', { class: 'cp-section', style: 'padding-top:0' });
-  const ctaIn = el('div', { class: 'container' });
+  const ctaSec = el('div', { class: 'cp-section' });
+  const ctaIn = el('div', { class: 's-wrap' });
   const cta = el('div', { class: 'cp-cta' });
-  cta.appendChild(el('h3', {}, 'Already have your invite code?'));
+  cta.appendChild(el('h2', {}, 'Already have your invite code?'));
   cta.appendChild(el('p', {}, 'Plug it in and you\'re training under ' + coach.name + ' in 30 seconds.'));
   const ctaRow = el('div', { class: 'cp-cta-row' });
-  const signupBtn = el('a', { class: 'btn btn-primary btn-lg', href: 'index.html#signup-athlete' }, 'Sign up as Athlete');
-  const learnBtn = el('a', { class: 'btn btn-lg btn-ghost', href: 'about.html' }, 'Learn about POWALIFTA');
-  ctaRow.appendChild(signupBtn); ctaRow.appendChild(learnBtn);
+  const signupBtn = el('a', { class: 'btn btn-primary btn-lg', href: 'index.html#signup-athlete' }, 'Sign up as a lifter');
+  ctaRow.appendChild(signupBtn); ctaRow.appendChild(cpQuiet('about.html', 'Learn about POWALIFTA'));
   cta.appendChild(ctaRow);
   ctaIn.appendChild(cta);
   ctaSec.appendChild(ctaIn);
@@ -242,7 +243,7 @@ async function renderCoachProfile() {
   const canonUrl = 'https://www.powalifta.com/coach-profile.html?id=' + encodeURIComponent(id);
   const ogTitle = coach.name + ' | Powerlifting coach on POWALIFTA';
   const ogDesc = (coach.bio && coach.bio.trim()) ? coach.bio.trim().slice(0, 155)
-    : ('Train with ' + coach.name + ' on POWALIFTA. See their programs, philosophy, and athlete results.');
+    : ('Train with ' + coach.name + ' on POWALIFTA: who they are, their programs and how to join.');
   const setMeta = (sel, attr, val) => { const m = document.querySelector(sel); if (m) m.setAttribute(attr, val); };
   setMeta('link[rel="canonical"]', 'href', canonUrl);
   setMeta('meta[property="og:url"]', 'content', canonUrl);
