@@ -768,6 +768,10 @@
     if (!short) html += duoHtml(X, S);
     html += needsHtml(X);
     if (short) html += duoHtml(X, S);
+    // ALLOW NOTIFICATIONS (notify.js): the calm ask for alerts goes after who needs you (the one red stays on top)
+    // and after the team's summary on every phone (on a short one the two trends come after the job), never above
+    // either. PowaNotify.placeCoach fills the spot or takes it away; its Turn on is graphite, never a second red.
+    html += '<div class="pn-host" hidden></div>';
     html += meetsHtml(X, S);
     html += prsHtml(X, S);
     html += facesHtml(X);
@@ -775,6 +779,9 @@
     html += reportRowHtml(0);
     html += '</div>';
     area.innerHTML = html;
+    try { if (window.PowaNotify && PowaNotify.placeCoach) PowaNotify.placeCoach(area, roster.length); } catch (e) {}
+    var pnSpot = area.querySelector('.pn-host');   // notify.js not loaded: the spot goes, nothing is left hidden in Home
+    if (pnSpot && pnSpot.parentNode) pnSpot.parentNode.removeChild(pnSpot);
     area._X = X;
     wireHome(area);
     var i = 0;

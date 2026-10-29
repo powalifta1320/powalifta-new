@@ -687,6 +687,17 @@ html:not(.desk) .ca-pr-body { display: flex; align-items: center; gap: 12px; mar
 html:not(.desk) .ca-pr.is-none { padding: 14px; }
 html:not(.desk) .ca-pr.is-none .ca-stats.is-pr { margin-top: 0; }
 
+/* ALLOW NOTIFICATIONS on Home (notify.js PowaNotify.placeCoach, coach-app.js renderHome): after who needs you and the
+   team's summary, a section's gap above it like every block here. Quiet: the tiles' own surface (no light, no lip in
+   a hue), its words on the coach scale (17 for the line, 13 under it, 15 for the two answers), Turn on in graphite
+   (never a second red), Not now as plain text. Its entrance and its exit stay notify.css's (and its reduced motion). */
+html:not(.desk) .ca-home > .pn-slot { margin-top: 32px; }
+html:not(.desk) .ca-home .pn-card { background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip); }
+html:not(.desk) .ca-home .pn-line { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; }
+html:not(.desk) .ca-home .pn-sub { font-size: 13px; }
+html:not(.desk) body.powa-app .ca-home .pn-acts .pn-on { font-size: 15px; font-weight: 600; background: var(--pl-inset-2); color: var(--text); box-shadow: none; }
+html:not(.desk) body.powa-app .ca-home .pn-acts .pn-later { font-size: 15px; font-weight: 600; color: var(--text-2); }
+
 /* the bell's dot: news, not an alarm (red is the logo and the one action) */
 html:not(.desk) body.powa-app .sig-badge { background: var(--text); box-shadow: 0 0 0 2px var(--bg); }
 
