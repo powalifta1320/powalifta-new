@@ -1983,6 +1983,9 @@ tbody tr:hover td { background: var(--hover-tint); }
 }
 .modal-backdrop.open { display: flex; opacity: 1; animation: fadeIn 0.2s; }
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+/* The two-factor code prompt is the app's top layer, above Lift mode, meet day, sheets and the command bar: an open
+   dashboard can ask for the code mid-session (app.js _mfaStepUpInPlace), and it must never open unseen. */
+#mfaChallengeModal { z-index: 10000; }
 .modal {
   background: var(--bg-1);
   border: 1px solid var(--line-2);

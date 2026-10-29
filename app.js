@@ -4768,16 +4768,25 @@ async function _mfaStepUp(opts) {
 // A write refused mid-session: is the code owed? Two-factor turned on for this account after this session was
 // stored (from another device, say) makes row 60 refuse it, and the stored session can't tell (its copy of the
 // user predates the factor), so this asks Auth (GET /user) while the token is aal1. Yes while a prompt is open.
+// A burst of refusals (an import logs hundreds of sets at once) shares one question, and a no stands for 10 s.
+let _codeOwedAsk = null, _codeOwedNoUntil = 0;
 async function _codeOwedPerAuth() {
   if (window._mfaStepUpPending) return true;
   if (window._demoMode || !window.DB || typeof DB.mfaAssurance !== 'function' || typeof DB.authUser !== 'function') return false;
-  let aal = null;
-  try { aal = await DB.mfaAssurance(); } catch (e) { aal = null; }
-  if (!aal || !aal.ok || aal.currentLevel !== 'aal1') return false;
-  if (aal.nextLevel === 'aal2') return true;   // the stored session knows already
-  let r = null;
-  try { r = await DB.authUser(); } catch (e) { r = null; }
-  return !!(r && !r.error && mfaCodeOwed(r.user, aal.currentLevel));
+  if (Date.now() < _codeOwedNoUntil) return false;
+  if (!_codeOwedAsk) {
+    _codeOwedAsk = (async () => {
+      let aal = null;
+      try { aal = await DB.mfaAssurance(); } catch (e) { aal = null; }
+      if (!aal || !aal.ok || aal.currentLevel !== 'aal1') return false;
+      if (aal.nextLevel === 'aal2') return true;   // the stored session knows already
+      let r = null;
+      try { r = await DB.authUser(); } catch (e) { r = null; }
+      return !!(r && !r.error && mfaCodeOwed(r.user, aal.currentLevel));
+    })().then((owed) => { _codeOwedAsk = null; if (!owed) _codeOwedNoUntil = Date.now() + 10000; return owed; },
+               () => { _codeOwedAsk = null; return false; });
+  }
+  return _codeOwedAsk;
 }
 // The code, asked for in place on an open dashboard whose writes are refused at aal1 (the account turned two-factor
 // on elsewhere). One prompt however many writes were refused; meanwhile nothing replays (_mfaStepUpPending), so no
