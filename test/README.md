@@ -82,3 +82,15 @@ python3 -m http.server 4191 --bind 127.0.0.1     # from the repo root, in anothe
 node test/uiscan.mjs /tmp/powa-uiscan             # screenshots + issues.json for anything found
 UISCAN_ONLY='^w-index' node test/uiscan.mjs       # only the screens whose name matches
 ```
+
+## The homepage's pictures (needs playwright-core and Pillow)
+
+The homepage shows the app's own screens: re-take them from this repo's demos whenever those screens change (desk:
+Sam's Lifters and Arjun's page; phone: Arjun's Train; thread, brand, week, clients, import), then cut them into
+`site-img/home/` and follow what `mkimg.py` prints (after a desk re-take: where index.html's live numbers, rings and
+pins go).
+
+```bash
+python3 -m http.server 4191 --bind 127.0.0.1     # from the repo root, in another tab
+for s in desk phone thread brand week clients import; do node test/site-capture/cap-$s.mjs; done; python3 test/site-capture/mkimg.py
+```
