@@ -1345,6 +1345,8 @@ html:not(.desk) body.powa-app #messagesArea .msg-inbox-row.is-unread .msg-inbox-
 html:not(.desk) body.powa-app #messagesArea .msg-inbox-preview { margin: 0; font-size: 15px; line-height: 1.35; color: var(--text-2); }
 html:not(.desk) body.powa-app #messagesArea .msg-inbox-row.is-unread .msg-inbox-preview { color: var(--text); }
 html:not(.desk) body.powa-app #messagesArea .msg-inbox-preview.faint { font-style: normal; color: var(--text-3); }
+/* the lifters with no thread yet, last, under one caption (their rows say what they're doing) */
+html:not(.desk) body.powa-app #messagesArea .msg-inbox-cap { padding: 14px 16px 2px; border-top: 1px solid var(--ca-hair); font-size: 13px; font-weight: 600; color: var(--text-3); }
 html:not(.desk) body.powa-app #messagesArea .msg-inbox-row-bot { align-items: flex-start; gap: 12px; }
 html:not(.desk) body.powa-app #messagesArea .msg-inbox-badge {
   flex: none; align-self: center; min-width: 22px; height: 22px; margin-top: 0; padding: 0 7px; border-radius: 11px; box-sizing: border-box;

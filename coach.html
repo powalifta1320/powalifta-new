@@ -2479,8 +2479,14 @@ async function renderMessages(opts) {
   const ovById = {}, attById = {};
   getRosterOverview(user.id).forEach(o => { ovById[o.athlete.id] = o; });
   getRosterAttention(user.id).forEach(i => { attById[i.athlete.id] = i; });
+  // Everyone with no thread yet comes last under one caption, each with what they're doing (not "No messages
+  // yet" said on every row); with no thread at all, the answer above already says so.
+  const anyThread = sorted.some(a => digestByAthlete[a.id] && digestByAthlete[a.id].lastAt);
+  let capDone = false;
   sorted.forEach(athlete => {
-    const d = digestByAthlete[athlete.id];
+    const d0 = digestByAthlete[athlete.id];
+    const d = d0 && d0.lastAt ? d0 : null;
+    if (!d && anyThread && !capDone) { capDone = true; listCol.appendChild(el('div', { class: 'msg-inbox-cap' }, 'No messages yet')); }
     const unread = d ? d.unread : 0;
     // A row is a button: face, name, their last words, when (and how many unread).
     const row = el('div', { class: 'msg-inbox-row' + (waitingIds[athlete.id] ? ' is-waiting' : '') + (unread > 0 ? ' is-unread' : ''),
@@ -2504,7 +2510,7 @@ async function renderMessages(opts) {
       if (d.lastSenderId === user.id) prev.appendChild(document.createTextNode('You: '));
       if (/^Voice note · \d/.test(String(d.lastBody || ''))) prev.appendChild(el('span', { class: 'msg-vplay', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>' }));
       prev.appendChild(document.createTextNode(String(d.lastBody || '')));
-    } else prev.textContent = 'No messages yet';
+    } else prev.textContent = _msgLifterLine(athlete.id) || 'No messages yet';
     bot.appendChild(prev);
     if (unread > 0) bot.appendChild(el('span', { class: 'msg-badge msg-inbox-badge', 'aria-label': unread + ' unread' }, String(unread)));
     mid.appendChild(bot);
