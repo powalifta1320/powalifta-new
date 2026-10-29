@@ -9822,7 +9822,7 @@ html.native body.powa-app .bottom-tabs {
   backdrop-filter: blur(28px) saturate(180%); -webkit-backdrop-filter: blur(28px) saturate(180%);
   box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.9), 0 2px 8px rgba(0, 0, 0, 0.35);
 }
-html.native body.powa-app .bottom-tab { min-height: 52px; padding: 6px 2px 5px; color: rgba(235, 235, 245, 0.5); }
+html.native body.powa-app .bottom-tab { min-height: 52px; padding: 6px 2px 5px; color: rgba(235, 235, 245, 0.64); }   /* 4.5:1 on the glass (iOS's 50% measured 4.48; the coach app's value) */
 html.native body.powa-app .bottom-tab.active, html.native body.powa-app .bottom-tab.active svg, html.native body.powa-app .bottom-tab.active .bt-label { color: #fff; }
 html.native body.powa-app .bt-pill {
   top: 6px; height: 52px; border-radius: 26px;
@@ -11361,7 +11361,7 @@ html.native[data-theme="light"] body.powa-app .bottom-tabs {
   border-color: rgba(15, 15, 25, 0.08); border-top-color: rgba(15, 15, 25, 0.08);
   box-shadow: 0 18px 40px -18px rgba(15, 15, 25, 0.3), 0 2px 8px rgba(15, 15, 25, 0.06);
 }
-html.native[data-theme="light"] body.powa-app .bottom-tab { color: rgba(60, 60, 67, 0.62); }
+html.native[data-theme="light"] body.powa-app .bottom-tab { color: rgba(60, 60, 67, 0.82); }   /* iOS's 62% measured 3.55:1 */
 html.native[data-theme="light"] body.powa-app .bottom-tab.active,
 html.native[data-theme="light"] body.powa-app .bottom-tab.active svg,
 html.native[data-theme="light"] body.powa-app .bottom-tab.active .bt-label { color: #16161a; }
@@ -12485,7 +12485,7 @@ body.powa-app .dash-main .pg-grid tr.pg-day th { color: var(--text-3); }
 html body.powa-app.is-branded { --fire: linear-gradient(135deg, var(--brand) 0%, var(--brand-2, var(--brand)) 100%); }
 html body.powa-app.is-branded[data-accent="fire"] { --acc: var(--brand); --acc-2: var(--brand-2, var(--brand)); }
 .brand-mark { flex: none; width: 22px; height: 22px; border-radius: 7px; object-fit: contain; background: var(--bg-2, rgba(255, 255, 255, 0.06)); }
-.brand-mono { display: inline-grid; place-items: center; background: var(--brand-c, var(--brand, #ff3b4a)); color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0; }
+.brand-mono { display: inline-grid; place-items: center; background: var(--brand-c, var(--brand, var(--crimson-1, #dc2637))); color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0; }
 .th-brand { display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0 0 8px; font-size: 13.5px; font-weight: 650; color: var(--text-2); }
 .th-brand[hidden] { display: none; }
 .th-brand .brand-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
