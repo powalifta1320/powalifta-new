@@ -70,12 +70,15 @@ blocks a machine that doesn't have a browser installed.
 
 ## Small-stuff scanner (needs playwright-core)
 
-Opens 100 screens (the four demos in the iPhone layout, their sheets, the onboarding, every
+Opens 175 screens (the four demos in the iPhone layout, their sheets, the onboarding, every
 public page at desktop and phone width, dark and light) and reports overlapping text or buttons,
 text cut off by its box, sideways scroll, controls outside their card, side-by-side buttons that
-don't match, tiny tap targets and unreadable text. Run it before every App Store build.
+don't match, tiny tap targets and unreadable text. A screen that fails to load counts as a finding.
+It never reaches the live services: Supabase and Plausible are refused on this machine, and the
+public pages show their offline states. Run it before every App Store build.
 
 ```bash
 python3 -m http.server 4191 --bind 127.0.0.1     # from the repo root, in another tab
 node test/uiscan.mjs /tmp/powa-uiscan             # screenshots + issues.json for anything found
+UISCAN_ONLY='^w-index' node test/uiscan.mjs       # only the screens whose name matches
 ```
