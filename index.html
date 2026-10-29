@@ -171,6 +171,9 @@
 <script defer src="/cookie-consent.js"></script>
 </head>
 <body class="home">
+<!-- The first link on the page (before the app's welcome, whose links come next in the HTML): site.css draws it on the
+     website, styles.css inside the app, where #main is never there. -->
+<a class="skip-link bar-skip" href="#main">Skip to the page</a>
 
 <!-- NATIVE APP WELCOME — the app's real first screen (logged out), inside the Capacitor
      shell only (html.native:not(.has-session)). Static markup so it paints on the first
@@ -249,7 +252,6 @@
      (the closing tag after it ends that template; on the website it is a stray end tag the parser ignores). -->
 <script>if (document.documentElement.classList.contains('native')) document.write('<template id="siteInert">');</script>
 <div class="s-home">
-<a class="bar-skip" href="#main">Skip to the page</a>
 
 <header class="bar" id="nav">
   <a class="bar-brand" href="#top" aria-label="POWALIFTA home">
