@@ -267,11 +267,34 @@
       var d = S.days[dayKey(aid, curWeek())] || 0;
       var day = wk.days[d];
       if (!day) return;
-      if (typeof openAddExercise === 'function') openAddExercise(curWeek(), d);
+      if (typeof openAddExercise === 'function') { openAddExercise(curWeek(), d); dressAdd(aid, curWeek(), d); }
     });
     root.appendChild(fab);
+    // An exercise just added (Add exercise's Add to day) rises into its place on the day, so the coach sees
+    // where it went; then it is an ordinary row.
+    var added = S.added;
+    S.added = null;
+    if (added && added.aid === aid && added.wi === wi) {
+      var aday = (wk.days || [])[added.di];
+      if (aday && (aday.exercises || []).length === added.n + 1) {
+        di = added.di; S.days[dayKey(aid, wi)] = di;
+        var rows = pager.children[di] ? pager.children[di].querySelectorAll('.cp-exrow') : [];
+        var row = rows[rows.length - 1];
+        if (row) row.classList.add('is-new');
+      }
+    }
     // Land on the remembered day without an animation, then follow the swipe.
-    requestAnimationFrame(function () { scrollToDay(pager, di, false); syncDay(root, pager, aid, wk, true); });
+    requestAnimationFrame(function () {
+      scrollToDay(pager, di, false); syncDay(root, pager, aid, wk, true);
+      // The new row in view above Add exercise and the tab bar (they float over the page's foot).
+      var nw = root.querySelector('.cp-exrow.is-new');
+      if (nw) {
+        var r = nw.getBoundingClientRect(), f = root.querySelector('.cp-fab'), bar = document.querySelector('.bottom-tabs');
+        var floor = f && !f.classList.contains('is-hidden') ? f.getBoundingClientRect().top - 12 : bar ? bar.getBoundingClientRect().top - 12 : innerHeight;
+        var by = r.bottom - floor;
+        if (by > 0) { try { window.scrollBy({ top: by, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); } catch (e) { window.scrollBy(0, by); } }
+      }
+    });
     wirePager(root, pager, aid, wk);
     return true;
   }
@@ -414,8 +437,8 @@
     var tell = [take(/^Notify/, { icon: ic('msg') })];
     var next = [take(/^Start the next block/, { icon: ic('steps') }), take(/^Rebuild from goal/, { icon: ic('trend') }), take(/imported program/, { icon: ic('clip') })];
     var how = [take(/^Maxes for %/, { icon: ic('gauge') }), take(/^Update % loads/, { icon: ic('chart') }), take(/^Set fields/, { icon: ic('list') })];
-    var keep = [take(/^Save as template/, { icon: ic('copy') }),
-      { label: 'Your templates', icon: ic('note'), onClick: function () { var t = document.getElementById('tab-templates'); if (t) t.click(); } },
+    var keep = [take(/^Save as template/, { icon: ic('copy'), onClick: function () { openSaveSheet(prog); } }),
+      { label: 'Your templates', icon: ic('note'), onClick: toTemplates },
       take(/^Export/, { label: 'Export as a file', icon: ic('down') })];
     take(/^Add week/);
     var del = take(/^Delete program/);
@@ -575,6 +598,91 @@
     b.innerHTML = html;
     b.addEventListener('click', function () { openEditor(aid, wi, di, ei); });
     return b;
+  }
+
+  /* ---------------------------------------------------------------- Add exercise (coach.html's form, dressed) */
+  // The form stays coach.html's own (openAddExercise, onLiftChange, confirmAddExercise and its ids, which the
+  // laptop shares); on the phone it says which day it adds to, picks the lift and its variant with chips like
+  // the days above it (a select per choice was a web form), names the note for the lifter, and its one red
+  // says where the exercise goes ("Add to Deadlift Day").
+  function nameOf(aid) { return ((Store.get().athletes || []).find(function (a) { return a.id === aid; }) || {}).name || ''; }
+  function chip(label, on, cls, onPick, dot) {
+    var b = el('button', { type: 'button', class: 'cp-chip' + (on ? ' on' : '') + (cls ? ' ' + cls : ''), role: 'radio', 'aria-checked': on ? 'true' : 'false' });
+    b.innerHTML = (dot ? '<i class="lift-' + dot + '" aria-hidden="true"></i>' : '') + '<span>' + esc(label) + '</span>';
+    b.addEventListener('click', onPick);
+    return b;
+  }
+  function dressAdd(aid, wi, di) {
+    var m = document.getElementById('addExerciseModal'), box = m && m.querySelector('.modal');
+    var liftSel = document.getElementById('exLift'), varSel = document.getElementById('exVariant');
+    var prog = progOf(aid), wk = prog && prog.weeks[wi], day = wk && wk.days[di];
+    if (!box || !liftSel || !varSel || !day) return;
+    box.classList.add('cp-addx');
+    var h = box.querySelector('h3'), sub = box.querySelector('.cp-addx-sub');
+    if (!sub && h) { sub = el('p', { class: 'cp-addx-sub' }); h.insertAdjacentElement('afterend', sub); }
+    var dayName = String(day.name || 'Day ' + (di + 1));
+    if (sub) sub.textContent = dayName + ' \u00b7 Week ' + (Number(wk.number) || wi + 1);
+    var row = liftSel.closest('.form-row');
+    var lifts = box.querySelector('.cp-addx-lifts');
+    if (!lifts && row) { lifts = el('div', { class: 'cp-chips cp-addx-lifts', role: 'radiogroup', 'aria-label': 'Exercise' }); row.insertAdjacentElement('beforebegin', lifts); }
+    var vg = document.getElementById('variantGroup'), vars = box.querySelector('.cp-addx-vars');
+    if (!vars && vg) { vars = el('div', { class: 'cp-chips cp-addx-vars', role: 'radiogroup', 'aria-label': 'Variant' }); vg.appendChild(vars); }
+    var paintVars = function () {
+      if (!vars) return;
+      vars.innerHTML = '';
+      Array.prototype.forEach.call(varSel.options, function (o) {
+        vars.appendChild(chip(o.textContent, o.value === varSel.value, '', function () { varSel.value = o.value; paintVars(); }));
+      });
+    };
+    // An accessory picked after a main lift: loads still at the main lift's suggestion (177.5 for a squat) become
+    // this exercise's own (their last set of it, or blank), as a main lift's do (coach.html onLiftChange);
+    // loads the coach typed stay.
+    var exSel = document.getElementById('exName');
+    var reloadOwn = function () {
+      var lift = liftSel.value;
+      if (MAIN.indexOf(lift) >= 0 || lift === 'cardio') return;
+      try {
+        if (!Array.isArray(buildingSets) || !buildingSets.length || !buildingSets.every(function (b) { return Number(b.weight) === Number(_autoLoad); })) return;
+        var w = typeof suggestNewLoad === 'function' ? suggestNewLoad(aid, lift, '', exSel && exSel.value || '', 5, 7) : 0;
+        buildingSets.forEach(function (b) { b.weight = w; });
+        _autoLoad = w;
+        if (typeof renderSetsBuilder === 'function') renderSetsBuilder();
+      } catch (e) {}
+    };
+    if (exSel && !exSel._cpWired) { exSel._cpWired = true; exSel.addEventListener('change', reloadOwn); }
+    var paintLifts = function () {
+      if (!lifts) return;
+      lifts.innerHTML = '';
+      Array.prototype.forEach.call(liftSel.options, function (o, k) {
+        var main = MAIN.indexOf(o.value) >= 0;
+        // the main lifts on their own line, the rest under them
+        if (k && !main && MAIN.indexOf(liftSel.options[k - 1].value) >= 0) lifts.appendChild(el('span', { class: 'cp-chips-br', 'aria-hidden': 'true' }));
+        lifts.appendChild(chip(String(o.textContent).replace(/\s*\(accessory\)\s*$/i, ''), o.value === liftSel.value, main ? 'is-main' : '', function () {
+          if (liftSel.value === o.value) return;
+          liftSel.value = o.value;
+          if (typeof onLiftChange === 'function') onLiftChange();
+          reloadOwn();
+          paintLifts(); paintVars();
+        }, main ? o.value : ''));
+      });
+    };
+    paintLifts(); paintVars();
+    var note = document.getElementById('exNote'), nl = note && note.closest('.form-group') && note.closest('.form-group').querySelector('label');
+    if (nl) nl.textContent = 'Note for ' + (first(nameOf(aid)) || 'them');
+    if (note) note.placeholder = 'Slow down, pause at the bottom, belt on...';
+    var go = box.querySelector('[onclick^="confirmAddExercise"]');
+    if (go) {
+      go.textContent = 'Add to ' + dayName;
+      if (!go._cpWired) {
+        go._cpWired = true;
+        // Before coach.html adds it: remember the day and its count, so the new row can rise into place.
+        go.addEventListener('click', function () {
+          var t = typeof addExerciseTarget === 'object' && addExerciseTarget ? addExerciseTarget : { wi: wi, di: di };
+          var p2 = progOf(S.aid), d2 = p2 && p2.weeks[t.wi] && p2.weeks[t.wi].days[t.di];
+          S.added = d2 ? { aid: S.aid, wi: t.wi, di: t.di, n: (d2.exercises || []).length } : null;
+        }, true);
+      }
+    }
   }
 
   /* ---------------------------------------------------------------- the ⋯ menus */
@@ -981,6 +1089,184 @@
     try { node._tick = node.animate(frames, { duration: ms, easing: ease }); } catch (e) { try { node._tick = node.animate(frames, { duration: 200, easing: 'ease-out' }); } catch (e2) {} }
   }
 
+  /* ====================================================================================================
+     TEMPLATES (the phone's Templates: one grouped list; a template opens its sheet; Apply asks who gets it)
+     ==================================================================================================== */
+  function tplWeeks(t) { return (t && t.payload && Array.isArray(t.payload.weeks)) ? t.payload.weeks : []; }
+  // A template's line: "3 weeks · 4 days a week · saved 29 Oct" (days: week 1's training days). saved: its date,
+  // already written for the screen. Numbers only from its own arrays.
+  function cpTplLine(t, saved) {
+    var weeks = tplWeeks(t), w1 = weeks[0], days = w1 ? (w1.days || []).filter(function (d) { return (d.exercises || []).length; }).length : 0;
+    return [plural(weeks.length, 'week'), days ? (days === 1 ? '1 day a week' : days + ' days a week') : null, saved ? 'saved ' + saved : null].filter(Boolean).join(' · ');
+  }
+  function tplSaved(t) {
+    if (!t || !t.createdAt) return '';
+    try { var iso = typeof isoLocal === 'function' ? isoLocal(new Date(t.createdAt)) : new Date(t.createdAt).toISOString().slice(0, 10); return typeof fmtDateShort === 'function' ? fmtDateShort(iso) : iso; } catch (e) { return ''; }
+  }
+  function myTemplates() {
+    var u = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+    return (Store.get().programTemplates || []).filter(function (t) { return u && t.coachId === u.id; })
+      .slice().sort(function (a, b) { return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0); });
+  }
+  function toTemplates() { var t = document.getElementById('tab-templates'); if (t) t.click(); }
+  function renderTemplates(area) {
+    if (!area || !hasDom) return false;
+    var h = document.querySelector('section[data-pane="templates"] > .dash-header h2');
+    if (h) h.textContent = 'Templates';
+    area.innerHTML = '';
+    var root = el('div', { class: 'cp cp-tpls ca-root' });
+    area.appendChild(root);
+    var tpls = myTemplates();
+    if (!tpls.length) {
+      root.appendChild(uiEmpty({
+        icon: ICONS.copy, title: 'No templates yet',
+        text: 'Bring a program in from a photo or a file, or save a lifter’s block from its ⋯ in Programs. Then give it to anyone in one tap.',
+        primary: { label: 'Bring a program in', onClick: function () { openSheetImport(null); } }
+      }));
+      return true;
+    }
+    var list = el('div', { class: 'ca-list cp-tpl-list ca-rise' });
+    tpls.forEach(function (t) { list.appendChild(tplRow(t)); });
+    root.appendChild(list);
+    var more = el('div', { class: 'cp-tpl-foot' });
+    var imp = el('button', { type: 'button', class: 'ca-link cp-tpl-imp' }, 'Bring a program in');
+    imp.addEventListener('click', function () { openSheetImport(null); });
+    more.appendChild(imp);
+    more.appendChild(el('p', { class: 'cp-tpl-hint' }, 'Or save a lifter’s block from its ⋯ in Programs.'));
+    root.appendChild(more);
+    return true;
+  }
+  // A row: its name, its size, and Apply (who gets it). The rest of the row opens it (with when it was saved).
+  function tplRow(t) {
+    var line = cpTplLine(t, '');
+    var row = el('div', { class: 'cp-tpl' });
+    var open = el('button', { type: 'button', class: 'cp-tpl-main', 'aria-label': (t.name || 'Template') + '. ' + line });
+    open.innerHTML = '<span class="cp-tpl-tx"><span class="cp-tpl-t">' + esc(t.name || 'Template') + '</span><span class="cp-tpl-s">' + esc(line) + '</span></span>';
+    open.addEventListener('click', function () { openTemplateSheet(t); });
+    var apply = el('button', { type: 'button', class: 'ca-pill cp-tpl-apply', 'aria-label': 'Apply ' + (t.name || 'this template') }, 'Apply');
+    apply.addEventListener('click', function () { openApplySheet(t); });
+    row.appendChild(open);
+    row.appendChild(apply);
+    return row;
+  }
+  // A template, opened: its line, week 1 day by day (what a lifter gets first), Apply as the one red, Delete apart.
+  function openTemplateSheet(t) {
+    if (typeof uiSheet !== 'function') return;
+    uiSheet(t.name || 'Template', function (sheet, close) {
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, cpTplLine(t, tplSaved(t))));
+      var w1 = tplWeeks(t)[0];
+      if (w1 && (w1.days || []).length) {
+        sheet.appendChild(el('h4', { class: 'cp-sheet-h' }, 'Week 1'));
+        sheet.appendChild(uiList((w1.days || []).slice(0, 7).map(function (d, i) {
+          var exs = d.exercises || [], lifts = MAIN.filter(function (L) { return exs.some(function (e) { return e.lift === L; }); });
+          var lead = el('span', { class: 'cp-dots cp-tpl-dots', 'aria-hidden': 'true', html: lifts.map(function (L) { return '<i class="lift-' + L + '"></i>'; }).join('') });
+          return uiRow({ lead: lead, title: String(d.name || 'Day ' + (i + 1)), sub: exs.length ? exs.map(exTitle).join(' · ') : cpDayMeta(d) });
+        })));
+      }
+      var go = el('button', { type: 'button', class: 'ca-btn is-red cp-sheet-go' }, 'Apply to lifters');
+      go.addEventListener('click', function () { close(); setTimeout(function () { openApplySheet(t); }, 230); });
+      sheet.appendChild(go);
+      if (!document.documentElement.classList.contains('native') && typeof openPublishModal === 'function') {
+        var pub = el('button', { type: 'button', class: 'cp-sheet-quiet' }, 'Sell it on the marketplace');
+        pub.addEventListener('click', function () { close(); setTimeout(function () { openPublishModal(t); }, 230); });
+        sheet.appendChild(pub);
+      }
+      var del = el('button', { type: 'button', class: 'cp-sheet-quiet cp-sheet-del' });
+      del.innerHTML = ICONS.trash + '<span>Delete template</span>';
+      del.addEventListener('click', function () {
+        if (!confirm('Delete “' + (t.name || 'this template') + '”? Lifters who have it keep their block.')) return;
+        Store.update(function (s) { s.programTemplates = (s.programTemplates || []).filter(function (x) { return x.id !== t.id; }); });
+        if (typeof persistDeleteTemplate === 'function') persistDeleteTemplate(t.id);
+        close();
+        renderTemplates(document.getElementById('templatesArea'));
+      });
+      sheet.appendChild(del);
+    }, { cls: 'cp-tpl-sheet' });
+  }
+  // Who gets it: every lifter, those with a block say whose block it replaces; one red names who it goes to.
+  // ids → coach.html applyTemplateToLifters (the same path as the laptop's): what they logged stays a past block.
+  function cpApplyLabel(names) {
+    names = names || [];
+    if (!names.length) return 'Pick who gets it';
+    return names.length === 1 ? 'Apply to ' + first(names[0]) : 'Apply to ' + names.length + ' lifters';
+  }
+  function openApplySheet(t) {
+    if (typeof uiSheet !== 'function') return;
+    var list = roster().slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    uiSheet('Who gets it?', function (sheet, close) {
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, '“' + (t.name || 'This template') + '” replaces the block they have now. What they logged stays as a past block.'));
+      if (!list.length) {
+        sheet.appendChild(el('p', { class: 'cp-sheet-none' }, 'No lifters yet. Invite one, then give them this in one tap.'));
+        var inv = el('button', { type: 'button', class: 'ca-btn is-red cp-sheet-go' }, 'Invite a lifter');
+        inv.addEventListener('click', function () { close(); setTimeout(function () { if (typeof openInviteModal === 'function') openInviteModal(); }, 230); });
+        sheet.appendChild(inv);
+        return;
+      }
+      var picked = [];
+      var go = el('button', { type: 'button', class: 'ca-btn is-red cp-sheet-go' });
+      var all = el('button', { type: 'button', class: 'ca-link cp-apply-all' });
+      var rows = [];
+      var paint = function () {
+        var names = list.filter(function (a) { return picked.indexOf(a.id) >= 0; }).map(function (a) { return a.name; });
+        go.textContent = cpApplyLabel(names);
+        go.disabled = !names.length;
+        all.textContent = picked.length === list.length ? 'Clear' : 'Select all';
+        rows.forEach(function (r) { var on = picked.indexOf(r.aid) >= 0; r.node.classList.toggle('is-on', on); r.node.setAttribute('aria-checked', on ? 'true' : 'false'); });
+      };
+      if (list.length > 1) {
+        all.addEventListener('click', function () { picked = picked.length === list.length ? [] : list.map(function (a) { return a.id; }); paint(); });
+        sheet.appendChild(el('div', { class: 'cp-apply-top' }, all));
+      }
+      sheet.appendChild(uiList(list.map(function (a) {
+        var p = progOf(a.id);
+        var node = uiRow({ av: a.name, avUrl: a.avatarUrl, title: a.name, sub: p ? 'Replaces ' + (p.name || 'their block') : 'No block yet',
+          endHtml: '<span class="cp-check" aria-hidden="true">' + ic('check', 2.8) + '</span>',
+          onClick: function () { var k = picked.indexOf(a.id); if (k >= 0) picked.splice(k, 1); else picked.push(a.id); paint(); } });
+        node.setAttribute('role', 'checkbox');
+        node.classList.add('cp-pickrow');
+        if (p) { var sub = node.querySelector('.ui-row-sub'); if (sub) sub.classList.add('cp-replaces'); }
+        rows.push({ aid: a.id, node: node });
+        return node;
+      })));
+      go.addEventListener('click', function () {
+        if (!picked.length || typeof applyTemplateToLifters !== 'function') return;
+        var ids = list.filter(function (a) { return picked.indexOf(a.id) >= 0; }).map(function (a) { return a.id; });
+        close();
+        S.aid = null;   // Programs lands on the first of them, on their week
+        applyTemplateToLifters(t, ids, { noun: 'lifters' });
+      });
+      sheet.appendChild(go);
+      paint();
+    }, { cls: 'cp-apply-sheet' });
+  }
+  // Save as a template (the block's ⋯): its name, then the one red. coach.html saveProgramAsTemplate saves it
+  // as the laptop's does; Templates is one tap from the note that says so.
+  function openSaveSheet(prog) {
+    if (typeof uiSheet !== 'function' || typeof saveProgramAsTemplate !== 'function') { if (typeof openSaveTemplate === 'function') openSaveTemplate(prog); return; }
+    uiSheet('Save as a template', function (sheet, close) {
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Its weeks, days, sets and notes, ready to give anyone. What they logged stays theirs.'));
+      var lab = el('label', { class: 'cp-field' });
+      lab.appendChild(el('span', { class: 'cp-field-l' }, 'Name'));
+      var inp = el('input', { type: 'text', class: 'cp-field-in', maxlength: '80', autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Template name' });
+      inp.value = String(prog.name || 'Program');
+      lab.appendChild(inp);
+      sheet.appendChild(lab);
+      var go = el('button', { type: 'button', class: 'ca-btn is-red cp-sheet-go' }, 'Save template');
+      var save = function () {
+        var name = inp.value.trim();
+        if (!name) { inp.focus(); return; }
+        go.setAttribute('aria-busy', 'true');
+        Promise.resolve(saveProgramAsTemplate(prog, name)).then(function () {
+          close();
+          if (typeof toastAction === 'function') toastAction('Saved as a template', 'See it', toTemplates); else if (typeof toast === 'function') toast('Template saved');
+        }, function () { go.removeAttribute('aria-busy'); if (typeof toast === 'function') toast('That didn’t save. Try again'); });
+      };
+      go.addEventListener('click', save);
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+      sheet.appendChild(go);
+    }, { cls: 'cp-save-sheet' });
+  }
+
   /* ---------------------------------------------------------------- empty states */
   function emptyNoLifters() {
     var tplN = (Store.get().programTemplates || []).filter(function (t) { var u = getCurrentUser(); return u && t.coachId === u.id; }).length;
@@ -1028,9 +1314,10 @@
 
   window.CoachProgram = {
     render: render, openEditor: openEditor, openPicker: openPicker, reset: reset,
+    renderTemplates: renderTemplates, openTemplateSheet: openTemplateSheet, openApplySheet: openApplySheet, openSaveSheet: openSaveSheet,
     day: function () { return S.aid ? S.days[dayKey(S.aid, curWeek())] || 0 : 0; },
     // pure, for tests
     cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep, cpExpectedLoad: cpExpectedLoad,
-    cpWantsHint: cpWantsHint, cpFitClass: cpFitClass, cpEveryChoices: cpEveryChoices, cpModePatch: cpModePatch, cpModePatches: cpModePatches, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm, cpSaveLine: cpSaveLine
+    cpWantsHint: cpWantsHint, cpFitClass: cpFitClass, cpEveryChoices: cpEveryChoices, cpTplLine: cpTplLine, cpApplyLabel: cpApplyLabel, cpModePatch: cpModePatch, cpModePatches: cpModePatches, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm, cpSaveLine: cpSaveLine
   };
 })();

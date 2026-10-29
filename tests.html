@@ -8192,6 +8192,17 @@ test('the exercise ⋯: blocks written one way offer the other, blocks written b
   eq(C([], true), '', 'nothing left to do: none');
   eq(C([{ pct: '' }, { pct: 70 }], true), 'pct+ pct- rir+', 'an empty % is not a %');
 });
+test('Templates: a template’s line, and who Apply names', () => {
+  const t = { payload: { weeks: [{ days: [{ exercises: [{ sets: [{}] }] }, { exercises: [] }, { exercises: [{ sets: [] }] }] }, { days: [] }, { days: [] }] } };
+  eq(CPg.cpTplLine(t, 'Oct 29'), '3 weeks · 2 days a week · saved Oct 29', 'week 1’s training days; a rest day is not one');
+  eq(CPg.cpTplLine(t, ''), '3 weeks · 2 days a week', 'the row leaves the date to its sheet');
+  eq(CPg.cpTplLine({ payload: { weeks: [{ days: [{ exercises: [{}] }] }] } }, ''), '1 week · 1 day a week');
+  eq(CPg.cpTplLine({ payload: {} }, ''), '0 weeks', 'no weeks: says so');
+  eq(CPg.cpTplLine({ payload: { weeks: '<b>x</b>' } }, ''), '0 weeks', 'weeks are read as a list, never as markup');
+  eq(CPg.cpApplyLabel([]), 'Pick who gets it', 'nobody picked: the button says what it waits for');
+  eq(CPg.cpApplyLabel(['Arjun Mehta']), 'Apply to Arjun');
+  eq(CPg.cpApplyLabel(['Arjun Mehta', 'Tom Boyle', 'Nina Petrova']), 'Apply to 3 lifters');
+});
 test('the load hint: the top set, or a block with no load yet; never a later block with a load', () => {
   eq(CPg.cpWantsHint(0, { weight: 160 }), true, 'the first block, loaded: the top set');
   eq(CPg.cpWantsHint(0, { weight: 0 }), true, 'the first block by feel');
