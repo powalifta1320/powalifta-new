@@ -913,6 +913,9 @@ html:not(.desk) body.powa-app section[data-pane="athletes"] .le-wrap ~ #invitesW
 /* the invite sheet on the phone (coach.html openInviteModal): the share as the one red (the sheet rule above),
    Copy and the QR in graphite, the email as an inset field like every form here (no outline), Send in graphite */
 html:not(.desk) body.powa-app .invite-sheet .inv-row .btn { min-height: 52px; border-radius: 999px; font-size: 17px; font-weight: 600; }
+/* the share (the sheet's red) and the import row on the scale too: 17, like the buttons and rows beside them (16 off it) */
+html:not(.desk) body.powa-app .invite-sheet .inv-share { font-size: 17px; }
+html:not(.desk) body.powa-app .invite-sheet .sk-invite-list .ui-row-title { font-size: 17px; }
 html:not(.desk) body.powa-app .invite-sheet .inv-or { margin: 24px 4px 10px; font-size: 13px; font-weight: 600; color: var(--text-3); }
 html:not(.desk) body.powa-app .invite-sheet .inv-or::before, html:not(.desk) body.powa-app .invite-sheet .inv-or::after { background: var(--ca-hair); }
 html:not(.desk) body.powa-app .invite-sheet .inv-mail { height: 52px; padding: 0 14px; border: 1px solid transparent; border-radius: 12px; background: var(--pl-inset-2); font-size: 17px; box-shadow: none; }
