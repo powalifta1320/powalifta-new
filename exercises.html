@@ -105,13 +105,15 @@ function multBadge(e) {
   return '<span class="exlib-mult">' + m + '× carryover</span>';
 }
 
+// Headings in order on this page: the library (h1), each lift (h2), its Set up / Execution / faults (h3; app.js draws
+// them as h4 for the app's sheets).
 function exCardHtml(e) {
   return '<article class="exlib-card">' +
     '<div class="exlib-card-head">' +
-      '<span class="exlib-name">' + e.name + '</span>' + multBadge(e) +
+      '<h2 class="exlib-name">' + e.name + '</h2>' + multBadge(e) +
     '</div>' +
     '<span class="exlib-pattern">' + e.pattern + '</span>' +
-    exerciseCueBodyHtml(e) +
+    exerciseCueBodyHtml(e).replace(/<(\/?)h4\b/g, '<$1h3') +
   '</article>';
 }
 
