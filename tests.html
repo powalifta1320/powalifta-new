@@ -8082,6 +8082,26 @@ test('check-ins: who answered this week, anything flagged first', () => {
   eq(list.map(x => x.id).join(','), 'a,b,c', 'the flagged one first, nobody who never answered');
   eq(list[0].alerts.length, 1); eq(list[1].answered, true); eq(list[2].answered, false, 'last answered weeks ago');
 });
+test("a lifter's page: a line cut short ends on a word", () => {
+  eq(CA.caClipWords('Top set moved like an opener. Want to try 175 next week?', 34), 'Top set moved like an opener\u2026', 'never mid-word ("Wan\u2026")');
+  eq(CA.caClipWords('Short note', 34), 'Short note', 'short enough: as written');
+  eq(CA.caClipWords('  Felt   heavy  ', 34), 'Felt heavy', 'spaces folded');
+  eq(CA.caClipWords('Supercalifragilisticexpialidocious', 12), 'Supercalifr\u2026', 'one long word: cut at the length');
+  eq(CA.caClipWords('Bench was fine, squat felt heavy today', 20), 'Bench was fine\u2026', 'no comma left before the ellipsis');
+});
+test("a lifter's page: Form checks, waiting ones first, the row says how many wait", () => {
+  const list = CA.caFcOrder([
+    { id: 'old', lift: 'squat', createdAt: '2026-09-16T18:00:00Z', coachReply: 'Brace first' },
+    { id: 'new', lift: 'squat', createdAt: '2026-10-29T09:00:00Z', coachReply: null },
+    { id: 'mid', lift: 'bench', createdAt: '2026-10-20T09:00:00Z', coachReply: null }
+  ]);
+  eq(list.map(f => f.id).join(','), 'new,mid,old', 'waiting first, newest first, then the answered');
+  const when = (d) => d === '2026-10-29' ? 'today' : d;
+  eq(CA.caFcLine(list, when), '2 videos waiting \u00b7 squat, today');
+  eq(CA.caFcLine(list.slice(2), when), '1 video \u00b7 all answered');
+  eq(CA.caFcLine([{ id: 'x', lift: 'other', createdAt: '2026-10-29T09:00:00Z' }], when), '1 video waiting \u00b7 a video, today', 'a lift it does not name');
+  eq(CA.caFcOrder(null).length, 0);
+});
 
 /* ===========================================================
    The iPhone app's Programs (coach-program.js)
