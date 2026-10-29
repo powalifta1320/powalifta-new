@@ -110,7 +110,7 @@ window.POWA_SUPPORT_KB = [
    "invite athlete",
    "send invite code"
   ],
-  "a": "Open Lifters and tap + (\"Invite a lifter\"; also under You → Coaching; on a laptop, Lifters → Invite). Enter their email and tap Generate code: a 6-character code appears with Copy code, and we email it to them too (tap Resend email if it didn't arrive). They type it under their \"Find a coach\" tab → \"Have an invite code?\" and tap Join, and they appear on your roster; codes still waiting sit under Pending invites on Lifters. If your plan's athlete limit is full, you'll be asked to upgrade your plan instead."
+  "a": "Open Lifters and tap + (\"Invite a lifter\"; also under You → Coaching; on a laptop, Lifters → Invite). Tap Share an invite link to send it in any app, or Copy link, or Show QR code for someone next to you; each link works for one lifter. Or type their email and tap Send. They open the link, get the app, sign up and appear on your roster (a lifter can also type the 6-character code under Find a coach → \"Have an invite code?\"). Links still waiting sit under Pending invites on Lifters: tap one to share it again, copy it or revoke it. If your plan's athlete limit is full, you'll be asked to upgrade your plan instead."
  },
  {
   "id": "coach-remove-athlete",
@@ -122,7 +122,7 @@ window.POWA_SUPPORT_KB = [
    "remove athlete",
    "remove from roster"
   ],
-  "a": "Open Roster, tap ⋯ on the athlete's row and choose \"Remove from roster\", then confirm. They keep their logs, bodyweight, goals and the program you wrote for them (you stop seeing them), and need a new invite code to rejoin."
+  "a": "On the iPhone: open the lifter, tap Client, then Remove from roster at the bottom (or Clients, tap them, Remove from roster), and confirm in the sheet. On the laptop: open the lifter, More, Remove from roster. They keep their logs, bodyweight, goals and the program you wrote for them (you stop seeing them), and need a new invite code to rejoin."
  },
  {
   "id": "mobile-app",

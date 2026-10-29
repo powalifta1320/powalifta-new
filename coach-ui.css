@@ -904,6 +904,216 @@ html.desk body.powa-app .cs-sacts .btn { flex: none; margin: 0; }
 html.desk body.powa-app .ui-sheet.cs-client { width: min(560px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; }
 @media (prefers-reduced-motion: reduce) { .cs-meter i, .cs-filters button, .cs-chips button { transition: none; } }
 
+/* ---------- Clients on the phone: the approved look (rollout, 29 Oct) ----------
+   clients-ui.js renderPhone / paintClientPhone, sectionHtml({ phone }). One answer (this month's money, its meter,
+   lit by the green of money in), the one job (the payment most overdue: the screen's crimson, Remind as the quiet
+   way out), everyone as calm rows: face, name, one line in the coach's words, the next payment's date. Late is the
+   orange triangle beside ink words (red is the logo and the one action). Type 13 · 15 · 17 · 20 · 28 · 32 · 44; the
+   app's surfaces and lights (coach-app.css --ca-* / --pl-*). Never the desk: every rule is under html:not(.desk). */
+html:not(.desk) body.powa-app .cs-page.is-phone { display: flex; flex-direction: column; gap: 0; padding: 0 0 32px; }
+html:not(.desk) body.powa-app .cs-page.is-phone button { font-family: inherit; -webkit-tap-highlight-color: transparent; }
+html:not(.desk) body.powa-app .cs-page.is-phone :focus-visible { outline: 2px solid color-mix(in srgb, var(--acc) 70%, #fff); outline-offset: 2px; }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-ph { padding: 4px 4px 0; margin: 0 0 16px; }
+/* the answer: this month */
+html:not(.desk) .cs-page.is-phone .cs-hero {
+  position: relative; display: flex; flex-direction: column; min-width: 0; padding: 16px 16px 18px; border-radius: 20px;
+  background: radial-gradient(120% 95% at 0% 0%, color-mix(in srgb, var(--pl-viz-done) 9%, transparent) 0%, transparent 62%), var(--ca-card);
+  border: 1px solid color-mix(in srgb, var(--pl-viz-done) 16%, var(--ca-edge)); box-shadow: var(--pl-lip);
+}
+html[data-theme="light"]:not(.desk) .cs-page.is-phone .cs-hero { background: radial-gradient(120% 95% at 0% 0%, color-mix(in srgb, var(--pl-viz-done) 6%, transparent) 0%, transparent 62%), var(--ca-card); }
+html:not(.desk) .cs-page.is-phone .cs-hero.is-empty { background: var(--ca-card); border-color: var(--ca-edge); }
+html:not(.desk) .cs-hh { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+html:not(.desk) .cs-hl { font-size: 15px; font-weight: 650; letter-spacing: -0.005em; color: var(--text); }
+html:not(.desk) .cs-hm { font-size: 13px; font-weight: 600; color: var(--text-3); }
+html:not(.desk) .cs-hn { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 8px; margin-top: 10px; min-width: 0; }
+html:not(.desk) .cs-hn b { font-family: var(--font-num); font-stretch: 112%; font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; color: var(--text); font-variant-numeric: tabular-nums; }
+html:not(.desk) .cs-hn span { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; color: var(--text-2); font-variant-numeric: tabular-nums; }
+html:not(.desk) .cs-hnone { display: block; margin-top: 8px; font-size: 22px; font-weight: 700; letter-spacing: -0.016em; line-height: 1.2; color: var(--text); }
+html:not(.desk) .cs-hero.is-empty .cs-hnone:first-child { margin-top: 0; }
+html:not(.desk) .cs-meter.is-hero { position: relative; display: block; height: 10px; margin-top: 16px; border-radius: 999px; background: var(--pl-viz-track); overflow: hidden; }
+html:not(.desk) .cs-meter.is-hero i { position: absolute; inset: 0; display: block; width: auto; border-radius: inherit; background: var(--pl-viz-done); transform-origin: 0 50%; transform: scaleX(var(--p, 0)); transition: transform var(--pl-d-state) var(--pl-spring); }
+html:not(.desk) .cs-hs { margin: 10px 0 0; font-size: 15px; line-height: 1.35; color: var(--text-2); font-variant-numeric: tabular-nums; text-wrap: pretty; }
+html:not(.desk) .cs-hf { margin: 4px 0 0; font-size: 13px; line-height: 1.35; color: var(--text-3); font-variant-numeric: tabular-nums; }
+html:not(.desk) .cs-hx { margin: 8px 0 0; font-size: 13px; line-height: 1.35; color: var(--text-3); }
+html:not(.desk) .cs-hero .cs-hgo { align-self: flex-start; margin-top: 16px; }
+/* who owes you: the head on the ground, the one job lifted under it, the next two as rows */
+html:not(.desk) .cs-page.is-phone .cs-owe { margin-top: 24px; }
+html:not(.desk) .cs-oh { margin-bottom: 10px; }
+html:not(.desk) .cs-oh h2 { display: flex; align-items: baseline; gap: 8px; }
+html:not(.desk) .cs-on { font-family: var(--font-num); font-stretch: 112%; font-size: 28px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; color: var(--text); font-variant-numeric: tabular-nums; }
+html:not(.desk) .cs-lead {
+  --pfl: #c9ced6; --pl-light: 7%;
+  display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: 20px;
+  background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--pfl) var(--pl-light), transparent) 0%, transparent 58%), var(--pl-obj);
+  border: 1px solid color-mix(in srgb, var(--pfl) var(--pl-light-edge), var(--pl-obj-edge)); box-shadow: var(--pl-obj-shade);
+}
+html:not(.desk) .cs-lead.is-late { --pfl: #ff9f43; --pl-light: 13%; }
+html[data-theme="light"]:not(.desk) .cs-lead { --pfl: #9aa1ad; --pl-light: 5%; }
+html[data-theme="light"]:not(.desk) .cs-lead.is-late { --pfl: #ff9f43; --pl-light: 8%; }
+html:not(.desk) .cs-lead-who { position: relative; display: flex; align-items: center; gap: 14px; width: 100%; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; transition: opacity 140ms ease-out; }
+html:not(.desk) .cs-lead-who::after { content: ''; position: absolute; inset: -16px -16px -6px; border-radius: 20px 20px 0 0; }
+html:not(.desk) .cs-lead-who:active { opacity: 0.7; }
+html:not(.desk) .cs-lead-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+html:not(.desk) .cs-lead-tx > b { display: flex; align-items: flex-start; gap: 8px; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; line-height: 1.2; color: var(--text); text-wrap: balance; }
+html:not(.desk) .cs-lead-tx > b .cs-tri { margin-top: calc((1.2em - 8px) / 2); }
+html:not(.desk) .cs-lead-tx > span { font-size: 15px; line-height: 1.35; color: var(--text-2); font-variant-numeric: tabular-nums; text-wrap: pretty; }
+html:not(.desk) .cs-lead .ca-btn { position: relative; z-index: 1; }
+/* the quiet way out: text only, a full 44 pt row under the red */
+html:not(.desk) body.powa-app :is(.cs-lead, .cs-scard) .cs-alt {
+  position: relative; z-index: 1; align-self: center; min-height: 44px; margin: -6px 0 -8px; padding: 0 16px; border: 0; border-radius: 999px; background: none;
+  color: var(--text) !important; font-size: 17px !important; font-weight: 600; letter-spacing: -0.01em; cursor: pointer; transition: opacity 140ms ease-out;
+}
+html:not(.desk) :is(.cs-lead, .cs-scard) .cs-alt:active { opacity: 0.55; }
+html:not(.desk) .cs-orows { position: relative; display: flex; flex-direction: column; margin-top: 8px; }
+html:not(.desk) .cs-orow { position: relative; display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 8px 4px; border-radius: 14px; transition: background-color 140ms ease-out; }
+html:not(.desk) .cs-orow + .cs-orow::before { content: ''; position: absolute; top: 0; left: 60px; right: 4px; height: 1px; background: var(--ca-hair); }
+html:not(.desk) .cs-orow-who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+html:not(.desk) .cs-orow-who::after { content: ''; position: absolute; inset: 0; }
+html:not(.desk) .cs-orow .ca-pill { z-index: 1; }
+html:not(.desk) .cs-orow:has(> .cs-orow-who:active) { background: var(--ca-press); }
+/* faces */
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-face { flex: none; width: 44px; height: 44px; font-size: 15px; font-weight: 800; }
+html:not(.desk) body.powa-app .cs-lead .cs-face { width: 52px; height: 52px; font-size: 17px; }
+/* the late triangle (the app's warn mark, never red) */
+html:not(.desk) .cs-tri { flex: none; display: inline-block; width: 9px; height: 8px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+/* everyone */
+html:not(.desk) .cs-page.is-phone .cs-every { margin-top: 32px; }
+html:not(.desk) .cs-page.is-phone .cs-every > .ca-h { margin-bottom: 8px; }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-bar { margin: 0 0 8px; }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters { display: flex; gap: 8px; margin: 0 -16px; padding: 2px 16px 4px; overflow-x: auto; scrollbar-width: none; }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 0; border-radius: 999px;
+  background: var(--pl-inset); color: var(--text-2) !important; font-size: 15px !important; font-weight: 600 !important; line-height: 1 !important; white-space: nowrap;
+  transition: transform var(--pl-d-press) var(--pl-spring), background-color 160ms ease-out, color 160ms ease-out;
+}
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button span { margin: 0; color: var(--text-3); font-family: var(--font-num); font-weight: 700; font-variant-numeric: tabular-nums; opacity: 1; }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button.on { background: var(--pl-raise); box-shadow: var(--pl-raise-shade); color: var(--text) !important; }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button.on span { color: var(--text-2); }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button:active { transform: scale(0.96); transition-duration: 90ms; }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-list.is-phone { position: relative; display: flex; flex-direction: column; overflow: visible; background: none; border: 0; border-radius: 0; box-shadow: none; }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-list.is-phone::before { content: ''; position: absolute; top: 0; left: 4px; right: 4px; height: 1px; background: var(--ca-hair); }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-r.is-phone {
+  position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 72px; padding: 10px 4px; border: 0; border-radius: 14px;
+  background: none; color: inherit; text-align: left; cursor: pointer; transition: background-color 140ms ease-out;
+}
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-r.is-phone + .cs-r.is-phone::before { content: ''; position: absolute; top: 0; left: 60px; right: 4px; height: 1px; background: var(--ca-hair); }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-r.is-phone:active { background: var(--ca-press); }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-r.is-phone:active::before, html:not(.desk) body.powa-app .cs-page.is-phone .cs-r.is-phone:active + .cs-r.is-phone::before { opacity: 0; }
+html:not(.desk) body.powa-app .cs-page.is-phone :is(.cs-r, .cs-orow) .cs-rn { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+html:not(.desk) body.powa-app .cs-page.is-phone :is(.cs-r, .cs-orow) .cs-rn b { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); white-space: normal; overflow-wrap: anywhere; }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-line { display: flex; align-items: flex-start; gap: 7px; min-width: 0; overflow: visible; white-space: normal; font-size: 15px; line-height: 1.35; color: var(--text-2); font-variant-numeric: tabular-nums; -webkit-line-clamp: none; line-clamp: none; }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-line > span { min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; white-space: normal; font-size: 15px; color: var(--text-2); text-wrap: pretty; }
+html:not(.desk) .cs-line .cs-tri { margin-top: calc((1.35em - 8px) / 2); }
+html:not(.desk) .cs-r.st-none .cs-line > span, html:not(.desk) .cs-r:is(.st-paused, .st-ended) .cs-line > span { color: var(--text-3); }
+html:not(.desk) .cs-rd { flex: none; font-family: var(--font-num); font-stretch: 108%; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-foot { margin: 20px 4px 0; font-size: 13px; line-height: 1.4; color: var(--text-3); text-wrap: pretty; }
+/* the first visit fills the meter (once an app open: Clients is opened often and a bar that replays is noise) */
+@keyframes csMeterIn { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.desk) .cs-page.is-phone.is-first .cs-meter.is-hero i { animation: csMeterIn var(--pl-d-heavy) var(--pl-spring) 120ms backwards; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not(.desk) .cs-meter.is-hero i, html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button { transition: none; }
+  html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button:active { transform: none; }
+}
+
+/* the client's sheet on the phone: who, the money (lit when it's owed) with the one red, then the record */
+html:not(.desk) .cs-sheet.is-phone .cs-shead { display: flex; align-items: center; gap: 14px; margin: 6px 0 16px; }
+html:not(.desk) body.powa-app .cs-sheet.is-phone .cs-sface { flex: none; width: 56px; height: 56px; font-size: 20px; font-weight: 800; }
+html:not(.desk) .cs-sheet.is-phone .cs-shead-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+html:not(.desk) body.powa-app .cs-sheet.is-phone .cs-shead .ui-sheet-h { margin: 0; overflow-wrap: anywhere; }
+html:not(.desk) body.powa-app .cs-sheet.is-phone .cs-shead .ui-sheet-sub { margin: 0; font-size: 15px; line-height: 1.35; color: var(--text-2); }
+html:not(.desk) .cs-scard {
+  --pfl: #c9ced6; --pl-light: 7%;
+  display: flex; flex-direction: column; gap: 4px; margin: 0 0 8px; padding: 16px; border-radius: 20px;
+  background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--pfl) var(--pl-light), transparent) 0%, transparent 58%), var(--pl-obj);
+  border: 1px solid color-mix(in srgb, var(--pfl) var(--pl-light-edge), var(--pl-obj-edge)); box-shadow: var(--pl-obj-shade);
+}
+html:not(.desk) .cs-scard.is-late { --pfl: #ff9f43; --pl-light: 13%; }
+html[data-theme="light"]:not(.desk) .cs-scard { --pfl: #9aa1ad; --pl-light: 5%; }
+html[data-theme="light"]:not(.desk) .cs-scard.is-late { --pfl: #ff9f43; --pl-light: 8%; }
+html:not(.desk) .cs-sc-k { font-size: 13px; font-weight: 600; color: var(--text-3); }
+html:not(.desk) .cs-sc-v { display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 700; letter-spacing: -0.016em; line-height: 1.2; color: var(--text); }
+html:not(.desk) .cs-sc-s { font-size: 15px; line-height: 1.35; color: var(--text-2); font-variant-numeric: tabular-nums; text-wrap: pretty; }
+html:not(.desk) .cs-scard .ca-btn { margin-top: 12px; }
+html:not(.desk) body.powa-app .cs-sheet.is-phone .ui-label { margin: 24px 4px 8px; font-size: 20px; font-weight: 700; }
+html:not(.desk) body.powa-app .cs-sheet.is-phone .ui-row-title { font-size: 17px; }
+html:not(.desk) body.powa-app .cs-sheet.is-phone :is(.ui-row-end, .ui-row-sub) { font-variant-numeric: tabular-nums; }
+html:not(.desk) body.powa-app .cs-sheet.is-phone .cs-del { position: relative; width: 36px; height: 36px; margin-right: -6px; border-radius: 50%; color: var(--text-3); }
+html:not(.desk) body.powa-app .cs-sheet.is-phone .cs-del::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html:not(.desk) body.powa-app .cs-sheet.is-phone .cs-del:active { background: var(--pl-inset-2); color: var(--text); }
+html:not(.desk) .cs-sends { display: flex; flex-direction: column; margin-top: 16px; }
+html:not(.desk) body.powa-app .cs-sheet.is-phone .cs-golifter { min-height: 48px; margin: 0; padding: 0 12px; border-radius: 14px; color: var(--text); font-size: 17px; font-weight: 600; }
+html:not(.desk) body.powa-app .cs-sheet.is-phone .cs-golifter svg { width: 16px; height: 16px; color: var(--text-3); }
+html:not(.desk) body.powa-app .cs-sheet.is-phone .cs-golifter:active { background: var(--ca-press); }
+/* leaving the roster: last, quiet, ink (its own sheet asks, with the red) */
+html:not(.desk) body.powa-app .cs-remove {
+  display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; margin: 0; padding: 0 12px; border: 0; border-radius: 14px;
+  background: none; color: var(--text-2) !important; font-family: inherit; font-size: 15px !important; font-weight: 600; cursor: pointer; transition: background-color 140ms ease-out, color 140ms ease-out;
+}
+html:not(.desk) body.powa-app .cs-remove:active { background: var(--ca-press); color: var(--text) !important; }
+html:not(.desk) .cs-pair.is-phone > .cs-remove { margin-top: 4px; }
+
+/* the forms (Mark paid, the package): fields as insets, the amount as a number, choices as the app's chips */
+html:not(.desk) body.powa-app .cs-sheet label.cs-field { gap: 8px; margin: 0 0 16px; }
+html:not(.desk) body.powa-app .cs-sheet .cs-fl { font-size: 13px; font-weight: 600; color: var(--text-3); }
+html:not(.desk) body.powa-app .cs-sheet .cs-fh { font-size: 13px; color: var(--text-3); }
+html:not(.desk) body.powa-app .cs-sheet :is(input.cs-in, select.cs-in) {
+  width: 100%; height: 52px; padding: 0 14px; border: 1px solid transparent; border-radius: 12px; background: var(--pl-inset-2); color: var(--text);
+  font-family: inherit; font-size: 17px; line-height: 1.2; box-shadow: none; -webkit-appearance: none; appearance: none;
+  transition: border-color 150ms ease-out, background-color 150ms ease-out;
+}
+html:not(.desk) body.powa-app .cs-sheet :is(input.cs-in, select.cs-in):focus { outline: none; border-color: color-mix(in srgb, var(--text) 32%, transparent); background: var(--pl-inset-2); box-shadow: none; }
+html:not(.desk) body.powa-app .cs-sheet input.cs-in::placeholder { color: var(--text-3); }
+html:not(.desk) body.powa-app .cs-sheet select.cs-in { padding-right: 34px; background-image: linear-gradient(45deg, transparent 50%, var(--text-3) 50%), linear-gradient(135deg, var(--text-3) 50%, transparent 50%); background-position: calc(100% - 19px) 50%, calc(100% - 14px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+html:not(.desk) body.powa-app .cs-sheet .cs-amtrow { gap: 8px; }
+html:not(.desk) body.powa-app .cs-sheet .cs-amtrow input.cs-amt { flex: 1; width: auto; min-width: 0; }
+html:not(.desk) body.powa-app .cs-sheet .cs-amtrow select.cs-cur { flex: none; width: 108px; }
+html:not(.desk) body.powa-app .cs-sheet input.cs-amt { height: 60px; font-family: var(--font-num); font-stretch: 112%; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+html:not(.desk) body.powa-app .cs-sheet .cs-cur-tag { padding: 0 8px; font-size: 17px; font-weight: 650; color: var(--text-2); }
+html:not(.desk) body.powa-app .cs-sheet .cs-chips button {
+  height: 40px; padding: 0 16px; border-radius: 999px; background: var(--pl-inset); color: var(--text-2); font: 600 15px/1 var(--font-body, inherit);
+  transition: transform var(--pl-d-press) var(--pl-spring), background-color 160ms ease-out, color 160ms ease-out;
+}
+html:not(.desk) body.powa-app .cs-sheet .cs-chips button.on { background: var(--pl-raise); box-shadow: var(--pl-raise-shade); color: var(--text); }
+html[data-theme="light"]:not(.desk) body.powa-app .cs-sheet .cs-chips button.on { color: var(--text); }
+html:not(.desk) body.powa-app .cs-sheet .cs-chips button:active { transform: scale(0.96); transition-duration: 90ms; }
+html:not(.desk) body.powa-app .cs-sheet .cs-chips.is-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 16px; background: var(--pl-inset); }
+html:not(.desk) body.powa-app .cs-sheet .cs-chips.is-seg button { border-radius: 12px; background: none; }
+html:not(.desk) body.powa-app .cs-sheet .cs-chips.is-seg button.on { background: var(--pl-raise); }
+html:not(.desk) body.powa-app .cs-sheet > .btn-primary { margin-top: 8px; min-height: 52px; border-radius: 999px; font-size: 17px; font-weight: 650; }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) body.powa-app .cs-sheet .cs-chips button:active { transform: none; } }
+
+/* a lifter's Client & About on the phone (coach-app.js's Client view): the card on the app's surface, the money
+   lit only when it's owed, Mark paid in graphite (the page's red is elsewhere), late as the triangle */
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-card {
+  padding: 16px; border-radius: 20px; gap: 12px;
+  background: var(--ca-card); border: 1px solid var(--ca-edge); box-shadow: var(--pl-lip);
+}
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-card.tone-pain { background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, #ff9f43 9%, transparent) 0%, transparent 58%), var(--ca-card); border-color: color-mix(in srgb, #ff9f43 20%, var(--ca-edge)); }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cl-th { gap: 10px; }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cl-tic { width: 32px; height: 32px; border-radius: 10px; color: var(--text-2); background: var(--pl-inset-2); }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cl-tic svg { width: 18px; height: 18px; }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cl-tl { font-size: 15px; font-weight: 650; }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-st { font-size: 15px; font-weight: 600; color: var(--text-2); }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-st:is(.st-overdue, .st-due, .st-soon) { color: var(--text); }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-st:is(.st-due, .st-soon)::before { display: none; }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-st.st-overdue::before { width: 9px; height: 8px; border-radius: 0; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-pk span { font-size: 15px; color: var(--text-2); }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-pays { font-size: 13px; color: var(--text-3); }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-pay b { color: var(--text-2); }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-acts { gap: 8px; margin-top: 4px; }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-acts .cl-btn {
+  height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--pl-inset-2); color: var(--text) !important; box-shadow: none;
+  font-family: inherit; font-size: 15px !important; font-weight: 600; transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out;
+}
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-acts .cl-btn:active { transform: scale(0.96); transition-duration: 90ms; }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-acts .cl-quiet { position: relative; height: 40px; padding: 0 10px; border: 0; background: none; color: var(--text) !important; font-family: inherit; font-size: 15px !important; font-weight: 600; }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-acts .cl-quiet::after { content: ''; position: absolute; inset: -2px 0; }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-acts .cs-more { color: var(--text-2) !important; }
+html:not(.desk) body.powa-app .cs-pair.is-phone .cs-acts .cs-more svg { width: 15px; height: 15px; margin-left: 2px; vertical-align: -2px; color: var(--text-3); }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) body.powa-app .cs-pair.is-phone .cs-acts .cl-btn:active { transform: none; } }
+
 /* ==================== The week's note, saved replies, message everyone (weekly-note.js, 2026-10-27) ====================
    Type 13 / 15 / 16 / 20 / 22. Send is the one red. Colour only on a lift dot, a PR (gold) and a status
    that's a problem (a dot beside ink words). Surfaces separate by a step in fill, hairlines only between rows. */
