@@ -2305,8 +2305,8 @@ html:not(.desk) body.powa-app .modal .btn-sm.btn-ghost { font-size: 15px !import
 html:not(.desk) body.powa-app h1.cl-h1 { font-weight: 750; letter-spacing: -0.028em; }
 html:not(.desk) body.powa-app .md-board-root .md-title { font-weight: 800; }
 html:not(.desk) body.powa-app :is(.chl-new, .profile-sheet, .set-sheet-box, .brand-sheet) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), textarea) { font-size: 17px; }
-/* the crimson, one size */
-html:not(.desk) body.powa-app :is(.ui-sheet, .modal, [data-pane]) .btn.btn-primary:not(.is-quiet):not(.btn-sm):not(.btn-icon),
+/* the crimson, one size (a composer's Send is the 44 pt circle, never stretched to 52: it was an oval) */
+html:not(.desk) body.powa-app :is(.ui-sheet, .modal, [data-pane]) .btn.btn-primary:not(.is-quiet):not(.btn-sm):not(.btn-icon):not(.msg-send):not(.vn-send),
 html:not(.desk) body.powa-app #deleteAccountModal .btn-danger {
   height: auto; min-height: 52px; padding-top: 0; padding-bottom: 0; border-radius: 999px; font-size: 17px !important; font-weight: 650;
 }
@@ -2314,6 +2314,8 @@ html:not(.desk) body.powa-app #deleteAccountModal .btn-danger {
 html:not(.desk) body.powa-app :is(.ui-sheet, .modal) .btn:is(.btn-lg, .btn-block):not(.btn-primary):not(.btn-danger):not(.btn-sm) {
   height: auto; min-height: 52px; padding-top: 0; padding-bottom: 0; border-radius: 999px; font-size: 17px !important; font-weight: 600;
 }
+/* a sheet's ghost button (Restore Purchases, Cancel) is graphite in light as it is at night (in light it was an outline) */
+html[data-theme="light"]:not(.desk) body.powa-app :is(.ui-sheet, .modal) .btn-ghost { border-color: transparent; background: var(--pl-inset-2); }
 /* a destructive item in a ⋯ menu: ink beside its icon (red is the logo and the one action) */
 html:not(.desk) body.powa-app .ui-sheet > button.danger { color: var(--text); }
 html:not(.desk) body.powa-app .ui-sheet > button.danger svg { color: var(--text-2); }
@@ -2381,7 +2383,7 @@ html:not(.desk) body.powa-app .ai-panel .ai-chip:hover { border-color: transpare
 /* a drafted program: a card on the answer's fill, in sentence case; Insert into builder graphite (Send is the red) */
 html:not(.desk) body.powa-app .ai-panel .ai-prog-card { margin-top: 12px; padding: 14px 14px 12px; border: 0; border-radius: 14px; background: var(--pl-inset-2); }
 html:not(.desk) body.powa-app .ai-panel .ai-prog-name { font-family: var(--font-body); font-stretch: 100%; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; text-transform: none; }
-html:not(.desk) body.powa-app .ai-panel :is(.ai-prog-meta, .ai-prog-sub) { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+html:not(.desk) body.powa-app .ai-panel :is(.ai-prog-meta, .ai-prog-sub) { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-2); }
 html:not(.desk) body.powa-app .ai-panel :is(.ai-prog-day-name, .ai-prog-day-set) { font-size: 15px; }
 html:not(.desk) body.powa-app .ai-panel .ai-prog-day { border-bottom-color: var(--ca-hair); }
 html:not(.desk) body.powa-app .ai-panel .ai-prog-apply { height: auto; min-height: 44px; border-radius: 999px; background: var(--pl-raise); box-shadow: var(--pl-raise-shade); color: var(--text); font-size: 17px; font-weight: 600; }
@@ -2491,6 +2493,26 @@ html:not(.desk) body.powa-app .im-icon { position: relative; }
 html:not(.desk) body.powa-app .im-icon::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
 html:not(.desk) body.powa-app .im-drop b { font-size: 20px; }
 html:not(.desk) body.powa-app .im-drop > span:not(.im-drop-ic) { font-size: 15px; }
+/* and its later steps (who gets an invite, a history's preview, the guides): words 15, names 17, its numbers 32 */
+html:not(.desk) body.powa-app :is(.im-note, .im-rec, .im-meta, .im-set .d, .im-skip-row, .im-seats-main span, .im-opt .ui-seg button, .im-links .btn) { font-size: 15px; }
+html:not(.desk) body.powa-app :is(.im-col-main b, .im-big span, .im-person-main b, .ig-step-main b, .im-sheet select.im-select) { font-size: 17px; }
+html:not(.desk) body.powa-app :is(.im-big b, .im-done b, .im-seats-n b) { font-size: 32px; }
+html:not(.desk) body.powa-app .im-opt .ui-seg button { min-height: 38px; }
+html:not(.desk) body.powa-app .im-links .btn { min-height: 44px; }
+html:not(.desk) body.powa-app .im-quiet { position: relative; }
+html:not(.desk) body.powa-app .im-quiet::after { content: ''; position: absolute; inset: -4px 0; }
+/* a guide's step from a third-party source: ink beside the orange triangle (an orange sentence is a status in words) */
+html:not(.desk) body.powa-app .ig-src.is-secondary { color: var(--text-2) !important; }
+html:not(.desk) body.powa-app .ig-src.is-secondary::before { content: ''; display: inline-block; width: 9px; height: 8px; margin: 0 6px 0 0; vertical-align: 0; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+
+/* Ask's answer rows (a lifter's name, what's going on under it): the line 15 like the answer, the name 44 pt to the
+   touch (the whole row opens the lifter) */
+html:not(.desk) body.powa-app .ai-panel .ai-bubble .ai-li-sub { font-size: 15px; }
+html:not(.desk) body.powa-app .ai-panel .ai-bubble li.ai-li-who .ai-who { position: relative; }
+html:not(.desk) body.powa-app .ai-panel .ai-bubble li.ai-li-who .ai-who::after { content: ''; position: absolute; inset: -11px 0; }
+/* the form-check review's compare: Back to drawing 15; a drawing's mark on the timeline 44 pt to the touch */
+html:not(.desk) body.powa-app .vr .vr-btn { font-size: 15px; }
+html:not(.desk) body.powa-app .vr .vr-tick::before { content: ''; position: absolute; inset: -16px -11px; }
 
 /* =================================================================== TABLETS (700 to 999, off the desk)
    The same screens in the app's iPad column (styles.css: every pane is a centred 880 px column, so the title
