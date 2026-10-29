@@ -214,8 +214,8 @@
   function enter(aid, prog) {
     if (S.aid === aid) return;
     S.aid = aid;
-    var fresh = S.landFresh === aid;
-    S.landFresh = null;
+    var fresh = !!S.landFresh && S.landFresh === aid;
+    if (fresh) S.landFresh = null;   // the tab's own first draw (whoever was open) leaves it for them
     var r = fresh ? null : rowOf(aid), wk = r && r.status && r.status.week;
     var wi = wk && wk.idx != null && prog.weeks[wk.idx] ? wk.idx : 0;
     setWeek(wi);
