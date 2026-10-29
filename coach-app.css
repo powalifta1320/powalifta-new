@@ -1017,7 +1017,7 @@ html:not(.desk) .cp-weeks { flex: 1; min-width: 0; display: flex; gap: 2px; padd
 html:not(.desk) .cp-weeks::-webkit-scrollbar { display: none; }
 html:not(.desk) .cp-wk { position: relative; flex: 1 0 auto; min-width: 44px; height: 38px; padding: 0 12px; border: 0; border-radius: 11px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer; transition: background-color 200ms ease-out, color 200ms ease-out, box-shadow 200ms ease-out; }
 html:not(.desk) .cp-wk.on { background: var(--pl-raise); color: var(--text) !important; box-shadow: var(--pl-raise-shade); }
-html:not(.desk) .cp-wk.is-now::after { content: ''; position: absolute; top: 7px; right: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--acc); }
+html:not(.desk) .cp-wk.is-now::before { content: ''; position: absolute; top: 7px; right: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--acc); }
 html:not(.desk) .cp-wk-add { flex: 0 0 44px; padding: 0; color: var(--text-3) !important; display: inline-grid; place-items: center; }
 html:not(.desk) .cp-wk-add svg { width: 18px; height: 18px; }
 
@@ -1111,8 +1111,8 @@ html:not(.desk) .cp-ed-tools { position: absolute; top: 12px; right: 10px; displ
 html:not(.desk) body.powa-app .cp-ed-done { min-width: 44px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 12px; background: none; color: var(--text); font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), opacity 150ms ease-out; }
 html:not(.desk) body.powa-app .cp-ed-done:active { transform: scale(0.95); opacity: 0.7; transition-duration: 90ms; }
 html:not(.desk) .cp-sheet .ui-sheet-h { padding-right: 112px; }
-html:not(.desk) .cp-ed-sub { margin-top: -6px !important; }
-html:not(.desk) .cp-ed-last { margin: 4px 0 0; font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+html:not(.desk) .cp-ed-sub { margin-top: 0 !important; margin-bottom: 0 !important; }
+html:not(.desk) .cp-ed-last { margin: 10px 0 0; font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-ed-note { margin: 10px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-3); }
 html:not(.desk) .cp-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
 @media (prefers-reduced-motion: reduce) { html:not(.desk) .cp-blkmore svg { transition: none; } }
@@ -1398,6 +1398,41 @@ html:not(.desk) body.powa-app .sf-sheet .ui-label { font-size: 20px; }
 html:not(.desk) body.powa-app .sf-sheet .sf-add input.sf-add-in { height: 44px; border: 0 !important; border-radius: 12px; background: var(--pl-inset-2) !important; box-shadow: none !important; font-size: 17px; }
 html:not(.desk) body.powa-app .sf-sheet .pg-fill-btn { height: 44px; padding: 0 16px; background: var(--pl-inset-2); font-size: 15px; }
 html:not(.desk) body.powa-app .sf-sheet .sf-note { font-size: 13px; color: var(--text-2); }
+
+/* 44 pt to the touch everywhere in Programs, without moving what's drawn: the block and day names grow their
+   field (negative margins keep the line), the segments and chips reach into their container's padding, the
+   typed values fill their stepper's height, the small round buttons carry a hit area past their edge */
+html:not(.desk) body.powa-app .cp-name { height: 44px; margin-top: -2px; margin-bottom: -2px; }
+html:not(.desk) body.powa-app .cp-dayname { height: 44px; margin-top: -5px; margin-bottom: -5px; }
+html:not(.desk) .cp-maxes { min-height: 44px; }
+html:not(.desk) .cp-wk::after { content: ''; position: absolute; inset: -3px 0; }
+html:not(.desk) .cp-day { position: relative; }
+html:not(.desk) .cp-day::after { content: ''; position: absolute; inset: -3px -4px; }
+html:not(.desk) .cp-step .ui-stepper { min-height: 44px; align-items: center; }
+html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable { align-self: stretch; display: grid; place-items: center; min-height: 44px; }
+html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable.is-stack { place-content: center; }
+html:not(.desk) .cp-seg button { position: relative; }
+html:not(.desk) .cp-seg button::after { content: ''; position: absolute; inset: -4px 0; }
+html:not(.desk) body.powa-app .cp-blkmore-body .cp-sf .sf-field input.sf-in { align-self: stretch; height: auto; min-height: 44px; }
+html:not(.desk) body.powa-app :is(#addExerciseModal, #goalModal) .modal-close::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html:not(.desk) body.powa-app #addExerciseModal .cp-addx .set-row { grid-template-columns: 48px repeat(3, minmax(0, 1fr)) 44px; }
+html:not(.desk) body.powa-app #addExerciseModal .cp-addx .set-row > .btn-icon { width: 44px; }
+/* the sheets' rows and buttons on the scale: a row's title 17, its line 15, a button 17 */
+html:not(.desk) body.powa-app :is(.nb-sheet, .sf-sheet, .mx-sheet) .ui-row-title { font-size: 17px; }
+html:not(.desk) body.powa-app :is(.nb-sheet, .sf-sheet, .mx-sheet) .ui-row-sub { font-size: 15px; color: var(--text-2); }
+html:not(.desk) body.powa-app :is(.nb-sheet, .sf-sheet, .mx-sheet, .imp-sheet) .btn { font-size: 17px !important; }
+html:not(.desk) body.powa-app .sf-sheet .sf-col-rm { position: relative; }
+html:not(.desk) body.powa-app .sf-sheet .sf-col-rm::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html:not(.desk) body.powa-app .cp-addx #addSetRowBtn { height: 44px; }
+html:not(.desk) body.powa-app .pp-sheet .pp-x { position: relative; }
+html:not(.desk) body.powa-app .pp-sheet .pp-x::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html:not(.desk) body.powa-app .pp-sheet .pp-pic-more { height: 36px; }
+html:not(.desk) body.powa-app .pp-sheet .pp-pic-more::after { content: ''; position: absolute; inset: -4px -2px; }
+html:not(.desk) body.powa-app .pp-sheet .pp-weeks button::after { content: ''; position: absolute; inset: -4px -3px; }
+html:not(.desk) body.powa-app .pp-sheet input.pp-dayname { min-height: 44px; }
+html:not(.desk) body.powa-app .pp-sheet input.pp-name { min-height: 44px; }
+html:not(.desk) body.powa-app .pp-sheet textarea.pp-cell { min-height: 46px; }
+html:not(.desk) body.powa-app .pp-sheet .pp-rm { width: 44px; height: 44px; margin: -7px -7px -7px 0; }
 
 /* an exercise just added rises into its place on the day (the job: where did it go?), once */
 @keyframes cpNewRow { from { opacity: 0.45; transform: translate3d(0, 12px, 0); } to { opacity: 1; transform: none; } }
