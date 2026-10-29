@@ -996,6 +996,9 @@ html:not(.desk) .cp-maxes { display: inline-flex; align-items: center; gap: 8px;
 html:not(.desk) .cp-maxes b { color: var(--text); font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-maxes b i { display: inline-block; width: 7px; height: 7px; margin: 0 5px 0 1px; border-radius: 50%; background: var(--lc); vertical-align: 1px; }
 html:not(.desk) .cp-maxes svg { width: 15px; height: 15px; }
+html:not(.desk) .cp-maxes :is(.cp-mx-l, .cp-mx-lift) { white-space: nowrap; }
+html:not(.desk) .cp-maxes svg { flex: none; }
+@media (max-width: 389px) { html:not(.desk) .cp-maxes .cp-mx-more { display: none; } }
 html:not(.desk) .cp-maxes:active { transform: scale(0.97); transition-duration: 90ms; }
 html:not(.desk) .cp-done { margin: 14px 0 0; font-size: 15px; color: var(--text-2); }
 html:not(.desk) .cp-hero .ca-btn { margin-top: 12px; }

@@ -413,9 +413,13 @@
     // The maxes % sets work from: shown when the block uses them.
     if (allSets.some(function (x) { return x.pct != null; }) || (prog.maxes && Object.keys(prog.maxes).length)) {
       // Each max carries its lift's dot (lift colours live on lift data).
-      var bits = MAIN.map(function (L) { var v = typeof programMaxKg === 'function' ? programMaxKg(prog, aid, L) : 0; return v > 0 ? '<i class="lift-' + L + '" aria-hidden="true"></i>' + LIFT_NAME[L].charAt(0) + ' ' + Math.round(disp(v)) : null; }).filter(Boolean);
-      var mx = el('button', { type: 'button', class: 'cp-maxes' });
-      mx.innerHTML = '<span>Maxes for %</span><b>' + (bits.length ? bits.join(' · ') + ' ' + esc(unit()) : 'not set') + '</b>' + ic('chev', 2.4);
+      // Each lift's max is one unit that never breaks ("S 210", the unit with the last); on a 375 pt phone the
+      // label says "Maxes" (it read "Maxes for / %" and "D 255 / kg" there). The button says it all out loud.
+      var said = [];
+      var bits = MAIN.map(function (L) { var v = typeof programMaxKg === 'function' ? programMaxKg(prog, aid, L) : 0; if (!(v > 0)) return null; said.push(LIFT_NAME[L] + ' ' + Math.round(disp(v))); return '<i class="lift-' + L + '" aria-hidden="true"></i>' + LIFT_NAME[L].charAt(0) + ' ' + Math.round(disp(v)); }).filter(Boolean);
+      if (bits.length) bits[bits.length - 1] += ' ' + esc(unit());
+      var mx = el('button', { type: 'button', class: 'cp-maxes', 'aria-label': 'Maxes for % work: ' + (said.length ? said.join(', ') + ' ' + unit() : 'not set') });
+      mx.innerHTML = '<span class="cp-mx-l">Maxes<span class="cp-mx-more"> for %</span></span><b>' + (bits.length ? bits.map(function (b) { return '<span class="cp-mx-lift">' + b + '</span>'; }).join(' · ') : 'not set') + '</b>' + ic('chev', 2.4);
       mx.addEventListener('click', function () { if (typeof openMaxesSheet === 'function') openMaxesSheet(prog.id, aid); });
       h.appendChild(mx);
     }
@@ -480,7 +484,7 @@
         [{ label: 'Duplicate week', icon: ic('copy'), onClick: function () { duplicateWeekAction(prog.id, wi); } },
           { label: 'Add day', icon: ic('plus'), onClick: function () { addDayAndGo(aid, wi, false); } },
           { label: 'Add rest day', icon: ic('plus'), onClick: function () { addDayAndGo(aid, wi, true); } }],
-        [{ label: 'Remove week', icon: ICONS.trash, danger: true, onClick: function () { deleteWeek(wi); } }]
+        [{ label: 'Remove week', icon: ICONS.trash, danger: true, onClick: function () { removeDayOrWeek(aid, wi, null); } }]
       ]);
     });
     wrap.appendChild(more);
@@ -550,7 +554,7 @@
         [di > 0 ? { label: 'Move earlier in the week', icon: ICONS.arrowUp, onClick: function () { reorderDay(prog.id, wi, di, -1); persistProgram(prog.id); S.days[dayKey(aid, wi)] = di - 1; loadProgram(); } } : null,
           di < wk.days.length - 1 ? { label: 'Move later in the week', icon: ICONS.arrowDown, onClick: function () { reorderDay(prog.id, wi, di, 1); persistProgram(prog.id); S.days[dayKey(aid, wi)] = di + 1; loadProgram(); } } : null,
           { label: 'Duplicate day', icon: ic('copy'), onClick: function () { duplicateDay(prog.id, wi, di); persistProgram(prog.id); S.days[dayKey(aid, wi)] = di + 1; loadProgram(); } }],
-        [{ label: 'Delete day', icon: ICONS.trash, danger: true, onClick: function () { S.days[dayKey(aid, wi)] = Math.max(0, di - 1); deleteDay(wi, di); } }]
+        [{ label: 'Delete day', icon: ICONS.trash, danger: true, onClick: function () { removeDayOrWeek(aid, wi, di); } }]
       ]);
     });
     head.appendChild(more);
@@ -725,6 +729,33 @@
       if (typeof loadProgram === 'function') loadProgram();
     });
   }
+  // Delete day and Remove week work the same way: gone at once, back with Undo. The system's "Delete this
+  // day?" alert answered with an OK that said nothing; Undo is the last word, and it is the coach's.
+  // di == null: the week wi. (The laptop keeps coach.html deleteDay / deleteWeek and their question.)
+  function removeDayOrWeek(aid, wi, di) {
+    var prog = progOf(aid), isWeek = di == null;
+    var src = prog && prog.weeks[wi] ? (isWeek ? prog.weeks[wi] : (prog.weeks[wi].days || [])[di]) : null;
+    if (!src) return;
+    var pid = prog.id, copy = JSON.parse(JSON.stringify(src));
+    var name = isWeek ? 'Week ' + (Number(src.number) || wi + 1) + ' removed' : String(src.name || 'Day ' + (di + 1)) + ' deleted';
+    var find = function (s) { return (s.programs || []).find(function (x) { return x.id === pid; }); };
+    Store.update(function (s) { var p = find(s); if (!p || !p.weeks[wi]) return; if (isWeek) p.weeks.splice(wi, 1); else p.weeks[wi].days.splice(di, 1); });
+    if (isWeek) setWeek(Math.max(0, wi - 1)); else S.days[dayKey(aid, wi)] = Math.max(0, di - 1);
+    if (typeof persistProgram === 'function') persistProgram(pid);
+    if (typeof loadProgram === 'function') loadProgram();
+    if (typeof toastAction !== 'function') return;
+    toastAction(name, 'Undo', function () {
+      Store.update(function (s) {
+        var p = find(s);
+        if (!p) return;
+        if (isWeek) p.weeks.splice(Math.min(wi, p.weeks.length), 0, copy);
+        else if (p.weeks[wi]) p.weeks[wi].days.splice(Math.min(di, p.weeks[wi].days.length), 0, copy);
+      });
+      if (isWeek) setWeek(wi); else S.days[dayKey(aid, wi)] = di;
+      if (typeof persistProgram === 'function') persistProgram(pid);
+      if (typeof loadProgram === 'function') loadProgram();
+    });
+  }
 
   /* ---------------------------------------------------------------- the pager: swipe or tap a day */
   function scrollToDay(pager, i, smooth) {
@@ -732,11 +763,20 @@
     var x = i * pager.clientWidth;   // every page is the pager's width
     if (smooth && pager.scrollTo) pager.scrollTo({ left: x, behavior: 'smooth' }); else pager.scrollLeft = x;
   }
+  // The day on show keeps its chip in view, the page's 16 pt gutter from either edge, moving only the chips:
+  // scrollIntoView pressed it flush to the glass and could pull the whole page up under a finger mid-swipe.
+  function chipInView(c) {
+    var row = c.parentNode;
+    if (!row || row.scrollWidth <= row.clientWidth) return;
+    var rr = row.getBoundingClientRect(), cr = c.getBoundingClientRect(), g = 16;
+    if (cr.left < rr.left + g) row.scrollLeft -= rr.left + g - cr.left;
+    else if (cr.right > rr.right - g) row.scrollLeft += cr.right - (rr.right - g);
+  }
   function syncDay(root, pager, aid, wk, quiet) {
     var w = pager.clientWidth || 1;
     var i = Math.max(0, Math.min(pager.children.length - 1, Math.round(pager.scrollLeft / w)));
     S.days[dayKey(aid, curWeek())] = i;
-    root.querySelectorAll('.cp-day').forEach(function (c) { var on = Number(c.getAttribute('data-day')) === i; c.classList.toggle('on', on); c.setAttribute('aria-selected', on ? 'true' : 'false'); if (on && !quiet) c.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });
+    root.querySelectorAll('.cp-day').forEach(function (c) { var on = Number(c.getAttribute('data-day')) === i; c.classList.toggle('on', on); c.setAttribute('aria-selected', on ? 'true' : 'false'); if (on && !quiet) chipInView(c); });
     var day = (wk.days || [])[i];
     var fab = root.querySelector('.cp-fab');
     if (fab) fab.classList.toggle('is-hidden', !day || cpIsRestDay(day));
