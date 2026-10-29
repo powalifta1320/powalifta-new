@@ -970,6 +970,75 @@ html:not(.desk) .ca-charts .cl-hmeet svg { color: var(--ca-gold); }
 html:not(.desk) .ca-charts .cl-warn { color: var(--text-2); }
 html:not(.desk) .ca-charts .cl-warn::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 0; border-radius: 50%; background: var(--ca-warn); vertical-align: 1px; }
 
+/* =================================================================== THE MEET-DAY BOARD ON THE PHONE (29 Oct)
+   meetday.js's board, opened by a lifter's flag on their meet day (Open meet day) and by Home's one action. It
+   keeps its order (the call, the declaration, the flight, who is next, the warm-ups) and takes the app's rules:
+   the type scale, the three button kinds (Declare the one crimson, the rest graphite, never an outline), a status
+   as the orange triangle beside ink words, a good lift the done green on its mark and a no lift struck through in
+   ink: red is the logo and the one action. The laptop desk's board (html.desk) is untouched. */
+
+/* the head, laid out as iOS lays out a pushed screen: close and the two tools on the bar, the meet's name whole
+   under them (it was cut to "Autumn …" beside the tools) */
+html:not(.desk) body.powa-app .md-board-root .md-head { flex-wrap: wrap; row-gap: 6px; padding-bottom: 14px; }
+html:not(.desk) body.powa-app .md-board-root .md-tools { margin-left: auto; }
+html:not(.desk) body.powa-app .md-board-root .md-titles { order: 3; flex: 1 0 100%; padding: 0 4px; }
+html:not(.desk) body.powa-app .md-board-root .md-title { font-size: 28px; line-height: 1.15; letter-spacing: -0.02em; white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+html:not(.desk) body.powa-app .md-board-root .md-sub { margin-top: 4px; font-size: 13px; color: var(--text-2); white-space: normal; }
+html:not(.desk) body.powa-app :is(.md-board-root, .md-sheet) .md-btn-quiet { background: var(--pl-inset-2); box-shadow: none; color: var(--text); }
+html:not(.desk) body.powa-app .md-board-root .md-tools .md-btn { padding: 0 16px; font-size: 15px; font-weight: 600; }
+html:not(.desk) body.powa-app .md-board-root .md-tab { font-size: 15px; }
+
+/* the call: who is on the platform (20), the weight (44, the screen's one numeral), the two calls in graphite with
+   their marks (the done green's tick, the triangle of a miss) */
+html:not(.desk) body.powa-app .md-board-root .md-up-who b { font-size: 20px; line-height: 1.2; letter-spacing: -0.016em; }
+html:not(.desk) body.powa-app .md-board-root .md-up-who span { margin-top: 2px; font-size: 15px; }
+html:not(.desk) body.powa-app .md-board-root .md-up-kg b { font-size: 44px; }
+html:not(.desk) body.powa-app .md-board-root .md-up-kg small { font-size: 20px; font-weight: 600; }
+html:not(.desk) body.powa-app .md-board-root .md-up-kg em { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); }
+html:not(.desk) body.powa-app .md-board-root .md-calls .md-btn:is(.md-btn-good, .md-btn-no) { gap: 8px; background: var(--pl-inset-2); box-shadow: none; color: var(--text); font-size: 17px; font-weight: 650; }
+html:not(.desk) body.powa-app .md-board-root .md-calls .md-btn:is(.md-btn-good, .md-btn-no):active:not(:disabled) { background: var(--fill-4, rgba(255, 255, 255, 0.14)); }
+html:not(.desk) body.powa-app .md-board-root .md-calls .md-btn-good::before { content: ''; flex: none; width: 5px; height: 10px; margin: -4px 3px 0 0; border: solid var(--ca-live); border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
+html:not(.desk) body.powa-app .md-board-root :is(.md-calls .md-btn-no, .md-up-kg em, .md-next-warm, .md-dec-kg b.is-low)::before { content: ''; flex: none; width: 9px; height: 8px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+
+/* the declaration: its weight 32 under the call's 44, Declare the crimson pill (52, 17) every coach screen uses;
+   below the last attempt it is ink beside the triangle (it was a red number) */
+html:not(.desk) body.powa-app .md-board-root .md-dec-kg b { font-size: 32px; }
+html:not(.desk) body.powa-app .md-board-root .md-dec-kg b.is-low { display: inline-flex; align-items: center; gap: 8px; color: var(--text); }
+html:not(.desk) body.powa-app :is(.md-board-root, .md-sheet) .md-btn-block { height: 52px; font-size: 17px; font-weight: 650; }
+html:not(.desk) body.powa-app .md-board-root .md-link { min-height: 44px; font-size: 15px; text-decoration: none; }
+/* the next attempt's three choices, as in the planner: a reach ink beside the triangle (an amber word), and the
+   chosen one's odds in the second ink on its lighter fill */
+html:not(.desk) body.powa-app .md-board-root :is(.md-odds.is-reach, .md-odds.is-reach b, .md-opt.on .md-odds) { color: var(--text-2); }
+html:not(.desk) body.powa-app .md-board-root .md-odds.is-reach::before { content: ''; align-self: center; flex: none; width: 9px; height: 8px; margin-right: 2px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+
+/* the flight: chips like the app's (the chosen one raised graphite, not inverted), heads and names on the scale, a
+   good lift an ink number on its green, a no lift its number struck through in ink */
+html:not(.desk) body.powa-app .md-board-root .md-flight { font-size: 15px; }
+html:not(.desk) body.powa-app .md-board-root .md-flight small { font-size: 13px; }
+html:not(.desk) body.powa-app .md-board-root .md-flight.on { background: var(--pl-raise); color: var(--text); box-shadow: var(--pl-raise-shade); }
+html:not(.desk) body.powa-app .md-board-root .md-flight.on small { color: var(--text-2); }
+html:not(.desk) body.powa-app .md-board-root :is(.md-table th, .md-name small, .md-legend) { font-size: 13px; }
+html:not(.desk) body.powa-app .md-board-root .md-cell.is-good .md-cell-kg { color: var(--text); }
+html:not(.desk) body.powa-app .md-board-root .md-cell.is-no .md-cell-kg { color: var(--text-2); box-shadow: none; text-decoration-color: var(--text-2); }
+html:not(.desk) body.powa-app .md-board-root .md-legend .is-no::before { box-shadow: inset 0 0 0 1.5px var(--text-3); background: linear-gradient(transparent 4.25px, var(--text-2) 4.25px, var(--text-2) 5.75px, transparent 5.75px); }
+html:not(.desk) body.powa-app .md-board-root .md-chg { font-size: 11px; }
+
+/* who is next and the warm-ups: names and loads 15, the rest 13; warm up now ink beside the triangle, the warm-up
+   due now in ink (both wore amber words) */
+html:not(.desk) body.powa-app .md-board-root :is(.md-next-who b, .md-next-out, .md-warm-list b) { font-size: 15px; }
+html:not(.desk) body.powa-app .md-board-root :is(.md-next-who small, .md-warm-at, .md-warm-list small) { font-size: 13px; }
+html:not(.desk) body.powa-app .md-board-root .md-next-warm { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); }
+html:not(.desk) body.powa-app .md-board-root .md-warm-list li.is-now .md-warm-at { color: var(--text); }
+html:not(.desk) body.powa-app .md-board-root .md-finished b { color: var(--text); }
+
+/* the Lifters tab and the board's sheets (Finish meet): on the scale; Not yet graphite, not an outline */
+html:not(.desk) body.powa-app .md-board-root :is(.md-fstart, .md-ltable, .md-lifters-acts .md-btn) { font-size: 15px; }
+html:not(.desk) body.powa-app .md-board-root :is(.md-ltable th, .md-fsize-note, .md-rm, .md-cls-line) { font-size: 13px; }
+html:not(.desk) body.powa-app .md-sheet .md-sheet-h { font-size: 22px; line-height: 1.2; letter-spacing: -0.02em; }
+html:not(.desk) body.powa-app .md-sheet .md-sheet-sub { font-size: 15px; }
+html:not(.desk) body.powa-app .md-sheet :is(.md-fin-who small, .md-fin-tot small) { font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) body.powa-app :is(.md-board-root, .md-sheet) .md-btn:active:not(:disabled) { transform: none; } }
+
 /* sheets: find anything, check-ins */
 html:not(.desk) .ca-search.is-sheet { margin: 6px 0 4px; }
 html:not(.desk) .ca-search-sheet .ca-h3 { margin: 22px 4px 10px; font-size: 20px; }
