@@ -529,20 +529,10 @@
   // one job (the payment most overdue, with the screen's one red and one quiet way out), then everyone as calm
   // rows: face, name, one line in the coach's words, the next payment's date. Status is never red: late is the
   // orange triangle beside ink words. Nothing here moves money; the foot says so.
-  var PER = { monthly: 'a month', weekly: 'a week', fortnightly: 'every 2 weeks', '4-weekly': 'every 4 weeks', quarterly: 'a quarter', yearly: 'a year', 'one-off': 'once' };
-  // "$220 a month", "$90 every 4 weeks", "$400 once".
-  function perText(b) { return b ? money(b.amountCents, b.currency) + ' ' + (PER[b.cadence] || 'a month') : ''; }
-  function late(s) { return plural(-s.days, 'day') + ' late'; }
-  // What a client's money is doing, in the coach's words: { text, warn } for the row's line and the sheet.
-  function stateWords(s) {
-    if (s.state === 'overdue') return { text: late(s), warn: true };
-    if (s.state === 'due') return { text: 'Due today' };
-    if (s.state === 'soon') return { text: s.days === 1 ? 'Due tomorrow' : 'Due in ' + s.days + ' days' };
-    if (s.state === 'paused') return { text: 'Paused' };
-    if (s.state === 'ended') return { text: 'Ended' };
-    if (s.state === 'none') return { text: 'No package yet' };
-    return { text: s.due ? 'Next payment ' + dateShort(s.due) : stateLabel(s) };
-  }
+  // The words live in clients.js (pure, tested): '$220 a month'; '5 days late' (warn) / 'Due in 2 days' / ...
+  function perText(b) { return C().perText(b); }
+  function late(s) { return C().paceWords(s).text; }
+  function stateWords(s) { return C().paceWords(s, dateShort); }
   function triHtml() { return '<i class="cs-tri" aria-hidden="true"></i>'; }
   function phoneHeroHtml(sm, month) {
     var cur = sm.currency, got = sm.month.received, exp = sm.month.expected, any = (st().clientBilling || []).some(function (b) { return roster().some(function (a) { return a.id === b.athleteId; }); });
@@ -594,10 +584,11 @@
       '<span class="cs-rn"><b>' + esc(a.name) + '</b><span class="cs-line' + (w.warn ? ' is-warn' : '') + '">' + (w.warn ? triHtml() : '') + '<span>' + esc(line) + '</span></span></span>' + end + '</button>';
   }
   var filled = false;   // the meter fills on the first visit of an app open, never again (coach-ui.css csMeterIn)
+  var meterWas = null;  // where the meter stood when Clients last drew (a payment moves it)
   function renderPhone(host) {
-    var sm = summary(), all = rows(), t = today();
+    var sm = summary(), all = rows(), t = today(), first = !filled;
     var month = new Date(t + 'T12:00:00').toLocaleDateString(undefined, { month: 'long' });
-    var html = '<div class="cl-root cs-zone cs-page is-phone' + (filled ? '' : ' is-first') + '">';
+    var html = '<div class="cl-root cs-zone cs-page is-phone' + (first ? ' is-first' : '') + '">';
     filled = true;
     html += '<header class="cs-ph"><h1 class="cl-h1">Clients</h1></header>';
     if (!roster().length) {
@@ -622,6 +613,13 @@
     html += '<div class="cs-list is-phone">' + list.map(phoneRowHtml).join('') + '</div></div>';
     html += '<p class="cs-foot">Only you see this. POWALIFTA doesn\u2019t take payments; it keeps your record and the dates.</p></div>';
     host.innerHTML = html;
+    // A payment just recorded: the meter grows from where it was to where it is now.
+    var mi = host.querySelector('.cs-meter.is-hero i'), now = mi ? parseFloat(mi.style.getPropertyValue('--p')) || 0 : null;
+    if (mi && meterWas != null && now !== meterWas && !first && typeof mi.animate === 'function' && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+      var cs = getComputedStyle(document.body), ease = (cs.getPropertyValue('--pl-spring') || '').trim() || 'cubic-bezier(0.23, 1, 0.32, 1)', ms = parseFloat(cs.getPropertyValue('--pl-d-state')) || 560;
+      try { mi.animate([{ transform: 'scaleX(' + meterWas + ')' }, { transform: 'scaleX(' + now + ')' }], { duration: ms, easing: ease }); } catch (e) {}
+    }
+    meterWas = now;
   }
   function render(host) {
     if (!host || !C()) return;

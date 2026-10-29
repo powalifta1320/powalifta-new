@@ -5850,6 +5850,25 @@ test('the contract: every helper is there', () => {
     .forEach(k => eq(typeof CX[k], 'function', k));
   eq(CX.CADENCES.join(','), 'weekly,fortnightly,4-weekly,monthly,quarterly,yearly,one-off');
 });
+test("the phone's words: what a package costs, where the money stands (only late warns)", () => {
+  eq(CX.perText({ amountCents: 22000, currency: 'USD', cadence: 'monthly' }), '$220 a month');
+  eq(CX.perText({ amountCents: 9000, currency: 'USD', cadence: '4-weekly' }), '$90 every 4 weeks');
+  eq(CX.perText({ amountCents: 6000, currency: 'USD', cadence: 'fortnightly' }), '$60 every 2 weeks');
+  eq(CX.perText({ amountCents: 40000, currency: 'USD', cadence: 'one-off' }), '$400 once');
+  eq(CX.perText(null), '', 'no package, no words');
+  const b = { amountCents: 22000, currency: 'USD', cadence: 'monthly', nextDue: '2026-10-22', status: 'active' };
+  const at = (due, extra) => CX.paceWords(CX.clientStatus(Object.assign({}, b, { nextDue: due }, extra || {}), CT));
+  eq(at('2026-10-22').text, '5 days late'); eq(at('2026-10-22').warn, true, 'late warns');
+  eq(at('2026-10-26').text, '1 day late');
+  eq(at(CT).text, 'Due today'); eq(!!at(CT).warn, false, 'due today is not late');
+  eq(at('2026-10-28').text, 'Due tomorrow');
+  eq(at('2026-10-29').text, 'Due in 2 days'); eq(!!at('2026-10-29').warn, false);
+  eq(CX.paceWords(CX.clientStatus(Object.assign({}, b, { nextDue: '2026-11-16' }), CT), (iso) => '<' + iso + '>').text, 'Next payment <2026-11-16>', "the screen's own date format");
+  eq(at('2026-10-22', { status: 'paused' }).text, 'Paused', 'paused, however late');
+  eq(at('2026-10-22', { status: 'ended' }).text, 'Ended');
+  eq(CX.paceWords(CX.clientStatus(null, CT)).text, 'No package yet');
+  eq(CX.paceWords(null).text, '');
+});
 test('nextDueAfter: month ends, the 31st through February, leap years', () => {
   eq(CX.nextDueAfter('2026-01-31', 'monthly', 31), '2026-02-28');
   eq(CX.nextDueAfter('2026-02-28', 'monthly', 31), '2026-03-31', 'the 31st comes back in March');

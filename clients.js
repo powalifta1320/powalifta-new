@@ -254,9 +254,27 @@
     return out;
   }
 
+  // ---------- the phone's words (clients-ui.js renderPhone, 29 Oct) ----------
+  // What a package costs, the way a coach says it: '$220 a month', '$90 every 4 weeks', '$400 once'.
+  var PER_WORDS = { monthly: 'a month', weekly: 'a week', fortnightly: 'every 2 weeks', '4-weekly': 'every 4 weeks', quarterly: 'a quarter', yearly: 'a year', 'one-off': 'once' };
+  function perText(b) { return b ? formatMoney(b.amountCents, b.currency) + ' ' + (PER_WORDS[b.cadence] || 'a month') : ''; }
+  // Where a client's money stands, in the coach's words: { text, warn } (warn: it's late, so the screen puts the
+  // orange triangle beside the ink words; nothing else warns). s: clientStatus(); fmt(iso): the screen's date.
+  function paceWords(s, fmt) {
+    if (!s) return { text: '' };
+    var f = typeof fmt === 'function' ? fmt : function (iso) { return shortDate(iso, todayLocal()); };
+    if (s.state === 'overdue') return { text: plural(-s.days, 'day') + ' late', warn: true };
+    if (s.state === 'due') return { text: 'Due today' };
+    if (s.state === 'soon') return { text: s.days === 1 ? 'Due tomorrow' : 'Due in ' + s.days + ' days' };
+    if (s.state === 'paused') return { text: 'Paused' };
+    if (s.state === 'ended') return { text: 'Ended' };
+    if (s.state === 'none') return { text: 'No package yet' };
+    return { text: s.due ? 'Next payment ' + f(s.due) : s.label };
+  }
+
   window.Clients = {
     nextDueAfter: nextDueAfter, clientStatus: clientStatus, clientsSummary: clientsSummary,
-    formatMoney: formatMoney, cadenceLabel: cadenceLabel, priceText: priceText, monthlyCents: monthlyCents,
+    formatMoney: formatMoney, cadenceLabel: cadenceLabel, priceText: priceText, monthlyCents: monthlyCents, perText: perText, paceWords: paceWords,
     recordPayment: recordPayment, intakeMaxes: intakeMaxes, intakeLines: intakeLines,
     CADENCES: CADENCES, METHODS: METHODS, STATUSES: STATUSES
   };
