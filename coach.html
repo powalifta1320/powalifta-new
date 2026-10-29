@@ -33,6 +33,7 @@
 <link rel="stylesheet" href="challenges.css"><!-- COACH CHALLENGES: the challenge card, its board and New challenge (challenges.js) -->
 <link rel="stylesheet" href="coach-app.css"><!-- the iPhone app's coach screens (28 Oct): Home, Lifters, a lifter, Programs (coach-app.js, coach-program.js); never the laptop desk -->
 <link rel="stylesheet" href="notify.css"><!-- ALLOW NOTIFICATIONS: the card for coach Home (notify.js) -->
+<link rel="stylesheet" href="coach-you.css"><!-- the iPhone app's You and every tab's first run (29 Oct, coach-you.js); never the laptop desk -->
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 </head>
@@ -394,6 +395,7 @@
 <script src="coach-lifters.js"></script><!-- Lifters: everyone then one (desk Roster + the phone Lifters tab and its lifter page) -->
 <script src="coach-app.js"></script><!-- The iPhone app's coach screens (28 Oct): Home, the Lifters hub, a lifter's card (CoachApp); phone only -->
 <script src="coach-program.js"></script><!-- The iPhone app's Programs: one day per page, sets you read like Train, an editor sheet with steppers (CoachProgram); phone only -->
+<script src="coach-you.js"></script><!-- The iPhone app's You (Your plan, Get set up) and the brand-new coach's first run on Lifters, Messages and Programs (CoachYou); phone only -->
 <script src="weekly-note.js"></script><!-- The week's note (Today's queue on the laptop, a lifter's page on the phone), saved replies, message everyone -->
 <script src="coach-report.js"></script><!-- The coach's week: one core for Last week's report, the Monday push + email and the Thursday check (a byte-identical copy runs in the send-weekly-digest edge function) -->
 <script src="coach-report-ui.js"></script><!-- Last week's report: a sheet on the phone, a card on the laptop (Today › This week, Lifters › This week, Settings › Notifications, the Monday push ?report=week) -->
@@ -606,7 +608,13 @@ function maybeStartCoachTour() {
 window.maybeStartCoachTour = maybeStartCoachTour;
 window.replayCoachTour = () => { resetTour('coach'); maybeStartCoachTour(); };
 
-// YOU (coach) — roster numbers up top, then Coaching / Account rows.
+// YOU (coach): who you are, your plan, then Coaching / Settings / Help / your account, as grouped rows.
+// The phone (29 Oct, the approved look): the coach's own page, in the family of a lifter's. Their face and name on
+// the ground (no stats: Home owns the week's numbers), Edit profile as the quiet action, and for a brand-new coach
+// the invite as the one red. Your plan as one card ("4 of 25" lifters and its seats) where plans show at all; the
+// rows once each (Edit profile is the profile, the plan card is Plan & billing, the header's Ask is the assistant).
+// Log out and Delete account are ink: red is the logo and the one action (Delete account confirms in its own
+// sheet, where "Delete everything" is that sheet's one action).
 function renderCoachYou() {
   const area = document.getElementById('youArea');
   if (!area) return;
@@ -614,14 +622,19 @@ function renderCoachYou() {
   area.classList.remove('dk-set');
   if (_desk() && typeof deskRenderSettings === 'function') { deskRenderSettings(area); return; }
   const roster = getRosterOverview(user.id);
-  const activeWeek = roster.filter(r => r.ago != null && r.ago <= 7).length;
   const tier = getCurrentTier();
   const inShell = document.documentElement.classList.contains('native');
   const showPlan = !inShell || !!window._iapReady;
+  const fresh = !roster.length;
   const club = window.PowaClubs && PowaClubs.cachedName ? PowaClubs.cachedName() : null;
   const go = (tab) => () => { const t = document.getElementById('tab-' + tab); if (t) t.click(); };
   // A row renamed to say "lifter" (like the tab) keeps the icon its old label had in YOU_ROW_META.
   const rowIcon = (k) => (typeof YOU_ROW_META !== 'undefined' && YOU_ROW_META[k]) ? { icon: YOU_ROW_META[k].icon(), tint: YOU_ROW_META[k].tint } : {};
+  const svg = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+  const overdue = window.ClientsUI && roster.length ? ClientsUI.overdueCount() : 0;
+  const setup = fresh ? coachSetupSteps() : [];
+  // The shared Settings rows, each once: the profile is the hero's Edit profile, the plan is the plan card.
+  const settings = youSettingsRows('coach', () => renderCoachYou()).filter(r => r && r.label !== 'Profile' && !(window.CoachYou && r.label === 'Plan & billing'));
   renderYouHub(area, {
     name: user.name,
     avatarUrl: user.avatarUrl,
@@ -630,36 +643,41 @@ function renderCoachYou() {
     onAvatar: () => pickAvatar(() => renderCoachYou()),
     edit: () => openProfileSheet(() => renderCoachYou()),
     sub: ['Coach', club].filter(Boolean).join(' · '),
-    // Nobody on the roster yet: no row of zeros, the setup steps instead (Coaching, first row).
-    stats: !roster.length ? [] : [
-      { label: 'Lifters', value: roster.length },
-      { label: 'Trained', value: activeWeek + '/' + roster.length, unit: '' },
-      showPlan ? { label: 'Plan', value: (TIER_LABELS && TIER_LABELS[tier]) || tier } : { label: 'Notes', value: (Store.get().sessionNotes || []).filter(n => roster.some(r => r.athlete.id === n.athleteId) && !n.coachComment).length }
-    ],
+    stats: [],
+    // Nobody on the roster yet: the invite is this screen's one red too (every tab of a first run has it).
+    primary: fresh ? { label: 'Invite a lifter', icon: svg('<path d="M12 5v14M5 12h14"/>'), onClick: () => openInviteModal() } : null,
+    afterHero: window.CoachYou ? CoachYou.planCard({ showPlan, onOpen: () => openPlanSheet() }) : null,
     groups: [
       { title: 'Coaching', rows: [
-        !roster.length ? { label: 'Get set up', value: coachSetupSteps().filter(x => x.done).length + ' of 3', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/></svg>', tint: 'gold', onClick: go('athletes') } : null,
-        window.ClientsUI && roster.length ? { label: 'Clients', value: ClientsUI.overdueCount() ? ClientsUI.overdueCount() + ' overdue' : '', icon: ClientsUI.ICON, tint: 'green', onClick: go('clients') } : null,
+        fresh ? { label: 'Get set up', value: setup.filter(x => x.done).length + ' of ' + setup.length, icon: svg('<path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/>'), tint: 'gold', onClick: () => (window.CoachYou ? CoachYou.openSetup() : go('athletes')()) } : null,
+        window.ClientsUI && roster.length ? { label: 'Clients', value: overdue ? overdue + ' overdue' : '', warn: !!overdue, icon: ClientsUI.ICON, tint: 'green', onClick: go('clients') } : null,
         // How many more lifters fit your hours (capacity.js): room left, in lifters.
         window.CapacityUI ? { label: 'Capacity', value: CapacityUI.rowValue(), icon: CapacityUI.ICON, tint: 'iris', onClick: go('capacity') } : null,
         Object.assign({ label: 'Lifter progress', onClick: go('progress') }, rowIcon('Athlete progress')),
-        { label: 'Check-in questions', value: String((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id && q.active !== false).length || ''), icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/></svg>', tint: 'blue', onClick: () => openCheckinQuestionsSheet() },
+        { label: 'Check-in questions', value: String((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id && q.active !== false).length || ''), icon: svg('<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/>'), tint: 'blue', onClick: () => openCheckinQuestionsSheet() },
         // How next week moves (progression.js): a screen of its own, pushed from here.
         window.ProgressionUI && roster.length ? { label: 'Progression rules', value: ProgressionUI.summary(), icon: ProgressionUI.ICON, tint: 'teal', onClick: go('rules') } : null,
         brandRow(tier, showPlan),
         { label: 'Templates', onClick: go('templates') },
         inShell ? null : { label: 'Marketplace listings', onClick: go('marketplace') },
-        Object.assign({ label: 'Invite a lifter', onClick: () => openInviteModal() }, rowIcon('Invite an athlete'))
+        // A brand-new coach has the invite as the red above: the row would say it twice.
+        fresh ? null : Object.assign({ label: 'Invite a lifter', onClick: () => openInviteModal() }, rowIcon('Invite an athlete'))
       ] },
-      { title: 'Settings', rows: youSettingsRows('coach', () => renderCoachYou()).concat([{ label: 'Refer a lifter', onClick: () => openReferralSheet() }]) },
+      { title: 'Settings', rows: settings.concat([{ label: 'Refer a lifter', onClick: () => openReferralSheet() }]) },
       { title: 'Help', rows: [
-        { label: 'Ask AI', onClick: () => openAIAssistant() },
-        { label: 'Replay the tour', onClick: () => window.replayCoachTour && window.replayCoachTour() },
-        { label: 'Help & support', onClick: () => openAIAssistant('support') }
+        { label: 'Help & support', onClick: () => openAIAssistant('support') },
+        { label: 'Replay the tour', onClick: () => window.replayCoachTour && window.replayCoachTour() }
       ] },
-      { title: '', rows: [ { label: 'Log out', tone: 'plain', onClick: () => logout() } ] }
+      { title: '', rows: [
+        { label: 'Log out', tone: 'plain', onClick: () => logout() },
+        { label: 'Delete account', tone: 'plain', icon: svg('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>'), tint: 'gray', onClick: () => deleteMyAccount() }
+      ] }
     ]
   });
+  // The approved look's entrance (coach-app.css .ca-rise): the page's pieces rise once, heaviest first, 40 ms apart.
+  // The rows rise with their group (the shared row-by-row entrance steps aside here: coach-you.css).
+  area.classList.add('cy-you');
+  Array.from(area.children).forEach((n, i) => { n.classList.add('ca-rise'); n.style.setProperty('--i', String(Math.min(i, 6))); });
 }
 window.renderCoachYou = renderCoachYou;
 
