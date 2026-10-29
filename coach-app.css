@@ -1314,6 +1314,10 @@ html:not(.desk) #challengesArea .chl-h { display: none; }
 @keyframes plSheetUp { from { transform: translate3d(0, 100%, 0); } to { transform: none; } }
 html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]):not([data-nav="carry-back"]) [data-pane]:not(.hidden) .ca-rise { animation: plRise var(--pl-d-state) var(--pl-spring) calc(var(--i, 0) * 40ms) backwards; }
 html:not(.desk) body.powa-app.screen-enter:not([data-nav="pop"]):not([data-nav="carry-back"]) [data-pane]:not(.hidden) .ca-focal.ca-rise { animation-name: plSet; animation-duration: var(--pl-d-heavy); animation-delay: 0ms; }
+/* the boot: Home's first look arrives once, as the skeleton gives way to it, and its week fills. The screen's
+   entrance, which the boot adds a frame after Home is drawn, would replay it from .45: a two-frame flash of the
+   finished page, then the fade (seen in the takes' recordings). The first look never replays. */
+html:not(.desk) .ca-home.is-first .ca-rise { animation: none !important; }
 /* the face in flight rides above the page it lands on */
 html:not(.desk) .is-carry { position: relative; z-index: 6; will-change: transform; }
 @media (prefers-reduced-motion: no-preference) {
