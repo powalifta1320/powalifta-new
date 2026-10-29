@@ -11362,7 +11362,9 @@ function _legacy_seedDemo() {
 // library, settings, units, log out…). It's what lets the bottom bar stay at five
 // real destinations, and it takes units + log out off the top bar.
 // model = { name, avatarUrl, sub, stats:[{label,value,unit}], action:{label,onClick},
-//           groups:[{ title, rows:[{ label, value, onClick, tone, id }] }] }
+//           primary:{label,icon,onClick} (the coach's first run: the invite, the screen's one red),
+//           groups:[{ title, rows:[{ label, value, sub, warn, onClick, tone, id }] }] }
+// (primary, a row's sub line and warn, the triangle beside its value, are the coach app's: 29 Oct.)
 // =========================================================
 const _YOU_CHEV = '<svg class="yr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 // Settings-style icon tiles for the YOU rows: each destination gets a glyph and a
@@ -11432,8 +11434,13 @@ function renderYouHub(container, model) {
     });
     hero.appendChild(st);
   }
-  if (model.action || model.edit) {
+  if (model.action || model.edit || model.primary) {
     const acts = el('div', { class: 'you-actions' });
+    if (model.primary) {
+      const pr = el('button', { class: 'ca-btn is-red you-primary', type: 'button', html: (model.primary.icon || '') + '<span>' + escHtml(model.primary.label) + '</span>' });
+      pr.addEventListener('click', model.primary.onClick);
+      acts.appendChild(pr);
+    }
     if (model.edit) {
       const e = el('button', { class: 'ui-btn-soft you-action', type: 'button' }, 'Edit profile');
       e.addEventListener('click', model.edit);
@@ -11460,8 +11467,13 @@ function renderYouHub(container, model) {
       if (r.id) row.id = r.id;
       const meta = r.icon ? { tint: r.tint || 'gray', icon: () => r.icon } : YOU_ROW_META[r.label];
       if (meta) row.appendChild(el('span', { class: 'yr-ic t-' + meta.tint, html: meta.icon() || '' }));
-      row.appendChild(el('span', { class: 'yr-label' }, r.label));
-      const v = el('span', { class: 'yr-value' }, r.value == null ? '' : String(r.value));
+      if (r.sub) {
+        const tx = el('span', { class: 'yr-label yr-two' });
+        tx.appendChild(el('span', { class: 'yr-t' }, r.label));
+        tx.appendChild(el('span', { class: 'yr-sub' + (r.warn ? ' is-warn' : '') }, r.sub));
+        row.appendChild(tx);
+      } else row.appendChild(el('span', { class: 'yr-label' }, r.label));
+      const v = el('span', { class: 'yr-value' + (r.warn && !r.sub ? ' is-warn' : '') }, r.value == null ? '' : String(r.value));
       row.appendChild(v);
       if (r.tone !== 'plain') row.insertAdjacentHTML('beforeend', _YOU_CHEV);
       row.addEventListener('click', () => r.onClick && r.onClick(row, v));
