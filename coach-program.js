@@ -210,10 +210,13 @@
     if (sel) sel.value = aid;
   }
   // A lifter newly opened here lands on the week they're in and the next day they train.
+  // A block just given to them (a template's Apply) opens on its first week, whatever week their old one was in.
   function enter(aid, prog) {
     if (S.aid === aid) return;
     S.aid = aid;
-    var r = rowOf(aid), wk = r && r.status && r.status.week;
+    var fresh = S.landFresh === aid;
+    S.landFresh = null;
+    var r = fresh ? null : rowOf(aid), wk = r && r.status && r.status.week;
     var wi = wk && wk.idx != null && prog.weeks[wk.idx] ? wk.idx : 0;
     setWeek(wi);
     S.days[dayKey(aid, wi)] = cpNextDay(prog.weeks[wi]);
@@ -1232,7 +1235,7 @@
         if (!picked.length || typeof applyTemplateToLifters !== 'function') return;
         var ids = list.filter(function (a) { return picked.indexOf(a.id) >= 0; }).map(function (a) { return a.id; });
         close();
-        S.aid = null;   // Programs lands on the first of them, on their week
+        S.aid = null; S.landFresh = ids[0];   // Programs lands on the first of them, on week 1 of the new block
         applyTemplateToLifters(t, ids, { noun: 'lifters' });
       });
       sheet.appendChild(go);
