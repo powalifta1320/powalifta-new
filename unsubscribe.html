@@ -169,10 +169,11 @@
     });
   }
 
-  // Render nav + theme via the shared bootstrap (static/public mode), then boot.
+  // The link works on its own (its token is the whole credential), so it is answered at once; bootstrap only fills in
+  // the bar (it reads the sign-in and the coach list first: offline, supabase-js retries that for about 14 s).
+  boot();
   bootstrap(null, function () {
     if (typeof renderNav === 'function') renderNav('#nav');
-    boot();
   }, { staticPublic: true });
 })();
 </script>
