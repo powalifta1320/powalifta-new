@@ -87,6 +87,7 @@ body.site .s-page-head { padding: var(--head-top) 0 clamp(36px, 4vw, 56px); }
 body.site .s-page-head h1 { max-width: 15em; }
 body.site .s-page-head p { margin-top: 22px; max-width: 34em; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.52; color: var(--text-2); }
 body.site .s-page-head p.s-updated { margin-top: 16px; font-size: 15px; color: var(--text-3); }
+body.site .s-page-head .quiet { margin-top: 22px; }
 
 /* Prose: 17 px, the homepage's measure; section titles 28 px; links in ink. */
 body.site .s-prose { font-size: 17px; line-height: 1.65; color: var(--text-2); }
