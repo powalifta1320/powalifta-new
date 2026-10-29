@@ -154,11 +154,11 @@ document.getElementById('exlibSearch').addEventListener('input', (ev) => {
   _exDebounce = setTimeout(() => { _exQuery = v; renderExlib(); }, 180);
 });
 
-bootstrap(null, async () => {
-  renderNav('#nav');
-  buildChips();
-  renderExlib();
-}, { staticPublic: true });
+// The library is the app's own data (app.js): it draws at once instead of waiting for the sign-in check and the coach
+// list, which bootstrap reads first (offline, supabase-js retries that for about 14 s and the page stood empty).
+buildChips();
+renderExlib();
+bootstrap(null, () => renderNav('#nav'), { staticPublic: true });
 </script>
 </body>
 </html>
