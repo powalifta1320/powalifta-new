@@ -6,9 +6,9 @@
 <!-- iPhone app: tag the document as native before first paint (same snippet as athlete.html). -->
 <script>(function(){try{var C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform()){document.documentElement.classList.add('native');if(!localStorage.getItem('powa-theme'))document.documentElement.setAttribute('data-theme','dark');var vp=document.querySelector('meta[name="viewport"]');if(vp&&!/viewport-fit/.test(vp.getAttribute('content')||'')){vp.setAttribute('content',(vp.getAttribute('content')||'')+', viewport-fit=cover');}}}catch(e){}})();</script>
 <title>FAQ | POWALIFTA</title>
-<meta name="description" content="Common questions about POWALIFTA: pricing, how RPE logging works, how coaches and athletes use the platform, payments, refunds.">
+<meta name="description" content="Common questions about POWALIFTA: what’s free, how RPE and the e1RM work, coaches and their lifters, the iPhone app and your data.">
 <meta property="og:title" content="POWALIFTA FAQ | How it works">
-<meta property="og:description" content="Common questions answered: pricing, RPE logging, coach/athlete workflow, payments, refunds.">
+<meta property="og:description" content="Common questions answered: what’s free, RPE and the e1RM, coaches and their lifters, the iPhone app and your data.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://www.powalifta.com/faq.html">
 <script type="application/ld+json">
@@ -24,12 +24,12 @@
     {
       "@type": "Question",
       "name": "Can I use POWALIFTA without a coach?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Sign up as a solo athlete. You get the full logging, e1RM tracking, goals and bodyweight features, and you can buy programs from the marketplace or connect with a coach later." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Sign up as a lifter on your own (no invite code needed) and log sets as you train: the e1RM, goals and bodyweight tracking all work without a coach, and the Program tab lets you write your own program. You can join a coach later." }
     },
     {
       "@type": "Question",
       "name": "Is POWALIFTA free?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Free for athletes, forever. Coaches are free up to 3 athletes, then plans scale: Basic $24.99/mo (4–10 athletes), Pro $49.99/mo (11–25), Premium $99.99/mo (26+)." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Lifters use it free. Coaches are free with up to 3 lifters, then pay by roster size: Basic $24.99 a month for 4 to 10 lifters, Pro $49.99 for 11 to 25, Premium $99.99 for 26 or more. Every plan has every coaching feature. Billed monthly; change or cancel any time." }
     },
     {
       "@type": "Question",
@@ -80,89 +80,60 @@
   </nav>
 </header>
 
-<main id="main" class="s-wrap s-narrow s-faq">
+<main id="main" class="s-wrap s-faq">
   <header class="s-page-head">
     <h1>Questions, answered</h1>
-    <p>How the math works, what's free, and how coaching plans and the iPhone app fit together.</p>
+    <p>How the math works, what’s free, and how coaching plans and the iPhone app fit together.</p>
   </header>
 
-  <div id="faq">
-    <div class="faq-item">
-      <div class="faq-q"><span>How is my e1RM calculated?</span><span class="toggler">+</span></div>
-      <div class="faq-a">
-        <p>An RPE-percentage model in the Tuchscherer tradition: every rep below a single, and every RPE point below 10, takes a fixed 3.33% off the estimate.</p>
-        <p style="margin-top:8px; font-family:var(--font-num); background: var(--bg-2); padding: 10px 14px; border-radius: 6px;">e1RM = weight ÷ (1 − ((reps − 1) + (10 − RPE)) × 0.0333)</p>
-        <p style="margin-top:8px">A 1-rep set at RPE 10 returns exactly your weight (correct, that IS your 1-rep max). A 5×5 at RPE 8 returns about 1.25 × the weight. For non-competition variants we then multiply by the variant multiplier (e.g. paused squat × 1.07) to estimate what you'd hit in the comp version of the lift. The result is what gets plotted on your e1RM chart.</p>
-      </div>
-    </div>
+  <div class="qs" id="faq">
+    <details class="q" open><summary>How is my e1RM calculated?<i class="qi" aria-hidden="true"></i></summary><div class="qa">
+      <p>An RPE-percentage model in the Tuchscherer tradition: every rep below a single, and every RPE point below 10, takes a fixed 3.33% off the estimate.</p>
+      <p class="formula">e1RM = weight ÷ (1 − ((reps − 1) + (10 − RPE)) × 0.0333)</p>
+      <p>A 1-rep set at RPE 10 returns exactly your weight (correct, that is your 1-rep max). A 5×5 at RPE 8 returns about 1.25 × the weight. For non-competition variants we then multiply by the variant multiplier (e.g. paused squat × 1.07) to estimate what you’d hit in the comp version of the lift. The result is what gets plotted on your e1RM chart.</p>
+    </div></details>
 
-    <div class="faq-item">
-      <div class="faq-q"><span>What's RPE and why do you use it?</span><span class="toggler">+</span></div>
-      <div class="faq-a">
-        <p>RPE = Rate of Perceived Exertion. A 1–10 scale where 10 means you couldn't have done another rep, 9 means one rep left, 8 means two reps left, and so on. It's the most reliable way for athletes to self-regulate intensity day to day, because percentages of your true 1RM change with sleep, stress, life. RPE-based programming is what most modern powerlifting coaches use. POWALIFTA is built around it natively rather than %1RM.</p>
-      </div>
-    </div>
+    <details class="q"><summary>What’s RPE and why do you use it?<i class="qi" aria-hidden="true"></i></summary><div class="qa">
+      <p>RPE = Rate of Perceived Exertion. A 1–10 scale where 10 means you couldn’t have done another rep, 9 means one rep left, 8 means two reps left, and so on. It’s the most reliable way for lifters to self-regulate intensity day to day, because percentages of your true 1RM change with sleep, stress, life. RPE-based programming is what most modern powerlifting coaches use. POWALIFTA is built around it natively rather than %1RM.</p>
+    </div></details>
 
-    <div class="faq-item">
-      <div class="faq-q"><span>Why "competition equivalent" e1RM?</span><span class="toggler">+</span></div>
-      <div class="faq-a">
-        <p>Different lift variations are harder than competition lifts. A paused squat at 100kg is harder than a competition squat at 100kg. So when you log a paused squat, we scale up the e1RM by 1.07 to estimate what you'd actually be able to do in the comp version. This way your chart compares apples to apples. You can see your "comp" strength trending without having to do comp lifts every session.</p>
-        <p style="margin-top:8px">Multipliers used: paused squat ×1.07, tempo squat ×1.12, pin squat ×1.08; paused bench ×1.06, close grip ×1.09, pin press ×1.08, incline ×1.12; paused deadlift ×1.07, deficit ×1.06, RDL ×1.10.</p>
-      </div>
-    </div>
+    <details class="q"><summary>Why “competition equivalent” e1RM?<i class="qi" aria-hidden="true"></i></summary><div class="qa">
+      <p>Different lift variations are harder than competition lifts. A paused squat at 100&nbsp;kg is harder than a competition squat at 100&nbsp;kg. So when you log a paused squat, we scale up the e1RM by 1.07 to estimate what you’d actually be able to do in the comp version. This way your chart compares like for like. You can see your comp strength trending without having to do comp lifts every session.</p>
+      <p>Multipliers used: paused squat ×1.07, tempo squat ×1.12, pin squat ×1.08; paused bench ×1.06, close grip ×1.09, pin press ×1.08, incline ×1.12; paused deadlift ×1.07, deficit ×1.06, RDL ×1.10.</p>
+    </div></details>
 
-    <div class="faq-item">
-      <div class="faq-q"><span>Can I use POWALIFTA without a coach?</span><span class="toggler">+</span></div>
-      <div class="faq-a">
-        <p>Yes. Sign up as an athlete without an invite code and you can build your own programs (you'd need a coach account for that, since the program builder is a coach feature). Or just log sets as you do them and let the e1RM, goals, and bodyweight tracking do their thing. The platform is designed for coach-athlete pairs but works fine self-coached.</p>
-      </div>
-    </div>
+    <details class="q"><summary>Can I use POWALIFTA without a coach?<i class="qi" aria-hidden="true"></i></summary><div class="qa">
+      <p>Yes. Sign up as a lifter on your own (no invite code needed) and log sets as you train: the e1RM, goals and bodyweight tracking all work without a coach, and the Program tab lets you write your own program. You can join a coach later, from You → Find a coach.</p>
+    </div></details>
 
-    <div class="faq-item">
-      <div class="faq-q"><span>Is there a mobile app?</span><span class="toggler">+</span></div>
-      <div class="faq-a">
-        <p>Yes, on iPhone: <a href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener">get POWALIFTA on the App Store</a>. Android is next. Until then it runs in any phone's browser: open the site in Chrome, tap ⋮ → Add to Home screen, and it opens like an app.</p>
-      </div>
-    </div>
+    <details class="q"><summary>Is there a mobile app?<i class="qi" aria-hidden="true"></i></summary><div class="qa">
+      <p>Yes, on iPhone: <a href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener">get POWALIFTA on the App Store</a>. On Android it runs in the phone’s browser: open the site in Chrome, tap ⋮ → Add to Home screen, and it opens like an app.</p>
+    </div></details>
 
-    <div class="faq-item">
-      <div class="faq-q"><span>Is my data synced across devices?</span><span class="toggler">+</span></div>
-      <div class="faq-a">
-        <p>Yes. Your account and training data live in a secure cloud database. Log in from your phone at the gym and your laptop at home, and you'll see the same programs, logs, and charts everywhere. Coach-athlete connections are live too: when you log a set, your coach sees it.</p>
-      </div>
-    </div>
+    <details class="q"><summary>Is my data synced across devices?<i class="qi" aria-hidden="true"></i></summary><div class="qa">
+      <p>Yes. Your account and training data live in a secure cloud database. Log in from your phone at the gym and your laptop at home, and you’ll see the same programs, logs and charts everywhere. A coach and their lifters are live too: when you log a set, your coach sees it.</p>
+    </div></details>
 
-    <!-- .pricing-copy — hidden inside the iOS shell (Apple 3.1.1): names all four
-         tier prices, which is purchase surface the app must not display. -->
-    <div class="faq-item pricing-copy">
-      <div class="faq-q"><span>How do coaches get paid for plans?</span><span class="toggler">+</span></div>
-      <div class="faq-a">
-        <p>Coach plans (Free up to 3 athletes, Basic $24.99/mo for 4–10, Pro $49.99/mo for 11–25, Premium $99.99/mo for 26+) are billed through the App Store in the iPhone app, or through Lemon Squeezy on the web. Coaches handle athlete billing on their own. POWALIFTA is the platform, not a payment processor for coaching fees.</p>
-      </div>
-    </div>
+    <!-- .pricing-copy: hidden inside the iOS shell (Apple 3.1.1). It names the plans' prices, purchase surface the app
+         must not display. -->
+    <details class="q pricing-copy"><summary>Is POWALIFTA free?<i class="qi" aria-hidden="true"></i></summary><div class="qa">
+      <p>Lifters use it free. Coaches are free with up to 3 lifters, then pay by roster size: Basic $24.99 a month for 4 to 10 lifters, Pro $49.99 for 11 to 25, Premium $99.99 for 26 or more. Every plan has every coaching feature. Billed monthly; change or cancel any time.</p>
+      <p>Your lifters pay you the way they do now. POWALIFTA is the platform, not a payment processor for coaching fees.</p>
+    </div></details>
 
-    <div class="faq-item">
-      <div class="faq-q"><span>What if I forget my password?</span><span class="toggler">+</span></div>
-      <div class="faq-a">
-        <p>Click "Forgot password?" under the login form. We'll email you a reset link. Open it on the same device and you'll be taken to a page where you can set a new password. The link expires after about an hour for security. Check your spam folder if you don't see the email within a couple of minutes. If you still can't get in, email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a>.</p>
-      </div>
-    </div>
+    <details class="q"><summary>What if I forget my password?<i class="qi" aria-hidden="true"></i></summary><div class="qa">
+      <p>Click “Forgot password?” under the login form. We’ll email you a reset link. Open it on the same device and you’ll be taken to a page where you can set a new password. The link expires after about an hour for security. Check your spam folder if you don’t see the email within a couple of minutes. If you still can’t get in, email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a>.</p>
+    </div></details>
 
-    <div class="faq-item">
-      <div class="faq-q"><span>Can I export my data?</span><span class="toggler">+</span></div>
-      <div class="faq-a">
-        <p>Yes, instantly. Open <strong>Settings</strong> from the top-right menu on your dashboard and use the <strong>Export</strong> buttons under "Your data." <strong>JSON</strong> is the complete archive of everything we hold for your account; <strong>CSV</strong> is your training log, ready to open in Sheets/Excel or re-import anywhere. Coaches can also export any athlete's program as a spreadsheet from the program builder. Still prefer we handle it? Email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a>.</p>
-      </div>
-    </div>
+    <details class="q"><summary>Can I export my data?<i class="qi" aria-hidden="true"></i></summary><div class="qa">
+      <p>Yes, any time and on every plan, free included. On your phone: You → Your data; on a laptop: Settings → Your data. <strong>Download everything</strong> gives you one zip of CSV files (your training log, program, check-ins, messages and more) that open in any spreadsheet app, plus <code>everything.json</code> with the same data in one file. A coach’s zip has every lifter’s. The whole list is on <a href="data.html">Your data</a>; still prefer we handle it? Email <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a>.</p>
+    </div></details>
 
-    <div class="faq-item">
-      <div class="faq-q"><span>Does it work for non-powerlifting strength training?</span><span class="toggler">+</span></div>
-      <div class="faq-a">
-        <p>The platform is opinionated. It's built around squat / bench / deadlift, RPE, e1RM, and bodyweight tracking. You can use the "Other" exercise category for anything that doesn't fit (Olympic lifts, gymnastics, etc.) but the e1RM math is calibrated for typical powerlifting reps and won't be meaningful for, say, max-distance sprinting.</p>
-      </div>
-    </div>
-    <p class="faq-contact">Still stuck? Inside the app, <strong>You → Help &amp; support</strong> answers most questions on the spot. Or reach the founder directly: <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a> · <a href="https://wa.me/96871518133" target="_blank" rel="noopener">WhatsApp +968 7151 8133</a>.</p>
+    <details class="q"><summary>Does it work for non-powerlifting strength training?<i class="qi" aria-hidden="true"></i></summary><div class="qa">
+      <p>The platform is opinionated. It’s built around squat, bench and deadlift, RPE, e1RM and bodyweight tracking. You can use the “Other” exercise category for anything that doesn’t fit (Olympic lifts, gymnastics, etc.) but the e1RM math is calibrated for typical powerlifting reps and won’t be meaningful for, say, max-distance sprinting.</p>
+    </div></details>
   </div>
+  <p class="faq-contact">Still stuck? Inside the app, <strong>You → Help &amp; support</strong> answers most questions on the spot. Or reach the founder directly: <a href="mailto:powalifta1320@gmail.com">powalifta1320@gmail.com</a> · <a href="https://wa.me/96871518133" target="_blank" rel="noopener">WhatsApp +968 7151 8133</a>.</p>
 </main>
 
 <footer class="foot">
@@ -185,12 +156,14 @@
 <script src="app.js"></script>
 <script>
 bootstrap(null, () => renderNav('#nav'), { staticPublic: true });
-document.querySelectorAll('.faq-item').forEach(item => {
-  item.querySelector('.faq-q').addEventListener('click', () => item.classList.toggle('open'));
+// The homepage's questions: native details; with motion, an answer arrives as it opens (opacity and 6 px).
+document.querySelectorAll('details.q').forEach(d => {
+  const body = d.querySelector('.qa');
+  d.addEventListener('toggle', () => {
+    if (!d.open || !body || !body.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    body.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+  });
 });
-// Open the first one by default
-const first = document.querySelector('.faq-item');
-if (first) first.classList.add('open');
 </script>
 </body>
 </html>
