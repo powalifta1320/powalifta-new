@@ -935,7 +935,8 @@ html:not(.desk) .cs-meter.is-hero i { position: absolute; inset: 0; display: blo
 html:not(.desk) .cs-hs { margin: 10px 0 0; font-size: 15px; line-height: 1.35; color: var(--text-2); font-variant-numeric: tabular-nums; text-wrap: pretty; }
 html:not(.desk) .cs-hf { margin: 4px 0 0; font-size: 13px; line-height: 1.35; color: var(--text-3); font-variant-numeric: tabular-nums; }
 html:not(.desk) .cs-hx { margin: 8px 0 0; font-size: 13px; line-height: 1.35; color: var(--text-3); }
-html:not(.desk) .cs-hero .cs-hgo { align-self: flex-start; margin-top: 16px; }
+/* a brand-new coach's Clients: the invite is the screen's one red, full width like every red here */
+html:not(.desk) .cs-hero .cs-hgo { align-self: stretch; margin-top: 20px; }
 /* who owes you: the head on the ground, the one job lifted under it, the next two as rows */
 html:not(.desk) .cs-page.is-phone .cs-owe { margin-top: 24px; }
 html:not(.desk) .cs-oh { margin-bottom: 10px; }

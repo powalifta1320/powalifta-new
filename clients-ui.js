@@ -287,17 +287,21 @@
     head.innerHTML = av(a, 'cs-sface');
     var tx = el('div', { class: 'cs-shead-tx' });
     tx.appendChild(el('h3', { class: 'ui-sheet-h' }, a.name));
-    tx.appendChild(el('p', { class: 'ui-sheet-sub' }, b ? [b.package, perText(b), b.startedOn ? 'since ' + monthYear(b.startedOn) : ''].filter(Boolean).join(' \u00b7 ') : 'No package yet'));
+    // Who and since when. The package and its price are under Package and the money now is the card: each fact once.
+    if (b && b.startedOn) tx.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Coaching since ' + monthYear(b.startedOn)));
     head.appendChild(tx);
     sheet.appendChild(head);
     var owed = s.state === 'overdue' || s.state === 'due' || s.state === 'soon';
     var card = el('div', { class: 'cs-scard' + (w.warn ? ' is-late' : '') });
     if (b) {
-      var sub = s.due ? (s.state === 'overdue' ? 'Was due ' : s.state === 'ok' ? '' : 'Due ') + dateShort(s.due) : '';
-      if (s.state === 'ok') sub = pays[0] ? 'Last paid ' + dateShort(pays[0].paidOn) : '';
+      // The second line: when it was due (late), when it's due (this week; today says it already), or else when
+      // they last paid (paid up, paused, ended: a paused client's next date isn't a date anyone owes).
+      var sub = s.state === 'overdue' ? 'Was due ' + dateShort(s.due) : s.state === 'soon' ? 'Due ' + dateShort(s.due) :
+        s.state === 'due' ? '' : (pays[0] ? 'Last paid ' + dateShort(pays[0].paidOn) : '');
       card.innerHTML = '<span class="cs-sc-k">Payment</span><b class="cs-sc-v">' + (w.warn ? triHtml() : '') + '<span>' + esc(w.text) + '</span></b>' +
         (sub || owed ? '<span class="cs-sc-s">' + esc([sub, owed ? money(b.amountCents, b.currency) : ''].filter(Boolean).join(' \u00b7 ')) + '</span>' : '');
-      var mp = el('button', { class: 'ca-btn is-red', type: 'button' }, 'Mark ' + f + ' paid');
+      // The red only while money is owed (that's the job); paid up, paused or ended, recording one is graphite.
+      var mp = el('button', { class: 'ca-btn ' + (owed ? 'is-red' : 'is-soft'), type: 'button' }, 'Mark ' + f + ' paid');
       mp.addEventListener('click', function () { close(); markPaid(aid); });
       card.appendChild(mp);
       if (owed) {
@@ -322,12 +326,10 @@
     }
     if (b) {
       sheet.appendChild(uiLabel('Package', { action: { label: 'Edit', onClick: function () { close(); editPackage(aid); } } }));
+      // What they pay, once: the next date is the card's, since when the header's, paused or ended the card's.
       sheet.appendChild(uiList([
         uiRow({ title: 'Package', end: b.package }),
-        uiRow({ title: 'Price', end: perText(b) }),
-        uiRow({ title: b.nextDue && b.nextDue < today() ? 'Was due' : 'Next payment', end: b.nextDue ? dateShort(b.nextDue) : '\u2013' }),
-        b.startedOn ? uiRow({ title: 'Coaching since', end: monthYear(b.startedOn) }) : null,
-        b.status !== 'active' ? uiRow({ title: 'Status', end: b.status === 'paused' ? 'Paused' : 'Ended' }) : null
+        uiRow({ title: 'Price', end: perText(b) })
       ]));
     }
     var phone = (b && b.phone) || (ik && ik.answers && ik.answers.phone) || '';
@@ -586,14 +588,14 @@
   var filled = false;   // the meter fills on the first visit of an app open, never again (coach-ui.css csMeterIn)
   var meterWas = null;  // where the meter stood when Clients last drew (a payment moves it)
   function renderPhone(host) {
-    var sm = summary(), all = rows(), t = today(), first = !filled;
+    var sm = summary(), all = rows(), t = today(), firstVisit = !filled;
     var month = new Date(t + 'T12:00:00').toLocaleDateString(undefined, { month: 'long' });
-    var html = '<div class="cl-root cs-zone cs-page is-phone' + (first ? ' is-first' : '') + '">';
+    var html = '<div class="cl-root cs-zone cs-page is-phone' + (firstVisit ? ' is-first' : '') + '">';
     filled = true;
     html += '<header class="cs-ph"><h1 class="cl-h1">Clients</h1></header>';
     if (!roster().length) {
       host.innerHTML = html + '<div class="cs-hero is-empty ca-rise"><b class="cs-hnone">No clients yet</b><p class="cs-hs">Invite a lifter, then record their package here: what they pay you and when. You get the reminders; they never see it.</p>' +
-        '<button type="button" class="ca-pill cs-hgo" data-cs="invite">Invite a lifter</button></div></div>';
+        '<button type="button" class="ca-btn is-red cs-hgo" data-cs="invite">Invite a lifter</button></div></div>';
       return;
     }
     var counts = {}; FILTERS.forEach(function (f) { counts[f[0]] = all.filter(function (r) { return inFilter(r, f[0]); }).length; });
@@ -615,7 +617,7 @@
     host.innerHTML = html;
     // A payment just recorded: the meter grows from where it was to where it is now.
     var mi = host.querySelector('.cs-meter.is-hero i'), now = mi ? parseFloat(mi.style.getPropertyValue('--p')) || 0 : null;
-    if (mi && meterWas != null && now !== meterWas && !first && typeof mi.animate === 'function' && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+    if (mi && meterWas != null && now !== meterWas && !firstVisit && typeof mi.animate === 'function' && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
       var cs = getComputedStyle(document.body), ease = (cs.getPropertyValue('--pl-spring') || '').trim() || 'cubic-bezier(0.23, 1, 0.32, 1)', ms = parseFloat(cs.getPropertyValue('--pl-d-state')) || 560;
       try { mi.animate([{ transform: 'scaleX(' + meterWas + ')' }, { transform: 'scaleX(' + now + ')' }], { duration: ms, easing: ease }); } catch (e) {}
     }
