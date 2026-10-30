@@ -30,6 +30,7 @@
     'How did that feel? Send me the top set if you can.'
   ];
   var MAX_REPLIES = 30, MAX_REPLY_LEN = 600;
+  var MARKS_MAX = 24;      // past this many lifters the queue's marks become one bar (the laptop's queue and the phone's deck)
 
   /* ---------------------------------------------------------------- small pure helpers */
   function d10(v) { return String(v == null ? '' : v).slice(0, 10); }
@@ -634,7 +635,7 @@
   }
   // The queue as marks: sent or skipped, this one, still to come (a plain bar past 24 lifters).
   function qBar(N, i) {
-    if (N > 24) return '<span class="wn-bar" aria-hidden="true"><i style="width:' + Math.round(i / N * 100) + '%"></i></span>';
+    if (N > MARKS_MAX) return '<span class="wn-bar" aria-hidden="true"><i style="width:' + Math.round(i / N * 100) + '%"></i></span>';
     var o = '<span class="wn-marks" aria-hidden="true">';
     for (var k = 0; k < N; k++) o += '<i class="' + (k < i ? 'is-past' : k === i ? 'is-now' : '') + '"></i>';
     return o + '</span>';
@@ -773,6 +774,7 @@
      (coach-app.js tilesHtml) and You › Coaching (coach.html renderCoachYou). Styles: coach-app.css "WEEKLY NOTES:
      THE DECK". */
   var D = null;
+  var KEPT = {};       // the coach's edits by lifter, kept while the page is open: a close (✕, Escape) never throws them away
   var CARD_GAP = 16;   // the ground between two cards in flight
   var SPRING_K = 260, SPRING_C = 33;
   // The jobs' order (coach-lifters.js: every coach list), as { athleteId: place }; null when it can't be had.
@@ -894,7 +896,7 @@
   function deckActsHtml(a, sent) {
     var f1 = firstName(a.name);
     if (sent) return '<div class="wnd-acts is-sent"><p class="wnd-sent" role="status">' + ic('check', 2.6) + '<span>Sent to ' + esc(f1) + '</span></p><button type="button" class="ca-btn is-soft wnd-next" data-wnd="next">Next</button></div>';
-    return '<div class="wnd-acts"><button type="button" class="wnd-skip" data-wnd="skip">Skip</button><button type="button" class="ca-btn is-red wnd-send" data-wnd="send">Send to ' + esc(f1) + '</button></div>';
+    return '<div class="wnd-acts"><button type="button" class="ca-btn is-quiet wnd-skip" data-wnd="skip">Skip</button><button type="button" class="ca-btn is-red wnd-send" data-wnd="send"><span>Send to ' + esc(f1) + '</span></button></div>';
   }
   function deckLifterCard(r) {
     var a = r.athlete, f1 = firstName(a.name), f = weeklyNoteFacts(a.id, { today: D.t }), st = r.status || {};
@@ -936,7 +938,7 @@
         (m.faces.length ? '<span class="wnd-faces" aria-hidden="true">' + m.faces.slice(0, 8).map(function (a) { return avHtml(a); }).join('') + (m.faces.length > 8 ? '<i class="wnd-more">+' + (m.faces.length - 8) + '</i>' : '') + '</span>' : '') +
       '</div></div>' +
       '<div class="wnd-acts is-done"><button type="button" class="ca-btn is-soft" data-wnd="close">Done</button>' +
-        (m.skipped ? '<button type="button" class="wnd-skip wnd-again" data-wnd="again">Back to the ' + (m.skipped === 1 ? 'one' : m.skipped) + ' you skipped</button>' : '') + '</div>';
+        (m.skipped ? '<button type="button" class="ca-btn is-quiet wnd-again" data-wnd="again">Back to the ' + (m.skipped === 1 ? 'one' : m.skipped) + ' you skipped</button>' : '') + '</div>';
   }
   function paintDone(card) { card.innerHTML = deckDoneHtml(deckDoneModel(D, demo())); }
   function deckCard(k) {
@@ -968,7 +970,7 @@
   // The one up and its two neighbours are drawn (the rest are let go); only the one up can be read or tapped.
   function deckSettle() {
     Object.keys(D.cards).forEach(function (k) { if (Math.abs(Number(k) - D.i) > 1) { D.cards[k].remove(); delete D.cards[k]; } });
-    [D.i - 1, D.i, D.i + 1].forEach(deckCard);
+    deckCard(D.i);   // the one up; its neighbours come once it has landed (deckSoon), never inside the tap that moved it
     var ae = document.activeElement, lost = !ae || ae === document.body || (D.root.contains(ae) && !!ae.closest('.wnd-card') && !ae.closest('.wnd-card[data-k="' + D.i + '"]'));
     Object.keys(D.cards).forEach(function (k) {
       var c = D.cards[k], cur = Number(k) === D.i;
@@ -981,8 +983,27 @@
     if (head) { head.setAttribute('tabindex', '-1'); try { head.focus({ preventScroll: true }); } catch (e) {} }
     deckPlace(D.x);
     deckBar();
+    deckSoon();
   }
-  // Where you are: "2 of 5" and a mark a lifter (green sent, steel skipped, ink the one up); one bar past 30.
+  // The cards either side of the one up, built while nothing moves (a card takes 10 to 15 ms of script with a big
+  // roster: inside a tap it would hold the spring's first frame). A finger that lands first builds them at once.
+  function deckSoon() {
+    if (!D) return;
+    clearTimeout(D.soonT);
+    D.soonT = setTimeout(function () { if (!D) return; if (D.anim || D.drag) { deckSoon(); return; } deckNeighbours(); }, 80);
+  }
+  function deckNeighbours() {
+    if (!D) return;
+    var made = false;
+    [D.i - 1, D.i + 1].forEach(function (k) {
+      if (k < 0 || k > D.rows.length || D.cards[k]) return;
+      var c = deckCard(k);
+      c.setAttribute('aria-hidden', 'true'); c.inert = true;
+      made = true;
+    });
+    if (made) deckPlace(D.x);
+  }
+  // Where you are: "2 of 5" and a mark a lifter (green sent, steel skipped, ink the one up); one bar past MARKS_MAX.
   function deckBar() {
     var N = D.rows.length, c = D.root.querySelector('.wnd-count'), m = D.root.querySelector('.wnd-marks');
     c.textContent = N && D.i < N ? (D.i + 1) + ' of ' + N : '';
@@ -997,7 +1018,7 @@
     if (live && D.liveOn) live.textContent = cur ? cur.athlete.name + ', ' + (D.i + 1) + ' of ' + N : (D.cards[N] && D.cards[N].querySelector('.wnd-done-t') ? D.cards[N].querySelector('.wnd-done-t').textContent : '');
     if (N <= 1) { m.hidden = true; m.innerHTML = ''; return; }
     m.hidden = false;
-    if (N > 30) { m.className = 'wnd-marks is-bar'; m.innerHTML = '<i style="width:' + Math.round(Math.min(D.i, N) / N * 1000) / 10 + '%"></i>'; return; }
+    if (N > MARKS_MAX) { m.className = 'wnd-marks is-bar'; m.innerHTML = '<i style="width:' + Math.round(Math.min(D.i, N) / N * 1000) / 10 + '%"></i>'; return; }
     m.className = 'wnd-marks';
     var o = '';
     for (var k = 0; k < N; k++) {
@@ -1073,6 +1094,7 @@
       var p = e.touches[0];
       armed = true; drag = false; x0 = p.clientX; y0 = p.clientY; samples = [{ x: p.clientX, t: e.timeStamp }];
       if (D.anim) deckStop();   // caught mid-flight: it carries on from where it is
+      deckNeighbours();         // the card it may pull in is there before the finger moves
       base = D.x;
     }, { passive: true });
     stage.addEventListener('touchmove', function (e) {
@@ -1131,9 +1153,10 @@
     if (!D) return;
     D.busy = false;
     btn.removeAttribute('aria-busy');
-    if (!ok) { if (typeof toast === 'function') toast('Couldn’t send to ' + f1 + '. Check your connection'); return; }
+    if (!ok) { deckSay(card, 'Couldn\u2019t send to ' + f1 + '. Check your connection and send again.'); return; }
     queueMarkSent(D, id);
     D.sentText[id] = body;
+    delete KEPT[id];
     // The card says Sent where its buttons were, its note now what went; a beat later the next lifter comes up.
     if (ta) { ta.readOnly = true; ta.blur(); }
     card.classList.add('is-sent');
@@ -1144,6 +1167,14 @@
     try { if (typeof hapticTap === 'function') hapticTap('MEDIUM'); } catch (e) {}
     deckBar();
     setTimeout(function () { if (D && !D.drag && rowId(queueCurrent(D)) === id) deckGo(1); }, 650);
+  }
+  // Said on the card, above its buttons, where the coach is looking (a toast would sit over Close and the title).
+  function deckSay(card, text) {
+    var acts = card && card.querySelector('.wnd-acts');
+    if (!acts) return;
+    var p = acts.querySelector('.wnd-err');
+    if (!p) { p = document.createElement('p'); p.className = 'wnd-err'; p.setAttribute('role', 'alert'); acts.insertBefore(p, acts.firstChild); }
+    p.textContent = text;
   }
   // On the phone's keyboard the deck shrinks to what's left above it, so Send stays in reach.
   function deckFit() {
@@ -1179,6 +1210,7 @@
     var rows = opts.rows || weeklyNoteDue(deskRows(), { threads: threads(), order: jobsOrder() });
     D = queueStart(rows, todayIso());
     D.opts = opts; D.cards = {}; D.sentText = {}; D.x = 0; D.anim = null; D.drag = false;
+    Object.keys(KEPT).forEach(function (k) { D.edits[k] = KEPT[k]; });   // what the coach wrote before a close
     D.empty = !rows.length;
     D.sentWeek = D.empty ? sentThisWeek(deskRows(), { threads: threads() }) : [];
     var root = document.createElement('div');
@@ -1220,7 +1252,7 @@
     root.addEventListener('input', function (e) {
       if (!D || !e.target || !e.target.classList || !e.target.classList.contains('wnd-ta')) return;
       var card = e.target.closest('.wnd-card'), id = card && card.getAttribute('data-aid');
-      if (id && !queueIsSent(D, id)) D.edits[id] = e.target.value;
+      if (id && !queueIsSent(D, id)) { D.edits[id] = e.target.value; KEPT[id] = e.target.value; }
       autosize(e.target);
     });
     D.onKey = function (e) {
@@ -1249,6 +1281,7 @@
     if (!D) return;
     var d = D;
     deckStop();
+    clearTimeout(d.soonT);
     D = null;
     document.removeEventListener('keydown', d.onKey, true);
     window.removeEventListener('resize', d.onResize);

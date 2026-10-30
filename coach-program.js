@@ -1399,7 +1399,7 @@
       }
       sheet.appendChild(el('p', { class: 'ui-sheet-sub rm-words' }, o.words));
       var go = el('button', { class: 'ca-btn is-red rm-go', type: 'button' }, o.go);
-      var keep = el('button', { class: 'ca-btn rm-keep', type: 'button' }, o.keep);
+      var keep = el('button', { class: 'ca-btn is-quiet rm-keep', type: 'button' }, o.keep);
       go.addEventListener('click', async function () {
         if (go.getAttribute('aria-busy') === 'true') return;
         go.setAttribute('aria-busy', 'true');

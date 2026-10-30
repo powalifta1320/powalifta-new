@@ -2274,7 +2274,7 @@ function openRemoveLifterSheet(athleteId, athleteName, opts) {
     if (h) sheet.insertBefore(face, h); else sheet.appendChild(face);
     sheet.appendChild(el('p', { class: 'ui-sheet-sub rm-words' }, _removeLifterWords()));
     const go = el('button', { class: 'ca-btn is-red rm-go', type: 'button' }, 'Remove ' + first);
-    const keep = el('button', { class: 'ca-btn rm-keep', type: 'button' }, 'Keep ' + first);
+    const keep = el('button', { class: 'ca-btn is-quiet rm-keep', type: 'button' }, 'Keep ' + first);
     go.addEventListener('click', async () => {
       if (go.getAttribute('aria-busy') === 'true') return;
       go.setAttribute('aria-busy', 'true');
