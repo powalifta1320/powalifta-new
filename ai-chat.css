@@ -737,6 +737,8 @@ html:not(.desk) body.powa-app .ai-panel .ai-seg-btn.is-on { background: var(--as
 html:not(.desk) body.powa-app .ai-panel .ai-body { padding: 16px 16px 8px; gap: 12px; }
 html:not(.desk) body.powa-app .ai-panel .ai-msg.assistant .ai-bubble { background: var(--ask-inset); }
 html:not(.desk) body.powa-app .ai-panel .ai-msg.user .ai-bubble { background: var(--ask-inset-2); }
+/* an answer and your question read at the chips' size wherever the sheet is (a laptop's browser too, not only the app) */
+html:not(.desk) body.powa-app .ai-panel .ai-bubble { font-size: 15px; line-height: 1.45; }
 html:not(.desk) body.powa-app .ai-panel .ai-bubble .ai-num { color: var(--text); }
 html:not(.desk) body.powa-app .ai-panel .ai-bubble .ai-who:focus-visible { outline-color: var(--text); }
 /* quiet chips: ink on the inset, 15 at 600, 38 pt drawn and 44 to the touch */
