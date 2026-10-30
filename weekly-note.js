@@ -803,14 +803,42 @@
   }
   // The check-in's flags (app.js checkinAlerts: today or yesterday), pain aside: the pain row says it.
   function checkinLines(aid, t) {
-    if (typeof checkinAlerts !== 'function') return [];
     var s = storeOf(), me = myId();
     var qs = (s.checkinQuestions || []).filter(function (q) { return !me || !q.coachId || q.coachId === me; });
     if (!qs.length) return [];
-    try {
-      return checkinAlerts(qs, (s.checkinAnswers || []).filter(function (x) { return x.athleteId === aid; }), aid, t)
-        .filter(function (x) { return !/^Pain\b/.test(x.text); }).map(function (x) { return x.text; });
-    } catch (e) { return []; }
+    return weekCheckinFlags(qs, s.checkinAnswers || [], aid, t);
+  }
+  // A day as the coach says it, counted from t: today, yesterday, or its weekday.
+  function dayWordFrom(iso, t) {
+    var d = daysBetween(iso, t);
+    if (d <= 0) return 'today';
+    if (d === 1) return 'yesterday';
+    try { return new Date(d10(iso) + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long' }); } catch (e) { return d10(iso); }
+  }
+  // The check-in's flags over the whole week (app.js checkinAlerts looks at today and yesterday only, so Wednesday's
+  // was missing from Monday's review): for each question flagged in the last 7 days, its latest flag with the day, and
+  // how often when it's more than once (a pattern is a decision). Worst first. Pain aside: the pain row says it.
+  // qs: the coach's questions; answers: anyone's. → ['Soreness 8/10 yesterday, twice this week', ...]
+  function weekCheckinFlags(qs, answers, aid, t) {
+    if (typeof checkinAlerts !== 'function') return [];
+    var out = [];
+    (qs || []).forEach(function (q) {
+      if (!q) return;
+      var hits = [];
+      for (var i = 0; i <= 6; i++) {
+        var d = addDays(t, -i);
+        var a = (answers || []).filter(function (x) { return x && x.questionId === q.id && x.athleteId === aid && d10(x.period) === d; });
+        if (!a.length) continue;
+        var al = [];
+        try { al = checkinAlerts([q], a, aid, d) || []; } catch (e) { al = []; }
+        al.forEach(function (x) { if (x && x.text && !/^Pain\b/.test(x.text)) hits.push({ text: String(x.text).replace(/ today$/, ''), day: d, sev: Number(x.severity) || 0 }); });
+      }
+      if (!hits.length) return;
+      var h = hits[0];   // the latest: the days run from t back
+      out.push({ text: h.text + ' ' + dayWordFrom(h.day, t) + (hits.length >= 2 ? ', ' + (hits.length === 2 ? 'twice' : hits.length + ' days') + ' this week' : ''),
+        sev: Math.max.apply(null, hits.map(function (x) { return x.sev; })), day: h.day });
+    });
+    return out.sort(function (a, b) { return b.sev - a.sev || b.day.localeCompare(a.day); }).map(function (x) { return x.text; });
   }
   // What the note says, fact by fact (weeklyNoteLines' kept lines): their keys, and the lifts whose top set they give.
   function noteSays(lines) {
@@ -1497,7 +1525,7 @@
     threads: threads, takeThreads: takeThreads, refreshThreads: refreshThreads, heard: heard,
     // the deck's card, pure (tests): what the note says, the evidence it leaves out, each piece as HTML
     noteSays: noteSays, deckExtras: deckExtras, deckExtrasHtml: deckExtrasHtml, deckWhoHtml: deckWhoHtml, deckNoteHtml: deckNoteHtml,
-    deckActsHtml: deckActsHtml, deckDoneModel: deckDoneModel, deckDoneHtml: deckDoneHtml, painLine: painLine,
+    deckActsHtml: deckActsHtml, deckDoneModel: deckDoneModel, deckDoneHtml: deckDoneHtml, painLine: painLine, weekCheckinFlags: weekCheckinFlags,
     queueStart: queueStart, queueCurrent: queueCurrent, queueDone: queueDone, queueIsSent: queueIsSent, queueIsSkipped: queueIsSkipped,
     queueMarkSent: queueMarkSent, queueSent: queueSent, queueSkip: queueSkip, queueBack: queueBack, queueAgain: queueAgain,
     pickReply: pickReply, replyButton: replyButton, broadcastRowEl: broadcastRowEl, openBroadcast: openBroadcast, insertAt: insertAt

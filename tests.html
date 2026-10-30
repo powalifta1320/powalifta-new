@@ -6522,6 +6522,20 @@ test('the deck’s card: the note first, and under it only what the note leaves 
   assert(/286\.6<small> lbs × 5/.test(WN.deckExtrasHtml(lbx, { unit: 'lbs', coachUnit: 'kg', today: WT })), 'pounds, said');
   assert(/286\.6<small> × 5/.test(WN.deckExtrasHtml(lbx, { unit: 'lbs', coachUnit: 'lbs', today: WT })), 'the coach’s own unit: bare');
 });
+test('the check-in on the deck’s card covers their whole week, not only today and yesterday', () => {
+  const qs = [{ id: 'q-sore', coachId: 'wc', prompt: 'How sore are you?', kind: 'scale', cadence: 'daily', active: true },
+    { id: 'q-energy', coachId: 'wc', prompt: 'Energy today?', kind: 'scale', cadence: 'daily', active: true },
+    { id: 'q-pain', coachId: 'wc', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily', active: true }];
+  const ans = (q, day, num, who) => ({ id: q + day + (who || 'wa'), questionId: q, athleteId: who || 'wa', coachId: 'wc', period: day, num });
+  const answers = [ans('q-sore', '2026-10-27', 8), ans('q-sore', '2026-10-24', 9), ans('q-sore', '2026-10-20', 9),   // the 20th is 8 days back
+    ans('q-energy', '2026-10-23', 2), ans('q-energy', '2026-10-28', 6), ans('q-pain', '2026-10-26', 1), ans('q-sore', '2026-10-28', 9, 'wb')];
+  const flags = WN.weekCheckinFlags(qs, answers, 'wa', WT);
+  eq(flags.length, 2, 'soreness and energy; pain is the pain row’s, last week’s soreness is out, Bo’s is his');
+  eq(flags[0], 'Soreness 8/10 yesterday, twice this week', 'the latest, with the day, and the pattern');
+  assert(/^Energy 2\/10 \S+$/.test(flags[1]) && !/today|yesterday/.test(flags[1]), 'Friday’s low energy, by its weekday (the old row only looked at today and yesterday): ' + flags[1]);
+  eq(WN.weekCheckinFlags(qs, [ans('q-sore', WT, 5)], 'wa', WT).length, 0, 'nothing flagged: nothing said');
+  eq(WN.weekCheckinFlags([], answers, 'wa', WT).length, 0, 'no questions: nothing');
+});
 test('the deck’s pieces escape what lifters and coaches typed (a name, a meet, their words)', () => {
   const bad = '<img src=x onerror=alert(1)>';
   const who = WN.deckWhoHtml({ id: 'z', name: bad }, 'Block ' + bad);
