@@ -18,7 +18,7 @@
 --                      changes) and can delete one (spam).
 --   nobody else        reads anything: not another coach, not a lifter, not anon.
 --
--- The caps (raised as errors with a message the page shows; the counts look at the last 24 hours):
+-- The caps (each but the first raised as an error with a message the page shows; the counts look at the last 24 hours):
 --   - one waiting (new) application per email and coach: a second one is answered 'sent' and changes nothing, so the
 --     answer never tells anyone whether that email has already applied to that coach (a lifter's current coach can't
 --     find out they've applied elsewhere)
@@ -34,7 +34,8 @@
 --
 -- Tested in PGlite (scratchpad/pgtest/coach-applications-test.mjs): runs twice; anon and lifters apply through the
 -- function and never insert, select, update or delete the table; the coach reads only their own; another coach reads
--- and changes nothing; every cap holds (lengths, the waiting one, per email, per coach, a hidden coach, a non-coach);
+-- and changes nothing; every cap holds (lengths, the waiting one answered as sent with nothing changed, per email,
+-- per coach, a hidden coach, a non-coach);
 -- quotes, semicolons and SQL in every field are stored as text; the guard keeps everything but the decision.
 --
 -- Undo (by hand, if ever): drop function public.apply_to_coach(uuid, text, text, integer, numeric, numeric, numeric, text, text);
