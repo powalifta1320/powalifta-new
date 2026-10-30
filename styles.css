@@ -11182,6 +11182,7 @@ html.native body.powa-app .today-head .th-more {
 }
 .rpe-slider .rpe-stop.is-whole { width: auto; height: auto; background: none; font-size: var(--fs-sm, 14px); font-weight: 650; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .rpe-slider .rpe-stop.is-target::after { content: ''; position: absolute; left: 50%; top: calc(50% + 13px); width: 12px; height: 3px; margin-left: -6px; border-radius: 2px; background: var(--text-3); }
+.rpe-slider .rpe-stop.is-whole.is-under { visibility: hidden; }   /* the knob over it says the number */
 .rpe-slider .rpe-stop:not(.is-whole).is-target::after { top: 10px; }
 .rpe-slider .rpe-fill {
   position: absolute; left: 4px; top: 4px; bottom: 4px; width: calc(var(--pad) + (100% - 2 * var(--pad)) * var(--rpe-t, 0));

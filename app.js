@@ -14571,13 +14571,15 @@ function uiRpeSlider(value, onPick, opts) {
   let cur = num(value);
   steps.forEach((r, i) => {
     const whole = r % 1 === 0;
-    track.appendChild(el('span', { class: 'rpe-stop' + (whole ? ' is-whole' : '') + (r === target ? ' is-target' : ''), style: '--i:' + i, 'aria-hidden': 'true' }, whole ? String(r) : ''));
+    track.appendChild(el('span', { class: 'rpe-stop' + (whole ? ' is-whole' : '') + (r === target ? ' is-target' : ''), style: '--i:' + i, 'data-v': String(r), 'aria-hidden': 'true' }, whole ? String(r) : ''));
   });
   const fill = el('span', { class: 'rpe-fill', 'aria-hidden': 'true' });
   const knob = el('span', { class: 'rpe-knob', 'aria-hidden': 'true' });
   track.appendChild(fill); track.appendChild(knob);
   const paint = () => {
     wrap.classList.toggle('has-value', cur != null);
+    // The whole number under the knob is the knob's to say: the track's own label steps aside (it was hidden under it).
+    track.querySelectorAll('.rpe-stop.is-whole').forEach(st => st.classList.toggle('is-under', cur != null && Number(st.dataset.v) === cur));
     if (cur != null) {
       wrap.style.setProperty('--rc', rpeColor(cur));
       wrap.style.setProperty('--rpe-t', String(steps.indexOf(cur) / last));
