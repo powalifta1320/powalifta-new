@@ -7,6 +7,7 @@
  *   - mapJs*    : reverse mappers
  */
 
+// home.js repeats these two (the homepage counts the programs shop without loading this file): change both together.
 const SUPABASE_URL = 'https://cxnotrikxvzncupswvio.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4bm90cmlreHZ6bmN1cHN3dmlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3OTgwNDAsImV4cCI6MjA5MzM3NDA0MH0.fLl1sXdHnI8IeKUIKOB9Sh0HVATCdshcLXZs5oKuCuU';
 
