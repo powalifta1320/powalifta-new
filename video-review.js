@@ -412,10 +412,9 @@ var VideoReview = (function () {
     if (onClick) b.addEventListener('click', onClick);
     return b;
   }
-  function inkColor() {
-    try { var c = getComputedStyle(document.body).getPropertyValue('--acc').trim(); if (c) return c; } catch (e) {}
-    return '#ff3b4a';
-  }
+  // The coach's drawings are gold on every screen: red is the logo and the one action (the owner, 30 Oct), and gold
+  // reads on any video over the dark halo paintDrawings draws under each stroke.
+  function inkColor() { return '#ffc23d'; }
   function ensureCss() {
     if (!hasDom || document.getElementById('vrCss')) return;
     var l = document.createElement('link');

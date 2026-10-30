@@ -8880,7 +8880,7 @@ body.powa-app button.ui-row:active,
 body.powa-app .ui-row.tap:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); }
 
 /* Avatars: a stable colour per person. Light hues take dark ink. */
-body.powa-app .av-h0 { background: linear-gradient(135deg, #ff5a6b, #ff2d55); color: #fff; }
+body.powa-app .av-h0 { background: linear-gradient(135deg, #a8a29a, #77716a); color: #fff; }   /* stone: red is the logo and the one action (30 Oct) */
 body.powa-app .av-h1 { background: linear-gradient(135deg, #ffa24a, #ff6a3d); color: #fff; }
 body.powa-app .av-h2 { background: linear-gradient(135deg, #ffd65a, #ffab1f); color: #1d1404; }
 body.powa-app .av-h3 { background: linear-gradient(135deg, #7ff07a, #22c46d); color: #06170d; }
@@ -9791,7 +9791,7 @@ body.powa-app .ui-seg button.on, body.powa-app .prog-subtab.active {
 body.powa-app .ui-chip.on { background: var(--text); border-color: var(--text); color: var(--bg); }
 
 /* Avatars: tinted and muted, not rainbow gradients. */
-html:not([data-theme="light"]) body.powa-app .av-h0 { background: #3a1a20; color: #ffa3ad; }
+html:not([data-theme="light"]) body.powa-app .av-h0 { background: #2b2926; color: #d8d1c8; }
 html:not([data-theme="light"]) body.powa-app .av-h1 { background: #38231a; color: #ffbe94; }
 html:not([data-theme="light"]) body.powa-app .av-h2 { background: #342a14; color: #f2cd78; }
 html:not([data-theme="light"]) body.powa-app .av-h3 { background: #172e20; color: #94dfab; }
@@ -11907,7 +11907,7 @@ html[data-theme="light"] body.powa-app .ui-hero {
   box-shadow: 0 1px 2px rgba(20, 20, 40, 0.05);
 }
 html[data-theme="light"] body.powa-app:not(.is-branded) { --fire: var(--crimson); }
-html[data-theme="light"] body.powa-app .av-h0 { background: #fbe4e7; color: #a3172c; }
+html[data-theme="light"] body.powa-app .av-h0 { background: #ece8e2; color: #4d463f; }
 html[data-theme="light"] body.powa-app .av-h1 { background: #fcebde; color: #93380a; }
 html[data-theme="light"] body.powa-app .av-h2 { background: #f8efd3; color: #6f4c00; }
 html[data-theme="light"] body.powa-app .av-h3 { background: #e0f2e6; color: #155f36; }
@@ -12256,6 +12256,7 @@ html.native[data-theme="light"] body.powa-app .bottom-tabs { background: rgba(25
 html.native body.powa-app .nav.is-docked { background: rgba(6, 6, 8, 0.94); }
 html.native[data-theme="light"] body.powa-app .nav.is-docked { background: rgba(255, 255, 255, 0.94); }
 /* The bell: a small dot, not a red number on every screen. */
+html:not(.desk) body.powa-app .sig-badge { background: var(--text); }   /* the bell's dot is news, not an alarm: ink, as on the coach phone (30 Oct) */
 body.powa-app .sig-badge { min-width: 0; width: 9px; height: 9px; padding: 0; top: 4px; right: 4px; border-radius: 50%; font-size: 0; line-height: 0; box-shadow: 0 0 0 2px var(--bg); }
 /* Roster's + is the same 36pt as the header's other buttons (the title no longer jumps). */
 html.native body.powa-app #btn-invite { width: 36px; height: 36px; min-width: 36px; }
@@ -12592,6 +12593,9 @@ body.powa-app .tx-hurt svg { width: 16px; height: 16px; flex: none; }
 .vn-player { display: flex; align-items: center; gap: 10px; min-width: 212px; max-width: 280px; padding: 2px 0; }
 .vn-play { flex: none; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, currentColor 16%, transparent); color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 140ms ease-out; }
 .msg-row.theirs .vn-play, .vn-preview .vn-play { background: var(--acc, var(--brand-red)); color: var(--acc-ink, #fff); }
+/* Their words are green on every tab (Train's coach card wore Train's red): red is the logo and the one action (30 Oct). */
+html:not(.desk) body.powa-app :is(.msg-row.theirs, .vn-preview, .tn-voice) .vn-play { background: #34e08c; color: #04140c; }
+html[data-theme="light"]:not(.desk) body.powa-app :is(.msg-row.theirs, .vn-preview, .tn-voice) .vn-play { background: #0c7a45; color: #fff; }
 .vn-play:active { transform: scale(0.92); }
 .vn-play svg { width: 16px; height: 16px; }
 .vn-play .vn-i-pause, .vn-player.is-playing .vn-play .vn-i-play { display: none; }

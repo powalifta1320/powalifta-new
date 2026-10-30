@@ -127,7 +127,7 @@ html.desk[data-theme="light"] body.powa-app {
   --dk-gold: #8a5a00; --dk-alert: #c4162a; --dk-warn: #b4410c; --dk-ok: #0f7d47; --dk-cool: #036f9c;
   --dk-pop: 0 16px 40px -14px rgba(20, 20, 40, 0.22), 0 0 0 1px rgba(11, 11, 13, 0.08);
   /* avatar hues (light): tint and ink pairs, AA on each other */
-  --av-1-bg: #fbe4e7; --av-1-ink: #a3172c; --av-2-bg: #fcebde; --av-2-ink: #93380a; --av-3-bg: #f8efd3; --av-3-ink: #6f4c00; --av-4-bg: #e0f2e6; --av-4-ink: #155f36; --av-5-bg: #dcf1ee; --av-5-ink: #0e5f59; --av-6-bg: #e1ebfb; --av-6-ink: #1c4f9c; --av-7-bg: #e9e5fb; --av-7-ink: #4a37a6; --av-8-bg: #f6e3f4; --av-8-ink: #86287d;
+  --av-1-bg: #ece8e2; --av-1-ink: #4d463f; --av-2-bg: #fcebde; --av-2-ink: #93380a; --av-3-bg: #f8efd3; --av-3-ink: #6f4c00; --av-4-bg: #e0f2e6; --av-4-ink: #155f36; --av-5-bg: #dcf1ee; --av-5-ink: #0e5f59; --av-6-bg: #e1ebfb; --av-6-ink: #1c4f9c; --av-7-bg: #e9e5fb; --av-7-ink: #4a37a6; --av-8-bg: #f6e3f4; --av-8-ink: #86287d;
   --dk-veil: rgba(15, 15, 25, 0.22);
   --dk-cb-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --dk-cb-dash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6h6' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");

@@ -535,7 +535,7 @@ html.m .beat.is-on { --on: 1; color: #b8b8c0; }
 .f { display: grid; place-items: center; width: clamp(26px, 2.6vw, 38px); aspect-ratio: 1; border-radius: 50%; font-family: var(--font-body); font-size: clamp(9.5px, 0.92vw, 13px); font-weight: 750; letter-spacing: -0.01em;
   transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out), box-shadow 200ms ease, background-color 200ms ease, color 200ms ease; }
 /* Avatars: the app's avatarHue palette (light: pale ground, deep ink). */
-.av-h0 { background: #fbe4e7; color: #a3172c; } .av-h1 { background: #fcebde; color: #93380a; } .av-h2 { background: #f8efd3; color: #6f4c00; } .av-h3 { background: #e0f2e6; color: #155f36; }
+.av-h0 { background: #ece8e2; color: #4d463f; } .av-h1 { background: #fcebde; color: #93380a; } .av-h2 { background: #f8efd3; color: #6f4c00; } .av-h3 { background: #e0f2e6; color: #155f36; }
 .av-h4 { background: #dcf1ee; color: #0e5f59; } .av-h5 { background: #e1ebfb; color: #1c4f9c; } .av-h6 { background: #e9e5fb; color: #4a37a6; } .av-h7 { background: #f6e3f4; color: #86287d; }
 .f-open, .f.is-open { background: transparent !important; color: transparent !important; box-shadow: inset 0 0 0 1.5px rgba(15, 15, 25, 0.16); }
 .f.is-open { transform: scale(0.92); }

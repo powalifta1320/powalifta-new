@@ -653,3 +653,11 @@ body.powa-app .ai-panel .ai-input:focus { border-color: transparent; box-shadow:
 /* A sheet the assistant opens (Insert into builder: which lifter, replace their program?) sits
    above the panel, so the coach decides with the card in view. */
 .ui-sheet-veil.is-over-ai { z-index: calc(var(--ai-z-panel) + 10); }
+
+/* Red is the logo and the one action (the owner, 30 Oct). Off the laptop desk the assistant's mark is a quiet tile,
+   your own question sits on the surface, and Send is the crimson, quiet while the box is empty (as on the coach
+   phone, coach-app.css, whose rules win there). */
+html:not(.desk) .ai-msg-av { background: var(--bg-3, #25252b); color: var(--text, #f3f3f5); }
+html:not(.desk) .ai-msg.user .ai-bubble { background: var(--bg-3, #25252b); border-color: var(--line-2, rgba(255, 255, 255, 0.14)); }
+html:not(.desk) .ai-send { background: var(--crimson, #dc2637); color: var(--crimson-ink, #fff); }
+html:not(.desk) :is(.ai-input-row:has(.ai-input:placeholder-shown) .ai-send, .ai-send:disabled) { background: var(--bg-3, #25252b); color: var(--text-3, #8a8a92); opacity: 1; }
