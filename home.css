@@ -2,8 +2,8 @@
    home.css — the homepage (index.html, the website only; never inside the iPhone app). Approved 29 Oct 2026:
    "A coach's week, on the real product". The coach-led page with the motion-led page's act one as its one
    signature move. The app is the brand: its tokens, Archivo in three roles, real screens, lift colours on lift
-   data only, gold for PRs, green for "up", the orange mark for flags, and one crimson action per screen
-   (#dc2637 to #c41a2c, white label).
+   data only, gold for PRs, green for "up" and for the coach's side, cyan (Arjun's squat) for the lifter's, and red
+   only for the logo and the one crimson action per screen (#dc2637 to #c41a2c, white label).
    All dark (the owner, 30 Oct: "we make all on dark mode"; a light version comes later, shown by the visitor's
    setting): no chapter has a light floor, whatever the visitor's theme. Floors still carry meaning: the gym's dark
    (the lifter's side, the app's floor), the coach's graphite (his desk at night: Today, Next week, Pricing,
@@ -24,7 +24,7 @@
   --font-num: 'Archivo', 'Archivo Fallback', system-ui, sans-serif;
   --num-stretch: 112%;                              /* the app's display numbers: Archivo at 112% width, weight 800 */
   --sq: #38c6ff; --be: #a98bff; --dl: #ffbf3c; --c-gold: #ffc23d;
-  --c-fire: #ff3b4a; --c-green: #34e08c; --up: #34d982;
+  --c-green: #34e08c; --up: #34d982;
   --act-top: #dc2637; --act-bot: #c41a2c;           /* the one action: darker crimson, white label (4.8:1 at the top) */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);       /* arriving and state: strong ease-out, no overshoot */
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);   /* moving on screen */
@@ -87,12 +87,13 @@ body.home::before, body.home::after { content: none; display: none; }   /* the a
 .h2 { font-family: var(--font-display); font-weight: 800; font-stretch: 100%; font-size: clamp(30px, 0.95rem + 2.15vw, 46px); line-height: 1.05; letter-spacing: -0.031em; text-wrap: balance; }
 .h3 { font-family: var(--font-display); font-weight: 800; font-stretch: 100%; font-size: clamp(24px, 0.95rem + 0.85vw, 28px); line-height: 1.12; letter-spacing: -0.024em; }
 .lead, .sub { max-width: 34em; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.52; color: var(--text-2); text-wrap: pretty; }
-/* Captions read like a magazine's: a bold lead in ink, then one plain sentence; the dot says whose side it is. */
+/* Captions read like a magazine's: a bold lead in ink, then one plain sentence; the dot says whose side it is: green
+   the coach's, cyan the lifter's (Arjun's squat, the set the page follows). */
 .cap { display: flex; align-items: baseline; gap: 10px; font-size: 14px; font-weight: 500; line-height: 1.5; letter-spacing: -0.003em; color: var(--text-2); text-wrap: pretty; }
 .cap b { font-weight: 700; color: var(--text); }
 .cap .hue { transform: translateY(-1px); }
 .hue, .dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; }
-.hue-fire { background: var(--c-fire); }
+.hue-lift { background: var(--sq); }
 .hue-green { background: var(--c-green); }
 .dot-sq { background: var(--sq); } .dot-be { background: var(--be); } .dot-dl { background: var(--dl); }
 
