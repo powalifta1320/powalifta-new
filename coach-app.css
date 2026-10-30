@@ -1398,6 +1398,8 @@ html:not(.desk) .cp-lifted > span:first-child { color: var(--text-3); font-weigh
 html:not(.desk) .cp-lifted .is-over { color: var(--text); font-weight: 650; }
 html:not(.desk) .cp-lifted .is-over::before { content: ''; display: inline-block; width: 8px; height: 7px; margin: 0 4px 0 1px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
 html:not(.desk) .cp-lifted s { color: var(--text-3); }
+/* a swap on the day (the rack was taken): one ink line under what was lifted */
+html:not(.desk) .cp-swapped { font-size: 13px; line-height: 1.4; color: var(--text-2); }
 html:not(.desk) .cp-lifted i { font-style: normal; color: var(--text-3); }
 html:not(.desk) .cp-exrow > svg { flex: none; width: 18px; height: 18px; margin-top: 11px; color: var(--text-3); }
 /* an empty day (a rest day, or one with nothing in it yet): one line under its name, never the name again */

@@ -1430,7 +1430,9 @@ function openAthleteSheet(athleteId) {
       // app.js rosterLogsFor: this lifter's sets from the per-lifter index, not a pass over the roster's.
       const day = rosterLogsFor(a.id).filter(l => l.date === o.lastLog.date);
       const ton = day.reduce((x, l) => x + (Number(l.weight) || 0) * (Number(l.reps) || 0), 0);
-      sheet.appendChild(uiList([uiRow({ title: 'Last session · ' + fmtDateShort(o.lastLog.date), sub: day.length + (day.length === 1 ? ' set · ' : ' sets · ') + Math.round(kgToDisplay(ton)).toLocaleString() + ' ' + unitLabel() + ' moved' + (o.lastRpe ? ' · last RPE ' + o.lastRpe : '') })]));
+      // A lift swapped that day (the rack was taken: app.js sessionSwapLine) says so, once.
+      const swp = typeof sessionSwapLine === 'function' ? sessionSwapLine(o.program, o.lastLog.date) : '';
+      sheet.appendChild(uiList([uiRow({ title: 'Last session · ' + fmtDateShort(o.lastLog.date), sub: day.length + (day.length === 1 ? ' set · ' : ' sets · ') + Math.round(kgToDisplay(ton)).toLocaleString() + ' ' + unitLabel() + ' moved' + (o.lastRpe ? ' · last RPE ' + o.lastRpe : '') + (swp ? ' · ' + swp.charAt(0).toLowerCase() + swp.slice(1) : '') })]));
     }
     const acts = el('div', { class: 'aq-acts' });
     const msg = el('button', { class: 'btn btn-primary btn-lg', type: 'button' }, unread ? 'Message (' + unread + ' new)' : 'Message');
@@ -4793,7 +4795,8 @@ async function saveProgramAsTemplate(prog, name) {
     id: newId, coachId: user.id, name, createdAt: Date.now(),
     payload: { weeks: prog.weeks.map(wk => ({
       number: wk.number,
-      days: wk.days.map(d => ({
+      // A swap on a day (the rack was taken) was for that day only: the template keeps the lifts as written.
+      days: wk.days.map(d0 => typeof dayAsWritten === 'function' ? dayAsWritten(d0) : d0).map(d => ({
         name: d.name,
         exercises: d.exercises.map(ex => ({
           lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,

@@ -13061,3 +13061,26 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
 .bwk-sheet .bwk-go { margin-top: 16px; }
 .bwk-sheet .bwk-go:disabled { opacity: 0.45; }
 @media (prefers-reduced-motion: reduce) { .bwk-sheet .bwk-day, .bwk-sheet .bwk-day .bwk-dn { transition: none; } .bwk-sheet .bwk-day:active { transform: none; } }
+
+/* ===== SWAP AN EXERCISE (2026-10-30, athlete.html openSwapSheet / app.js swapApply). The card says it once,
+   where the coach's cue sits: "Swapped from competition squat" in the cue's 13 type, and Undo as the card's
+   graphite pill (a 44 pt target) while none of it is logged. A swap is a choice, so ink only: no colour, no red.
+   The Swap action is the first of the row's icons on a phone (.tx-act-ico), labelled from 768 px. */
+.tx-card .tx-swap { display: flex; align-items: center; gap: 6px; min-height: 30px; margin: 10px 2px 0; font-size: 13px; line-height: 1.4; color: var(--text-2); }
+.tx-swap-k { flex: none; font-weight: 650; color: var(--text); }
+.tx-swap-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx-swap-undo {
+  position: relative; z-index: 2; flex: none; margin-left: auto; height: 30px; padding: 0 12px; border: 0; border-radius: 999px;
+  background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text); font: inherit; font-size: 13px; font-weight: 650;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 140ms ease-out, background-color 140ms ease-out;
+}
+.tx-swap-undo::before { content: ''; position: absolute; inset: -7px -4px; }
+.tx-swap-undo:active { transform: scale(0.96); background: var(--fill-3, rgba(255, 255, 255, 0.1)); }
+.tx-swap-undo:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.swap-sheet .swap-list { margin-top: 4px; }
+/* A 375 pt phone: Add set · PR attempt and three icons stay on one line (a little less air between them). */
+@media (max-width: 389px) {
+  .tx-card .tx-acts { gap: 4px; }
+  .tx-card .tx-acts .tx-act:not(.tx-act-ico) { padding: 0 10px 0 9px; }
+}
+@media (prefers-reduced-motion: reduce) { .tx-swap-undo { transition: none; } .tx-swap-undo:active { transform: none; } }

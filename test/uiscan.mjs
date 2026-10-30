@@ -31,6 +31,9 @@ fs.mkdirSync(outDir, { recursive: true });
 
 const tab = (t) => "document.querySelector('[data-tab=\"" + t + "\"]').click()";
 const A = 'athlete.html?demo=1', SO = 'athlete.html?demo=1&solo=1', C = 'coach.html?demo=1', F = 'coach.html?demo=1&fresh=1';
+// Night B helpers. SWAP_INJ: Arjun's latest logged main lift saved as a swap (squat to pin squat, bench to close grip,
+// deadlift to RDL), as his phone would have, on his last session's date (the demo's logs and program dates differ).
+const SWAP_INJ = "(() => { const s = Store.get(), p = s.programs.find(x => x.athleteId === 'demo-a1'); const last = s.workoutLogs.filter(l => l.athleteId === 'demo-a1').map(l => l.date).sort().pop(); let hit = null; p.weeks.forEach(w => w.days.forEach(d => d.exercises.forEach(e => { if (['squat', 'bench', 'deadlift'].includes(e.lift) && (e.variant || 'Competition') === 'Competition' && e.sets.some(x => x.completed)) hit = e; }))); const to = { squat: 'Pin', bench: 'Close Grip', deadlift: 'RDL' }[hit.lift]; hit.swap = { from: 'Competition', on: last, sets: hit.sets.map((x, i) => ({ at: i, f: { weight: x.weight } })) }; hit.sets.forEach(x => { x.weight = swapLoadKg(x.weight, hit.lift, 'Competition', to, 2.5); if (x.completed) x.completedAt = last; }); hit.variant = to; Store.bump(); })()";
 const screens = [];
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
   for (const t of ['today', 'progress', 'club', 'coach', 'you', 'bodyweight', 'library', 'career']) screens.push({ name: 'a-' + t + suf, page: A, theme, eval: t === 'today' ? null : tab(t) });
@@ -121,6 +124,13 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'c-rules' + suf, page: C, theme, eval: tab('rules') },
     { name: 'sh-formcheck' + suf, page: C, theme, eval: "CoachLifters.open('demo-a1'); new Promise(r => setTimeout(r, 500)).then(() => { document.querySelector('#lifterPage [data-row=videos]').click(); return new Promise(r => setTimeout(r, 700)); }).then(() => { document.querySelector('[data-fc]').click(); return new Promise(r => setTimeout(r, 900)); })" },
     { name: 'f-tour' + suf, page: F, theme, eval: "localStorage.removeItem('powa-tour-coach-done'); window.replayCoachTour(); true" });
+  // Night B (30 Oct). Swap an exercise: the Swap sheet over Train, Train with today's squat swapped (the card's line
+  // and Undo), the coach's sheet, Programs and the laptop's lifter page (below) with a swapped session.
+  screens.push(
+    { name: 'sh-swap' + suf, page: A, theme, eval: "openSwapSheet(getCurrentDay().day.exercises[0].id)" },
+    { name: 'a-today-swapped' + suf, page: A, theme, eval: "doSwap(getCurrentDay().day.exercises[0].id, 'Pin'); document.querySelectorAll('.toast').forEach(t => t.remove()); true" },
+    { name: 'sh-athlete-swap' + suf, page: C, theme, eval: SWAP_INJ + "; openAthleteSheet('demo-a1')" },
+    { name: 'c-program-swap' + suf, page: C, theme, eval: SWAP_INJ + ';' + tab('program') });
 }
 for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   for (const p of ['index.html', 'about.html', 'faq.html', 'guides.html', 'guide-rpe.html', 'marketplace.html', 'leaderboard.html', 'exercises.html', 'join.html?code=ABC234', 'reset-password.html', 'privacy.html', 'terms.html', A, SO, C, F]) {
@@ -147,6 +157,8 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-coach-club' + suf, page: C, mode: 'web', theme, eval: "deskGo('club')" },
   { name: 'w-chl-board' + suf, page: C, mode: 'web', theme, eval: "deskGo('club');setTimeout(() => { const b = document.querySelector('.chl-all'); if (b) b.click(); }, 200)" },
   { name: 'w-planner-aim' + suf, page: C, mode: 'web', theme, eval: "openAttemptPlanner('demo-cmeet-p1')" });
+// The desk's lifter page with a session where the rack was taken (Swapped for … on the session), dark and light.
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-ws-swap' + suf, page: C, mode: 'web', theme, eval: SWAP_INJ + "; openAthletePage('demo-a1')" });
 // The desk's Last week report (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-report' + suf, page: C, mode: 'web', theme, eval: 'CoachReportUI.open()' });
 // Imports on the desk (coach.html at laptop width): the intake, a client list, a lifter's history, a guide, dark and light.

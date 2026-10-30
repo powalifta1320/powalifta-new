@@ -9119,6 +9119,183 @@ group('the merge review\'s two-factor follow-ups (29 Oct)');
   }
 })();
 
+group('swap an exercise (app.js swapApply)');
+(() => {
+  const S = (id, weight, reps, rpe, extra) => Object.assign({ id, weight, reps, rpe, completed: false, actualRpe: null, completedAt: null }, extra || {});
+  const done = (s, felt, date) => Object.assign(s, { completed: true, actualRpe: felt, completedAt: date || '2026-10-30' });
+  const dayOf = (sets, variant) => ({ id: 'd1', name: 'Squat day', exercises: [{ id: 'e1', lift: 'squat', variant: variant || 'Competition', note: 'Brace', sets }, { id: 'e2', lift: 'legs', exerciseName: 'Leg Press', sets: [S('a1', 120, 10, 8)] }] });
+  test('a variant in a coach\'s words: pin squat, close grip bench, pin press, RDL', () => {
+    eq(variantName('squat', 'Pin'), 'pin squat');
+    eq(variantName('bench', 'Close Grip'), 'close grip bench');
+    eq(variantName('bench', 'Pin Press'), 'pin press');
+    eq(variantName('deadlift', 'RDL'), 'RDL');
+    eq(variantName('squat', ''), 'competition squat');
+  });
+  test('the same effort on another variant: the load × (from ÷ to), on the gym\'s plates; by feel stays by feel', () => {
+    eq(swapLoadKg(150, 'squat', 'Competition', 'Pin', 2.5), 140, '150 ÷ 1.08 = 138.9');
+    eq(swapLoadKg(140, 'squat', 'Pin', 'Competition', 2.5), 150, '140 × 1.08 = 151.2');
+    eq(swapLoadKg(100, 'bench', 'Competition', 'Incline', 2.5), 90, '100 ÷ 1.12 = 89.3');
+    eq(swapLoadKg(200, 'deadlift', 'Competition', 'RDL', 2.5), 182.5, '200 ÷ 1.10 = 181.8');
+    eq(swapLoadKg(151, 'squat', 'Competition', 'Competition', 2.5), 151, 'the same variant keeps the load exactly');
+    eq(swapLoadKg(0, 'squat', 'Competition', 'Pin', 2.5), 0, 'a load picked by feel');
+    eq(swapLoadKg(150, 'squat', 'Competition', 'Pin', 5), 140, 'a 5 kg gym');
+    // The e1RM stays competition-equivalent: the pin squat's comp-equivalent max is within one jump of the squat's.
+    const e1 = calcCompE1RM(150, 3, 8, 'squat', 'Competition'), e2 = calcCompE1RM(swapLoadKg(150, 'squat', 'Competition', 'Pin', 2.5), 3, 8, 'squat', 'Pin');
+    assert(Math.abs(e1 - e2) <= calcE1RM(2.5, 3, 8) * 1.08, 'within one plate jump: ' + e1.toFixed(1) + ' vs ' + e2.toFixed(1));
+  });
+  test('nothing logged yet: the exercise swaps in place, every set still to do at the same effort', () => {
+    const day = dayOf([S('s1', 150, 3, 8), S('s2', 140, 5, 8, { weightHi: 145 }), S('s3', 0, 5, 8), S('s4', 155, 3, 8, { plannedWeight: 150 }), S('s5', 120, 5, 7, { pct: 75 })]);
+    const r = swapApply(day, 'e1', 'Pin', { stepKg: 2.5, date: '2026-10-30' });
+    eq(JSON.stringify(r), JSON.stringify({ exId: 'e1', split: false }));
+    const ex = day.exercises[0];
+    eq(ex.variant, 'Pin'); eq(day.exercises.length, 2, 'no new exercise');
+    eq(ex.sets.map(s => s.weight).join(), '140,130,0,142.5,110');
+    eq(ex.sets[1].weightHi, 135, 'a range\'s top moves with it'); eq(ex.sets[3].plannedWeight, 140, 'the plan beside a typed load too');
+    eq(ex.sets[4].pct, undefined, 'a % of the competition max means nothing on a pin squat');
+    eq(ex.sets.map(s => s.reps + '@' + s.rpe).join(), '3@8,5@8,5@8,3@8,5@7', 'reps and the RPE stay: same effort');
+    eq(ex.swap.from, 'Competition'); eq(ex.swap.on, '2026-10-30');
+    eq(swapLine(ex), 'Swapped for pin squat'); eq(exSwap(ex).undoable, true);
+    eq(day.exercises[1].sets[0].weight, 120, 'the leg press is not touched');
+  });
+  test('undo is the written lift back, every load exactly as it was; back to as written from the sheet is the same', () => {
+    const day = dayOf([S('s1', 152.5, 3, 8), S('s2', 140, 5, 8, { weightHi: 145 }), S('s3', 120, 5, 7, { pct: 75, pctHi: 77.5 })]);
+    swapApply(day, 'e1', 'Pin', { stepKg: 2.5 });
+    eq(swapUndo(day, 'e1'), true);
+    const ex = day.exercises[0];
+    eq(ex.variant, 'Competition'); eq(ex.swap, undefined); eq(swapLine(ex), '');
+    eq(JSON.stringify(ex.sets.map(s => [s.weight, s.weightHi, s.pct, s.pctHi])), JSON.stringify([[152.5, undefined, undefined, undefined], [140, 145, undefined, undefined], [120, undefined, 75, 77.5]]));
+    swapApply(day, 'e1', 'Tempo', { stepKg: 2.5 });
+    const r = swapApply(day, 'e1', 'Competition', { stepKg: 2.5 });
+    eq(r.undone, true); eq(ex.variant, 'Competition'); eq(ex.sets[0].weight, 152.5);
+  });
+  test('a second swap converts from the load as written, never rounding twice', () => {
+    const day = dayOf([S('s1', 120, 3, 8)]);
+    swapApply(day, 'e1', 'Pin', { stepKg: 2.5 });
+    eq(day.exercises[0].sets[0].weight, 110, '120 ÷ 1.08 = 111.1');
+    swapApply(day, 'e1', 'Tempo', { stepKg: 2.5 });
+    eq(day.exercises[0].sets[0].weight, 107.5, '120 ÷ 1.12 = 107.1 (from the pin squat\'s 110 it would be 105)');
+    eq(day.exercises[0].swap.from, 'Competition', 'still the lift as written');
+    swapUndo(day, 'e1');
+    eq(day.exercises[0].sets[0].weight, 120);
+  });
+  test('some sets logged: they stay the squat, the rest split off into the pin squat right after it; undo puts them back in their places', () => {
+    const day = dayOf([done(S('s1', 150, 3, 8), 8), S('s2', 140, 5, 8), done(S('s3', 140, 5, 8), 8.5), S('s4', 140, 5, 8)]);
+    const r = swapApply(day, 'e1', 'Pin', { stepKg: 2.5, newId: 'e9', date: '2026-10-30' });
+    eq(JSON.stringify(r), JSON.stringify({ exId: 'e9', split: true }));
+    eq(day.exercises.map(e => e.id).join(), 'e1,e9,e2');
+    const a = day.exercises[0], b = day.exercises[1];
+    eq(a.variant, 'Competition'); eq(a.sets.map(s => s.id).join(), 's1,s3', 'the logged sets stay what they were'); eq(swapLine(a), '');
+    eq(b.variant, 'Pin'); eq(b.sets.map(s => s.id + ':' + s.weight).join(), 's2:130,s4:130'); eq(b.note, 'Brace', 'the coach\'s cue comes along');
+    eq(swapLine(b), 'Swapped for pin squat'); eq(b.swap.src, 'e1'); eq(exSwap(b).undoable, true);
+    eq(swapUndo(day, 'e9'), true);
+    eq(day.exercises.map(e => e.id).join(), 'e1,e2');
+    eq(day.exercises[0].sets.map(s => s.id + ':' + s.weight).join(), 's1:150,s2:140,s3:140,s4:140', 'back in their places, loads as written');
+  });
+  test('a swapped set logged: undo is gone (it happened), and nothing to do or a wrong lift is not a swap', () => {
+    const day = dayOf([S('s1', 150, 3, 8), S('s2', 140, 5, 8)]);
+    swapApply(day, 'e1', 'Pin', { stepKg: 2.5 });
+    done(day.exercises[0].sets[0], 8);
+    eq(exSwap(day.exercises[0]).undoable, false); eq(swapUndo(day, 'e1'), false);
+    eq(day.exercises[0].variant, 'Pin', 'nothing changed');
+    const all = dayOf([done(S('s1', 150, 3, 8), 8)]);
+    eq(swapApply(all, 'e1', 'Pin', { stepKg: 2.5 }), null, 'every set logged');
+    eq(swapApply(dayOf([S('s1', 150, 3, 8)]), 'e1', 'Competition', { stepKg: 2.5 }), null, 'already that variant');
+    eq(swapApply(dayOf([S('s1', 150, 3, 8)]), 'e1', 'Incline', { stepKg: 2.5 }), null, 'a bench variant on a squat');
+    eq(swapApply(dayOf([S('s1', 150, 3, 8)]), 'e2', 'Pin', { stepKg: 2.5 }), null, 'an accessory');
+  });
+  test('swapped, one pin squat logged, rack free again: the rest go back to the squat as written', () => {
+    const day = dayOf([S('s1', 152.5, 3, 8), S('s2', 140, 5, 8)]);
+    swapApply(day, 'e1', 'Pin', { stepKg: 2.5 });
+    done(day.exercises[0].sets[0], 8);
+    const r = swapApply(day, 'e1', 'Competition', { stepKg: 2.5, newId: 'e8' });
+    eq(r.split, true);
+    const a = day.exercises[0], b = day.exercises[1];
+    eq(swapLine(a), 'Swapped for pin squat', 'the logged pin squat says so');
+    eq(b.variant, 'Competition'); eq(b.sets[0].weight, 140, 'the back-offs as written'); eq(swapLine(b), '', 'as written: nothing to say');
+    eq(swapUndo(day, 'e8'), true);
+    eq(day.exercises[0].sets.map(s => s.weight).join(), '140,130', 'undo: back on the pin squat as they were');
+  });
+  test('the Swap sheet\'s choices: the other variants, the next set\'s load on each, the lift as written once swapped', () => {
+    const day = dayOf([done(S('s0', 100, 5, 6), 6), S('s1', 150, 3, 8), S('s2', 140, 5, 8)]);
+    const o = swapOptions(day.exercises[0], 2.5);
+    eq(o.map(x => x.variant + ':' + x.next.kg + 'x' + x.next.reps).join(), 'Paused:140x3,Tempo:135x3,Pin:140x3');
+    eq(o.some(x => x.written), false);
+    const d2 = dayOf([S('s1', 120, 3, 8)]);
+    swapApply(d2, 'e1', 'Pin', { stepKg: 2.5 });
+    const o2 = swapOptions(d2.exercises[0], 2.5);
+    eq(o2.map(x => x.variant).join(), 'Competition,Paused,Tempo');
+    eq(o2[0].written, true); eq(o2[0].next.kg, 120, 'as written, exactly');
+    eq(o2[2].next.kg, 107.5, 'from the load as written');
+    eq(swapOptions({ lift: 'legs', sets: [] }, 2.5).length, 0);
+  });
+  test('the coach\'s Last session: what was swapped that day, said once', () => {
+    const d1 = dayOf([S('s1', 150, 3, 8), S('s2', 140, 5, 8)]);
+    swapApply(d1, 'e1', 'Pin', { stepKg: 2.5 });
+    d1.exercises[0].sets.forEach(s => done(s, 8, '2026-10-29'));
+    const bench = { id: 'b1', lift: 'bench', variant: 'Competition', sets: [S('b', 100, 5, 8)] };
+    const d2 = { id: 'd2', exercises: [bench] };
+    swapApply(d2, 'b1', 'Close Grip', { stepKg: 2.5 });
+    done(bench.sets[0], 8, '2026-10-29');
+    const prog = { weeks: [{ id: 'w1', days: [d1, d2] }] };
+    eq(sessionSwapLine(prog, '2026-10-29'), 'Swapped for pin squat and close grip bench');
+    eq(sessionSwapLine(prog, '2026-10-28'), '', 'another day');
+    eq(sessionSwapLine({ weeks: [{ days: [d1] }] }, '2026-10-29'), 'Swapped for pin squat');
+  });
+  test('the coach\'s review reads a swap as the lift written: next week\'s squat beside it, its suggestion from the same effort', () => {
+    const mk = (id, w, r, rpe) => S(id, w, r, rpe);
+    const prog = { id: 'p', weeks: [
+      { number: 1, days: [{ name: 'Squat', exercises: [{ id: 'q1', lift: 'squat', variant: 'Competition', sets: [mk('a', 150, 3, 8), mk('b', 140, 5, 8)] }] }] },
+      { number: 2, days: [{ name: 'Squat', exercises: [{ id: 'q2', lift: 'squat', variant: 'Competition', sets: [mk('c', 155, 3, 8), mk('d', 145, 5, 8)] }] }] }
+    ] };
+    swapApply(prog.weeks[0].days[0], 'q1', 'Pin', { stepKg: 2.5 });
+    prog.weeks[0].days[0].exercises[0].sets.forEach(s => done(s, 9, '2026-10-20'));   // a full RPE over: lighter next week
+    const r = deskWeekReview(prog, { unit: 'kg', rules: null });
+    eq(r.rows[0].title, 'Squat', 'the lift written'); eq(r.rows[0].swap.text, 'Swapped for pin squat');
+    eq(r.rows[0].logged.weight, 140, 'what was lifted: the pin squat');
+    eq(r.rows[0].next && r.rows[0].next.ei, 0, 'next week\'s squat beside it');
+    eq(r.rows[0].suggest.dir, 'down'); assert(r.rows[0].suggest.kg < 155 && r.rows[0].suggest.kg >= 155 * 0.9, 'lighter from the squat\'s 155: ' + r.rows[0].suggest.kg);
+    // Split mid-way: the squat keeps next week; the pin squat part says what it was, with nothing to suggest twice.
+    const p2 = JSON.parse(JSON.stringify(prog));
+    const d0 = p2.weeks[0].days[0];
+    d0.exercises = [{ id: 'q1', lift: 'squat', variant: 'Competition', sets: [done(mk('a', 150, 3, 8), 8, '2026-10-20'), mk('b', 140, 5, 8)] }];
+    swapApply(d0, 'q1', 'Pin', { stepKg: 2.5, newId: 'q9' });
+    done(d0.exercises[1].sets[0], 8, '2026-10-20');
+    const r2 = deskWeekReview(p2, { unit: 'kg', rules: null });
+    eq(r2.rows.length, 2); eq(r2.rows[0].swap, null); eq(r2.rows[0].next.ei, 0);
+    eq(r2.rows[1].swap.text, 'Swapped for pin squat'); eq(r2.rows[1].next, null, 'one suggestion for the squat, not two');
+  });
+  test('today only: a copy of the day (duplicate, copy week, next block, template, team, reuse) is the lift as written', () => {
+    const inPlace = dayOf([S('s1', 150, 3, 8), S('s2', 140, 5, 8, { pct: 75 })]);
+    swapApply(inPlace, 'e1', 'Pin', { stepKg: 2.5 });
+    done(inPlace.exercises[0].sets[0], 8);
+    const before = JSON.stringify(inPlace);
+    const w = dayAsWritten(inPlace);
+    eq(JSON.stringify(inPlace), before, 'the day itself is not touched');
+    eq(w.exercises[0].variant, 'Competition'); eq(w.exercises[0].swap, undefined);
+    eq(w.exercises[0].sets.map(s => s.weight + (s.pct ? '/' + s.pct : '')).join(), '150,140/75', 'loads (and the %) as written');
+    const split = dayOf([done(S('s1', 150, 3, 8), 8), S('s2', 140, 5, 8), S('s3', 140, 5, 8)]);
+    swapApply(split, 'e1', 'Pin', { stepKg: 2.5, newId: 'e9' });
+    const w2 = dayAsWritten(split);
+    eq(w2.exercises.map(e => e.id + ':' + e.variant).join(), 'e1:Competition,e2:undefined', 'the split part back in one piece');
+    eq(w2.exercises[0].sets.map(s => s.id + ':' + s.weight).join(), 's1:150,s2:140,s3:140');
+    eq(dayAsWritten(dayOf([S('s1', 150, 3, 8)])).exercises[0].variant, 'Competition', 'no swap: the day as it is');
+    // Copy week and the next block.
+    const copied = deskCopyWeekDays([inPlace], []);
+    eq(copied[0].exercises[0].variant, 'Competition'); eq(copied[0].exercises[0].swap, undefined);
+    eq(copied[0].exercises[0].sets.map(s => s.weight + ':' + !!s.completed).join(), '150:false,140:false');
+    const nb = nextBlockWeeks({ weeks: [{ number: 1, days: [inPlace] }] }, 2.5);
+    eq(nb[0].days[0].exercises[0].variant, 'Competition'); eq(nb[0].days[0].exercises[0].sets[0].weight, 152.5, 'as written, one jump heavier');
+    // A team made from this program: the master is the squat as written; the lifter's own copy keeps their day, linked.
+    const tm = teamMasterFromProgram({ weeks: [{ id: 'w1', number: 1, days: [inPlace] }] }, {});
+    const me = tm.weeks[0].days[0].exercises[0], mine = tm.linked[0].days[0].exercises[0];
+    eq(me.variant, 'Competition'); eq(me.swap, undefined); eq(me.sets[0].weight, 150);
+    eq(mine.variant, 'Pin'); assert(!!mine.swap, 'the lifter keeps their swap'); eq(mine.srcId, me.id); eq(mine.sets[0].srcId, me.sets[0].id, 'their sets stay linked');
+    // Reuse a block for another lifter.
+    const rb = reuseBlockWeeks([{ number: 1, days: [split] }], {});
+    eq(rb.weeks[0].days[0].exercises.filter(e => e.lift === 'squat').length, 1); eq(rb.weeks[0].days[0].exercises[0].variant, 'Competition');
+  });
+})();
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

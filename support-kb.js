@@ -1918,5 +1918,19 @@ window.POWA_SUPPORT_KB = [
    "leaving hevy"
   ],
   "a": "Hevy Coach has no export on the coach side, but each client can export from the Hevy app (Hevy's help pages): Profile → Settings → Export & Import Data → Export Data → Export Workouts. They send you the CSV (bring it in under **Bring your coaching in**, or Import their history from their page) or import it themselves in POWALIFTA (You → Your data → Import your training history). Hevy's CSV is read as it is: warm-ups left out, kg or lb from the file, RPE where they logged one. Routines don't export: screenshots come in through **Bring a program in**."
+ },
+ {
+  "id": "swap-exercise",
+  "q": "The rack is taken. Can I swap an exercise for today?",
+  "t": [
+   "rack is taken",
+   "rack taken",
+   "swap an exercise",
+   "swap exercise",
+   "swap for a variation",
+   "swap the squat",
+   "use a variation instead"
+  ],
+  "a": "Yes, for today only. On **Train**, tap the **Swap** arrows on the lift's card (beside the note button) and pick another variation of the same lift, for example Pin Squat for the squat. The sets you haven't done move to the same effort: the load follows the variation's factor (a pin squat counts as 1.08 of a competition squat, so 182.5 becomes 170), rounded to your plates, and your estimated max stays competition-equivalent. Sets you already logged stay as they were. **Undo** is on the message that pops up and on the card's \"Swapped from …\" line until you log a swapped set. Your coach sees \"Swapped for pin squat\" on that session."
  }
 ];

@@ -6600,6 +6600,219 @@ function multiplierFor(lift, variant) {
 function exercisesFor(lift) { return ACCESSORY_EXERCISES[lift] || []; }
 
 // =========================================================
+// SWAP AN EXERCISE (2026-10-30). The rack is taken, so today's squat becomes a pin squat. The sets
+// still to do carry over at the same effort: a variant's multiplier says how much harder it is than
+// the competition lift, so its load is the load × (from's multiplier ÷ to's), on the gym's plates
+// (loadStepKg). The log carries the new variant, so the e1RM stays competition-equivalent
+// (calcCompE1RM). For today only: the swap lives on that day's exercise,
+//   ex.swap = { from: the variant as written, on: the day, src?: the exercise it split off from,
+//               srcVariant?, sets: [{ at, src?, id?, f: { weight, weightHi?, plannedWeight?, pct?, pctHi? } }] }
+// where at is the set's place in this exercise (src its place in the one it split off from) and f its
+// load fields before this swap. Nothing logged yet: the exercise changes in place. Some sets logged
+// (they stay what they were): the rest split off into a new exercise right after it. Undo puts it all
+// back while none of the carried sets is logged. Pure over the caller's day; unit-tested.
+// =========================================================
+const _SWAP_FIELDS = ['weight', 'weightHi', 'plannedWeight', 'pct', 'pctHi'];
+// A variant as a coach says it in a sentence: "pin squat", "close grip bench", "pin press", "RDL".
+function variantName(lift, variant) {
+  const v = String(variant || 'Competition');
+  if (/^rdl$/i.test(v)) return 'RDL';
+  if (/^pin press$/i.test(v)) return 'pin press';
+  return (v + ' ' + String(LIFT_LABELS[lift] || lift || '')).trim().toLowerCase();
+}
+// A load at the same effort on another variant of the lift, in kg, rounded to stepKg (the gym's smallest
+// jump). 0 (a load picked by feel) stays 0; the same variant keeps the load exactly.
+function swapLoadKg(kg, lift, fromVariant, toVariant, stepKg) {
+  const k = Number(kg);
+  if (!(k > 0)) return 0;
+  if (String(fromVariant || 'Competition') === String(toVariant || 'Competition')) return k;
+  const step = Number(stepKg) > 0 ? Number(stepKg) : 2.5;
+  const raw = k * multiplierFor(lift, fromVariant || 'Competition') / multiplierFor(lift, toVariant || 'Competition');
+  return Math.round(Math.round(raw / step) * step * 1000) / 1000;
+}
+// A set's load fields, only the ones it has (what a swap keeps to put back).
+function _swapPick(s) {
+  const f = {};
+  _SWAP_FIELDS.forEach(k => { if (s && s[k] != null && s[k] !== '') f[k] = s[k]; });
+  return f;
+}
+function _swapSet(s, f) {
+  _SWAP_FIELDS.forEach(k => { delete s[k]; });
+  Object.keys(f || {}).forEach(k => { s[k] = f[k]; });
+  if (!('weight' in s)) s.weight = 0;
+  return s;
+}
+// Load fields on fromV → the same effort on toV. A % of the competition max means nothing on a variant,
+// so it goes (Undo brings it back); the same variant keeps everything as it was.
+function _swapConv(f, lift, fromV, toV, stepKg) {
+  if (String(fromV || 'Competition') === String(toV || 'Competition')) return Object.assign({}, f);
+  const out = { weight: swapLoadKg(f.weight, lift, fromV, toV, stepKg) };
+  if (Number(f.weightHi) > 0) out.weightHi = swapLoadKg(f.weightHi, lift, fromV, toV, stepKg);
+  if ('plannedWeight' in f) out.plannedWeight = swapLoadKg(f.plannedWeight, lift, fromV, toV, stepKg);
+  return out;
+}
+// The swap on an exercise, or null: { from (as written), to (now), src, on, recs, undoable }.
+// undoable: every carried set is still there and none of them is logged.
+function exSwap(ex) {
+  const sw = ex && ex.swap;
+  if (!sw || typeof sw !== 'object' || !MAIN_LIFTS.includes(ex.lift)) return null;
+  const recs = Array.isArray(sw.sets) ? sw.sets.filter(r => r && Number.isInteger(r.at)) : [];
+  const sets = ex.sets || [];
+  const here = (r) => { const s = sets[r.at]; return !!s && (r.id == null || s.id == null || String(s.id) === String(r.id)); };
+  const undoable = recs.length > 0 && recs.every(r => here(r) && !sets[r.at].completed);
+  return { from: sw.from || 'Competition', to: ex.variant || 'Competition', src: sw.src != null ? sw.src : null, on: sw.on || null, recs, undoable };
+}
+// What the coach reads on the session: "Swapped for pin squat", or '' (as written, or no swap).
+function swapLine(ex) {
+  const sw = exSwap(ex);
+  return sw && sw.to !== sw.from ? 'Swapped for ' + variantName(ex.lift, sw.to) : '';
+}
+// The other variants of the lift, for the Swap sheet: [{ variant, mult, written, next: { kg, reps } | null }].
+// next is the first set still to do at that variant's load (kg 0: picked by feel). stepKg: loadStepKg(unit).
+function swapOptions(ex, stepKg) {
+  if (!ex || !MAIN_LIFTS.includes(ex.lift) || !VARIANTS[ex.lift]) return [];
+  const sw = exSwap(ex), cur = ex.variant || 'Competition', written = sw ? sw.from : cur;
+  const si = (ex.sets || []).findIndex(s => s && !s.completed);
+  const set = si >= 0 ? ex.sets[si] : null;
+  // The first set's load as written when the swap kept it, so a second swap never rounds twice.
+  const rec = sw ? sw.recs.find(r => r.at === si) : null;
+  const baseV = rec ? written : cur, baseKg = rec ? Number((rec.w || rec.f || {}).weight) || 0 : Number(set && set.weight) || 0;
+  return variantsFor(ex.lift).filter(v => v !== cur).map(v => ({
+    variant: v, mult: multiplierFor(ex.lift, v), written: v === written,
+    next: set ? { kg: swapLoadKg(baseKg, ex.lift, baseV, v, stepKg), reps: set.reps } : null
+  }));
+}
+// Swap exercise exId of day to variant `to`. opts: { stepKg, date, newId }. Mutates day.
+// → { exId: the exercise that carries the sets now, split, undone? } or null (nothing to swap).
+// Each record keeps f (the set's load fields to put back) and, split off, w (them as written).
+function swapApply(day, exId, to, opts) {
+  opts = opts || {};
+  const exs = (day && day.exercises) || [];
+  const ei = exs.findIndex(e => e && String(e.id) === String(exId));
+  const ex = exs[ei];
+  if (!ex || !MAIN_LIFTS.includes(ex.lift) || !VARIANTS[ex.lift] || VARIANTS[ex.lift][to] == null) return null;
+  const cur = ex.variant || 'Competition';
+  if (to === cur || !Array.isArray(ex.sets)) return null;
+  const left = [];
+  ex.sets.forEach((s, i) => { if (s && !s.completed) left.push(i); });
+  if (!left.length) return null;
+  const old = exSwap(ex), written = old ? old.from : cur, step = opts.stepKg;
+  // Back where it came from with nothing logged on it since: that is the undo.
+  const home = old ? (old.src != null ? (ex.swap.srcVariant || written) : written) : null;
+  if (old && old.undoable && to === home) {
+    const back = old.src != null && exs.some(e => e && e !== ex && String(e.id) === String(old.src)) ? old.src : ex.id;
+    return swapUndo(day, ex.id) ? { exId: back, split: false, undone: true } : null;
+  }
+  const recAt = (i) => (old ? old.recs.find(r => r.at === i && (r.id == null || ex.sets[i].id == null || String(r.id) === String(ex.sets[i].id))) : null) || null;
+  // A set's load as written, for converting from (never twice rounded): its record's, else its own on this variant.
+  const base = (i) => { const r = recAt(i); return r ? { v: written, f: r.w || r.f || {} } : { v: cur, f: _swapPick(ex.sets[i]) }; };
+  const asWritten = (b) => (b.v === written ? Object.assign({}, b.f) : _swapConv(b.f, ex.lift, b.v, written, step));
+  if (!ex.sets.some(s => s && s.completed)) {
+    // Nothing lifted on it yet: it changes in place.
+    const recs = left.map(i => recAt(i) || { at: i, id: ex.sets[i].id != null ? ex.sets[i].id : undefined, f: asWritten(base(i)) });
+    left.forEach(i => { const b = base(i); _swapSet(ex.sets[i], _swapConv(b.f, ex.lift, b.v, to, step)); });
+    ex.variant = to;
+    const keep = old && old.src != null ? { src: ex.swap.src, srcVariant: ex.swap.srcVariant } : {};
+    ex.swap = Object.assign(keep, { from: written, on: opts.date || (old && old.on) || null, sets: recs });
+    return { exId: ex.id, split: false };
+  }
+  // Some sets are logged: they stay what they were, and the rest split off into a new exercise after it.
+  const nx = { id: opts.newId || (typeof uid === 'function' ? uid('ex') : 'ex' + Date.now()), lift: ex.lift, variant: to, exerciseName: ex.exerciseName || '', note: ex.note || '', sets: [] };
+  if (Number(ex.restSec) > 0) nx.restSec = ex.restSec;
+  const recs = [];
+  left.forEach((i, k) => {
+    const s = ex.sets[i], b = base(i);
+    recs.push({ at: k, src: i, id: s.id != null ? s.id : undefined, f: _swapPick(s), w: asWritten(b) });
+    _swapSet(s, _swapConv(b.f, ex.lift, b.v, to, step));
+    nx.sets.push(s);
+  });
+  for (let k = left.length - 1; k >= 0; k--) ex.sets.splice(left[k], 1);
+  nx.swap = { from: written, on: opts.date || null, src: ex.id, srcVariant: cur, sets: recs };
+  exs.splice(ei + 1, 0, nx);
+  return { exId: nx.id, split: true };
+}
+// Undo a swap while none of its sets is logged: in place, the variant and the loads as written; split off,
+// its sets go back into the exercise they came from, in their places. Mutates day → true when undone.
+function swapUndo(day, exId) {
+  const exs = (day && day.exercises) || [];
+  const ei = exs.findIndex(e => e && String(e.id) === String(exId));
+  const ex = exs[ei], sw = exSwap(ex);
+  if (!sw || !sw.undoable) return false;
+  const src = sw.src != null ? exs.find(e => e && e !== ex && String(e.id) === String(sw.src)) : null;
+  if (src) {
+    const extra = ex.sets.filter((s, i) => !sw.recs.some(r => r.at === i) && s && !s.completed);
+    sw.recs.slice().sort((a, b) => (Number(a.src) || 0) - (Number(b.src) || 0)).forEach(r => {
+      const s = ex.sets[r.at];
+      if (!s) return;
+      _swapSet(s, r.f || {});
+      src.sets.splice(Math.min(Number(r.src) || 0, src.sets.length), 0, s);
+    });
+    // A set added on the swapped exercise since goes back too, at the end, at the same effort.
+    extra.forEach(s => { _swapSet(s, _swapConv(_swapPick(s), ex.lift, sw.to, src.variant || 'Competition')); src.sets.push(s); });
+    exs.splice(ei, 1);
+    return true;
+  }
+  const back = sw.src != null ? (ex.swap.srcVariant || sw.from) : sw.from;
+  ex.sets.forEach((s, i) => {
+    const r = sw.recs.find(x => x.at === i);
+    if (r) _swapSet(s, r.f || {});
+    else if (s && !s.completed) _swapSet(s, _swapConv(_swapPick(s), ex.lift, sw.to, back));
+  });
+  ex.variant = back;
+  delete ex.swap;
+  return true;
+}
+// An exercise as the coach wrote it: the variant and every load as written, no swap kept. What a copy starts from
+// (Duplicate day, Copy week, the next block, a template, a team, Reuse a block): a swap is for that day only. A copy.
+function exAsWritten(ex) {
+  if (!ex || !ex.swap || typeof ex.swap !== 'object') return ex;
+  const e = JSON.parse(JSON.stringify(ex)), sw = e.swap, recs = Array.isArray(sw.sets) ? sw.sets : [];
+  const from = sw.from || 'Competition', cur = e.variant || 'Competition';
+  (e.sets || []).forEach((s, i) => {
+    if (!s) return;
+    const r = recs.find(x => x && x.at === i);
+    if (r) _swapSet(s, r.w || r.f || {});
+    else if (MAIN_LIFTS.includes(e.lift)) _swapSet(s, _swapConv(_swapPick(s), e.lift, cur, from));
+  });
+  e.variant = from;
+  delete e.swap;
+  return e;
+}
+// A day as the coach wrote it: every swap undone, and a lift that split mid-way back in one piece (its sets in their
+// places, as written). The day itself when it has no swap; else a copy.
+function dayAsWritten(day) {
+  if (!day || !(day.exercises || []).some(e => e && e.swap)) return day;
+  const d = JSON.parse(JSON.stringify(day)), exs = d.exercises;
+  for (let k = exs.length - 1; k >= 0; k--) {
+    const ex = exs[k], sw = ex && ex.swap;
+    if (!sw || sw.src == null) continue;
+    const src = exs.find(e => e && e !== ex && String(e.id) === String(sw.src));
+    if (!src || !Array.isArray(src.sets)) continue;
+    (Array.isArray(sw.sets) ? sw.sets : []).slice().sort((a, b) => (Number(a.src) || 0) - (Number(b.src) || 0)).forEach(r => {
+      const s = (ex.sets || [])[r.at];
+      if (!s) return;
+      _swapSet(s, r.w || r.f || {});
+      src.sets.splice(Math.min(Number(r.src) || 0, src.sets.length), 0, s);
+    });
+    exs.splice(k, 1);
+  }
+  d.exercises = exs.map(exAsWritten);
+  return d;
+}
+// One session's swaps (the day whose sets were logged on date): "Swapped for pin squat", two "Swapped for
+// pin squat and close grip bench", or ''. What the coach's Last session says.
+function sessionSwapLine(prog, date) {
+  const names = [];
+  (((prog && prog.weeks) || [])).forEach(w => (w.days || []).forEach(d => {
+    const exs = d.exercises || [];
+    if (!exs.some(e => (e.sets || []).some(s => s && s.completed && String(s.completedAt || '').slice(0, 10) === date))) return;
+    exs.forEach(e => { const t = swapLine(e); if (t && !names.includes(t.slice(12))) names.push(t.slice(12)); });
+  }));
+  if (!names.length) return '';
+  return 'Swapped for ' + (names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]);
+}
+
+// =========================================================
 // EXERCISE LIBRARY — coaching cues for the competition lifts, their
 // training variants, and the core accessories. Pure data + lookups,
 // keyed off the SAME lift/variant taxonomy as logging (VARIANTS /
@@ -9080,7 +9293,8 @@ function duplicateDay(programId, weekIdx, dayIdx) {
     const p = s.programs.find(p => p.id === programId);
     const d = p && p.weeks[weekIdx] && p.weeks[weekIdx].days[dayIdx];
     if (!d) return;
-    const clone = { id: uid('day'), name: (d.name || 'Day') + ' (copy)', exercises: (d.exercises || []).map(ex => ({
+    const dw = dayAsWritten(d);   // a swap on the day was for that day only
+    const clone = { id: uid('day'), name: (d.name || 'Day') + ' (copy)', exercises: (dw.exercises || []).map(ex => ({
       id: uid('ex'), lift: ex.lift, variant: ex.variant || '', exerciseName: ex.exerciseName || '', note: ex.note || '',
       sets: (ex.sets || []).map(set => ({ id: uid('set'), weight: planWeight(set), reps: set.reps, rpe: set.rpe, tempo: set.tempo || '',
         completed: false, actualRpe: null, completedAt: null, note: '', ...rxOf(set) }))
@@ -9107,7 +9321,7 @@ function copyExercise(programId, weekIdx, dayIdx, exIdx) {
   Store.update(s => {
     const p = s.programs.find(p => p.id === programId);
     if (!p) return;
-    const ex = p.weeks[weekIdx].days[dayIdx].exercises[exIdx];
+    const ex = exAsWritten(p.weeks[weekIdx].days[dayIdx].exercises[exIdx]);   // a swap was for that day only
     const cloned = {
       id: uid('ex'),
       lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
@@ -12916,8 +13130,15 @@ function deskWeekReview(prog, opts) {
   const rows = [];
   (W.days || []).forEach((day, di) => (day.exercises || []).forEach((ex, ei) => {
     const groups = groupSets(_deskPlanSets(ex));
-    const same = (e) => !!e && e.lift === ex.lift && (e.variant || '') === (ex.variant || '') && String(e.exerciseName || '') === String(ex.exerciseName || '');
-    const nd = N && (N.days || [])[di];
+    // A swap (the rack was taken: a pin squat for the squat) reads as the lift written, with next week's block
+    // for that lift beside it: the loads were moved at the same effort, so felt against written still holds. The
+    // part of a lift that split off mid-way leaves next week to the lift it came from (one suggestion, not two).
+    const sw = exSwap(ex);
+    const splitOff = !!(sw && sw.src != null && (day.exercises || []).some(e => e && e !== ex && String(e.id) === String(sw.src)));
+    const same = sw
+      ? (e) => !!e && e.lift === ex.lift && (e.variant || 'Competition') === sw.from && String(e.exerciseName || '') === String(ex.exerciseName || '')
+      : (e) => !!e && e.lift === ex.lift && (e.variant || '') === (ex.variant || '') && String(e.exerciseName || '') === String(ex.exerciseName || '');
+    const nd = N && !splitOff ? (N.days || [])[di] : null;
     let nei = -1;
     if (nd) nei = same((nd.exercises || [])[ei]) ? ei : (nd.exercises || []).findIndex(same);
     const nex = nei >= 0 ? nd.exercises[nei] : null;
@@ -12953,7 +13174,8 @@ function deskWeekReview(prog, opts) {
         if (suggest && prg.fallback === 'keep') suggest = cur > 0 ? { kg: cur, delta: 0, dir: 'hold' } : null;
       }
       const row = {
-        key: last + '.' + di + '.' + ei + '.' + gi, di, ei, gi, day: day.name || ('Day ' + (di + 1)), title: _exShortTitle(ex), lift: ex.lift,
+        key: last + '.' + di + '.' + ei + '.' + gi, di, ei, gi, day: day.name || ('Day ' + (di + 1)), title: _exShortTitle(sw ? Object.assign({}, ex, { variant: sw.from }) : ex), lift: ex.lift,
+        swap: sw && sw.to !== sw.from ? { to: sw.to, text: swapLine(ex) } : null,
         target: g, count: sets.filter(s => !s.extra).length, sig,
         logged: top ? { weight: Number(top.weight) || 0, reps: Number(top.reps) || 0, rpe: felt, n: done.length, of: sets.length, short }
           : (sets.some(s => s.skipped) ? { skipped: true, n: 0, of: sets.length } : null),
@@ -13037,7 +13259,8 @@ function deskApplyNextWeek(weeks, nextIdx, edits) {
 // each exercise they replace is the coach's for this lifter (ovr): a push asks, never doubles it.
 function deskCopyWeekDays(srcDays, oldDays) {
   const olds = oldDays || [];
-  return (srcDays || []).map((d, k) => {
+  return (srcDays || []).map((d0, k) => {
+    const d = dayAsWritten(d0);   // a swap (the rack was taken) was for that day only
     const od = olds[k] || null, used = {};
     const nd = { id: uid('day'), name: d.name, exercises: (d.exercises || []).map((ex, ei) => {
       const ne = { id: uid('ex'), lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note || '',
@@ -13157,7 +13380,7 @@ async function archiveProgramIfTrained(prog, opts) {
 // The next block from this one: the same weeks, fresh, with the main lifts' loads a step heavier
 // (+stepKg on weights, +2.5 on percentages). Accessories stay as they were.
 function nextBlockWeeks(prog, stepKg) {
-  return (prog.weeks || []).map(w => ({ id: uid('wk'), number: w.number, days: (w.days || []).map(d => ({ id: uid('day'), name: d.name, exercises: (d.exercises || []).map(e => ({
+  return (prog.weeks || []).map(w => ({ id: uid('wk'), number: w.number, days: (w.days || []).map(dayAsWritten).map(d => ({ id: uid('day'), name: d.name, exercises: (d.exercises || []).map(e => ({
     id: uid('ex'), lift: e.lift, variant: e.variant || '', exerciseName: e.exerciseName || '', note: e.note || '',
     sets: (e.sets || []).filter(s => !s.extra).map(s => {
       const main = ['squat', 'bench', 'deadlift'].includes(e.lift);
@@ -16490,10 +16713,12 @@ function teamMasterFromProgram(prog, maxes) {
       d.srcId = md.id;
       md.exercises = (d.exercises || []).map(e => {
         const me = { id: uid('ex') };
-        Object.keys(e).forEach(k => { if (!['id', 'sets', 'srcId', 'ovr'].includes(k)) me[k] = _tmClone(e[k]); });
+        const ew = exAsWritten(e);   // a swap (the rack was taken) was that lifter's day only: the team gets the lift as written
+        Object.keys(ew).forEach(k => { if (!['id', 'sets', 'srcId', 'ovr', 'swap'].includes(k)) me[k] = _tmClone(ew[k]); });
         e.srcId = me.id; delete e.ovr;
-        me.sets = (e.sets || []).filter(s => !s.extra).map(s => {
-          const ms = Object.assign(_tmRx(s), { id: uid('set'), weight: planWeight(s) || 0, reps: s.plannedReps || s.reps, completed: false });
+        // The lifter's own sets keep their links (s); the master's loads are the ones written (w, the same place).
+        me.sets = (e.sets || []).map((s, si) => [s, (ew.sets || [])[si] || s]).filter(x => !x[0].extra).map(([s, w]) => {
+          const ms = Object.assign(_tmRx(w), { id: uid('set'), weight: planWeight(w) || 0, reps: w.plannedReps || w.reps, completed: false });
           const mx = MAIN_LIFTS.indexOf(e.lift) >= 0 ? teamMaxKg(maxes, e.lift) : 0;
           if ((ms.pct == null || ms.pct === '') && mx > 0 && Number(ms.weight) > 0) {
             ms.pct = _tmPctOf(Number(ms.weight), mx);
@@ -16525,7 +16750,7 @@ function reuseBlockWeeks(weeks, opts) {
   opts = opts || {};
   const src = opts.srcMaxes || {}, dst = opts.dstMaxes || {};
   const noSrcMax = MAIN_LIFTS.filter(L => !(teamMaxKg(src, L) > 0));
-  const clean = _tmClone(weeks || []).map(w => Object.assign({}, w, { days: (w.days || []).map(d => {
+  const clean = _tmClone(weeks || []).map(w => Object.assign({}, w, { days: (w.days || []).map(dayAsWritten).map(d => {
     const nd = Object.assign({}, d);
     delete nd.scheduledDate;
     nd.exercises = (d.exercises || []).map(e => Object.assign({}, e, { sets: (e.sets || []).filter(s => s && !s.extra && !s.attempt).map(s => {

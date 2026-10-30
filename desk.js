@@ -3077,7 +3077,7 @@ function dkWsWeek(r) {
       if (row.logged) {
         var pw = Number(row.target.weight) || 0;
         // Lifted as written (load, reps, every set, RPE on target): a check, the sets in the tooltip.
-        var asWritten = !row.logged.skipped && pw > 0 && Math.abs((row.logged.weight || 0) - pw) < 0.5 && String(row.logged.reps) === String(row.target.reps) &&
+        var asWritten = !row.swap && !row.logged.skipped && pw > 0 && Math.abs((row.logged.weight || 0) - pw) < 0.5 && String(row.logged.reps) === String(row.target.reps) &&
           row.logged.n >= row.logged.of && (row.delta == null || _dkGapCls(row.delta) === 'on');
         if (asWritten) {
           var aw0 = el('span', { class: 'dk-sx-ok', html: DK_IC.check }, el('span', {}, 'As written'));
@@ -3098,6 +3098,8 @@ function dkWsWeek(r) {
       line.appendChild(got);
       if (N) line.appendChild(dkSxNext(r, prog, rev, row, nn, pend, inputs, paintCount, line));
       var att = row.gi ? [] : dkSessAttach(r, row, date, used, !!(lastOf[row.lift] && lastOf[row.lift].key === row.key));
+      // The rack was taken: the lift written swapped for a variant today, said where it happened (app.js swapLine).
+      if (row.swap && !row.gi) att.unshift(dkSwapAtt(row.swap.text));
       if (att.length) { var aw = el('div', { class: 'dk-sx-att' }); att.forEach(function (x) { aw.appendChild(x); }); line.appendChild(aw); }
       card.appendChild(line);
     });
@@ -4702,7 +4704,16 @@ function dkBxLifted(ex) {
     var gap = _dkSetGap(top, topG), tn = _dkGapCls(gap);
     if (gap != null && tn !== 'on') { var gp = el('span', { class: 'dk-gap t-' + tn }, dkGapText(gap)); dkTip(gp, 'Top set RPE ' + (gap > 0 ? 'over' : 'under') + ' what was written'); got.appendChild(gp); }
   } else got.appendChild(el('span', { class: 'dk-dim' }, sets.some(function (s) { return s.skipped; }) ? 'Skipped' : 'Missed'));
+  var sl = typeof swapLine === 'function' ? swapLine(ex) : '';
+  if (sl) got.appendChild(dkSwapAtt(sl));
   return got;
+}
+// A lift swapped for a variant on the day (the rack was taken: app.js swapApply), as the session's quiet chip.
+function dkSwapAtt(text) {
+  var at = el('span', { class: 'dk-att dk-att-swap' });
+  at.insertAdjacentHTML('beforeend', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4 3 8l4 4"/><path d="M3 8h13"/><path d="m17 20 4-4-4-4"/><path d="M21 16H8"/></svg>');
+  at.appendChild(el('span', {}, text));
+  return at;
 }
 function dkBxLine(box, prog, wi, di, ei, wkLogged) {
   var o = box._o, ex = prog.weeks[wi].days[di].exercises[ei];
@@ -5578,6 +5589,7 @@ function dkPaintMsgCtx() {
       row.appendChild(el('span', { class: 'dk-ses-date' }, fmtDateShort(s.date)));
       var tops = el('div', { class: 'dk-ses-tops' });
       s.tops.forEach(function (t) { tops.appendChild(el('span', { class: 'dk-ses-top lift-' + (MAIN_LIFTS.indexOf(t.lift) >= 0 ? t.lift : 'acc') }, el('i', { class: 'dk-lift-dot', 'aria-hidden': 'true' }), t.text)); });
+      if (s.swap) tops.appendChild(el('span', { class: 'dk-ses-swap' }, s.swap));
       row.appendChild(tops);
       sl.appendChild(row);
     });
@@ -5601,14 +5613,15 @@ function dkPaintMsgCtx() {
 }
 // Their last n training days: the heaviest set of each lift, with its RPE.
 function dkLastSessions(aid, n) {
-  var by = {};
+  var by = {}, prog = dkProgOf(aid);
   (Store.get().workoutLogs || []).forEach(function (l) { if (l.athleteId === aid) (by[l.date] = by[l.date] || []).push(l); });
   return Object.keys(by).sort().reverse().slice(0, n).map(function (d) {
     var top = {};
     by[d].forEach(function (l) { var k = l.lift + '|' + (l.variant || '') + '|' + (l.exerciseName || ''); if (!top[k] || Number(l.weight) > Number(top[k].weight)) top[k] = l; });
     return { date: d, tops: Object.keys(top).map(function (k) { var l = top[k];
       var name = MAIN_LIFTS.indexOf(l.lift) >= 0 ? ((l.variant && l.variant !== 'Competition' ? l.variant + ' ' : '') + LIFT_LABELS[l.lift]) : (l.exerciseName || 'Set');
-      return { lift: l.lift, text: name + ' ' + (Number(l.weight) > 0 ? _num(kgToDisplay(l.weight)) + '×' : '') + Number(l.reps) + (l.rpe ? ' @' + _num(l.rpe) : '') }; }).slice(0, 3) };
+      return { lift: l.lift, text: name + ' ' + (Number(l.weight) > 0 ? _num(kgToDisplay(l.weight)) + '×' : '') + Number(l.reps) + (l.rpe ? ' @' + _num(l.rpe) : '') }; }).slice(0, 3),
+      swap: prog && typeof sessionSwapLine === 'function' ? sessionSwapLine(prog, d) : '' };
   });
 }
 

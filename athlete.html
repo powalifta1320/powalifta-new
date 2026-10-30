@@ -2785,8 +2785,11 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
   const tb = el('div', { class: 'tx-title' });
   tb.appendChild(el('h3', {}, exTitleOf(ex)));
   const meta = [];
+  // SWAP AN EXERCISE (app.js swapApply): a swap says so on its own line under the head (not twice up here).
+  const swp = isMain ? exSwap(ex) : null;
+  const swpShow = !!(swp && (swp.to !== swp.from || swp.src != null));
   // A variant is "a squat variation"; the competition lift needs no label (its name says it).
-  if (isMain) { if (multiplierFor(ex.lift, ex.variant) !== 1) meta.push(LIFT_LABELS[ex.lift] + ' variation'); }
+  if (isMain) { if (!swpShow && multiplierFor(ex.lift, ex.variant) !== 1) meta.push(LIFT_LABELS[ex.lift] + ' variation'); }
   else if (ACCESSORY_LIFTS.includes(ex.lift)) meta.push(LIFT_LABELS[ex.lift]);
   else if (isCardio) meta.push('Cardio');
   // The ring already counts the sets (0/3), so the line under the name doesn't.
@@ -2800,6 +2803,19 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     head.appendChild(hit);
   }
   card.appendChild(head);
+  // Today's swap, where the coach's cue sits: what it was, and Undo while none of it is logged.
+  if (swpShow) {
+    const was = swp.src != null ? ((ex.swap && ex.swap.srcVariant) || swp.from) : swp.from;
+    const sl = el('div', { class: 'tx-swap' });
+    sl.appendChild(el('span', { class: 'tx-swap-k' }, 'Swapped'));
+    sl.appendChild(el('span', { class: 'tx-swap-t' }, 'from ' + variantName(ex.lift, was)));
+    if (swp.undoable) {
+      const u = el('button', { class: 'tx-swap-undo', type: 'button', 'aria-label': 'Undo the swap, back to ' + variantName(ex.lift, was) }, 'Undo');
+      u.addEventListener('click', () => undoSwap(ex.id));
+      sl.appendChild(u);
+    }
+    card.appendChild(sl);
+  }
 
   // The program's note: the coach's cue, or (training on your own) your own note, never "Coach".
   if (ex.note) card.appendChild(el('div', { class: 'ech-coach tx-cue', html: '<span>' + (selfCoached ? 'Note' : 'Coach') + '</span>' + escHtml(ex.note) }));
@@ -2954,6 +2970,13 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     pa.addEventListener('click', () => openPRAttemptSheet(ex.id));
     acts.appendChild(pa);
   }
+  // The rack is taken: Swap lists the lift's variants, the sets left at the same effort (openSwapSheet).
+  // On a phone it's the first of the icons at the row's end (styles.css .tx-act-ico), labelled for screen readers.
+  if (isMain && ex.sets.some(s => !s.completed)) {
+    const sw = el('button', { class: 'tx-act tx-act-ico tx-act-swap', type: 'button', 'aria-label': 'Swap for a variation', title: 'Swap for a variation', html: swapIconSvg() + '<span>Swap</span>' });
+    sw.addEventListener('click', () => openSwapSheet(ex.id));
+    acts.appendChild(sw);
+  }
   // Something hurt: on the exercise you're on (or one you've started), coached lifters only.
   if (user.coachId && (isCurrent || (doneCount > 0 && !exDone))) {
     // On a phone it's an icon beside Note's (styles.css .tx-act-ico), so the row stays one line.
@@ -2995,6 +3018,82 @@ function _exCues(ex) {
   const k = _exNameKey(ex.exerciseName);
   return k ? (EXERCISE_LIBRARY.find(e => _exNameKey(e.name) === k) || null) : null;
 }
+// ===== SWAP AN EXERCISE (2026-10-30) =====
+// The rack is taken: the card's Swap lists the lift's other variants with the next set's load on each, at the
+// same effort (app.js swapOptions / swapApply). One tap swaps it for today; the toast and the card's line
+// undo it. Saved like any change to the session (persistProgram: the demo writes nothing), so the coach's
+// views say "Swapped for pin squat" on that session.
+// (A function, not a const: the demo draws Train before this line runs, and a const would be in its TDZ.)
+function swapIconSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4 3 8l4 4"/><path d="M3 8h13"/><path d="m17 20 4-4-4-4"/><path d="M21 16H8"/></svg>'; }
+function _swapStep() { return loadStepKg(getUnit() === 'lbs' ? 'lbs' : 'kg'); }
+// The in-memory picks for an exercise's sets (smart next set, readiness, the RPE picked): its sets moved.
+function _swapForget(exId) {
+  const pre = String(exId) + '_';
+  [_smartLoad, _readyLoad, _feltRpe].forEach(m => Object.keys(m).forEach(k => { if (k.indexOf(pre) === 0) delete m[k]; }));
+}
+function _swapDay(s, cur) {
+  const p = (s.programs || []).find(x => x.athleteId === user.id);
+  const wk = p && p.weeks.find(w => String(w.id) === String(cur.week.id));
+  return wk && wk.days.find(d => String(d.id) === String(cur.day.id));
+}
+function openSwapSheet(exId) {
+  const cur = getCurrentDay();
+  const ex = cur && cur.day.exercises.find(e => e.id === exId);
+  if (!ex) return;
+  const opts = swapOptions(ex, _swapStep());
+  if (!opts.length) return;
+  uiSheet('Swap ' + exTitleOf(ex), (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'For today only. The sets left keep the same effort, and ' + (user.coachId ? 'your coach sees the swap.' : 'your e1RM still counts.')));
+    const rows = opts.map(o => {
+      const n = o.next;
+      const load = !n ? '' : n.kg > 0 ? 'Next set ' + formatWeight(n.kg) + ' × ' + n.reps : 'Next set ' + n.reps + ' reps, load by feel';
+      return uiRow({
+        title: exTitleOf(Object.assign({}, ex, { variant: o.variant })),
+        sub: o.written ? ['As written', load].filter(Boolean).join(' · ') : load,
+        chevron: true,
+        onClick: () => { close(); setTimeout(() => doSwap(exId, o.variant), 240); }
+      });
+    });
+    const list = uiList(rows);
+    list.classList.add('swap-list');
+    sheet.appendChild(list);
+  }, { cls: 'swap-sheet' });
+}
+window.openSwapSheet = openSwapSheet;
+function doSwap(exId, to) {
+  const cur = getCurrentDay(), prog = getProgram();
+  if (!cur || !prog) return;
+  const ex0 = cur.day.exercises.find(e => e.id === exId);
+  if (!ex0) return;
+  let res = null;
+  Store.update(s => { const d = _swapDay(s, cur); if (d) res = swapApply(d, exId, to, { stepKg: _swapStep(), date: getSessionDate() }); });
+  if (!res) return;
+  _swapForget(exId); _swapForget(res.exId);
+  persistProgram(prog.id);
+  renderToday();
+  hapticTap('LIGHT');
+  if (res.undone) { toast('Back to ' + variantName(ex0.lift, to)); return; }
+  toastAction('Swapped for ' + variantName(ex0.lift, to), 'Undo', () => undoSwap(res.exId));
+}
+window.doSwap = doSwap;
+function undoSwap(exId) {
+  const cur = getCurrentDay(), prog = getProgram();
+  if (!cur || !prog) return;
+  const ex0 = cur.day.exercises.find(e => e.id === exId);
+  const sw = ex0 ? exSwap(ex0) : null;
+  if (!sw) return;
+  const back = sw.src != null ? ((ex0.swap && ex0.swap.srcVariant) || sw.from) : sw.from;
+  let ok = false;
+  Store.update(s => { const d = _swapDay(s, cur); if (d) ok = swapUndo(d, exId); });
+  if (!ok) { toast('A set is logged on it, so the swap stays'); renderToday(); return; }
+  _swapForget(exId); if (sw.src != null) _swapForget(sw.src);
+  persistProgram(prog.id);
+  renderToday();
+  hapticTap('LIGHT');
+  toast('Back to ' + variantName(ex0.lift, back));
+}
+window.undoSwap = undoSwap;
+
 function openExerciseDetail(exId) {
   const find = () => { const c = getCurrentDay(); return c ? c.day.exercises.find(e => e.id === exId) : null; };
   const ex0 = find();

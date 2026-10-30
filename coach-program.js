@@ -602,6 +602,9 @@
     if (ex.note) html += '<span class="cp-note">' + esc(ex.note) + '</span>';
     var lifted = typeof _gridActualHtml === 'function' ? _gridActualHtml(ex) : '';   // escaped there (athlete-written numbers)
     if (lifted) html += '<span class="cp-lifted"><span>Lifted</span> ' + lifted + '</span>';
+    // The rack was taken: the lifter swapped it for a variant that day (app.js swapLine), said under what was lifted.
+    var swl = typeof swapLine === 'function' ? swapLine(ex) : '';
+    if (swl) html += '<span class="cp-swapped">' + esc(swl) + '</span>';
     html += '</span>' + ic('chev', 2.2);
     b.innerHTML = html;
     b.addEventListener('click', function () { openEditor(aid, wi, di, ei); });
