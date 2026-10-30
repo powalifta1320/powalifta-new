@@ -1989,6 +1989,12 @@
         sheet.appendChild(el('h3', { class: 'ca-h3' }, 'Not enough logs yet'));
         sheet.appendChild(uiList(st.none.map(function (x) { return row(x, 'Needs a main lift logged in both 4-week windows', close); })));
       }
+      // Results cards (night C): the block's gain and this week's PR wall as a card to post (coach-you.js).
+      if (window.CoachYou && CoachYou.openResults) {
+        var rc = el('button', { type: 'button', class: 'ca-btn is-soft ca-rc-open' }, 'Make a results card');
+        rc.addEventListener('click', function () { close(); setTimeout(function () { CoachYou.openResults(); }, 230); });
+        sheet.appendChild(rc);
+      }
     }, { cls: 'ca-movers-sheet' });
   }
   // Effort's sheet: the rule in one sentence, the bar with its three parts named and counted (each part a 44 pt

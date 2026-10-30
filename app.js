@@ -4359,14 +4359,12 @@ function drawCardLogo(x, cx, y, size) {
   x.restore();
 }
 
-async function generateShareCard(opts) {
-  // opts: { tag, big, bigUnit, sub, lines: [{l, r}], footer, format: 'story' | 'post' (asked when left out) }
-  const format = opts.format || await pickCardFormat();
-  if (!format) return null;
+// The share card's canvas, shared by every card (the lifter's PR, strength and meet cards; the coach's results cards):
+// the background, a faint grid, one soft overhead light (neutral; opts.tint, a coach's brand colour, may warm it) and
+// the POWALIFTA lock-up with its top at logoY. Fonts first: canvas text is "800 …px Archivo". → { c, x, W, H, story }
+async function _shareCanvas(format, logoY, opts) {
+  opts = opts || {};
   const story = format === 'story';
-  // Story keeps everything clear of Instagram's name strip (top) and reply bar (bottom).
-  const Y = story ? { logo: 300, tag: 540, big: 1010, sub: 1130, lines: 1270, foot: 1920 - 330 }
-    : { logo: 104, tag: 250, big: 700, sub: 810, lines: 930, foot: 1350 - 70 };
   try {
     await Promise.all([
       document.fonts.load('800 100px Archivo'),
@@ -4390,38 +4388,49 @@ async function generateShareCard(opts) {
   for (let i = 0; i <= H; i += 90) { x.beginPath(); x.moveTo(0, i); x.lineTo(W, i); x.stroke(); }
   // One soft overhead light — neutral, like the app (red is spent on the mark only).
   const g = x.createRadialGradient(W / 2, -160, 0, W / 2, -160, 1050);
-  g.addColorStop(0, 'rgba(255,255,255,0.07)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  const tint = _cardTintRgb(opts.tint);
+  g.addColorStop(0, tint ? 'rgba(' + tint + ',0.16)' : 'rgba(255,255,255,0.07)'); g.addColorStop(1, tint ? 'rgba(' + tint + ',0)' : 'rgba(255,255,255,0)');
   x.fillStyle = g; x.fillRect(0, 0, W, H);
   if ('fontStretch' in x) x.fontStretch = 'expanded';   // Archivo's wide display cut where supported
 
   // Logo — the plate mark (the ONE red element) + an all-ink wordmark, centred.
   x.textBaseline = 'alphabetic';
-  drawCardLogo(x, W / 2, Y.logo);
-
-  // Tag pill — quiet ink, not red
+  drawCardLogo(x, W / 2, logoY);
+  return { c, x, W, H, story };
+}
+// A brand colour (#rrggbb) as "r,g,b" for the light, or null.
+function _cardTintRgb(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255);
+}
+// Tag pill — quiet ink, not red (a brand colour, when given, edges it).
+function _cardTag(x, W, y, text, tint) {
   x.textAlign = 'center';
   x.font = '700 32px Archivo, sans-serif';
-  const tagW = x.measureText(opts.tag).width + 80;
+  const tagW = x.measureText(text).width + 80;
+  const t = _cardTintRgb(tint);
   x.fillStyle = 'rgba(255,255,255,0.06)';
-  x.strokeStyle = 'rgba(255,255,255,0.22)';
+  x.strokeStyle = t ? 'rgba(' + t + ',0.7)' : 'rgba(255,255,255,0.22)';
   x.lineWidth = 2;
   if (x.roundRect) {
-    x.beginPath(); x.roundRect((W - tagW) / 2, Y.tag, tagW, 72, 36); x.fill(); x.stroke();
+    x.beginPath(); x.roundRect((W - tagW) / 2, y, tagW, 72, 36); x.fill(); x.stroke();
   } else {
-    x.fillRect((W - tagW) / 2, Y.tag, tagW, 72); x.strokeRect((W - tagW) / 2, Y.tag, tagW, 72);
+    x.fillRect((W - tagW) / 2, y, tagW, 72); x.strokeRect((W - tagW) / 2, y, tagW, 72);
   }
   x.fillStyle = '#f4f4f6';
-  x.fillText(opts.tag, W / 2, Y.tag + 47);
-
-  // Big number — solid ink, the loudest thing on the card
-  // Number + unit are centred as ONE group, and the group steps down in size
-  // until it fits the card — the wide display face makes "400.4 DOTS" long.
+  x.fillText(text, W / 2, y + 47);
+}
+// Big number — solid ink, the loudest thing on the card. Number + unit are centred as ONE group, and the group steps
+// down in size until it fits the card — the wide display face makes "400.4 DOTS" long. Leaves textAlign centre.
+function _cardBig(x, W, y, big, bigUnit) {
   let bigSize = 260, unitSize = 80, bigW = 0, unitW = 0;
   for (;;) {
     x.font = '800 ' + bigSize + 'px Archivo, \"Arial Black\", sans-serif';
-    bigW = x.measureText(opts.big).width;
+    bigW = x.measureText(big).width;
     x.font = '800 ' + unitSize + 'px Archivo, \"Arial Black\", sans-serif';
-    unitW = opts.bigUnit ? x.measureText(opts.bigUnit).width + 24 : 0;
+    unitW = bigUnit ? x.measureText(bigUnit).width + 24 : 0;
     if (bigW + unitW <= W - 160 || bigSize <= 140) break;
     bigSize -= 10; unitSize = Math.round(bigSize * 0.31);
   }
@@ -4429,22 +4438,17 @@ async function generateShareCard(opts) {
   x.textAlign = 'left';
   x.fillStyle = '#f4f4f6';
   x.font = '800 ' + bigSize + 'px Archivo, \"Arial Black\", sans-serif';
-  x.fillText(opts.big, gx, Y.big);
-  if (opts.bigUnit) {
+  x.fillText(big, gx, y);
+  if (bigUnit) {
     x.fillStyle = '#82828c';
     x.font = '800 ' + unitSize + 'px Archivo, \"Arial Black\", sans-serif';
-    x.fillText(opts.bigUnit, gx + bigW + 24, Y.big);
+    x.fillText(bigUnit, gx + bigW + 24, y);
   }
   x.textAlign = 'center';
-
-  // Sub line
-  x.fillStyle = '#f4f4f6';
-  x.font = '800 52px Archivo, \"Arial Black\", sans-serif';
-  x.fillText(opts.sub.toUpperCase(), W / 2, Y.sub);
-
-  // Detail lines (left/right pairs)
-  let y = Y.lines;
-  (opts.lines || []).forEach(ln => {
+}
+// Detail lines (left/right pairs), pitch px apart.
+function _cardLines(x, W, y, lines, pitch) {
+  (lines || []).forEach(ln => {
     x.strokeStyle = 'rgba(255,255,255,0.10)';
     x.beginPath(); x.moveTo(140, y - 44); x.lineTo(W - 140, y - 44); x.stroke();
     x.textAlign = 'left';
@@ -4456,14 +4460,111 @@ async function generateShareCard(opts) {
     x.fillStyle = '#f4f4f6';
     x.fillText(ln.r, W - 140, y);
     x.textAlign = 'center';
-    y += 92;
+    y += pitch || 92;
   });
-
-  // Footer
+}
+function _cardFooter(x, W, y, text) {
   x.font = '700 34px Archivo, sans-serif';
   x.fillStyle = '#808089';
-  x.fillText(opts.footer || 'powalifta.com', W / 2, Y.foot);
+  x.fillText(text, W / 2, y);
+}
 
+async function generateShareCard(opts) {
+  // opts: { tag, big, bigUnit, sub, lines: [{l, r}], footer, format: 'story' | 'post' (asked when left out) }
+  const format = opts.format || await pickCardFormat();
+  if (!format) return null;
+  const story = format === 'story';
+  // Story keeps everything clear of Instagram's name strip (top) and reply bar (bottom).
+  const Y = story ? { logo: 300, tag: 540, big: 1010, sub: 1130, lines: 1270, foot: 1920 - 330 }
+    : { logo: 104, tag: 250, big: 700, sub: 810, lines: 930, foot: 1350 - 70 };
+  const { c, x, W } = await _shareCanvas(format, Y.logo);
+
+  _cardTag(x, W, Y.tag, opts.tag);
+  _cardBig(x, W, Y.big, opts.big, opts.bigUnit);
+
+  // Sub line
+  x.fillStyle = '#f4f4f6';
+  x.font = '800 52px Archivo, \"Arial Black\", sans-serif';
+  x.fillText(opts.sub.toUpperCase(), W / 2, Y.sub);
+
+  _cardLines(x, W, Y.lines, opts.lines, 92);
+  _cardFooter(x, W, Y.foot, opts.footer || 'powalifta.com');
+  return c;
+}
+
+// The coach's results cards (night C, 30 Oct), drawn by the lifter's card engine above: the same canvas, lock-up, tag
+// pill, big number, lines and footer, type and the app's own shapes only (a lift's dot in its colour), never a picture.
+// kind 'block': model = teamBlockGain(...) ("My lifters gained 18.5 kg this block": the mean, the three who moved most);
+// kind 'prs': model = teamPrWall(...) rows (this week's PR wall: as many rows as fit, then "and 3 more").
+// opts: { format ('story' | 'post'; asked when left out), tint (the coach's brand colour, on the light and the pill),
+//         footer (their team's or their own name), fmt (kg → their unit's text), unit ('kg' | 'lb'), week ('Oct 24 – 30') }
+async function generateCoachCard(kind, model, opts) {
+  opts = opts || {};
+  const format = opts.format || await pickCardFormat();
+  if (!format || !model) return null;
+  const story = format === 'story';
+  const tint = /^#[0-9a-f]{6}$/i.test(String(opts.tint || '')) ? opts.tint : null;
+  const fmt = typeof opts.fmt === 'function' ? opts.fmt : (kg) => String(Math.round(kg * 10) / 10);
+  const unit = String(opts.unit || 'kg');
+  const footer = (opts.footer ? String(opts.footer).slice(0, 40) + ' · ' : '') + 'powalifta.com';
+  // A sub line steps down until it fits (the wide face runs long).
+  const sub = (x, W, y, text) => {
+    let size = 52;
+    for (;;) { x.font = '800 ' + size + 'px Archivo, "Arial Black", sans-serif'; if (x.measureText(text).width <= W - 160 || size <= 34) break; size -= 2; }
+    x.textAlign = 'center'; x.fillStyle = '#f4f4f6'; x.fillText(text, W / 2, y);
+  };
+  const small = (x, W, y, text) => { x.textAlign = 'center'; x.font = '400 30px Archivo, sans-serif'; x.fillStyle = '#82828c'; x.fillText(text, W / 2, y); };
+  if (kind === 'block') {
+    const Y = story ? { logo: 300, tag: 540, big: 1010, sub: 1130, lines: 1270, note: 1530, foot: 1920 - 330 }
+      : { logo: 104, tag: 250, big: 700, sub: 810, lines: 930, note: 1200, foot: 1350 - 70 };
+    const { c, x, W } = await _shareCanvas(format, Y.logo, { tint });
+    _cardTag(x, W, Y.tag, 'THIS BLOCK', tint);
+    const avg = Number(model.avg) || 0;
+    _cardBig(x, W, Y.big, (avg > 0 ? '+' : avg < 0 ? '−' : '') + fmt(Math.abs(avg)), unit.toUpperCase());
+    sub(x, W, Y.sub, 'MY LIFTERS\u2019 AVERAGE GAIN');
+    const top = (model.rows || []).slice(0, 3).map(r => ({ l: cardName(r.name), r: (r.delta > 0 ? '+' : r.delta < 0 ? '−' : '') + fmt(Math.abs(r.delta)) + ' ' + unit }));
+    _cardLines(x, W, Y.lines, top, 80);
+    small(x, W, Y.note, 'e1RM totals of ' + model.n + (model.n === 1 ? ' lifter' : ' lifters') + ', since the block began');
+    _cardFooter(x, W, Y.foot, footer);
+    return c;
+  }
+  // The PR wall.
+  const rows = Array.isArray(model) ? model : [];
+  const Y = story ? { logo: 300, tag: 470, big: 790, sub: 890, rows: 1010, last: 1530, foot: 1920 - 330 }
+    : { logo: 104, tag: 214, big: 516, sub: 604, rows: 712, last: 1196, foot: 1350 - 70 };
+  const { c, x, W } = await _shareCanvas(format, Y.logo, { tint });
+  _cardTag(x, W, Y.tag, 'PR WALL', tint);
+  _cardBig(x, W, Y.big, String(rows.length), rows.length === 1 ? 'PR' : 'PRs');
+  sub(x, W, Y.sub, ('THIS WEEK' + (opts.week ? ' · ' + opts.week : '')).toUpperCase());
+  const pitch = 74, fit = Math.floor((Y.last - Y.rows) / pitch) + 1;
+  const shown = rows.length > fit ? rows.slice(0, fit - 1) : rows;
+  const colour = { squat: '#38c6ff', bench: '#a98bff', deadlift: '#ffbf3c' };
+  let y = Y.rows;
+  shown.forEach((p, i) => {
+    const right = prWallLift(p, fmt) + (p.reps > 1 ? '' : ' ' + unit);
+    const first = !i || shown[i - 1].id !== p.id;   // the lifter's name once, on their first row
+    x.strokeStyle = first ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)';
+    x.beginPath(); x.moveTo(first ? 140 : 380, y - 44); x.lineTo(W - 140, y - 44); x.stroke();
+    x.textAlign = 'left';
+    x.font = '700 34px Archivo, sans-serif';
+    x.fillStyle = '#82828c';
+    if (first) x.fillText(cardName(p.name).toUpperCase(), 140, y);
+    x.textAlign = 'right';
+    x.font = '700 38px Archivo, sans-serif';
+    x.fillStyle = '#f4f4f6';
+    x.fillText(right, W - 140, y);
+    const tw = x.measureText(right).width;
+    x.fillStyle = colour[p.lift] || '#f4f4f6';
+    x.beginPath(); x.arc(W - 140 - tw - 24, y - 13, 9, 0, Math.PI * 2); x.fill();
+    y += pitch;
+  });
+  if (shown.length < rows.length) {
+    x.strokeStyle = 'rgba(255,255,255,0.10)';
+    x.beginPath(); x.moveTo(140, y - 44); x.lineTo(W - 140, y - 44); x.stroke();
+    small(x, W, y, 'and ' + (rows.length - shown.length) + ' more');
+  }
+  x.textAlign = 'center';
+  _cardFooter(x, W, Y.foot, footer);
   return c;
 }
 
@@ -17376,7 +17477,80 @@ function blockAchieved(prog, logs, athleteId, todayIso) {
   const tb = lifts.reduce((s, x) => s + x.before, 0), tn = lifts.reduce((s, x) => s + x.now, 0);
   return { start, lifts, total: both ? { before: Math.round(tb * 10) / 10, now: Math.round(tn * 10) / 10, delta: Math.round((tn - tb) * 10) / 10 } : null };
 }
-if (typeof window !== 'undefined') Object.assign(window, { rpePctOfMax, teamWeekLoads, teamPushPreview, teamStripOverrides, calendarBarMeet, calendarWarnings, calendarDragWeeks, moveBlockStart, blockAchieved });
+// RESULTS CARDS (night C, 30 Oct): the coach's "My lifters gained X kg this block" and this week's PR wall, from the
+// roster's own logs, never invented. Pure: tested.
+// The block's gain: each lifter whose block is running today (its first Monday on or before today, its last day on
+// or after), with blockAchieved's total change: each main lift's best e1RM since the block began against the 8 weeks
+// before it, all three needed or the lifter isn't counted. avg: their mean to 0.5 kg, rows most first.
+// → { avg, n (counted), running (blocks running), rows: [{ id, name, delta, before, now }] } | null (nobody counted)
+function teamBlockGain(athletes, programs, logs, todayIso) {
+  const t = _isoDay(todayIso) || todayISO();
+  const rows = [];
+  let running = 0;
+  (athletes || []).forEach(a => {
+    if (!a || !a.id) return;
+    const prog = (programs || []).find(p => p && p.athleteId === a.id);
+    const st = prog && programStartsOn(prog, t), en = prog && programEndsOn(prog, t);
+    if (!st || !en || st > t || en < t) return;
+    running++;
+    const ach = blockAchieved(prog, logs, a.id, t);
+    if (!ach || !ach.total) return;
+    rows.push({ id: a.id, name: a.name || '', delta: ach.total.delta, before: ach.total.before, now: ach.total.now });
+  });
+  if (!rows.length) return null;
+  rows.sort((x, y) => y.delta - x.delta || String(x.name).localeCompare(String(y.name)));
+  const avg = Math.round(rows.reduce((sum, r) => sum + r.delta, 0) / rows.length * 2) / 2;
+  return { avg, n: rows.length, running, rows };
+}
+// This week's PR wall: every lifter's e1RM PRs logged today and in the 6 days before, the best of each lift: what
+// was on the bar (weight × reps; the variant when it isn't the competition lift). A PR beats every earlier set of
+// that lift by more than 0.05 kg (isPRForLog's rule, same-day sets in id order); a lift's first set is never one.
+// → [{ id, name, lift, variant, weight, reps, e1rm, date }] by lifter (the one with the newest PR first, then by name),
+//   each lifter's in squat, bench, deadlift order
+function teamPrWall(athletes, logs, todayIso) {
+  const t = _isoDay(todayIso) || todayISO();
+  const since = _addDaysISO(t, -6);
+  const out = [];
+  const by = new Map();
+  (logs || []).forEach(l => {
+    if (!l || !l.athleteId || MAIN_LIFTS.indexOf(l.lift) < 0 || !(Number(l.e1rmComp) > 0) || !_isoDay(l.date)) return;
+    (by.get(l.athleteId) || by.set(l.athleteId, []).get(l.athleteId)).push(l);
+  });
+  (athletes || []).forEach(a => {
+    if (!a || !a.id) return;
+    const mine = (by.get(a.id) || []).slice().sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : String(x.id) < String(y.id) ? -1 : String(x.id) > String(y.id) ? 1 : 0));
+    const best = {}, prs = {};
+    mine.forEach(l => {
+      const v = Number(l.e1rmComp), d = _isoDay(l.date), prev = best[l.lift];
+      if (prev != null && v > prev + 0.05 && d >= since && d <= t && (!prs[l.lift] || v > Number(prs[l.lift].e1rmComp))) prs[l.lift] = l;
+      if (prev == null || v > prev) best[l.lift] = v;
+    });
+    MAIN_LIFTS.forEach(L => {
+      const l = prs[L];
+      if (l) out.push({ id: a.id, name: a.name || '', lift: L, variant: l.variant || 'Competition', weight: Number(l.weight) || 0, reps: Number(l.reps) || 0, e1rm: Number(l.e1rmComp), date: _isoDay(l.date) });
+    });
+  });
+  const newest = {};
+  out.forEach(p => { if (!newest[p.id] || p.date > newest[p.id]) newest[p.id] = p.date; });
+  return out.sort((x, y) => (x.id === y.id ? MAIN_LIFTS.indexOf(x.lift) - MAIN_LIFTS.indexOf(y.lift)
+    : newest[x.id] < newest[y.id] ? 1 : newest[x.id] > newest[y.id] ? -1 : String(x.name).localeCompare(String(y.name)) || (x.id < y.id ? -1 : 1)));
+}
+// A name on a public card: first name and the last name's initial ("Arjun M."). Pure.
+function cardName(name) {
+  const w = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!w.length) return 'Lifter';
+  return w.length > 1 ? w[0] + ' ' + w[w.length - 1].charAt(0).toUpperCase() + '.' : w[0];
+}
+// What a PR wall row says was lifted: "Squat 182.5 × 3", "Squat 205" for a single, the variant's name when it isn't
+// the competition lift ("Paused squat 170 × 3"). fmt: a kg → display text function (the coach's unit). Pure.
+function prWallLift(p, fmt) {
+  const show = typeof fmt === 'function' ? fmt : (kg) => String(Math.round(kg * 10) / 10);
+  const v = String(p.variant || 'Competition'), base = LIFT_LABELS[p.lift] || p.lift;
+  const VN = { 'Pin Press': 'Pin press', 'RDL': 'RDL', 'Close Grip': 'Close grip bench' };
+  const name = v === 'Competition' ? base : (VN[v] || v.charAt(0).toUpperCase() + v.slice(1).toLowerCase() + ' ' + String(base).toLowerCase());
+  return name + ' ' + show(p.weight) + (p.reps > 1 ? ' × ' + p.reps : '');
+}
+if (typeof window !== 'undefined') Object.assign(window, { rpePctOfMax, teamWeekLoads, teamPushPreview, teamStripOverrides, calendarBarMeet, calendarWarnings, calendarDragWeeks, moveBlockStart, blockAchieved, teamBlockGain, teamPrWall, cardName, prWallLift });
 
 // ----- Scoring per federation (brief §8: one number, the formula always named) -----
 // IPF and its member federations score in IPF GL points; everyone else knows DOTS. (SPF is the

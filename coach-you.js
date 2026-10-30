@@ -250,7 +250,89 @@
     return wrap;
   }
 
-  var api = { planState: planState, planModel: planModel, planCard: planCard, openSetup: openSetup, liftersWelcome: liftersWelcome, messagesWelcome: messagesWelcome, programsWelcome: programsWelcome };
+  /* ---------------------------------------------------------------- Results cards (night C, 30 Oct) */
+  // "My lifters gained 18.5 kg this block" and this week's PR wall as a card for Instagram (app.js teamBlockGain /
+  // teamPrWall, drawn by generateCoachCard, the lifter's share-card engine). From You › Results cards and Home's
+  // Strength sheet. Real roster numbers only; names on a card are first name and initial; the coach's brand colour
+  // (Pro, branding) warms the light and the pill. The demo too: sharing is a file on this device, nothing is sent.
+  function resultsModel() {
+    var s = store(), t = typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10);
+    var ath = s.athletes || [];
+    return { block: typeof teamBlockGain === 'function' ? teamBlockGain(ath, s.programs || [], s.workoutLogs || [], t) : null,
+      prs: typeof teamPrWall === 'function' ? teamPrWall(ath, s.workoutLogs || [], t) : [], today: t };
+  }
+  function unitOf() { return typeof unitLabel === 'function' ? unitLabel() : 'kg'; }
+  function kgText(kg) {
+    var v = typeof kgToDisplay === 'function' ? kgToDisplay(kg) : kg;
+    return String(unitOf() === 'kg' ? Math.round(v * 2) / 2 : Math.round(v));
+  }
+  function signed(kg) { return (kg > 0 ? '+' : kg < 0 ? '\u2212' : '') + kgText(Math.abs(kg)) + ' ' + unitOf(); }
+  function weekText(today) {
+    var d = function (iso) { return new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
+    var from = typeof _addDaysISO === 'function' ? _addDaysISO(today, -6) : today;
+    return d(from) + ' \u2013 ' + d(today);
+  }
+  // You's row: what there is to share, in a word.
+  function resultsRow() {
+    var M = resultsModel();
+    var value = M.block ? signed(M.block.avg) : (M.prs.length ? plural(M.prs.length, 'PR') : '');
+    return { label: 'Results cards', value: value, icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M9.5 15l2-3 1.5 2 1.5-2.5"/></svg>',
+      tint: 'gold', onClick: function () { openResults(); } };
+  }
+  function cardOpts(M, format) {
+    var u = me() || {};
+    return { format: format, tint: u.brandColor || null, footer: u.brandName || u.name || '', unit: unitOf(), fmt: kgText, week: weekText(M.today) };
+  }
+  function openResults(start) {
+    if (typeof uiSheet !== 'function' || typeof generateCoachCard !== 'function') return;
+    var M = resultsModel();
+    var pick = start === 'prs' || start === 'block' ? start : (M.block ? 'block' : (M.prs.length ? 'prs' : 'block'));
+    uiSheet('Results cards', function (sheet) {
+      sheet.appendChild(node('<p class="ui-sheet-sub">Your lifters\u2019 own numbers as a card for Instagram, a story or a post. Names show as first name and initial.</p>'));
+      var seg = node('<div class="ui-seg cy-rc-seg" role="tablist" aria-label="Card"><button type="button" role="tab" data-rc="block">This block</button><button type="button" role="tab" data-rc="prs">PR wall</button></div>');
+      var say = node('<p class="cy-rc-say" aria-live="polite"></p>');
+      var frame = node('<div class="cy-rc-frame"></div>');
+      var go = node('<button type="button" class="btn btn-primary btn-lg btn-block cy-rc-go">Share the card</button>');
+      sheet.appendChild(seg); sheet.appendChild(say); sheet.appendChild(frame); sheet.appendChild(go);
+      var ver = 0;
+      var paint = function () {
+        [].forEach.call(seg.children, function (b) { var on = b.getAttribute('data-rc') === pick; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+        var model = pick === 'block' ? M.block : (M.prs.length ? M.prs : null);
+        say.textContent = pick === 'block'
+          ? (M.block ? 'My lifters gained ' + signed(M.block.avg).replace(/^\+/, '') + ' this block, on average: the e1RM totals of ' + plural(M.block.n, 'lifter') + ' with a block running.'
+            : 'Nobody has all three lifts logged both before and in a block running now, so there\u2019s no average to show yet.')
+          : (M.prs.length ? plural(M.prs.length, 'PR') + ' this week, ' + weekText(M.today) + '.' : 'No PRs this week yet. The wall fills as your lifters set them.');
+        go.disabled = !model;
+        frame.innerHTML = '';
+        frame.classList.toggle('is-empty', !model);
+        if (!model) return;
+        var mine = ++ver;
+        generateCoachCard(pick, model, cardOpts(M, 'post')).then(function (c) {
+          if (!c || mine !== ver) return;
+          var img = document.createElement('img');
+          img.className = 'cy-rc-img';
+          img.alt = say.textContent;
+          img.src = c.toDataURL('image/png');
+          frame.appendChild(img);
+        });
+      };
+      seg.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('[data-rc]'); if (!b || b.getAttribute('data-rc') === pick) return; pick = b.getAttribute('data-rc'); paint(); });
+      go.addEventListener('click', function () {
+        var model = pick === 'block' ? M.block : M.prs;
+        if (!model || (Array.isArray(model) && !model.length)) return;
+        generateCoachCard(pick, model, cardOpts(M, null)).then(function (c) {
+          if (!c) return;
+          var name = pick === 'block' ? 'powalifta-block-results.png' : 'powalifta-pr-wall.png';
+          var text = pick === 'block' ? 'My lifters gained ' + signed(M.block.avg).replace(/^\+/, '') + ' this block' : plural(M.prs.length, 'PR') + ' this week';
+          if (typeof shareCardFromCanvas === 'function') shareCardFromCanvas(c, name, text + ' · powalifta.com');
+        });
+      });
+      paint();
+    }, { cls: 'cy-rc-sheet' });
+  }
+
+  var api = { planState: planState, planModel: planModel, planCard: planCard, openSetup: openSetup, liftersWelcome: liftersWelcome, messagesWelcome: messagesWelcome, programsWelcome: programsWelcome,
+    resultsModel: resultsModel, resultsRow: resultsRow, openResults: openResults };
   if (typeof window !== 'undefined') window.CoachYou = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

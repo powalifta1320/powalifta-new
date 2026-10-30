@@ -9266,6 +9266,63 @@ group('stronger than X% (OpenPowerlifting percentiles)');
   });
 })();
 
+/* ===========================================================
+   Results cards (night C, 30 Oct): app.js teamBlockGain / teamPrWall / cardName / prWallLift, the numbers behind the
+   coach's "My lifters gained X kg this block" and this week's PR wall.
+   =========================================================== */
+group('results cards (teamBlockGain, teamPrWall)');
+(() => {
+  const T = '2026-10-30';   // a Friday
+  const wk = (n) => Array.from({ length: n }, () => ({ days: [] }));
+  const L = (id, a, lift, date, e1, w, r, variant) => ({ id, athleteId: a, lift, date, e1rmComp: e1, weight: w || e1, reps: r || 1, variant: variant || 'Competition' });
+  test('the block\'s gain: lifters with a block running today and all three lifts before and in it; their mean to 0.5 kg', () => {
+    const athletes = [{ id: 'a', name: 'Arjun Mehta' }, { id: 'b', name: 'Bea Old' }, { id: 'c', name: 'Cal NoBench' }, { id: 'd', name: 'Dee Lane' }, { id: 'e', name: 'Eve NoProgram' }];
+    const programs = [{ id: 'pa', athleteId: 'a', startsOn: '2026-10-12', weeks: wk(4) }, { id: 'pb', athleteId: 'b', startsOn: '2026-09-07', weeks: wk(3) },
+      { id: 'pc', athleteId: 'c', startsOn: '2026-10-19', weeks: wk(4) }, { id: 'pd', athleteId: 'd', startsOn: '2026-10-05', weeks: wk(6) }];
+    const logs = [L('1', 'a', 'squat', '2026-09-20', 200), L('2', 'a', 'bench', '2026-09-20', 130), L('3', 'a', 'deadlift', '2026-09-21', 240),
+      L('4', 'a', 'squat', '2026-10-20', 210), L('5', 'a', 'bench', '2026-10-21', 132.5), L('6', 'a', 'deadlift', '2026-10-22', 250),
+      L('7', 'b', 'squat', '2026-09-08', 150), L('8', 'b', 'bench', '2026-09-08', 90), L('9', 'b', 'deadlift', '2026-09-08', 180),
+      L('10', 'c', 'squat', '2026-10-01', 160), L('11', 'c', 'deadlift', '2026-10-01', 190), L('12', 'c', 'squat', '2026-10-20', 165), L('13', 'c', 'bench', '2026-10-20', 100), L('14', 'c', 'deadlift', '2026-10-20', 195),
+      L('15', 'd', 'squat', '2026-09-20', 180), L('16', 'd', 'bench', '2026-09-20', 100), L('17', 'd', 'deadlift', '2026-09-20', 200),
+      L('18', 'd', 'squat', '2026-10-10', 185), L('19', 'd', 'bench', '2026-10-10', 100), L('20', 'd', 'deadlift', '2026-10-10', 205)];
+    const g = teamBlockGain(athletes, programs, logs, T);
+    eq(g.running, 3, 'a, c and d have a block running; b\'s ended, e has none');
+    eq(g.n, 2, 'c had no bench before the block: not counted');
+    eq(g.rows.map(r => r.id + ':' + r.delta).join(), 'a:22.5,d:10', 'most first');
+    eq(g.avg, 16.5, '(22.5 + 10) / 2 = 16.25, to 0.5 kg');
+    eq(teamBlockGain(athletes, programs, [], T), null, 'nothing logged: nothing to say');
+    eq(teamBlockGain([], programs, logs, T), null);
+  });
+  test('a block that went down says so: the mean is never made positive', () => {
+    const g = teamBlockGain([{ id: 'a', name: 'A' }], [{ id: 'pa', athleteId: 'a', startsOn: '2026-10-26', weeks: wk(4) }],
+      [L('1', 'a', 'squat', '2026-10-01', 200), L('2', 'a', 'bench', '2026-10-01', 130), L('3', 'a', 'deadlift', '2026-10-01', 240),
+       L('4', 'a', 'squat', '2026-10-27', 180), L('5', 'a', 'bench', '2026-10-27', 120), L('6', 'a', 'deadlift', '2026-10-28', 220)], T);
+    eq(g.avg, -50); eq(g.rows[0].delta, -50);
+  });
+  test('the PR wall: this week\'s best PR of each lift per lifter, what was on the bar; a first set is never a PR', () => {
+    const athletes = [{ id: 'a', name: 'Arjun Mehta' }, { id: 'b', name: 'Bea' }];
+    const logs = [L('a1', 'a', 'squat', '2026-10-01', 200, 180, 3), L('a2', 'a', 'squat', '2026-10-28', 205, 182.5, 3), L('a3', 'a', 'squat', '2026-10-29', 207, 207, 1),
+      L('a4', 'a', 'bench', '2026-10-29', 140, 125, 3),   // the first bench ever: not a PR
+      L('a5', 'a', 'deadlift', '2026-10-20', 250), L('a6', 'a', 'deadlift', '2026-10-30', 249.5),   // under the best: not a PR
+      L('b1', 'b', 'squat', '2026-10-01', 140), L('b2', 'b', 'squat', '2026-10-23', 145, 135, 2),   // 7 days back: last week's
+      L('b3', 'b', 'squat', '2026-10-24', 150, 140, 2, 'Paused'),
+      L('b4', 'b', 'bench', '2026-10-01', 90), L('b5', 'b', 'bench', '2026-10-25', 90.04),   // 0.04 over: not a PR
+      L('x1', 'b', 'deadlift', '2026-10-01', 180), L('x2', 'b', 'deadlift', '2026-10-26', 190, 170, 3), L('x3', 'b', 'deadlift', '2026-10-26', 195, 175, 3),
+      L('z1', 'z', 'squat', '2026-10-29', 300)];   // not on the roster
+    const w = teamPrWall(athletes, logs, T);
+    eq(w.map(p => p.id + ':' + p.lift + ':' + p.e1rm).join(), 'a:squat:207,b:squat:150,b:deadlift:195', 'by lifter, the newest PR\'s lifter first, lifts in order; the best of the week per lift; same-day sets in order');
+    eq(w[0].reps, 1); eq(w[1].variant, 'Paused');
+    eq(teamPrWall(athletes, [], T).length, 0);
+  });
+  test('a name on a public card is first name and initial; the lift says what was on the bar', () => {
+    eq(cardName('Arjun Mehta'), 'Arjun M.'); eq(cardName('Mary Jane Watson'), 'Mary W.'); eq(cardName('Cher'), 'Cher'); eq(cardName('  '), 'Lifter');
+    eq(prWallLift({ lift: 'squat', variant: 'Paused', weight: 170, reps: 3 }), 'Paused squat 170 × 3');
+    eq(prWallLift({ lift: 'squat', variant: 'Competition', weight: 205, reps: 1 }), 'Squat 205');
+    eq(prWallLift({ lift: 'bench', variant: 'Close Grip', weight: 120, reps: 2 }), 'Close grip bench 120 × 2');
+    eq(prWallLift({ lift: 'deadlift', variant: 'RDL', weight: 200, reps: 5 }, (kg) => Math.round(kg * 2.20462) + ' lb'), 'RDL 441 lb × 5');
+  });
+})();
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

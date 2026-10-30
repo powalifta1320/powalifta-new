@@ -663,6 +663,8 @@ function renderCoachYou() {
         // How next week moves (progression.js): a screen of its own, pushed from here.
         window.ProgressionUI && roster.length ? { label: 'Progression rules', value: ProgressionUI.summary(), icon: ProgressionUI.ICON, tint: 'teal', onClick: go('rules') } : null,
         brandRow(tier, showPlan),
+        // Results cards (night C): the block's gain and this week's PR wall as a card to post.
+        window.CoachYou && CoachYou.resultsRow && roster.length ? CoachYou.resultsRow() : null,
         { label: 'Templates', onClick: go('templates') },
         inShell ? null : { label: 'Marketplace listings', onClick: go('marketplace') },
         // A brand-new coach has the invite as the red above: the row would say it twice.
