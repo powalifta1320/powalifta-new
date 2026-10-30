@@ -1787,7 +1787,9 @@ var MeetDay = (function () {
     var syncChip = E('span', { class: 'md-sync', role: 'status', 'aria-live': 'polite' });
     var printB = btn('Print cards', 'md-btn-quiet', function () { printCards(); }, { title: 'Attempt cards for the table (P)' });
     var finB = btn('Finish meet', 'md-btn-quiet', function () { openFinish(); });
-    sh.tools.appendChild(syncChip); sh.tools.appendChild(printB); sh.tools.appendChild(finB);
+    // The iPhone app's web view can't print (window.print does nothing there): the cards print from a laptop.
+    var canPrint = !inAppShell();
+    sh.tools.appendChild(syncChip); if (canPrint) sh.tools.appendChild(printB); sh.tools.appendChild(finB);
     var tabs = E('div', { class: 'md-tabs', role: 'tablist', 'aria-label': 'Meet day' });
     var main = E('div', { class: 'md-board-main' });
     sh.body.appendChild(tabs); sh.body.appendChild(main);
@@ -2523,8 +2525,10 @@ var MeetDay = (function () {
     document.body.appendChild(wrap);
     return wrap;
   }
+  // Inside the iPhone app (html.native without web-demo: a phone browser's ?demo=1 borrows the app's layout, and its browser prints).
+  function inAppShell() { var c = document.documentElement.classList; return c.contains('native') && !c.contains('web-demo'); }
   function printCards() {
-    if (!B) return;
+    if (!B || inAppShell()) return;
     buildPrint(B.day, B.lifters, B.cells);
     document.documentElement.classList.add('md-printing');
     var clean = function () { document.documentElement.classList.remove('md-printing'); var p = document.querySelector('.md-print'); if (p) p.remove(); window.removeEventListener('afterprint', clean); };
