@@ -575,8 +575,8 @@ body.site .cp-f label, body.site .cp-lbl { display: block; margin: 0 0 8px; font
 body.site .cp-hint { display: block; margin-top: 6px; font-size: 13px; color: var(--text-3); }
 body.site .cp-lifts-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 8px; }
 body.site .cp-lifts-row input { padding: 0 10px; font-variant-numeric: tabular-nums; }
-body.site .cp-unit { display: inline-flex; height: 48px; padding: 4px; border-radius: 12px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--line-2); }
-body.site .cp-unit button { min-width: 44px; height: 40px; padding: 0 10px; border: 0; border-radius: 9px; background: none; color: var(--text-2); font: 650 15px/1 var(--font-body); cursor: pointer; }
+body.site .cp-unit { display: inline-flex; height: 48px; padding: 2px; border-radius: 12px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--line-2); }
+body.site .cp-unit button { min-width: 44px; height: 44px; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--text-2); font: 650 15px/1 var(--font-body); cursor: pointer; }
 body.site .cp-unit button.on { background: var(--fill-3); color: var(--text); }
 body.site .cp-apply-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 8px; }
 body.site .cp-fine { margin: 0; font-size: 13px; color: var(--text-3); }

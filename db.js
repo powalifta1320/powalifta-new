@@ -2964,7 +2964,7 @@ const DB = {
         p_goals: a.goals ? String(a.goals).slice(0, 600) : null, p_note: a.note ? String(a.note).slice(0, 2000) : null });
       if (error) {
         if (/could not find the function|PGRST202|42883|schema cache/i.test(String(error.message || '') + ' ' + (error.code || ''))) return { ok: false, notReady: true, error };
-        // The server's own words (P0001): already applied, today's cap, a field too long. Anything else stays generic.
+        // The server's own words (P0001): today's cap, a field too long. Anything else stays generic.
         const reason = error.code === 'P0001' && error.message ? String(error.message).slice(0, 160) : null;
         return { ok: false, reason, error };
       }

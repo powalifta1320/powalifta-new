@@ -19,7 +19,9 @@
 --   nobody else        reads anything: not another coach, not a lifter, not anon.
 --
 -- The caps (raised as errors with a message the page shows; the counts look at the last 24 hours):
---   - one waiting (new) application per email and coach: a second one says so instead
+--   - one waiting (new) application per email and coach: a second one is answered 'sent' and changes nothing, so the
+--     answer never tells anyone whether that email has already applied to that coach (a lifter's current coach can't
+--     find out they've applied elsewhere)
 --   - 3 applications per email a day, across every coach
 --   - 30 applications per coach a day
 --   - the lengths above (trimmed first; control characters are taken out, a note keeps its line breaks)
@@ -166,8 +168,9 @@ begin
   perform pg_advisory_xact_lock(hashtextextended('coach_applications:coach:' || p_coach::text, 0));
   perform pg_advisory_xact_lock(hashtextextended('coach_applications:email:' || v_email, 0));
 
+  -- Already waiting with this coach: the same answer as a new one, and nothing changes (no tell, no second row).
   if exists (select 1 from public.coach_applications a where a.coach_id = p_coach and a.email = v_email and a.status = 'new') then
-    raise exception 'You''ve already applied. They''ll answer by email.' using errcode = 'P0001';
+    return 'sent';
   end if;
   if (select count(*) from public.coach_applications a where a.email = v_email and a.created_at > now() - interval '24 hours') >= 3 then
     raise exception 'That''s 3 applications from this email today. Try again tomorrow.' using errcode = 'P0001';
