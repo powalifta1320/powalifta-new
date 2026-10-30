@@ -2823,8 +2823,10 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     card.appendChild(sl);
   }
 
-  // The program's note: the coach's cue, or (training on your own) your own note, never "Coach".
-  if (ex.note) card.appendChild(el('div', { class: 'ech-coach tx-cue', html: '<span>' + (selfCoached ? 'Note' : 'Coach') + '</span>' + escHtml(ex.note) }));
+  // The program's note: the coach's cue, or (training on your own) your own note, never "Coach". The part of a lift
+  // that split off mid-way (a swap) carries the same cue: the card it came from, right above, already says it.
+  const cueSaid = !!(swp && swp.src != null && ex.note && (cur.day.exercises || []).some(e => e !== ex && String(e.id) === String(swp.src) && e.note === ex.note));
+  if (ex.note && !cueSaid) card.appendChild(el('div', { class: 'ech-coach tx-cue', html: '<span>' + (selfCoached ? 'Note' : 'Coach') + '</span>' + escHtml(ex.note) }));
   // TEAM PROGRAMS: on a team program, an exercise the coach changed just for them says so, once and
   // quietly. Lifters never see "team": these are their own loads.
   if (!selfCoached && ex.srcId != null && ex.ovr) card.appendChild(el('div', { class: 'tx-adj' }, 'Your coach adjusted this for you'));
@@ -3056,7 +3058,7 @@ function openSwapSheet(exId) {
       return uiRow({
         title: exTitleOf(Object.assign({}, ex, { variant: o.variant })),
         sub: o.written ? ['As written', load].filter(Boolean).join(' · ') : load,
-        chevron: true,
+        chevron: false,   // a tap swaps at once: nothing opens
         onClick: () => { close(); setTimeout(() => doSwap(exId, o.variant), 240); }
       });
     });

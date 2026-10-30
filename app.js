@@ -13798,13 +13798,17 @@ function meetWeighOf(athleteId, todayIso, unit) {
   const line = meetWeighLine({ days, cls: vs.cls, bw, slope: bwTrendSlope(series), unit });
   return line ? Object.assign(line, { src, cls: vs.cls, name }) : null;
 }
-// The line as a node: each part stays whole (a wrap falls between parts, never inside "1.4 kg over 83"),
-// "behind" wears the orange triangle in ink words. cls: the classes of the wrapping span.
+// The line as a node: each part stays whole, and the "·" before a part goes with it (a wrap falls between parts,
+// never inside "1.4 kg over 83", and never leaves a "·" at the end of a line); "behind" wears the orange triangle
+// in ink words. Its text is ml.text. cls: the classes of the wrapping span.
 function meetLineEl(ml, cls) {
   const n = el('span', { class: (cls || '') + ' meet-line' + (ml.warn ? ' is-behind' : '') });
   ml.parts.forEach((p, i) => {
-    if (i) n.appendChild(document.createTextNode(' · '));
-    n.appendChild(el('span', { class: 'ml-part' + (i === 2 && ml.warn ? ' ml-warn' : '') }, p));
+    if (i) n.appendChild(document.createTextNode(' '));
+    const part = el('span', { class: 'ml-part' });
+    if (i) part.appendChild(document.createTextNode('· '));
+    part.appendChild(i === 2 && ml.warn ? el('span', { class: 'ml-warn' }, p) : document.createTextNode(p));
+    n.appendChild(part);
   });
   return n;
 }
@@ -14736,6 +14740,8 @@ function ptrState(dy, opts) {
   const reach = opts.reduce ? Math.max(0, Number(dy) || 0) * 0.5 : offset;
   return { offset: Math.round(offset * 10) / 10, progress: Math.min(1, reach / line), armed: reach >= line };
 }
+// The longest a pull holds the screen down for its loader (a dead signal): then it settles and says it couldn't.
+const PTR_MAX_MS = 10000;
 // Where the gesture lives: a touch screen narrower than a laptop, and never the coach's desk.
 function ptrEnabled() {
   if (typeof document === 'undefined' || document.documentElement.classList.contains('desk')) return false;
@@ -14810,7 +14816,10 @@ function uiPullRefresh(scope, opts) {
     say.textContent = 'Refreshing';
     const t0 = Date.now();
     let ok = true;
-    try { ok = (await (api.opts.onRefresh ? api.opts.onRefresh() : null)) !== false; } catch (e) { ok = false; console.warn('pull to refresh', e); }
+    // A read that never answers (a dead signal) doesn't hold the screen down: after PTR_MAX_MS it settles and says it
+    // couldn't. The loader keeps going (what it reads still lands), and a pull meanwhile waits on that same loader.
+    const run = api.run || (api.run = Promise.resolve().then(() => (api.opts.onRefresh ? api.opts.onRefresh() : null)).finally(() => { api.run = null; }));
+    try { ok = (await Promise.race([run, new Promise(r => setTimeout(() => r(false), PTR_MAX_MS))])) !== false; } catch (e) { ok = false; console.warn('pull to refresh', e); }
     // Long enough to read as done, never a flash.
     setTimeout(() => {
       api.busy = false;

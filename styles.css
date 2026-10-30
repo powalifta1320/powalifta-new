@@ -13069,15 +13069,15 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
    where the coach's cue sits: "Swapped from competition squat" in the cue's 13 type, and Undo as the card's
    graphite pill (a 44 pt target) while none of it is logged. A swap is a choice, so ink only: no colour, no red.
    The Swap action is the first of the row's icons on a phone (.tx-act-ico), labelled from 768 px. */
-.tx-card .tx-swap { display: flex; align-items: center; gap: 6px; min-height: 30px; margin: 10px 2px 0; font-size: 13px; line-height: 1.4; color: var(--text-2); }
+.tx-card .tx-swap { display: flex; align-items: center; gap: 6px; min-height: 34px; margin: 10px 2px 0; font-size: 13px; line-height: 1.4; color: var(--text-2); }
 .tx-swap-k { flex: none; font-weight: 650; color: var(--text); }
 .tx-swap-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tx-swap-undo {
-  position: relative; z-index: 2; flex: none; margin-left: auto; height: 30px; padding: 0 12px; border: 0; border-radius: 999px;
+  position: relative; z-index: 2; flex: none; margin-left: auto; height: 34px; padding: 0 13px; border: 0; border-radius: 999px;
   background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text); font: inherit; font-size: 13px; font-weight: 650;
   cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 140ms ease-out, background-color 140ms ease-out;
 }
-.tx-swap-undo::before { content: ''; position: absolute; inset: -7px -4px; }
+.tx-swap-undo::before { content: ''; position: absolute; inset: -5px -4px; }
 .tx-swap-undo:active { transform: scale(0.96); background: var(--fill-3, rgba(255, 255, 255, 0.1)); }
 .tx-swap-undo:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .swap-sheet .swap-list { margin-top: 4px; }
@@ -13097,7 +13097,7 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
 [data-theme="light"] .meet-line .ml-warn::before { background: #e06414; }
 .today-note .tn-text.tx-meet { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 13px; line-height: 1.45; color: var(--text-2); }
 .today-strip .today-note .tn-text.tx-meet { -webkit-line-clamp: 2; }
-.ui-row.meet-row .ui-row-title { font-size: 15px; font-weight: 600; line-height: 1.4; }
+.ui-row.meet-row .ui-row-title { line-height: 1.4; }   /* the list's own size and weight, like the rows under it */
 
 /* ===== PULL TO REFRESH (2026-10-30, app.js uiPullRefresh): the Club feed and the coach's Lifters on a phone. A small
    ring in the gap the pull opens above the screen: it fills to the line in the quiet ink, turns ink once past it,
