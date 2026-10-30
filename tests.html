@@ -9220,6 +9220,52 @@ group('meets to calendar (meetIcs)');
   });
 })();
 
+/* ===========================================================
+   Stronger than X% (night C, 30 Oct): app.js oplKey / oplValues / oplRank / strongerThan / strongerLine over a small
+   made-up table (the shipped opl-percentiles.json is checked by a browser flow and the build script).
+   =========================================================== */
+group('stronger than X% (OpenPowerlifting percentiles)');
+(() => {
+  // A group whose 1st..99th percentiles run 100.0, 101.0 … 198.0 kg: 200 half-kg units, then +2 each step.
+  const steps = [200].concat(Array.from({ length: 98 }, () => 2));
+  const T = { since: '2021-01-01', data: '2026-10-24', b: {
+    'M|raw|83': { n: 48088, t: steps, s: steps, b: steps, d: steps },
+    'F|eq|84+': { n: 2227, t: steps, s: steps, b: steps, d: steps },
+    'M|raw|59': { n: 99, t: steps, s: steps, b: steps, d: steps } } };
+  test('the key: sex, raw or equipped, the IPF class as the app names it', () => {
+    eq(oplKey('male', 'raw', '83 kg'), 'M|raw|83'); eq(oplKey('female', 'equipped', '84 kg+'), 'F|eq|84+');
+    eq(oplKey('male', 'raw', '120 kg+'), 'M|raw|120+'); eq(oplKey('male', 'raw', null), null); eq(oplKey('male', 'raw', 'heavy'), null);
+    eq(oplClassValid('83 kg', 'male'), true); eq(oplClassValid('83 kg', 'female'), false, 'a cut\'s 83 is no class for a woman');
+    eq(oplClassValid('84 kg+', 'female'), true); eq(oplClassValid('105 kg+', 'male'), false); eq(oplClassValid(null, 'male'), false);
+  });
+  test('the steps decode to the 99 percentile values in kg; a broken list is no list', () => {
+    const v = oplValues(steps);
+    eq(v.length, 99); eq(v[0], 100); eq(v[49], 149); eq(v[98], 198);
+    eq(oplValues([1, 2, 3]), null); eq(oplValues(steps.slice(0, 98).concat([-1])), null); eq(oplValues(null), null);
+  });
+  test('the rank: the share of the group a weight beats, rounded down, 0 under the 1st, 99 past the 99th', () => {
+    const v = oplValues(steps);
+    eq(oplRank(v, 149), 50, 'the 50th percentile value'); eq(oplRank(v, 149.9), 50, 'never rounded up');
+    eq(oplRank(v, 170.5), 71); eq(oplRank(v, 99.5), 0); eq(oplRank(v, 100), 1); eq(oplRank(v, 250), 99);
+    eq(oplRank(v, 0), null); eq(oplRank(null, 150), null);
+    const flat = oplValues([200].concat(Array.from({ length: 98 }, (_, i) => (i >= 39 && i < 45 ? 0 : 2))));   // a run of equal values (p40..p46)
+    eq(oplRank(flat, flat[40]), 40, 'on a run of equal values: only the ones below it count');
+  });
+  test('stronger than: the group, the count, the total and each lift; nothing for an unknown or small group', () => {
+    const r = strongerThan(T, { sex: 'male', equip: 'raw', cls: '83 kg', kg: { total: 170.5, squat: 149, bench: 99, deadlift: 0 } });
+    eq(r.key, 'M|raw|83'); eq(r.group, 'raw men'); eq(r.n, 48088); eq(r.since, '2021');
+    eq(r.lifts.total.pct, 71); eq(r.lifts.squat.pct, 50); eq(r.lifts.bench.pct, 0, 'under the 1st: kept as 0'); eq(r.lifts.deadlift, undefined, 'no number, no line');
+    eq(strongerLine(r), 'Stronger than 71% of 83 kg raw men');
+    eq(strongerLine(r, 'squat'), 'Stronger than 50% of 83 kg raw men');
+    eq(strongerLine(r, 'bench'), null, 'never "stronger than 0%"');
+    eq(strongerThan(T, { sex: 'female', equip: 'equipped', cls: '84 kg+', kg: { total: 300 } }).group, 'equipped women');
+    eq(strongerThan(T, { sex: 'male', equip: 'raw', cls: '59 kg', kg: { total: 150 } }), null, 'a group under 100 lifters says nothing');
+    eq(strongerThan(T, { sex: 'male', equip: 'raw', cls: '93 kg', kg: { total: 150 } }), null, 'a group the file doesn\'t have');
+    eq(strongerThan(null, { sex: 'male', equip: 'raw', cls: '83 kg', kg: { total: 150 } }), null, 'no file, no number');
+    eq(strongerThan(T, { sex: 'male', equip: 'raw', cls: '83 kg', kg: {} }), null, 'nothing logged');
+  });
+})();
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

@@ -7313,6 +7313,93 @@ function liftersClass(bwKg, sex, targetClass) {
   return weightClassFor(bwKg, sex);
 }
 
+// STRONGER THAN X% (night C, 30 Oct): where a lifter's e1RMs sit among everyone who lifted in their class at a meet.
+// opl-percentiles.json (shipped with the app, 29 KB) is computed from OpenPowerlifting's public-domain bulk CSV: the
+// best squat, bench, deadlift and total of every lifter, once per IPF open class (from the meet bodyweight), at a
+// sanctioned full-power meet since 2021, raw or single-ply, men and women; the 1st to 99th percentile of each, in
+// 0.5 kg steps written as the first value then the steps up. Its source, data date and rule ride in the file.
+// Nothing is shown when it can't be sourced: no file, no class, a group under 100 lifters.
+let _oplTableP = null;
+function loadOplTable() {
+  if (!_oplTableP) _oplTableP = fetch('opl-percentiles.json').then(r => (r.ok ? r.json() : null)).catch(() => null)
+    .then(t => { if (!t || !t.b) _oplTableP = null; return t && t.b ? t : null; });
+  return _oplTableP;
+}
+function getEquipPref() { try { return localStorage.getItem('powa-equip') === 'equipped' ? 'equipped' : 'raw'; } catch (e) { return 'raw'; } }
+function setEquipPref(v) { try { localStorage.setItem('powa-equip', v === 'equipped' ? 'equipped' : 'raw'); } catch (e) {} }
+// The table's key for a lifter: 'M|raw|83', 'F|eq|84+'. cls is the app's class name ("83 kg", "120 kg+"). Pure.
+function oplKey(sex, equip, cls) {
+  const m = /^(\d{2,3})\s*kg(\+)?$/.exec(String(cls || '').trim());
+  if (!m) return null;
+  return (sex === 'female' ? 'F' : 'M') + '|' + (equip === 'equipped' ? 'eq' : 'raw') + '|' + m[1] + (m[2] ? '+' : '');
+}
+// An IPF open class for this sex, as the app names it ("83 kg", the top one "120 kg+"). Pure.
+function oplClassValid(cls, sex) {
+  const m = /^(\d{2,3})\s*kg(\+)?$/.exec(String(cls || '').trim());
+  if (!m) return false;
+  const arr = IPF_CLASSES[sex === 'female' ? 'female' : 'male'];
+  return m[2] ? Number(m[1]) === arr[arr.length - 1] : arr.indexOf(Number(m[1])) >= 0;
+}
+// The 99 percentile values (kg) of one lift in one group, from the file's steps. Pure.
+function oplValues(steps) {
+  if (!Array.isArray(steps) || steps.length !== 99) return null;
+  const out = []; let v = 0;
+  for (let i = 0; i < steps.length; i++) { const s = Number(steps[i]); if (!isFinite(s) || s < 0) return null; v = i ? v + s : s; out.push(v / 2); }
+  return out;
+}
+// The share of the group a weight beats: the percentile rank, linear between the table's points, whole percent rounded
+// down (it never claims more than the table says). Below the 1st percentile → 0; past the 99th → 99. Pure: tested.
+function oplRank(vals, kg) {
+  const x = Number(kg);
+  if (!vals || !(x > 0)) return null;
+  if (x < vals[0]) return 0;
+  if (x >= vals[98]) return 99;
+  let i = 0;
+  while (i < 98 && vals[i + 1] < x) i++;   // vals[i] < x <= vals[i + 1] (or x === vals[0])
+  const lo = vals[i], hi = vals[i + 1];
+  const p = (i + 1) + (hi > lo ? (x - lo) / (hi - lo) : 0);
+  return Math.max(1, Math.min(99, Math.floor(p + 1e-9)));
+}
+// Everything a screen needs. o: { sex, equip, cls ("83 kg"), kg: { total, squat, bench, deadlift } (e1RMs) }.
+// → { key, cls, group: 'raw men', n, since, data, lifts: { total|squat|bench|deadlift: { kg, pct } } } | null. Pure: tested.
+function strongerThan(table, o) {
+  if (!table || !table.b || !o) return null;
+  const key = oplKey(o.sex, o.equip, o.cls);
+  const g = key && table.b[key];
+  if (!g || !(g.n >= 100)) return null;
+  const col = { total: 't', squat: 's', bench: 'b', deadlift: 'd' };
+  const lifts = {};
+  Object.keys(col).forEach(L => {
+    const kg = Number((o.kg || {})[L]);
+    const pct = kg > 0 ? oplRank(oplValues(g[col[L]]), kg) : null;
+    if (pct != null) lifts[L] = { kg, pct };
+  });
+  if (!Object.keys(lifts).length) return null;
+  return { key, cls: String(o.cls).trim(), group: (o.equip === 'equipped' ? 'equipped ' : 'raw ') + (o.sex === 'female' ? 'women' : 'men'),
+    n: g.n, since: String(table.since || '').slice(0, 4), data: table.data || '', lifts };
+}
+// "Stronger than 72% of 83 kg raw men" (the total, or a lift: "Your squat is stronger than…" is the caller's). Null
+// under the 1st percentile: there is nothing kind or useful to say with a 0. Pure.
+function strongerLine(r, lift) {
+  const x = r && r.lifts && r.lifts[lift || 'total'];
+  if (!x || !(x.pct >= 1)) return null;
+  return 'Stronger than ' + x.pct + '% of ' + r.cls + ' ' + r.group;
+}
+// The lifter's own numbers, as the screens show them (best competition-equivalent e1RMs; the total once all three
+// have one), their class (liftersClass: the class they're cutting for wins) and the comparison asked for. → { … } | null
+function strongerInputs(athleteId) {
+  const bw = latestBodyweight(athleteId);
+  const sex = getSexPref();
+  const target = typeof targetClassOf === 'function' ? targetClassOf(athleteId) : null;   // athlete.html: the class of a cut
+  let cls = bw || target ? liftersClass(bw, sex, target) : null;
+  if (!oplClassValid(cls, sex)) cls = bw ? weightClassFor(bw, sex) : null;   // a cut's class that isn't one for this sex (83 for a woman): the weigh-in's
+  if (!cls) return null;
+  const kg = { squat: bestE1RM(athleteId, 'squat'), bench: bestE1RM(athleteId, 'bench'), deadlift: bestE1RM(athleteId, 'deadlift') };
+  kg.total = kg.squat > 0 && kg.bench > 0 && kg.deadlift > 0 ? kg.squat + kg.bench + kg.deadlift : 0;
+  return { sex, equip: getEquipPref(), cls, kg };
+}
+if (typeof window !== 'undefined') Object.assign(window, { loadOplTable, getEquipPref, setEquipPref, oplKey, oplClassValid, oplValues, oplRank, strongerThan, strongerLine, strongerInputs });
+
 // "Make weight" math: where the lifter sits inside their IPF class and what it
 // takes to move. All kg (classes are inherently kg; the view converts the gaps
 // to the user's unit). Returns:
