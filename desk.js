@@ -3100,7 +3100,7 @@ function dkWsWeek(r) {
       line.appendChild(got);
       if (N) line.appendChild(dkSxNext(r, prog, rev, row, nn, pend, inputs, paintCount, line));
       var att = row.gi ? [] : dkSessAttach(r, row, date, used, !!(lastOf[row.lift] && lastOf[row.lift].key === row.key));
-      // The rack was taken: the lift written swapped for a variant today, said where it happened (app.js swapLine).
+      // A swap: the lift written swapped for a variant that day, said where it happened (app.js swapLine).
       if (row.swap && !row.gi) att.unshift(dkSwapAtt(row.swap.text));
       if (att.length) { var aw = el('div', { class: 'dk-sx-att' }); att.forEach(function (x) { aw.appendChild(x); }); line.appendChild(aw); }
       card.appendChild(line);
@@ -4712,7 +4712,7 @@ function dkBxLifted(ex) {
   if (swapped) got.appendChild(dkSwapAtt(top ? 'Lifted as ' + variantName(ex.lift, sw.to) : swapLine(ex)));
   return got;
 }
-// A lift swapped for a variant on the day (the rack was taken: app.js swapApply), as the session's quiet chip.
+// A lift swapped for a variant on the day (a pin squat for the squat: app.js swapApply), as the session's quiet chip.
 function dkSwapAtt(text) {
   var at = el('span', { class: 'dk-att dk-att-swap' });
   at.insertAdjacentHTML('beforeend', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4 3 8l4 4"/><path d="M3 8h13"/><path d="m17 20 4-4-4-4"/><path d="M21 16H8"/></svg>');

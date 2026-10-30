@@ -1921,17 +1921,17 @@ window.POWA_SUPPORT_KB = [
  },
  {
   "id": "swap-exercise",
-  "q": "The rack is taken. Can I swap an exercise for today?",
+  "q": "Can I swap a lift for a variation today?",
   "t": [
-   "rack is taken",
-   "rack taken",
    "swap an exercise",
    "swap exercise",
    "swap for a variation",
+   "swap the bench",
+   "swap the deadlift",
    "swap the squat",
    "use a variation instead"
   ],
-  "a": "Yes, for today only. On **Train**, tap the **Swap** arrows on the lift's card (beside the note button) and pick another variation of the same lift, for example Pin Squat for the squat. The sets you haven't done move to the same effort: the load follows the variation's factor (a pin squat counts as 1.08 of a competition squat, so 182.5 becomes 170), rounded to your plates, and your estimated max stays competition-equivalent. Sets you already logged stay as they were. **Undo** is on the message that pops up and on the card's \"Swapped from …\" line until you log a swapped set. Your coach sees \"Swapped for pin squat\" on that session."
+  "a": "Yes, for today only: when you want a variation instead of what's written (a tweak that needs a gentler version, the kit you have today, or your coach's call). On **Train**, tap the **Swap** arrows in the lift card's row of buttons and pick another variation of the same lift: for the squat that's Paused, Tempo or Pin Squat. The sets you haven't done move to the same effort: the load follows the variation's factor (a pin squat counts as 1.08 of a competition squat, so 182.5 becomes 170), rounded to your plates, and your estimated max stays competition-equivalent. Sets you already logged stay as they were. **Undo** is on the message that pops up and on the card's \"Swapped from …\" line until you log a swapped set. Your coach sees \"Swapped for pin squat\" on that session, and their program stays as they wrote it. If something hurts, tell your coach with **Something hurt** first."
  },
  {
   "id": "meet-weight-line",

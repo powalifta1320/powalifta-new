@@ -966,7 +966,7 @@ html.desk body.powa-app .dk-ls-big b { font-stretch: var(--num-stretch, 100%); }
 .dk-att.is-open { color: var(--text); }
 .dk-att-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-3); font-weight: var(--fw-1); }
 .dk-att .dk-btn { height: 24px; margin-right: calc(-1 * var(--s-1)); padding: 0 var(--s-2); font-size: var(--fs-1); }
-/* A lift swapped for a variant that day (the rack was taken: app.js swapLine), in ink: a fact, not a warning. */
+/* A lift swapped for a variant that day (app.js swapLine), in ink: a fact, not a warning. */
 .dk-att.dk-att-swap { color: var(--text); }
 .dk-ses-swap { font-size: var(--fs-1); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Their note on the session. */

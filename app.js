@@ -6631,7 +6631,7 @@ function multiplierFor(lift, variant) {
 function exercisesFor(lift) { return ACCESSORY_EXERCISES[lift] || []; }
 
 // =========================================================
-// SWAP AN EXERCISE (2026-10-30). The rack is taken, so today's squat becomes a pin squat. The sets
+// SWAP AN EXERCISE (2026-10-30). A variation for today (a tweak, the kit, the coach's call): the squat becomes a pin squat. The sets
 // still to do carry over at the same effort: a variant's multiplier says how much harder it is than
 // the competition lift, so its load is the load × (from's multiplier ÷ to's), on the gym's plates
 // (loadStepKg). The log carries the new variant, so the e1RM stays competition-equivalent
@@ -13297,7 +13297,7 @@ function deskApplyNextWeek(weeks, nextIdx, edits) {
 function deskCopyWeekDays(srcDays, oldDays) {
   const olds = oldDays || [];
   return (srcDays || []).map((d0, k) => {
-    const d = dayAsWritten(d0);   // a swap (the rack was taken) was for that day only
+    const d = dayAsWritten(d0);   // a swap (a pin squat for the squat) was for that day only
     const od = olds[k] || null, used = {};
     const nd = { id: uid('day'), name: d.name, exercises: (d.exercises || []).map((ex, ei) => {
       const ne = { id: uid('ex'), lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note || '',
@@ -17022,7 +17022,7 @@ function teamMasterFromProgram(prog, maxes) {
       d.srcId = md.id;
       md.exercises = (d.exercises || []).map(e => {
         const me = { id: uid('ex') };
-        const ew = exAsWritten(e);   // a swap (the rack was taken) was that lifter's day only: the team gets the lift as written
+        const ew = exAsWritten(e);   // a swap (a pin squat for the squat) was that lifter's day only: the team gets the lift as written
         Object.keys(ew).forEach(k => { if (!['id', 'sets', 'srcId', 'ovr', 'swap'].includes(k)) me[k] = _tmClone(ew[k]); });
         e.srcId = me.id; delete e.ovr;
         // The lifter's own sets keep their links (s); the master's loads are the ones written (w, the same place).
