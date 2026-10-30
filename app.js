@@ -360,7 +360,9 @@ async function logout() {
   if (!demo) await _forgetPushOnThisDevice();
   liveStop();
   _wipeLocalUserData({ uid, demo });
-  if (!demo) { try { await DB.signOut(); } catch (e) { console.warn(e); } }
+  // With no connection supabase-js keeps the stored session when its sign-out call fails: it goes anyway, or the next
+  // load routes straight back into the dashboard (night C). Never in the demo: a session stored here is a real account's.
+  if (!demo) { try { await DB.signOut(); } catch (e) { console.warn(e); } _dropStoredSession(); }
   try { await Promise.race([window._voiceWipe, new Promise(r => setTimeout(r, 800))]); } catch (e) {}
   window._user = null;
   Store.reset();
@@ -3850,7 +3852,26 @@ function _queuePendingLog(log) {
   _writePendingLogs(q);
   _claimQueue();
 }
+// The sets queue once a send is over (night C, 30 Oct). `taken` is the queue as the send read it, `failed` what of
+// it didn't land, `now` the queue as it is when the send ends. A set queued meanwhile (the wifi blinked again while
+// the queue went up) stays: the send used to write back only its own leftovers over it, and the set was lost. A failed
+// set that left the queue meanwhile (deleted, or every queue dropped by a log-out) stays gone. Pure: tested.
+function pendingAfterFlush(taken, failed, now) {
+  const took = new Set((taken || []).map(l => l && l.id));
+  const there = new Set((now || []).map(l => l && l.id));
+  return (failed || []).filter(l => l && there.has(l.id)).concat((now || []).filter(l => l && !took.has(l.id)));
+}
+// The same for the other changes (outbox entries, one per row by key: a newer edit of a row replaces the older).
+// What was queued meanwhile stays, the newest edit of a row wins, and a failed one only stays while it's still the
+// row's queued edit (not replaced by a newer one, not dropped by a log-out). Pure: tested.
+function outboxAfterFlush(taken, failed, now) {
+  const same = (a, b) => !!a && !!b && a.key === b.key && a.ts === b.ts;
+  const added = (now || []).filter(x => x && !(taken || []).some(o => same(o, x)));
+  return (failed || []).filter(f => (now || []).some(x => same(x, f))).concat(added);
+}
 let _flushingLogs = false;
+let _logsInFlight = null;            // the ids a send is putting up right now
+const _deletedInFlight = new Set();  // ...and the ones deleted meanwhile: gone from the server too once their send lands
 async function flushPendingLogs() {
   if (window._demoMode) return;
   if (!_queueIsMine()) return;   // nobody signed in, or another account's sets: never sent as someone else
@@ -3858,18 +3879,20 @@ async function flushPendingLogs() {
   const q = _readPendingLogs();
   if (!q.length) return;
   _flushingLogs = true;
+  _logsInFlight = new Set(q.map(l => l.id));
   const attempts = _readLogAttempts();
   const failed = [];
+  const landed = [];
   let synced = 0;
   let dropped = 0;
   let codeOwed = null;   // asked once per flush, at the first refusal
   for (let i = 0; i < q.length; i++) {
     const log = q[i];
-    try { await DB.addLog(log); synced++; }
+    try { await DB.addLog(log); synced++; landed.push(log.id); }
     catch (e) {
       const msg = String((e && e.message) || '');
       // Duplicate key = it actually saved on a previous attempt → safe to drop.
-      if (/duplicate|unique|23505/i.test(msg)) { synced++; continue; }
+      if (/duplicate|unique|23505/i.test(msg)) { synced++; landed.push(log.id); continue; }
       // Refused at aal1 because the account turned two-factor on elsewhere (row 60): not these sets' fault. They
       // all wait, no try counted, while the code is asked for in place; then they go up at aal2.
       if (writeRefusedByPolicy(e) && (codeOwed === null ? (codeOwed = await _codeOwedPerAuth()) : codeOwed)) {
@@ -3889,15 +3912,24 @@ async function flushPendingLogs() {
       }
     }
   }
+  // What waits now: this send's leftovers, and whatever was queued while it ran (never written over).
+  const keep = pendingAfterFlush(q, failed, _readPendingLogs());
   // Forget attempt counters for anything no longer queued.
-  const stillQueued = new Set(failed.map(l => l.id));
+  const stillQueued = new Set(keep.map(l => l.id));
   for (const id of Object.keys(attempts)) { if (!stillQueued.has(id)) delete attempts[id]; }
-  _writePendingLogs(failed);
+  _writePendingLogs(keep);
   _writeLogAttempts(attempts);
   _releaseQueueIfEmpty();
+  // A set deleted while its send was on the way, and the send landed: it goes from the server too.
+  const undo = landed.filter(id => _deletedInFlight.has(id));
+  _deletedInFlight.clear();
+  _logsInFlight = null;
   _flushingLogs = false;
+  undo.forEach(id => { DB.deleteLog(id).catch(e => { console.error('deleteLog', e); _enqueueOutbox('deleteLog', { id }, 'dlog:' + id); }); });
   if (codeOwed) _mfaStepUpInPlace();
-  if (synced > 0 && !failed.length) _markSyncDrained();
+  if (synced > 0 && !keep.length) _markSyncDrained();
+  // Queued while this send ran, and this one got through: those go up now, not at the next reconnect.
+  if (synced > 0 && !failed.length && keep.length && !codeOwed) setTimeout(() => { if (navigator.onLine) flushPendingLogs(); }, 1200);
   if (synced > 0 && !failed.length) toast(synced + (synced === 1 ? ' set' : ' sets') + ' synced');
   if (dropped > 0) toast(dropped + (dropped === 1 ? ' set' : ' sets') + " couldn't be synced: please re-log");
   if (typeof _refreshConnBanner === 'function') _refreshConnBanner();
@@ -3921,7 +3953,10 @@ async function persistDeleteLog(id) {
   // If the set is still waiting in the offline queue, deleting it just means
   // removing it from the queue (it never reached the server).
   const q = _readPendingLogs();
-  if (q.some(l => l.id === id)) { _writePendingLogs(q.filter(l => l.id !== id)); _releaseQueueIfEmpty(); return; }
+  if (q.some(l => l.id === id)) {
+    if (_logsInFlight && _logsInFlight.has(id)) _deletedInFlight.add(id);   // on its way up right now: deleted there once it lands
+    _writePendingLogs(q.filter(l => l.id !== id)); _releaseQueueIfEmpty(); return;
+  }
   try { await DB.deleteLog(id); } catch (e) { console.error('deleteLog', e); }
 }
 async function persistAddInvite(inv)      { if (window._demoMode) return; try { await DB.addInvite(inv); } catch (e) { console.error('addInvite', e); toast('Could not save invite'); } }
@@ -4138,6 +4173,7 @@ const _OUTBOX_DISPATCH = {
   pain:       (p) => sendPainReport(p),
   rest:       (p) => DB.upsertRest(p),
   deleteRest: (p) => DB.deleteRest(p.athleteId, p.date),
+  deleteLog:  (p) => DB.deleteLog(p.id),   // a set deleted while its own send was landing (flushPendingLogs)
 };
 function _readOutbox()  { try { return JSON.parse(localStorage.getItem(_OUTBOX_KEY) || '[]'); } catch (e) { return []; } }
 function _writeOutbox(q){ try { localStorage.setItem(_OUTBOX_KEY, JSON.stringify(q)); } catch (e) {} }
@@ -4183,9 +4219,9 @@ async function flushOutbox() {
       } else { attempts[e.key] = n; failed.push(e); }
     }
   }
-  // Anything queued while this flush ran (a replay that failed and re-queued) is kept, newest wins.
-  const added = _readOutbox().filter(x => !q.some(o => o.key === x.key && o.ts === x.ts));
-  const keep = failed.filter(f => !added.some(a => a.key === f.key)).concat(added);
+  // Anything queued while this flush ran (a replay that failed and re-queued) is kept, newest wins; a failed one that
+  // left the queue meanwhile (a newer edit of its row, or a log-out dropping every queue) stays gone (outboxAfterFlush).
+  const keep = outboxAfterFlush(q, failed, _readOutbox());
   const stillQueued = new Set(keep.map(e => e.key));
   for (const k of Object.keys(attempts)) { if (!stillQueued.has(k)) delete attempts[k]; }
   _writeOutbox(keep);
@@ -4193,7 +4229,7 @@ async function flushOutbox() {
   _releaseQueueIfEmpty();
   _flushingOutbox = false;
   if (codeOwed) _mfaStepUpInPlace();
-  if (synced > 0 && !failed.length && !_readPendingLogs().length) _markSyncDrained();
+  if (synced > 0 && !keep.length && !_readPendingLogs().length) _markSyncDrained();
   if (synced > 0 && !failed.length) toast('Changes synced');
   if (dropped > 0) toast("Some changes couldn't be synced. Please re-check");
   _refreshConnBanner();
@@ -4673,8 +4709,10 @@ window.closeSettingsModal = closeSettingsModal;
 let _mfaPendingFactor = null;
 
 // The code prompt. Resolves true once the code verifies (the session is now aal2), false when
-// the person cancels: the second button, Esc, or anything else closing the modal (a tap on
-// the backdrop doesn't: data-sticky). opts.cancelLabel: 'Cancel' on the sign-in screens,
+// the person picks the second button, null when it's put away any other way: Esc, or anything
+// else closing the modal (a tap on the backdrop doesn't: data-sticky). Every sign-in screen
+// treats both as Cancel; an open dashboard's prompt (_mfaStepUp inPlace) keeps the session on
+// null (mfaStepOutcome). opts.cancelLabel: 'Cancel' on the sign-in screens,
 // 'Sign out' at boot, where cancelling is exactly that. opts.client: the supabase-js client whose
 // session owes the code (reset-password.html's link client; default db.js's). opts.lead: the line
 // under the title. One prompt at a time: asked again while one is open for the same session (bootstrap
@@ -4714,9 +4752,9 @@ function promptMfaChallenge(opts) {
     verifyBtn.disabled = false; verifyBtn.textContent = 'Verify';
     cancelBtn.textContent = opts.cancelLabel || 'Cancel';
     let settled = false;
-    // Esc (closeAllModals) or any other script taking .open away counts as Cancel, so the caller
-    // never waits on a prompt nobody can see.
-    const watch = new MutationObserver(() => { if (!modal.classList.contains('open')) cleanup(false); });
+    // Esc (closeAllModals) or any other script taking .open away answers it (null: put away, not the
+    // second button), so the caller never waits on a prompt nobody can see.
+    const watch = new MutationObserver(() => { if (!modal.classList.contains('open')) cleanup(null); });
     function cleanup(result) {
       if (settled) return;
       settled = true;
@@ -4764,6 +4802,15 @@ window.promptMfaChallenge = promptMfaChallenge;
 // opts.owed: Auth (GET /user) shows a verified factor that the stored session's copy of the user predates
 // (two-factor turned on from another device): the aal1 token alone says the code is owed. opts.lead: the
 // prompt's line. opts.inPlace: an open dashboard asks (_mfaStepUpInPlace), which signs out itself on 'out'.
+// Pure: what the code prompt's answer means for the session (night C, 30 Oct). The code verified: 'in'. The second
+// button ("Sign out"): 'out'. Put away any other way (Esc, a script closing every modal; promptMfaChallenge's null):
+// at load that is Sign out too, since nothing reads without the code, but on an open dashboard (in place) the session
+// stays: 'later'. What waits keeps waiting on this device, and the next refused write asks again.
+function mfaStepOutcome(answer, inPlace) {
+  if (answer === true) return 'in';
+  if (answer === null && inPlace) return 'later';
+  return 'out';
+}
 async function _mfaStepUp(opts) {
   opts = opts || {};
   let aal = null;
@@ -4774,10 +4821,12 @@ async function _mfaStepUp(opts) {
   let passed = false;
   try { passed = await promptMfaChallenge({ cancelLabel: 'Sign out', lead: opts.lead }); } catch (e) { passed = false; }
   window._mfaStepUpPending = false;
-  if (passed) {
+  const step = mfaStepOutcome(passed, !!opts.inPlace);
+  if (step === 'in') {
     setTimeout(() => { try { if (navigator.onLine) { flushPendingLogs(); flushOutbox(); } } catch (e) {} }, 1200);
     return 'in';
   }
+  if (step === 'later') return 'later';   // in place, put away (Esc): still signed in, what waits keeps waiting, asked again at the next refused write
   if (opts.inPlace) window._signingOut = true;   // this sign-out is the caller's, not one for _watchSignOut to chase
   try { await DB.signOut('local'); } catch (e) {}
   _dropStoredSession();   // offline that call keeps the session, and the next load would ask for the code again
@@ -4809,7 +4858,8 @@ async function _codeOwedPerAuth() {
 // The code, asked for in place on an open dashboard whose writes are refused at aal1 (the account turned two-factor
 // on elsewhere). One prompt however many writes were refused; meanwhile nothing replays (_mfaStepUpPending), so no
 // try is counted. Code entered: _mfaStepUp sends what waits, at aal2. "Sign out": this device only, and what waits
-// stays for this account, as on any sign-out it didn't choose; then the welcome. → 'in' | 'out' | 'none'.
+// stays for this account, as on any sign-out it didn't choose; then the welcome. Put away (Esc): still signed in, what
+// waits keeps waiting, the next refused write asks again. → 'in' | 'out' | 'later' | 'none'.
 const _MFA_IN_PLACE_LEAD = 'Two-factor is on for this account now. Enter the 6-digit code from your authenticator app to keep syncing. Until then, your changes wait on this device.';
 let _mfaInPlace = null;
 function _mfaStepUpInPlace() {

@@ -9119,6 +9119,43 @@ group('the merge review\'s two-factor follow-ups (29 Oct)');
   }
 })();
 
+/* ===========================================================
+   Night C (30 Oct): the lost set, Esc on the in-place code prompt, an offline Log out. The sends and the prompt are
+   async (browser flows C-sync-lost-set, C-mfa-esc, C-logout-offline drive them); these are the rules they follow.
+   =========================================================== */
+group('the lost set, Esc on the code prompt, an offline Log out (night C)');
+test('a set queued while the queue was being sent stays queued (it used to be written over)', () => {
+  const A = { id: 'a' }, B = { id: 'b' }, C = { id: 'c' };
+  eq(pendingAfterFlush([A], [], [A, B]).map(l => l.id).join(), 'b', 'A landed, B came in meanwhile');
+  eq(pendingAfterFlush([A, B], [B], [A, B, C]).map(l => l.id).join(), 'b,c', 'the leftover first, then the newcomer');
+  eq(pendingAfterFlush([A], [A], [A]).map(l => l.id).join(), 'a', 'a failed send keeps its set');
+});
+test('a set that left the queue during the send stays gone (deleted, or a log-out dropped every queue)', () => {
+  const A = { id: 'a' }, B = { id: 'b' };
+  eq(pendingAfterFlush([A, B], [A, B], [B]).map(l => l.id).join(), 'b', 'A deleted while it was on its way');
+  eq(pendingAfterFlush([A], [A], []).length, 0, 'every queue dropped: nothing comes back');
+  eq(pendingAfterFlush(null, null, null).length, 0, 'nothing at all');
+});
+test('the other changes: kept when queued meanwhile, the newest edit of a row wins, a dropped queue stays dropped', () => {
+  const e = (key, ts) => ({ key, ts, kind: 'bw', payload: {} });
+  const old = e('bw:1', 1), newer = e('bw:1', 5), other = e('bw:2', 6);
+  eq(outboxAfterFlush([old], [], [old, other]).map(x => x.key + '@' + x.ts).join(), 'bw:2@6', 'sent, and another row came in');
+  eq(outboxAfterFlush([old], [old], [newer]).map(x => x.key + '@' + x.ts).join(), 'bw:1@5', 'failed, but a newer edit of the row replaced it');
+  eq(outboxAfterFlush([old], [old], [old]).map(x => x.key + '@' + x.ts).join(), 'bw:1@1', 'failed and still the row\'s edit: kept');
+  eq(outboxAfterFlush([old], [old], []).length, 0, 'a log-out dropped the queue: it stays dropped');
+});
+test('the code prompt put away on an open dashboard keeps the session; Sign out signs out; at load both sign out', () => {
+  eq(mfaStepOutcome(true, true), 'in'); eq(mfaStepOutcome(true, false), 'in');
+  eq(mfaStepOutcome(null, true), 'later', 'Esc in place: still signed in, the changes wait');
+  eq(mfaStepOutcome(false, true), 'out', 'the Sign out button in place');
+  eq(mfaStepOutcome(null, false), 'out', 'Esc at load: nothing reads without the code');
+  eq(mfaStepOutcome(false, false), 'out');
+  eq(mfaStepOutcome(undefined, true), 'out', 'anything else is not a "not now"');
+});
+test('a set deleted while its own send lands is deleted on the server through the other queue', () => {
+  assert(typeof _OUTBOX_DISPATCH.deleteLog === 'function', 'the outbox knows how to delete a set');
+});
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;
