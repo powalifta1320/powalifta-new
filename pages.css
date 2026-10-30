@@ -446,6 +446,8 @@ body.site .cp-cta h2 { margin: 0; font-size: clamp(30px, 0.95rem + 2.15vw, 46px)
 body.site .cp-cta p { margin: 18px 0 0; max-width: 34em; font-size: 17px; color: var(--text-2); }
 body.site .cp-cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin-top: 32px; }
 body.site :is(.cp-loading, .cp-error) { padding-top: var(--head-top); padding-bottom: var(--end); color: var(--text-2); }   /* the sides are the frame's (.s-wrap) */
+/* Until the coach is read, the page's heading is its loading line, drawn as that line (the coach's name replaces it). */
+body.site .cp-loading .cp-wait { max-width: none; margin: 0; font: inherit; letter-spacing: inherit; color: inherit; }
 body.site .cp-error h1 { margin: 0 0 18px; }
 body.site .cp-error p { max-width: 34em; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.52; color: var(--text-2); }
 body.site .cp-error .quiet { margin-top: 28px; }
