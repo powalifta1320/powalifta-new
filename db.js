@@ -7,6 +7,7 @@
  *   - mapJs*    : reverse mappers
  */
 
+// home.js repeats these two (the homepage counts the programs shop without loading this file): change both together.
 const SUPABASE_URL = 'https://cxnotrikxvzncupswvio.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4bm90cmlreHZ6bmN1cHN3dmlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3OTgwNDAsImV4cCI6MjA5MzM3NDA0MH0.fLl1sXdHnI8IeKUIKOB9Sh0HVATCdshcLXZs5oKuCuU';
 
@@ -1255,13 +1256,14 @@ const DB = {
   async signOut(scope) {
     await sb.auth.signOut(scope === 'local' ? { scope: 'local' } : undefined);
   },
-  // What Auth answers for this session's account (GET /user): null when it knows the user, else its error
-  // (app.js authErrorUserGone tells a deleted account from an ended session or a network failure).
-  async authUserError() {
+  // What Auth answers for this session's account (GET /user): { user, error }. The user as Auth has it now, with
+  // its factors (the stored session's copy can predate one turned on from another device: app.js mfaCodeOwed), or
+  // the error (app.js authErrorUserGone tells a deleted account from an ended session or a network failure).
+  async authUser() {
     try {
-      const { error } = await sb.auth.getUser();
-      return error || null;
-    } catch (e) { return e || new Error('getUser failed'); }
+      const { data, error } = await sb.auth.getUser();
+      return { user: (!error && data && data.user) || null, error: error || null };
+    } catch (e) { return { user: null, error: e || new Error('getUser failed') }; }
   },
   // fn() when this browser's session ends: a log-out (here or in another tab), or one the server
   // refused while it refreshed. fn must not await supabase-js inside (its auth lock is held there).

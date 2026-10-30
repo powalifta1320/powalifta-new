@@ -110,6 +110,8 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     // Two-factor (2026-10-28): the code prompt a dashboard shows when a session still owes its code, and the
     // one after the password in the app's log-in sheet. Only drawn here: nothing is sent until Verify.
     { name: 'sh-2fa' + suf, page: C, theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out' }); true" },
+    // The same prompt on an open dashboard whose writes are refused: two-factor turned on from another device (29 Oct).
+    { name: 'sh-2fa-inplace' + suf, page: A, theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out', lead: _MFA_IN_PLACE_LEAD }); true" },
     { name: 'ob-2fa' + suf, page: 'index.html', theme, eval: "obOpen('login'); setTimeout(() => promptMfaChallenge(), 400); true" },
     // The overlays the coach roll-out's final review measured (29 Oct): the Ask sheet (Coaching and Support), the
     // bell's list, the first-run tour, Progression rules and the form-check review.
@@ -126,6 +128,16 @@ for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   }
 }
 screens.push({ name: 'w-index-l', page: 'index.html', mode: 'web', theme: 'light' }, { name: 'w-index-m-l', page: 'index.html', mode: 'web', w: 390, h: 844, theme: 'light' });
+// Every other public page (29 Oct: pages.css carries the homepage's look to them), and every public page in the light
+// theme too (they follow it; the homepage's floors don't). Offline, the shop is empty, a coach's profile says the coach
+// isn't found, email preferences say the link isn't valid; the leaderboard's demo board is local.
+const MORE_PUBLIC = ['data.html', 'switch.html', 'guide-e1rm.html', 'guide-dots.html', 'guide-peaking.html', 'coach-profile.html?id=none', 'unsubscribe.html', 'leaderboard.html?demo=1', '404.html'];
+const ALL_PUBLIC = ['about.html', 'faq.html', 'guides.html', 'guide-rpe.html', 'marketplace.html', 'leaderboard.html', 'exercises.html', 'join.html?code=ABC234', 'reset-password.html', 'privacy.html', 'terms.html'].concat(MORE_PUBLIC);
+const pubName = (p) => 'w-' + p.replace(/\.html.*/, '') + (p.includes('demo=1') ? '-demo' : '');
+for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
+  for (const p of MORE_PUBLIC) screens.push({ name: pubName(p) + suf, page: p, mode: 'web', w, h });
+  for (const p of ALL_PUBLIC) screens.push({ name: pubName(p) + suf + '-l', page: p, mode: 'web', w, h, theme: 'light' });
+}
 // The desk's Settings › Plan & seats with Capacity, dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-capacity' + suf, page: C, mode: 'web', theme, eval: "localStorage.setItem('powa-desk-set', 'plan'); deskGo('settings')" });
 // The desk's Career panel (coach.html at laptop width), dark and light.
@@ -145,8 +157,9 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-im-guide' + suf, page: C, mode: 'web', theme, eval: "SwitchKit.loadIntake().then(() => ImportGuides.open('coachrx'))" });
 // The two-factor code prompt on the website (after the password, over the log-in modal) and on the desk, dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
-  { name: 'w-2fa-login' + suf, page: 'index.html', mode: 'web', theme, eval: 'openLoginModal(); promptMfaChallenge(); true' },
-  { name: 'w-2fa-login-m' + suf, page: 'index.html', mode: 'web', w: 390, h: 844, theme, eval: 'openLoginModal(); promptMfaChallenge(); true' },
+  // The homepage loads the app on intent (2026-10-29): the modal and the prompt wait for it.
+  { name: 'w-2fa-login' + suf, page: 'index.html', mode: 'web', theme, eval: 'PowaApp.load().then(() => { openLoginModal(); promptMfaChallenge(); return true; })' },
+  { name: 'w-2fa-login-m' + suf, page: 'index.html', mode: 'web', w: 390, h: 844, theme, eval: 'PowaApp.load().then(() => { openLoginModal(); promptMfaChallenge(); return true; })' },
   { name: 'w-2fa-desk' + suf, page: C, mode: 'web', theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out' }); true" });
 
 // Never the live services: the screens are demos and public pages, but a public page still calls Supabase (the

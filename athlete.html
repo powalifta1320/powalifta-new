@@ -1997,6 +1997,7 @@ async function submitPainReport(rep) {
       }
       console.error('pain report', e);
       _enqueueOutbox('pain', rep, 'pain:' + rep.id);
+      if (await _askCodeIfRefused(e)) return;   // two-factor turned on elsewhere: the code now, then it goes
       toast('No connection: saved on this device, your coach gets it when you\'re back online');
       return;
     }

@@ -155,6 +155,7 @@ for (const [w, h, scale, sz] of SIZES) {
 {
   const { ctx, page } = await open({ w: 390, h: 844, scale: 3, theme: 'dark' });
   await page.goto(BASE + 'index.html', { waitUntil: 'load' });
+  await page.evaluate(() => window.PowaApp && PowaApp.load());   // the homepage loads the app on intent (2026-10-29)
   await wait(800);
   await page.evaluate(() => { sb.auth.signInWithOAuth = async (o) => { window.__oauth = o; return { data: { provider: o.provider, url: 'https://mock.invalid/authorize' }, error: null }; }; });
   await page.evaluate(() => openSignupModal('coach'));
@@ -181,6 +182,7 @@ for (const [w, h, scale, sz] of SIZES) {
 {
   const { ctx, page } = await open({ w: 390, h: 844, scale: 3, theme: 'dark' });
   await page.goto(BASE + 'index.html', { waitUntil: 'load' });
+  await page.evaluate(() => window.PowaApp && PowaApp.load());   // the homepage loads the app on intent (2026-10-29)
   await wait(800);
   await page.evaluate(mockDb(appleUser, null));
   await page.evaluate(() => {

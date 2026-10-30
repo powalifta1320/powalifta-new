@@ -12,13 +12,15 @@
 <meta property="og:type" content="article">
 <link rel="canonical" href="https://www.powalifta.com/guide-peaking.html">
 <meta property="og:url" content="https://www.powalifta.com/guide-peaking.html">
-<meta property="og:image" content="https://www.powalifta.com/og.png">
+<meta property="og:image" content="https://www.powalifta.com/og-home.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The powerlifting app for coaches and their lifters: Sam’s laptop with his lifters and Arjun’s page, and Arjun’s phone mid-session, his top set of 182.5 kg for 5 ready to log.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="How to Peak for a Powerlifting Meet: A Taper Walkthrough">
 <meta name="twitter:description" content="Turning training maxes into openers and third attempts, and a taper that leaves you fresh on the platform.">
-<meta name="twitter:image" content="https://www.powalifta.com/og.png">
+<meta name="twitter:image" content="https://www.powalifta.com/og-home.jpg">
+<meta name="twitter:image:alt" content="The powerlifting app for coaches and their lifters: Sam’s laptop with his lifters and Arjun’s page, and Arjun’s phone mid-session, his top set of 182.5 kg for 5 ready to log.">
 <meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -27,12 +29,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="POWALIFTA">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<link rel="preload" href="/fonts/archivo-tw.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="site.css">
-<link rel="stylesheet" href="cookie-consent.css">
+<link rel="stylesheet" href="pages.css">
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 <script defer src="cookie-consent.js"></script>
@@ -42,7 +42,7 @@
   "@type": "Article",
   "headline": "How to Peak for a Powerlifting Meet: A Taper Walkthrough",
   "description": "A practical peaking guide: how a taper sheds fatigue, how to turn your estimated 1RM into openers and third attempts, a sample multi-week peak, and the mistakes that cost lifters on the platform.",
-  "image": "https://www.powalifta.com/og.png",
+  "image": "https://www.powalifta.com/og-home.jpg",
   "author": { "@type": "Organization", "name": "POWALIFTA" },
   "publisher": { "@type": "Organization", "name": "POWALIFTA", "logo": { "@type": "ImageObject", "url": "https://www.powalifta.com/icon-512.png" } },
   "mainEntityOfPage": "https://www.powalifta.com/guide-peaking.html",
@@ -60,12 +60,20 @@
   ]
 }
 </script>
-<script defer src="site.js"></script>
 </head>
 <body class="site">
 
 <a class="skip-link" href="#main">Skip to content</a>
-<nav class="nav" id="nav"></nav>
+<!-- The bar (site.css): the homepage's chapters, Log in and Start free; app.js renderNav swaps in a signed-in
+     visitor's dashboard. The same bar as the homepage's. -->
+<header class="bar" id="nav">
+  <a class="bar-brand" href="/" aria-label="POWALIFTA home"><svg class="bar-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg><span class="bar-word">POWALIFTA</span></a>
+  <nav class="bar-r" aria-label="Site">
+    <div class="bar-toc web-only"><a class="bar-link" href="/#today">Today</a><a class="bar-link" href="/#answers">Answers</a><a class="bar-link" href="/#program">Next week</a><a class="bar-link" href="/#meet">Meet day</a><a class="bar-link" href="/#pricing">Pricing</a></div>
+    <a class="bar-link" href="/index.html#login" data-bar="login">Log in</a>
+    <a class="bar-pill" href="/index.html#signup" data-bar="cta">Start free</a>
+  </nav>
+</header>
 
 <main id="main" class="guide-wrap">
   <nav class="guide-crumbs" aria-label="Breadcrumb">
@@ -73,12 +81,9 @@
   </nav>
 
   <header>
-    <span class="guide-eyebrow">Meet prep</span>
     <h1 class="guide-title">How to peak for a meet</h1>
     <p class="guide-standfirst">A peak is not more training. It is the art of arriving on the platform with every bit of the strength you built and none of the fatigue you built it with. Here is how the taper and the attempt math actually work.</p>
-    <div class="guide-meta">
-      <span>Guide</span><span class="dot"></span><span>9 min read</span><span class="dot"></span><span>Meet prep</span>
-    </div>
+    <p class="guide-meta">Meet prep · 9 min read</p>
   </header>
 
   <nav class="guide-toc" aria-label="Contents">
@@ -130,7 +135,6 @@
     <p>Notice the heaviest work is done well before the meet. By the time you walk out you have not done anything truly taxing in over a week, which is exactly the point. You are not building strength in the final week; you are protecting it.</p>
 
     <div class="guide-callout">
-      <span class="gc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10M12 6v6l4 2"/></svg></span>
       <div class="gc-body">
         <strong>Openers off your real numbers</strong>
         <p>Because POWALIFTA keeps a live e1RM for every lift, your attempt percentages come off strength you have actually shown, not a number you guessed. <a href="guide-e1rm.html">See how e1RM is calculated</a>.</p>
@@ -159,9 +163,9 @@
     <p>Peaking rewards patience. The hard work is already in the bank. The last two weeks are about arriving rested, rehearsed, and ready to show what the block built.</p>
 
     <div class="guide-cta">
-      <h2>Build the block. Nail the peak.</h2>
-      <p>POWALIFTA tracks the e1RM your attempts ride on and helps you plan meet day off real numbers. Free for athletes, forever.</p>
-      <a href="index.html" class="btn btn-primary btn-lg">Start training free</a>
+      <h2>Plan your peak free.</h2>
+      <p>POWALIFTA tracks the e1RM your attempts ride on and helps you plan meet day off real numbers.</p>
+      <a href="/index.html#signup" class="btn btn-primary btn-lg">Start free</a>
     </div>
 
     <nav class="guide-related" aria-label="Related guides">
@@ -175,42 +179,19 @@
   </article>
 </main>
 
-<footer class="s-foot">
-  <div class="s-wrap s-foot-grid">
-    <div class="s-foot-brand">
-      <a class="brand" href="index.html" aria-label="POWALIFTA home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg><span>POWALIFTA</span></a>
+<footer class="foot">
+  <div class="foot-in">
+    <div class="foot-brand">
+      <span class="bar-brand"><svg class="bar-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg><span class="bar-word">POWALIFTA</span></span>
       <p>Built for the barbell.</p>
-      <a class="s-store app-store-link" href="https://apps.apple.com/app/powalifta/id6788506689" target="_blank" rel="noopener"><img src="https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" width="132" height="44" alt="Download on the App Store" loading="lazy" decoding="async"></a>
     </div>
-    <nav class="s-foot-col" aria-label="Product">
-      <h5>Product</h5>
-      <a href="index.html#train">Features</a>
-      <a href="index.html#e1rm">Max calculator</a>
-      <a class="web-only" href="marketplace.html" data-needs-programs>Programs</a>
-      <a href="leaderboard.html">Leaderboard</a>
-      <a href="exercises.html">Exercise library</a>
-      <a href="switch.html">Bring your history in</a>
-      <a class="web-only" href="index.html#pricing">Pricing</a>
+    <nav class="foot-cols" aria-label="More">
+      <div><p class="fc-h">Coaching</p><a href="/coach.html?demo=1">Coach demo</a><a href="/#meet">Meet day</a><a class="web-only" href="/#pricing">Pricing</a><a href="/switch.html">Bring your history in</a></div>
+      <div><p class="fc-h">Learn</p><a href="/guides.html">Guides</a><a href="/faq.html">Questions</a><a href="/leaderboard.html">Leaderboard</a></div>
+      <div><p class="fc-h">POWALIFTA</p><a href="/about.html">About</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a></div>
     </nav>
-    <nav class="s-foot-col" aria-label="Learn">
-      <h5>Learn</h5>
-      <a href="guides.html">Guides</a>
-      <a href="guide-rpe.html">RPE explained</a>
-      <a href="guide-e1rm.html">Estimated 1RM</a>
-      <a href="guide-dots.html">DOTS score</a>
-      <a href="guide-peaking.html">Peaking for a meet</a>
-    </nav>
-    <nav class="s-foot-col" aria-label="Company">
-      <h5>Company</h5>
-      <a href="about.html">About</a>
-      <a href="faq.html">FAQ</a>
-      <a href="privacy.html">Privacy</a>
-      <a href="terms.html">Terms</a>
-      <a href="https://instagram.com/powa.lifta" target="_blank" rel="noopener">Instagram</a>
-      <a href="mailto:powalifta1320@gmail.com">Email us</a>
-    </nav>
+    <p class="foot-c"><span>© 2026 POWALIFTA. Sam, Arjun, Tom and the rest of the team are the app’s demo coach and&nbsp;lifters.</span></p>
   </div>
-  <div class="s-wrap"><div class="s-foot-base"><span>© 2026 POWALIFTA</span><button type="button" onclick="toggleTheme()">Switch light or dark</button></div></div>
 </footer>
 
 <script src="supabase.js"></script>

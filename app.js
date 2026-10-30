@@ -385,16 +385,21 @@ async function _signedOutByServer(uid, opts) {
   window._user = null;
   Store.reset();
   if (opts.signOut !== false) { try { await DB.signOut('local'); } catch (e) {} }   // this device only: the server has refused the session already
-  // supabase-js keeps the session when that call itself fails (no network): the server refused it, so it goes anyway,
-  // or the welcome screen would route straight back into the dashboard.
-  try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && /^sb-.*-auth-token$/.test(k)) localStorage.removeItem(k); } } catch (e) {}
+  _dropStoredSession();
   await _forgetPushOnThisDevice();   // the browser's push subscription goes; the server row needs the account's own session
   _sweepAccountKeys();
   _noteSignedOut(opts.deleted ? { deleted: true } : undefined);
 }
+// supabase-js keeps the stored session when its sign-out call itself fails (no network). A session that must go
+// (the server refused it, or "Sign out" on the code prompt) goes anyway, or the next load finds it: the welcome
+// screen routes straight back into the dashboard, or the code prompt comes back.
+function _dropStoredSession() {
+  try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && /^sb-.*-auth-token$/.test(k)) localStorage.removeItem(k); } } catch (e) {}
+}
 // The profile read found no row ("Profile not found"): an account deleted elsewhere, but only when Auth agrees
 // the account itself is gone (GET /user answers user_not_found). A profile the database hides (two-factor
-// owed, row 60) or never made is no deletion: that sign-out keeps what waits, as any other.
+// owed, row 60) is no deletion: the code is asked for (_profileMissingWhy). One never made isn't either: that
+// sign-out keeps what waits, as any other.
 function _isProfileMissing(e) { return /^Profile not found\b/.test(String((e && e.message) || '')); }
 // Pure: an Auth error that means the account itself is gone (GoTrue: 403 user_not_found, "User from sub claim in
 // JWT does not exist"), as opposed to an ended session (session_not_found), a network failure or no error.
@@ -403,9 +408,35 @@ function authErrorUserGone(error) {
   const code = String(error.code || error.error_code || ''), msg = String(error.message || error.msg || '');
   return (Number(error.status) === 403 && code === 'user_not_found') || /sub claim in JWT does not exist/i.test(msg);
 }
-async function _accountGone(e) {
-  if (!_isProfileMissing(e)) return false;
-  try { return !!(window.DB && typeof DB.authUserError === 'function' && authErrorUserGone(await DB.authUserError())); } catch (x) { return false; }
+// Pure: the code is owed. Auth's user (GET /user) has a verified factor and this token is still aal1, so the
+// database answers nothing until the code is in (row 60). Auth's answer, not the stored session's copy of the
+// user: that copy can predate a factor turned on from another device (and then mfaAssurance() says nothing is owed).
+function mfaCodeOwed(user, currentLevel) {
+  if (!user || currentLevel !== 'aal1') return false;
+  return (Array.isArray(user.factors) ? user.factors : []).some(f => !!f && f.status === 'verified');
+}
+// Pure: the database refused a write by its rules (row-level security: 42501, a 403, "permission denied"), as
+// opposed to a network failure, a duplicate or a bad row. An aal1 session of a two-factor account gets exactly
+// this from row 60, for every insert and upsert.
+function writeRefusedByPolicy(err) {
+  if (!err) return false;
+  const code = String(err.code || ''), msg = String(err.message || '');
+  return code === '42501' || Number(err.status) === 403 || /row-level security|permission denied/i.test(msg);
+}
+// Why the profile read found no row, from Auth's answer (GET /user, asked once): 'gone' (the account was deleted,
+// user_not_found), 'code' (a verified factor and an aal1 token: a session stored before two-factor was turned on,
+// whose copy of the user shows no factor, so boot asked for no code) or null (an ended session, a network failure,
+// a profile never made: the ordinary refused session).
+async function _profileMissingWhy(e) {
+  if (!_isProfileMissing(e) || !window.DB || typeof DB.authUser !== 'function') return null;
+  let r = null;
+  try { r = await DB.authUser(); } catch (x) { return null; }
+  if (!r) return null;
+  if (authErrorUserGone(r.error)) return 'gone';
+  if (r.error || !r.user) return null;
+  let aal = null;
+  try { aal = await DB.mfaAssurance(); } catch (x) { aal = null; }
+  return aal && aal.ok && mfaCodeOwed(r.user, aal.currentLevel) ? 'code' : null;
 }
 // Nobody is signed in on this device: wipe the private data an account left here (a session that ended
 // while it refreshed, an account deleted elsewhere, or a copy the app wrote back before this fix).
@@ -1380,10 +1411,13 @@ async function bootstrap(expectedType, onReady, opts) {
     // Only a refused token or account signs anyone out. Offline, a timeout or a server hiccup: a dashboard
     // opens from this device's snapshot (or keeps trying); the homepage goes on to the remembered dashboard.
     if (_isAuthError(e)) {
+      // No profile row: Auth says why (_profileMissingWhy). The code owed by a session stored before two-factor was
+      // turned on elsewhere (no code was asked above): asked now, in place, then the profile is read again at aal2.
+      const why = await _profileMissingWhy(e);
+      if (why === 'code' && (await _mfaStepUp({ owed: true })) === 'in') return bootstrap(expectedType, onReady, opts);
       // The device forgets the account like a chosen log-out (its unsynced sets stay for it): sweep 2026-10-28 #6.
-      // Deleted on another device (no profile row, and Auth says the account is gone): as a deletion.
-      const gone = await _accountGone(e);
-      await _signedOutByServer(session.user.id, gone ? { deleted: true } : undefined);
+      // That's also "Sign out" on the prompt above. Deleted on another device (Auth says the account is gone): as a deletion.
+      await _signedOutByServer(session.user.id, why === 'gone' ? { deleted: true } : undefined);
       if (!expectedType) { onReady && onReady(); return; }
       _toWelcome();
       return;
@@ -1601,7 +1635,12 @@ if ('serviceWorker' in navigator) {
     try { if (window.caches && caches.keys) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => {}); } catch (e) {}
   } else {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW register failed:', err));
+      navigator.serviceWorker.register('/sw.js').then(() => {
+        // A dashboard keeps its own files for offline (sw.js 'powa-precache'); the homepage never asks.
+        if (document.querySelector('.dash-main') || /\/(athlete|coach|admin)\.html$/.test(location.pathname)) {
+          navigator.serviceWorker.ready.then(r => { if (r.active) r.active.postMessage({ type: 'powa-precache' }); }).catch(() => {});
+        }
+      }).catch(err => console.warn('SW register failed:', err));
     });
   }
 }
@@ -3092,7 +3131,7 @@ function persistProgram(programId) { if (window._demoMode) return;
       console.error('persistProgram', e);
       // The copy carries the version it was edited from, so the replay can merge instead of overwrite.
       _enqueueOutbox('program', Object.assign({}, prog, { _base: (DB.programBase && DB.programBase(prog.id)) || prog._base || null }), 'program:' + prog.id);
-      toast('No connection: saved on this device, will sync');
+      _askCodeIfRefused(e).then((asked) => { if (!asked) toast('No connection: saved on this device, will sync'); });   // two-factor turned on elsewhere: the code instead
     } finally {
       if (!--_progSaving[programId]) delete _progSaving[programId];
     }
@@ -3823,12 +3862,20 @@ async function flushPendingLogs() {
   const failed = [];
   let synced = 0;
   let dropped = 0;
-  for (const log of q) {
+  let codeOwed = null;   // asked once per flush, at the first refusal
+  for (let i = 0; i < q.length; i++) {
+    const log = q[i];
     try { await DB.addLog(log); synced++; }
     catch (e) {
       const msg = String((e && e.message) || '');
       // Duplicate key = it actually saved on a previous attempt → safe to drop.
       if (/duplicate|unique|23505/i.test(msg)) { synced++; continue; }
+      // Refused at aal1 because the account turned two-factor on elsewhere (row 60): not these sets' fault. They
+      // all wait, no try counted, while the code is asked for in place; then they go up at aal2.
+      if (writeRefusedByPolicy(e) && (codeOwed === null ? (codeOwed = await _codeOwedPerAuth()) : codeOwed)) {
+        failed.push(...q.slice(i));
+        break;
+      }
       const n = (attempts[log.id] || 0) + 1;
       if (n >= _MAX_LOG_ATTEMPTS) {
         // Give up on this one — it's never going to land. Drop it rather than
@@ -3849,6 +3896,7 @@ async function flushPendingLogs() {
   _writeLogAttempts(attempts);
   _releaseQueueIfEmpty();
   _flushingLogs = false;
+  if (codeOwed) _mfaStepUpInPlace();
   if (synced > 0 && !failed.length) _markSyncDrained();
   if (synced > 0 && !failed.length) toast(synced + (synced === 1 ? ' set' : ' sets') + ' synced');
   if (dropped > 0) toast(dropped + (dropped === 1 ? ' set' : ' sets') + " couldn't be synced: please re-log");
@@ -3864,6 +3912,7 @@ async function persistAddLog(log) {
     console.error('addLog', e);
     _queuePendingLog(log);
     _scheduleConnBanner();
+    if (await _askCodeIfRefused(e)) return;   // two-factor turned on elsewhere: the code now, then the set goes up
     toast('No connection: set saved on this device, will sync automatically');
   }
 }
@@ -3878,10 +3927,10 @@ async function persistDeleteLog(id) {
 async function persistAddInvite(inv)      { if (window._demoMode) return; try { await DB.addInvite(inv); } catch (e) { console.error('addInvite', e); toast('Could not save invite'); } }
 async function persistDeleteInvite(code)  { if (window._demoMode) return; try { await DB.deleteInvite(code); } catch (e) { console.error('deleteInvite', e); } }
 async function persistAddNote(n)          { if (window._demoMode) return; try { await DB.addNote(n); } catch (e) { console.error('addNote', e); } }
-async function persistGoals(g)            { if (window._demoMode) return; try { await DB.upsertGoals(g); } catch (e) { console.error('goals', e); _enqueueOutbox('goals', g, 'goals:' + (g.athleteId || g.id || 'me')); toast('No connection: saved on this device, will sync'); } }
+async function persistGoals(g)            { if (window._demoMode) return; try { await DB.upsertGoals(g); } catch (e) { console.error('goals', e); _enqueueOutbox('goals', g, 'goals:' + (g.athleteId || g.id || 'me')); if (!(await _askCodeIfRefused(e))) toast('No connection: saved on this device, will sync'); } }
 async function persistBw(b)               { try { if (window.PowaHealthJS) PowaHealthJS.weightSaved(b); } catch (e) {}   // Apple Health (on the phone, when on)
-                                           if (window._demoMode) return; try { await DB.upsertBw(b); } catch (e) { console.error('bw', e); _enqueueOutbox('bw', b, 'bw:' + (b.athleteId || '') + ':' + (b.date || '')); toast('No connection: saved on this device, will sync'); } }
-async function persistRest(r)             { if (window._demoMode) return; try { await DB.upsertRest(r); } catch (e) { console.error('rest', e); _enqueueOutbox('rest', r, 'rest:' + (r.athleteId || '') + ':' + (r.date || '')); } }
+                                           if (window._demoMode) return; try { await DB.upsertBw(b); } catch (e) { console.error('bw', e); _enqueueOutbox('bw', b, 'bw:' + (b.athleteId || '') + ':' + (b.date || '')); if (!(await _askCodeIfRefused(e))) toast('No connection: saved on this device, will sync'); } }
+async function persistRest(r)             { if (window._demoMode) return; try { await DB.upsertRest(r); } catch (e) { console.error('rest', e); _enqueueOutbox('rest', r, 'rest:' + (r.athleteId || '') + ':' + (r.date || '')); _askCodeIfRefused(e); } }
 async function persistDeleteRest(aid, d)  { if (window._demoMode) return; try { await DB.deleteRest(aid, d); } catch (e) { console.error('rest del', e); _enqueueOutbox('deleteRest', { athleteId: aid, date: d }, 'rest:' + aid + ':' + d); } }
 async function persistAddTemplate(t)      { if (window._demoMode) return; try { await DB.addTemplate(t); } catch (e) { console.error('template', e); toast('Could not save template'); } }
 async function persistDeleteTemplate(id)  { if (window._demoMode) return; try { await DB.deleteTemplate(id); } catch (e) { console.error('template del', e); } }
@@ -4112,12 +4161,20 @@ async function flushOutbox() {
   const attempts = _readOutboxAttempts();
   const failed = [];
   let synced = 0, dropped = 0;
-  for (const e of q) {
+  let codeOwed = null;   // asked once per flush, at the first refusal
+  for (let i = 0; i < q.length; i++) {
+    const e = q[i];
     const fn = _OUTBOX_DISPATCH[e.kind];
     if (!fn) continue; // unknown kind (stale build) — drop quietly
     try { await fn(e.payload); synced++; }
     catch (err) {
       const msg = String((err && err.message) || '');
+      // Refused at aal1 because the account turned two-factor on elsewhere (row 60): this change and the rest
+      // wait, no try counted, while the code is asked for in place; then they go up at aal2.
+      if (writeRefusedByPolicy(err) && (codeOwed === null ? (codeOwed = await _codeOwedPerAuth()) : codeOwed)) {
+        failed.push(...q.slice(i).filter(x => _OUTBOX_DISPATCH[x.kind]));
+        break;
+      }
       const n = (attempts[e.key] || 0) + 1;
       if (n >= _MAX_OUTBOX_ATTEMPTS) {
         console.error('flushOutbox: dropping ' + e.kind + ' after ' + n + ' attempts', e.key, msg);
@@ -4135,6 +4192,7 @@ async function flushOutbox() {
   _writeOutboxAttempts(attempts);
   _releaseQueueIfEmpty();
   _flushingOutbox = false;
+  if (codeOwed) _mfaStepUpInPlace();
   if (synced > 0 && !failed.length && !_readPendingLogs().length) _markSyncDrained();
   if (synced > 0 && !failed.length) toast('Changes synced');
   if (dropped > 0) toast("Some changes couldn't be synced. Please re-check");
@@ -4703,20 +4761,81 @@ window.promptMfaChallenge = promptMfaChallenge;
 // (no network); the database refuses such a session anyway. Returns 'none' (nothing owed, or it
 // couldn't tell), 'in' (code entered: the session is aal2) or 'out' (they chose to sign out:
 // this device only, never their other sessions).
-async function _mfaStepUp() {
+// opts.owed: Auth (GET /user) shows a verified factor that the stored session's copy of the user predates
+// (two-factor turned on from another device): the aal1 token alone says the code is owed. opts.lead: the
+// prompt's line. opts.inPlace: an open dashboard asks (_mfaStepUpInPlace), which signs out itself on 'out'.
+async function _mfaStepUp(opts) {
+  opts = opts || {};
   let aal = null;
   try { aal = await DB.mfaAssurance(); } catch (e) { aal = null; }
-  if (!aal || !aal.ok || aal.nextLevel !== 'aal2' || aal.currentLevel === 'aal2') return 'none';
+  if (!aal || !aal.ok || aal.currentLevel === 'aal2') return 'none';
+  if (aal.nextLevel !== 'aal2' && !(opts.owed && aal.currentLevel === 'aal1')) return 'none';
   window._mfaStepUpPending = true;   // the offline queues wait: replayed at aal1 they'd be refused and burn their tries
   let passed = false;
-  try { passed = await promptMfaChallenge({ cancelLabel: 'Sign out' }); } catch (e) { passed = false; }
+  try { passed = await promptMfaChallenge({ cancelLabel: 'Sign out', lead: opts.lead }); } catch (e) { passed = false; }
   window._mfaStepUpPending = false;
   if (passed) {
     setTimeout(() => { try { if (navigator.onLine) { flushPendingLogs(); flushOutbox(); } } catch (e) {} }, 1200);
     return 'in';
   }
+  if (opts.inPlace) window._signingOut = true;   // this sign-out is the caller's, not one for _watchSignOut to chase
   try { await DB.signOut('local'); } catch (e) {}
+  _dropStoredSession();   // offline that call keeps the session, and the next load would ask for the code again
   return 'out';
+}
+// A write refused mid-session: is the code owed? Two-factor turned on for this account after this session was
+// stored (from another device, say) makes row 60 refuse it, and the stored session can't tell (its copy of the
+// user predates the factor), so this asks Auth (GET /user) while the token is aal1. Yes while a prompt is open.
+// A burst of refusals (an import logs hundreds of sets at once) shares one question, and a no stands for 10 s.
+let _codeOwedAsk = null, _codeOwedNoUntil = 0;
+async function _codeOwedPerAuth() {
+  if (window._mfaStepUpPending) return true;
+  if (window._demoMode || !window.DB || typeof DB.mfaAssurance !== 'function' || typeof DB.authUser !== 'function') return false;
+  if (Date.now() < _codeOwedNoUntil) return false;
+  if (!_codeOwedAsk) {
+    _codeOwedAsk = (async () => {
+      let aal = null;
+      try { aal = await DB.mfaAssurance(); } catch (e) { aal = null; }
+      if (!aal || !aal.ok || aal.currentLevel !== 'aal1') return false;
+      if (aal.nextLevel === 'aal2') return true;   // the stored session knows already
+      let r = null;
+      try { r = await DB.authUser(); } catch (e) { r = null; }
+      return !!(r && !r.error && mfaCodeOwed(r.user, aal.currentLevel));
+    })().then((owed) => { _codeOwedAsk = null; if (!owed) _codeOwedNoUntil = Date.now() + 10000; return owed; },
+               () => { _codeOwedAsk = null; return false; });
+  }
+  return _codeOwedAsk;
+}
+// The code, asked for in place on an open dashboard whose writes are refused at aal1 (the account turned two-factor
+// on elsewhere). One prompt however many writes were refused; meanwhile nothing replays (_mfaStepUpPending), so no
+// try is counted. Code entered: _mfaStepUp sends what waits, at aal2. "Sign out": this device only, and what waits
+// stays for this account, as on any sign-out it didn't choose; then the welcome. → 'in' | 'out' | 'none'.
+const _MFA_IN_PLACE_LEAD = 'Two-factor is on for this account now. Enter the 6-digit code from your authenticator app to keep syncing. Until then, your changes wait on this device.';
+let _mfaInPlace = null;
+function _mfaStepUpInPlace() {
+  if (_mfaInPlace) return _mfaInPlace;
+  if (window._demoMode || window._signingOut || !window._user) return Promise.resolve('none');
+  window._mfaStepUpPending = true;
+  const uid = window._user.id;
+  const run = (async () => {
+    let step = 'none';
+    try { step = await _mfaStepUp({ owed: true, inPlace: true, lead: _MFA_IN_PLACE_LEAD }); }
+    catch (e) { step = 'none'; }
+    window._mfaStepUpPending = false;
+    if (step === 'out') { await _signedOutByServer(uid, { signOut: false }); _toWelcome(); }
+    return step;
+  })();
+  _mfaInPlace = run;
+  run.then(() => { _mfaInPlace = null; }, () => { _mfaInPlace = null; });
+  return run;
+}
+// A write that just failed went to a queue. Refused at aal1 because the code is owed (see _codeOwedPerAuth): it's
+// asked for now, not at the next reconnect or reload. → true when the prompt is up (the caller's toast can go).
+async function _askCodeIfRefused(e) {
+  if (!writeRefusedByPolicy(e) || window._demoMode) return false;
+  if (!(await _codeOwedPerAuth())) return false;
+  _mfaStepUpInPlace();
+  return !!(_mfaInPlace || window._mfaStepUpPending);
 }
 
 // Status line + tinted pill, mirroring renderPlanManageCard's badge treatment.
@@ -9911,6 +10030,10 @@ const BRAND_MARK = '<svg class="brand-mark" viewBox="0 0 32 32" xmlns="http://ww
 // =========================================================
 function renderNav(target) {
   const user = getCurrentUser();
+  // The website's bar (site.css .bar) is drawn in every public page's own HTML, so it is there before any script:
+  // only its account end changes here.
+  const bar = document.querySelector(target);
+  if (bar && bar.classList.contains('bar')) { renderSiteBar(bar, user); return; }
   const navInner = el('div', { class: 'nav-inner' });
   // Logo destination: a signed-in user goes STRAIGHT to their own dashboard.
   // Pointing it at index.html made the marketing page flash for a beat before
@@ -9924,28 +10047,6 @@ function renderNav(target) {
   const brand = el('a', { href: brandHref, class: 'brand' });
   brand.innerHTML = BRAND_MARK + '<span class="brand-word">POWALIFTA</span>';
   navInner.appendChild(brand);
-
-  // The website (<body class="site">) gets its page links; on phones they open from a
-  // menu button (site.js). web-only: the iPhone app never links to pricing or programs.
-  const onSite = !!(document.body && document.body.classList.contains('site'));
-  if (onSite) {
-    const links = el('div', { class: 'nav-links web-only', id: 'navLinks' });
-    const here = (location.pathname.split('/').pop() || 'index.html');
-    [['index.html#train', 'Features'], ['marketplace.html', 'Programs'], ['guides.html', 'Guides'], ['index.html#pricing', 'Pricing']].forEach(([href, label]) => {
-      const a = el('a', { href }, label);
-      if (href === 'marketplace.html') a.setAttribute('data-needs-programs', '');
-      if (href === here || (here.indexOf('guide') === 0 && href === 'guides.html')) a.setAttribute('aria-current', 'page');
-      links.appendChild(a);
-    });
-    if (!user) {
-      const login = el('a', { href: 'javascript:void(0)', class: 'nav-links-login' }, 'Log in');
-      login.setAttribute('onclick', "if(window.openLoginModal){openLoginModal()}else{location.href='/index.html#login'}");
-      links.appendChild(login);
-    }
-    navInner.appendChild(links);
-    // The app never shows the website (or the shop), so it never asks.
-    if (!document.documentElement.classList.contains('native')) siteProgramsReady();
-  }
 
   const actions = el('div', { class: 'nav-actions ' + (user ? 'auth' : 'guest') });
 
@@ -10010,17 +10111,13 @@ function renderNav(target) {
   } else {
     // BULLETPROOF: inline string onclick — browser evaluates in global scope at click time.
     // This is the same mechanism as the hero CTAs which always work.
-    const loginA = el('a', { href: 'javascript:void(0)', class: 'btn btn-sm btn-ghost' }, 'Log in');
-    loginA.setAttribute('onclick', "if(window.openLoginModal){openLoginModal()}else{location.href='/index.html#login'}");
+    // Real addresses (crawlable, they work without JS); the modal takes over where the page has one.
+    const loginA = el('a', { href: '/index.html#login', class: 'btn btn-sm btn-ghost' }, 'Log in');
+    loginA.setAttribute('onclick', "if(window.openLoginModal){openLoginModal();return false}");
     actions.appendChild(loginA);
-    const cta = el('a', { href: 'javascript:void(0)', class: 'btn btn-sm btn-primary' }, 'Get started');
-    cta.setAttribute('onclick', "if(window.openSignupModal){openSignupModal('solo')}else{location.href='/index.html#signup'}");
+    const cta = el('a', { href: '/index.html#signup', class: 'btn btn-sm btn-primary' }, 'Get started');
+    cta.setAttribute('onclick', "if(window.openSignupModal){openSignupModal('solo');return false}");
     actions.appendChild(cta);
-  }
-  if (onSite) {
-    const menu = el('button', { class: 'nav-menu web-only', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false', 'aria-controls': 'navLinks' });
-    menu.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8h16M4 16h16"/></svg>';
-    actions.appendChild(menu);
   }
   navInner.appendChild(actions);
 
@@ -10028,6 +10125,47 @@ function renderNav(target) {
   if (wrap) { wrap.innerHTML = ''; wrap.appendChild(navInner); }
   if (typeof refreshSignalBadge === 'function') refreshSignalBadge();
 }
+
+// The website's bar (every public page draws it in its own HTML, site.css .bar): Log in and Start free for a visitor;
+// a signed-in one gets their dashboard in their place, and the wordmark takes them there too. On the website (never
+// inside the app) the programs count is taken for the shop's links and the homepage's programs band.
+function renderSiteBar(bar, user) {
+  const login = bar.querySelector('[data-bar="login"]'), cta = bar.querySelector('[data-bar="cta"]'), brand = bar.querySelector('.bar-brand');
+  if (user) {
+    const dash = user.userType === 'coach' ? 'coach.html' : 'athlete.html';
+    if (brand) brand.setAttribute('href', '/' + (user.userType === 'admin' ? 'admin.html' : dash));
+    if (login) login.hidden = true;
+    if (cta) { cta.textContent = 'Dashboard'; cta.setAttribute('href', '/' + dash); cta.removeAttribute('data-intent'); }
+  }
+  if (!document.documentElement.classList.contains('native')) siteProgramsReady();
+  if (document.body && document.body.classList.contains('site')) _barPillStepsBack(bar);
+}
+
+// An inside page (body.site; the homepage runs its own in home.js): while one of the page's crimson actions is on
+// screen, the bar's ink pill steps back (pages.css .bar.pill-back), one action per screen as on the homepage. Actions
+// drawn later (the shop's Buy program, the leaderboard's card, a coach's profile) are picked up as they arrive.
+function _barPillStepsBack(bar) {
+  if (!bar || bar._pillBack || !('IntersectionObserver' in window)) return;
+  const main = document.querySelector('main');
+  if (!main) return;
+  bar._pillBack = true;
+  const watched = new Set(), on = new Set();
+  const paint = () => bar.classList.toggle('pill-back', on.size > 0);
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => { if (e.isIntersecting && e.target.isConnected) on.add(e.target); else on.delete(e.target); });
+    paint();
+  });
+  const scan = () => {
+    watched.forEach((b) => { if (!b.isConnected) { io.unobserve(b); watched.delete(b); on.delete(b); } });
+    main.querySelectorAll('.btn-primary').forEach((b) => { if (!watched.has(b)) { watched.add(b); io.observe(b); } });
+    paint();
+  };
+  scan();
+  try { new MutationObserver(scan).observe(main, { childList: true, subtree: true }); } catch (e) {}
+}
+// The inside pages draw their bar in HTML and load app.js at the end of the body: the step back starts now, not after
+// bootstrap's sign-in check and coach list (offline, supabase-js retries that list for about 14 s).
+try { if (document.body && document.body.classList.contains('site')) _barPillStepsBack(document.querySelector('header.bar')); } catch (e) {}
 
 // The website links to the programs shop only once it has something in it: three published
 // programs. html.has-programs reveals every [data-needs-programs] link (site.css). The count is

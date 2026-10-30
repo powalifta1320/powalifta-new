@@ -29,7 +29,7 @@ When work lands, update `Current state.md`, `Roadmap.md` and `Changelog.md` (plu
 
 Each top-level page is its own HTML file with its own inline `<script>` glue at the bottom:
 
-- `index.html` — the website's homepage: hero, one section per app tab, pricing. The website lives in `<div class="s-home">`; inside the iOS app it shows `#nativeWelcome` + the `native-onboard.js` sign-up / log-in sheets instead. The log-in / sign-up / forgot modals and the calculator ids must stay.
+- `index.html` — the website's homepage (a coach's week: Today, Answers, Next week, Meet day, Pricing). The website lives in `<div class="s-home">`; inside the iOS app it shows `#nativeWelcome` + the `native-onboard.js` sheets, and the website is parsed into an inert `<template>`. The log-in / sign-up / forgot modals and the calculator ids (in the eighth question, `#e1rm`) must stay.
 - `athlete.html` — athlete dashboard. Five destinations: Train (`today` pane, `renderToday`) · Progress · Club · Coach (Program when self-coached) · You (`renderAthleteYou` → app.js `renderYouHub`). Sub-screens (Bodyweight, Library, Marketplace, Full program) carry `data-parent` on their `.sidebar-tab`, which hides them from the bars; `syncPaneBack()` adds the "‹ Parent" link. Also here: `openExerciseDetail`, meet day (`openMeetMode`, the bouncer), Finish session (`setOpen()` is what every next-set finder uses), the rest-end alert, Lift mode (`openLiftMode`). The full map: vault `Code/Architecture detail.md`.
 - `coach.html` — coach dashboard. Five destinations: Lifters (`coach-lifters.js`: list + a lifter's summary, and the laptop's Today) · Program · Messages · Club · You (`renderCoachYou`); Templates (parent Program), Athlete progress + Marketplace listings + Clients (parent You; `clients-ui.js`, a rail destination of its own on the laptop) are sub-screens.
 - `clubs.js` — the Club tab for both dashboards (`renderClubTab`): Feed (`club_posts`), Board (This week / Most improved / Strongest from one shared stats row, never programs or logs; pure `rankClubMembers` / `clubWeekScore` / `clubImprovePct` unit-tested), Find / Got a code? / Start a club. One club per lifter. `?demo=1` runs on a seeded club, no network.
@@ -45,9 +45,9 @@ Each top-level page is its own HTML file with its own inline `<script>` glue at 
 - The website and both dashboards share `app.js` (store, modals, sign-up / log-in, RPE math, charts, programming helpers) and `db.js` (Supabase client + mappers).
 - **`supabase.js` (repo root) is the VENDORED `@supabase/supabase-js` v2.110.0 UMD build** — never re-add a CDN `<script>` for it (a hung jsDelivr once froze every page). Any third-party script: vendor it or load it `async`.
 
-### Website (public pages) — `site.css` + `site.js`
+### Website (public pages) — `site.css`, `pages.css`, the homepage's `home.css` + `home.js`
 
-Every public page has `<body class="site">` and loads `site.css` after `styles.css` and `site.js` (deferred); never the dashboards. Classes are `s-*`. One red action per screen (the nav's "Get started" is an ink pill). The homepage alone also loads `landing.css` + `landing.js`: the hero's phone is the Train screen in HTML playing one CSS timeline (its last frame is the default style, so reduced motion and no-JS see it finished); on laptops `.is-story` pins it beside six chapters showing `site-img/app-*.webp` (captured from `?demo=1` in the iPhone app layout at 393×852 with safe areas); `#desk` cycles `site-img/desk-*.webp` (Today, a lifter, the builder: `coach.html?demo=1` at 1440×900, 1.5x); `site-img/coach-*.webp` are five coach-demo crops; its share card is `og-home.jpg`. Re-capture them whenever those screens change. Programs-shop links (`data-needs-programs`) stay hidden until `siteProgramsReady()` counts 3+ programs. Reveals never hide content by default. One footer (`footer.s-foot`) is pasted into every page. Full notes: vault `Code/Architecture detail.md`.
+Every other public page is `<body class="site">`: `styles.css`, `site.css` (Archivo from `fonts/`, the bar `header.bar#nav` and `footer.foot`, pasted into every page; `renderNav` only swaps in a signed-in visitor's Dashboard), then `pages.css` (the homepage's look for them), never the dashboards. The homepage is `body.home`: `home.css`, `home.js` (page layer, scroll score; GSAP from `vendor/gsap-3.15.0/` after load, not with reduced motion), pictures in `site-img/home/` (re-take: `test/site-capture/`), share card `og-home.jpg` (every public page's). Its head writes the website's files or the app's (`html.native`); the app bundle and `styles.css` load only on intent (Log in, Start free) through `PowaApp`, and `home.css` answers what styles.css would change. One crimson action per screen (#dc2637, white label). `data-needs-programs` hides until `siteProgramsReady()` counts 3+ programs. Full notes: vault `Code/Architecture detail.md`.
 
 ## Brand tokens
 
@@ -137,14 +137,13 @@ The full list, with context, is in the vault (`Code/Gotchas.md`, `History/`). Th
 - Coach branding paints `--fire` under `html body.powa-app.is-branded` (to out-rank the dark theme); the gradient's second stop is `brandTint` in JS, not `color-mix`.
 - Demos: `athlete.html?demo=1` (coached lifter), `&solo=1` (training alone), `&brand=1` (coach branding), `coach.html?demo=1` (full roster; Arjun `demo-a1` carries the showcase block, a past block and meets), `coach.html?demo=1&fresh=1` (a brand-new coach). Never let a first-run screen be an empty black page.
 - The app's generic `input[type=…]` and `body.site a` rules out-rank single-class rules: the onboarding pins its own field and link styles under `.ob-sheet` (native-onboard.css end), and the light theme has its own darker text shades for lift, RPE, PR and alert colours (styles.css "Light theme legibility").
-- Coach features of 28 Oct (files, data and gotchas: vault `Code/Feature map.md`): `progression.js` (the coach's rules in `coach_settings`, read and written through `CoachSettings`), `reuse-block.js`, `capacity.js`, `busy-week.js` (`schedule_requests`), `challenges.js`, `coach-report.js` + `coach-report-ui.js` (the Monday report). `coach-report.js` has a byte-identical copy in `supabase/functions/_shared/` (a test fails if they drift); `send-weekly-digest` runs the lifters' digest + the coach report on Mondays and the missed-sessions push on Thursdays (cron `0 14 * * 1,4`).
+- 28 Oct: the coach features' files, and the sign-out, URL-session, Plausible and read-only-thread rules: vault `Code/Gotchas.md` (28 Oct).
 - PostgREST stops every read at 1,000 rows, whatever `.limit()` says: a read that can pass that goes through db.js `_readAll` / `_readAllIn` (paged, stable order, a logged ceiling; overlapping pages are joined by the read's key, id or the whole order, which must be among the columns it selects: a test checks every one). A coach's sets are grouped per lifter once per Store version (app.js `_logsOf`, `rosterLogsFor`, per-lifter memos): code that edits a logged set in place outside `Store.update` must call `Store.bump()`.
-- 28 Oct sweep: a sign-out (app.js `_wipeLocalUserData`) removes private keys and keeps the account's own settings and drafts (`_accountKeyKind`; a deletion takes them); queues and unsent meet-day boards carry `powa-queue-owner`; only this tab's Apple/Google return and reset-password.html's own client take a URL session (db.js `powaUrlSessionVerdict`); Plausible gets paths only (copy its one-line snippet whole); a thread without a live coach link is read-only (`msgThreadLive`).
 - Where features live (each one's files and entry points, newest last: Train v9, the grid, the desk, Wrapped, voice notes, Apple Health, Apple/Google sign-in, Program from a photo, Clients, the intake, branded onboarding, Ask AI about the roster, the week's note, attempt odds, Block DNA, Career): vault `Code/Feature map.md`. Read it before touching a feature.
 
 ## Testing
 
-- `node test/run-unit-tests.js` runs the `tests.html` suite headlessly (open `tests.html` in a browser for the full count); `node test/opl-api.test.cjs`; `node test/url-session.test.cjs`; `node test/uiscan.mjs` is the layout scanner (~110 screens, dark + light).
+- `node test/run-unit-tests.js` runs the `tests.html` suite headlessly (open `tests.html` in a browser for the full count); `node test/opl-api.test.cjs`; `node test/url-session.test.cjs`; `node test/uiscan.mjs` is the layout scanner (175 screens, dark + light; Supabase and Plausible refused).
 - Browser checks run on the demos above. The iPhone app needs a re-bundled build to show a web change (see Gotchas).
 
 ## Style conventions
@@ -152,11 +151,11 @@ The full list, with context, is in the vault (`Code/Gotchas.md`, `History/`). Th
 - Inline `<script>` blocks at the bottom of each HTML page wire up the page-specific glue. `app.js` is the shared library.
 - Don't introduce a build step. Vercel serves the files raw.
 - Don't add new JS frameworks. Pure vanilla.
-- Website classes use the `s-*` prefix (site.css); app motion lives in styles.css / dash-fx.css.
+- Website classes use the `s-*` prefix (pages.css); app motion lives in styles.css / dash-fx.css.
 - New tables and policies go in their own `sql/migration-*.sql` file for the owner to run.
 
 ## When in doubt
 
 - Editing the homepage: keep the calculator ids, the three modals, `#nativeWelcome`, `#pricing` and `#marketplace-teaser` (the iPhone app hides those two by id for Apple 3.1.1).
 - Adding a new feature that touches DB: write a migration + check if you need to add a mapper in `db.js`.
-- Adding a new public page: `<body class="site">`, include `styles.css` then `site.css`, `site.js` (defer), `error-log.js`, the Plausible tag and the native-detect snippet, plus `<nav class="nav" id="nav">` (renderNav) and the shared `footer.s-foot` (copy it from any public page). Use `.s-page-head` + `.s-wrap.s-narrow` + `.s-prose` for a text page.
+- Adding a new public page: `<body class="site">`, `styles.css`, `site.css`, `pages.css`, the Archivo preload, `error-log.js`, the Plausible tag and the native-detect snippet, plus the bar (`header.bar#nav`, renderNav) and `footer.foot` (copy both from any public page). Use `.s-page-head` + `.s-wrap.s-narrow` + `.s-prose` for a text page.

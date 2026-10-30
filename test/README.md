@@ -70,12 +70,27 @@ blocks a machine that doesn't have a browser installed.
 
 ## Small-stuff scanner (needs playwright-core)
 
-Opens 100 screens (the four demos in the iPhone layout, their sheets, the onboarding, every
+Opens 233 screens (the four demos in the iPhone layout, their sheets, the onboarding, every
 public page at desktop and phone width, dark and light) and reports overlapping text or buttons,
 text cut off by its box, sideways scroll, controls outside their card, side-by-side buttons that
-don't match, tiny tap targets and unreadable text. Run it before every App Store build.
+don't match, tiny tap targets and unreadable text. A screen that fails to load counts as a finding.
+It never reaches the live services: Supabase and Plausible are refused on this machine, and the
+public pages show their offline states. Run it before every App Store build.
 
 ```bash
 python3 -m http.server 4191 --bind 127.0.0.1     # from the repo root, in another tab
 node test/uiscan.mjs /tmp/powa-uiscan             # screenshots + issues.json for anything found
+UISCAN_ONLY='^w-index' node test/uiscan.mjs       # only the screens whose name matches
+```
+
+## The homepage's pictures (needs playwright-core and Pillow)
+
+The homepage shows the app's own screens: re-take them from this repo's demos whenever those screens change (desk:
+Sam's Lifters and Arjun's page; phone: Arjun's Train; thread, brand, week, clients, import), then cut them into
+`site-img/home/` and follow what `mkimg.py` prints (after a desk re-take: where index.html's live numbers, rings and
+pins go).
+
+```bash
+python3 -m http.server 4191 --bind 127.0.0.1     # from the repo root, in another tab
+for s in desk phone thread brand week clients import; do node test/site-capture/cap-$s.mjs; done; python3 test/site-capture/mkimg.py
 ```

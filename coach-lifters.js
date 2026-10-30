@@ -89,8 +89,11 @@
 
   var KIND = { message: 'answer', note: 'answer', formcheck: 'answer', pain: 'check', checkin: 'check', nocheckin: 'check', readiness: 'check', overshoot: 'check', drift: 'check',
     quiet: 'check', never: 'check', missed: 'check', stalling: 'check', meet: 'meet', weight: 'meet', offpace: 'meet', blockend: 'write', blockdone: 'write', noprogram: 'write' };
-  var ORDER = ['meetday', 'pain', 'busy', 'weight', 'meet', 'overshoot', 'message', 'formcheck', 'drift', 'note', 'checkin', 'nocheckin', 'readiness', 'offpace',
-    'blockdone', 'blockend', 'quiet', 'missed', 'never', 'noprogram', 'stalling', 'write'];
+  // Home's order (app.js deskReasons): pain first, then a meet today, then deskReasons' groups (2 meets and weigh-ins,
+  // 3 RPE, 4 their words, 5 form checks, 6 check-ins, 7 quiet, 8 the block, 9 stalling). A busy week to approve keeps its
+  // place before group 2; next week to write comes last. The kind decides first, how soon (clTier) breaks ties.
+  var ORDER = ['pain', 'meetday', 'busy', 'weight', 'meet', 'offpace', 'overshoot', 'drift', 'message', 'note', 'formcheck',
+    'checkin', 'nocheckin', 'readiness', 'quiet', 'missed', 'never', 'blockdone', 'blockend', 'noprogram', 'stalling', 'write'];
   function waitHours(x) { var m = /(\d+)\s*(h|d)\b/.exec((x && x.text) || ''); if (!m) return 0; return Number(m[1]) * (m[2] === 'd' ? 24 : 1); }
   // How soon: 0 today, 1 this week's health and deadlines, 2 the program and replies, 3 planning and
   // engagement, 4 the long view. Pure over the row: unit-tested.
@@ -126,7 +129,7 @@
     return 0;
   }
   function jobCmp(a, b) {
-    return (a.done ? 1 : 0) - (b.done ? 1 : 0) || a.tier - b.tier || a.order - b.order || sev(a) - sev(b) ||
+    return (a.done ? 1 : 0) - (b.done ? 1 : 0) || a.order - b.order || a.tier - b.tier || sev(a) - sev(b) ||
       String(a.name || '').localeCompare(String(b.name || ''));
   }
   // Every job on the roster, one per lifter per kind (their most urgent reason of that kind), plus one
@@ -148,7 +151,7 @@
     (rows || []).forEach(function (r) {
       if (!r.meet || r.meet.days > 1 || r.meet.days < 0) return;
       var m = r.meet.meet || {}, k = String(m.name || 'Meet').trim().toLowerCase() + '|' + String(m.date || '').slice(0, 10);
-      (md[k] = md[k] || { key: 'meetday:' + k, kind: 'meetday', type: 'meetday', tier: 0, order: 0, rows: [], meet: m, days: r.meet.days, name: m.name || 'Meet' }).rows.push(r);
+      (md[k] = md[k] || { key: 'meetday:' + k, kind: 'meetday', type: 'meetday', tier: 0, order: ORDER.indexOf('meetday'), rows: [], meet: m, days: r.meet.days, name: m.name || 'Meet' }).rows.push(r);
     });
     Object.keys(md).forEach(function (k) {
       var g = md[k];

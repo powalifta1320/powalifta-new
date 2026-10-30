@@ -387,7 +387,8 @@
       if (aal && aal.ok && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
         var passed = typeof window.promptMfaChallenge === 'function' ? await window.promptMfaChallenge() : false;
         // Cancel ends this half-finished sign-in on this device only, never the person's other sessions.
-        if (!passed) { try { await DB.signOut('local'); } catch (e) {} throw new Error('Two-factor verification is required.'); }
+        // With no network that call keeps the session: it goes anyway (or the next load asks for the code again).
+        if (!passed) { try { await DB.signOut('local'); } catch (e) {} if (typeof window._dropStoredSession === 'function') window._dropStoredSession(); throw new Error('Two-factor verification is required.'); }
       }
     }
     var ident = profileFromIdentity(user, state.identity);

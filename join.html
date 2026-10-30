@@ -11,51 +11,20 @@
 <meta name="description" content="Your coach invited you to train on POWALIFTA. Get the app, sign up, and your program is waiting.">
 <meta name="robots" content="noindex">
 <meta property="og:title" content="You're invited to train on POWALIFTA">
-<meta property="og:description" content="Your coach set you up. Get the app and your program is waiting. Free for athletes.">
+<meta property="og:description" content="Your coach set you up. Get the app and your program is waiting. Free for lifters.">
 <meta property="og:type" content="website">
-<meta property="og:image" content="https://www.powalifta.com/og.png">
+<meta property="og:image" content="https://www.powalifta.com/og-home.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The powerlifting app for coaches and their lifters: Sam’s laptop with his lifters and Arjun’s page, and Arjun’s phone mid-session, his top set of 182.5 kg for 5 ready to log.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#060607">
 <meta name="apple-itunes-app" content="app-id=6788506689">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<link rel="preload" href="/fonts/archivo-tw.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/site.css">
-<link rel="stylesheet" href="/cookie-consent.css">
-<style>
-.jn-wrap { min-height: calc(100vh - 80px); display: grid; place-items: center; padding: 32px max(var(--s-gutter, 20px), env(safe-area-inset-left)) 56px; }
-.jn-card { width: 100%; max-width: 440px; text-align: center; }
-.jn-brand { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 36px; color: var(--text); font: 800 1rem/1 var(--font-display); font-stretch: 125%; letter-spacing: 0.06em; }
-.jn-brand svg { width: 26px; height: 26px; }
-.jn-av { width: 76px; height: 76px; margin: 0 auto 18px; border-radius: 50%; display: grid; place-items: center; overflow: hidden; background: var(--bg-3); color: var(--text); font: 750 1.6rem/1 var(--font-body); box-shadow: 0 0 0 4px var(--bg), 0 0 0 5px var(--line-2); }
-.jn-av img { width: 100%; height: 100%; object-fit: cover; }
-body.site .jn-card h1 { font-size: clamp(1.9rem, 6vw, 2.5rem); line-height: 1.08; letter-spacing: -0.03em; margin: 0 auto 12px; max-width: 16ch; }
-.jn-sub { color: var(--text-2); font-size: 1.04rem; line-height: 1.55; max-width: 30rem; margin: 0 auto 26px; }
-.jn-code { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 auto 26px; padding: 14px 14px 14px 20px; border-radius: 18px; background: var(--bg-1); border: 1px solid var(--line); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
-.jn-code span { color: var(--text-3); font-size: 0.86rem; font-weight: 600; text-align: left; }
-.jn-code b { display: block; color: var(--text); font: 700 1.5rem/1.15 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.18em; }
-.jn-steps { display: grid; gap: 12px; text-align: left; margin: 0 0 22px; }
-.jn-step { display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start; }
-.jn-step i { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font: 700 0.9rem/1 var(--font-body); font-style: normal; color: var(--text); background: var(--bg-2); border: 1px solid var(--line-2); }
-.jn-step p { margin: 4px 0 0; color: var(--text-2); line-height: 1.5; }
-.jn-step b { color: var(--text); font-weight: 650; }
-.jn-actions { display: grid; gap: 12px; justify-items: center; }
-.jn-actions .btn { width: 100%; }
-.jn-store img { height: 54px; width: auto; display: block; }
-.jn-alt { margin-top: 18px; color: var(--text-3); font-size: 0.92rem; line-height: 1.5; }
-.jn-alt a { color: var(--text); font-weight: 600; text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
-.jn-bad h1 { max-width: 18ch; }
-/* A coach with branding (Pro / Premium): their team's logo, name and colour lead the page. */
-.jn-logo { width: 84px; height: 84px; margin: 0 auto 18px; border-radius: 22px; overflow: hidden; display: grid; place-items: center; background: var(--jn-brand, var(--bg-3)); color: #fff; font: 800 1.7rem/1 var(--font-display); font-stretch: 112%; box-shadow: 0 0 0 4px var(--bg), 0 0 0 5px color-mix(in srgb, var(--jn-brand, var(--line-2)) 55%, transparent), 0 18px 44px -18px color-mix(in srgb, var(--jn-brand, #000) 70%, transparent); }
-.jn-logo img { width: 100%; height: 100%; object-fit: cover; }
-.jn-team { margin: -2px 0 12px; color: var(--text-2); font-size: 1rem; font-weight: 600; }
-body.jn-branded .btn-primary { background: var(--jn-brand); background-image: none; border-color: transparent; color: #fff; box-shadow: 0 10px 28px -12px var(--jn-brand); }
-body.jn-branded .jn-step i { border-color: color-mix(in srgb, var(--jn-brand) 45%, var(--line-2)); }
-[hidden] { display: none !important; }
-</style>
-<script defer src="/site.js"></script>
+<link rel="stylesheet" href="/pages.css">
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="/error-log.js"></script>
 <script defer src="/cookie-consent.js"></script>
@@ -70,7 +39,7 @@ body.jn-branded .jn-step i { border-color: color-mix(in srgb, var(--jn-brand) 45
       <div class="jn-av" id="jnAv" aria-hidden="true"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
       <h1 id="jnTitle">Your coach invited you to POWALIFTA</h1>
       <p class="jn-team" id="jnTeam" hidden></p>
-      <p class="jn-sub" id="jnSub">Your program, every set and your progress in one place. Free for athletes.</p>
+      <p class="jn-sub" id="jnSub">Your program, every set and your progress in one place. Free for lifters.</p>
       <div class="jn-code">
         <div><span>Your invite code</span><b id="jnCode">------</b></div>
         <button type="button" class="btn btn-ghost btn-sm" id="jnCopy">Copy</button>
@@ -100,7 +69,7 @@ body.jn-branded .jn-step i { border-color: color-mix(in srgb, var(--jn-brand) 45
     <div id="jnBad" class="jn-bad" hidden>
       <h1>This invite link doesn't work</h1>
       <p class="jn-sub">It may have been used already. Ask your coach to send you a new one, or start on your own for free.</p>
-      <div class="jn-actions"><a class="btn btn-ghost btn-lg" href="/">Go to POWALIFTA</a></div>
+      <div class="jn-actions"><a class="quiet" href="/">Go to POWALIFTA<svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg></a></div>
     </div>
   </div>
 </main>
@@ -162,7 +131,7 @@ body.jn-branded .jn-step i { border-color: color-mix(in srgb, var(--jn-brand) 45
         $('jnAv').hidden = true;
         $('jnTitle').textContent = team ? 'Join ' + team : (name || 'Your coach') + ' invited you to train';
         if (team && name) { $('jnTeam').textContent = 'Coached by ' + name; $('jnTeam').hidden = false; }
-        $('jnSub').textContent = 'Your program, every set and your progress in one place, on POWALIFTA. Free for athletes.';
+        $('jnSub').textContent = 'Your program, every set and your progress in one place, on POWALIFTA. Free for lifters.';
         document.title = (team ? 'Join ' + team : 'You\'re invited') + ' | POWALIFTA';
         return;
       }

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # Populate native/www with the repo's static web app.
+# The website's own files stay out (2026-10-29): inside the app index.html is the welcome and never loads the
+# homepage's pictures (site-img/), GSAP (vendor/), home.css or home.js. fonts/ stays: the public pages the app can
+# show (terms, the FAQ, a coach's profile) read Archivo from it through site.css.
 # Capacitor's CLI rejects webDir:"..", so we mirror the served files into a real
 # subdirectory (www) that the native build bundles. www/ is a generated artifact
 # (gitignored) — re-run this (or `npm run sync`) after changing the web app.
@@ -22,6 +25,10 @@ rsync -a --delete \
   --exclude 'docs' \
   --exclude 'tmp' \
   --exclude 'plates' \
+  --exclude '/site-img' \
+  --exclude '/vendor' \
+  --exclude '/home.css' \
+  --exclude '/home.js' \
   --exclude '*.md' \
   --exclude 'deploy.sh' \
   --exclude 'seed-demo.mjs' \
@@ -39,6 +46,7 @@ rsync -a --delete \
   --exclude '.impeccable' \
   --exclude '*.db' \
   --exclude 'scratchpad' \
+  --exclude 'scratchpad-shots' \
   --exclude 'ds-bundle' \
   --exclude '.design-sync' \
   --exclude 'showreel' \

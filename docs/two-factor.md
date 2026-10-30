@@ -20,8 +20,14 @@ makes that true. Nobody has two-factor on today (28 Oct: 0 verified factors, 1 a
 3. **App** (web on the next push, iPhone on the next build): a dashboard opened with a session that
    still owes its code (reload during the code prompt, or /athlete.html straight after the
    password) asks for the code in place. "Sign out" there, and Cancel on the sign-in screens, sign
-   out this device only (they used to sign the person out everywhere). Live updates get the new
-   token as soon as the code is entered.
+   out this device only (they used to sign the person out everywhere), and leave no session behind
+   even with no network. Live updates get the new token as soon as the code is entered.
+   Two-factor turned on from another device while a session here is older than the factor (its copy
+   of the account shows none, so nothing asks): a write the database refuses mid-session, or the
+   profile it hides at the next load, makes the app ask Auth (GET /user); a verified factor with an
+   aal1 token opens the same code prompt in place. Meanwhile nothing queued counts a failed try or
+   gets dropped; after the code it all goes up at aal2. "Sign out" there keeps what waits for the
+   account, as on any sign-out it didn't choose.
 
 Order: the SQL (a no-op today), then the functions, then the web push / iPhone build. Row 59
 (`migration-security-fixes-2026-10-28.sql`) is live since 28 Oct; this file is row 60, the next one to
@@ -137,8 +143,10 @@ If the hook is on, undo it before undoing row 60 (the hook calls `powa_mfa_ok()`
 - **Lost authenticator**: the account is really locked now (one factor, no backup codes). After
   checking it's them: Supabase dashboard → Authentication → Users → the user → delete the factor.
   They sign in with the password and can turn two-factor on again.
-- **Checklist with a test account** (owner, after the SQL, the functions and the web push): turn
-  two-factor on in Settings; sign out; sign in (the code is asked); reload a dashboard during the code
-  prompt (asked again, in place); upload a form check and play a voice note; get a message live; Ask
-  AI; open the billing portal; try delete-account with a password-only token (expect 403); reset the
-  password (the reset page asks for the code); turn two-factor off.
+- **Checklist with a test account** (owner, after the SQL, the functions and the web push): sign in
+  on a second device too and leave its dashboard open; turn two-factor on in Settings; log a set on
+  the second device (the code is asked there, in place, and the set goes up after it); sign out;
+  sign in (the code is asked); reload a dashboard during the code prompt (asked again, in place);
+  upload a form check and play a voice note; get a message live; Ask AI; open the billing portal;
+  try delete-account with a password-only token (expect 403); reset the password (the reset page
+  asks for the code); turn two-factor off.

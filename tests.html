@@ -5709,8 +5709,8 @@ test('jobs: one per lifter per kind; a meet today is one job', () => {
   ];
   const J = CL.clJobs(rows, { today: T, toWrite: [{ r: rows[3], week: 3 }] });
   const keys = J.map(j => j.key);
-  eq(J[0].type, 'meetday', 'the meet comes first'); eq(J[0].rows.length, 2); eq(J[0].over[0].athlete.id, 't'); eq(J[0].unplanned.length, 2);
-  eq(J[1].type, 'pain', 'then the pain before it');
+  eq(J[0].type, 'pain', 'pain comes first'); eq(J[0].r.athlete.id, 'p');
+  eq(J[1].type, 'meetday', 'then the meet today'); eq(J[1].rows.length, 2); eq(J[1].over[0].athlete.id, 't'); eq(J[1].unplanned.length, 2);
   assert(!J.some(j => j.r && j.r.athlete.id === 't' && j.kind === 'meet'), 'Tom’s weight and meet live in the meet-day job');
   eq(J.filter(j => j.r && j.r.athlete.id === 'k').length, 1, 'Kofi: one answer job for a message and a note');
   eq(J.find(j => j.key === 'k:answer').type, 'message', 'a message a day old comes before a note');
@@ -5720,8 +5720,28 @@ test('jobs: one per lifter per kind; a meet today is one job', () => {
   assert(D.find(j => j.key === 'k:answer').done, 'a handled lifter’s job is done');
   eq(D[D.length - 1].done, true, 'done jobs sink to the bottom');
   eq(CL.clTopJob(rows[0], J).type, 'meetday', 'Tom’s flag is the meet');
-  eq(CL.jobText(J[0]).title, 'Autumn Open is today');
-  eq(CL.jobText(J[0]).detail, 'Tom, Priya · Tom 0.3 kg over 105 · attempts not set');
+  eq(CL.clTopJob(rows[1], J).type, 'pain', 'Priya’s flag is her pain, meet or not');
+  eq(CL.jobText(J[1]).title, 'Autumn Open is today');
+  eq(CL.jobText(J[1]).detail, 'Tom, Priya · Tom 0.3 kg over 105 · attempts not set');
+});
+test('the Lifters list keeps Home’s order: pain, then a meet today, then deskReasons’ groups', () => {
+  // The owner's call (29 Oct): one worst-first order everywhere. The kind decides first; how soon only breaks ties.
+  const T = '2026-10-26';
+  const rows = [
+    clRow({ athlete: { id: 'q', name: 'Quinn Hale' }, reasons: [{ type: 'quiet', group: 7, text: 'Quiet' }], status: { ago: 9 } }),
+    clRow({ athlete: { id: 'k', name: 'Kofi Mensah' }, reasons: [{ type: 'message', group: 4, text: 'Message 1d' }] }),
+    clRow({ athlete: { id: 'i', name: 'Ines Duarte' }, reasons: [{ type: 'drift', group: 3, text: 'RPE +0.5 this week' }] }),
+    clRow({ athlete: { id: 'e', name: 'Elena Rossi' }, meet: { days: 12, meet: { name: 'State', date: '2026-11-07', weightClass: '57' } }, bw: { over: 1.4 }, reasons: [{ type: 'meet', group: 2 }, { type: 'weight', group: 2, text: 'BW +1.4 over class' }] }),
+    clRow({ athlete: { id: 'm', name: 'Mo Diaz' }, meet: { days: 0, meet: { name: 'Autumn Open', date: T } }, reasons: [{ type: 'meet', group: 2, text: 'Meet today' }] }),
+    clRow({ athlete: { id: 'p', name: 'Pat Lee' }, reasons: [{ type: 'pain', group: 1, text: 'Pain' }], status: { pain: { report: { severity: 4, day: '2026-10-20' }, count: 1 } } })
+  ];
+  const J = CL.clJobs(rows, { today: T });
+  eq(J.map(j => j.type).join(','), 'pain,meetday,weight,drift,message,quiet');
+  eq(J[0].tier, 1, 'a pain this week still leads a meet today (tier 0)');
+  eq(J[1].tier, 0);
+  assert(J.findIndex(j => j.type === 'drift') < J.findIndex(j => j.type === 'message'), 'RPE (group 3) before their words (group 4), whatever the wait');
+  const order = {}; J.forEach((it, i) => (it.r ? [it.r] : it.rows).forEach(r => { if (order[r.athlete.id] == null) order[r.athlete.id] = i; }));
+  eq(CL.clGroups(rows, { order })[0].rows.map(r => r.athlete.id).join(','), 'p,e,i,k,q', 'Check on reads the same order');
 });
 test('jobs: a reply closes what a message can, not the week still to write', () => {
   const T = '2026-10-26';
@@ -9042,6 +9062,58 @@ group('security merge follow-ups (demo log-out, deleted elsewhere, one code prom
     }
   } finally {
     window._user = realUser; window._demoMode = realDemo; window._mfaStepUpPending = realPending;
+    lsKeys().filter(k => /^(powa-|sb-)/.test(k) && !(k in keep)).forEach(k => localStorage.removeItem(k));
+    Object.keys(keep).forEach(k => localStorage.setItem(k, keep[k]));
+  }
+})();
+
+/* ===========================================================
+   The merge review's two-factor follow-ups (29 Oct). "Sign out" on the code prompt takes the stored session even
+   when the sign-out call fails offline (_dropStoredSession). Two-factor turned on from another device: Auth's own
+   answer (GET /user) says the code is owed when this session's stored copy of the user can't (mfaCodeOwed); a
+   write refused by the database's rules (writeRefusedByPolicy) then asks for it in place instead of counting
+   tries. The prompt and the queues themselves are async: browser flows drive them. Every powa-* and sb-* key is
+   put back as it was.
+   =========================================================== */
+group('the merge review\'s two-factor follow-ups (29 Oct)');
+(() => {
+  const lsKeys = () => { const a = []; for (let i = 0; i < localStorage.length; i++) a.push(localStorage.key(i)); return a; };
+  const keep = {};
+  lsKeys().forEach(k => { if (/^(powa-|sb-)/.test(k)) keep[k] = localStorage.getItem(k); });
+  try {
+    test('"Sign out" on the code prompt: the stored session goes even when the sign-out call can\'t (offline)', () => {
+      localStorage.setItem('sb-fu-test-auth-token', '{"access_token":"x.y.z"}');
+      localStorage.setItem('sb-fu-test-auth-token-code-verifier', 'v');
+      localStorage.setItem('powa-fu-test-keep', '1');
+      _dropStoredSession();
+      eq(localStorage.getItem('sb-fu-test-auth-token'), null, 'the half-finished sign-in stays, and the prompt comes back next load');
+      eq(localStorage.getItem('sb-fu-test-auth-token-code-verifier'), 'v', 'only the session itself');
+      eq(localStorage.getItem('powa-fu-test-keep'), '1', 'nothing else on the device');
+      localStorage.removeItem('sb-fu-test-auth-token-code-verifier'); localStorage.removeItem('powa-fu-test-keep');
+    });
+    test('the code is owed by Auth\'s own answer: a verified factor and a token still at aal1', () => {
+      const user = { id: 'u1', factors: [{ id: 'f1', factor_type: 'totp', status: 'verified' }] };
+      eq(mfaCodeOwed(user, 'aal1'), true);
+      eq(mfaCodeOwed(user, 'aal2'), false, 'the code is in');
+      eq(mfaCodeOwed(user, null), false, 'a token with no level: no prompt on a guess');
+      eq(mfaCodeOwed({ factors: [{ id: 'f2', status: 'unverified' }] }, 'aal1'), false, 'an abandoned enroll protects nothing');
+      eq(mfaCodeOwed({ factors: [] }, 'aal1'), false);
+      eq(mfaCodeOwed({ id: 'u2' }, 'aal1'), false, 'no factors at all (the stored copy from before two-factor looks like this)');
+      eq(mfaCodeOwed(null, 'aal1'), false, 'Auth gave no user');
+    });
+    test('a write the database refused by its rules, not a network failure, a duplicate or an expired token', () => {
+      eq(writeRefusedByPolicy({ code: '42501', message: 'new row violates row-level security policy for table "workout_logs"' }), true, 'row 60 at aal1');
+      eq(writeRefusedByPolicy({ message: 'new row violates row-level security policy for table "bodyweight"' }), true, 'no code');
+      eq(writeRefusedByPolicy({ status: 403, message: 'Forbidden' }), true);
+      eq(writeRefusedByPolicy({ status: '403', message: 'new row violates row-level security policy' }), true, 'a status as text (Storage)');
+      eq(writeRefusedByPolicy({ code: '42501', message: 'permission denied for table workout_logs' }), true);
+      eq(writeRefusedByPolicy(new TypeError('Failed to fetch')), false, 'offline');
+      eq(writeRefusedByPolicy({ code: '23505', message: 'duplicate key value violates unique constraint "workout_logs_pkey"' }), false, 'a duplicate (it landed before)');
+      eq(writeRefusedByPolicy({ code: 'PGRST301', message: 'JWT expired' }), false, 'an expired token (supabase-js refreshes it)');
+      eq(writeRefusedByPolicy({ code: '23503', message: 'insert or update on table "workout_logs" violates foreign key constraint' }), false, 'a bad row');
+      eq(writeRefusedByPolicy(null), false);
+    });
+  } finally {
     lsKeys().filter(k => /^(powa-|sb-)/.test(k) && !(k in keep)).forEach(k => localStorage.removeItem(k));
     Object.keys(keep).forEach(k => localStorage.setItem(k, keep[k]));
   }

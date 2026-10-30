@@ -1,18 +1,24 @@
 /* ============================================================
-   POWALIFTA — cookie / privacy consent banner (drop-in module)
+   POWALIFTA — the privacy note (drop-in module)
 
    POWALIFTA sets no ad cookies and no cross-site trackers. Storage is:
      • an essential session token + theme preference (localStorage) — required
      • cookieless Plausible analytics — optional, no personal data
 
-   So this is an honest, meaningful consent control, not theatre:
+   So this is an honest, meaningful choice, not theatre:
      "Accept"          -> analytics stays on
      "Essential only"  -> sets Plausible's documented `plausible_ignore`
                           flag, which stops all future analytics events
 
    The decision is remembered in localStorage ('powa-consent') and
    re-applied on every page load (early), so an opt-out sticks. The
-   banner only ever shows until a choice is made once.
+   note only ever shows until a choice is made once.
+
+   When it shows (2026-10-29): only once the reader has scrolled past the
+   opening (a screen down, or to the end of a shorter page), never over a
+   first visit's first frame, which is the page the owner approved. Its
+   stylesheet (cookie-consent.css) is loaded then, so no page blocks on it,
+   and the card is added only once its styles are in (never unstyled).
 
    No dependencies — runs standalone, before app.js. Vanilla, no build.
    ============================================================ */
@@ -60,14 +66,44 @@
     return;
   }
 
-  var SHIELD =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>' +
-    '<path d="m9 12 2 2 4-4"/></svg>';
+  // Past the opening: a screen down (90% of one), or the end of a page shorter than that. A page that doesn't
+  // scroll (404, an invite link) never shows the note; the next page read past its opening does.
+  function pastOpening() {
+    var de = document.documentElement;
+    var y = window.pageYOffset || de.scrollTop || 0;
+    var h = window.innerHeight || de.clientHeight || 0;
+    var max = Math.max(0, (de.scrollHeight || 0) - h);
+    return h > 0 && (y >= h * 0.9 || (y > 0 && max > 0 && y >= max - 2));
+  }
+  function whenPastOpening(cb) {
+    var queued = false, done = false;
+    function check() {
+      queued = false;
+      if (done || !pastOpening()) return;
+      done = true;
+      window.removeEventListener('scroll', onScroll);
+      cb();
+    }
+    function onScroll() { if (!queued) { queued = true; requestAnimationFrame(check); } }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    check();
+  }
+  // The card's styles, loaded when it is about to show. If they can't load, the card stays away rather than
+  // arriving unstyled; the choice is asked on a later page.
+  function withStyles(cb) {
+    var link = document.querySelector('link[rel="stylesheet"][href$="cookie-consent.css"]');
+    if (link && link.sheet) { cb(); return; }
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '/cookie-consent.css';
+      document.head.appendChild(link);
+    }
+    link.addEventListener('load', function () { cb(); }, { once: true });
+  }
 
   function build() {
-    if (document.querySelector('.cc-banner')) return;
+    if (document.querySelector('.cc-banner') || readChoice()) return;
 
     var banner = document.createElement('div');
     banner.className = 'cc-banner';
@@ -75,14 +111,8 @@
     banner.setAttribute('aria-label', 'Privacy and cookies');
     banner.setAttribute('aria-live', 'polite');
     banner.innerHTML =
-      '<div class="cc-icon">' + SHIELD + '</div>' +
-      '<div class="cc-body">' +
-        '<p class="cc-title">Your privacy</p>' +
-        '<p class="cc-text">We keep you signed in with an essential token in your ' +
-        'browser, plus cookieless analytics to count visits. No ad cookies, no ' +
-        'cross-site tracking, no data selling. ' +
-        '<a href="privacy.html">Privacy policy</a></p>' +
-      '</div>' +
+      '<p class="cc-text">We count visits without cookies. No ad cookies, no tracking across sites. ' +
+      '<a href="/privacy.html">Privacy policy</a></p>' +
       '<div class="cc-actions">' +
         '<button type="button" class="cc-btn cc-essential">Essential only</button>' +
         '<button type="button" class="cc-btn cc-accept">Accept</button>' +
@@ -95,7 +125,7 @@
       banner.classList.add('cc-out');
       var done = function () { if (banner.parentNode) banner.remove(); };
       banner.addEventListener('transitionend', done, { once: true });
-      setTimeout(done, 500); // fallback if transitionend never fires (reduced motion / hidden tab)
+      setTimeout(done, 400); // fallback if transitionend never fires (reduced motion / hidden tab)
     }
 
     banner.querySelector('.cc-accept').addEventListener('click', function () { decide('all'); });
@@ -108,9 +138,10 @@
     });
   }
 
+  function start() { whenPastOpening(function () { withStyles(build); }); }
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', build);
+    document.addEventListener('DOMContentLoaded', start);
   } else {
-    build();
+    start();
   }
 })();

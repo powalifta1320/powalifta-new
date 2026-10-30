@@ -16,82 +16,38 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="POWALIFTA">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<link rel="preload" href="/fonts/archivo-tw.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="site.css">
-<link rel="stylesheet" href="cookie-consent.css">
-<style>
-.unsub-wrap {
-  min-height: calc(100vh - 60px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-}
-.unsub-card {
-  width: 100%;
-  max-width: 440px;
-  background: var(--bg-1);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  padding: 36px 32px;
-  box-shadow: var(--shadow);
-}
-.unsub-card h1 {
-  font-size: 1.7rem;
-  letter-spacing: 0.005em;
-  margin-bottom: 6px;
-  text-transform: uppercase;
-}
-.unsub-card .unsub-sub { color: var(--text-2); font-size: 0.92rem; margin-bottom: 22px; line-height: 1.55; }
-/* Result banner atop the card once the one-click has resolved. */
-.unsub-result {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 14px 16px; border-radius: var(--r);
-  margin-bottom: 22px; font-size: 0.92rem; line-height: 1.5;
-}
-.unsub-result.ok  { background: rgba(78,216,132,0.07); border: 1px solid rgba(78,216,132,0.28); color: var(--text); }
-.unsub-result.err { background: rgba(255,45,63,0.07);  border: 1px solid rgba(255,45,63,0.3);  color: var(--text); }
-.unsub-result .ur-ic {
-  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1rem; font-weight: 700;
-}
-.unsub-result.ok  .ur-ic { background: rgba(78,216,132,0.16); color: var(--green); }
-.unsub-result.err .ur-ic { background: rgba(255,45,63,0.16);  color: var(--red); }
-.unsub-result .ur-title { display: block; font-weight: 700; margin-bottom: 3px; }
-.unsub-result .ur-body  { display: block; color: var(--text-2); }
-.unsub-prefs-head {
-  font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--text-3); font-weight: 700; margin: 4px 0 4px;
-}
-.unsub-loading { color: var(--text-3); font-size: 0.9rem; padding: 8px 0 18px; }
-.unsub-saving { min-height: 18px; font-size: 0.8rem; color: var(--text-3); margin-top: 10px; transition: opacity .2s; }
-</style>
+<link rel="stylesheet" href="pages.css">
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 <script defer src="cookie-consent.js"></script>
-<script defer src="site.js"></script>
 </head>
 <body class="site">
 
 <a class="skip-link" href="#main">Skip to content</a>
-<nav class="nav" id="nav"></nav>
+<!-- The bar (site.css): the homepage's chapters, Log in and Start free; app.js renderNav swaps in a signed-in
+     visitor's dashboard. The same bar as the homepage's. -->
+<header class="bar" id="nav">
+  <a class="bar-brand" href="/" aria-label="POWALIFTA home"><svg class="bar-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="1.5" y="14.6" width="29" height="2.8" rx="1.4" fill="currentColor"/><rect x="8" y="3" width="7.5" height="26" rx="2.2" fill="#ff2d3f"/><rect x="17" y="7.5" width="4" height="17" rx="1.6" fill="currentColor"/><rect x="22.5" y="12" width="2.6" height="8" rx="1.1" fill="currentColor"/></svg><span class="bar-word">POWALIFTA</span></a>
+  <nav class="bar-r" aria-label="Site">
+    <div class="bar-toc web-only"><a class="bar-link" href="/#today">Today</a><a class="bar-link" href="/#answers">Answers</a><a class="bar-link" href="/#program">Next week</a><a class="bar-link" href="/#meet">Meet day</a><a class="bar-link" href="/#pricing">Pricing</a></div>
+    <a class="bar-link" href="/index.html#login" data-bar="login">Log in</a>
+    <a class="bar-pill" href="/index.html#signup" data-bar="cta">Start free</a>
+  </nav>
+</header>
 
 <main id="main" class="unsub-wrap">
   <div class="unsub-card">
-    <h1>Email <span style="color:var(--red)">preferences</span></h1>
+    <h1>Email preferences</h1>
     <p class="unsub-sub">Manage which emails POWALIFTA sends you. Changes save instantly. No login needed.</p>
 
     <div id="unsubBody">
       <div class="unsub-loading" id="unsubLoading">Updating your preferences…</div>
     </div>
 
-    <p class="dim text-sm center" style="margin-top: 20px;">
-      <a href="index.html">← Back to home</a>
-    </p>
+    <p class="unsub-alt"><a href="index.html">Back to POWALIFTA</a></p>
   </div>
 </main>
 
@@ -212,10 +168,11 @@
     });
   }
 
-  // Render nav + theme via the shared bootstrap (static/public mode), then boot.
+  // The link works on its own (its token is the whole credential), so it is answered at once; bootstrap only fills in
+  // the bar (it reads the sign-in and the coach list first: offline, supabase-js retries that for about 14 s).
+  boot();
   bootstrap(null, function () {
     if (typeof renderNav === 'function') renderNav('#nav');
-    boot();
   }, { staticPublic: true });
 })();
 </script>
