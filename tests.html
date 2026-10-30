@@ -9336,29 +9336,39 @@ group('swap an exercise (app.js swapApply)');
 group('the meet on the weigh-in (app.js meetWeighLine)');
 (() => {
   const L = (o) => meetWeighLine(Object.assign({ unit: 'kg', slope: 0 }, o));
-  test('the owner\'s line: meet, the class, the pace, each once', () => {
-    eq(L({ days: 23, cls: 83, bw: 84.4 }).text, 'Meet in 23 days · 1.4 kg over 83 · on pace', 'inside the last 2% (water on the day)');
+  test('the owner\'s line: meet, the class, the pace, each once (the spec\'s case: 84.6 for the 83 class, 23 days → 0.5 kg a week gets there)', () => {
+    eq(L({ days: 23, cls: 83, bw: 84.6 }).text, 'Meet in 23 days · 1.6 kg over 83 · 0.5 kg a week gets there', 'flat: the pace it takes');
+    eq(L({ days: 23, cls: 83, bw: 84.4, slope: -0.5 }).text, 'Meet in 23 days · 1.4 kg over 83 · on pace', 'losing 0.5 a week gets there');
     eq(L({ days: 23, cls: 83, bw: 82.4 }).text, 'Meet in 23 days · 0.6 kg under 83 · on weight');
     eq(L({ days: 23, cls: 83, bw: 83 }).text, 'Meet in 23 days · at 83 · on weight');
     eq(L({ days: 1, cls: 83, bw: 82.9 }).parts[0], 'Meet tomorrow'); eq(L({ days: 0, cls: 83, bw: 82.9 }).parts[0], 'Meet today');
-    eq(L({ days: 23, cls: 83, bw: 84.4 }).warn, false);
+    eq(L({ days: 23, cls: 83, bw: 84.6 }).warn, false);
   });
-  test('behind: what is left needs more than 1% of bodyweight a week (the orange triangle, not red)', () => {
-    const b = L({ days: 14, cls: 83, bw: 87 });   // 4 over, 1.74 of water: 1.13 a week, 0.87 is the most
+  test('behind: what is left needs more than 1% of bodyweight a week, or it\'s meet day and still over (the orange triangle, not red)', () => {
+    const b = L({ days: 14, cls: 83, bw: 87 });   // 4 over in 2 weeks: 2 a week, 0.87 is the most
     eq(b.verdict, 'behind'); eq(b.warn, true); eq(b.text, 'Meet in 14 days · 4.0 kg over 83 · behind');
-    eq(L({ days: 0, cls: 83, bw: 86 }).verdict, 'behind', 'meet day, 3 kg over: past the water');
-    eq(L({ days: 0, cls: 83, bw: 84 }).verdict, 'on pace', 'meet day, 1 kg over: the water cut');
+    eq(L({ days: 0, cls: 83, bw: 84 }).verdict, 'behind', 'meet day, still 1 kg over');
+    eq(L({ days: 1, cls: 83, bw: 83.3 }).verdict, 'on pace', 'tomorrow, 300 g over: that much is water');
+    eq(L({ days: 1, cls: 83, bw: 84 }).verdict, 'behind', 'tomorrow, 1 kg over');
   });
-  test('the trend decides on pace; a safe pace that would get there is said as the pace', () => {
-    eq(L({ days: 28, cls: 83, bw: 86, slope: 0 }).text, 'Meet in 28 days · 3.0 kg over 83 · 0.3 kg a week gets there', 'flat: 1.28 to lose over 4 weeks');
-    eq(L({ days: 28, cls: 83, bw: 86, slope: -0.5 }).verdict, 'on pace', 'losing 0.5 a week gets there');
+  test('the trend decides on pace; off pace says the pace that gets there; climbing a little over says hold', () => {
+    eq(L({ days: 28, cls: 83, bw: 86, slope: 0 }).text, 'Meet in 28 days · 3.0 kg over 83 · 0.8 kg a week gets there', 'flat: 3 over 4 weeks');
+    eq(L({ days: 28, cls: 83, bw: 86, slope: -0.5 }).verdict, 'on pace', 'losing 0.5 a week: 60% of the 0.75 it takes');
     eq(L({ days: 28, cls: 83, bw: 86, slope: null }).verdict, 'pace', 'no trend yet: the pace it takes');
-    eq(L({ days: 28, cls: 83, bw: 84.5, slope: 0.3 }).text, 'Meet in 28 days · 1.5 kg over 83 · hold your weight', 'inside the water now, climbing past it');
+    eq(L({ days: 28, cls: 83, bw: 83.2, slope: 0.3 }).text, 'Meet in 28 days · 0.2 kg over 83 · hold your weight', 'a few hundred grams over, climbing');
+    eq(L({ days: 28, cls: 83, bw: 83.2, slope: 0 }).verdict, 'on pace', 'a few hundred grams over, steady: water');
     eq(L({ days: 56, cls: 83, bw: 89, slope: -0.8 }).verdict, 'on pace', 'eight weeks, 6 over, losing 0.8: the trend gets there');
   });
-  test('pounds: the gap in pounds, the class by its kg name; nothing to say without a class, a weigh-in or a date', () => {
-    eq(meetWeighLine({ days: 23, cls: 83, bw: 84.4, slope: 0, unit: 'lbs' }).text, 'Meet in 23 days · 3.1 lb over 83 kg · on pace');
+  test('pounds: the gap and the pace in pounds, the class by its kg name; nothing to say without a class, a weigh-in or a date', () => {
+    eq(meetWeighLine({ days: 23, cls: 83, bw: 84.6, slope: 0, unit: 'lbs' }).text, 'Meet in 23 days · 3.5 lb over 83 kg · 1.1 lb a week gets there');
     eq(L({ days: 23, cls: 0, bw: 84 }), null); eq(L({ days: 23, cls: 83, bw: 0 }), null); eq(L({ days: null, cls: 83, bw: 84 }), null);
+  });
+  test('a trend needs a week: at least 4 weigh-ins over 7 mornings (two a day apart are water)', () => {
+    const t = '2026-10-30', ser = (pts) => pts.map(([d, w]) => ({ date: _addDaysISO(t, -d), weight: w }));
+    eq(bwTrendSlope(ser([[1, 86.2], [0, 85.0]])), null, 'two weigh-ins');
+    eq(bwTrendSlope(ser([[3, 86], [2, 85.8], [1, 85.6], [0, 85.4]])), null, 'four in four days');
+    close(bwTrendSlope(ser([[6, 86], [4, 85.8], [2, 85.6], [0, 85.4]])), -0.7, 0.01, 'four across a week');
+    eq(cutWeighKg(84.3, 83.9, 23), 84.3, 'weeks out: the 7-day average'); eq(cutWeighKg(84.3, 82.9, 2), 82.9, 'two days out: the scale that morning');
   });
   test('from the Store: the next meet and its class; the goal\'s class when the meet has none; the goal\'s date with no meet', () => {
     const saved = JSON.parse(JSON.stringify(Store.get()));
@@ -9368,11 +9378,11 @@ group('the meet on the weigh-in (app.js meetWeighLine)');
       const series = [bw(14, 85.0), bw(10, 84.8), bw(7, 84.7), bw(3, 84.5), bw(0, 84.4)];
       seed({ bodyweight: series, goals: [], meets: [{ id: 'm1', athleteId: a, name: 'Winter Open', date: _addDaysISO(t, 23), weightClass: '83 kg', status: 'planned' }] });
       const m = meetWeighOf(a, t, 'kg');
-      eq(m.text, 'Meet in 23 days · 1.4 kg over 83 · on pace'); eq(m.src, 'meet'); eq(m.name, 'Winter Open');
+      eq(m.text, 'Meet in 23 days · 1.5 kg over 83 · on pace', 'the 7-day average (84.5), losing 0.3 a week'); eq(m.src, 'meet'); eq(m.name, 'Winter Open');
       Store.get().meets[0].weightClass = '';
       eq(meetWeighOf(a, t, 'kg'), null, 'no class anywhere');
       Store.get().goals = [{ id: a, athleteId: a, targetClass: 83, cutBy: null }];
-      eq(meetWeighOf(a, t, 'kg').text, 'Meet in 23 days · 1.4 kg over 83 · on pace', 'the goal\'s class, the meet\'s date');
+      eq(meetWeighOf(a, t, 'kg').text, 'Meet in 23 days · 1.5 kg over 83 · on pace', 'the goal\'s class, the meet\'s date');
       Store.get().meets = [];
       eq(meetWeighOf(a, t, 'kg'), null, 'a class but no date');
       Store.get().goals[0].cutBy = _addDaysISO(t, 63);
@@ -9387,6 +9397,40 @@ group('the meet on the weigh-in (app.js meetWeighLine)');
       Store.get().meets = [{ id: 'm2', athleteId: a, name: 'Open', date: _addDaysISO(t, 10), weightClass: '120+', status: 'planned' }];
       Store.get().goals = [];
       eq(meetWeighOf(a, t, 'kg'), null, '120+ has no ceiling');
+    } finally { Store.set(saved); }
+  });
+  test('one verdict: the lifter\'s line never says on pace or on weight when the coach\'s cut reads off pace, nor the other way', () => {
+    const saved = JSON.parse(JSON.stringify(Store.get()));
+    try {
+      const t = '2026-10-30', a = 'mw2';
+      const days = (n, f) => Array.from({ length: n }, (_, i) => ({ id: 'v' + i, athleteId: a, date: _addDaysISO(t, -(n - 1 - i)), weight: f(i, n) }));
+      const run = (bws, by) => {
+        seed({ meets: [], goals: [{ id: a, athleteId: a, bwDirection: 'cut', targetClass: 83, cutBy: _addDaysISO(t, by) }], bodyweight: bws });
+        return { line: meetWeighOf(a, t, 'kg'), cut: athleteCut(a, t) };
+      };
+      // The spec's case: 15 days flat at 84.6, 23 days out.
+      let r = run(days(15, () => 84.6), 23);
+      eq(r.line.text, 'Meet in 23 days · 1.6 kg over 83 · 0.5 kg a week gets there'); eq(r.cut.offPace, true);
+      eq(r.line.parts[2].replace(/ kg a week gets there/, ''), r.cut.line.match(/need −([\d.]+)/)[1], 'the same pace as the coach\'s "need −0.5/wk"');
+      // Two weigh-ins a day apart: no trend, so no "on pace".
+      r = run([{ id: 'w1', athleteId: a, date: _addDaysISO(t, -1), weight: 86.2 }, { id: 'w2', athleteId: a, date: t, weight: 85.0 }], 21);
+      assert(r.line.verdict !== 'on pace', r.line.text); eq(r.cut.offPace, true);
+      // One light morning after a steady fortnight: the week's average, not that morning.
+      r = run(days(15, (i, n) => (i === n - 1 ? 85.0 : 86.5)), 21);
+      eq(r.line.parts[1], '3.3 kg over 83'); eq(r.line.verdict, 'behind'); eq(r.cut.offPace, true);
+      // Losing steadily: both on pace.
+      r = run(days(22, (i) => 86 - i * 0.07), 28);
+      eq(r.line.verdict, 'on pace'); eq(r.cut.offPace, false);
+      // Two days out after a water cut: the scale that morning, both on weight.
+      r = run(days(7, (i, n) => (i === n - 1 ? 82.9 : 83.8)), 2);
+      eq(r.line.text, 'Meet in 2 days · 0.1 kg under 83 · on weight'); eq(r.cut.made, true); eq(r.cut.offPace, false);
+      // Every case in a sweep agrees.
+      [[84.6, 0], [84.6, -0.4], [84.6, -0.1], [83.2, 0], [83.2, 0.05], [86, -0.5], [90, -0.3]].forEach(([w0, wk]) => [7, 14, 23, 40].forEach(by => {
+        const x = run(days(22, (i, n) => w0 - wk * (n - 1 - i) / 7), by);
+        const neg = x.line.verdict === 'pace' || x.line.verdict === 'behind';
+        eq(neg, x.cut.offPace, w0 + ' kg, ' + wk + '/wk, ' + by + ' days: ' + x.line.text + ' vs ' + (x.cut.flag || 'no flag'));
+        eq(x.line.verdict === 'on weight', x.cut.made, 'on weight is made');
+      }));
     } finally { Store.set(saved); }
   });
 })();

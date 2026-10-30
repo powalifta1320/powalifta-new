@@ -2459,7 +2459,7 @@ function weighInRow() {
     top.appendChild(el('span', { class: 'tn-ic tx-weigh-ic', 'aria-hidden': 'true', html: ICONS.scale }));
     const tb = el('span', { class: 'tn-body' });
     tb.appendChild(el('span', { class: 'tn-title' }, 'Morning weigh-in'));
-    // A meet ahead: where the last weigh-in leaves them (the dial below already shows that number).
+    // A meet ahead: where their weigh-ins leave them (app.js meetWeighOf: the week's average, the coach's own call).
     applyLocalCut();
     const ml = meetWeighOf(user.id, today, getUnit() === 'lbs' ? 'lbs' : 'kg');
     tb.appendChild(ml ? meetLineEl(ml, 'tn-text tx-meet') : el('span', { class: 'tn-text tn-one' }, habit.streak >= 2 ? 'Keep your ' + habit.streak + '-day run going'

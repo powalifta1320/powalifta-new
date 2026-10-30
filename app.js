@@ -13625,6 +13625,52 @@ function restSuggestion(readiness, set) {
 function getRestNudgeOn() { try { return localStorage.getItem('powa-rest-nudge') !== '0'; } catch (e) { return true; } }
 function setRestNudgeOn(on) { try { localStorage.setItem('powa-rest-nudge', on ? '1' : '0'); } catch (e) {} }
 
+// ===== ONE RULE FOR THE CUT (2026-10-30): the coach's flag (cutPlan → coachAthleteStatus 'offpace', "Cut off pace")
+// and the lifter's line on the weigh-in (meetWeighLine) judge the same weight by the same trend, so they never
+// disagree. Pure; unit-tested.
+// The weight a cut is judged by: the 7-day average (one salty dinner, or one light morning, isn't the trend), except
+// in the last 2 days before the date, when the scale that morning is what counts (the water cut is on purpose).
+function cutWeighKg(smoothedKg, rawKg, days) {
+  return days != null && days >= 0 && days <= 2 && Number(rawKg) > 0 ? Number(rawKg) : Number(smoothedKg);
+}
+// The trend in kg a week (least squares over the last 28 days), only once there is one: at least 4 weigh-ins across
+// a week (7 mornings, first to last). Two weigh-ins a day apart are water, not a trend (null).
+function bwTrendSlope(series) {
+  const pts = (series || []).filter(p => p && p.date && Number(p.weight) > 0);
+  if (pts.length < 4) return null;
+  const lastT = Date.parse(pts[pts.length - 1].date);
+  const win = pts.filter(p => lastT - Date.parse(p.date) <= 28 * DAY_MS);
+  if (win.length < 4 || lastT - Date.parse(win[0].date) < 6 * DAY_MS) return null;
+  const perDay = linregSlope(win.map(p => Date.parse(p.date) / DAY_MS), win.map(p => Number(p.weight)));
+  return perDay == null ? null : perDay * 7;
+}
+// The verdict. over: kg over the class (rounded to 0.1), gap: the same unrounded, days: to the date (null: none),
+// slope: bwTrendSlope. Off pace when more than a few hundred grams over (that much is water with weeks to go) and
+// losing under 60% of what it takes a week, or still over on the day.
+// → { weeksLeft, needPerWk (kg a week still to lose, null with no date or nothing to lose), tone: 'good' | 'amber'
+//     (climbing) | 'off', offPace, made }
+function cutPace(o) {
+  const over = Number(o.over), gap = o.gap != null ? Number(o.gap) : over, days = o.days == null ? null : Number(o.days);
+  const slope = o.slope == null || !isFinite(Number(o.slope)) ? null : Number(o.slope);
+  const weeksLeft = days == null ? null : Math.round(days / 7 * 10) / 10;
+  const made = over <= 0;
+  let needPerWk = null, tone = 'good', offPace = false;
+  if (!made && weeksLeft != null && weeksLeft > 0) needPerWk = Math.round(over / weeksLeft * 100) / 100;
+  if (made) {
+    if (slope != null && slope > 0.25 && -gap < 1) tone = 'amber';      // creeping back up to the line
+  } else if (weeksLeft != null && weeksLeft <= 0) {
+    // The date passed, still over: a flag for the meet weekend (3 days), then just "missed",
+    // so the coach's Today doesn't carry it until someone edits the goal.
+    tone = 'off'; offPace = days >= -3;
+  } else if (needPerWk != null) {
+    const losing = slope != null ? -slope : 0;                            // kg a week actually coming off
+    // A few hundred grams over with weeks to go is water, not a missed cut: no flag for that.
+    if (over > 0.3 && losing < needPerWk * 0.6) { offPace = true; tone = 'off'; }
+    else if (slope != null && slope > 0.1) tone = 'amber';                // going up during a cut
+  } else if (slope != null && slope > 0.1) tone = 'amber';
+  return { weeksLeft, needPerWk, tone, offPace, made };
+}
+
 // ===== CUT TRACKER (brief 4.3 · M7) =====
 // The bodyweight curve against the class line is the feature; calories are supporting.
 //   series   [{ date, weight }] ascending, kg     classKg  the class limit (83)
@@ -13637,27 +13683,12 @@ function cutPlan(series, classKg, cutBy, todayIso) {
   if (!(limit > 0) || !series || !series.length) return null;
   const today = todayIso || todayISO();
   const st = bwCutBulkStats(series, limit, 'cut');
-  const cur = st.smoothedCurrent;
   const raw = Number(series[series.length - 1].weight);
-  const over = Math.round((cur - limit) * 10) / 10;            // smoothed: one salty dinner isn't "over"
   const days = cutBy ? Math.round((Date.parse(cutBy + 'T12:00:00Z') - Date.parse(today + 'T12:00:00Z')) / 86400000) : null;
-  const weeksLeft = days == null ? null : Math.round(days / 7 * 10) / 10;
-  const slope = st.slopePerWeek;
-  const made = over <= 0;
-  let needPerWk = null, tone = 'good', offPace = false;
-  if (!made && weeksLeft != null && weeksLeft > 0) needPerWk = Math.round(over / weeksLeft * 100) / 100;
-  if (made) {
-    if (slope != null && slope > 0.25 && limit - cur < 1) tone = 'amber';    // creeping back up to the line
-  } else if (weeksLeft != null && weeksLeft <= 0) {
-    // The date passed, still over: a flag for the meet weekend (3 days), then just "missed",
-    // so the coach's Today doesn't carry it until someone edits the goal.
-    tone = 'off'; offPace = days >= -3;
-  } else if (needPerWk != null) {
-    const losing = slope != null ? -slope : 0;                            // kg a week actually coming off
-    // A few hundred grams over with weeks to go is water, not a missed cut: no flag for that.
-    if (over > 0.3 && losing < needPerWk * 0.6) { offPace = true; tone = 'off'; }
-    else if (slope != null && slope > 0.1) tone = 'amber';                // going up during a cut
-  } else if (slope != null && slope > 0.1) tone = 'amber';
+  const cur = cutWeighKg(st.smoothedCurrent, raw, days);
+  const over = Math.round((cur - limit) * 10) / 10;            // smoothed: one salty dinner isn't "over"
+  const slope = bwTrendSlope(series);
+  const { weeksLeft, needPerWk, tone, offPace, made } = cutPace({ over, gap: cur - limit, days, slope });
   const u = (typeof unitLabel === 'function') ? unitLabel() : 'kg';
   const disp = (kg, d) => (typeof kgToDisplay === 'function' ? Number(kgToDisplay(kg, d == null ? 1 : d)) : Math.round(kg * 10) / 10);
   const bits = [disp(raw).toFixed(1) + ' ' + u, 'class ' + limit];
@@ -13702,16 +13733,16 @@ function athleteCut(athleteId, todayIso) {
 
 // ===== THE MEET ON THE WEIGH-IN (2026-10-30) =====
 // One plain line where the lifter weighs in (Train's weigh-in tile, the Bodyweight screen): the meet, the class
-// and the pace, each said once. "Meet in 23 days · 1.4 kg over 83 · on pace".
-//   o = { days (to the meet, 0 = today), cls (the class limit, kg), bw (the latest weigh-in, kg),
-//         slope (the 7-day trend, kg a week; null with too few weigh-ins), unit ('kg' | 'lbs') }
-// At or under the class: on weight. Over: the last 2% of bodyweight comes off as water in the day or two
-// before a weigh-in, so it's on pace when the trend (or that water) gets there by meet day; behind when
-// what's left needs more than 1% of bodyweight a week (the safe rate: faster costs strength); in between,
-// the weekly pace that gets there ("0.4 kg a week gets there"), or "hold your weight" when only the
-// trend's climb is the problem. → null | { text, parts: [meet, gap, verdict], verdict: 'on weight' |
-// 'on pace' | 'pace' | 'hold' | 'behind', warn (behind: the orange triangle, never red), over, needKgWk }
-const MEET_WATER_PCT = 0.02, MEET_SAFE_PCT_WK = 0.01;
+// and the pace, each said once. "Meet in 23 days · 1.6 kg over 83 · 0.5 kg a week gets there".
+//   o = { days (to the meet, 0 = today), cls (the class limit, kg), bw (the weight a cut is judged by, kg: cutWeighKg,
+//         the 7-day average), slope (the trend, kg a week: bwTrendSlope, null without one yet), unit ('kg' | 'lbs') }
+// The verdict is the coach's own (cutPace, the rule behind "Cut off pace"), so the two never disagree:
+// at or under the class, on weight. Over: on pace while the trend gets there (or it's a few hundred grams of water
+// with weeks to go); hold your weight when that's all it is but the trend is climbing; off pace, the weekly pace
+// that gets there ("0.5 kg a week gets there"), or behind when that needs more than 1% of bodyweight a week (the
+// safe rate: faster costs strength) or it's meet day. → null | { text, parts: [meet, gap, verdict], verdict:
+// 'on weight' | 'on pace' | 'pace' | 'hold' | 'behind', warn (behind: the orange triangle, never red), over, needKgWk }
+const MEET_SAFE_PCT_WK = 0.01;
 function meetWeighLine(o) {
   o = o || {};
   const cls = Number(o.cls), bw = Number(o.bw);
@@ -13722,20 +13753,16 @@ function meetWeighLine(o) {
   const clsTxt = String(Math.round(cls * 10) / 10) + (lbs ? ' kg' : '');   // a class keeps its kg name
   const over = Math.round((bw - cls) * 10) / 10;
   const meet = days === 0 ? 'Meet today' : days === 1 ? 'Meet tomorrow' : 'Meet in ' + days + ' days';
-  let gap, verdict, needKgWk = null;
-  if (over <= 0) {
+  const p = cutPace({ over, gap: bw - cls, days, slope: o.slope });
+  let gap, verdict;
+  const needKgWk = p.needPerWk;
+  if (p.made) {
     gap = over < 0 ? disp(-over) + ' ' + u + ' under ' + clsTxt : 'at ' + clsTxt;
     verdict = 'on weight';
   } else {
     gap = disp(over) + ' ' + u + ' over ' + clsTxt;
-    const water = MEET_WATER_PCT * bw, weeks = Math.max(days, 1) / 7;
-    const slope = o.slope == null || !isFinite(Number(o.slope)) ? null : Number(o.slope);
-    const where = over + (slope != null ? slope * days / 7 : 0);   // over by meet day, the trend kept up
-    const need = Math.max(0, over - water) / weeks;                  // to come off a week before the water
-    needKgWk = Math.round(need * 100) / 100;
-    if (where <= water) verdict = 'on pace';
-    else if (need > MEET_SAFE_PCT_WK * bw) verdict = 'behind';
-    else verdict = need >= 0.05 ? 'pace' : 'hold';
+    if (p.offPace) verdict = needKgWk == null || needKgWk > MEET_SAFE_PCT_WK * bw ? 'behind' : 'pace';
+    else verdict = p.tone === 'amber' ? 'hold' : 'on pace';
   }
   const vTxt = verdict === 'pace' ? disp(Math.max(0.1, needKgWk)) + ' ' + u + ' a week gets there' : verdict === 'hold' ? 'hold your weight' : verdict;
   const parts = [meet, gap, vTxt];
@@ -13743,7 +13770,8 @@ function meetWeighLine(o) {
 }
 // The line for a lifter from the Store: their next meet (deskNextMeet) against its class (deskBodyweightVsClass),
 // else the class and date they're making weight for (goals.targetClass and cutBy: the meet). The class can come
-// from the goal when the meet has none. null without a class, a date ahead, or a weigh-in in the last 3 weeks.
+// from the goal when the meet has none. Judged as cutPlan judges the coach's flag: the weight by cutWeighKg, the
+// trend by bwTrendSlope. null without a class, a date ahead, or a weigh-in in the last 3 weeks.
 // → meetWeighLine's answer + { src: 'meet' | 'goal', cls, name }
 function meetWeighOf(athleteId, todayIso, unit) {
   const t = todayIso || todayISO();
@@ -13765,7 +13793,8 @@ function meetWeighOf(athleteId, todayIso, unit) {
   const series = _ofAthlete(s.bodyweight, athleteId).filter(b => Number(b.weight) > 0)
     .sort((a, b) => String(a.date).localeCompare(String(b.date))).map(b => ({ date: String(b.date).slice(0, 10), weight: Number(b.weight) }));
   if (!series.length || _deskDays(series[series.length - 1].date, t) > 21) return null;   // an old weigh-in says nothing about now
-  const line = meetWeighLine({ days, cls: vs.cls, bw: vs.bw, slope: bwCutBulkStats(series, null, 'maintain').slopePerWeek, unit });
+  const bw = cutWeighKg(bwCutBulkStats(series, null, 'maintain').smoothedCurrent, series[series.length - 1].weight, days);
+  const line = meetWeighLine({ days, cls: vs.cls, bw, slope: bwTrendSlope(series), unit });
   return line ? Object.assign(line, { src, cls: vs.cls, name }) : null;
 }
 // The line as a node: each part stays whole (a wrap falls between parts, never inside "1.4 kg over 83"),
