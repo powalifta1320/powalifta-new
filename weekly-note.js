@@ -523,6 +523,7 @@
   var IC = {
     pen: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
     chev: '<path d="m9 6 6 6-6 6"/>',
+    chevl: '<path d="m15 6-6 6 6 6"/>',
     x: '<path d="M6 6l12 12M18 6 6 18"/>',
     check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
     save: '<path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/>',
@@ -985,6 +986,15 @@
   function deckBar() {
     var N = D.rows.length, c = D.root.querySelector('.wnd-count'), m = D.root.querySelector('.wnd-marks');
     c.textContent = N && D.i < N ? (D.i + 1) + ' of ' + N : '';
+    // Back to the lifter before, as a button too (a swipe isn't for everyone): gone on the first card. A screen reader
+    // hears who is up (the live line), as the card's name takes focus only when what had it is gone.
+    var back = D.root.querySelector('[data-wnd="back"]'), hide = D.i <= 0;
+    if (back) {
+      if (hide && document.activeElement === back) { var h = D.cards[D.i] && D.cards[D.i].querySelector('.wnd-name, .wnd-done-t'); if (h) { h.setAttribute('tabindex', '-1'); try { h.focus({ preventScroll: true }); } catch (e) {} } }
+      back.hidden = hide;
+    }
+    var live = D.root.querySelector('.wnd-live'), cur = D.rows[D.i];
+    if (live && D.liveOn) live.textContent = cur ? cur.athlete.name + ', ' + (D.i + 1) + ' of ' + N : (D.cards[N] && D.cards[N].querySelector('.wnd-done-t') ? D.cards[N].querySelector('.wnd-done-t').textContent : '');
     if (N <= 1) { m.hidden = true; m.innerHTML = ''; return; }
     m.hidden = false;
     if (N > 30) { m.className = 'wnd-marks is-bar'; m.innerHTML = '<i style="width:' + Math.round(Math.min(D.i, N) / N * 1000) / 10 + '%"></i>'; return; }
@@ -1038,7 +1048,7 @@
     var N = D.rows.length, to = D.i + dir;
     if (to < 0 || to > N) { if (!reduced()) deckSpring(0, 0); return false; }
     var fromK = D.i, ae = document.activeElement;
-    if (ae && ae.blur && D.root.contains(ae)) ae.blur();
+    if (ae && ae.blur && ae.closest && ae.closest('.wnd-card')) ae.blur();
     if (dir > 0) queueSkip(D); else queueBack(D);
     try { if (typeof hapticTap === 'function') hapticTap('LIGHT'); } catch (e) {}
     if (reduced()) { deckCrossfade(fromK); return true; }
@@ -1175,12 +1185,17 @@
     root.className = 'wnd';
     root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', 'Weekly notes');
     root.innerHTML = '<div class="wnd-bar">' +
+        '<button type="button" class="wnd-back" data-wnd="back" aria-label="Back to the lifter before" hidden>' + ic('chevl', 2.2) + '</button>' +
+        '<div class="wnd-ttl"><h2 class="wnd-title">Weekly notes</h2><p class="wnd-count"></p></div>' +
         '<button type="button" class="wnd-x" data-wnd="close" aria-label="Close weekly notes">' + ic('x', 2.2) + '</button>' +
-        '<div class="wnd-ttl"><h2 class="wnd-title">Weekly notes</h2><p class="wnd-count" aria-live="polite"></p></div><span aria-hidden="true"></span>' +
-      '</div><div class="wnd-marks" aria-hidden="true" hidden></div><div class="wnd-stage"></div>';
+      '</div><p class="wnd-live" aria-live="polite"></p><div class="wnd-marks" aria-hidden="true" hidden></div><div class="wnd-stage"></div>';
     document.body.appendChild(root);
     D.root = root; D.stage = root.querySelector('.wnd-stage');
     document.documentElement.classList.add('wnd-open');
+    // The app under it is out of reach while it's up: Tab, a switch or VoiceOver (aria-modal alone doesn't stop
+    // them). A sheet or a toast opened over the deck comes later, so it isn't.
+    D.inerted = [];
+    Array.prototype.forEach.call(document.body.children, function (n) { if (n !== root && !n.inert && !/^(SCRIPT|STYLE|TEMPLATE|LINK)$/.test(n.tagName)) { n.inert = true; D.inerted.push(n); } });
     // Like every sheet: the tap that opened it can't land on what sits under the finger now.
     var openedAt = Date.now();
     root.addEventListener('click', function (e) { if (Date.now() - openedAt < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
@@ -1190,6 +1205,7 @@
       if (!b) return;
       var k = b.getAttribute('data-wnd');
       if (k === 'close') closeDeck();
+      else if (k === 'back') deckGo(-1);
       else if (k === 'send') deckSend(b);
       else if (k === 'skip' || k === 'next') deckGo(1);
       else if (k === 'again') {
@@ -1209,6 +1225,7 @@
     });
     D.onKey = function (e) {
       if (!D) return;
+      if (document.querySelector('.ui-sheet-veil:not(.leaving)')) return;   // a sheet over the deck takes its keys
       if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeDeck(); return; }
       var inField = e.target && /^(TEXTAREA|INPUT)$/.test(e.target.tagName);
       if (!inField && e.key === 'ArrowRight') { e.preventDefault(); deckGo(1); }
@@ -1221,6 +1238,7 @@
     if (window.visualViewport) { window.visualViewport.addEventListener('resize', deckFit); window.visualViewport.addEventListener('scroll', deckFit); }
     deckSwipe(D.stage);
     deckSettle();
+    D.liveOn = true;   // from here a change of card is said (the first is the card's name, which takes focus)
     // Into the dialog: the first card's name (for a screen reader; never drawn as a ring).
     var h0 = D.cards[D.i] && D.cards[D.i].querySelector('.wnd-name, .wnd-done-t');
     if (h0) { h0.setAttribute('tabindex', '-1'); try { h0.focus({ preventScroll: true }); } catch (e) {} }
@@ -1236,6 +1254,7 @@
     window.removeEventListener('resize', d.onResize);
     if (window.visualViewport) { window.visualViewport.removeEventListener('resize', deckFit); window.visualViewport.removeEventListener('scroll', deckFit); }
     document.documentElement.classList.remove('wnd-open');
+    (d.inerted || []).forEach(function (n) { n.inert = false; });
     var ae = document.activeElement;
     if (ae && ae.blur && d.root.contains(ae)) ae.blur();
     d.root.classList.remove('is-in');

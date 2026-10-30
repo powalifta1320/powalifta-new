@@ -11795,7 +11795,7 @@ function uiSheet(title, build, opts) {
     veil.classList.add('leaving');
     setTimeout(() => { veil.remove(); if (opts.onClose) opts.onClose(); }, 200);
   };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const onKey = (e) => { if (e.key === 'Escape' && _sheetIsTop(veil)) close(); };
   veil.appendChild(sheet);
   _sheetSwallowEarlyClicks(veil);
   _sheetDrag(veil, sheet, close);
@@ -11804,6 +11804,11 @@ function uiSheet(title, build, opts) {
   document.body.appendChild(veil);
   build(sheet, close);
   return close;
+}
+// Sheets stack (Delete template over a template's sheet): Escape closes the top one only, as a tap on its veil does.
+function _sheetIsTop(veil) {
+  const open = document.querySelectorAll('.ui-sheet-veil:not(.leaving)');
+  return !open.length || open[open.length - 1] === veil;
 }
 
 // Rest settings: how long (Short / Standard / Long, previewed on three real
@@ -11978,7 +11983,7 @@ function uiActionSheet(title, actions, opts) {
     veil.classList.add('leaving');
     setTimeout(() => veil.remove(), 200);
   };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const onKey = (e) => { if (e.key === 'Escape' && _sheetIsTop(veil)) close(); };
   actions.filter(Boolean).forEach(a => {
     const b = el('button', { type: 'button', class: a.danger ? 'danger' : '' });
     b.innerHTML = (a.icon || '') + '<span>' + escHtml(a.label) + '</span>';
