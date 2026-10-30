@@ -2,7 +2,7 @@
 /*
  * Small-stuff scanner: the details a person notices and a unit test doesn't.
  *
- * Opens 239 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
+ * Opens 267 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
  * sheets (New challenge and a challenge's board among them, the import intake's steps, the two-factor code prompt, the coach's
  * Ask sheet, bell list, first-run tour and form-check review), the planner, the onboarding, every public page at desktop and phone width, dark and light) and
  * reports: sideways scroll, text overlapping text, controls overlapping controls, text cut off
@@ -162,6 +162,29 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-2fa-login-m' + suf, page: 'index.html', mode: 'web', w: 390, h: 844, theme, eval: 'PowaApp.load().then(() => { openLoginModal(); promptMfaChallenge(); return true; })' },
   { name: 'w-2fa-desk' + suf, page: C, mode: 'web', theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out' }); true" });
 
+// Night C (30 Oct), dark and light: Stronger than X% (Progress's sheet, the lifter card), meets to calendar (the lifter's
+// Meet day sheet, the coach's Meets on the phone and the laptop), the coach's results cards (both cards, a brand-new
+// coach's, Home's Strength sheet with its way in), applications (a lead's sheet on the phone and the laptop, Clients on
+// the laptop) and the profile's Apply form at desktop and phone width (drawn over the offline profile: the coach list
+// needs Supabase, which the scan refuses).
+const APPLY = "(() => { const r = document.getElementById('cpRoot'); r.innerHTML = ''; const sec = el('div', { class: 'cp-section' }); const w = el('div', { class: 's-wrap' }); w.appendChild(cpApplyForm({ id: 'c1', name: 'Sam Ellis', instagram: 'samellis' })); sec.appendChild(w); r.appendChild(sec); return true; })()";
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
+  screens.push(
+    { name: 'sh-stronger' + suf, page: A, theme, eval: tab('progress') + ";setTimeout(() => openStrongerSheet(), 300)" },
+    { name: 'a-lifter-card' + suf, page: A, theme, eval: 'openLifterCardView()' },
+    { name: 'sh-meet' + suf, page: A, theme, eval: 'openMeetSheet()' },
+    { name: 'c-meets' + suf, page: C, theme, eval: 'MeetDay.openMeetsScreen()' },
+    { name: 'sh-results' + suf, page: C, theme, eval: "CoachYou.openResults('block')" },
+    { name: 'sh-results-prs' + suf, page: C, theme, eval: "CoachYou.openResults('prs')" },
+    { name: 'f-results' + suf, page: F, theme, eval: 'CoachYou.openResults()' },
+    { name: 'sh-movers' + suf, page: C, theme, eval: "document.querySelector('[data-sheet=movers]').click()" },
+    { name: 'sh-lead' + suf, page: C, theme, eval: tab('clients') + ";ClientsUI.openLead('demo-app-1')" },
+    { name: 'w-clients' + suf, page: C, mode: 'web', theme, eval: "deskGo('clients')" },
+    { name: 'w-lead' + suf, page: C, mode: 'web', theme, eval: "deskGo('clients');setTimeout(() => ClientsUI.openLead('demo-app-2'), 300)" },
+    { name: 'w-meets' + suf, page: C, mode: 'web', theme, eval: "deskGo('meets')" },
+    { name: 'w-profile-apply' + suf, page: 'coach-profile.html?id=none', mode: 'web', theme, eval: APPLY },
+    { name: 'w-profile-apply-m' + suf, page: 'coach-profile.html?id=none', mode: 'web', w: 390, h: 844, theme, eval: APPLY });
+}
 // Never the live services: the screens are demos and public pages, but a public page still calls Supabase (the
 // coach list, the leaderboard, join.html's invite_preview, which counts toward a rate limit) and Plausible (a
 // pageview per screen). Both are refused before they leave this machine: by name in the browser (nothing resolves)

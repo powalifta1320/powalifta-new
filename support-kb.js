@@ -1918,5 +1918,62 @@ window.POWA_SUPPORT_KB = [
    "leaving hevy"
   ],
   "a": "Hevy Coach has no export on the coach side, but each client can export from the Hevy app (Hevy's help pages): Profile → Settings → Export & Import Data → Export Data → Export Workouts. They send you the CSV (bring it in under **Bring your coaching in**, or Import their history from their page) or import it themselves in POWALIFTA (You → Your data → Import your training history). Hevy's CSV is read as it is: warm-ups left out, kg or lb from the file, RPE where they logged one. Routines don't export: screenshots come in through **Bring a program in**."
+ },
+ {
+  "id": "meet-to-calendar",
+  "q": "How do I put a meet in my calendar?",
+  "t": [
+   "add meet to calendar",
+   "meet calendar",
+   "ics",
+   "calendar file",
+   "weigh-in reminder",
+   "apple calendar meet",
+   "google calendar meet"
+  ],
+  "a": "Open the meet and tap **Add to calendar**. A lifter has it in the Meet day sheet (from Train's meet strip) and on a planned meet in Progress › PRs; a coach has it on every meet in **Meets**, on the phone and the laptop. You get an .ics file: the meet as an all-day event, and the weigh-in as its own event with a reminder 30 minutes before when its time is set. On the web it downloads (open it to add it to Apple Calendar, Google Calendar or Outlook); in the iPhone app the share sheet opens. Saving the same meet again updates it instead of adding a copy."
+ },
+ {
+  "id": "stronger-than",
+  "q": "What does \"Stronger than 72% of 83 kg raw men\" mean?",
+  "t": [
+   "stronger than",
+   "percentile",
+   "how do i compare",
+   "where do i stand",
+   "openpowerlifting percentile",
+   "compared to other lifters",
+   "raw men",
+   "raw women"
+  ],
+  "a": "It's your e1RM total (and, under it, each lift) against the best result of everyone who lifted in your weight class at a full powerlifting meet since 2021, from OpenPowerlifting's public meet results. 72% means your number beats 72 out of every 100 of them. Your class comes from your weigh-in (or the class you're cutting for). Tap the line on Progress to see each lift, the number of lifters, and to switch between men and women or raw and equipped. Yours are estimates from training; a meet decides the real number."
+ },
+ {
+  "id": "coach-results-card",
+  "q": "How do I post my lifters' results on Instagram?",
+  "t": [
+   "results card",
+   "share results",
+   "instagram card",
+   "pr wall",
+   "my lifters gained",
+   "post results",
+   "block results"
+  ],
+  "a": "Open **You › Results cards** (or tap Strength on Home, then **Make a results card**). **This block** is the average change in your lifters' e1RM totals since their current block began (only lifters with all three lifts logged before and during it count, and the card says how many). **PR wall** is every PR your lifters set in the last 7 days. Pick one and tap **Share the card**: a story (9:16) or a post (4:5). Names show as first name and initial, and with branding on, your colour and team name are on the card."
+ },
+ {
+  "id": "coach-applications",
+  "q": "How do lifters apply to train with me?",
+  "t": [
+   "applications",
+   "apply to train",
+   "leads",
+   "new clients",
+   "profile form",
+   "someone applied",
+   "accept application"
+  ],
+  "a": "Your public coach profile has an **Apply** form: name, email, training age, best lifts, goals and a note. Only you can read what's sent. Applications land in **Clients** under **Applications**, the one waiting longest first. Tap one to read it, then **Send <name> an invite** (it emails them your invite link, with a code tied to their email, and takes a seat like any invite) or **Decline** (nothing is sent, and you can undo it). Someone can have one waiting application with you at a time."
  }
 ];

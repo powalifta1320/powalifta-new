@@ -13083,7 +13083,16 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
 .st-note { margin: 16px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-3); }
 .st-sheet .opl-credit { margin: 8px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-3); }
 .st-sheet .opl-credit a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
-.lc-pct { position: relative; margin-top: 10px; font-size: 13px; color: var(--text-3, #8a8a92); animation: stIn 280ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+.lc-pct { position: relative; margin-top: 10px; font-size: 13px; color: #8c8c96; animation: stIn 280ms cubic-bezier(0.23, 1, 0.32, 1) both; }
 .lc-pct b { color: #f5f5f7; font-weight: 750; font-variant-numeric: tabular-nums; }
-.lc-p { display: block; margin-top: 2px; font-style: normal; font-size: 13px; font-weight: 650; line-height: 1.25; font-variant-numeric: tabular-nums; color: var(--text-3, #8a8a92); }
+.lc-p { display: block; margin-top: 2px; font-style: normal; font-size: 13px; font-weight: 650; line-height: 1.25; font-variant-numeric: tabular-nums; color: #8c8c96; }
+/* The lifter card's room is dark in both themes, so it keeps the dark theme's ink: in the light theme the hint,
+   Tilt with your phone, Done, the club line and the gold DOTS read 2:1 on it (night C's scan of the card). */
+.lc-view { --text: #f4f4f6; --text-2: #b8b8c0; --text-3: #8c8c96; --pr: #f2c25b; color: var(--text); }
+/* Found by night C's scan of the Meet day sheet (unscanned before): the third attempt's name in the light theme takes
+   the darker shade of its lift's colour, as text does there (Light theme legibility); the date field's hit area is
+   its row (padding, not a taller look); a closed Warm-up room lays nothing out. */
+[data-theme="light"] body .ml-a.is-third span, [data-theme="light"] body.powa-app .ml-a.is-third span { color: color-mix(in srgb, var(--lc) 56%, #000); }
+.meet-date input[type=date] { padding: 8px 0 !important; margin: -8px 0; min-height: 44px; }
+.ml-warm:not([open]) > :not(summary) { display: none; }
 @media (prefers-reduced-motion: reduce) { .pg-pct, .lc-pct { animation: none; } }
