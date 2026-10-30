@@ -913,7 +913,7 @@
   }
   // Who: the face, the name (two lines at most), the block and week.
   function deckWhoHtml(a, meta) {
-    return '<div class="wnd-who">' + avHtml(a, 'wnd-av') + '<div class="wnd-whot"><h3 class="wnd-name">' + esc(a.name) + '</h3><p class="wnd-meta">' + esc(meta) + '</p></div></div>';
+    return '<div class="wnd-who">' + avHtml(a, 'wnd-av') + '<div class="wnd-whot"><h3 class="wnd-name"><span>' + esc(a.name) + '</span></h3><p class="wnd-meta">' + esc(meta) + '</p></div></div>';
   }
   // The note: what goes, first, so Send never sends words that aren't on the screen.
   function deckNoteHtml(f1, sent, isDemo) {
