@@ -177,10 +177,11 @@
   }
 
   /* ---------------------------------------------------------------- the note, line by line */
-  // pr: what goes first when there are too many (low = keep); ord: where it sits in the note.
+  // pr: what goes first when there are too many (low = keep); ord: where it sits in the note; lifts: the lifts whose
+  // top set the line gives (the deck shows only the ones the note leaves out).
   function weeklyNoteLines(f) {
     var U = f.unit, out = [];
-    var add = function (k, pr, ord, text) { if (text) out.push({ k: k, pr: pr, ord: ord, text: text }); };
+    var add = function (k, pr, ord, text, lifts) { if (text) out.push({ k: k, pr: pr, ord: ord, text: text, lifts: lifts || [] }); };
     var S = f.sessions;
     // 1. Sessions, with their name.
     var sl;
@@ -193,24 +194,26 @@
     add('sessions', 0, 0, f.first ? f.first + ', ' + sl : cap(sl));
     if (!S.done) add('quiet', 1, 1, 'Everything OK? Tell me what got in the way and we’ll fit the week around it.');
     else if (S.planned > 0 && S.done < S.planned) add('short', 5, 1, 'If the week is getting tight, tell me and we’ll fit the sessions around it.');
-    // 2. PRs.
-    if (f.prs.length === 1) add('pr', 3, 2, LIFT[f.prs[0].lift] + ' PR: ' + wTxt(f.prs[0].kg, U) + ' × ' + f.prs[0].reps + '. Well done.');
-    else if (f.prs.length === 2) add('pr', 3, 2, LIFT[f.prs[0].lift] + ' and ' + f.prs[1].lift + ' PRs: ' + wTxt(f.prs[0].kg, U) + ' × ' + f.prs[0].reps + ' and ' + wTxt(f.prs[1].kg, U) + ' × ' + f.prs[1].reps + '. Well done.');
+    // 2. PRs (one or two with their sets: a top set that is the PR is said there).
+    var prSame = function (x) { return f.prs.some(function (p) { return p.lift === x.lift && p.kg === x.kg && p.reps === x.reps; }); };
+    var liftsOf = function (list) { return list.map(function (x) { return x.lift; }); };
+    var prTops = f.prs.length <= 2 ? liftsOf(f.tops.filter(prSame)) : [];
+    if (f.prs.length === 1) add('pr', 3, 2, LIFT[f.prs[0].lift] + ' PR: ' + wTxt(f.prs[0].kg, U) + ' × ' + f.prs[0].reps + '. Well done.', prTops);
+    else if (f.prs.length === 2) add('pr', 3, 2, LIFT[f.prs[0].lift] + ' and ' + f.prs[1].lift + ' PRs: ' + wTxt(f.prs[0].kg, U) + ' × ' + f.prs[0].reps + ' and ' + wTxt(f.prs[1].kg, U) + ' × ' + f.prs[1].reps + '. Well done.', prTops);
     else if (f.prs.length >= 3) add('pr', 3, 2, 'PRs on squat, bench and deadlift. Well done.');
     // 3. Top sets: what felt off what you wrote, one line each; what landed on it, together.
     var setTxt = function (x) { return wTxt(x.kg, U) + ' × ' + x.reps; };
     var off = f.tops.filter(function (x) { return x.d != null && Math.abs(x.d) >= 0.5; }).sort(function (a, b) { return Math.abs(b.d) - Math.abs(a.d); });
-    var prSame = function (x) { return f.prs.some(function (p) { return p.lift === x.lift && p.kg === x.kg && p.reps === x.reps; }); };
     var on = f.tops.filter(function (x) { return x.d != null && Math.abs(x.d) < 0.5 && !prSame(x); });
     off.slice(0, 2).forEach(function (x, i) {
-      add('off' + i, i ? 5 : 3, 3 + i, x.name + ' ' + setTxt(x) + ' felt @' + rpeTxt(x.felt) + ', written @' + rpeTxt(x.wroteLo) + (x.wroteHi != null ? '–' + rpeTxt(x.wroteHi) : '') + '.');
+      add('off' + i, i ? 5 : 3, 3 + i, x.name + ' ' + setTxt(x) + ' felt @' + rpeTxt(x.felt) + ', written @' + rpeTxt(x.wroteLo) + (x.wroteHi != null ? '–' + rpeTxt(x.wroteHi) : '') + '.', [x.lift]);
     });
-    if (on.length === 1) add('on', 6, 5, on[0].name + ' ' + setTxt(on[0]) + ' @' + rpeTxt(on[0].felt) + ', right where I wrote it.');
-    else if (on.length === 2) add('on', 6, 5, on[0].name + ' ' + setTxt(on[0]) + ' and ' + on[1].name.toLowerCase() + ' ' + setTxt(on[1]) + ' both landed right on the RPE I wrote.');
-    else if (on.length >= 3) add('on', 6, 5, 'Squat, bench and deadlift top sets all landed right on the RPE I wrote.');
+    if (on.length === 1) add('on', 6, 5, on[0].name + ' ' + setTxt(on[0]) + ' @' + rpeTxt(on[0].felt) + ', right where I wrote it.', liftsOf(on));
+    else if (on.length === 2) add('on', 6, 5, on[0].name + ' ' + setTxt(on[0]) + ' and ' + on[1].name.toLowerCase() + ' ' + setTxt(on[1]) + ' both landed right on the RPE I wrote.', liftsOf(on));
+    else if (on.length >= 3) add('on', 6, 5, 'Squat, bench and deadlift top sets all landed right on the RPE I wrote.', liftsOf(on));
     if (!off.length && !on.length) {
       var plain = f.tops.filter(function (x) { return !prSame(x); });
-      if (plain.length) add('tops', 7, 6, 'Top sets: ' + listJoin(plain.map(function (x) { return x.name.toLowerCase() + ' ' + setTxt(x) + (x.felt != null ? ' @' + rpeTxt(x.felt) : ''); })) + '.');
+      if (plain.length) add('tops', 7, 6, 'Top sets: ' + listJoin(plain.map(function (x) { return x.name.toLowerCase() + ' ' + setTxt(x) + (x.felt != null ? ' @' + rpeTxt(x.felt) : ''); })) + '.', liftsOf(plain));
     }
     // 4. The e1RM, when it moved.
     if (f.e1rm && f.e1rm.notable) {
@@ -806,43 +809,86 @@
         .filter(function (x) { return !/^Pain\b/.test(x.text); }).map(function (x) { return x.text; });
     } catch (e) { return []; }
   }
-  // Their week, for the coach: what was written against what happened. Colour on the lift dots, the done day and
-  // a PR only; a set felt a half point or more over what was written, weight over the class, pain and a flagged
-  // check-in wear the orange triangle beside ink words.
-  function deckWeekHtml(f, aid) {
-    var U = f.unit, S = f.sessions, days = '';
-    for (var i = 6; i >= 0; i--) {
-      var iso = addDays(f.today, -i), on = S.days.indexOf(iso) >= 0, lbl = '';
-      try { lbl = new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'narrow' }); } catch (e) {}
-      days += '<span class="wnd-day' + (on ? ' on' : '') + (i === 0 ? ' is-today' : '') + '"><i></i><small>' + esc(lbl) + '</small></span>';
+  // What the note says, fact by fact (weeklyNoteLines' kept lines): their keys, and the lifts whose top set they give.
+  function noteSays(lines) {
+    var s = { keys: {}, tops: {} };
+    (lines || []).forEach(function (l) { s.keys[l.k] = true; (l.lifts || []).forEach(function (L) { s.tops[L] = true; }); });
+    return s;
+  }
+  // The card's evidence: only what the note doesn't say, so each fact is said once on the card (the owner's rule).
+  // The days they trained (the note says how many), each top set the note doesn't give, bodyweight, pain and the
+  // e1RM when the note had no room for them, the check-in's flags and their own words (never in a note).
+  // checkin: the check-in's lines (checkinLines). → { days, tops, bw, noWeighIn, pain, e1rm, checkin, words }
+  function deckExtras(f, lines, checkin) {
+    var s = noteSays(lines), prs = f.prs || [];
+    return {
+      days: ((f.sessions && f.sessions.days) || []).slice(),
+      tops: (f.tops || []).filter(function (x) { return !s.tops[x.lift]; }).map(function (x) {
+        var o = {};
+        Object.keys(x).forEach(function (k) { o[k] = x[k]; });
+        o.pr = !s.keys.pr && prs.some(function (p) { return p.lift === x.lift; });
+        return o;
+      }),
+      bw: !s.keys.bw && f.bw ? f.bw : null,
+      noWeighIn: !s.keys.bw && !f.bw && f.meetNoWeighIn ? f.meetNoWeighIn : null,
+      pain: !s.keys.pain && f.pain ? f.pain : null,
+      e1rm: !s.keys.e1rm && f.e1rm && f.e1rm.notable ? f.e1rm : null,
+      checkin: (checkin || []).slice(),
+      words: f.words || null
+    };
+  }
+  function coachUnit() { try { return typeof getUnit === 'function' ? getUnit() : 'kg'; } catch (e) { return 'kg'; } }
+  // The evidence, drawn: flags first (pain, bodyweight, the check-in, the e1RM: the orange triangle beside ink words
+  // when it's a problem), then the top sets the note leaves out (felt against written), their words, the days. Colour
+  // on the lift dots, the done day and a PR only. o: { unit (the lifter's), coachUnit, today }: a lifter whose unit
+  // isn't the coach's has it said.
+  function deckExtrasHtml(x, o) {
+    o = o || {};
+    var U = o.unit || 'kg', other = U !== (o.coachUnit || U), t = o.today || todayIso(), html = '';
+    var rows = [];
+    var pl = painLine(x.pain);
+    if (pl) rows.push({ k: 'Pain', v: pl.v, s: pl.s, warn: true });
+    if (x.bw) rows.push({ k: 'Bodyweight', v: wTxt(x.bw.kg, U) + ' ' + uTxt(U), s: (x.bw.over > 0 ? wTxt(x.bw.over, U) + ' ' + uTxt(U) + ' over the ' : 'On weight for the ') + n1(x.bw.cls) + ' kg class · ' + (x.bw.meet || 'Meet') + ' ' + whenMeet(x.bw.days), warn: x.bw.over > 0 });
+    else if (x.noWeighIn) rows.push({ k: 'Bodyweight', v: 'No weigh-in', s: (x.noWeighIn.name || 'Meet') + ' ' + whenMeet(x.noWeighIn.days), warn: false });
+    if (x.checkin.length) rows.push({ k: 'Check-in', v: x.checkin[0], s: x.checkin.slice(1).join(' · '), warn: true });
+    if (x.e1rm) {
+      var dv = Math.round(x.e1rm.delta / (U === 'lbs' ? KG_PER_LB : 1));
+      rows.push({ k: 'Total e1RM', v: String(Math.round(inUnit(x.e1rm.now, U))) + ' ' + uTxt(U), s: (dv > 0 ? '+' : dv < 0 ? '−' : '') + Math.abs(dv) + ' in ' + plural(x.e1rm.weeks, 'week'), warn: dv < 0 });
     }
-    var html = '<div class="wnd-week"><h4 class="wnd-h">Their week</h4><div class="wnd-wcard">' +
-      '<div class="wnd-sess"><p class="wnd-sess-n"><b>' + S.done + '</b><span>' + (S.planned ? 'of ' + S.planned + ' sessions' : (S.done === 1 ? 'session' : 'sessions')) + '</span></p>' +
-      '<div class="wnd-days" role="img" aria-label="' + esc(plural(S.done, 'day') + ' trained in the last 7') + '">' + days + '</div></div>';
-    if (f.tops.length) {
-      html += '<div class="wnd-tops">' + f.tops.map(function (x) {
-        var over = x.d != null && x.d >= 0.5, pr = f.prs.some(function (p) { return p.lift === x.lift; });
-        var wrote = x.wroteLo != null ? 'wrote ' + rpeTxt(x.wroteLo) + (x.wroteHi != null ? '–' + rpeTxt(x.wroteHi) : '') : '';
-        var said = x.name + ' ' + wTxt(x.kg, U) + ' × ' + x.reps + (x.felt != null ? ', felt @' + rpeTxt(x.felt) : '') + (wrote ? ', ' + wrote : '') + (pr ? ', a PR' : '');
-        return '<div class="wnd-top' + (over ? ' is-over' : '') + '" role="group" aria-label="' + esc(said) + '"><i class="wnd-ld lift-' + esc(x.lift) + '" aria-hidden="true"></i>' +
-          '<span class="wnd-tn">' + esc(x.name) + (pr ? '<em class="wnd-pr">PR</em>' : '') + '</span>' +
-          '<span class="wnd-tv">' + esc(wTxt(x.kg, U)) + '<small> × ' + esc(String(x.reps)) + '</small></span>' +
-          '<span class="wnd-te"><b>' + (x.felt != null ? '@' + esc(rpeTxt(x.felt)) : '–') + '</b>' + (wrote ? '<small>' + esc(wrote) + '</small>' : '') + '</span></div>';
+    if (rows.length) html += '<dl class="wnd-facts">' + rows.map(function (r) {
+      return '<div class="wnd-fact' + (r.warn ? ' is-warn' : '') + '"><dt>' + esc(r.k) + '</dt><dd><b>' + esc(r.v) + '</b>' + (r.s ? '<span>' + esc(r.s) + '</span>' : '') + '</dd></div>';
+    }).join('') + '</dl>';
+    if (x.tops.length) {
+      html += '<div class="wnd-tops">' + x.tops.map(function (y) {
+        var over = y.d != null && y.d >= 0.5;
+        var wrote = y.wroteLo != null ? 'wrote ' + rpeTxt(y.wroteLo) + (y.wroteHi != null ? '–' + rpeTxt(y.wroteHi) : '') : '';
+        var said = y.name + ' ' + wTxt(y.kg, U) + (other ? ' ' + uTxt(U) : '') + ' × ' + y.reps + (y.felt != null ? ', felt @' + rpeTxt(y.felt) : '') + (wrote ? ', ' + wrote : '') + (y.pr ? ', a PR' : '');
+        return '<div class="wnd-top' + (over ? ' is-over' : '') + '" role="group" aria-label="' + esc(said) + '"><i class="wnd-ld lift-' + esc(y.lift) + '" aria-hidden="true"></i>' +
+          '<span class="wnd-tn">' + esc(y.name) + (y.pr ? '<em class="wnd-pr">PR</em>' : '') + '</span>' +
+          '<span class="wnd-tv">' + esc(wTxt(y.kg, U)) + '<small>' + (other ? ' ' + uTxt(U) : '') + ' × ' + esc(String(y.reps)) + '</small></span>' +
+          '<span class="wnd-te"><b>' + (y.felt != null ? '@' + esc(rpeTxt(y.felt)) : '–') + '</b>' + (wrote ? '<small>' + esc(wrote) + '</small>' : '') + '</span></div>';
       }).join('') + '</div>';
     }
-    var rows = [];
-    if (f.bw) rows.push({ k: 'Bodyweight', v: wTxt(f.bw.kg, U) + ' ' + uTxt(U), s: (f.bw.over > 0 ? wTxt(f.bw.over, U) + ' ' + uTxt(U) + ' over the ' : 'On weight for the ') + n1(f.bw.cls) + ' kg class · ' + (f.bw.meet || 'Meet') + ' ' + whenMeet(f.bw.days), warn: f.bw.over > 0 });
-    else if (f.meetNoWeighIn) rows.push({ k: 'Bodyweight', v: 'No weigh-in', s: (f.meetNoWeighIn.name || 'Meet') + ' ' + whenMeet(f.meetNoWeighIn.days), warn: false });
-    var pl = painLine(f.pain);
-    if (pl) rows.push({ k: 'Pain', v: pl.v, s: pl.s, warn: true });
-    var ci = checkinLines(aid, f.today);
-    if (ci.length) rows.push({ k: 'Check-in', v: ci[0], s: ci.slice(1).join(' · '), warn: true });
-    if (rows.length) html += '<dl class="wnd-facts">' + rows.map(function (x) {
-      return '<div class="wnd-fact' + (x.warn ? ' is-warn' : '') + '"><dt>' + esc(x.k) + '</dt><dd><b>' + esc(x.v) + '</b>' + (x.s ? '<span>' + esc(x.s) + '</span>' : '') + '</dd></div>';
-    }).join('') + '</dl>';
-    if (f.words) html += '<figure class="wnd-words"><figcaption>In their words · ' + esc(cap(dayWord(f.words.when))) + '</figcaption><blockquote>“' + esc(f.words.text.length > 220 ? f.words.text.slice(0, 219).trim() + '…' : f.words.text) + '”</blockquote></figure>';
-    if (!S.done && !f.tops.length && !rows.length && !f.words) html += '<p class="wnd-none">Nothing logged in the last 7 days.</p>';
-    return html + '</div></div>';
+    if (x.words) html += '<figure class="wnd-words"><figcaption>In their words · ' + esc(cap(dayWord(x.words.when))) + '</figcaption><blockquote>“' + esc(x.words.text.length > 220 ? x.words.text.slice(0, 219).trim() + '…' : x.words.text) + '”</blockquote></figure>';
+    var days = '', named = [];
+    for (var i = 6; i >= 0; i--) {
+      var iso = addDays(t, -i), on = x.days.indexOf(iso) >= 0, lbl = '', full = '';
+      try { var dt = new Date(iso + 'T12:00:00'); lbl = dt.toLocaleDateString(undefined, { weekday: 'narrow' }); full = dt.toLocaleDateString(undefined, { weekday: 'long' }); } catch (e) {}
+      if (on) named.push(i === 0 ? 'today' : full || iso);
+      days += '<span class="wnd-day' + (on ? ' on' : '') + (i === 0 ? ' is-today' : '') + '"><i></i><small>' + esc(lbl) + '</small></span>';
+    }
+    html += '<div class="wnd-sess"><p class="wnd-sess-n">Days trained</p><div class="wnd-days" role="img" aria-label="' + esc(named.length ? 'Trained ' + listJoin(named) : 'Nothing logged in the last 7 days') + '">' + days + '</div></div>';
+    return '<div class="wnd-week"><h4 class="wnd-h">Not in your note</h4><div class="wnd-wcard">' + html + '</div></div>';
+  }
+  // Who: the face, the name (two lines at most), the block and week.
+  function deckWhoHtml(a, meta) {
+    return '<div class="wnd-who">' + avHtml(a, 'wnd-av') + '<div class="wnd-whot"><h3 class="wnd-name">' + esc(a.name) + '</h3><p class="wnd-meta">' + esc(meta) + '</p></div></div>';
+  }
+  // The note: what goes, first, so Send never sends words that aren't on the screen.
+  function deckNoteHtml(f1, sent, isDemo) {
+    return '<div class="wnd-note"><h4 class="wnd-h">Your note</h4>' +
+      '<textarea class="wnd-ta" maxlength="2000" spellcheck="true" aria-label="Note to ' + esc(f1) + '"' + (sent ? ' readonly' : '') + '></textarea>' +
+      '<p class="wnd-foot">' + (sent ? 'In your thread with ' + esc(f1) + (isDemo ? ', in the demo only.' : '.') : 'Drafted from their last 7 days. Every number is from their log.') + '</p></div>';
   }
   function deckActsHtml(a, sent) {
     var f1 = firstName(a.name);
@@ -851,46 +897,47 @@
   }
   function deckLifterCard(r) {
     var a = r.athlete, f1 = firstName(a.name), f = weeklyNoteFacts(a.id, { today: D.t }), st = r.status || {};
+    var lines = weeklyNoteLines(f);
     var sent = queueIsSent(D, a.id);
-    var draft = sent ? (D.sentText[a.id] || '') : (D.edits[a.id] != null ? D.edits[a.id] : weeklyNoteDraft(a.id, { facts: f }));
+    var draft = sent ? (D.sentText[a.id] || '') : (D.edits[a.id] != null ? D.edits[a.id] : lines.map(function (l) { return l.text; }).join('\n'));
     var meta = st.program ? (st.program.name || 'Program') + (st.week && st.week.total ? ' · week ' + (st.week.idx + 1) + ' of ' + st.week.total : '') : 'No block running';
     var card = document.createElement('div');
     card.className = 'wnd-card' + (sent ? ' is-sent' : '');
     card.setAttribute('data-aid', a.id);
     card.setAttribute('role', 'group');
     card.setAttribute('aria-label', a.name);
-    card.innerHTML = '<div class="wnd-scroll">' +
-        '<div class="wnd-who">' + avHtml(a, 'wnd-av') + '<div class="wnd-whot"><h3 class="wnd-name">' + esc(a.name) + '</h3><p class="wnd-meta">' + esc(meta) + '</p></div></div>' +
-        deckWeekHtml(f, a.id) +
-        '<div class="wnd-note"><h4 class="wnd-h">Your note</h4>' +
-          '<textarea class="wnd-ta" maxlength="2000" spellcheck="true" aria-label="Note to ' + esc(f1) + '"' + (sent ? ' readonly' : '') + '></textarea>' +
-          '<p class="wnd-foot">' + (sent ? 'In your thread with ' + esc(f1) + (window._demoMode ? ', in the demo only.' : '.') : 'Drafted from their last 7 days. Every number is from their log.') + '</p></div>' +
+    card.innerHTML = '<div class="wnd-scroll">' + deckWhoHtml(a, meta) + deckNoteHtml(f1, sent, demo()) +
+        deckExtrasHtml(deckExtras(f, lines, checkinLines(a.id, f.today)), { unit: f.unit, coachUnit: coachUnit(), today: f.today }) +
       '</div>' + deckActsHtml(a, sent);
     var ta = card.querySelector('.wnd-ta');
     ta.value = draft;
     return card;
   }
-  // The end: what went, the faces it went to, and the way back to anyone skipped. Opened with nobody due, it says
-  // so in the coach's words (everyone has theirs, or nobody trained).
-  function paintDone(card) {
-    var n = D.sent.length, sk = D.skipped.length, title, sub, faces;
-    if (D.empty && !n) {
-      var sw = D.sentWeek || [];
+  // The end, as words: what went, the faces it went to, and the way back to anyone skipped. Opened with nobody due,
+  // it says so in the coach's words (everyone has theirs, or nobody trained). Q: the deck's queue (+ empty, sentWeek).
+  function deckDoneModel(Q, isDemo) {
+    var n = Q.sent.length, title, sub, faces;
+    if (Q.empty && !n) {
+      var sw = Q.sentWeek || [];
       title = sw.length ? 'Every note is out' : 'No notes due';
       sub = sw.length ? plural(sw.length, 'lifter') + (sw.length === 1 ? ' has' : ' have') + ' this week’s note.' : 'A lifter is due a note once they train, and again a week after their last one.';
       faces = sw.map(function (r) { return r.athlete; });
     } else {
       title = n ? plural(n, 'note') + ' sent' : 'Nothing sent';
-      sub = n ? (n === 1 ? 'It\u2019s in your thread with ' + firstName(D.sent[0].athlete.name) : 'Each one is in their thread') + (window._demoMode ? ', in the demo only' : '') + '.' : 'Everyone you skipped is still due.';
-      faces = D.sent.map(function (r) { return r.athlete; });
+      sub = n ? (n === 1 ? 'It’s in your thread with ' + firstName(Q.sent[0].athlete.name) : 'Each one is in their thread') + (isDemo ? ', in the demo only' : '') + '.' : 'Everyone you skipped is still due.';
+      faces = Q.sent.map(function (r) { return r.athlete; });
     }
-    card.innerHTML = '<div class="wnd-scroll"><div class="wnd-done-in" role="status"><span class="wnd-done-ic">' + ic('check', 2.6) + '</span>' +
-        '<h3 class="wnd-done-t">' + esc(title) + '</h3><p class="wnd-done-s">' + esc(sub) + '</p>' +
-        (faces.length ? '<span class="wnd-faces" aria-hidden="true">' + faces.slice(0, 8).map(function (a) { return avHtml(a); }).join('') + (faces.length > 8 ? '<i class="wnd-more">+' + (faces.length - 8) + '</i>' : '') + '</span>' : '') +
+    return { title: title, sub: sub, faces: faces, skipped: Q.skipped.length };
+  }
+  function deckDoneHtml(m) {
+    return '<div class="wnd-scroll"><div class="wnd-done-in" role="status"><span class="wnd-done-ic">' + ic('check', 2.6) + '</span>' +
+        '<h3 class="wnd-done-t">' + esc(m.title) + '</h3><p class="wnd-done-s">' + esc(m.sub) + '</p>' +
+        (m.faces.length ? '<span class="wnd-faces" aria-hidden="true">' + m.faces.slice(0, 8).map(function (a) { return avHtml(a); }).join('') + (m.faces.length > 8 ? '<i class="wnd-more">+' + (m.faces.length - 8) + '</i>' : '') + '</span>' : '') +
       '</div></div>' +
       '<div class="wnd-acts is-done"><button type="button" class="ca-btn is-soft" data-wnd="close">Done</button>' +
-        (sk ? '<button type="button" class="wnd-skip wnd-again" data-wnd="again">Back to the ' + (sk === 1 ? 'one' : sk) + ' you skipped</button>' : '') + '</div>';
+        (m.skipped ? '<button type="button" class="wnd-skip wnd-again" data-wnd="again">Back to the ' + (m.skipped === 1 ? 'one' : m.skipped) + ' you skipped</button>' : '') + '</div>';
   }
+  function paintDone(card) { card.innerHTML = deckDoneHtml(deckDoneModel(D, demo())); }
   function deckCard(k) {
     var N = D.rows.length;
     if (k < 0 || k > N) return null;
@@ -1396,6 +1443,9 @@
     todayEntryHtml: todayEntryHtml, openQueue: openQueue, closeQueue: closeQueue, lifterEntryHtml: lifterEntryHtml, openSheet: openSheet,
     openDeck: openDeck, closeDeck: closeDeck, counts: counts, jobsOrder: jobsOrder,
     threads: threads, takeThreads: takeThreads, refreshThreads: refreshThreads, heard: heard,
+    // the deck's card, pure (tests): what the note says, the evidence it leaves out, each piece as HTML
+    noteSays: noteSays, deckExtras: deckExtras, deckExtrasHtml: deckExtrasHtml, deckWhoHtml: deckWhoHtml, deckNoteHtml: deckNoteHtml,
+    deckActsHtml: deckActsHtml, deckDoneModel: deckDoneModel, deckDoneHtml: deckDoneHtml, painLine: painLine,
     queueStart: queueStart, queueCurrent: queueCurrent, queueDone: queueDone, queueIsSent: queueIsSent, queueIsSkipped: queueIsSkipped,
     queueMarkSent: queueMarkSent, queueSent: queueSent, queueSkip: queueSkip, queueBack: queueBack, queueAgain: queueAgain,
     pickReply: pickReply, replyButton: replyButton, broadcastRowEl: broadcastRowEl, openBroadcast: openBroadcast, insertAt: insertAt

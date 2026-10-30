@@ -2515,10 +2515,10 @@ html:not(.desk) #powa-conn-banner:not(.show) .pcb-dot { animation: none; }
 /* =================================================================== WEEKLY NOTES: THE DECK (30 Oct, weekly-note.js openDeck)
    Monday's review on the phone, from Home's Coaching and You › Coaching: a full screen over the app (above the tab
    bar, under a sheet it opens and the toasts), one lifter a card. The bar: Close, the title and where you are, a mark
-   a lifter (green sent, steel skipped, ink the one up). A card: who (the face, the name 28, the block), their week as
-   one card (sessions done of written with the seven days, each lift's top set felt against written, bodyweight
-   against the class, pain and the check-in, their words), then the note on the inset, and at its foot Skip quiet
-   beside "Send to <first name>", the card's one crimson. Cards move on transform only (the spring is JS); the
+   a lifter (green sent, steel skipped, ink the one up). A card: who (the face, the name 28, two lines at most), the
+   note first on the inset (what goes, so Send never sends words that aren't on the screen), then what the note
+   leaves out as one card (flags, the top sets it doesn't give, their words, the days they trained: each fact once a
+   card), and at its foot Skip quiet beside "Send to <first name>", the card's one crimson. Cards move on transform only (the spring is JS); the
    deck itself rises like a sheet. Reduced motion: it fades, and the cards crossfade. */
 html:not(.desk) .wnd {
   position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 150; display: flex; flex-direction: column;
@@ -2567,10 +2567,9 @@ html:not(.desk) .wnd-meta { margin: 4px 0 0; font-size: 15px; line-height: 1.35;
 html:not(.desk) .wnd-h { margin: 28px 4px 12px; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; line-height: 1.2; color: var(--text); }
 /* their week: one card on the surface */
 html:not(.desk) .wnd-wcard { padding: 4px 16px; background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip); }
-html:not(.desk) .wnd-sess { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 76px; }
-html:not(.desk) .wnd-sess-n { display: flex; align-items: baseline; gap: 8px; margin: 0; white-space: nowrap; }
-html:not(.desk) .wnd-sess-n b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
-html:not(.desk) .wnd-sess-n span { font-size: 15px; color: var(--text-2); }
+html:not(.desk) .wnd-sess { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; box-shadow: inset 0 1px 0 var(--ca-hair); }
+html:not(.desk) .wnd-sess-n { margin: 0; font-size: 15px; line-height: 1.35; color: var(--text-2); white-space: nowrap; }
+html:not(.desk) :is(.wnd-wcard > :first-child, .wnd-wcard > :first-child > :first-child) { box-shadow: none; }
 html:not(.desk) .wnd-days { display: flex; gap: 6px; }
 html:not(.desk) .wnd-day { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 14px; }
 html:not(.desk) .wnd-day i { width: 8px; height: 8px; border-radius: 50%; background: var(--pl-inset-2); }
