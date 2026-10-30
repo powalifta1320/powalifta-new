@@ -6118,13 +6118,17 @@ function syncHomeWidget() {
         let md = null; try { md = localStorage.getItem('powa-meet-date'); } catch (e) {}
         cutW = widgetCut(bwl.map(b => ({ date: b.date, weight: Number(b.weight) })), g, md, todayISO());
       } catch (e) {}
-      PowaNative.updateWidget({ total: n(currentTotal(user.id)), unit: unitLabel(), squat: n(bestE1RM(user.id, 'squat')), bench: n(bestE1RM(user.id, 'bench')),
+      // The PR widget (2026-10-30): the latest PR as the PR moment shows it (app.js widgetLastPR).
+      let lastPR = null;
+      try { lastPR = widgetLastPR(Store.get().workoutLogs, user.id, todayISO()); } catch (e) {}
+      // role: a coach's app writes 'coach' (coach-widget.js); each widget for the other one says so in one line.
+      PowaNative.updateWidget({ role: 'lifter', total: n(currentTotal(user.id)), unit: unitLabel(), squat: n(bestE1RM(user.id, 'squat')), bench: n(bestE1RM(user.id, 'bench')),
         deadlift: n(bestE1RM(user.id, 'deadlift')), session, sets, meet, at: Date.now(),
         setsDone: allSets.filter(s => s.completed).length, setsTotal: allSets.length,
         weekDone: wk.done || 0, weekGoal: getWeekGoal() || defaultWeekGoal(), streak: wk.streak || 0,
         meetDays, openers,
         lastWeight: lastBw ? Number(kgToDisplay(lastBw.weight, 1)).toFixed(1) : null, weighedToday: !!(lastBw && lastBw.date === todayISO()),
-        totalDelta, next, weekStart, weekDays, weighTrend, weighDelta, queue, healthOn, health, cut: cutW });
+        totalDelta, next, weekStart, weekDays, weighTrend, weighDelta, queue, healthOn, health, cut: cutW, lastPR });
     } catch (e) {}
   }, 600);
 }
@@ -6194,6 +6198,7 @@ async function drainWidgetPending() {
       if (/^powalifta:\/\/cut/.test(open)) setTimeout(() => { try { openCutSheet(); } catch (e) {} }, 350);
     }
     else if (/^powalifta:\/\/(train|rest|readiness)/.test(open)) { const t = document.getElementById('tab-today'); if (t) t.click(); }
+    else if (/^powalifta:\/\/progress/.test(open)) { const t = document.getElementById('tab-progress'); if (t) t.click(); }   // the PR widget
   } catch (e) { console.warn('widget pending', e); }
   finally { _drainingWidget = false; }
 }

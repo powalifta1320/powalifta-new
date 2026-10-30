@@ -8125,6 +8125,37 @@ test("a lifter's page: Form checks, waiting ones first, the row says how many wa
 });
 
 /* ===========================================================
+   Home Screen widgets: the lifter's PR (app.js widgetLastPR)
+   =========================================================== */
+group('Home Screen widgets: the PR');
+test('PR widget: the latest PR as the PR moment shows it, never a first set', () => {
+  const t = '2026-10-30';
+  const L = (id, lift, date, e, who) => ({ id, athleteId: who || 'a', lift, date, e1rmComp: e, weight: 100, reps: 3, rpe: 8 });
+  eq(widgetLastPR([], 'a', t), null, 'no logs, no PR');
+  eq(widgetLastPR([L('l1', 'squat', '2026-10-01', 200), L('l2', 'bench', '2026-10-02', 130)], 'a', t), null, 'a lift’s first sets beat nothing');
+  let w = widgetLastPR([L('l1', 'squat', '2026-10-01', 200), L('l2', 'squat', '2026-10-28', 205.4), L('l3', 'bench', '2026-10-02', 130)], 'a', t);
+  eq(w.lift, 'squat'); eq(w.value, '205'); eq(w.delta, '+5', 'the moment: 205 against 200'); eq(w.unit, 'kg'); eq(w.date, '2026-10-28');
+  // the newest across the lifts; two on one day: the later set, its jump over the one before it
+  w = widgetLastPR([L('l1', 'squat', '2026-10-01', 200), L('l2', 'squat', '2026-10-20', 204), L('b1', 'bench', '2026-10-02', 130),
+    L('b2', 'bench', '2026-10-29', 132), L('b3', 'bench', '2026-10-29', 133.2)], 'a', t);
+  eq(w.lift, 'bench'); eq(w.value, '133'); eq(w.delta, '+1'); eq(w.date, '2026-10-29');
+  // under one unit: the jump to a tenth, never "+0"
+  w = widgetLastPR([L('d1', 'deadlift', '2026-10-01', 250), L('d2', 'deadlift', '2026-10-30', 250.3)], 'a', t);
+  eq(w.value, '250'); eq(w.delta, '+0.3');
+  // not a set dated after today, not someone else's, not a set that only matches the best
+  w = widgetLastPR([L('l1', 'squat', '2026-10-01', 200), L('l2', 'squat', '2026-10-28', 205), L('l9', 'squat', '2026-11-02', 230),
+    L('x1', 'bench', '2026-10-01', 100, 'b'), L('x2', 'bench', '2026-10-29', 140, 'b'), L('l3', 'squat', '2026-10-29', 205.04)], 'a', t);
+  eq(w.value, '205'); eq(w.date, '2026-10-28');
+  const saved = localStorage.getItem(UNIT_KEY);
+  try {
+    setUnit('lbs');
+    w = widgetLastPR([L('l1', 'squat', '2026-10-01', 200), L('l2', 'squat', '2026-10-28', 205.4)], 'a', t);
+    eq(w.unit, 'lbs'); eq(w.value, '453'); eq(w.delta, '+12', '453 against 441');
+  } finally { if (saved == null) localStorage.removeItem(UNIT_KEY); else localStorage.setItem(UNIT_KEY, saved); }
+  assert(JSON.stringify(w).length < 120, 'a few short strings');
+});
+
+/* ===========================================================
    The iPhone app's Programs (coach-program.js)
    =========================================================== */
 group('programs (coach-program.js)');
