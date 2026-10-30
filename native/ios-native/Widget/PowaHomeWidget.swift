@@ -124,6 +124,7 @@ struct PowaSnapshot: Codable {
         var meets: [Meet]?      // the next meets, nearest first, one per meet
         var money: Money?       // this month's money; nil = Clients not set up on this build
         var week: TeamWeek?     // the team's sessions this week
+        var lifters: Int?       // how many are on the roster (0: a brand-new coach)
     }
     struct Job: Codable {
         var id: String?         // the lifter (opens their page); nil for a meet day with several
@@ -206,7 +207,8 @@ struct PowaSnapshot: Codable {
                 meets: [Meet(name: "Autumn Open", date: today, who: ["Tom", "Priya", "Callum"]),
                         Meet(name: "City Classic", date: day(33), who: ["Sarah"])],
                 money: Money(any: true, got: "$590", of: "$810", pct: 0.73, month: String(today.prefix(7)), due: [day(-3), day(4), day(12)]),
-                week: TeamWeek(done: 18, planned: 24, behind: 2, behindName: "Ines", weekStart: nil)))
+                week: TeamWeek(done: 18, planned: 24, behind: 2, behindName: "Ines", weekStart: nil),
+                lifters: 9))
     }()
 
     /// The app writes `at` (ms) with every snapshot. Facts tied to a date (weighed today, a rest

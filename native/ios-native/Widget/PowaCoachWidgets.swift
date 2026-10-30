@@ -69,6 +69,25 @@ private func names(_ who: [String]?, max: Int = 3) -> String {
     return w.prefix(max).joined(separator: ", ") + " +\(w.count - max)"
 }
 
+/// A brand-new coach (nobody on the roster yet): where the lifters will show.
+private struct NoLiftersYet: View {
+    let title: String
+    @Environment(\.powaPal) private var p
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            WidgetTitle(text: title)
+            Spacer(minLength: 4)
+            Text("Your lifters show up here.")
+                .font(.system(size: 15, weight: .semibold)).foregroundColor(p.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Invite your first from Lifters.")
+                .font(.system(size: 12, weight: .medium)).foregroundColor(p.ink2)
+                .fixedSize(horizontal: false, vertical: true).padding(.top, 3)
+            Spacer(minLength: 8)
+        }
+    }
+}
+
 /// A coach's widget before the app has written, or on a lifter's phone: one line.
 private struct CoachOnlyLine: View {
     let title: String
@@ -108,7 +127,7 @@ struct NeedView: View {
     /// Lit by the top job's family, as Home's focal card is: the orange of a warning for pain and
     /// what to watch, gold for a meet, green for their words (and all clear), steel for planning.
     static func hue(_ s: PowaSnapshot?) -> Color {
-        guard let c = s?.coachNow else { return Hue.steel }
+        guard let c = s?.coachNow, c.lifters != 0 else { return Hue.steel }
         guard (c.need ?? 0) > 0, let top = c.jobs?.first else { return Hue.ok }
         switch top.tone {
         case "pain", "watch": return Hue.warn
@@ -122,8 +141,8 @@ struct NeedView: View {
         if let c = snap?.coachNow {
             switch family {
             case .accessoryRectangular: NeedLine(c: c)
-            case .systemMedium: medium(c)
-            default: small(c)
+            default:
+                if c.lifters == 0 { NoLiftersYet(title: "Need you") } else if family == .systemMedium { medium(c) } else { small(c) }
             }
         } else {
             CoachOnlyLine(title: "Need you", snap: snap, family: family)
@@ -150,10 +169,12 @@ struct NeedView: View {
                         .font(.system(size: 15, weight: .bold)).foregroundColor(p.ink)
                         .lineLimit(1).minimumScaleFactor(0.8)
                 }
+                .privacySensitive()
                 Text(top.flag ?? "")
                     .font(.system(size: 12, weight: .medium)).foregroundColor(p.ink2)
                     .lineLimit(1).minimumScaleFactor(0.85)
                     .padding(.leading, 20)
+                    .privacySensitive()
             } else {
                 AllClear()
                 Spacer(minLength: 8)
@@ -244,6 +265,7 @@ private struct JobRow: View {
                     .lineLimit(1).minimumScaleFactor(0.75)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .privacySensitive()
             if let v = job.verb, !v.isEmpty {
                 Group {
                     if lead { ActionCapsule(text: v, size: 12) } else { QuietCapsule(text: v, size: 12) }
@@ -276,6 +298,7 @@ struct NeedLine: View {
                         .font(.system(size: 13, weight: i == 0 ? .semibold : .medium))
                         .opacity(i == 0 ? 1 : 0.75)
                         .lineLimit(1).minimumScaleFactor(0.85)
+                        .privacySensitive()
                 }
             } else {
                 Text("Nobody needs you this week").font(.system(size: 13, weight: .medium)).lineLimit(2)
@@ -462,7 +485,9 @@ struct TeamWeekView: View {
     @Environment(\.powaPal) private var p
     var body: some View {
         if let c = snap?.coachNow {
-            if let w = c.week, w.thisWeek {
+            if c.lifters == 0 {
+                NoLiftersYet(title: "Team week")
+            } else if let w = c.week, w.thisWeek {
                 week(w)
             } else {
                 VStack(alignment: .leading, spacing: 0) {

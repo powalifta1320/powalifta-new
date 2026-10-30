@@ -8192,6 +8192,8 @@ test('coach widgets: Need you in Home’s order with the fix, the meets, this mo
   eq(c.money.due.join(','), '2026-10-27,2026-11-04', 'the active packages’ next due dates: the widget counts overdue against its own today');
   eq(c.week.done, 0); eq(c.week.planned, 0); eq(c.week.weekStart, '2026-10-26', 'the Monday');
   eq(c.week.behind, 1); eq(c.week.behindName, 'Quinn', 'Lifters › Behind: going quiet');
+  eq(c.lifters, 5);
+  eq(CW.build({ store, coachId: 'c', today: T, rows: [], jobs: [], daysOf: () => [] }).coach.lifters, 0, 'a brand-new coach: the widgets say where the lifters will show');
   // one lifter at a meet day reads like any job; all clear; no packages yet
   const one = CW.jobRow({ job: { type: 'meetday', name: 'Autumn Open', days: 1, rows: [rows[1]] }, r: rows[1], rows: [rows[1]] });
   eq(one.name, 'Tom'); eq(one.flag, 'Autumn Open · tomorrow'); eq(one.id, 't');

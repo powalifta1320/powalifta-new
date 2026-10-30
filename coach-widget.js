@@ -128,7 +128,8 @@
         jobs: lead.slice(0, MAX_JOBS).map(jobRow),
         meets: meetsOf(rows),
         money: moneyOf(store, ids, t),
-        week: weekOf(store, coachId, rows, t, daysOf)
+        week: weekOf(store, coachId, rows, t, daysOf),
+        lifters: ids.length
       }
     };
   }
@@ -143,7 +144,7 @@
       try {
         var u = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
         if (!u || !u.id) return;
-        var M = CL() && CL().model ? CL().model({ reuse: true }) : null;
+        var M = CL() && CL().model ? CL().model() : null;   // fresh, as Home draws it (whichever tab is open)
         PowaNative.updateWidget(build({ coachId: u.id, rows: M ? M.rows : null, jobs: M ? M.jobs : null }));
       } catch (e) {}
     };
