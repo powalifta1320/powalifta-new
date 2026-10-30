@@ -16917,6 +16917,11 @@ function _tmExPrecious(x) { return !!(x && (_tmExClaimed(x) || (x.sets || []).so
 function _tmDayPrecious(x) { return !!(x && (x.exercises || []).some(e => e.srcId == null || _tmExPrecious(e))); }
 function _tmWeekPrecious(x) { return !!(x && (x.days || []).some(d => d.srcId == null || _tmDayPrecious(d))); }
 function _tmEx(mex, i, xex, opts, ctx) {
+  // A swap the lifter has logged on (a pin squat that day, in place): that session is theirs as lifted, so the push
+  // leaves it (the team's variant over a logged pin squat would say they squatted 170 as written). An unlogged swap
+  // never gets here: _tmResolveSwaps undid it.
+  const xsw = xex && xex.swap ? exSwap(xex) : null;
+  if (xsw && !xsw.undoable && xsw.src == null && xsw.to !== xsw.from) return xex;
   if (_tmExClaimed(xex)) {
     // Theirs. Reported only when the master would have changed it.
     const shadow = _tmEx(mex, i, _tmUnclaim(xex), opts, { noMax: {}, keptOwn: [] });
@@ -16935,9 +16940,25 @@ function _tmEx(mex, i, xex, opts, ctx) {
 }
 // One lifter's copy of the master. memberWeeks null = their first copy.
 // opts { maxes, unit, stepKg }. → { weeks, keptOwn: [{ exId, srcId, lift, title }], noMax: [lift] }
+// A swap on the lifter's day with nothing logged on it yet (a pin squat for the squat today) is undone before the
+// team's plan lands (a copy): the push writes over what the coach wrote, so it must find the day as written, not a
+// swap whose Undo would then take the push back, or a split-off part beside the back-offs the push puts back. The
+// lifter can swap again. A swap with a set logged on it happened, and stays. Pure.
+function _tmResolveSwaps(weeks) {
+  if (!(weeks || []).some(w => (w.days || []).some(d => (d.exercises || []).some(e => e && e.swap)))) return weeks;
+  const out = _tmClone(weeks);
+  out.forEach(w => (w.days || []).forEach(d => {
+    for (let k = (d.exercises || []).length - 1; k >= 0; k--) {   // backwards: an undone split-off part leaves the list
+      const e = d.exercises[k], sw = e && e.swap ? exSwap(e) : null;
+      if (sw && sw.undoable) swapUndo(d, e.id);
+    }
+  }));
+  return out;
+}
 function teamMemberWeeks(masterWeeks, memberWeeks, opts) {
   opts = opts || {};
   const ctx = { noMax: {}, keptOwn: [] };
+  memberWeeks = memberWeeks ? _tmResolveSwaps(memberWeeks) : memberWeeks;
   const weeks = _tmMergeList(masterWeeks, memberWeeks, (mw, wi, xw) => {
     const w = Object.assign({}, xw || {});
     Object.keys(mw || {}).forEach(k => { if (k !== 'id' && k !== 'days' && k !== 'srcId') w[k] = _tmClone(mw[k]); });

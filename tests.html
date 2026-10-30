@@ -9310,6 +9310,33 @@ group('swap an exercise (app.js swapApply)');
     const rb = reuseBlockWeeks([{ number: 1, days: [split] }], {});
     eq(rb.weeks[0].days[0].exercises.filter(e => e.lift === 'squat').length, 1); eq(rb.weeks[0].days[0].exercises[0].variant, 'Competition');
   });
+  test('a team push the day a lifter swaps: an unlogged swap is undone first (the push lands on the day as written); a logged one stays', () => {
+    const master = [{ id: 'mw1', number: 1, days: [{ id: 'md1', name: 'Squat day', exercises: [{ id: 'me1', lift: 'squat', variant: 'Competition', sets: [S('ms1', 182.5, 3, 8.5), S('ms2', 167.5, 5, 8), S('ms3', 167.5, 5, 8)] }] }] }];
+    const opts = { maxes: {}, unit: 'kg', stepKg: 2.5 };
+    const first = teamMemberWeeks(master, null, opts).weeks;
+    // In place, nothing logged: the coach then makes the team's squat a paused squat.
+    const inPlace = JSON.parse(JSON.stringify(first));
+    swapApply(inPlace[0].days[0], inPlace[0].days[0].exercises[0].id, 'Pin', { stepKg: 2.5 });
+    const m2 = JSON.parse(JSON.stringify(master)); m2[0].days[0].exercises[0].variant = 'Paused';
+    const a = teamMemberWeeks(m2, inPlace, opts).weeks[0].days[0].exercises;
+    eq(a.length, 1); eq(a[0].variant, 'Paused', 'the coach\'s push'); eq(a[0].swap, undefined, 'no swap left whose Undo would take the push back');
+    eq(a[0].sets.map(s => s.weight).join('/'), '182.5/167.5/167.5');
+    eq(inPlace[0].days[0].exercises[0].variant, 'Pin', 'the weeks it was given are not touched');
+    // Split mid-way (the top set logged): the back-offs go back to the squat, once.
+    const split = JSON.parse(JSON.stringify(first));
+    done(split[0].days[0].exercises[0].sets[0], 8.5);
+    swapApply(split[0].days[0], split[0].days[0].exercises[0].id, 'Pin', { stepKg: 2.5, newId: 'x9' });
+    const m3 = JSON.parse(JSON.stringify(master)); m3[0].days[0].exercises[0].sets[2].reps = 4;
+    const b = teamMemberWeeks(m3, split, opts).weeks[0].days[0].exercises;
+    eq(b.map(e => e.variant).join(), 'Competition', 'one squat, no pin squat beside it');
+    eq(b[0].sets.map(s => s.weight + 'x' + s.reps + (s.completed ? '✓' : '')).join(' '), '182.5x3✓ 167.5x5 167.5x4', 'the logged set kept, the push on the rest');
+    // A swapped set logged: it happened, and stays.
+    const lifted = JSON.parse(JSON.stringify(first));
+    swapApply(lifted[0].days[0], lifted[0].days[0].exercises[0].id, 'Pin', { stepKg: 2.5 });
+    done(lifted[0].days[0].exercises[0].sets[0], 8);
+    const c = teamMemberWeeks(master, lifted, opts).weeks[0].days[0].exercises;
+    assert(c.some(e => e.variant === 'Pin' && e.sets.some(s => s.completed)), 'the logged pin squat stays');
+  });
   test('today only: the coach\'s Duplicate week (Programs ⋯, Copy week › A new week at the end) and Save as template copy the lift as written', () => {
     const saved = JSON.parse(JSON.stringify(Store.get()));
     try {
