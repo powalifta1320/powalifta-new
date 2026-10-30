@@ -5,7 +5,9 @@
       8 weeks out or closer, next week's change when one was applied). Pure over the Store and opts: no
       clock, no randomness, and every number comes from their log. Laptop: Today's "Weekly notes" opens a
       queue (draft on the left, their week on the right, Send → the next lifter). Phone: a lifter's page has
-      "Write the week's note" → a sheet.
+      "Write the week's note" → a sheet; Home's Coaching and You › Coaching have "Weekly notes N" → the deck
+      (openDeck: one lifter a card, swiped or tapped through, Monday's review). Queue and deck share one state
+      (queueStart...) and the jobs' order (pain first).
    2. Saved replies: per coach (localStorage 'powa-saved-replies-<coachId>', four defaults), tapped into
       any composer; "Save this as a reply" keeps the current text.
    3. Message everyone (or a team) from the phone's Messages tab, one thread per lifter.
@@ -322,20 +324,67 @@
     return mine.some(function (l) { return d10(l.date) >= since && d10(l.date) <= t; });
   }
   // Lifters who trained in the last 7 days and haven't had a note in the last six. rows: desk rows
-  // ({ athlete, reasons }); the worst first (Today's order), then by name.
+  // ({ athlete, reasons }); the worst first, then by name. opts.order ({ athleteId: place }, coach-lifters.js
+  // CoachLifters.model().order) puts them in the jobs' order, as every coach list is (pain first, then a meet
+  // today, then how soon; a lifter with no open job after everyone with one); without it, by reasons[0].group.
   function weeklyNoteDue(rows, opts) {
     opts = opts || {};
-    var t = opts.today || todayIso();
+    var t = opts.today || todayIso(), ord = opts.order || null;
+    var place = function (r) { var v = ord ? ord[r.athlete.id] : null; return v == null ? Infinity : v; };
     return (rows || []).filter(function (r) {
       var id = r && r.athlete && r.athlete.id;
       if (!id || !trainedThisWeek(id, t)) return false;
       var last = lastNoteOn(id, opts);
       return !last || daysBetween(last, t) >= GAP_DAYS;
     }).sort(function (a, b) {
-      var ga = a.reasons && a.reasons[0] ? a.reasons[0].group : 99, gb = b.reasons && b.reasons[0] ? b.reasons[0].group : 99;
-      return ga - gb || String(a.athlete.name).localeCompare(String(b.athlete.name));
+      if (ord) { var pa = place(a), pb = place(b); if (pa !== pb) return pa < pb ? -1 : 1; }
+      else {
+        var ga = a.reasons && a.reasons[0] ? a.reasons[0].group : 99, gb = b.reasons && b.reasons[0] ? b.reasons[0].group : 99;
+        if (ga !== gb) return ga - gb;
+      }
+      return String(a.athlete.name).localeCompare(String(b.athlete.name));
     });
   }
+
+  /* ---------------------------------------------------------------- the queue's state
+     One record of a review, shared by the laptop's queue (openQueue) and the phone's deck (openDeck): the lifters
+     in order, who is up (i; rows.length is the end), who was sent or skipped, each lifter's edits. Pure: the UI
+     calls these, then paints. */
+  function queueStart(rows, t) { return { rows: (rows || []).slice(), i: 0, t: t || todayIso(), sent: [], skipped: [], edits: {}, busy: false }; }
+  function queueCurrent(Q) { return Q && Q.i >= 0 && Q.i < Q.rows.length ? Q.rows[Q.i] : null; }
+  function queueDone(Q) { return !Q || Q.i >= Q.rows.length; }
+  function rowId(r) { return r && r.athlete ? r.athlete.id : null; }
+  function queueIsSent(Q, id) { return !!Q && Q.sent.some(function (r) { return rowId(r) === id; }); }
+  function queueIsSkipped(Q, id) { return !!Q && Q.skipped.some(function (r) { return rowId(r) === id; }); }
+  // Their note went: they're sent (once), no longer skipped, and their edits are done with. The place stays put.
+  function queueMarkSent(Q, id) {
+    var r = Q.rows.filter(function (x) { return rowId(x) === id; })[0];
+    if (!r) return Q;
+    if (!queueIsSent(Q, id)) Q.sent.push(r);
+    Q.skipped = Q.skipped.filter(function (x) { return rowId(x) !== id; });
+    delete Q.edits[id];
+    return Q;
+  }
+  // Sent, then the next lifter (the laptop's Send).
+  function queueSent(Q) { var r = queueCurrent(Q); if (!r) return Q; queueMarkSent(Q, rowId(r)); Q.i++; return Q; }
+  // On to the next one; the one left is skipped unless their note went.
+  function queueSkip(Q) {
+    var r = queueCurrent(Q);
+    if (!r) return Q;
+    if (!queueIsSent(Q, rowId(r)) && !queueIsSkipped(Q, rowId(r))) Q.skipped.push(r);
+    Q.i++;
+    return Q;
+  }
+  // Back one (the deck's swipe right): that lifter is up again, so no longer skipped.
+  function queueBack(Q) {
+    if (!Q || Q.i <= 0) return Q;
+    Q.i--;
+    var id = rowId(Q.rows[Q.i]);
+    Q.skipped = Q.skipped.filter(function (x) { return rowId(x) !== id; });
+    return Q;
+  }
+  // The ones skipped become the queue (the end's "Back to the ones you skipped"); what was sent stays counted.
+  function queueAgain(Q) { Q.rows = Q.skipped.slice(); Q.skipped = []; Q.i = 0; return Q; }
   function sentThisWeek(rows, opts) {
     opts = opts || {};
     var t = opts.today || todayIso();
@@ -424,10 +473,10 @@
   function openQueue(opts) {
     opts = opts || {};
     if (Q) return;
-    var rows = opts.rows || weeklyNoteDue(deskRows(), { threads: threads() });
+    var rows = opts.rows || weeklyNoteDue(deskRows(), { threads: threads(), order: jobsOrder() });
     if (!rows.length) { if (typeof toast === 'function') toast('Everyone who trained has their note this week'); return; }
     var t = todayIso();
-    Q = { rows: rows, i: 0, t: t, sent: [], skipped: [], edits: {}, busy: false };
+    Q = queueStart(rows, t);
     var veil = document.createElement('div');
     veil.className = 'dk-veil wn-veil';
     var box = document.createElement('div');
@@ -510,15 +559,12 @@
       if (typeof toast === 'function') toast('Couldn’t send to ' + firstName(r.athlete.name) + '. Check your connection');
       return;
     }
-    Q.sent.push(r);
-    delete Q.edits[r.athlete.id];
-    Q.i++;
+    queueSent(Q);
     qPaint(false);
   }
   function qSkip() {
     if (!Q || Q.busy) return;
-    Q.skipped.push(Q.rows[Q.i]);
-    Q.i++;
+    queueSkip(Q);
     qPaint(false);
   }
   function qDone() {
@@ -533,7 +579,7 @@
           '<button type="button" class="cl-btn" data-close>Done</button></div></div>';
     Q.box.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', closeQueue); });
     var again = Q.box.querySelector('[data-again]');
-    if (again) again.addEventListener('click', function () { Q.rows = sk; Q.skipped = []; Q.i = 0; Q.box.classList.remove('is-done'); qPaint(false); });
+    if (again) again.addEventListener('click', function () { queueAgain(Q); Q.box.classList.remove('is-done'); qPaint(false); });
     var done = Q.box.querySelector('.wn-done-a .cl-btn:not(.quiet)');
     if (done) done.focus({ preventScroll: true });
   }
@@ -618,6 +664,414 @@
       requestAnimationFrame(function () { autosize(ta, Math.round(window.innerHeight * 0.5)); });
       ta.addEventListener('input', function () { autosize(ta, Math.round(window.innerHeight * 0.5)); });
     }, { cls: 'wn-sheet' });
+  }
+
+  /* ---------------------------------------------------------------- the phone: Monday review (the deck)
+     Everyone due a note, one card each, in the jobs' order (pain first, then a meet today, then how soon): their
+     week as the evidence (sessions done of written, each lift's top set felt against written, bodyweight against
+     their class, pain and the check-in, their words), the draft under it to edit, "Send to <first name>" the card's
+     one crimson and Skip quiet beside it; then the next lifter, and a done card at the end. Swipe left for the next
+     card, right for the one before: the card follows the finger 1:1 and settles on the coach phone's spring
+     (k 260, c 33: no overshoot); with reduced motion the cards crossfade. One state with the laptop's queue
+     (queueStart / queueSkip / queueBack / queueMarkSent / queueAgain), one send path (sendNote → desk.js
+     dkSendMessage: the demo writes its own Store only and says Sent here). Opened from Home's Coaching
+     (coach-app.js tilesHtml) and You › Coaching (coach.html renderCoachYou). Styles: coach-app.css "WEEKLY NOTES:
+     THE DECK". */
+  var D = null;
+  var CARD_GAP = 16;   // the ground between two cards in flight
+  var SPRING_K = 260, SPRING_C = 33;
+  // The jobs' order (coach-lifters.js: every coach list), as { athleteId: place }; null when it can't be had.
+  function jobsOrder() {
+    try { var M = window.CoachLifters && CoachLifters.model ? CoachLifters.model({ reuse: true }) : null; return M && M.order ? M.order : null; } catch (e) { return null; }
+  }
+  // Home's and You's number: how many are due a note, and how many have theirs this week. rows: desk rows.
+  function counts(rows) {
+    rows = rows || deskRows();
+    var th = threads();
+    return { due: weeklyNoteDue(rows, { threads: th }).length, sent: sentThisWeek(rows, { threads: th }).length };
+  }
+  function painLine(p) {
+    if (!p) return null;
+    if (p.checkin) return { v: 'Yes on the check-in', s: p.count >= 2 ? p.count + ' days this week' : cap(dayWord(p.day)) };
+    var part = typeof painPartLabel === 'function' ? painPartLabel(p.part, p.side) : String(p.part || 'Pain');
+    var lift = p.lift ? (typeof painLiftLabel === 'function' ? painLiftLabel(p.lift) : p.lift) : '';
+    return { v: part + ' ' + p.sev + '/10', s: [lift, p.count >= 2 ? (p.count === 2 ? 'twice' : p.count + ' times') + ' this week' : dayWord(p.day)].filter(Boolean).join(' · ') };
+  }
+  // The check-in's flags (app.js checkinAlerts: today or yesterday), pain aside: the pain row says it.
+  function checkinLines(aid, t) {
+    if (typeof checkinAlerts !== 'function') return [];
+    var s = storeOf(), me = myId();
+    var qs = (s.checkinQuestions || []).filter(function (q) { return !me || !q.coachId || q.coachId === me; });
+    if (!qs.length) return [];
+    try {
+      return checkinAlerts(qs, (s.checkinAnswers || []).filter(function (x) { return x.athleteId === aid; }), aid, t)
+        .filter(function (x) { return !/^Pain\b/.test(x.text); }).map(function (x) { return x.text; });
+    } catch (e) { return []; }
+  }
+  // Their week, for the coach: what was written against what happened. Colour on the lift dots, the done day and
+  // a PR only; a set felt a half point or more over what was written, weight over the class, pain and a flagged
+  // check-in wear the orange triangle beside ink words.
+  function deckWeekHtml(f, aid) {
+    var U = f.unit, S = f.sessions, days = '';
+    for (var i = 6; i >= 0; i--) {
+      var iso = addDays(f.today, -i), on = S.days.indexOf(iso) >= 0, lbl = '';
+      try { lbl = new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'narrow' }); } catch (e) {}
+      days += '<span class="wnd-day' + (on ? ' on' : '') + (i === 0 ? ' is-today' : '') + '"><i></i><small>' + esc(lbl) + '</small></span>';
+    }
+    var html = '<div class="wnd-week"><h4 class="wnd-h">Their week</h4><div class="wnd-wcard">' +
+      '<div class="wnd-sess"><p class="wnd-sess-n"><b>' + S.done + '</b><span>' + (S.planned ? 'of ' + S.planned + ' sessions' : (S.done === 1 ? 'session' : 'sessions')) + '</span></p>' +
+      '<div class="wnd-days" role="img" aria-label="' + esc(plural(S.done, 'day') + ' trained in the last 7') + '">' + days + '</div></div>';
+    if (f.tops.length) {
+      html += '<div class="wnd-tops">' + f.tops.map(function (x) {
+        var over = x.d != null && x.d >= 0.5, pr = f.prs.some(function (p) { return p.lift === x.lift; });
+        var wrote = x.wroteLo != null ? 'wrote ' + rpeTxt(x.wroteLo) + (x.wroteHi != null ? '–' + rpeTxt(x.wroteHi) : '') : '';
+        var said = x.name + ' ' + wTxt(x.kg, U) + ' × ' + x.reps + (x.felt != null ? ', felt @' + rpeTxt(x.felt) : '') + (wrote ? ', ' + wrote : '') + (pr ? ', a PR' : '');
+        return '<div class="wnd-top' + (over ? ' is-over' : '') + '" role="group" aria-label="' + esc(said) + '"><i class="wnd-ld lift-' + esc(x.lift) + '" aria-hidden="true"></i>' +
+          '<span class="wnd-tn">' + esc(x.name) + (pr ? '<em class="wnd-pr">PR</em>' : '') + '</span>' +
+          '<span class="wnd-tv">' + esc(wTxt(x.kg, U)) + '<small> × ' + esc(String(x.reps)) + '</small></span>' +
+          '<span class="wnd-te"><b>' + (x.felt != null ? '@' + esc(rpeTxt(x.felt)) : '–') + '</b>' + (wrote ? '<small>' + esc(wrote) + '</small>' : '') + '</span></div>';
+      }).join('') + '</div>';
+    }
+    var rows = [];
+    if (f.bw) rows.push({ k: 'Bodyweight', v: wTxt(f.bw.kg, U) + ' ' + uTxt(U), s: (f.bw.over > 0 ? wTxt(f.bw.over, U) + ' ' + uTxt(U) + ' over the ' : 'On weight for the ') + n1(f.bw.cls) + ' kg class · ' + (f.bw.meet || 'Meet') + ' ' + whenMeet(f.bw.days), warn: f.bw.over > 0 });
+    else if (f.meetNoWeighIn) rows.push({ k: 'Bodyweight', v: 'No weigh-in', s: (f.meetNoWeighIn.name || 'Meet') + ' ' + whenMeet(f.meetNoWeighIn.days), warn: false });
+    var pl = painLine(f.pain);
+    if (pl) rows.push({ k: 'Pain', v: pl.v, s: pl.s, warn: true });
+    var ci = checkinLines(aid, f.today);
+    if (ci.length) rows.push({ k: 'Check-in', v: ci[0], s: ci.slice(1).join(' · '), warn: true });
+    if (rows.length) html += '<dl class="wnd-facts">' + rows.map(function (x) {
+      return '<div class="wnd-fact' + (x.warn ? ' is-warn' : '') + '"><dt>' + esc(x.k) + '</dt><dd><b>' + esc(x.v) + '</b>' + (x.s ? '<span>' + esc(x.s) + '</span>' : '') + '</dd></div>';
+    }).join('') + '</dl>';
+    if (f.words) html += '<figure class="wnd-words"><figcaption>In their words · ' + esc(cap(dayWord(f.words.when))) + '</figcaption><blockquote>“' + esc(f.words.text.length > 220 ? f.words.text.slice(0, 219).trim() + '…' : f.words.text) + '”</blockquote></figure>';
+    if (!S.done && !f.tops.length && !rows.length && !f.words) html += '<p class="wnd-none">Nothing logged in the last 7 days.</p>';
+    return html + '</div></div>';
+  }
+  function deckActsHtml(a, sent) {
+    var f1 = firstName(a.name);
+    if (sent) return '<div class="wnd-acts is-sent"><p class="wnd-sent" role="status">' + ic('check', 2.6) + '<span>Sent to ' + esc(f1) + '</span></p><button type="button" class="ca-btn is-soft wnd-next" data-wnd="next">Next</button></div>';
+    return '<div class="wnd-acts"><button type="button" class="wnd-skip" data-wnd="skip">Skip</button><button type="button" class="ca-btn is-red wnd-send" data-wnd="send">Send to ' + esc(f1) + '</button></div>';
+  }
+  function deckLifterCard(r) {
+    var a = r.athlete, f1 = firstName(a.name), f = weeklyNoteFacts(a.id, { today: D.t }), st = r.status || {};
+    var sent = queueIsSent(D, a.id);
+    var draft = sent ? (D.sentText[a.id] || '') : (D.edits[a.id] != null ? D.edits[a.id] : weeklyNoteDraft(a.id, { facts: f }));
+    var meta = st.program ? (st.program.name || 'Program') + (st.week && st.week.total ? ' · week ' + (st.week.idx + 1) + ' of ' + st.week.total : '') : 'No block running';
+    var card = document.createElement('div');
+    card.className = 'wnd-card' + (sent ? ' is-sent' : '');
+    card.setAttribute('data-aid', a.id);
+    card.setAttribute('role', 'group');
+    card.setAttribute('aria-label', a.name);
+    card.innerHTML = '<div class="wnd-scroll">' +
+        '<div class="wnd-who">' + avHtml(a, 'wnd-av') + '<div class="wnd-whot"><h3 class="wnd-name">' + esc(a.name) + '</h3><p class="wnd-meta">' + esc(meta) + '</p></div></div>' +
+        deckWeekHtml(f, a.id) +
+        '<div class="wnd-note"><h4 class="wnd-h">Your note</h4>' +
+          '<textarea class="wnd-ta" maxlength="2000" spellcheck="true" aria-label="Note to ' + esc(f1) + '"' + (sent ? ' readonly' : '') + '></textarea>' +
+          '<p class="wnd-foot">' + (sent ? 'In your thread with ' + esc(f1) + (window._demoMode ? ', in the demo only.' : '.') : 'Drafted from their last 7 days. Every number is from their log.') + '</p></div>' +
+      '</div>' + deckActsHtml(a, sent);
+    var ta = card.querySelector('.wnd-ta');
+    ta.value = draft;
+    return card;
+  }
+  // The end: what went, the faces it went to, and the way back to anyone skipped. Opened with nobody due, it says
+  // so in the coach's words (everyone has theirs, or nobody trained).
+  function paintDone(card) {
+    var n = D.sent.length, sk = D.skipped.length, title, sub, faces;
+    if (D.empty && !n) {
+      var sw = D.sentWeek || [];
+      title = sw.length ? 'Every note is out' : 'No notes due';
+      sub = sw.length ? plural(sw.length, 'lifter') + (sw.length === 1 ? ' has' : ' have') + ' this week’s note.' : 'A lifter is due a note once they train, and again a week after their last one.';
+      faces = sw.map(function (r) { return r.athlete; });
+    } else {
+      title = n ? plural(n, 'note') + ' sent' : 'Nothing sent';
+      sub = n ? (n === 1 ? 'It\u2019s in your thread with ' + firstName(D.sent[0].athlete.name) : 'Each one is in their thread') + (window._demoMode ? ', in the demo only' : '') + '.' : 'Everyone you skipped is still due.';
+      faces = D.sent.map(function (r) { return r.athlete; });
+    }
+    card.innerHTML = '<div class="wnd-scroll"><div class="wnd-done-in" role="status"><span class="wnd-done-ic">' + ic('check', 2.6) + '</span>' +
+        '<h3 class="wnd-done-t">' + esc(title) + '</h3><p class="wnd-done-s">' + esc(sub) + '</p>' +
+        (faces.length ? '<span class="wnd-faces" aria-hidden="true">' + faces.slice(0, 8).map(function (a) { return avHtml(a); }).join('') + (faces.length > 8 ? '<i class="wnd-more">+' + (faces.length - 8) + '</i>' : '') + '</span>' : '') +
+      '</div></div>' +
+      '<div class="wnd-acts is-done"><button type="button" class="ca-btn is-soft" data-wnd="close">Done</button>' +
+        (sk ? '<button type="button" class="wnd-skip wnd-again" data-wnd="again">Back to the ' + (sk === 1 ? 'one' : sk) + ' you skipped</button>' : '') + '</div>';
+  }
+  function deckCard(k) {
+    var N = D.rows.length;
+    if (k < 0 || k > N) return null;
+    var card = D.cards[k];
+    if (!card) {
+      if (k === N) { card = document.createElement('div'); card.className = 'wnd-card wnd-done'; card.setAttribute('role', 'group'); card.setAttribute('aria-label', 'Done'); }
+      else card = deckLifterCard(D.rows[k]);
+      card.setAttribute('data-k', String(k));
+      D.stage.appendChild(card);
+      D.cards[k] = card;
+      var ta = card.querySelector('.wnd-ta');
+      if (ta) autosize(ta);
+    }
+    if (k === N) paintDone(card);
+    return card;
+  }
+  // The stage's width, read once a layout (deckSettle, a resize), never inside a frame of the spring.
+  function deckWidth() { if (D && !D.w && D.stage) D.w = D.stage.clientWidth; return (D && D.w) || window.innerWidth || 393; }
+  // Every card sits at its place beside the one up: x is how far the one up is from home.
+  function deckPlace(x) {
+    var W = deckWidth();
+    Object.keys(D.cards).forEach(function (k) {
+      var d = Number(k) - D.i;
+      D.cards[k].style.transform = 'translate3d(' + (x + d * (W + CARD_GAP)).toFixed(2) + 'px,0,0)';
+    });
+  }
+  // The one up and its two neighbours are drawn (the rest are let go); only the one up can be read or tapped.
+  function deckSettle() {
+    Object.keys(D.cards).forEach(function (k) { if (Math.abs(Number(k) - D.i) > 1) { D.cards[k].remove(); delete D.cards[k]; } });
+    [D.i - 1, D.i, D.i + 1].forEach(deckCard);
+    Object.keys(D.cards).forEach(function (k) {
+      var c = D.cards[k], cur = Number(k) === D.i;
+      c.classList.toggle('is-cur', cur);
+      if (cur) { c.removeAttribute('aria-hidden'); c.inert = false; } else { c.setAttribute('aria-hidden', 'true'); c.inert = true; }
+      c.style.opacity = '';
+    });
+    deckPlace(D.x);
+    deckBar();
+  }
+  // Where you are: "2 of 5" and a mark a lifter (green sent, steel skipped, ink the one up); one bar past 30.
+  function deckBar() {
+    var N = D.rows.length, c = D.root.querySelector('.wnd-count'), m = D.root.querySelector('.wnd-marks');
+    c.textContent = N && D.i < N ? (D.i + 1) + ' of ' + N : '';
+    if (N <= 1) { m.hidden = true; m.innerHTML = ''; return; }
+    m.hidden = false;
+    if (N > 30) { m.className = 'wnd-marks is-bar'; m.innerHTML = '<i style="width:' + Math.round(Math.min(D.i, N) / N * 1000) / 10 + '%"></i>'; return; }
+    m.className = 'wnd-marks';
+    var o = '';
+    for (var k = 0; k < N; k++) {
+      var id = rowId(D.rows[k]);
+      o += '<i class="' + (k === D.i ? 'is-now' : queueIsSent(D, id) ? 'is-sent' : queueIsSkipped(D, id) ? 'is-skip' : '') + '"></i>';
+    }
+    m.innerHTML = o;
+  }
+  function deckStop() { if (D && D.anim) { cancelAnimationFrame(D.anim); D.anim = null; } }
+  // The spring: x'' = -k (x - to) - c x', from where the card is, at the finger's speed (px/s). Never past home:
+  // the speed is held under what would carry it through (no overshoot, as the owner's spring rule says).
+  function deckSpring(to, v0) {
+    deckStop();
+    var x = D.x - to, v = Number(v0) || 0, w = Math.sqrt(SPRING_K), last = null;
+    if (x > 0 && v < -w * x) v = -w * x;
+    if (x < 0 && v > -w * x) v = -w * x;
+    var step = function (now) {
+      if (!D) return;
+      if (last == null) last = now;
+      var dt = Math.min(0.05, Math.max(0, (now - last) / 1000)), h = dt / 4;
+      last = now;
+      for (var j = 0; j < 4; j++) { var acc = -SPRING_K * x - SPRING_C * v; v += acc * h; x += v * h; }
+      D.x = to + x;
+      if (Math.abs(x) < 0.4 && Math.abs(v) < 12) { D.x = to; deckPlace(D.x); D.anim = null; return; }
+      deckPlace(D.x);
+      D.anim = requestAnimationFrame(step);
+    };
+    D.anim = requestAnimationFrame(step);
+  }
+  // Reduced motion: no travel. The one leaving fades out where it is, the one arriving fades up from .45.
+  function deckCrossfade(fromK) {
+    deckStop();
+    D.x = 0;
+    var old = D.cards[fromK];
+    deckSettle();
+    var cur = D.cards[D.i];
+    if (old && old !== cur && old.animate && D.cards[fromK] === old) {
+      old.style.transform = 'translate3d(0,0,0)';
+      old.style.zIndex = '2';
+      var a = old.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: 'ease-out', fill: 'forwards' });
+      a.onfinish = function () { old.style.zIndex = ''; try { a.cancel(); } catch (e) {} if (D) deckPlace(D.x); };
+    }
+    if (cur && cur.animate) cur.animate([{ opacity: 0.45 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' });
+  }
+  // One card on (dir 1) or back (dir -1), from a button, a key or a swipe that let go past the line (v0: its speed).
+  function deckGo(dir, v0) {
+    if (!D) return false;
+    var N = D.rows.length, to = D.i + dir;
+    if (to < 0 || to > N) { if (!reduced()) deckSpring(0, 0); return false; }
+    var fromK = D.i, ae = document.activeElement;
+    if (ae && ae.blur && D.root.contains(ae)) ae.blur();
+    if (dir > 0) queueSkip(D); else queueBack(D);
+    try { if (typeof hapticTap === 'function') hapticTap('LIGHT'); } catch (e) {}
+    if (reduced()) { deckCrossfade(fromK); return true; }
+    D.x += dir * (deckWidth() + CARD_GAP);
+    deckSettle();
+    deckSpring(0, v0 != null ? v0 : -dir * 2400);
+    return true;
+  }
+  // The finger: past 10 pt sideways the cards follow it 1:1 (a vertical move scrolls the card instead); let go past
+  // 28% of the width, or flicked, and the next card comes up on the spring; else the card springs home. Past the
+  // first or the last card the pull gives (a third, and less the further it goes).
+  function deckSwipe(stage) {
+    var x0 = 0, y0 = 0, base = 0, armed = false, drag = false, samples = [];
+    stage.addEventListener('touchstart', function (e) {
+      if (!D || e.touches.length !== 1) { armed = false; return; }
+      var ta = e.target && e.target.closest ? e.target.closest('textarea') : null;
+      if (ta && document.activeElement === ta) { armed = false; return; }   // typing: the note keeps its touches
+      var p = e.touches[0];
+      armed = true; drag = false; x0 = p.clientX; y0 = p.clientY; samples = [{ x: p.clientX, t: e.timeStamp }];
+      if (D.anim) deckStop();   // caught mid-flight: it carries on from where it is
+      base = D.x;
+    }, { passive: true });
+    stage.addEventListener('touchmove', function (e) {
+      if (!armed || !D) return;
+      var p = e.touches[0], dx = p.clientX - x0, dy = p.clientY - y0;
+      if (!drag) {
+        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { armed = false; if (D.x !== 0 && !reduced()) deckSpring(0, 0); return; }
+        if (Math.abs(dx) < 10) return;
+        drag = true; D.drag = true; x0 = p.clientX;   // from here the card is under the finger, without a jump
+        dx = 0;
+      }
+      e.preventDefault();
+      var W = deckWidth(), N = D.rows.length, x = base + dx;
+      if ((x > 0 && D.i <= 0) || (x < 0 && D.i >= N)) x = (x > 0 ? 1 : -1) * Math.min(W * 0.3, Math.abs(x) / 3);
+      D.x = x;
+      if (reduced()) { var cur = D.cards[D.i]; if (cur) cur.style.opacity = String(1 - Math.min(0.55, Math.abs(x) / W)); }
+      else deckPlace(x);
+      samples.push({ x: p.clientX, t: e.timeStamp });
+      if (samples.length > 8) samples.shift();
+    }, { passive: false });
+    var end = function () {
+      if (!armed || !D) { armed = false; return; }
+      armed = false;
+      // A touch that never became a swipe, on a card caught away from home: it goes home.
+      if (!drag) { if (D.x !== 0 && !D.anim) { if (reduced()) { D.x = 0; deckPlace(0); } else deckSpring(0, 0); } return; }
+      drag = false; D.drag = false;
+      // The finger-up after a swipe must not also tap what is under it.
+      var swallow = function (ev) { ev.stopPropagation(); ev.preventDefault(); };
+      D.root.addEventListener('click', swallow, true);
+      setTimeout(function () { if (D) D.root.removeEventListener('click', swallow, true); }, 350);
+      var b = samples[samples.length - 1], a = samples.filter(function (s) { return b.t - s.t <= 100; })[0] || samples[0];
+      var v = b && a && b.t - a.t >= 16 ? (b.x - a.x) / (b.t - a.t) : 0;   // px per ms
+      var W = deckWidth(), N = D.rows.length, x = D.x;
+      var dir = (x < -W * 0.28 || (v < -0.45 && x < -24)) ? 1 : (x > W * 0.28 || (v > 0.45 && x > 24)) ? -1 : 0;
+      if ((dir === 1 && D.i >= N) || (dir === -1 && D.i <= 0)) dir = 0;
+      if (reduced()) {
+        var cur = D.cards[D.i]; if (cur) cur.style.opacity = '';
+        D.x = 0;
+        if (dir) deckGo(dir); else deckPlace(0);
+        return;
+      }
+      if (dir) deckGo(dir, v * 1000); else deckSpring(0, v * 1000);
+    };
+    stage.addEventListener('touchend', end);
+    stage.addEventListener('touchcancel', end);
+  }
+  async function deckSend(btn) {
+    if (!D || D.busy) return;
+    var r = queueCurrent(D);
+    if (!r) return;
+    var id = r.athlete.id, f1 = firstName(r.athlete.name), card = D.cards[D.i], ta = card && card.querySelector('.wnd-ta'), body = ta ? ta.value.trim() : '';
+    if (!body) { if (ta) ta.focus(); return; }
+    D.busy = true;
+    btn.setAttribute('aria-busy', 'true');
+    var ok = await sendNote(id, body, D.t);
+    if (!D) return;
+    D.busy = false;
+    btn.removeAttribute('aria-busy');
+    if (!ok) { if (typeof toast === 'function') toast('Couldn’t send to ' + f1 + '. Check your connection'); return; }
+    queueMarkSent(D, id);
+    D.sentText[id] = body;
+    // The card says Sent where its buttons were, its note now what went; a beat later the next lifter comes up.
+    if (ta) { ta.readOnly = true; ta.blur(); }
+    card.classList.add('is-sent');
+    var acts = card.querySelector('.wnd-acts');
+    if (acts) acts.outerHTML = deckActsHtml(r.athlete, true);
+    var foot = card.querySelector('.wnd-foot');
+    if (foot) foot.textContent = 'In your thread with ' + f1 + (window._demoMode ? ', in the demo only.' : '.');
+    try { if (typeof hapticTap === 'function') hapticTap('MEDIUM'); } catch (e) {}
+    deckBar();
+    setTimeout(function () { if (D && !D.drag && rowId(queueCurrent(D)) === id) deckGo(1); }, 650);
+  }
+  // On the phone's keyboard the deck shrinks to what's left above it, so Send stays in reach.
+  function deckFit() {
+    var vv = window.visualViewport;
+    if (!D || !vv) return;
+    var kb = vv.height < window.innerHeight - 120;
+    D.root.classList.toggle('is-kb', kb);
+    D.root.style.height = kb ? vv.height + 'px' : '';
+    D.root.style.top = kb ? vv.offsetTop + 'px' : '';
+    D.root.style.bottom = kb ? 'auto' : '';
+  }
+  function openDeck(opts) {
+    opts = opts || {};
+    if (D || typeof document === 'undefined') return;
+    if (isDeskNow()) { openQueue(); return; }   // the laptop has its queue
+    var rows = opts.rows || weeklyNoteDue(deskRows(), { threads: threads(), order: jobsOrder() });
+    D = queueStart(rows, todayIso());
+    D.opts = opts; D.cards = {}; D.sentText = {}; D.x = 0; D.anim = null; D.drag = false;
+    D.empty = !rows.length;
+    D.sentWeek = D.empty ? sentThisWeek(deskRows(), { threads: threads() }) : [];
+    var root = document.createElement('div');
+    root.className = 'wnd';
+    root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', 'Weekly notes');
+    root.innerHTML = '<div class="wnd-bar">' +
+        '<button type="button" class="wnd-x" data-wnd="close" aria-label="Close weekly notes">' + ic('x', 2.2) + '</button>' +
+        '<div class="wnd-ttl"><h2 class="wnd-title">Weekly notes</h2><p class="wnd-count" aria-live="polite"></p></div><span aria-hidden="true"></span>' +
+      '</div><div class="wnd-marks" aria-hidden="true" hidden></div><div class="wnd-stage"></div>';
+    document.body.appendChild(root);
+    D.root = root; D.stage = root.querySelector('.wnd-stage');
+    document.documentElement.classList.add('wnd-open');
+    // Like every sheet: the tap that opened it can't land on what sits under the finger now.
+    var openedAt = Date.now();
+    root.addEventListener('click', function (e) { if (Date.now() - openedAt < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
+    root.addEventListener('click', function (e) {
+      if (!D) return;
+      var b = e.target && e.target.closest ? e.target.closest('[data-wnd]') : null;
+      if (!b) return;
+      var k = b.getAttribute('data-wnd');
+      if (k === 'close') closeDeck();
+      else if (k === 'send') deckSend(b);
+      else if (k === 'skip' || k === 'next') deckGo(1);
+      else if (k === 'again') {
+        queueAgain(D);
+        Object.keys(D.cards).forEach(function (c) { D.cards[c].remove(); });
+        D.cards = {}; D.x = 0;
+        deckSettle();
+        var cur = D.cards[D.i];
+        if (cur && cur.animate && !reduced()) cur.animate([{ opacity: 0.45, transform: 'translate3d(24px,0,0)' }, { opacity: 1, transform: 'translate3d(0,0,0)' }], { duration: 340, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+      }
+    });
+    root.addEventListener('input', function (e) {
+      if (!D || !e.target || !e.target.classList || !e.target.classList.contains('wnd-ta')) return;
+      var card = e.target.closest('.wnd-card'), id = card && card.getAttribute('data-aid');
+      if (id && !queueIsSent(D, id)) D.edits[id] = e.target.value;
+      autosize(e.target);
+    });
+    D.onKey = function (e) {
+      if (!D) return;
+      if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeDeck(); return; }
+      var inField = e.target && /^(TEXTAREA|INPUT)$/.test(e.target.tagName);
+      if (!inField && e.key === 'ArrowRight') { e.preventDefault(); deckGo(1); }
+      else if (!inField && e.key === 'ArrowLeft') { e.preventDefault(); deckGo(-1); }
+    };
+    document.addEventListener('keydown', D.onKey, true);
+    // Off the phone (the window widened into the laptop desk) the deck gives way; a turn re-places the cards.
+    D.onResize = function () { if (!D) return; if (isDeskNow()) { closeDeck(); return; } D.w = 0; deckPlace(D.x); };
+    window.addEventListener('resize', D.onResize);
+    if (window.visualViewport) { window.visualViewport.addEventListener('resize', deckFit); window.visualViewport.addEventListener('scroll', deckFit); }
+    deckSwipe(D.stage);
+    deckSettle();
+    root.classList.add('is-in');
+    root.addEventListener('animationend', function once(e) { if (e.target === root) { root.classList.remove('is-in'); root.removeEventListener('animationend', once); } });
+  }
+  function closeDeck() {
+    if (!D) return;
+    var d = D;
+    deckStop();
+    D = null;
+    document.removeEventListener('keydown', d.onKey, true);
+    window.removeEventListener('resize', d.onResize);
+    if (window.visualViewport) { window.visualViewport.removeEventListener('resize', deckFit); window.visualViewport.removeEventListener('scroll', deckFit); }
+    document.documentElement.classList.remove('wnd-open');
+    var ae = document.activeElement;
+    if (ae && ae.blur && d.root.contains(ae)) ae.blur();
+    d.root.classList.remove('is-in');
+    d.root.classList.add('is-leaving');
+    var gone = false, fin = function () { if (gone) return; gone = true; d.root.remove(); };
+    d.root.addEventListener('animationend', fin);
+    setTimeout(fin, 320);
+    // What opened it redraws (Home's count, You's row); else the screen under it does, as after the laptop's queue.
+    try { if (d.opts && d.opts.onClose) d.opts.onClose({ sent: d.sent.length }); else if (window.CoachLifters && CoachLifters.refresh) CoachLifters.refresh(); } catch (e) {}
   }
 
   /* ---------------------------------------------------------------- saved replies: the picker */
@@ -814,6 +1268,9 @@
     DEFAULT_REPLIES: DEFAULT_REPLIES.slice(), repliesKey: repliesKey, repliesParse: repliesParse, repliesAdd: repliesAdd, repliesRemove: repliesRemove,
     loadReplies: loadReplies, saveReplies: saveReplies,
     todayEntryHtml: todayEntryHtml, openQueue: openQueue, closeQueue: closeQueue, lifterEntryHtml: lifterEntryHtml, openSheet: openSheet,
+    openDeck: openDeck, closeDeck: closeDeck, counts: counts, jobsOrder: jobsOrder,
+    queueStart: queueStart, queueCurrent: queueCurrent, queueDone: queueDone, queueIsSent: queueIsSent, queueIsSkipped: queueIsSkipped,
+    queueMarkSent: queueMarkSent, queueSent: queueSent, queueSkip: queueSkip, queueBack: queueBack, queueAgain: queueAgain,
     pickReply: pickReply, replyButton: replyButton, broadcastRowEl: broadcastRowEl, openBroadcast: openBroadcast, insertAt: insertAt
   };
   window.WeeklyNote = API;

@@ -11771,9 +11771,9 @@ function _sheetSwallowEarlyClicks(veil) {
   const openedAt = Date.now();
   const s = veil.querySelector('.ui-sheet');
   if (s) s._presentAt = openedAt;   // the early-tap guard's clock starts at open
-  // Over a full-screen mode (Lift mode, meet mode, the commands drill, the year wrap, all at
-  // z-index 150) a sheet opens above it, not invisibly underneath (Plate math from Lift mode).
-  if (document.querySelector('.lift-mode, .meet-mode, .cmd-mode, .wrap-mode')) veil.style.zIndex = '155';
+  // Over a full-screen mode (Lift mode, meet mode, the commands drill, the year wrap, the coach's weekly-notes
+  // deck, all at z-index 150) a sheet opens above it, not invisibly underneath (Plate math from Lift mode).
+  if (document.querySelector('.lift-mode, .meet-mode, .cmd-mode, .wrap-mode, .wnd')) veil.style.zIndex = '155';
   veil.addEventListener('click', (e) => {
     if (Date.now() - openedAt < 400) { e.stopPropagation(); e.preventDefault(); }
   }, true);
@@ -14902,7 +14902,7 @@ function _sheetDrag(veil, sheet, close) {
     if (!document.documentElement.classList.contains('native') || e.touches.length !== 1) return;
     const t = e.touches[0];
     if (t.clientX > 24) return;
-    if (document.querySelector('.ui-sheet-veil, .pr-toast')) return;
+    if (document.querySelector('.ui-sheet-veil, .pr-toast, .wnd')) return;   // a sheet, or the weekly-notes deck (its own swipe)
     back = document.querySelector('.pane-back');
     pane = back && back.closest('[data-pane]');
     if (!pane) return;

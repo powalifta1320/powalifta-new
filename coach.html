@@ -655,6 +655,8 @@ function renderCoachYou() {
     groups: [
       { title: 'Coaching', rows: [
         fresh ? { label: 'Get set up', value: setup.filter(x => x.done).length + ' of ' + setup.length, icon: svg('<path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/>'), tint: 'gold', onClick: () => (window.CoachYou ? CoachYou.openSetup() : go('athletes')()) } : null,
+        // Monday review (weekly-note.js): everyone due a note this week, one card each.
+        window.WeeklyNote && WeeklyNote.openDeck && roster.length ? _youWeeklyNotesRow(svg) : null,
         window.ClientsUI && roster.length ? { label: 'Clients', value: overdue ? overdue + ' overdue' : '', warn: !!overdue, icon: ClientsUI.ICON, tint: 'green', onClick: go('clients') } : null,
         // How many more lifters fit your hours (capacity.js): room left, in lifters.
         window.CapacityUI ? { label: 'Capacity', value: CapacityUI.rowValue(), icon: CapacityUI.ICON, tint: 'iris', onClick: go('capacity') } : null,
@@ -685,6 +687,14 @@ function renderCoachYou() {
   Array.from(area.children).forEach((n, i) => { n.classList.add('ca-rise'); n.style.setProperty('--i', String(Math.min(i, 6))); });
 }
 window.renderCoachYou = renderCoachYou;
+// You › Coaching's Weekly notes row: how many are due (or all sent), and the deck (weekly-note.js openDeck).
+// A function declaration: hoisted, so a first render can't meet it in the TDZ.
+function _youWeeklyNotesRow(svg) {
+  let n = { due: 0, sent: 0 };
+  try { n = WeeklyNote.counts(); } catch (e) {}
+  return { label: 'Weekly notes', value: n.due ? n.due + ' due' : n.sent ? 'All sent' : '', icon: svg('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>'), tint: 'blue',
+    onClick: () => WeeklyNote.openDeck({ onClose: () => { const p = document.querySelector('[data-pane="you"]'); if (p && !p.classList.contains('hidden')) renderCoachYou(); } }) };
+}
 
 // The phone's docked top bar keeps a back button on a sub-screen (a lifter, Clients, Templates…): the
 // page's own "‹ Lifters" sits in the bar's row at rest and scrolls away under the docked bar, so the

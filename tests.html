@@ -6447,6 +6447,52 @@ test('who is due: trained this week, no note in six days, the worst first', () =
     eq(WN.lastNoteOn('wd', { coachId: 'wc' }), '2026-10-25');
   } finally { Store.set(saved); }
 });
+test('who is due, in the jobs’ order (pain first, then how soon): the deck and the laptop’s queue', () => {
+  const saved = Store.get();
+  Store.set(wnStore({ messages: [{ id: 'm1', coachId: 'wc', athleteId: 'wd', senderId: 'wc', body: 'Week note', meta: { weekly: '2026-10-25' }, createdAt: '2026-10-25T09:00:00Z' }] }));
+  try {
+    const rows = [{ athlete: { id: 'wd', name: 'Di Moss' }, reasons: [] }, { athlete: { id: 'wb', name: 'Bo Reed' }, reasons: [{ group: 7 }] }, { athlete: { id: 'wa', name: 'Ada Lane' }, reasons: [{ group: 1 }] }];
+    const T = '2026-10-31';
+    eq(WN.due(rows, { today: T, coachId: 'wc' }).map(r => r.athlete.id).join(','), 'wa,wd', 'no order given: the worst reason first, as before');
+    eq(WN.due(rows, { today: T, coachId: 'wc', order: { wd: 0, wa: 3 } }).map(r => r.athlete.id).join(','), 'wd,wa', 'the jobs’ order decides');
+    eq(WN.due(rows, { today: T, coachId: 'wc', order: { wa: 5 } }).map(r => r.athlete.id).join(','), 'wa,wd', 'a lifter with no open job comes after everyone with one');
+    eq(WN.due(rows, { today: T, coachId: 'wc', order: {} }).map(r => r.athlete.id).join(','), 'wa,wd', 'nobody with a job: by name');
+  } finally { Store.set(saved); }
+});
+test('the queue’s state: sent, skipped, back and again, one record for the laptop’s queue and the phone’s deck', () => {
+  const r = (id, name) => ({ athlete: { id, name } });
+  const ids = (list) => list.map(x => x.athlete.id).join(',');
+  const Q = WN.queueStart([r('a', 'Ada'), r('b', 'Bo'), r('c', 'Cy')], '2026-10-28');
+  eq(WN.queueCurrent(Q).athlete.id, 'a'); eq(Q.t, '2026-10-28'); eq(WN.queueDone(Q), false);
+  Q.edits.a = 'my words';
+  WN.queueSent(Q);
+  eq(Q.i, 1, 'sent: on to the next'); eq(ids(Q.sent), 'a'); assert(!('a' in Q.edits), 'their edits are done with');
+  WN.queueSkip(Q);
+  eq(ids(Q.skipped), 'b', 'skipped'); eq(WN.queueCurrent(Q).athlete.id, 'c');
+  WN.queueBack(Q);
+  eq(WN.queueCurrent(Q).athlete.id, 'b', 'back one'); eq(Q.skipped.length, 0, 'up again: no longer skipped');
+  WN.queueBack(Q);
+  eq(WN.queueCurrent(Q).athlete.id, 'a'); assert(WN.queueIsSent(Q, 'a'), 'a sent card stays sent');
+  WN.queueBack(Q);
+  eq(Q.i, 0, 'never before the first');
+  WN.queueSkip(Q);
+  eq(Q.skipped.length, 0, 'moving on from a sent card never skips it'); eq(Q.i, 1);
+  WN.queueSkip(Q); WN.queueSkip(Q);
+  assert(WN.queueDone(Q), 'the end'); eq(WN.queueCurrent(Q), null); eq(ids(Q.skipped), 'b,c');
+  WN.queueSkip(Q);
+  eq(Q.i, 3, 'past the end nothing moves');
+  WN.queueBack(Q);
+  eq(WN.queueCurrent(Q).athlete.id, 'c'); eq(ids(Q.skipped), 'b', 'c is up again');
+  WN.queueSkip(Q);
+  WN.queueAgain(Q);
+  eq(ids(Q.rows), 'b,c', 'the ones skipped become the queue'); eq(Q.i, 0); eq(Q.skipped.length, 0); eq(Q.sent.length, 1, 'what went stays counted');
+  WN.queueMarkSent(Q, 'c');
+  assert(WN.queueIsSent(Q, 'c')); eq(Q.i, 0, 'marking sent never moves the place');
+  WN.queueMarkSent(Q, 'c');
+  eq(Q.sent.length, 2, 'sent once'); eq(WN.queueMarkSent(Q, 'zz').sent.length, 2, 'someone not in the queue: nothing');
+  const E = WN.queueStart([], 't');
+  assert(WN.queueDone(E), 'nobody due: already at the end'); eq(WN.queueBack(E).i, 0); eq(WN.queueSkip(E).i, 0);
+});
 test('records: the note sent and next week’s change, per coach, for a week', () => {
   const keys = ['powa-weekly-notes-wc-t', 'powa-week-changes-wc-t'];
   try {
@@ -7906,6 +7952,12 @@ test("Home's numbers: trained in 7 days, this week's PRs, unread", () => {
   eq(CA.caHeadline(1).words, 'needs you'); eq(CA.caHeadline(4).words, 'need you'); eq(CA.caHeadline(0).words, 'All clear');
   const wins = CA.caWins(rows);
   eq(wins.map(w => w.id).join(','), 'a,c', 'most PRs first, nobody without a win');
+});
+test("Home's Weekly notes line: due ones to write, else all out, else nobody due yet", () => {
+  eq(CA.caNotesLine({ due: 2, sent: 1 }), 'to write this week', 'the count beside it says how many');
+  eq(CA.caNotesLine({ due: 0, sent: 3 }), 'All sent this week');
+  eq(CA.caNotesLine({ due: 0, sent: 0 }), 'Due once they train');
+  eq(CA.caNotesLine(null), 'Due once they train', 'nothing known: still a sentence');
 });
 // Home's summary (Plates, 28 Oct): the maths that gathers the app's own numbers into the five pictures.
 test("Home's week strip: Monday to Sunday, one session per lifter per day", () => {

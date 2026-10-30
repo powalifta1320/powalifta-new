@@ -298,6 +298,9 @@
   }
   // The headline: "3 need you", "1 needs you", or all clear.
   function caHeadline(n) { return n > 0 ? { n: n, words: n === 1 ? 'needs you' : 'need you' } : { n: 0, words: 'All clear' }; }
+  // Weekly notes' line on Home's Coaching (and You's): due ones to write, else all out, else nobody due yet.
+  // wn: WeeklyNote.counts → { due, sent }.
+  function caNotesLine(wn) { wn = wn || {}; return wn.due > 0 ? 'to write this week' : wn.sent > 0 ? 'All sent this week' : 'Due once they train'; }
   // The focal job as a sentence about the lifter ("Tom's meet is today"), for the one big job on Home and
   // the flag on a lifter's card. it: a job from clJobs; jt: its jobText (the detail comes from there).
   function poss(n) { return n ? n + '\u2019s' : 'Their'; }
@@ -1258,12 +1261,17 @@
     // Challenges: running now.
     var chRun = (s.challenges || []).filter(function (c) { return c && c.coachId === u.id && !c.endedAt && (!c.endsOn || String(c.endsOn).slice(0, 10) >= t); }).length;
     var tpls = (s.programTemplates || []).filter(function (x) { return x.coachId === u.id; }).length;
+    // Weekly notes (weekly-note.js): how many lifters who trained this week are due theirs; tapped, the deck.
+    var wn = null;
+    try { if (window.WeeklyNote && WeeklyNote.counts) wn = WeeklyNote.counts(X.rows); } catch (e) { wn = null; }
     var tile = function (key, cls, icon, label, value, sub, aria) {
       return '<button type="button" class="ca-tile ' + cls + '" data-sc="' + key + '" aria-label="' + esc(aria || (label + (value != null ? ': ' + value : '') + (sub ? ', ' + sub : ''))) + '">' +
         '<span class="ca-tic">' + ic(icon) + '</span><span class="ca-tl">' + esc(label) + '</span>' +
         (value != null ? '<b class="ca-tv">' + esc(value) + '</b>' : '') + (sub ? '<span class="ca-ts' + (key === 'clients' && money ? ' is-warn' : '') + (key === 'checkins' && ciFlag ? ' is-warn' : '') + '">' + esc(sub) + '</span>' : '') + ic('chev', 2.2) + '</button>';
     };
     return '<div class="ca-sec"><div class="ca-h"><h2>Coaching</h2></div><div class="ca-tiles ca-rise">' +
+      (wn ? tile('weeknotes', 'is-wide t-msg', 'pen', 'Weekly notes', wn.due ? String(wn.due) : null, caNotesLine(wn),
+        'Weekly notes: ' + (wn.due ? plural(wn.due, 'lifter') + ' due one' : caNotesLine(wn)) + '. Open them one lifter at a time') : '') +
       tile('clients', 'is-wide t-clients' + (money ? ' is-owed' : ''), 'wallet', 'Clients', clientsV, clientsS) +
       tile('checkins', 'is-wide t-checkins', 'clip', 'Check-ins', ciV, ciS) +
       tile('challenges', 'is-small t-club', 'flag', 'Challenges', null, chRun ? chRun + ' running' : 'Start one', 'Challenges: ' + (chRun ? chRun + ' running' : 'none running')) +
@@ -1356,6 +1364,7 @@
     if (key === 'club') { tab('club'); return; }
     if (key === 'templates') { tab('templates'); return; }
     if (key === 'report') { if (window.CoachReportUI) CoachReportUI.open(); return; }
+    if (key === 'weeknotes') { if (window.WeeklyNote && WeeklyNote.openDeck) WeeklyNote.openDeck({ onClose: function () { if (H.host && shown('home')) renderHome(H.host); } }); return; }
     if (key === 'invite') { if (typeof openInviteModal === 'function') openInviteModal(); return; }
     if (key === 'search') { openSearch(); return; }
   }
@@ -2197,7 +2206,7 @@
     ringSvg: caRingSvg, week: caWeek, avHtml: avHtml, faceHtml: faceHtml, ic: ic,
     // pure, for tests
     caTodayLine: caTodayLine, caSev: caSev, caNeedIds: caNeedIds, caLeadJobs: caLeadJobs, caWeek: caWeek, caRingSvg: caRingSvg, caFilterMatch: caFilterMatch,
-    caFilterCounts: caFilterCounts, caSortRows: caSortRows, caFaceOrder: caFaceOrder, caStatus: caStatus, caHeadChip: caHeadChip, caBusyLine: caBusyLine, caFixLabel: caFixLabel, caHeroStats: caHeroStats, caHeadline: caHeadline,
+    caFilterCounts: caFilterCounts, caSortRows: caSortRows, caFaceOrder: caFaceOrder, caStatus: caStatus, caHeadChip: caHeadChip, caBusyLine: caBusyLine, caFixLabel: caFixLabel, caHeroStats: caHeroStats, caHeadline: caHeadline, caNotesLine: caNotesLine,
     caCheckins: caCheckins, caNextMeet: caNextMeet, caNorm: caNorm, caFocalTitle: caFocalTitle, caFocalDetail: caFocalDetail, caWins: caWins, caIsBehind: caIsBehind, caIsMeetSoon: caIsMeetSoon, NEED_TIER: NEED_TIER,
     caJobFamily: caJobFamily, caFamily: caFamily,
     // a lifter's page (pure)

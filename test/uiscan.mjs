@@ -72,6 +72,13 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-client-paid' + suf, page: C, theme, eval: "ClientsUI.markPaid('demo-a3')" },
     { name: 'sh-client-package' + suf, page: C, theme, eval: "ClientsUI.editPackage('demo-a2')" },
     { name: 'sh-remove' + suf, page: C, theme, eval: "openRemoveLifterSheet('demo-a2', 'Sarah Kim')" },
+    // Monday review on the phone (weekly-note.js openDeck, 30 Oct): the first card, its note (scrolled to the end), a card
+    // once sent (gone back to), the end, and the deck opened with nobody due.
+    { name: 'sh-wn-deck' + suf, page: C, theme, eval: 'WeeklyNote.openDeck(); true' },
+    { name: 'sh-wn-deck-note' + suf, page: C, theme, eval: "WeeklyNote.openDeck(); new Promise(r => setTimeout(() => { const s = document.querySelector('.wnd-card.is-cur .wnd-scroll'); s.scrollTop = s.scrollHeight; r(true); }, 500))" },
+    { name: 'sh-wn-deck-sent' + suf, page: C, theme, eval: "WeeklyNote.openDeck(); new Promise(r => setTimeout(() => { document.querySelector('.wnd-card.is-cur [data-wnd=send]').click(); setTimeout(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })); setTimeout(() => r(true), 700); }, 1400); }, 600))" },
+    { name: 'sh-wn-deck-done' + suf, page: C, theme, eval: "WeeklyNote.openDeck(); new Promise(r => setTimeout(() => { document.querySelector('.wnd-card.is-cur [data-wnd=send]').click(); setTimeout(() => { document.querySelector('.wnd-card.is-cur [data-wnd=skip]').click(); setTimeout(() => r(true), 900); }, 1400); }, 600))" },
+    { name: 'sh-wn-deck-empty' + suf, page: C, theme, eval: 'WeeklyNote.openDeck({ rows: [] }); true' },
     // Delete program and Delete template ask in the app's own sheet, like Remove from roster (30 Oct).
     { name: 'sh-del-program' + suf, page: C, theme, eval: tab('program') + ";setTimeout(() => CoachProgram.deleteProgramSheet(Store.get().programs.find(p => p.athleteId === 'demo-a1'), 'demo-a1'), 400)" },
     { name: 'sh-del-template' + suf, page: C, theme, eval: tab('templates') + ";setTimeout(() => CoachProgram.deleteTemplateSheet(Store.get().programTemplates[0]), 400)" },
