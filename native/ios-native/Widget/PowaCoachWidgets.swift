@@ -135,7 +135,7 @@ struct NeedView: View {
     private func small(_ c: PowaSnapshot.Coach) -> some View {
         let n = count(c)
         return VStack(alignment: .leading, spacing: 0) {
-            WidgetTitle(text: "Need you", stamp: snap?.writtenWhen)
+            WidgetTitle(text: "Need you", stamp: snap?.writtenWhen, stampShort: snap?.writtenWhenShort)
             Spacer(minLength: 4)
             if n > 0, let top = c.jobs?.first {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -196,7 +196,7 @@ struct NeedView: View {
                 }
             } else {
                 VStack(alignment: .leading, spacing: 0) {
-                    WidgetTitle(text: "Need you", stamp: snap?.writtenWhen)
+                    WidgetTitle(text: "Need you", stamp: snap?.writtenWhen, stampShort: snap?.writtenWhenShort)
                     Spacer(minLength: 4)
                     AllClear(big: true)
                     Spacer(minLength: 8)
@@ -385,7 +385,7 @@ struct ClientsView: View {
     private func month(_ m: PowaSnapshot.Money, _ got: String) -> some View {
         let late = m.overdueNow
         return VStack(alignment: .leading, spacing: 0) {
-            WidgetTitle(text: "Clients", stamp: snap?.writtenWhen)
+            WidgetTitle(text: "Clients", stamp: snap?.writtenWhen, stampShort: snap?.writtenWhenShort)
             Spacer(minLength: 4)
             Text("This month")
                 .font(.system(size: 12, weight: .semibold)).foregroundColor(p.ink2)
@@ -486,7 +486,7 @@ struct TeamWeekView: View {
     private func week(_ w: PowaSnapshot.TeamWeek) -> some View {
         let done = w.done ?? 0, planned = w.planned ?? 0, behind = w.behind ?? 0
         return VStack(alignment: .leading, spacing: 0) {
-            WidgetTitle(text: "Team week", stamp: snap?.writtenWhen)
+            WidgetTitle(text: "Team week", stamp: snap?.writtenWhen, stampShort: snap?.writtenWhenShort)
             Spacer(minLength: 4)
             HStack(spacing: 12) {
                 TeamRing(done: done, planned: planned, size: 58)

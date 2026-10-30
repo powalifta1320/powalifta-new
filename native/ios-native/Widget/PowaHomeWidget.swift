@@ -226,6 +226,12 @@ struct PowaSnapshot: Codable {
         if n == 1 { return "Yesterday" }
         return PowaFormat.shortDay(d, within: n < 7)
     }
+    /// The same in the fewest letters, for a title with no room ("Wed" for yesterday).
+    var writtenWhenShort: String? {
+        guard let at, !writtenToday else { return nil }
+        let d = Date(timeIntervalSince1970: at / 1000)
+        return PowaFormat.shortDay(d, within: PowaStore.days(from: d, to: Date()) < 7)
+    }
 
     /// The meet countdown, counted on from when the app wrote it (daysUntil counts local days),
     /// so it still reaches "Go lift." when the app isn't opened. Nil once the meet has passed.
@@ -557,26 +563,42 @@ struct BrandMark: View {
 }
 
 /// The quiet header every widget opens with: the mark, and what the widget is; on the right, when
-/// the numbers are from an earlier day, when ("Yesterday").
+/// the numbers are from an earlier day, when ("Yesterday", or "Wed" where that doesn't fit).
 struct WidgetTitle: View {
     let text: String
     var stamp: String? = nil
+    var stampShort: String? = nil
     @Environment(\.powaPal) private var p
     var body: some View {
-        HStack(spacing: 6) {
-            BrandMark(size: 14)
-            Text(text)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(p.ink2)
-                .lineLimit(1)
-            if let stamp {
-                Spacer(minLength: 4)
-                Text(stamp)
+        if let stamp {
+            ViewThatFits(in: .horizontal) {
+                row(stamp, whole: true)
+                row(stampShort ?? stamp, whole: true)
+                row(stampShort ?? stamp, whole: false)
+            }
+        } else {
+            row(nil, whole: false)
+        }
+    }
+
+    private func row(_ s: String?, whole: Bool) -> some View {
+        HStack(spacing: 0) {
+            HStack(spacing: 6) {
+                BrandMark(size: 14)
+                Text(text)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(p.ink2)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: whole, vertical: false)
+            }
+            if let s {
+                Spacer(minLength: 6)
+                Text(s)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(p.ink3)
                     .lineLimit(1)
                     .fixedSize()
-                    .accessibilityLabel("As of \(stamp.lowercased())")
+                    .accessibilityLabel("As of \(s.lowercased())")
             }
         }
     }
