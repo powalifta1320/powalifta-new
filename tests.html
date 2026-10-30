@@ -9296,6 +9296,64 @@ group('swap an exercise (app.js swapApply)');
   });
 })();
 
+group('the meet on the weigh-in (app.js meetWeighLine)');
+(() => {
+  const L = (o) => meetWeighLine(Object.assign({ unit: 'kg', slope: 0 }, o));
+  test('the owner\'s line: meet, the class, the pace, each once', () => {
+    eq(L({ days: 23, cls: 83, bw: 84.4 }).text, 'Meet in 23 days · 1.4 kg over 83 · on pace', 'inside the last 2% (water on the day)');
+    eq(L({ days: 23, cls: 83, bw: 82.4 }).text, 'Meet in 23 days · 0.6 kg under 83 · on weight');
+    eq(L({ days: 23, cls: 83, bw: 83 }).text, 'Meet in 23 days · at 83 · on weight');
+    eq(L({ days: 1, cls: 83, bw: 82.9 }).parts[0], 'Meet tomorrow'); eq(L({ days: 0, cls: 83, bw: 82.9 }).parts[0], 'Meet today');
+    eq(L({ days: 23, cls: 83, bw: 84.4 }).warn, false);
+  });
+  test('behind: what is left needs more than 1% of bodyweight a week (the orange triangle, not red)', () => {
+    const b = L({ days: 14, cls: 83, bw: 87 });   // 4 over, 1.74 of water: 1.13 a week, 0.87 is the most
+    eq(b.verdict, 'behind'); eq(b.warn, true); eq(b.text, 'Meet in 14 days · 4.0 kg over 83 · behind');
+    eq(L({ days: 0, cls: 83, bw: 86 }).verdict, 'behind', 'meet day, 3 kg over: past the water');
+    eq(L({ days: 0, cls: 83, bw: 84 }).verdict, 'on pace', 'meet day, 1 kg over: the water cut');
+  });
+  test('the trend decides on pace; a safe pace that would get there is said as the pace', () => {
+    eq(L({ days: 28, cls: 83, bw: 86, slope: 0 }).text, 'Meet in 28 days · 3.0 kg over 83 · 0.3 kg a week gets there', 'flat: 1.28 to lose over 4 weeks');
+    eq(L({ days: 28, cls: 83, bw: 86, slope: -0.5 }).verdict, 'on pace', 'losing 0.5 a week gets there');
+    eq(L({ days: 28, cls: 83, bw: 86, slope: null }).verdict, 'pace', 'no trend yet: the pace it takes');
+    eq(L({ days: 28, cls: 83, bw: 84.5, slope: 0.3 }).text, 'Meet in 28 days · 1.5 kg over 83 · hold your weight', 'inside the water now, climbing past it');
+    eq(L({ days: 56, cls: 83, bw: 89, slope: -0.8 }).verdict, 'on pace', 'eight weeks, 6 over, losing 0.8: the trend gets there');
+  });
+  test('pounds: the gap in pounds, the class by its kg name; nothing to say without a class, a weigh-in or a date', () => {
+    eq(meetWeighLine({ days: 23, cls: 83, bw: 84.4, slope: 0, unit: 'lbs' }).text, 'Meet in 23 days · 3.1 lb over 83 kg · on pace');
+    eq(L({ days: 23, cls: 0, bw: 84 }), null); eq(L({ days: 23, cls: 83, bw: 0 }), null); eq(L({ days: null, cls: 83, bw: 84 }), null);
+  });
+  test('from the Store: the next meet and its class; the goal\'s class when the meet has none; the goal\'s date with no meet', () => {
+    const saved = JSON.parse(JSON.stringify(Store.get()));
+    try {
+      const t = '2026-10-30', a = 'mw1';
+      const bw = (d, kg) => ({ id: 'b' + d, athleteId: a, date: _addDaysISO(t, -d), weight: kg });
+      const series = [bw(14, 85.0), bw(10, 84.8), bw(7, 84.7), bw(3, 84.5), bw(0, 84.4)];
+      seed({ bodyweight: series, goals: [], meets: [{ id: 'm1', athleteId: a, name: 'Winter Open', date: _addDaysISO(t, 23), weightClass: '83 kg', status: 'planned' }] });
+      const m = meetWeighOf(a, t, 'kg');
+      eq(m.text, 'Meet in 23 days · 1.4 kg over 83 · on pace'); eq(m.src, 'meet'); eq(m.name, 'Winter Open');
+      Store.get().meets[0].weightClass = '';
+      eq(meetWeighOf(a, t, 'kg'), null, 'no class anywhere');
+      Store.get().goals = [{ id: a, athleteId: a, targetClass: 83, cutBy: null }];
+      eq(meetWeighOf(a, t, 'kg').text, 'Meet in 23 days · 1.4 kg over 83 · on pace', 'the goal\'s class, the meet\'s date');
+      Store.get().meets = [];
+      eq(meetWeighOf(a, t, 'kg'), null, 'a class but no date');
+      Store.get().goals[0].cutBy = _addDaysISO(t, 63);
+      const gl = meetWeighOf(a, t, 'kg');
+      eq(gl.src, 'goal'); eq(gl.parts[0], 'Meet in 63 days');
+      Store.get().goals[0].cutBy = _addDaysISO(t, -2);
+      eq(meetWeighOf(a, t, 'kg'), null, 'that date has passed');
+      Store.get().goals[0].cutBy = _addDaysISO(t, 63);
+      Store.get().bodyweight = [bw(30, 84.4)];
+      eq(meetWeighOf(a, t, 'kg'), null, 'the last weigh-in is a month old');
+      Store.get().bodyweight = series;
+      Store.get().meets = [{ id: 'm2', athleteId: a, name: 'Open', date: _addDaysISO(t, 10), weightClass: '120+', status: 'planned' }];
+      Store.get().goals = [];
+      eq(meetWeighOf(a, t, 'kg'), null, '120+ has no ceiling');
+    } finally { Store.set(saved); }
+  });
+})();
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

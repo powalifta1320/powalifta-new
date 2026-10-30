@@ -13664,6 +13664,85 @@ function athleteCut(athleteId, todayIso) {
   return cutPlan(series, g.targetClass, g.cutBy || null, todayIso);
 }
 
+// ===== THE MEET ON THE WEIGH-IN (2026-10-30) =====
+// One plain line where the lifter weighs in (Train's weigh-in tile, the Bodyweight screen): the meet, the class
+// and the pace, each said once. "Meet in 23 days · 1.4 kg over 83 · on pace".
+//   o = { days (to the meet, 0 = today), cls (the class limit, kg), bw (the latest weigh-in, kg),
+//         slope (the 7-day trend, kg a week; null with too few weigh-ins), unit ('kg' | 'lbs') }
+// At or under the class: on weight. Over: the last 2% of bodyweight comes off as water in the day or two
+// before a weigh-in, so it's on pace when the trend (or that water) gets there by meet day; behind when
+// what's left needs more than 1% of bodyweight a week (the safe rate: faster costs strength); in between,
+// the weekly pace that gets there ("0.4 kg a week gets there"), or "hold your weight" when only the
+// trend's climb is the problem. → null | { text, parts: [meet, gap, verdict], verdict: 'on weight' |
+// 'on pace' | 'pace' | 'hold' | 'behind', warn (behind: the orange triangle, never red), over, needKgWk }
+const MEET_WATER_PCT = 0.02, MEET_SAFE_PCT_WK = 0.01;
+function meetWeighLine(o) {
+  o = o || {};
+  const cls = Number(o.cls), bw = Number(o.bw);
+  const days = o.days == null || !isFinite(Number(o.days)) ? null : Math.max(0, Math.round(Number(o.days)));
+  if (!(cls > 0) || !(bw > 0) || days == null) return null;
+  const lbs = o.unit === 'lbs', u = lbs ? 'lb' : 'kg';
+  const disp = (kg) => (Math.round((lbs ? kg / KG_PER_LB : kg) * 10) / 10).toFixed(1);
+  const clsTxt = String(Math.round(cls * 10) / 10) + (lbs ? ' kg' : '');   // a class keeps its kg name
+  const over = Math.round((bw - cls) * 10) / 10;
+  const meet = days === 0 ? 'Meet today' : days === 1 ? 'Meet tomorrow' : 'Meet in ' + days + ' days';
+  let gap, verdict, needKgWk = null;
+  if (over <= 0) {
+    gap = over < 0 ? disp(-over) + ' ' + u + ' under ' + clsTxt : 'at ' + clsTxt;
+    verdict = 'on weight';
+  } else {
+    gap = disp(over) + ' ' + u + ' over ' + clsTxt;
+    const water = MEET_WATER_PCT * bw, weeks = Math.max(days, 1) / 7;
+    const slope = o.slope == null || !isFinite(Number(o.slope)) ? null : Number(o.slope);
+    const where = over + (slope != null ? slope * days / 7 : 0);   // over by meet day, the trend kept up
+    const need = Math.max(0, over - water) / weeks;                  // to come off a week before the water
+    needKgWk = Math.round(need * 100) / 100;
+    if (where <= water) verdict = 'on pace';
+    else if (need > MEET_SAFE_PCT_WK * bw) verdict = 'behind';
+    else verdict = need >= 0.05 ? 'pace' : 'hold';
+  }
+  const vTxt = verdict === 'pace' ? disp(Math.max(0.1, needKgWk)) + ' ' + u + ' a week gets there' : verdict === 'hold' ? 'hold your weight' : verdict;
+  const parts = [meet, gap, vTxt];
+  return { text: parts.join(' · '), parts, verdict, warn: verdict === 'behind', over, needKgWk };
+}
+// The line for a lifter from the Store: their next meet (deskNextMeet) against its class (deskBodyweightVsClass),
+// else the class and date they're making weight for (goals.targetClass and cutBy: the meet). The class can come
+// from the goal when the meet has none. null without a class, a date ahead, or a weigh-in in the last 3 weeks.
+// → meetWeighLine's answer + { src: 'meet' | 'goal', cls, name }
+function meetWeighOf(athleteId, todayIso, unit) {
+  const t = todayIso || todayISO();
+  const s = Store.get();
+  const g = (s.goals || []).find(x => x.athleteId === athleteId) || {};
+  const gCls = Number(g.targetClass) > 0 ? String(g.targetClass) : null;
+  const nm = deskNextMeet(athleteId, t);
+  let days = null, vs = null, src = null, name = null;
+  if (nm) {
+    vs = deskBodyweightVsClass(athleteId, nm.meet) || (gCls && !nm.meet.weightClass ? deskBodyweightVsClass(athleteId, { weightClass: gCls }) : null);
+    if (vs) { days = nm.days; src = 'meet'; name = nm.meet.name || null; }
+  }
+  const by = g.cutBy ? String(g.cutBy).slice(0, 10) : null;
+  if (!vs && gCls && by && by >= t) {
+    vs = deskBodyweightVsClass(athleteId, { weightClass: gCls });
+    if (vs) { days = _deskDays(t, by); src = 'goal'; }
+  }
+  if (!vs) return null;
+  const series = _ofAthlete(s.bodyweight, athleteId).filter(b => Number(b.weight) > 0)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date))).map(b => ({ date: String(b.date).slice(0, 10), weight: Number(b.weight) }));
+  if (!series.length || _deskDays(series[series.length - 1].date, t) > 21) return null;   // an old weigh-in says nothing about now
+  const line = meetWeighLine({ days, cls: vs.cls, bw: vs.bw, slope: bwCutBulkStats(series, null, 'maintain').slopePerWeek, unit });
+  return line ? Object.assign(line, { src, cls: vs.cls, name }) : null;
+}
+// The line as a node: each part stays whole (a wrap falls between parts, never inside "1.4 kg over 83"),
+// "behind" wears the orange triangle in ink words. cls: the classes of the wrapping span.
+function meetLineEl(ml, cls) {
+  const n = el('span', { class: (cls || '') + ' meet-line' + (ml.warn ? ' is-behind' : '') });
+  ml.parts.forEach((p, i) => {
+    if (i) n.appendChild(document.createTextNode(' · '));
+    n.appendChild(el('span', { class: 'ml-part' + (i === 2 && ml.warn ? ' ml-warn' : '') }, p));
+  });
+  return n;
+}
+
 // ===== HOME SCREEN WIDGETS: READINESS + WEIGHT CLASS (Apple Health, 1.3) =====
 // Display-ready strings for the Readiness, Weight class and Lock Screen recovery widgets
 // (syncHomeWidget in athlete.html writes them into the snapshot; PowaHealthWidgets.swift draws
@@ -13801,9 +13880,19 @@ function buildCutSection(athleteId, opts) {
   const cut = athleteCut(athleteId);
   const food = opts.nutritionRows && opts.nutritionRows.length ? nutritionWeek(opts.nutritionRows) : null;
   const hasTargets = Number(g.kcalTarget) > 0 || Number(g.proteinTarget) > 0;
-  if (!cut && !food && !hasTargets) return [];
+  // THE MEET ON THE WEIGH-IN (meetWeighOf, the lifter's Bodyweight): the meet, the class and the pace in one line
+  // leads, and the class line under it goes when it would only say the same class again.
+  const line = opts.line || null;
+  if (!cut && !food && !hasTargets && !line) return [];
   const rows = [];
-  if (cut) {
+  if (line) {
+    const lr = uiRow({ title: line.text, chevron: !!opts.onEdit, onClick: opts.onEdit || null });
+    const lt = lr.querySelector('.ui-row-title');
+    if (lt) { lt.textContent = ''; lt.appendChild(meetLineEl(line, 'ml-row')); }
+    lr.classList.add('meet-row');
+    rows.push(lr);
+  }
+  if (cut && !(line && Number(cut.classKg) === Number(line.cls))) {
     const txt = cutRowText(cut, !!opts.mine);
     rows.push(uiRow({ lead: el('span', { class: 'ui-dot cut-dot ' + ({ good: 'ok', amber: 'warn', off: 'bad' }[cut.tone] || 'ok') }), title: txt.title, sub: txt.sub,
       subTone: cut.tone === 'off' ? 'alert' : null, chevron: !!opts.onEdit, onClick: opts.onEdit || null }));

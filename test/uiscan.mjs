@@ -33,7 +33,9 @@ const tab = (t) => "document.querySelector('[data-tab=\"" + t + "\"]').click()";
 const A = 'athlete.html?demo=1', SO = 'athlete.html?demo=1&solo=1', C = 'coach.html?demo=1', F = 'coach.html?demo=1&fresh=1';
 // Night B helpers. SWAP_INJ: Arjun's latest logged main lift saved as a swap (squat to pin squat, bench to close grip,
 // deadlift to RDL), as his phone would have, on his last session's date (the demo's logs and program dates differ).
+// MEET_BEHIND: the demo lifter's meet 14 days out at 83 kg and today's weigh-in 87.2 kg.
 const SWAP_INJ = "(() => { const s = Store.get(), p = s.programs.find(x => x.athleteId === 'demo-a1'); const last = s.workoutLogs.filter(l => l.athleteId === 'demo-a1').map(l => l.date).sort().pop(); let hit = null; p.weeks.forEach(w => w.days.forEach(d => d.exercises.forEach(e => { if (['squat', 'bench', 'deadlift'].includes(e.lift) && (e.variant || 'Competition') === 'Competition' && e.sets.some(x => x.completed)) hit = e; }))); const to = { squat: 'Pin', bench: 'Close Grip', deadlift: 'RDL' }[hit.lift]; hit.swap = { from: 'Competition', on: last, sets: hit.sets.map((x, i) => ({ at: i, f: { weight: x.weight } })) }; hit.sets.forEach(x => { x.weight = swapLoadKg(x.weight, hit.lift, 'Competition', to, 2.5); if (x.completed) x.completedAt = last; }); hit.variant = to; Store.bump(); })()";
+const MEET_BEHIND = "Store.update(s => { s.meets.push({ id: 'uiscan-meet', athleteId: 'demo-athlete', name: 'Winter Classic', date: _addDaysISO(todayISO(), 14), weightClass: '83 kg', status: 'planned' }); const b = s.bodyweight.find(x => x.athleteId === 'demo-athlete' && x.date === todayISO()); if (b) b.weight = 87.2; })";
 const screens = [];
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
   for (const t of ['today', 'progress', 'club', 'coach', 'you', 'bodyweight', 'library', 'career']) screens.push({ name: 'a-' + t + suf, page: A, theme, eval: t === 'today' ? null : tab(t) });
@@ -125,10 +127,13 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-formcheck' + suf, page: C, theme, eval: "CoachLifters.open('demo-a1'); new Promise(r => setTimeout(r, 500)).then(() => { document.querySelector('#lifterPage [data-row=videos]').click(); return new Promise(r => setTimeout(r, 700)); }).then(() => { document.querySelector('[data-fc]').click(); return new Promise(r => setTimeout(r, 900)); })" },
     { name: 'f-tour' + suf, page: F, theme, eval: "localStorage.removeItem('powa-tour-coach-done'); window.replayCoachTour(); true" });
   // Night B (30 Oct). Swap an exercise: the Swap sheet over Train, Train with today's squat swapped (the card's line
-  // and Undo), the coach's sheet, Programs and the laptop's lifter page (below) with a swapped session.
+  // and Undo), the coach's sheet, Programs and the laptop's lifter page (below) with a swapped session. The meet on the
+  // weigh-in: Train's tile and Bodyweight with a meet 14 days out, behind (the triangle).
   screens.push(
     { name: 'sh-swap' + suf, page: A, theme, eval: "openSwapSheet(getCurrentDay().day.exercises[0].id)" },
     { name: 'a-today-swapped' + suf, page: A, theme, eval: "doSwap(getCurrentDay().day.exercises[0].id, 'Pin'); document.querySelectorAll('.toast').forEach(t => t.remove()); true" },
+    { name: 'a-today-meet' + suf, page: A, theme, eval: MEET_BEHIND + "; renderToday(); const t = document.querySelector('.tx-weigh').closest('.ts-tile'); t.parentNode.scrollLeft = t.offsetLeft - 16; true" },
+    { name: 'a-bodyweight-meet' + suf, page: A, theme, eval: MEET_BEHIND + ';' + tab('bodyweight') },
     { name: 'sh-athlete-swap' + suf, page: C, theme, eval: SWAP_INJ + "; openAthleteSheet('demo-a1')" },
     { name: 'c-program-swap' + suf, page: C, theme, eval: SWAP_INJ + ';' + tab('program') });
 }

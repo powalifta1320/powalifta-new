@@ -1932,5 +1932,18 @@ window.POWA_SUPPORT_KB = [
    "use a variation instead"
   ],
   "a": "Yes, for today only. On **Train**, tap the **Swap** arrows on the lift's card (beside the note button) and pick another variation of the same lift, for example Pin Squat for the squat. The sets you haven't done move to the same effort: the load follows the variation's factor (a pin squat counts as 1.08 of a competition squat, so 182.5 becomes 170), rounded to your plates, and your estimated max stays competition-equivalent. Sets you already logged stay as they were. **Undo** is on the message that pops up and on the card's \"Swapped from …\" line until you log a swapped set. Your coach sees \"Swapped for pin squat\" on that session."
+ },
+ {
+  "id": "meet-weight-line",
+  "q": "What does \"Meet in 23 days · 1.4 kg over 83 · on pace\" mean?",
+  "t": [
+   "a week gets there",
+   "behind on weight",
+   "make weight by the meet",
+   "on pace for my meet",
+   "over my class",
+   "over the class"
+  ],
+  "a": "It's your next meet, your weight class and your pace in one line, on Train's weigh-in tile and first in **Bodyweight** → **Make weight**. The meet is the next one on your calendar (or the class and date you set in Make weight), and the middle part is your latest weigh-in against the class. The last part says: **on weight** when you're at or under it; **on pace** when your 7-day trend gets you there by meet day, counting the last 2% that usually comes off as water before a weigh-in; **0.4 kg a week gets there** when you need to lose a little faster than you are; **behind**, with a small orange triangle, when making the class would take more than 1% of your bodyweight a week. Then talk the class through with your coach."
  }
 ];

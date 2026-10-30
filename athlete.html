@@ -2435,16 +2435,19 @@ function weighInRow() {
     const parts = [];
     if (habit.streak >= 2) parts.push(habit.streak + ' days in a row');
     parts.push(habit.delta != null ? (Math.abs(habit.delta) < 0.05 ? 'week level with last' : 'week ' + signed(habit.delta)) : dTxt);
-    // Making weight: the class line instead ("Class 83 · 9 wk to go · need −0.2/wk"), coloured for the goal.
+    // A meet ahead (app.js meetWeighOf): the meet, the class and the pace in one plain line, the whole tile wide
+    // (it says what the trend picture did). Else making weight with no date: the class line, coloured for the goal.
     applyLocalCut();
-    const cut = athleteCut(user.id);
-    if (cut) {
+    const ml = meetWeighOf(user.id, today, getUnit() === 'lbs' ? 'lbs' : 'kg');
+    const cut = ml ? null : athleteCut(user.id);
+    if (ml) body.appendChild(meetLineEl(ml, 'tn-text tx-meet'));
+    else if (cut) {
       const t = cut.line.split(' · ').slice(1).join(' · ');
       body.appendChild(el('span', { class: 'tn-text tn-one cut-line cut-' + cut.tone }, t.charAt(0).toUpperCase() + t.slice(1)));
     } else body.appendChild(el('span', { class: 'tn-text tn-one' }, parts.join(' · ')));
     row.appendChild(body);
     // The smoothed 7-day trend, not the raw daily noise.
-    const tr = bwCutBulkStats(list.map(b => ({ date: b.date, weight: b.weight })), null, 'maintain').trend;
+    const tr = ml ? [] : bwCutBulkStats(list.map(b => ({ date: b.date, weight: b.weight })), null, 'maintain').trend;
     const spark = uiSparkline(tr.slice(-21).map(p => kgToDisplay(p.weight)));
     if (spark) row.appendChild(el('span', { class: 'tx-weigh-spark', html: spark }));
     row.addEventListener('click', () => { const t = document.getElementById('tab-bodyweight'); if (t) t.click(); });
@@ -2456,7 +2459,10 @@ function weighInRow() {
     top.appendChild(el('span', { class: 'tn-ic tx-weigh-ic', 'aria-hidden': 'true', html: ICONS.scale }));
     const tb = el('span', { class: 'tn-body' });
     tb.appendChild(el('span', { class: 'tn-title' }, 'Morning weigh-in'));
-    tb.appendChild(el('span', { class: 'tn-text tn-one' }, habit.streak >= 2 ? 'Keep your ' + habit.streak + '-day run going'
+    // A meet ahead: where the last weigh-in leaves them (the dial below already shows that number).
+    applyLocalCut();
+    const ml = meetWeighOf(user.id, today, getUnit() === 'lbs' ? 'lbs' : 'kg');
+    tb.appendChild(ml ? meetLineEl(ml, 'tn-text tx-meet') : el('span', { class: 'tn-text tn-one' }, habit.streak >= 2 ? 'Keep your ' + habit.streak + '-day run going'
       : prev ? 'Last ' + formatWeight(prev.weight) + ' · ' + _relDay(prev.date) : 'Start your bodyweight trend'));
     top.appendChild(tb);
     top.addEventListener('click', () => openWeighInSheet(() => renderToday()));
@@ -9075,6 +9081,9 @@ function renderBodyweight() {
   const g = s.goals.find(x => x.athleteId === user.id);
   const dir = (g && g.bwDirection) || 'maintain';
 
+  // THE MEET ON THE WEIGH-IN (app.js meetWeighOf): the meet, the class and the pace, said once, first in Make weight.
+  applyLocalCut();
+  const ml = meetWeighOf(user.id, todayISO(), getUnit() === 'lbs' ? 'lbs' : 'kg');
   // HERO: the latest number, with logging right inside it.
   const hero = el('div', { class: 'ui-hero bw-hero' });
   const last = bw.at(-1);
@@ -9088,7 +9097,7 @@ function renderBodyweight() {
       sub.appendChild(el('span', { class: 'ui-flat' }, Math.abs(sl) < 0.05 ? 'Steady' : (sl < 0 ? '↓ ' : '↑ ') + kgToDisplay(Math.abs(sl), 1) + ' ' + u + ' a week'));
     }
     // The class being made when a cut is set (the cut card's class), else the weigh-in's.
-    const cls = liftersClass(last.weight, getSexPref(), g && g.targetClass);
+    const cls = ml ? null : liftersClass(last.weight, getSexPref(), g && g.targetClass);   // the meet's line says the class
     if (cls) sub.appendChild(el('span', {}, cls + ' class'));
     if (sub.children.length) hero.appendChild(sub);
   } else {
@@ -9096,9 +9105,8 @@ function renderBodyweight() {
   }
   if (logRow) hero.appendChild(logRow);
   area.appendChild(hero);
-  // Make weight (brief 4.3): the class line, the pace to the meet, food against the targets.
-  applyLocalCut();
-  const cutNodes = buildCutSection(user.id, { mine: true, nutritionRows: myFoodRows(), onEdit: () => openCutSheet() });
+  // Make weight (brief 4.3): the meet's line (or the class line), food against the targets.
+  const cutNodes = buildCutSection(user.id, { mine: true, nutritionRows: myFoodRows(), onEdit: () => openCutSheet(), line: ml });
   if (cutNodes.length) cutNodes.forEach(n => area.appendChild(n));
   else if (bw.length) area.appendChild(uiList([uiRow({ title: 'Make weight for a class', sub: 'Your weigh-ins against the class line, by the meet', chevron: true, onClick: () => openCutSheet() })]));
   if (!bw.length) return;
@@ -9136,10 +9144,12 @@ function renderBodyweight() {
     const off = Number(kgToDisplay(left, 1)) || 0;
     const holdEnd = !off ? '<span class="ui-up">On weight</span>' : '<b>' + kgToDisplay(left, 1) + '</b> ' + u + (cur > target ? ' over' : ' under');
     const paceTxt = stats.pace ? stats.pace.text.charAt(0).toUpperCase() + stats.pace.text.slice(1) : null;
+    // A goal on the meet's class: the meet's line already said how far over or under it is.
+    const saidAbove = !!(ml && Math.abs(Number(target) - Number(ml.cls)) < 0.05);
     area.appendChild(uiList([uiRow({
       title: verb + kgToDisplay(target) + ' ' + u,
       sub: paceTxt,
-      endHtml: dir !== 'cut' && dir !== 'gain' ? holdEnd : atGoal ? '<span class="ui-up">At goal</span>' : '<b>' + kgToDisplay(Math.max(0, left), 1) + '</b>' + u + ' to go',
+      endHtml: saidAbove ? '' : dir !== 'cut' && dir !== 'gain' ? holdEnd : atGoal ? '<span class="ui-up">At goal</span>' : '<b>' + kgToDisplay(Math.max(0, left), 1) + '</b>' + u + ' to go',
       chevron: true,
       onClick: () => openGoalsModal()
     })]));
