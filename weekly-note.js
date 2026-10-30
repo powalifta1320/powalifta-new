@@ -823,12 +823,16 @@
   function deckSettle() {
     Object.keys(D.cards).forEach(function (k) { if (Math.abs(Number(k) - D.i) > 1) { D.cards[k].remove(); delete D.cards[k]; } });
     [D.i - 1, D.i, D.i + 1].forEach(deckCard);
+    var ae = document.activeElement, lost = !ae || ae === document.body || (D.root.contains(ae) && !!ae.closest('.wnd-card') && !ae.closest('.wnd-card[data-k="' + D.i + '"]'));
     Object.keys(D.cards).forEach(function (k) {
       var c = D.cards[k], cur = Number(k) === D.i;
       c.classList.toggle('is-cur', cur);
       if (cur) { c.removeAttribute('aria-hidden'); c.inert = false; } else { c.setAttribute('aria-hidden', 'true'); c.inert = true; }
       c.style.opacity = '';
     });
+    // Focus follows the card (a button pressed on the last one is gone): the new one's name, for a screen reader.
+    var head = lost && D.cards[D.i] && D.cards[D.i].querySelector('.wnd-name, .wnd-done-t');
+    if (head) { head.setAttribute('tabindex', '-1'); try { head.focus({ preventScroll: true }); } catch (e) {} }
     deckPlace(D.x);
     deckBar();
   }
@@ -904,7 +908,11 @@
   function deckSwipe(stage) {
     var x0 = 0, y0 = 0, base = 0, armed = false, drag = false, samples = [];
     stage.addEventListener('touchstart', function (e) {
-      if (!D || e.touches.length !== 1) { armed = false; return; }
+      if (!D || e.touches.length !== 1) {
+        // A second finger: no swipe; a card already moving goes home.
+        if (D && drag) { drag = false; D.drag = false; var c0 = D.cards[D.i]; if (c0) c0.style.opacity = ''; if (reduced()) { D.x = 0; deckPlace(0); } else deckSpring(0, 0); }
+        armed = false; return;
+      }
       var ta = e.target && e.target.closest ? e.target.closest('textarea') : null;
       if (ta && document.activeElement === ta) { armed = false; return; }   // typing: the note keeps its touches
       var p = e.touches[0];
@@ -1051,6 +1059,9 @@
     if (window.visualViewport) { window.visualViewport.addEventListener('resize', deckFit); window.visualViewport.addEventListener('scroll', deckFit); }
     deckSwipe(D.stage);
     deckSettle();
+    // Into the dialog: the first card's name (for a screen reader; never drawn as a ring).
+    var h0 = D.cards[D.i] && D.cards[D.i].querySelector('.wnd-name, .wnd-done-t');
+    if (h0) { h0.setAttribute('tabindex', '-1'); try { h0.focus({ preventScroll: true }); } catch (e) {} }
     root.classList.add('is-in');
     root.addEventListener('animationend', function once(e) { if (e.target === root) { root.classList.remove('is-in'); root.removeEventListener('animationend', once); } });
   }
