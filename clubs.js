@@ -549,9 +549,10 @@
     else if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
     const before = { data: _data, posts: _posts, requests: _requests, buddies: _buddies, reacts: _reacts };
     await load();
-    if (_loadFailed && before.data) {
+    if (_loadFailed) {
+      // What's on screen stays as it was (a club, or the join screen), and the pull says it couldn't.
       _data = before.data; _posts = before.posts; _requests = before.requests; _buddies = before.buddies; _reacts = before.reacts;
-      if (_data.club) watchFeed(_data.club.id);   // the same club: listening as before
+      if (_data && _data.club) watchFeed(_data.club.id);   // the same club: listening as before
       return false;
     }
     if (_data && _data.club) renderClub(_container); else renderJoin(_container);
