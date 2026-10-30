@@ -1364,7 +1364,7 @@
     if (key === 'club') { tab('club'); return; }
     if (key === 'templates') { tab('templates'); return; }
     if (key === 'report') { if (window.CoachReportUI) CoachReportUI.open(); return; }
-    if (key === 'weeknotes') { if (window.WeeklyNote && WeeklyNote.openDeck) WeeklyNote.openDeck({ onClose: function () { if (H.host && shown('home')) renderHome(H.host); } }); return; }
+    if (key === 'weeknotes') { if (window.WeeklyNote && WeeklyNote.openDeck) WeeklyNote.openDeck({ from: btn, onClose: function () { if (H.host && shown('home')) renderHome(H.host); } }); return; }
     if (key === 'invite') { if (typeof openInviteModal === 'function') openInviteModal(); return; }
     if (key === 'search') { openSearch(); return; }
   }
@@ -2170,6 +2170,8 @@
     return false;
   }
   function paintHomeIfShown() { if (!isDeskNow() && shown('home')) renderHome(); else paintBadges(); }
+  // Weekly notes' count moved (weekly-note.js: a note sent from the laptop or another phone): Home redraws it.
+  if (hasDom) window.addEventListener('powa:weekly-notes', function () { if (!isDeskNow() && shown('home') && !document.querySelector('.wnd')) renderHome(); });
   if (hasDom) {
     window.addEventListener('popstate', function () {
       if (!shown('lifter') || !P.host) return;

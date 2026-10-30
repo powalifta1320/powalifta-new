@@ -692,9 +692,15 @@ window.renderCoachYou = renderCoachYou;
 function _youWeeklyNotesRow(svg) {
   let n = { due: 0, sent: 0 };
   try { n = WeeklyNote.counts(); } catch (e) {}
-  return { label: 'Weekly notes', value: n.due ? n.due + ' due' : n.sent ? 'All sent' : '', icon: svg('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>'), tint: 'blue',
-    onClick: () => WeeklyNote.openDeck({ onClose: () => { const p = document.querySelector('[data-pane="you"]'); if (p && !p.classList.contains('hidden')) renderCoachYou(); } }) };
+  return { id: 'youWeeklyNotes', label: 'Weekly notes', value: _youWeeklyNotesValue(n), icon: svg('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>'), tint: 'blue',
+    onClick: (row) => WeeklyNote.openDeck({ from: row, onClose: () => { const p = document.querySelector('[data-pane="you"]'); if (p && !p.classList.contains('hidden')) renderCoachYou(); } }) };
 }
+function _youWeeklyNotesValue(n) { return n.due ? n.due + ' due' : n.sent ? 'All sent' : ''; }
+// The count moved (a note sent from the laptop or another phone, weekly-note.js): You's row says so in place.
+window.addEventListener('powa:weekly-notes', () => {
+  const v = document.querySelector('#youWeeklyNotes .yr-value');
+  if (v && window.WeeklyNote) { try { v.textContent = _youWeeklyNotesValue(WeeklyNote.counts()); } catch (e) {} }
+});
 
 // The phone's docked top bar keeps a back button on a sub-screen (a lifter, Clients, Templates…): the
 // page's own "‹ Lifters" sits in the bar's row at rest and scrolls away under the docked bar, so the
@@ -2401,7 +2407,8 @@ function subscribeRosterMessages() {
     if (!m) return;
     // The coach's own (this device or another): no badge changes. The desk takes it as who wrote last
     // at once (desk.js deskHeard: a reply from their phone clears "Message waiting" here too), no read.
-    if (m.senderId === user.id) { _deskCall('deskHeard', m); return; }
+    // A weekly note among them leaves the phone's count at once too (weekly-note.js heard).
+    if (m.senderId === user.id) { _deskCall('deskHeard', m); if (window.WeeklyNote && WeeklyNote.heard) WeeklyNote.heard(m); return; }
     scheduleUnreadRefresh();
   });
 }

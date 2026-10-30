@@ -391,6 +391,94 @@
     return (rows || []).filter(function (r) { var last = lastNoteOn(r.athlete.id, opts); return last && daysBetween(last, t) < GAP_DAYS; });
   }
 
+  /* ---------------------------------------------------------------- the server's word, on the phone too
+     A note sent from the laptop or another phone is on the server only: each lifter's weeklyAt in the coach's thread
+     digest (db.js listThreadsForCoach). The laptop desk reads that digest for itself (_dk.threads); the phone has no
+     desk to do it, so it reads it here: when Home or You draw the count (at most once a minute), when the deck opens
+     on one older than a minute, and when the app comes back to the front. A note the coach sends from another device
+     while this one is open arrives live (coach.html's roster channel → heard). When what it learns moves the count,
+     Home and You redraw ('powa:weekly-notes'). The demo reads its own Store and never asks. */
+  var PH = { threads: null, at: 0, me: null, p: null, tok: null };
+  var PH_FRESH = 60000;
+  var PAINTED = null;   // the count last drawn (Home's tile, You's row): a digest that changes it redraws them
+  // The digest's rows → { athleteId: { weeklyAt, lastAt, lastSenderId } } (null forgets it).
+  function takeThreads(rows, me) {
+    if (rows == null) { PH.threads = null; PH.at = 0; PH.me = null; PH.p = null; PH.tok = null; return null; }
+    var map = {};
+    (rows || []).forEach(function (r) { if (r && r.athleteId) map[r.athleteId] = { athleteId: r.athleteId, weeklyAt: r.weeklyAt || null, lastAt: r.lastAt || null, lastSenderId: r.lastSenderId || null }; });
+    PH.threads = map; PH.at = Date.now(); PH.me = me || myId();
+    return map;
+  }
+  // The desk's digest and the phone's, joined: each lifter's latest weekly note from either (a page can have both:
+  // it was the laptop desk, then the window narrowed to the phone).
+  function threadsJoin(a, b) {
+    if (!a || !b) return a || b || null;
+    var out = {};
+    [a, b].forEach(function (m) {
+      Object.keys(m).forEach(function (k) {
+        var t = m[k], cur = out[k];
+        if (t && (!cur || (t.weeklyAt && (!cur.weeklyAt || String(t.weeklyAt) > String(cur.weeklyAt))))) out[k] = t;
+      });
+    });
+    return out;
+  }
+  function threads() {
+    var dk = null;
+    try { dk = typeof _dk !== 'undefined' ? _dk.threads || null : null; } catch (e) { dk = null; }
+    return threadsJoin(dk, PH.threads);
+  }
+  function phoneDigestSig() { var th = PH.threads || {}; return Object.keys(th).sort().map(function (k) { return k + '=' + (th[k].weeklyAt || ''); }).join('|'); }
+  // Read the digest unless the one we have is younger than maxAge ms (default a minute). → a promise of the digest.
+  function refreshThreads(maxAge) {
+    var db = typeof window !== 'undefined' ? window.DB : null, me = myId();
+    if (demo() || !db || typeof db.listThreadsForCoach !== 'function' || !me) return Promise.resolve(PH.threads);
+    if (PH.threads && PH.me === me && PH.at && Date.now() - PH.at < (maxAge == null ? PH_FRESH : maxAge)) return Promise.resolve(PH.threads);
+    if (PH.p) return PH.p;
+    var tok = {};
+    PH.tok = tok;
+    var settle = function () { if (PH.tok === tok) { PH.tok = null; PH.p = null; } };
+    var done = function (rows) {
+      settle();
+      if (Array.isArray(rows)) { var was = phoneDigestSig(); takeThreads(rows, me); if (phoneDigestSig() !== was) changed(); }
+      return PH.threads;
+    };
+    var fail = function () { settle(); return PH.threads; };
+    var r;
+    try { r = db.listThreadsForCoach(me); } catch (e) { settle(); return Promise.resolve(PH.threads); }
+    if (!r || typeof r.then !== 'function') return Promise.resolve(done(r));
+    var q = r.then(done, fail);
+    if (PH.tok === tok) PH.p = q && typeof q.then === 'function' ? q : Promise.resolve(PH.threads);
+    return PH.p || Promise.resolve(PH.threads);
+  }
+  // The coach's own message, heard live from another device: a weekly note counts at once, no read.
+  function heard(m) {
+    if (!m || !m.athleteId || !m.meta || !m.meta.weekly) return false;
+    var me = myId();
+    if (!me || m.senderId !== me) return false;
+    var th = PH.threads || (PH.threads = {});
+    var t = th[m.athleteId] || (th[m.athleteId] = { athleteId: m.athleteId, weeklyAt: null });
+    var at = String(m.createdAt || new Date().toISOString());
+    if (t.weeklyAt && String(t.weeklyAt) >= at) return false;
+    t.weeklyAt = at;
+    changed();
+    return true;
+  }
+  // The count moved under what's drawn: Home and You redraw it.
+  function changed() {
+    if (!PAINTED) return;
+    var c;
+    try { c = countsNow(PAINTED.rows, PAINTED.opts); } catch (e) { return; }
+    if (c.due === PAINTED.due && c.sent === PAINTED.sent) return;
+    PAINTED.due = c.due; PAINTED.sent = c.sent;
+    try { window.dispatchEvent(new CustomEvent('powa:weekly-notes', { detail: { due: c.due, sent: c.sent } })); } catch (e) {}
+  }
+  // The laptop desk reads its own digest (desk.js dkFetchThreads): only the phone asks here.
+  function warm() {
+    if (demo()) return;
+    try { if (isDeskNow() && typeof _dk !== 'undefined' && _dk.threads) return; } catch (e) {}
+    refreshThreads(PH_FRESH);
+  }
+
   /* ---------------------------------------------------------------- saved replies (pure part) */
   function repliesKey(coachId) { return 'powa-saved-replies-' + (coachId || 'x'); }
   function cleanReply(t) { return String(t == null ? '' : t).replace(/\r\n?/g, '\n').trim().slice(0, MAX_REPLY_LEN); }
@@ -443,7 +531,10 @@
   function isDeskNow() { return typeof isDesk === 'function' ? isDesk() : document.documentElement.classList.contains('desk'); }
   function reduced() { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
   function deskRows() { try { if (typeof dkRowsFresh === 'function') { dkRowsFresh(); return (typeof _dk !== 'undefined' && _dk.rows) || []; } } catch (e) {} return []; }
-  function threads() { try { return typeof _dk !== 'undefined' ? _dk.threads || null : null; } catch (e) { return null; } }
+  // Back in front after a while (the phone): the count drawn may be out of date; read the digest again.
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    try { document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && PAINTED && !isDeskNow()) warm(); }); } catch (e) {}
+  }
   function dayWord(iso) {
     var d = daysBetween(iso, todayIso());
     if (d <= 0) return 'today'; if (d === 1) return 'yesterday';
@@ -632,7 +723,7 @@
   /* ---------------------------------------------------------------- the phone: a lifter's page and the sheet */
   function lifterEntryHtml(r, o) {
     o = o || {};
-    var id = r.athlete.id, t = todayIso(), last = lastNoteOn(id, {}), sent = last && daysBetween(last, t) < GAP_DAYS;
+    var id = r.athlete.id, t = todayIso(), last = lastNoteOn(id, { threads: threads() }), sent = last && daysBetween(last, t) < GAP_DAYS;
     return '<button type="button" class="cl-wnrow' + (o.rise != null ? ' rise" style="--i:' + o.rise : '') + '" data-wn-one="' + esc(id) + '">' +
       '<span class="cl-tic">' + ic('pen') + '</span><span class="cl-wn-t"><b>Write the week’s note</b><span>' +
       (sent ? '<i class="cl-wn-ok" aria-hidden="true"></i>Sent ' + esc(dayWord(last)) : 'Drafted from their last 7 days') + '</span></span>' + ic('chev') + '</button>';
@@ -684,11 +775,18 @@
   function jobsOrder() {
     try { var M = window.CoachLifters && CoachLifters.model ? CoachLifters.model({ reuse: true }) : null; return M && M.order ? M.order : null; } catch (e) { return null; }
   }
-  // Home's and You's number: how many are due a note, and how many have theirs this week. rows: desk rows.
-  function counts(rows) {
+  // Home's and You's number: how many are due a note, and how many have theirs this week. rows: desk rows;
+  // opts: { today, coachId } (tests). Drawing it also asks for the server's digest when ours is older than a minute.
+  function countsNow(rows, opts) {
     rows = rows || deskRows();
-    var th = threads();
-    return { due: weeklyNoteDue(rows, { threads: th }).length, sent: sentThisWeek(rows, { threads: th }).length };
+    var o = { threads: threads(), today: opts && opts.today, coachId: opts && opts.coachId };
+    return { due: weeklyNoteDue(rows, o).length, sent: sentThisWeek(rows, o).length };
+  }
+  function counts(rows, opts) {
+    var c = countsNow(rows, opts);
+    PAINTED = { due: c.due, sent: c.sent, rows: rows, opts: opts };
+    warm();
+    return c;
   }
   function painLine(p) {
     if (!p) return null;
@@ -1000,10 +1098,27 @@
     D.root.style.top = kb ? vv.offsetTop + 'px' : '';
     D.root.style.bottom = kb ? 'auto' : '';
   }
+  var OPENING = false;
   function openDeck(opts) {
     opts = opts || {};
-    if (D || typeof document === 'undefined') return;
+    if (D || OPENING || typeof document === 'undefined') return;
     if (isDeskNow()) { openQueue(); return; }   // the laptop has its queue
+    // A real account: what the server knows first (a note sent from the laptop since), unless it was read in the
+    // last minute. A slow network opens on what we have after 2.5 s.
+    var db = window.DB;
+    if (!opts.rows && !demo() && db && typeof db.listThreadsForCoach === 'function' && !(PH.threads && PH.at && Date.now() - PH.at < PH_FRESH)) {
+      OPENING = true;
+      var from = opts.from && opts.from.setAttribute ? opts.from : null;
+      if (from) from.setAttribute('aria-busy', 'true');
+      var go = function () { if (!OPENING) return; OPENING = false; if (from) from.removeAttribute('aria-busy'); openDeckNow(opts); };
+      refreshThreads(PH_FRESH).then(go, go);
+      setTimeout(go, 2500);
+      return;
+    }
+    openDeckNow(opts);
+  }
+  function openDeckNow(opts) {
+    if (D || typeof document === 'undefined') return;
     var rows = opts.rows || weeklyNoteDue(deskRows(), { threads: threads(), order: jobsOrder() });
     D = queueStart(rows, todayIso());
     D.opts = opts; D.cards = {}; D.sentText = {}; D.x = 0; D.anim = null; D.drag = false;
@@ -1280,6 +1395,7 @@
     loadReplies: loadReplies, saveReplies: saveReplies,
     todayEntryHtml: todayEntryHtml, openQueue: openQueue, closeQueue: closeQueue, lifterEntryHtml: lifterEntryHtml, openSheet: openSheet,
     openDeck: openDeck, closeDeck: closeDeck, counts: counts, jobsOrder: jobsOrder,
+    threads: threads, takeThreads: takeThreads, refreshThreads: refreshThreads, heard: heard,
     queueStart: queueStart, queueCurrent: queueCurrent, queueDone: queueDone, queueIsSent: queueIsSent, queueIsSkipped: queueIsSkipped,
     queueMarkSent: queueMarkSent, queueSent: queueSent, queueSkip: queueSkip, queueBack: queueBack, queueAgain: queueAgain,
     pickReply: pickReply, replyButton: replyButton, broadcastRowEl: broadcastRowEl, openBroadcast: openBroadcast, insertAt: insertAt

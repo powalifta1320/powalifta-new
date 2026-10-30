@@ -6447,6 +6447,39 @@ test('who is due: trained this week, no note in six days, the worst first', () =
     eq(WN.lastNoteOn('wd', { coachId: 'wc' }), '2026-10-25');
   } finally { Store.set(saved); }
 });
+test('a note sent from the laptop or another phone: the phone reads the server’s digest, so that lifter is no longer due (Home, You, the deck)', () => {
+  const saved = Store.get(), savedDB = window.DB, savedDemo = window._demoMode, savedUser = window._user;
+  Store.set(wnStore());
+  try {
+    window._demoMode = false; window._user = { id: 'wc', name: 'Coach' };
+    WN.takeThreads(null);
+    const rows = [{ athlete: { id: 'wa', name: 'Ada Lane' }, reasons: [{ group: 1 }] }, { athlete: { id: 'wd', name: 'Di Moss' }, reasons: [] }];
+    let asked = [];
+    // The server's digest (db.js listThreadsForCoach): Ada had her note on Tuesday, from the laptop.
+    window.DB = { listThreadsForCoach: (id) => { asked.push(id); return { then: (ok) => { ok([{ athleteId: 'wa', lastAt: '2026-10-27T08:00:00Z', lastSenderId: 'wc', unread: 0, weeklyAt: '2026-10-27T08:00:00Z' }]); return { then() {} }; } }; } };
+    const before = WN.counts(rows, { today: WT, coachId: 'wc' });
+    eq(asked.join(), 'wc', 'drawing the count reads the coach’s own digest');
+    WN.takeThreads(null);
+    eq(WN.due(rows, { today: WT, coachId: 'wc', threads: WN.threads() }).map(r => r.athlete.id).join(','), 'wa,wd', 'nothing read: both due (the blocker: the phone never knew)');
+    WN.refreshThreads(0);
+    eq(asked.length, 2, 'read again when asked for a fresh one');
+    eq(WN.lastNoteOn('wa', { coachId: 'wc', threads: WN.threads() }), '2026-10-27', 'the day of the laptop’s note');
+    const c = WN.counts(rows, { today: WT, coachId: 'wc' });
+    eq(c.due, 1, 'Ada is no longer due'); eq(c.sent, 1, 'and counts as sent this week');
+    eq(before.due + before.sent, 2, 'the count covers the same lifters');
+    WN.refreshThreads();
+    eq(asked.length, 2, 'a digest read in the last minute is used as it is');
+    // Heard live (coach.html's roster channel): Di's note goes from the laptop while the phone is open.
+    WN.heard({ athleteId: 'wd', coachId: 'wc', senderId: 'wc', body: 'Week', meta: { weekly: WT }, createdAt: WT + 'T09:30:00Z' });
+    eq(WN.counts(rows, { today: WT, coachId: 'wc' }).due, 0, 'heard live: nobody due');
+    WN.heard({ athleteId: 'wa', coachId: 'wc', senderId: 'wa', body: 'Thanks', meta: { weekly: WT }, createdAt: WT + 'T10:00:00Z' });
+    eq(WN.lastNoteOn('wa', { coachId: 'wc', threads: WN.threads() }), '2026-10-27', 'only the coach’s own notes count');
+    // The demo reads its own Store and never asks the server.
+    window._demoMode = true; asked = [];
+    WN.takeThreads(null); WN.refreshThreads(0);
+    eq(asked.length, 0, 'the demo never reads');
+  } finally { WN.takeThreads && WN.takeThreads(null); window.DB = savedDB; window._demoMode = savedDemo; window._user = savedUser; Store.set(saved); }
+});
 test('who is due, in the jobs’ order (pain first, then how soon): the deck and the laptop’s queue', () => {
   const saved = Store.get();
   Store.set(wnStore({ messages: [{ id: 'm1', coachId: 'wc', athleteId: 'wd', senderId: 'wc', body: 'Week note', meta: { weekly: '2026-10-25' }, createdAt: '2026-10-25T09:00:00Z' }] }));
