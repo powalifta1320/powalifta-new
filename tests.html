@@ -9354,6 +9354,32 @@ group('the meet on the weigh-in (app.js meetWeighLine)');
   });
 })();
 
+group('pull to refresh (app.js uiPullRefresh)');
+(() => {
+  test('the rubber band: it gives less the further it goes, never past the screen', () => {
+    eq(ptrRubber(0, 852), 0); eq(ptrRubber(-30, 852), 0, 'a push up is not a pull');
+    close(ptrRubber(100, 800), 51.5, 0.2, 'UIScrollView\'s curve, c 0.55');
+    let last = 0, lastGain = Infinity;
+    for (let d = 20; d <= 600; d += 20) {
+      const o = ptrRubber(d, 852), gain = o - last;
+      assert(o > last, 'it keeps moving: ' + d);
+      assert(gain < lastGain + 1e-9, 'each 20 px gives less than the one before: ' + d);
+      assert(o < 852, 'never past the screen');
+      last = o; lastGain = gain;
+    }
+    assert(ptrRubber(300, 852) < 300 * 0.6, 'well under the finger');
+  });
+  test('the line: about 125 px of finger arms it; reduced motion moves nothing and half the travel is the reach', () => {
+    const a = ptrState(100, { dim: 852, line: 64 }), b = ptrState(130, { dim: 852, line: 64 });
+    eq(a.armed, false); assert(a.progress > 0.7 && a.progress < 1, 'nearly there: ' + a.progress);
+    eq(b.armed, true); eq(b.progress, 1); assert(b.offset >= 64 && b.offset < 70, 'just past the line: ' + b.offset);
+    const r = ptrState(130, { reduce: true, line: 64 });
+    eq(r.offset, 0, 'nothing stretches'); eq(r.armed, true);
+    eq(ptrState(64, { reduce: true, line: 64 }).progress, 0.5);
+    eq(ptrState(0, { dim: 852 }).progress, 0);
+  });
+})();
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

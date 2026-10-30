@@ -3668,10 +3668,23 @@ async function _lvResync() {
     }
   } catch (e) { console.warn('live resync', e); failed = true; }
   finally { _lv.resyncing = false; }
-  if (!_lv.me) return;
+  if (!_lv.me) return false;
   if (_lv.again) _lvResyncSoon(0);
   else if (failed && _lv.status !== 'off' && _lv.status !== 'paused') _lvResyncSoon(30000);
+  return !failed;
 }
+// The catch-up a reconnect runs, now and awaited (the coach's pull to refresh): the programs that moved (by rev,
+// never this device's base: the same merge as a live row, so nothing typed here and not yet saved is lost), the
+// last two days of sets and the form checks, applied at once. → true when it read, false offline or in the demo.
+async function liveCatchUp() {
+  if (window._demoMode || !_lv.me || !window.DB || !DB.liveProgramRows) return false;
+  clearTimeout(_lv.resyncT); _lv.resyncT = null;
+  for (let i = 0; _lv.resyncing && i < 100; i++) await new Promise(r => setTimeout(r, 100));
+  const ok = await _lvResync();
+  if (_lv.q) _lv.q.flushNow();
+  return ok === true;
+}
+window.liveCatchUp = liveCatchUp;
 // The coach's desk says so, quietly, when the programs channel has been down for a while (the backoff
 // ran out; it still tries every minute). Refresh tries now.
 function _lvPausedMarker(show) {
@@ -14646,6 +14659,150 @@ function uiLongPress(node, fn) {
   });
   node.addEventListener('contextmenu', (e) => { e.preventDefault(); if (!fired) fn(e); });
   return node;
+}
+
+// =========================================================
+// PULL TO REFRESH (2026-10-30): the phone's own gesture on the Club feed and the coach's Lifters. At the top of
+// the page a pull down stretches the screen with a rubber band (the further, the less it gives), a small spinner
+// fills as it comes and turns once it's past the line; let go past it and the screen's own loader runs (the
+// club's, the roster's) while the screen waits a little way down, then it settles back. Phone only (a touch
+// screen under 900 pt wide, never the coach's laptop desk). Reduced motion: nothing stretches or springs, the
+// spinner fades in where it sits and pulses. Transform and opacity only, one paint a frame.
+// =========================================================
+// The rubber band (UIScrollView's curve): how far the screen moves for a pull of dy px, never past dim. Pure.
+function ptrRubber(dy, dim, c) {
+  const d = Math.max(0, Number(dy) || 0), D = Number(dim) > 0 ? Number(dim) : 800, k = Number(c) > 0 ? Number(c) : 0.55;
+  return (1 - 1 / (d * k / D + 1)) * D;
+}
+// A pull of dy px: { offset (px the screen moves), progress (0 to 1, the line), armed (past it) }. With reduced
+// motion nothing moves (offset 0) and half the finger's travel is the reach. opts: { reduce, dim, line }. Pure.
+function ptrState(dy, opts) {
+  opts = opts || {};
+  const line = Number(opts.line) > 0 ? Number(opts.line) : 64;
+  const offset = opts.reduce ? 0 : ptrRubber(dy, opts.dim);
+  const reach = opts.reduce ? Math.max(0, Number(dy) || 0) * 0.5 : offset;
+  return { offset: Math.round(offset * 10) / 10, progress: Math.min(1, reach / line), armed: reach >= line };
+}
+// Where the gesture lives: a touch screen narrower than a laptop, and never the coach's desk.
+function ptrEnabled() {
+  if (typeof document === 'undefined' || document.documentElement.classList.contains('desk')) return false;
+  try { return matchMedia('(pointer: coarse)').matches && window.innerWidth < 900; } catch (e) { return false; }
+}
+// scope: the screen's pane (its <section>). opts: { onRefresh: () => Promise (the screen's loader; a throw or a
+// false says it couldn't), when: () => bool (the screen is showing), label }. → its controller, or null.
+function uiPullRefresh(scope, opts) {
+  if (!scope || typeof window === 'undefined') return null;
+  if (scope._ptr) { scope._ptr.opts = opts || scope._ptr.opts; return scope._ptr; }
+  const api = { busy: false, opts: opts || {} };
+  scope._ptr = api;
+  const LINE = 64, HOLD = 52, SLOP = 4;
+  const reduce = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+  let st = null, ind = null, say = null, raf = 0, next = null, top0 = 0;
+  const ensure = () => {
+    if (!ind || !ind.isConnected) {
+      ind = el('div', { class: 'ptr', 'aria-hidden': 'true' });
+      ind.innerHTML = '<svg viewBox="0 0 28 28"><circle class="ptr-track" cx="14" cy="14" r="10.5"/><circle class="ptr-arc" cx="14" cy="14" r="10.5" pathLength="100"/></svg>';
+      document.body.appendChild(ind);
+    }
+    if (!say || !say.isConnected) { say = el('div', { class: 'ptr-say', role: 'status', 'aria-live': 'polite' }); document.body.appendChild(say); }
+    return ind;
+  };
+  // One paint a frame: the screen down by off, the spinner in the gap above it (or, reduced, where it sits).
+  const paint = (off, prog, spin) => {
+    const i = ensure(), r = reduce();
+    scope.style.transform = r || off <= 0 ? '' : 'translate3d(0,' + off.toFixed(1) + 'px,0)';
+    const y = r ? top0 + 4 : top0 + off - 40;
+    i.style.transform = 'translate3d(-50%,' + y.toFixed(1) + 'px,0)';
+    i.style.opacity = String(Math.max(0, Math.min(1, prog)));
+    const arc = i.querySelector('.ptr-arc'), svg = i.querySelector('svg');
+    if (!spin) {
+      arc.style.strokeDasharray = (Math.max(0, Math.min(1, prog)) * 76).toFixed(1) + ' 100';
+      svg.style.transform = r ? '' : 'rotate(' + (prog * 220 - 90).toFixed(1) + 'deg)';
+    }
+    i.classList.toggle('is-armed', prog >= 1);
+  };
+  const frame = (off, prog, spin) => {
+    next = [off, prog, spin];
+    if (raf) return;
+    raf = requestAnimationFrame(() => { raf = 0; const n = next; next = null; if (n) paint(n[0], n[1], n[2]); });
+  };
+  const settle = () => {
+    if (raf) { cancelAnimationFrame(raf); raf = 0; next = null; }
+    const i = ensure(), r = reduce();
+    i.classList.remove('is-spinning');
+    i.style.transition = r ? 'opacity 180ms ease-out' : 'opacity 200ms ease-out, transform 360ms cubic-bezier(0.23, 1, 0.32, 1)';
+    i.style.opacity = '0';
+    if (!r) {
+      i.style.transform = 'translate3d(-50%,' + (top0 - 40).toFixed(1) + 'px,0)';
+      scope.style.transition = 'transform 360ms cubic-bezier(0.23, 1, 0.32, 1)';
+      scope.style.transform = 'translate3d(0,0,0)';
+    }
+    setTimeout(() => {
+      if (st) return;   // a new pull began
+      scope.style.transition = ''; scope.style.transform = ''; scope.style.willChange = '';
+      i.style.transition = '';
+    }, 380);
+  };
+  const refresh = async () => {
+    api.busy = true;
+    const i = ensure(), r = reduce();
+    i.style.transition = r ? 'opacity 180ms ease-out' : 'transform 280ms cubic-bezier(0.23, 1, 0.32, 1)';
+    if (!r) {
+      scope.style.transition = 'transform 280ms cubic-bezier(0.23, 1, 0.32, 1)';
+      scope.style.transform = 'translate3d(0,' + HOLD + 'px,0)';
+    }
+    paint(r ? 0 : HOLD, 1, true);
+    i.querySelector('.ptr-arc').style.strokeDasharray = '76 100';
+    i.classList.add('is-spinning');
+    say.textContent = 'Refreshing';
+    const t0 = Date.now();
+    let ok = true;
+    try { ok = (await (api.opts.onRefresh ? api.opts.onRefresh() : null)) !== false; } catch (e) { ok = false; console.warn('pull to refresh', e); }
+    // Long enough to read as done, never a flash.
+    setTimeout(() => {
+      api.busy = false;
+      settle();
+      say.textContent = ok ? 'Up to date' : '';
+      if (!ok) toast(api.opts.failText || 'Couldn’t refresh. Check your connection');
+      else hapticTap('LIGHT');
+    }, Math.max(0, 500 - (Date.now() - t0)));
+  };
+  scope.addEventListener('touchstart', (e) => {
+    st = null;
+    if (api.busy || !e.touches || e.touches.length !== 1 || !ptrEnabled()) return;
+    if (api.opts.when && !api.opts.when()) return;
+    if ((window.scrollY || document.documentElement.scrollTop || 0) > 0) return;
+    if (e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (document.querySelector('.ui-sheet-veil, .modal-backdrop.open, .modal-backdrop.show')) return;
+    const t = e.touches[0];
+    top0 = scope.getBoundingClientRect().top;
+    st = { x0: t.clientX, y0: t.clientY, dir: null, armed: false };
+  }, { passive: true });
+  scope.addEventListener('touchmove', (e) => {
+    if (!st || !e.touches || e.touches.length !== 1) { if (st && e.touches && e.touches.length > 1) { st = null; settle(); } return; }
+    const t = e.touches[0], dx = t.clientX - st.x0, dy = t.clientY - st.y0;
+    if (!st.dir) {
+      if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) { if (dy > 0 && e.cancelable) e.preventDefault(); return; }
+      st.dir = dy > 0 && Math.abs(dy) >= Math.abs(dx) && (window.scrollY || 0) <= 0 ? 'pull' : 'no';
+      if (st.dir === 'no') { st = null; return; }
+      scope.style.transition = ''; scope.style.willChange = 'transform';
+      ensure().style.transition = '';
+    }
+    if (e.cancelable) e.preventDefault();
+    const s = ptrState(dy - SLOP, { reduce: reduce(), dim: window.innerHeight || 800, line: LINE });
+    if (s.armed && !st.armed) hapticTick();
+    st.armed = s.armed;
+    frame(s.offset, s.progress, false);
+  }, { passive: false });
+  scope.addEventListener('touchend', () => {
+    if (!st) return;
+    const go = st.dir === 'pull' && st.armed;
+    st = null;
+    if (raf) { cancelAnimationFrame(raf); raf = 0; if (next) paint(next[0], next[1], next[2]); next = null; }
+    if (go) refresh(); else settle();
+  }, { passive: true });
+  scope.addEventListener('touchcancel', () => { if (st) { st = null; settle(); } }, { passive: true });
+  return api;
 }
 
 // Reactions are fixed keys, never free text, so they need no moderation path.

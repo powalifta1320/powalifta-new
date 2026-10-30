@@ -1945,5 +1945,18 @@ window.POWA_SUPPORT_KB = [
    "over the class"
   ],
   "a": "It's your next meet, your weight class and your pace in one line, on Train's weigh-in tile and first in **Bodyweight** → **Make weight**. The meet is the next one on your calendar (or the class and date you set in Make weight), and the middle part is your latest weigh-in against the class. The last part says: **on weight** when you're at or under it; **on pace** when your 7-day trend gets you there by meet day, counting the last 2% that usually comes off as water before a weigh-in; **0.4 kg a week gets there** when you need to lose a little faster than you are; **behind**, with a small orange triangle, when making the class would take more than 1% of your bodyweight a week. Then talk the class through with your coach."
+ },
+ {
+  "id": "pull-to-refresh",
+  "q": "How do I refresh the club feed or my lifters?",
+  "t": [
+   "pull down to refresh",
+   "pull to refresh",
+   "refresh my lifters",
+   "refresh the club",
+   "refresh the feed",
+   "refresh the roster"
+  ],
+  "a": "On a phone, pull down from the top of **Club** or the coach's **Lifters** tab and let go once the ring fills: it spins while the app reads everything again, then the screen settles back. Offline, it says it couldn't refresh and what you had stays on screen. On a laptop there's nothing to pull: the coach's desk updates live."
  }
 ];

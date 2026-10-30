@@ -1893,10 +1893,46 @@ function _apCalendar(logs, weeks) {
   return wrap;
 }
 
+// PULL TO REFRESH on Lifters (the phone, app.js uiPullRefresh): the roster read again, then the tab redrawn. Who is
+// on it and what they told you (weigh-ins, notes, check-ins, meets, pain, answers, requests) as the server has it
+// now; their programs, the last two days of sets and the form checks through the app's catch-up (app.js
+// liveCatchUp: the live merge, so nothing this phone hasn't saved is lost: a full re-hydrate would make each
+// program this phone's merge base); the unread counts. The demo reads nothing: it redraws from its own Store.
+async function reloadRoster() {
+  if (window._demoMode) { await new Promise(r => setTimeout(r, 650)); renderRoster(); return true; }
+  if (navigator.onLine === false || !window.DB || !DB.listAthletesForCoach) return false;
+  let ath;
+  try { ath = await DB.listAthletesForCoach(user.id); } catch (e) { console.warn('reloadRoster', e); return false; }
+  if (!Array.isArray(ath)) return false;
+  const ids = ath.map(a => a.id);
+  const since = isoLocal(new Date(Date.now() - 70 * 864e5));   // as the app opens it: ten weeks of answers
+  const get = (fn, ...args) => (typeof DB[fn] === 'function' ? DB[fn](...args).catch(() => null) : Promise.resolve(null));
+  const [invites, bodyweight, sessionNotes, goals, checkins, meets, checkinAnswers, painReports, healthDaily, scheduleRequests, intakes] = await Promise.all([
+    get('listInvites', user.id), get('listBwForAthletes', ids), get('listNotesForAthletes', ids), get('listGoalsForAthletes', ids),
+    get('listCheckinsForAthletes', ids), get('listMeetsForAthletes', ids), get('listCheckinAnswers', since), get('listPainReports', ids),
+    get('listHealthDaily', ids), get('listScheduleRequests', user.id), get('listIntakes', user.id, ids)
+  ]);
+  const before = (Store.get().athletes || []).map(a => a.id).sort().join(',');
+  Store.update(s => {
+    s.athletes = ath;
+    const lists = { invites, bodyweight, sessionNotes, goals, checkins, meets, checkinAnswers, painReports, healthDaily, scheduleRequests, intakes };
+    Object.keys(lists).forEach(k => { if (Array.isArray(lists[k])) s[k] = lists[k]; });   // a list that couldn't be read stays
+  });
+  if (ids.slice().sort().join(',') !== before && typeof liveStart === 'function') liveStart();   // a lifter joined or left
+  if (typeof liveCatchUp === 'function') { try { await liveCatchUp(); } catch (e) {} }
+  try { await refreshFormChecks(); } catch (e) {}
+  try { refreshUnreadBadges(); } catch (e) {}
+  renderRoster();
+  return true;
+}
+window.reloadRoster = reloadRoster;
+
 function renderRoster() {
   renderPlanPill();
   // The phone's Home shows the same roster: it redraws with it (an unread count, a plan change, a fix).
   if (!_desk() && window.CoachApp) CoachApp.paintHomeIfShown();
+  // Pull to refresh on the phone's Lifters (app.js uiPullRefresh: touch, never the laptop desk), once.
+  { const lp = document.querySelector('section[data-pane="athletes"]'); if (lp && typeof uiPullRefresh === 'function') uiPullRefresh(lp, { onRefresh: reloadRoster, when: () => !_desk() && !lp.classList.contains('hidden') }); }
   const area = document.getElementById('rosterArea');
   if (!area) return;
   area.innerHTML = '';

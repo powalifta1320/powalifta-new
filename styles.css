@@ -13098,3 +13098,21 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
 .today-note .tn-text.tx-meet { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 13px; line-height: 1.45; color: var(--text-2); }
 .today-strip .today-note .tn-text.tx-meet { -webkit-line-clamp: 2; }
 .ui-row.meet-row .ui-row-title { font-size: 15px; font-weight: 600; line-height: 1.4; }
+
+/* ===== PULL TO REFRESH (2026-10-30, app.js uiPullRefresh): the Club feed and the coach's Lifters on a phone. A small
+   ring in the gap the pull opens above the screen: it fills to the line in the quiet ink, turns ink once past it,
+   then spins while the screen's loader runs. Reduced motion: it fades in where it sits and pulses, nothing turns. */
+.ptr { position: fixed; top: 0; left: 50%; z-index: 60; width: 28px; height: 28px; opacity: 0; pointer-events: none; transform: translate3d(-50%, -60px, 0); }
+.ptr svg { display: block; width: 100%; height: 100%; overflow: visible; transform: rotate(-90deg); }
+.ptr-track { fill: none; stroke: var(--fill-3, rgba(255, 255, 255, 0.1)); stroke-width: 2.5; }
+.ptr-arc { fill: none; stroke: var(--text-3); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 0 100; transition: stroke 120ms linear; }
+.ptr.is-armed .ptr-arc, .ptr.is-spinning .ptr-arc { stroke: var(--text); }
+.ptr.is-spinning svg { animation: ptrSpin 0.8s linear infinite; }
+@keyframes ptrSpin { from { transform: rotate(130deg); } to { transform: rotate(490deg); } }
+.ptr-say { position: fixed; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@keyframes ptrPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .ptr.is-spinning svg { animation: none; }
+  .ptr.is-spinning { animation: ptrPulse 1.2s ease-in-out infinite; }
+  .ptr-arc { transition: none; }
+}
