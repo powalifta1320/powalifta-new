@@ -903,6 +903,13 @@ async function _readAllIn(label, ids, size, build, opts) {
   return { rows, count: res.every(r => r.count != null) ? res.reduce((a, r) => a + r.count, 0) : null,
     capped: res.some(r => r.capped), partial: res.some(r => r.partial || (r.error && !r.rows.length)), error: (res.find(r => r.error) || {}).error || null };
 }
+// A list that couldn't be read (no signal, a timeout, a server error) is not an empty list. It still answers []
+// (every caller works as before), marked readFailed; so is a read that kept some pages and lost others. A refresh
+// keeps the list it has rather than an empty or half one (coach.html reloadRoster), and so does the boot (app.js
+// bootstrap keeps this device's copy). A table that isn't there yet (_isNotReady) is a real, empty list.
+function _markFailed(a) { try { Object.defineProperty(a, 'readFailed', { value: true }); } catch (e) {} return a; }
+function _failedList(error) { return error && _isNotReady(error) ? [] : _markFailed([]); }
+function _listOf(res, map) { const out = res.rows.map(map); return res.partial ? _markFailed(out) : out; }
 // Bumped by every message this page sends or hears live: a thread read already on its way when one
 // lands can't stand in for a read asked for after it (DB._coachThreadRows).
 let _threadSeq = 0;
@@ -1791,17 +1798,17 @@ const DB = {
       if (!res.status || /fetch|network|timed? ?out|load failed/i.test(String(res.error.message || ''))) {
         const e = new Error('The roster did not load: ' + (res.error.message || 'network')); e.transient = true; throw e;
       }
-      console.warn('listAthletesForCoach', res.error); return [];
+      console.warn('listAthletesForCoach', res.error); return _failedList(res.error);
     }
-    return res.rows.map(mapDbProfileToAthlete);
+    return _listOf(res, mapDbProfileToAthlete);
   },
 
   // ---------- INVITES ----------
   async listInvites(coachId) {
     // RLS already filters to current coach's invites — no need for explicit eq
     const res = await _readAll('listInvites', (countOpt) => sb.from('invites').select('*', countOpt), { tiebreak: ['code'], count: false });
-    if (res.error && !res.rows.length) { console.warn('listInvites', res.error); return []; }
-    return res.rows.map(mapDbInvite);
+    if (res.error && !res.rows.length) { console.warn('listInvites', res.error); return _failedList(res.error); }
+    return _listOf(res, mapDbInvite);
   },
   async addInvite(invite) {
     const { error } = await sb.from('invites').insert(mapJsInvite(invite));
@@ -2373,8 +2380,8 @@ const DB = {
       { order: [['day', false]], tiebreak: ['athlete_id'] });
     let res = await q('athlete_id, day, sleep_min, rhr_bpm, hrv_ms');
     if (res.error && !res.rows.length && _missingCol(res.error, ['hrv_ms'])) res = await q('athlete_id, day, sleep_min, rhr_bpm');
-    if (res.error && !res.rows.length) { if (!_isNotReady(res.error)) console.warn('listHealthDaily', res.error); return []; }
-    return res.rows.map(r => ({ athleteId: r.athlete_id, day: r.day, sleepMin: r.sleep_min, rhr: r.rhr_bpm == null ? null : Number(r.rhr_bpm), hrv: r.hrv_ms == null ? null : Number(r.hrv_ms) }));
+    if (res.error && !res.rows.length) { if (!_isNotReady(res.error)) console.warn('listHealthDaily', res.error); return _failedList(res.error); }
+    return _listOf(res, r => ({ athleteId: r.athlete_id, day: r.day, sleepMin: r.sleep_min, rhr: r.rhr_bpm == null ? null : Number(r.rhr_bpm), hrv: r.hrv_ms == null ? null : Number(r.hrv_ms) }));
   },
 
   // ---------- PAIN FLAGS (migration-pain-reports-2026-10-22.sql) ----------
@@ -2385,8 +2392,8 @@ const DB = {
     const since = sinceIso || new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
     const res = await _readAllIn('listPainReports', athleteIds, 100, (c, countOpt) => sb.from('pain_reports').select('*', countOpt).in('athlete_id', c).gte('day', since),
       { order: [['created_at', false]], count: false });
-    if (res.error && !res.rows.length) { if (!_isNotReady(res.error)) console.warn('listPainReports', res.error); return []; }
-    return res.rows.map(mapDbPainReport);
+    if (res.error && !res.rows.length) { if (!_isNotReady(res.error)) console.warn('listPainReports', res.error); return _failedList(res.error); }
+    return _listOf(res, mapDbPainReport);
   },
   // Idempotent by id (an outbox replay of a report that did land is fine).
   async addPainReport(r) {
@@ -2842,10 +2849,10 @@ const DB = {
       : await _readAll('listIntakes', (countOpt) => sb.from('intake').select(_INTAKE_COLS, countOpt).neq('athlete_id', coachId), { tiebreak: ['athlete_id'], count: false });
     if (res.error && !res.rows.length) {
       if (_isNotReady(res.error)) this._inReady = false; else console.warn('listIntakes', res.error);
-      return [];   // a lifter's answers are on their own device until the table exists
+      return _failedList(res.error);   // a lifter's answers are on their own device until the table exists
     }
     this._inReady = true;
-    return res.rows.map(mapDbIntake);
+    return _listOf(res, mapDbIntake);
   },
 
   // ---------- BUSY WEEKS (migration-schedule-requests-2026-10-28.sql) ----------
@@ -2925,10 +2932,10 @@ const DB = {
       { order: [['week_start', false], ['created_at', false]], count: false });
     if (res.error && !res.rows.length) {
       if (_isNotReady(res.error)) this._srReady = false; else console.warn('listScheduleRequests', res.error);
-      return [];
+      return _failedList(res.error);
     }
     this._srReady = true;
-    return res.rows.map(mapDbScheduleRequest);
+    return _listOf(res, mapDbScheduleRequest);
   },
   async decideScheduleRequest(id, status) {
     if (!id || !['approved', 'declined'].includes(status)) return { ok: false, error: new Error('Approve or decline') };
@@ -2990,8 +2997,8 @@ const DB = {
   async listBwForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
     const res = await _readAllIn('listBwForAthletes', athleteIds, 100, (c, countOpt) => sb.from('bodyweight').select(_BW_COLS, countOpt).in('athlete_id', c), { order: [['date', true]] });
-    if (res.error && !res.rows.length) { console.warn('listBwForAthletes', res.error); return []; }
-    return res.rows.map(mapDbBw);
+    if (res.error && !res.rows.length) { console.warn('listBwForAthletes', res.error); return _failedList(res.error); }
+    return _listOf(res, mapDbBw);
   },
   async upsertBw(b) {
     const { error } = await sb.from('bodyweight').upsert(mapJsBw(b), { onConflict: 'athlete_id,date' });
@@ -3007,8 +3014,8 @@ const DB = {
   async listMeetsForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
     const res = await _readAllIn('listMeetsForAthletes', athleteIds, 100, (c, countOpt) => sb.from('meets').select('*', countOpt).in('athlete_id', c), { order: [['meet_date', false]], count: false });
-    if (res.error && !res.rows.length) { console.warn('listMeetsForAthletes', res.error); return []; }
-    return res.rows.map(mapDbMeet);
+    if (res.error && !res.rows.length) { console.warn('listMeetsForAthletes', res.error); return _failedList(res.error); }
+    return _listOf(res, mapDbMeet);
   },
   // Insert (no id) or update (id present) — upsert on the PK. Returns the saved
   // row so the caller picks up the DB-generated id on first save.
@@ -3308,8 +3315,8 @@ const DB = {
   async listNotesForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
     const res = await _readAllIn('listNotesForAthletes', athleteIds, 100, (c, countOpt) => sb.from('session_notes').select(_NOTE_COLS, countOpt).in('athlete_id', c), { order: [['date', true], ['created_at', true]] });
-    if (res.error && !res.rows.length) { console.warn('listNotesForAthletes', res.error); return []; }
-    return res.rows.map(mapDbNote);
+    if (res.error && !res.rows.length) { console.warn('listNotesForAthletes', res.error); return _failedList(res.error); }
+    return _listOf(res, mapDbNote);
   },
   async addNote(n) {
     const { error } = await sb.from('session_notes').insert(mapJsNote(n));
@@ -3361,8 +3368,8 @@ const DB = {
   async listCheckinsForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
     const res = await _readAllIn('listCheckinsForAthletes', athleteIds, 100, (c, countOpt) => sb.from('checkins').select('*', countOpt).in('athlete_id', c), { order: [['week_start', false]], count: false });
-    if (res.error && !res.rows.length) { console.warn('listCheckinsForAthletes', res.error); return []; }
-    return res.rows.map(mapDbCheckin);
+    if (res.error && !res.rows.length) { console.warn('listCheckinsForAthletes', res.error); return _failedList(res.error); }
+    return _listOf(res, mapDbCheckin);
   },
   // Upsert by (athlete_id, week_start) — if a check-in for that week exists, replace it.
   async upsertCheckin(c) {
@@ -3411,8 +3418,8 @@ const DB = {
       const q = sb.from('checkin_answers').select(_ANSWER_COLS, countOpt);
       return sinceIso ? q.gte('period', sinceIso) : q;
     }, { order: [['period', false]] });
-    if (res.error && !res.rows.length) { if (!_isNotReady(res.error)) console.warn('listCheckinAnswers', res.error); return []; }
-    return res.rows.map(mapDbCheckinAnswer);
+    if (res.error && !res.rows.length) { if (!_isNotReady(res.error)) console.warn('listCheckinAnswers', res.error); return _failedList(res.error); }
+    return _listOf(res, mapDbCheckinAnswer);
   },
   async saveCheckinAnswers(answers) {
     if (!answers || !answers.length) return { ok: true };
@@ -3431,8 +3438,8 @@ const DB = {
   async listGoalsForAthletes(athleteIds) {
     if (!athleteIds.length) return [];
     const res = await _readAllIn('listGoalsForAthletes', athleteIds, 100, (c, countOpt) => sb.from('goals').select('*', countOpt).in('athlete_id', c), { tiebreak: ['athlete_id'], count: false });
-    if (res.error && !res.rows.length) { console.warn('listGoalsForAthletes', res.error); return []; }
-    return res.rows.map(mapDbGoals);
+    if (res.error && !res.rows.length) { console.warn('listGoalsForAthletes', res.error); return _failedList(res.error); }
+    return _listOf(res, mapDbGoals);
   },
   async upsertGoals(g) {
     const row = mapJsGoals(g);

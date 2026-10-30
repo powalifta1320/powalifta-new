@@ -1498,7 +1498,9 @@ async function bootstrap(expectedType, onReady, opts) {
   }
 
   try {
-    Store.set(await DB.hydrateAll(profile));
+    const fresh = await DB.hydrateAll(profile);
+    keepUnreadLists(fresh, (_readSnapshot(profile.id) || {}).store);
+    Store.set(fresh);
   } catch (e) {
     console.error('hydrate failed', e);
     // Flaky / offline: fall back to the cached snapshot so the dashboard still
@@ -1526,6 +1528,21 @@ async function bootstrap(expectedType, onReady, opts) {
   _flushQueuesSoon();
 }
 window.bootstrap = bootstrap;
+// The boot's lists that couldn't be read (a weak signal: db.js answers [] and marks it readFailed) keep this device's
+// copy (the offline snapshot's store, snap) instead of an empty one: a coach's pain flags and meets survive a bad
+// connection, and the next snapshot doesn't save the empty list over them. The roster itself is never patched (a
+// roster that can't be read throws, and the boot opens the device's copy). Mutates fresh → the keys it kept. Pure.
+function keepUnreadLists(fresh, snap) {
+  const kept = [];
+  if (!fresh || !snap) return kept;
+  Object.keys(fresh).forEach(k => {
+    const v = fresh[k], old = snap[k];
+    if (k === 'athletes' || !Array.isArray(v) || !v.readFailed || v.length || !Array.isArray(old) || !old.length) return;
+    fresh[k] = old; kept.push(k);
+  });
+  if (kept.length) console.warn('Not read, this device\'s copy kept:', kept.join(', '));
+  return kept;
+}
 let _snapSoonT = null;
 function _snapshotSoon() {
   if (_snapSoonT) return;
@@ -3675,9 +3692,10 @@ async function _lvResync() {
 }
 // The catch-up a reconnect runs, now and awaited (the coach's pull to refresh): the programs that moved (by rev,
 // never this device's base: the same merge as a live row, so nothing typed here and not yet saved is lost), the
-// last two days of sets and the form checks, applied at once. → true when it read, false offline or in the demo.
+// last two days of sets and the form checks, applied at once. → true when it read, false when a read failed,
+// null with nothing live to catch up (the demo, signed out).
 async function liveCatchUp() {
-  if (window._demoMode || !_lv.me || !window.DB || !DB.liveProgramRows) return false;
+  if (window._demoMode || !_lv.me || !window.DB || !DB.liveProgramRows) return null;
   clearTimeout(_lv.resyncT); _lv.resyncT = null;
   for (let i = 0; _lv.resyncing && i < 100; i++) await new Promise(r => setTimeout(r, 100));
   const ok = await _lvResync();

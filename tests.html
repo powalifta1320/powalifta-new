@@ -9415,6 +9415,19 @@ group('pull to refresh (app.js uiPullRefresh)');
     eq(ptrState(64, { reduce: true, line: 64 }).progress, 0.5);
     eq(ptrState(0, { dim: 852 }).progress, 0);
   });
+  test('the boot: a list it couldn\'t read (db.js readFailed) keeps this device\'s copy, never the roster, never a list that was read', () => {
+    const failed = (a) => { Object.defineProperty(a, 'readFailed', { value: true }); return a; };
+    const fresh = { athletes: failed([]), painReports: failed([]), meets: [{ id: 'm2' }], goals: failed([]), invites: failed([{ code: 'NEW1' }]), bodyweight: [] };
+    const snap = { athletes: [{ id: 'a1' }], painReports: [{ id: 'p1' }], meets: [{ id: 'm1' }], goals: [], invites: [{ code: 'OLD1' }], bodyweight: [{ id: 'b1' }] };
+    const kept = keepUnreadLists(fresh, snap);
+    eq(kept.join(), 'painReports', 'only the empty list that failed, and only when the device has it');
+    eq(fresh.painReports.map(p => p.id).join(), 'p1', 'the pain report stays');
+    eq(fresh.meets.map(m => m.id).join(), 'm2', 'a list that was read is the server\'s');
+    eq(fresh.bodyweight.length, 0, 'read and empty: empty');
+    eq(fresh.invites.map(i => i.code).join(), 'NEW1', 'a half read keeps the rows it has');
+    eq(fresh.athletes.length, 0, 'the roster is never patched');
+    eq(keepUnreadLists(fresh, null).length, 0, 'no copy on this device: nothing to keep');
+  });
 })();
 
 function render() {
