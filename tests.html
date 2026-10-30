@@ -7991,6 +7991,16 @@ test("Home's effort: who is running hot is the triage's rule, never one half poi
   eq(E.hot[0].avg, 0.5); eq(E.hot[0].count, 3);
   eq(CA.caEffortSplit(S('fi', [8.5, 8.5, 8])).hot.length, 0, 'an average of +0.3 is not a drift');
 });
+test("Home's effort picture: five bins (easier, under, as written, over, harder) that add up to the split", () => {
+  const set = (rpe, felt, extra) => Object.assign({ completed: true, rpe, actualRpe: felt }, extra || {});
+  const sets = [set(8, 8), set(8, 8.5), set(8, 7.5), set(8, 9), set(8, 9.5), set(8, 7), set(7, 7.5, { rpeHi: 8 }), set(7, 8.5, { rpeHi: 8 }), set(7, 6.5, { rpeHi: 8 }), set(8, null), set(2, 3, { rir: true })]
+    .map((s, i) => ({ id: 'a' + (i % 2), name: 'A', set: s, title: 'Squat', date: '2026-10-26' }));
+  const B = CA.caEffortBins(sets), E = CA.caEffortSplit(sets);
+  eq(B.join(','), '1,2,2,2,2', 'a point under; half under (and half under a range\'s low end); as written (and inside a range); half over (and past its top); a point or more over');
+  eq(B[0], E.easier, 'the left end is the split\'s easier'); eq(B[4], E.harder, 'the right end is its harder');
+  eq(B[1] + B[2] + B[3], E.on, 'the band in the middle is its on target, so the share above the picture is the sets in the band');
+  eq(CA.caEffortBins([]).join(','), '0,0,0,0,0', 'nothing logged: five empty bins');
+});
 test("Home's behind: the Lifters filter's rule, never a lifter in meet week", () => {
   const w = (n, trained) => CA.caWeek(trained, n);
   const r = (extra) => caRow('x', 'Xi', extra || {});
@@ -8090,8 +8100,10 @@ test('loading: each screen a skeleton in its shape, read out once, the blocks hi
   });
   assert(/Loading your lifters/.test(CA.skeletonHtml('home')) && /Loading the program/.test(CA.skeletonHtml('program')) && /Loading the lifter/.test(CA.skeletonHtml('lifter')));
   const hs = CA.skeletonHtml('home');
-  eq((hs.match(/ca-sk ca-sk-ring"/g) || []).length, 1, "Home's: the week's hero first, its ring");
-  eq((hs.match(/class="ca-sk-t2"/g) || []).length, 2, 'then the two tiles, strength and effort');
+  eq((hs.match(/ca-sk ca-sk-ring"/g) || []).length, 0, "Home's: no ring hero any more (30 Oct, the grid on top)");
+  eq((hs.match(/class="ca-sk-duo"/g) || []).length, 2, "Home's: the grid first, two rows");
+  eq((hs.match(/class="ca-sk-t2"/g) || []).length, 4, 'of two tiles each: training, strength, effort, meets');
+  assert(hs.indexOf('ca-sk-duo') < hs.indexOf('ca-sk-focal'), 'the grid comes before the job');
   eq((hs.match(/class="ca-sk-focal"/g) || []).length, 1, 'then the one job');
   eq(CA.skeletonHtml(), CA.skeletonHtml('home'), 'Home by default');
 });
