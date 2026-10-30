@@ -1,10 +1,10 @@
-// Marcus's week on the desk (1440 x 900 at 2x, light), one aligned demo (patchDemo): week 2 as he lifted it (bench
+// Marcus's week on the desk (1440 x 900 at 2x, dark: THEME=light for a light version), one aligned demo (patchDemo): week 2 as he lifted it (bench
 // @9.5 where Sam wrote 8), before and after Take (145, Sam's rule).
 // -> week-before.png, week-after.png: site-img/home/week-before-*, week-after-* (mkimg.py week).
 import { writeFileSync } from 'node:fs';
-import { launch, deskCtx, patchDemo, BASE, CAP as OUT } from './lib.mjs';
+import { launch, deskCtx, patchDemo, BASE, CAP as OUT, THEME } from './lib.mjs';
 const b = await launch();
-const ctx = await deskCtx(b, { theme: 'light', dpr: 2 }); await patchDemo(ctx);
+const ctx = await deskCtx(b, { theme: THEME, dpr: 2 }); await patchDemo(ctx);
 const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message.slice(0, 160)));
 await p.goto(BASE + 'coach.html?demo=1', { waitUntil: 'load' }); await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(2000);
 // Arjun's staged top set, as on every other capture (so the roster's numbers agree).

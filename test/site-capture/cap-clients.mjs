@@ -1,9 +1,9 @@
 // -> cl-before.png: site-img/home/clients-*, clients-ph-* (mkimg.py clients).
-// Clients on the desk (1440x900, light, 2x): before and after Sam marks Tomas's payment as paid.
+// Clients on the desk (1440x900, dark (THEME=light for a light version), 2x): before and after Sam marks Tomas's payment as paid.
 import { writeFileSync } from 'node:fs';
-import { launch, deskCtx, patchDemo, BASE, CAP as OUT } from './lib.mjs';
+import { launch, deskCtx, patchDemo, BASE, CAP as OUT, THEME } from './lib.mjs';
 const b = await launch();
-const ctx = await deskCtx(b, { theme: 'light', dpr: 2 }); await patchDemo(ctx);
+const ctx = await deskCtx(b, { theme: THEME, dpr: 2 }); await patchDemo(ctx);
 const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message.slice(0, 160)));
 await p.goto(BASE + 'coach.html?demo=1', { waitUntil: 'load' }); await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(2000);
 await p.evaluate(() => { const it = [...document.querySelectorAll('.dk-item')]; const b = it.find((x) => /^Clients/.test(x.innerText)); if (b) b.click(); });

@@ -88,7 +88,8 @@ UISCAN_ONLY='^w-index' node test/uiscan.mjs       # only the screens whose name 
 The homepage shows the app's own screens: re-take them from this repo's demos whenever those screens change (desk:
 Sam's Lifters and Arjun's page; phone: Arjun's Train; thread, brand, week, clients, import), then cut them into
 `site-img/home/` and follow what `mkimg.py` prints (after a desk re-take: where index.html's live numbers, rings and
-pins go).
+pins go). The laptop pictures (desk, week, clients, import) are the dark desk by default, as the homepage is all dark
+(30 Oct); `THEME=light` takes the light desk for the light version. The phone pictures are always the app's dark.
 
 ```bash
 python3 -m http.server 4191 --bind 127.0.0.1     # from the repo root, in another tab
