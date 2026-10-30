@@ -7472,45 +7472,86 @@ function oplRank(vals, kg) {
   const p = (i + 1) + (hi > lo ? (x - lo) / (hi - lo) : 0);
   return Math.max(1, Math.min(99, Math.floor(p + 1e-9)));
 }
-// Everything a screen needs. o: { sex, equip, cls ("83 kg"), kg: { total, squat, bench, deadlift } (e1RMs) }.
-// → { key, cls, group: 'raw men', n, since, data, lifts: { total|squat|bench|deadlift: { kg, pct } } } | null. Pure: tested.
+// Everything a screen needs. o: { sex, equip, cls ("83 kg"), kg: { total, squat, bench, deadlift } (e1RMs),
+// lifted: { total, squat, bench, deadlift } (what was on the bar: the best singles, from a meet or training; optional),
+// liftedKind: 'meet' (all three from one meet, liftedMeet its name) | 'singles' }.
+// → { key, cls, group: 'raw men', n, since, data, lifts: { total|squat|bench|deadlift: { kg, pct } } (the e1RMs),
+//     lifted: { … } (the same for what was lifted; empty without), liftedKind, liftedMeet } | null. Pure: tested.
 function strongerThan(table, o) {
   if (!table || !table.b || !o) return null;
   const key = oplKey(o.sex, o.equip, o.cls);
   const g = key && table.b[key];
   if (!g || !(g.n >= 100)) return null;
   const col = { total: 't', squat: 's', bench: 'b', deadlift: 'd' };
-  const lifts = {};
-  Object.keys(col).forEach(L => {
-    const kg = Number((o.kg || {})[L]);
-    const pct = kg > 0 ? oplRank(oplValues(g[col[L]]), kg) : null;
-    if (pct != null) lifts[L] = { kg, pct };
-  });
-  if (!Object.keys(lifts).length) return null;
+  const rank = (src) => {
+    const out = {};
+    Object.keys(col).forEach(L => {
+      const kg = Number((src || {})[L]);
+      const pct = kg > 0 ? oplRank(oplValues(g[col[L]]), kg) : null;
+      if (pct != null) out[L] = { kg, pct };
+    });
+    return out;
+  };
+  const lifts = rank(o.kg), lifted = rank(o.lifted);
+  if (!Object.keys(lifts).length && !Object.keys(lifted).length) return null;
   return { key, cls: String(o.cls).trim(), group: (o.equip === 'equipped' ? 'equipped ' : 'raw ') + (o.sex === 'female' ? 'women' : 'men'),
-    n: g.n, since: String(table.since || '').slice(0, 4), data: table.data || '', lifts };
+    n: g.n, since: String(table.since || '').slice(0, 4), data: table.data || '', lifts, lifted,
+    liftedKind: lifted.total ? (o.liftedKind === 'meet' ? 'meet' : 'singles') : null, liftedMeet: lifted.total && o.liftedKind === 'meet' ? String(o.liftedMeet || '') : '' };
 }
-// "Stronger than 72% of 83 kg raw men" (the total, or a lift: "Your squat is stronger than…" is the caller's). Null
-// under the 1st percentile: there is nothing kind or useful to say with a 0. Pure.
+// What the line ranks (night C review M8): what was lifted when there is one (a meet total, else the best singles
+// added up), never the training estimate above a real total that ranks lower; with nothing lifted, the e1RM total.
+// → { kind: 'meet' | 'singles' | 'e1rm', kg, pct, meet } | null. Pure: tested.
+function strongerHeadline(r) {
+  if (!r) return null;
+  const x = r.lifted && r.lifted.total;
+  if (x) return { kind: r.liftedKind === 'meet' ? 'meet' : 'singles', kg: x.kg, pct: x.pct, meet: r.liftedMeet || '' };
+  const e = r.lifts && r.lifts.total;
+  return e ? { kind: 'e1rm', kg: e.kg, pct: e.pct, meet: '' } : null;
+}
+// The line, saying what it ranks: "Meet total: stronger than 47% of 83 kg raw men", "Best singles: …", "e1RM total: …";
+// a lift: "Best single: …" when one was lifted, else "e1RM: …". Null under the 1st percentile: there is nothing kind or
+// useful to say with a 0. Pure: tested.
 function strongerLine(r, lift) {
-  const x = r && r.lifts && r.lifts[lift || 'total'];
+  if (!r) return null;
+  let x, label;
+  if (!lift || lift === 'total') {
+    const h = strongerHeadline(r);
+    x = h; label = h && (h.kind === 'meet' ? 'Meet total' : h.kind === 'singles' ? 'Best singles' : 'e1RM total');
+  } else {
+    const one = r.lifted && r.lifted[lift];
+    x = one || (r.lifts && r.lifts[lift]); label = one ? 'Best single' : 'e1RM';
+  }
   if (!x || !(x.pct >= 1)) return null;
-  return 'Stronger than ' + x.pct + '% of ' + r.cls + ' ' + r.group;
+  return label + ': stronger than ' + x.pct + '% of ' + r.cls + ' ' + r.group;
 }
-// The lifter's own numbers, as the screens show them (best competition-equivalent e1RMs; the total once all three
-// have one), their class (liftersClass: the class they're cutting for wins) and the comparison asked for. → { … } | null
-function strongerInputs(athleteId) {
+// The lifter's own numbers, as the screens show them: the best competition-equivalent e1RMs (the total once all three
+// have one), what was lifted (bestSingle: the heaviest competition single from a meet or training; the total once all
+// three exist, a meet total when all three came from one meet, as Progress's line says it), their class (liftersClass:
+// the class they're cutting for wins) and the comparison asked for. opts.sex: another group to compare with, for a view
+// only (Where you stand's Men / Women; the lifter's own category, getSexPref, is never changed). → { … } | null
+function strongerInputs(athleteId, opts) {
+  opts = opts || {};
   const bw = latestBodyweight(athleteId);
-  const sex = getSexPref();
+  const sex = opts.sex === 'female' || opts.sex === 'male' ? opts.sex : getSexPref();
   const target = typeof targetClassOf === 'function' ? targetClassOf(athleteId) : null;   // athlete.html: the class of a cut
   let cls = bw || target ? liftersClass(bw, sex, target) : null;
   if (!oplClassValid(cls, sex)) cls = bw ? weightClassFor(bw, sex) : null;   // a cut's class that isn't one for this sex (83 for a woman): the weigh-in's
   if (!cls) return null;
   const kg = { squat: bestE1RM(athleteId, 'squat'), bench: bestE1RM(athleteId, 'bench'), deadlift: bestE1RM(athleteId, 'deadlift') };
   kg.total = kg.squat > 0 && kg.bench > 0 && kg.deadlift > 0 ? kg.squat + kg.bench + kg.deadlift : 0;
-  return { sex, equip: getEquipPref(), cls, kg };
+  const lifted = {}, parts = {};
+  ['squat', 'bench', 'deadlift'].forEach(L => { const b = bestSingle(athleteId, L); if (b) { parts[L] = b; lifted[L] = b.kg; } });
+  let liftedKind = null, liftedMeet = '';
+  if (parts.squat && parts.bench && parts.deadlift) {
+    lifted.total = parts.squat.kg + parts.bench.kg + parts.deadlift.kg;
+    const meets = new Set(['squat', 'bench', 'deadlift'].map(L => parts[L].meet).filter(Boolean));
+    const allMeet = ['squat', 'bench', 'deadlift'].every(L => parts[L].source === 'meet');
+    liftedKind = allMeet && meets.size === 1 ? 'meet' : 'singles';
+    if (liftedKind === 'meet') liftedMeet = Array.from(meets)[0];
+  }
+  return { sex, equip: getEquipPref(), cls, kg, lifted, liftedKind, liftedMeet };
 }
-if (typeof window !== 'undefined') Object.assign(window, { loadOplTable, getEquipPref, setEquipPref, oplKey, oplClassValid, oplValues, oplRank, strongerThan, strongerLine, strongerInputs });
+if (typeof window !== 'undefined') Object.assign(window, { loadOplTable, getEquipPref, setEquipPref, oplKey, oplClassValid, oplValues, oplRank, strongerThan, strongerHeadline, strongerLine, strongerInputs });
 
 // "Make weight" math: where the lifter sits inside their IPF class and what it
 // takes to move. All kg (classes are inherently kg; the view converts the gaps

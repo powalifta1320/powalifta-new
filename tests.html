@@ -9255,14 +9255,44 @@ group('stronger than X% (OpenPowerlifting percentiles)');
     const r = strongerThan(T, { sex: 'male', equip: 'raw', cls: '83 kg', kg: { total: 170.5, squat: 149, bench: 99, deadlift: 0 } });
     eq(r.key, 'M|raw|83'); eq(r.group, 'raw men'); eq(r.n, 48088); eq(r.since, '2021');
     eq(r.lifts.total.pct, 71); eq(r.lifts.squat.pct, 50); eq(r.lifts.bench.pct, 0, 'under the 1st: kept as 0'); eq(r.lifts.deadlift, undefined, 'no number, no line');
-    eq(strongerLine(r), 'Stronger than 71% of 83 kg raw men');
-    eq(strongerLine(r, 'squat'), 'Stronger than 50% of 83 kg raw men');
+    eq(strongerLine(r), 'e1RM total: stronger than 71% of 83 kg raw men', 'nothing lifted: the e1RM total, named as one');
+    eq(strongerLine(r, 'squat'), 'e1RM: stronger than 50% of 83 kg raw men');
     eq(strongerLine(r, 'bench'), null, 'never "stronger than 0%"');
     eq(strongerThan(T, { sex: 'female', equip: 'equipped', cls: '84 kg+', kg: { total: 300 } }).group, 'equipped women');
     eq(strongerThan(T, { sex: 'male', equip: 'raw', cls: '59 kg', kg: { total: 150 } }), null, 'a group under 100 lifters says nothing');
     eq(strongerThan(T, { sex: 'male', equip: 'raw', cls: '93 kg', kg: { total: 150 } }), null, 'a group the file doesn\'t have');
     eq(strongerThan(null, { sex: 'male', equip: 'raw', cls: '83 kg', kg: { total: 150 } }), null, 'no file, no number');
     eq(strongerThan(T, { sex: 'male', equip: 'raw', cls: '83 kg', kg: {} }), null, 'nothing logged');
+  });
+  // Night C review M8: a training estimate ranked above a real meet total that ranks lower flattered the lifter.
+  test('what was lifted comes first: a meet total (or the best singles) is the headline, the e1RM total its own line', () => {
+    const o = { sex: 'male', equip: 'raw', cls: '83 kg', kg: { total: 190, squat: 160, bench: 120, deadlift: 175 },
+      lifted: { total: 160.5, squat: 149, bench: 101, deadlift: 160 }, liftedKind: 'meet', liftedMeet: 'Spring Classic' };
+    const r = strongerThan(T, o);
+    eq(r.lifts.total.pct, 91, 'the e1RM total still ranked'); eq(r.lifted.total.pct, 61, 'and the meet total');
+    eq(r.liftedKind, 'meet'); eq(r.liftedMeet, 'Spring Classic');
+    eq(JSON.stringify(strongerHeadline(r)), JSON.stringify({ kind: 'meet', kg: 160.5, pct: 61, meet: 'Spring Classic' }), 'the meet total leads');
+    eq(strongerLine(r), 'Meet total: stronger than 61% of 83 kg raw men');
+    eq(strongerLine(r, 'squat'), 'Best single: stronger than 50% of 83 kg raw men', 'a lift: its best single');
+    const sg = strongerThan(T, Object.assign({}, o, { liftedKind: 'singles', liftedMeet: '' }));
+    eq(strongerHeadline(sg).kind, 'singles'); eq(strongerLine(sg), 'Best singles: stronger than 61% of 83 kg raw men');
+    eq(sg.liftedMeet, '', 'no meet name for singles');
+  });
+  test('two singles of three: no lifted total, so the e1RM total leads, and each lift says what it ranks', () => {
+    const r = strongerThan(T, { sex: 'male', equip: 'raw', cls: '83 kg', kg: { total: 190, squat: 160, bench: 120, deadlift: 175 }, lifted: { squat: 149, bench: 101 }, liftedKind: null });
+    eq(strongerHeadline(r).kind, 'e1rm'); eq(r.liftedKind, null);
+    eq(strongerLine(r), 'e1RM total: stronger than 91% of 83 kg raw men');
+    eq(strongerLine(r, 'squat'), 'Best single: stronger than 50% of 83 kg raw men');
+    eq(strongerLine(r, 'deadlift'), 'e1RM: stronger than 76% of 83 kg raw men', 'no single: its e1RM, said so');
+  });
+  test('a meet total under the 1st percentile says nothing (the e1RM total never stands in for it)', () => {
+    const r = strongerThan(T, { sex: 'male', equip: 'raw', cls: '83 kg', kg: { total: 190 }, lifted: { total: 90 }, liftedKind: 'meet', liftedMeet: 'First Meet' });
+    eq(strongerHeadline(r).pct, 0); eq(strongerLine(r), null);
+    eq(strongerHeadline(null), null); eq(strongerLine(null), null);
+  });
+  test('only lifted numbers still rank (no e1RMs)', () => {
+    const r = strongerThan(T, { sex: 'female', equip: 'equipped', cls: '84 kg+', kg: {}, lifted: { total: 170.5 }, liftedKind: 'singles' });
+    eq(JSON.stringify(strongerHeadline(r)), JSON.stringify({ kind: 'singles', kg: 170.5, pct: 71, meet: '' }));
   });
 })();
 

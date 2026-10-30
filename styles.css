@@ -13072,6 +13072,8 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
 .pg-pct svg { flex: none; width: 16px; height: 16px; margin-left: auto; color: var(--text-3); }
 .pg-pct:active { opacity: 0.7; }
 .pg-pct:focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; border-radius: 8px; }
+/* Under the meet total (or the best singles) it ranks that line's number, so it hangs from it with no gap (night C review M8). */
+.pg-real-line + .pg-pct.is-real { margin-top: -6px; }
 @keyframes stIn { from { opacity: 0.45; } }
 .st-segs { display: flex; gap: 8px; margin: 4px 0 20px; }
 .st-segs .ui-seg { flex: 1; min-width: 0; }
@@ -13082,6 +13084,11 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
 .st-lbl { font-size: 15px; line-height: 1.4; color: var(--text-2); }
 .st-p { font-size: 17px; font-weight: 750; font-variant-numeric: tabular-nums; color: var(--text); }
 .st-note { margin: 16px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-3); }
+/* Men / Women is a view: the sheet says when it isn't the lifter's own category (night C review M7). */
+.st-view { margin: -8px 0 16px; font-size: 13px; line-height: 1.5; color: var(--text-2); }
+/* Under a real total, the training estimate as its own labelled line (night C review M8). */
+.st-e1rm { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: -6px 0 20px; padding: 12px 0 0; border-top: 1px solid var(--line); font-size: 15px; color: var(--text-2); }
+.st-e1rm b { font-size: 17px; font-weight: 750; font-variant-numeric: tabular-nums; color: var(--text); }
 .st-sheet .opl-credit { margin: 8px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-3); }
 .st-sheet .opl-credit a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
 .lc-pct { position: relative; margin-top: 10px; font-size: 13px; color: #b8b8c0; animation: stIn 280ms cubic-bezier(0.23, 1, 0.32, 1) both; }

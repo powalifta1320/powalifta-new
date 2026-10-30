@@ -1946,7 +1946,7 @@ window.POWA_SUPPORT_KB = [
    "raw men",
    "raw women"
   ],
-  "a": "It's your e1RM total (and, under it, each lift) against the best result of everyone who lifted in your weight class at a full powerlifting meet since 2021, from OpenPowerlifting's public meet results. 72% means your number beats 72 out of every 100 of them. Your class comes from your weigh-in (or the class you're cutting for). Tap the line on Progress to see each lift, the number of lifters, and to switch between men and women or raw and equipped. Yours are estimates from training; a meet decides the real number."
+  "a": "It ranks what you've lifted: your meet total (or, with no meet, your best singles added up) against the best meet total of everyone who lifted in your weight class at a full powerlifting meet since 2021, from OpenPowerlifting's public meet results. 72% means your number beats 72 out of every 100 of them. With nothing lifted yet it ranks your e1RM total from training and says so (\"e1RM total: stronger than…\"). Your class comes from your weigh-in (or the class you're cutting for). Tap the line on Progress for each lift (its best single, else its e1RM), your e1RM total on its own line, the number of lifters, and to compare with raw or equipped lifters. Men or women there is a view: your own category stays as set in Profile. Only a meet decides the real number."
  },
  {
   "id": "coach-results-card",

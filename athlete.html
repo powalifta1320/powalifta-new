@@ -5804,14 +5804,22 @@ function openLifterCardView() {
   card.appendChild(lifts);
   const sIn = strongerInputs(user.id);
   if (sIn) loadOplTable().then(t => {
-    const r = strongerThan(t, sIn), line = r && strongerLine(r);
+    const r = strongerThan(t, sIn), h = strongerHeadline(r), line = r && strongerLine(r);
     if (!r || !card.isConnected) return;
-    if (line) { pctLine.innerHTML = 'Stronger than <b>' + r.lifts.total.pct + '%</b> of ' + escHtml(r.cls + ' ' + r.group); pctLine.hidden = false; }
-    lifts.querySelectorAll('.lc-lift').forEach(tile => {
+    // What the line ranks, said on the card (night C review M8): the meet total (or the best singles) when there is
+    // one, with its weight; else the e1RM total the card shows big, named as one.
+    if (line) {
+      pctLine.innerHTML = (h.kind === 'e1rm' ? 'e1RM total' : (h.kind === 'meet' ? 'Meet total ' : 'Best singles ') + escHtml(exactW(h.kg)) + ' ' + unitLabel()) +
+        ': stronger than <b>' + h.pct + '%</b> of ' + escHtml(r.cls + ' ' + r.group);
+      pctLine.setAttribute('aria-label', strongerSentence(r));
+      pctLine.hidden = false;
+    }
+    // Each lift's share under its e1RM: only beside an e1RM line (under a meet total they'd rank another number).
+    if (h && h.kind === 'e1rm') lifts.querySelectorAll('.lc-lift').forEach(tile => {
       const x = r.lifts[tile.getAttribute('data-lift')];
       if (!x || !(x.pct >= 1)) return;
       tile.appendChild(el('em', { class: 'lc-p', 'aria-hidden': 'true' }, x.pct + '%'));   // the line above says what of
-      tile.setAttribute('aria-label', LIFT_LABELS[tile.getAttribute('data-lift')] + ' ' + tile.querySelector('b').textContent + ', ' + strongerLine(r, tile.getAttribute('data-lift')).toLowerCase());
+      tile.setAttribute('aria-label', LIFT_LABELS[tile.getAttribute('data-lift')] + ' ' + tile.querySelector('b').textContent + ' e1RM, stronger than ' + x.pct + '% of ' + r.cls + ' ' + r.group);
     });
   });
   card.appendChild(el('div', { class: 'lc-foot' }, el('span', {}, (sex === 'female' ? "Women's" : "Men's") + (bw ? ' · ' + formatWeight(bw) + ' bodyweight' : '')), el('span', {}, 'powalifta.com')));
@@ -7086,24 +7094,43 @@ function _progTotalSeries(logs) {
   return Object.keys(byDate).sort().map(d => Object.assign({ date: d }, byDate[d], { total: byDate[d].squat + byDate[d].bench + byDate[d].deadlift }));
 }
 
-// STRONGER THAN X% (night C, 30 Oct; app.js strongerThan over opl-percentiles.json). One line under the e1RM total
-// ("Stronger than 72% of 83 kg raw men"), drawn once the table is in; nothing when it can't be sourced.
+// STRONGER THAN X% (night C, 30 Oct; app.js strongerThan over opl-percentiles.json). One line in Progress's hero, drawn
+// once the table is in; nothing when it can't be sourced. It ranks what was lifted when there is one (night C review
+// M8): under the meet total (or the best singles) it reads "Stronger than 47% of 83 kg raw men", attached to that line;
+// with nothing lifted it sits under the e1RM total and says so, "e1RM total: stronger than 79% of 83 kg raw men".
 const ST_CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
-function paintStrongerLine(node) {
+// "Your 515 kg meet total (Spring Classic) is stronger than 47% of 83 kg raw men": the headline in full, in the lifter's unit.
+function strongerSentence(r) {
+  const h = strongerHeadline(r);
+  if (!h) return '';
+  const w = (h.kind === 'e1rm' ? Math.round(kgToDisplay(h.kg)) : exactW(h.kg)) + ' ' + unitLabel();
+  return 'Your ' + w + (h.kind === 'meet' ? ' meet total' + (h.meet ? ' (' + h.meet + ')' : '') : h.kind === 'singles' ? ' total of best singles' : ' e1RM total') +
+    ' is ' + (h.pct >= 1 ? 'stronger than ' + h.pct + '%' : 'under the 1st percentile') + ' of ' + r.cls + ' ' + r.group;
+}
+// node: the hero's .pg-pct button; under: the real total's line (paint it there when the rank is of what was lifted).
+function paintStrongerLine(node, under) {
   const inp = strongerInputs(user.id);
   if (!node || !inp) return;
   loadOplTable().then(t => {
-    const r = strongerThan(t, inp), line = r && strongerLine(r);
+    const r = strongerThan(t, inp), h = strongerHeadline(r), line = r && strongerLine(r);
     if (!line || !node.isConnected) return;
-    const x = r.lifts.total;
-    node.innerHTML = '<span>Stronger than <b>' + x.pct + '%</b> of ' + escHtml(r.cls + ' ' + r.group) + '</span>' + ST_CHEV;
-    node.setAttribute('aria-label', line + '. Each lift, and where the numbers come from');
+    const lifted = h.kind !== 'e1rm';
+    if (lifted && under && under.isConnected) under.after(node);   // the meet total's own line: no gap, one block
+    node.classList.toggle('is-real', lifted);
+    node.innerHTML = '<span>' + (lifted ? 'Stronger than <b>' + h.pct + '%</b> of ' + escHtml(r.cls + ' ' + r.group)
+      : 'e1RM total: stronger than <b>' + h.pct + '%</b> of ' + escHtml(r.cls + ' ' + r.group)) + '</span>' + ST_CHEV;
+    node.setAttribute('aria-label', strongerSentence(r) + '. Each lift, and where the numbers come from');
     node.hidden = false;
   });
 }
-// The sheet: the total and each lift, the group (men or women, raw or equipped: switched here), and the source.
+// The sheet: the headline big (what was lifted, else the e1RM total), the e1RM total as its own labelled line under a
+// real total, each lift (its best single, else its e1RM), the group and the source. Men / Women is this sheet's own
+// view (night C review M7): it never changes the lifter's category (Profile), which DOTS, the classes and the club board
+// read. Raw / Equipped is this comparison's own setting (powa-equip; nothing else reads it): Progress follows it.
 function openStrongerSheet() {
-  let changed = false;   // Men / Women or Raw / Equipped switched here: Progress redraws on close
+  let changed = false;   // Raw / Equipped switched here: Progress redraws on close
+  const own = getSexPref();
+  let view = own;
   uiSheet('Where you stand', (sheet) => {
     const body = el('div', { class: 'st-sheet' });
     sheet.appendChild(body);
@@ -7111,41 +7138,47 @@ function openStrongerSheet() {
       const g = el('div', { class: 'ui-seg st-seg', role: 'group', 'aria-label': label });
       opts.forEach(([v, t]) => {
         const b = el('button', { type: 'button', class: cur === v ? 'on' : '', 'aria-pressed': cur === v ? 'true' : 'false' }, t);
-        b.addEventListener('click', () => { if (cur === v) return; on(v); changed = true; paint(); });
+        b.addEventListener('click', () => { if (cur === v) return; on(v); paint(); });
         g.appendChild(b);
       });
       return g;
     };
     const paint = () => {
-      const inp = strongerInputs(user.id);
+      const inp = strongerInputs(user.id, { sex: view });
       body.innerHTML = '';
       body.appendChild(el('div', { class: 'st-segs' },
-        seg('Compared with', [['male', 'Men'], ['female', 'Women']], getSexPref(), setSexPref),
-        seg('Kit', [['raw', 'Raw'], ['equipped', 'Equipped']], getEquipPref(), setEquipPref)));
+        seg('Compared with', [['male', 'Men'], ['female', 'Women']], view, (v) => { view = v; }),
+        seg('Kit', [['raw', 'Raw'], ['equipped', 'Equipped']], getEquipPref(), (v) => { setEquipPref(v); changed = true; })));
+      if (view !== own) body.appendChild(el('p', { class: 'st-view' }, 'Showing ' + (view === 'female' ? 'women' : 'men') + '. Your own category stays ' + (own === 'female' ? 'women' : 'men') + ' (Profile).'));
       if (!inp) { body.appendChild(el('p', { class: 'st-note' }, 'Log a weigh-in and a set of each lift, and you see where you stand in your class.')); return; }
       const out = el('div', { class: 'st-out' });
       body.appendChild(out);
       loadOplTable().then(t => {
         out.innerHTML = '';
         if (!t) { out.appendChild(el('p', { class: 'st-note' }, 'The meet results didn\'t load. Check your connection and open this again.')); return; }
-        const r = strongerThan(t, inp);
-        if (!r) { out.appendChild(el('p', { class: 'st-note' }, 'Not enough ' + (inp.cls || '') + ' results in this group to compare with yet.')); return; }
+        const r = strongerThan(t, inp), h = strongerHeadline(r);
+        if (!r || !h) { out.appendChild(el('p', { class: 'st-note' }, 'Not enough ' + (inp.cls || '') + ' results in this group to compare with yet.')); return; }
         const u = unitLabel();
-        const tot = r.lifts.total;
-        if (tot) {
-          out.appendChild(el('div', { class: 'st-hero' },
-            el('b', { class: 'st-num' }, tot.pct >= 1 ? tot.pct + '%' : 'Under 1%'),
-            el('span', { class: 'st-lbl' }, 'Your ' + Math.round(kgToDisplay(tot.kg)) + ' ' + u + ' e1RM total is stronger than ' + (tot.pct >= 1 ? tot.pct + '%' : 'under 1%') + ' of ' + r.cls + ' ' + r.group + '\u2019s best meet totals')));
+        const pctTxt = (p) => (p >= 1 ? p + '%' : 'Under 1%');
+        out.appendChild(el('div', { class: 'st-hero' },
+          el('b', { class: 'st-num' }, pctTxt(h.pct)),
+          el('span', { class: 'st-lbl' }, strongerSentence(r) + '\u2019s best meet totals')));
+        // Under a real total, the training estimate as its own labelled line: never in its place.
+        if (h.kind !== 'e1rm' && r.lifts.total) {
+          out.appendChild(el('p', { class: 'st-e1rm' }, el('span', {}, 'e1RM total ' + Math.round(kgToDisplay(r.lifts.total.kg)) + ' ' + u + ', from training'), el('b', {}, pctTxt(r.lifts.total.pct))));
         }
-        const rows = ['squat', 'bench', 'deadlift'].filter(L => r.lifts[L]).map(L => uiRow({
-          lead: el('span', { class: 'lift-dot lift-' + L, 'aria-hidden': 'true' }),
-          title: LIFT_LABELS[L], sub: Math.round(kgToDisplay(r.lifts[L].kg)) + ' ' + u + ' e1RM',
-          endHtml: '<b class="st-p">' + (r.lifts[L].pct >= 1 ? r.lifts[L].pct + '%' : 'Under 1%') + '</b>'
-        }));
+        const rows = ['squat', 'bench', 'deadlift'].filter(L => r.lifted[L] || r.lifts[L]).map(L => {
+          const one = r.lifted[L], x = one || r.lifts[L];
+          return uiRow({
+            lead: el('span', { class: 'lift-dot lift-' + L, 'aria-hidden': 'true' }),
+            title: LIFT_LABELS[L], sub: one ? 'Best single ' + exactW(one.kg) + ' ' + u : Math.round(kgToDisplay(x.kg)) + ' ' + u + ' e1RM',
+            endHtml: '<b class="st-p">' + pctTxt(x.pct) + '</b>'
+          });
+        });
         if (rows.length) { out.appendChild(uiLabel('Each lift')); out.appendChild(uiList(rows)); }
         const n = Number(r.n).toLocaleString();
         out.appendChild(el('p', { class: 'st-note' }, 'Against the best result of each of ' + n + ' ' + r.group + ' who lifted in the ' + r.cls + ' class at a full meet since ' + r.since +
-          '. Yours are e1RMs from training; a meet decides the real number.'));
+          '. A meet total or a single is what was on the bar; an e1RM is an estimate from training.'));
         out.appendChild(el('p', { class: 'opl-credit' }, 'Meet results from ', el('a', { href: 'https://www.openpowerlifting.org', target: '_blank', rel: 'noopener' }, 'OpenPowerlifting'), ', ' + (r.data ? 'as of ' + new Date(r.data + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'the open record') + '.'));
       });
     };
@@ -7184,15 +7217,17 @@ function renderProgOverview(area, logs) {
   const pct = el('button', { type: 'button', class: 'pg-pct', hidden: '' });
   pct.addEventListener('click', () => openStrongerSheet());
   hero.appendChild(pct);
-  paintStrongerLine(pct);
+  let realLine = null;
   if (singles) {
     const allMeet = ['squat', 'bench', 'deadlift'].every(l => singles.parts[l].source === 'meet');
     const meetNames = new Set(['squat', 'bench', 'deadlift'].map(l => singles.parts[l].meet).filter(Boolean));
     const rd = bw ? dotsScore(singles.kg, bw, getSexPref()) : 0;
-    hero.appendChild(el('div', { class: 'pg-real-line', html:
+    realLine = el('div', { class: 'pg-real-line', html:
       '<span>' + (allMeet && meetNames.size === 1 ? 'Meet total' : 'Total') + '</span> <b>' + exactW(singles.kg) + '</b> ' + u +
-      (allMeet && meetNames.size === 1 ? ' · ' + escHtml(Array.from(meetNames)[0]) : ' · best singles') + (rd > 0 ? ' · ' + rd.toFixed(1) + ' DOTS' : '') }));
+      (allMeet && meetNames.size === 1 ? ' · ' + escHtml(Array.from(meetNames)[0]) : ' · best singles') + (rd > 0 ? ' · ' + rd.toFixed(1) + ' DOTS' : '') });
+    hero.appendChild(realLine);
   }
+  paintStrongerLine(pct, realLine);
   area.appendChild(hero);   // the trend lives in the strength chart below, so no sparkline here
 
   // UI v8: one big strength chart (app.js uiStrengthChart). Chips pick the total or a lift,
