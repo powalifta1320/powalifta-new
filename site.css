@@ -31,9 +31,9 @@ body.site { --font-display: 'Archivo', 'Archivo Fallback', 'Arial Black', system
 .bar *, .bar *::before, .bar *::after, .foot *, .foot *::before, .foot *::after { box-sizing: border-box; }
 .bar :focus-visible, .foot :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 6px; }
 
-/* The bar: the app's glass. Dark over dark floors; daylight glass over the homepage's daylight and on inside pages in
-   the light theme. The homepage floats it over its opening (transparent at the very top, home.css); every other page
-   keeps it at the top of the page (sticky). */
+/* The bar: the app's glass. Dark on the homepage (all dark, whatever the theme) and on inside pages in the dark theme;
+   daylight glass on inside pages in the light theme. The homepage floats it over its opening (transparent at the very
+   top, home.css); every other page keeps it at the top of the page (sticky). */
 .bar {
   position: fixed; z-index: 40; top: 0; left: 0; right: 0; height: 64px; display: flex; align-items: center; justify-content: space-between;
   padding: 0 calc(var(--bar-fx) + var(--bar-gut)); color: #f4f4f6;
@@ -56,17 +56,17 @@ body.site .bar { position: sticky; }
 .bar-toc.has-on .bar-mk { opacity: 1; }
 .bar .bar-pill { display: inline-flex; align-items: center; height: 38px; padding: 0 16px; border-radius: 999px; background: #f4f4f6; color: #0b0b0d; font-size: 15px; font-weight: 650; text-decoration: none; white-space: nowrap;
   transition: opacity var(--bar-t) var(--bar-out), transform var(--bar-t) var(--bar-out), visibility 0s linear 0s, background-color var(--bar-t) ease, color var(--bar-t) ease; }
-.bar.is-day, html[data-theme="light"] body.site .bar { background-color: rgba(246, 246, 248, 0.94); color: #0b0b0d; box-shadow: inset 0 -1px 0 rgba(15, 15, 25, 0.08); }
-.bar.is-day .bar-link, html[data-theme="light"] body.site .bar .bar-link { color: #3d3d45; }
-.bar.is-day .bar-toc .bar-link[aria-current], html[data-theme="light"] body.site .bar .bar-toc .bar-link[aria-current] { color: #0b0b0d; }
-.bar.is-day .bar-pill, html[data-theme="light"] body.site .bar .bar-pill { background: #0b0b0d; color: #f4f4f6; }
+html[data-theme="light"] body.site .bar { background-color: rgba(246, 246, 248, 0.94); color: #0b0b0d; box-shadow: inset 0 -1px 0 rgba(15, 15, 25, 0.08); }
+html[data-theme="light"] body.site .bar .bar-link { color: #3d3d45; }
+html[data-theme="light"] body.site .bar .bar-toc .bar-link[aria-current] { color: #0b0b0d; }
+html[data-theme="light"] body.site .bar .bar-pill { background: #0b0b0d; color: #f4f4f6; }
 @media (hover: hover) and (pointer: fine) {
   .bar .bar-link:hover { color: #f4f4f6; }
-  .bar.is-day .bar-link:hover, html[data-theme="light"] body.site .bar .bar-link:hover { color: #0b0b0d; }
+  html[data-theme="light"] body.site .bar .bar-link:hover { color: #0b0b0d; }
 }
 @media (prefers-reduced-transparency: reduce) {
   .bar { background-color: #0b0b0c; -webkit-backdrop-filter: none; backdrop-filter: none; }
-  .bar.is-day, html[data-theme="light"] body.site .bar { background-color: #f4f4f6; }
+  html[data-theme="light"] body.site .bar { background-color: #f4f4f6; }
 }
 /* An inside page shown inside the iPhone app: the bar clears the status bar. */
 html.native body.site .bar { height: auto; min-height: calc(56px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); }
