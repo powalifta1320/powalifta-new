@@ -443,7 +443,13 @@
     var settle = function () { if (PH.tok === tok) { PH.tok = null; PH.p = null; } };
     var done = function (rows) {
       settle();
-      if (Array.isArray(rows)) { var was = phoneDigestSig(); takeThreads(rows, me); if (phoneDigestSig() !== was) changed(); }
+      if (Array.isArray(rows)) {
+        var was = phoneDigestSig(), prev = PH.threads;
+        takeThreads(rows, me);
+        // A note heard live after this read left isn't in it: keep it (as the desk's deskThreadsMerge does).
+        if (prev) Object.keys(prev).forEach(function (k) { var o = prev[k], n = PH.threads[k]; if (o && o.local && o.weeklyAt && (!n || !n.weeklyAt || String(n.weeklyAt) < String(o.weeklyAt))) PH.threads[k] = o; });
+        if (phoneDigestSig() !== was) changed();
+      }
       return PH.threads;
     };
     var fail = function () { settle(); return PH.threads; };
@@ -463,7 +469,7 @@
     var t = th[m.athleteId] || (th[m.athleteId] = { athleteId: m.athleteId, weeklyAt: null });
     var at = String(m.createdAt || new Date().toISOString());
     if (t.weeklyAt && String(t.weeklyAt) >= at) return false;
-    t.weeklyAt = at;
+    t.weeklyAt = at; t.local = true;
     changed();
     return true;
   }

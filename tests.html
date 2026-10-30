@@ -6472,6 +6472,8 @@ test('a note sent from the laptop or another phone: the phone reads the server�
     // Heard live (coach.html's roster channel): Di's note goes from the laptop while the phone is open.
     WN.heard({ athleteId: 'wd', coachId: 'wc', senderId: 'wc', body: 'Week', meta: { weekly: WT }, createdAt: WT + 'T09:30:00Z' });
     eq(WN.counts(rows, { today: WT, coachId: 'wc' }).due, 0, 'heard live: nobody due');
+    WN.refreshThreads(0);   // a read that left before Di's note went (the server answers with Ada's only)
+    eq(WN.counts(rows, { today: WT, coachId: 'wc' }).due, 0, 'a read from before it doesn’t take the heard note back');
     WN.heard({ athleteId: 'wa', coachId: 'wc', senderId: 'wa', body: 'Thanks', meta: { weekly: WT }, createdAt: WT + 'T10:00:00Z' });
     eq(WN.lastNoteOn('wa', { coachId: 'wc', threads: WN.threads() }), '2026-10-27', 'only the coach’s own notes count');
     // The demo reads its own Store and never asks the server.
