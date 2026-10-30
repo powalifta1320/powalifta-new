@@ -170,10 +170,10 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
 const APPLY = "(() => { const r = document.getElementById('cpRoot'); r.innerHTML = ''; const sec = el('div', { class: 'cp-section' }); const w = el('div', { class: 's-wrap' }); w.appendChild(cpApplyForm({ id: 'c1', name: 'Sam Ellis', instagram: 'samellis' })); sec.appendChild(w); r.appendChild(sec); return true; })()";
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
   screens.push(
-    { name: 'sh-stronger' + suf, page: A, theme, eval: tab('progress') + ";setTimeout(() => openStrongerSheet(), 300)" },
+    { name: 'sh-stronger' + suf, page: A, theme, t44: '.st-sheet', eval: tab('progress') + ";setTimeout(() => openStrongerSheet(), 300)" },
     { name: 'a-lifter-card' + suf, page: A, theme, eval: 'openLifterCardView()' },
     { name: 'sh-meet' + suf, page: A, theme, eval: 'openMeetSheet()' },
-    { name: 'c-meets' + suf, page: C, theme, eval: 'MeetDay.openMeetsScreen()' },
+    { name: 'c-meets' + suf, page: C, theme, t44: '.md-meet-acts', eval: 'MeetDay.openMeetsScreen()' },
     { name: 'sh-results' + suf, page: C, theme, eval: "CoachYou.openResults('block')" },
     { name: 'sh-results-prs' + suf, page: C, theme, eval: "CoachYou.openResults('prs')" },
     { name: 'f-results' + suf, page: F, theme, eval: 'CoachYou.openResults()' },
@@ -200,7 +200,7 @@ const EXE = process.env.CHROME_PATH || undefined;
 const browser = await chromium.launch(Object.assign(EXE ? { executablePath: EXE } : {},
   { args: ['--host-resolver-rules=' + LIVE_HOSTS.map((h) => `MAP ${h} ~NOTFOUND, MAP *.${h} ~NOTFOUND`).join(', ')] }));
 
-function scan(isApp) {
+function scan([isApp, t44]) {
   const vw = innerWidth;
   const out = [];
   const lab = (e) => {
@@ -322,11 +322,13 @@ function scan(isApp) {
     out.push({ type: 'escapes-screen', el: lab(e), detail: 'left ' + Math.round(b.left) + ', right ' + Math.round(b.right) + ' on ' + vw });
   });
 
-  // 6. tiny tap targets in the app
+  // 6. tiny tap targets in the app: under 28 pt anywhere; under 44 pt inside a screen's t44 parts (the newer screens
+  // are held to the finger's 44 pt: night C review M9 found two at 34 and 40 that 28 let through).
   if (isApp) ctrls.forEach(o => {
     const b = o.e.getBoundingClientRect();
     if (o.e.closest('p, li > span, .ui-row-sub')) return;   // inline text links
-    if ((b.width < 28 || b.height < 28) && b.width > 0) out.push({ type: 'small-target', el: lab(o.e), detail: Math.round(b.width) + '×' + Math.round(b.height) });
+    const min = t44 && o.e.closest(t44) ? 44 : 28;
+    if ((b.width < min || b.height < min) && b.width > 0) out.push({ type: 'small-target', el: lab(o.e), detail: Math.round(b.width) + '×' + Math.round(b.height) + (min === 44 ? ' (44 pt part)' : '') });
   });
 
   // 8. buttons side by side that don't match: different heights or tops in one row
@@ -409,7 +411,7 @@ for (const s of run) {
     if (s.eval) { await page.evaluate(s.eval); await page.waitForTimeout(1200); }
     await page.evaluate(async () => { const m = document.querySelector('.dash-main'); const sc = document.scrollingElement; for (let y = 0; y < 9000; y += 500) { sc.scrollTo(0, y); if (m) m.scrollTo(0, y); await new Promise(r => setTimeout(r, 40)); } sc.scrollTo(0, 0); if (m) m.scrollTo(0, 0); });
     await page.waitForTimeout(500);
-    const issues = await page.evaluate(scan, app);
+    const issues = await page.evaluate(scan, [app, s.t44 || null]);
     if (errs.length) issues.push({ type: 'page-error', detail: errs.join(' | ').slice(0, 300) });
     all[s.name] = issues;
     total += issues.length;

@@ -13075,7 +13075,8 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
 @keyframes stIn { from { opacity: 0.45; } }
 .st-segs { display: flex; gap: 8px; margin: 4px 0 20px; }
 .st-segs .ui-seg { flex: 1; min-width: 0; }
-.st-segs .ui-seg button { min-height: 44px; }
+/* 44 pt and the type scale's 15 px: the app's .ui-seg (body.powa-app, 34 px and 14 px) out-ranked the plain rule (night C review M9). */
+.st-segs .ui-seg button, body.powa-app .st-segs .ui-seg button { min-height: 44px; font-size: 15px; }
 .st-hero { display: grid; gap: 6px; margin: 0 0 20px; }
 .st-num { font-family: var(--font-display); font-stretch: var(--num-stretch, 112%); font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--text); }
 .st-lbl { font-size: 15px; line-height: 1.4; color: var(--text-2); }
@@ -13083,9 +13084,10 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
 .st-note { margin: 16px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-3); }
 .st-sheet .opl-credit { margin: 8px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-3); }
 .st-sheet .opl-credit a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
-.lc-pct { position: relative; margin-top: 10px; font-size: 13px; color: #8c8c96; animation: stIn 280ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+.lc-pct { position: relative; margin-top: 10px; font-size: 13px; color: #b8b8c0; animation: stIn 280ms cubic-bezier(0.23, 1, 0.32, 1) both; }
 .lc-pct b { color: #f5f5f7; font-weight: 750; font-variant-numeric: tabular-nums; }
-.lc-p { display: block; margin-top: 2px; font-style: normal; font-size: 13px; font-weight: 650; line-height: 1.25; font-variant-numeric: tabular-nums; color: #8c8c96; }
+.lc-p { display: block; margin-top: 2px; font-style: normal; font-size: 13px; font-weight: 650; line-height: 1.25; font-variant-numeric: tabular-nums; color: #b8b8c0; }
+/* The card's line and each lift's share read at 4.5:1 on its lit grey: #8c8c96 measured 4.0 to 4.2:1 (night C review M9). */
 /* The lifter card's room is dark in both themes, so it keeps the dark theme's ink: in the light theme the hint,
    Tilt with your phone, Done, the club line and the gold DOTS read 2:1 on it (night C's scan of the card). */
 .lc-view { --text: #f4f4f6; --text-2: #b8b8c0; --text-3: #8c8c96; --pr: #f2c25b; color: var(--text); }

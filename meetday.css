@@ -369,6 +369,8 @@ html.md-open .ai-launcher { display: none; }
 .md-meet-plans { font-size: 12px; color: var(--md-warn); font-weight: 600; }
 .md-meet-plans.is-all { color: var(--text-3); }
 .md-meet-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+/* A finger's 44 pt on the phone (Plan attempts, Add to calendar measured 40; night C review M9); the laptop's mouse keeps 40. */
+html:not(.desk) .md-meet-acts .md-btn { height: 44px; }
 .md-days li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-top: 1px solid var(--md-hair); }
 .md-days li > span { display: flex; flex-direction: column; }
 .md-days b { font-size: 15px; font-weight: 650; }
