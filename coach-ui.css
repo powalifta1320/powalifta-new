@@ -2230,6 +2230,12 @@ html.desk button.mr-row:active { background: var(--dk-fill-2, var(--ch-fill-2));
    longest waiting first, as calm rows (no colour: a new person, not an alarm). The lead's sheet keeps its one crimson,
    Send <name> an invite, and a quiet Decline. Laptop and phone. */
 .cs-leads { margin-top: 28px; }
+/* The leads' list wears the Clients list's look (.cs-list, .cs-list.is-phone), under its own name: the roster's rows
+   stay the only .cs-list .cs-r. */
+.cs-leads-list { display: flex; flex-direction: column; background: var(--cl-surface); border: 1px solid var(--cl-line); border-radius: var(--cl-r); box-shadow: var(--ch-lit); overflow: hidden; }
+html.desk .cs-leads-list { background-color: var(--dk-card); background-image: var(--dk-card-sheen); border-color: var(--dk-card-edge); box-shadow: var(--dk-card-lit); }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-leads-list { position: relative; overflow: visible; background: none; border: 0; border-radius: 0; box-shadow: none; }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-leads-list::before { content: ''; position: absolute; top: 0; left: 4px; right: 4px; height: 1px; background: var(--ca-hair); }
 .cs-leads > .ca-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
 .cs-leads > .ca-h h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
 .cs-leads > .ca-h .ca-h-meta { font-size: 15px; color: var(--text-3); font-variant-numeric: tabular-nums; }

@@ -2598,7 +2598,7 @@ var MeetDay = (function () {
           acts.appendChild(btn('Start meet day', 'md-btn-quiet', function () { startMeetDay(g); }));
         // Meets to calendar (night C): the meet and its weigh-in as an .ics (a download; the share sheet in the app).
         if (typeof root.saveMeetToCalendar === 'function')
-          acts.appendChild(btn('Add to calendar', 'md-btn-quiet md-cal', function () { root.saveMeetToCalendar(calendarMeet(g), { uidKey: g.key, who: g.rows.map(function (r) { return first(r.name); }) }); }, { 'aria-label': 'Add ' + g.name + ' to your calendar' }));
+          acts.appendChild(btn('Add to calendar', 'md-btn-quiet md-cal', function () { root.saveMeetToCalendar(calendarMeet(g), { uidKey: g.key, who: g.rows.map(function (r) { return first(r.name); }) }); }, { 'aria-label': 'Add to calendar: ' + g.name }));
         li.appendChild(acts);
         ul.appendChild(li);
       });

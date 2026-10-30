@@ -471,7 +471,8 @@
     var L = leads();
     if (!L.length) return '';
     return '<div class="ca-sec cs-leads"><div class="ca-h"><h2>Applications</h2><span class="ca-h-meta">' + L.length + '</span></div>' +
-      '<div class="cs-list is-phone cs-leads-list">' + L.map(function (l) {
+      // Not a .cs-list: "everyone on the roster is a row" (.cs-list .cs-r) stays the roster's own count.
+      '<div class="cs-leads-list">' + L.map(function (l) {
         return '<button type="button" class="cs-r is-phone cs-lead-r" data-cs="lead" data-lid="' + esc(l.id) + '">' + av({ name: l.name }, 'cs-face') +
           '<span class="cs-rn"><b>' + esc(l.name) + '</b><span class="cs-line"><span>' + esc(leadLine(l)) + '</span></span></span>' +
           '<span class="cs-rd">' + esc(ago(l.createdAt)) + '</span>' + ic('chev', 2.2) + '</button>';
