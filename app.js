@@ -29,7 +29,9 @@ const defaultStore = () => ({
   clientPayments: [],
   intakes: [],
   // Busy weeks (busy-week.js): a lifter's own requests, or the coach's roster's (db.js hydrateAll).
-  scheduleRequests: []
+  scheduleRequests: [],
+  // Applications from the coach's public profile (night C; clients-ui.js's leads). Coach only.
+  coachApplications: []
 });
 
 // _v moves on every change the Store is told about (set, update, reset, a live burst, bump/touch);
@@ -1169,6 +1171,15 @@ function _buildCoachDemoData() {
   // Coach challenges (challenges.js): a running one over the whole roster (the desk's twenty or the
   // phone's four) and last month's, finished. After the desk's lifters, so it counts every one.
   try { if (window.Challenges && Challenges.seedCoachDemo) Challenges.seedCoachDemo(demo.store, { coachId: DC, daysAgo }); } catch (e) { console.warn('seedChallengeDemo', e); }
+  // Applications from Sam's public profile (night C, clients-ui.js): two lifters waiting for an answer, Jonas the longest.
+  demo.store.coachApplications = [
+    { id: 'demo-app-1', coachId: DC, name: 'Mia Lane', email: 'mia.lane@example.com', trainingYears: 3, squat: 140, bench: 82.5, deadlift: 170,
+      goals: 'My first meet in the spring, in the 63s', note: 'I train four days a week at a barbell club. My knee got cranky on high-bar last year; fine since I went low-bar.',
+      status: 'new', inviteCode: null, createdAt: new Date(Date.now() - 26 * 3600000).toISOString(), decidedAt: null },
+    { id: 'demo-app-2', coachId: DC, name: 'Jonas Berg', email: 'jonas.berg@example.com', trainingYears: 6, squat: 230, bench: 150, deadlift: 265,
+      goals: 'Qualify for nationals in the 93s', note: 'Self-coached for years and stuck at the same total for two meets.',
+      status: 'new', inviteCode: null, createdAt: new Date(Date.now() - 3 * 86400000 - 5 * 3600000).toISOString(), decidedAt: null }
+  ];
   return demo;
 }
 

@@ -87,6 +87,88 @@ function cpQuiet(href, label, back, cls) {
   return a;
 }
 
+// APPLY (night C, 30 Oct): the form behind step 1. It goes to DB.applyToCoach → apply_to_coach (SECURITY DEFINER, the
+// caps on the server: one waiting per email and coach, 3 a day per email, 30 a day per coach, the lengths); only this
+// coach reads it, in Clients. Best lifts are typed in kg or lb and sent in kg. The coach viewing their own page sees
+// how it works instead of a form.
+const CP_YEARS = [['', 'Pick one'], ['0', 'Under a year'], ['1', '1 year'], ['2', '2 years'], ['3', '3 years'], ['4', '4 years'], ['5', '5 to 9 years'], ['10', '10 years or more']];
+function cpApplyForm(coach) {
+  const first = coach.name.split(' ')[0];
+  const wrap = el('div', { class: 'cp-apply', id: 'apply' });
+  if (window._user && window._user.id === coach.id) {
+    wrap.appendChild(el('p', { class: 'cp-apply-own' }, 'This is where lifters apply to you. What they send lands in Clients, and Accept sends them your invite link.'));
+    return wrap;
+  }
+  const form = el('form', { class: 'cp-apply-form', novalidate: '', 'aria-label': 'Apply to train with ' + first });
+  const field = (label, input, hint, cls) => {
+    const id = 'cpa-' + Math.random().toString(36).slice(2, 8);
+    input.id = id;
+    return el('div', { class: 'form-group cp-f' + (cls ? ' ' + cls : '') }, el('label', { for: id }, label), input, hint ? el('small', { class: 'cp-hint' }, hint) : null);
+  };
+  const name = el('input', { type: 'text', name: 'name', maxlength: '80', autocomplete: 'name', required: '' });
+  const email = el('input', { type: 'email', name: 'email', maxlength: '254', autocomplete: 'email', inputmode: 'email', required: '' });
+  const years = el('select', { name: 'years' });
+  CP_YEARS.forEach(([v, t]) => years.appendChild(el('option', { value: v }, t)));
+  let unit = 'kg';
+  const lift = (label) => el('input', { type: 'number', inputmode: 'decimal', min: '0', step: '0.5', placeholder: label, 'aria-label': 'Best ' + label.toLowerCase() });
+  const sq = lift('Squat'), be = lift('Bench'), de = lift('Deadlift');
+  const unitSeg = el('div', { class: 'cp-unit', role: 'group', 'aria-label': 'Unit' });
+  ['kg', 'lb'].forEach(u => {
+    const b = el('button', { type: 'button', class: u === unit ? 'on' : '', 'aria-pressed': u === unit ? 'true' : 'false' }, u);
+    b.addEventListener('click', () => { unit = u; unitSeg.querySelectorAll('button').forEach(x => { const on = x.textContent === u; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); }); });
+    unitSeg.appendChild(b);
+  });
+  const goals = el('input', { type: 'text', name: 'goals', maxlength: '280', placeholder: 'A first meet, a total, a weight class' });
+  const note = el('textarea', { name: 'note', maxlength: '1000', rows: '4', placeholder: 'Injuries, your schedule, what you\u2019ve tried. Anything ' + first + ' should know.' });
+  const lifts = el('div', { class: 'form-group cp-f cp-lifts is-wide' }, el('span', { class: 'cp-lbl', id: 'cpa-lifts' }, 'Best lifts'),
+    el('div', { class: 'cp-lifts-row', role: 'group', 'aria-labelledby': 'cpa-lifts' }, sq, be, de, unitSeg));
+  form.appendChild(el('div', { class: 'cp-apply-grid' },
+    field('Your name', name), field('Email', email, first + ' answers here'),
+    field('Training age', years), field('Goals', goals),
+    lifts, field('A note', note, null, 'is-wide')));
+  const send = el('button', { type: 'submit', class: 'btn btn-primary btn-lg cp-send' }, 'Send my application');
+  const status = el('p', { class: 'cp-apply-status', role: 'status', 'aria-live': 'polite' });
+  form.appendChild(el('div', { class: 'cp-apply-foot' }, send,
+    el('p', { class: 'cp-fine' }, 'Only ' + first + ' sees what you send. ', el('a', { href: 'privacy.html' }, 'Privacy'))));
+  form.appendChild(status);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const bad = (input, msg) => { status.textContent = msg; status.classList.add('is-bad'); input.focus(); };
+    status.classList.remove('is-bad');
+    const nm = name.value.trim().replace(/\s+/g, ' ');
+    if (!nm) return bad(name, 'Your name, please.');
+    const em = email.value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return bad(email, 'That email doesn\u2019t look right.');
+    const kg = (input) => {
+      const v = parseFloat(String(input.value || '').replace(',', '.'));
+      if (!(v > 0)) return null;
+      const k = unit === 'lb' ? v / 2.20462 : v;
+      return Math.round(k * 100) / 100;
+    };
+    const L = { squat: kg(sq), bench: kg(be), deadlift: kg(de) };
+    const over = [[sq, L.squat], [be, L.bench], [de, L.deadlift]].find(([, v]) => v != null && v > 700);
+    if (over) return bad(over[0], 'Best lifts are at most 700 kg (1,543 lb).');
+    send.disabled = true; send.textContent = 'Sending\u2026'; status.textContent = '';
+    const r = await DB.applyToCoach({ coachId: coach.id, name: nm, email: em, trainingYears: years.value === '' ? null : Number(years.value),
+      squat: L.squat, bench: L.bench, deadlift: L.deadlift, goals: goals.value.trim(), note: note.value.trim() });
+    send.disabled = false; send.textContent = 'Send my application';
+    if (r && r.ok) {
+      wrap.innerHTML = '';
+      wrap.appendChild(el('div', { class: 'cp-sent', role: 'status' },
+        el('h3', {}, 'Sent to ' + first + '.'),
+        el('p', {}, first + ' reads it in POWALIFTA and answers by email, at ' + em + '. If it\u2019s a fit, that email carries your invite link.')));
+      return;
+    }
+    status.classList.add('is-bad');
+    status.textContent = r && r.notReady ? 'Applications aren\u2019t open here yet. Reach ' + first + (coach.instagram ? ' on Instagram' : ' another way') + ' for now.'
+      : r && r.reason ? r.reason
+      : r && r.offline ? 'No connection. Check it and send again.'
+      : 'That didn\u2019t send. Try again in a minute.';
+  });
+  wrap.appendChild(form);
+  return wrap;
+}
+
 function renderError(title, message) {
   const root = document.getElementById('cpRoot');
   root.innerHTML = '';
@@ -175,22 +257,24 @@ async function renderCoachProfile() {
   hero.appendChild(heroIn);
   root.appendChild(hero);
 
-  // How to join: a real sequence, so the homepage's numbered steps
+  // How to join: a real sequence, so the homepage's numbered steps; the first one is the form under them (night C).
+  const first = coach.name.split(' ')[0];
   const how = el('div', { class: 'cp-section' });
   const howIn = el('div', { class: 's-wrap' });
   howIn.appendChild(el('div', { class: 'cp-section-head' },
-    el('h2', {}, 'Train with ' + coach.name.split(' ')[0]),
-    el('p', {}, 'Three steps to start training under a real coach.')
+    el('h2', {}, 'Train with ' + first),
+    el('p', {}, 'Apply here. ' + first + ' reads it in POWALIFTA and answers by email.')
   ));
   const grid = el('ol', { class: 's-steps cp-steps' });
   [
-    { h: 'Reach out.', p: 'Contact ' + coach.name.split(' ')[0] + ' to discuss your goals, training history and meet timeline.' },
-    { h: 'Get your invite link.', p: 'They send it from POWALIFTA, or its 6-character code.' },
+    { h: 'Apply.', p: 'Where you are and where you want to go, in two minutes, below.' },
+    { h: 'Get your invite link.', p: 'If it\u2019s a fit, ' + first + ' sends it from POWALIFTA, or its 6-character code.' },
     { h: 'Sign up and start training.', p: 'Open the link, or sign up with the code, and your program appears in your app.' }
   ].forEach(s => {
     grid.appendChild(el('li', {}, el('b', {}, s.h), el('span', {}, s.p)));
   });
   howIn.appendChild(grid);
+  howIn.appendChild(cpApplyForm(coach));
   how.appendChild(howIn);
   root.appendChild(how);
 
@@ -229,7 +313,8 @@ async function renderCoachProfile() {
   cta.appendChild(el('h2', {}, 'Already have your invite code?'));
   cta.appendChild(el('p', {}, 'Plug it in and you\'re training under ' + coach.name + ' in 30 seconds.'));
   const ctaRow = el('div', { class: 'cp-cta-row' });
-  const signupBtn = el('a', { class: 'btn btn-primary btn-lg', href: 'index.html#signup-athlete' }, 'Sign up as a lifter');
+  // The page's one crimson is the application's Send (night C): signing up with a code is the quiet way.
+  const signupBtn = el('a', { class: 'btn btn-lg', href: 'index.html#signup-athlete' }, 'Sign up as a lifter');
   ctaRow.appendChild(signupBtn); ctaRow.appendChild(cpQuiet('about.html', 'Learn about POWALIFTA'));
   cta.appendChild(ctaRow);
   ctaIn.appendChild(cta);

@@ -272,7 +272,29 @@
     return { text: s.due ? 'Next payment ' + f(s.due) : s.label };
   }
 
+  // Applications from the coach's public profile (night C): the waiting ones, the longest waiting first (then by name),
+  // and their line in the coach's words. lifts: (kg) → the coach's unit's number text, unit: 'kg' | 'lb'. Pure: tested.
+  function leadsWaiting(list) {
+    return (list || []).filter(function (l) { return l && l.status === 'new'; })
+      .sort(function (x, y) { return String(x.createdAt || '').localeCompare(String(y.createdAt || '')) || String(x.name || '').localeCompare(String(y.name || '')); });
+  }
+  function leadYears(y) {
+    if (y == null || y === '' || !isFinite(Number(y))) return '';
+    y = Number(y);
+    return y <= 0 ? 'Under a year training' : y >= 10 ? '10+ years training' : y >= 5 ? '5 to 9 years training' : y + (y === 1 ? ' year' : ' years') + ' training';
+  }
+  function leadLifts(l, lifts, unit) {
+    var f = typeof lifts === 'function' ? lifts : function (kg) { return String(Math.round(kg * 2) / 2); };
+    var v = function (kg) { return Number(kg) > 0 ? f(Number(kg)) : '\u2013'; };
+    if (!l || !(l.squat > 0 || l.bench > 0 || l.deadlift > 0)) return '';
+    return v(l.squat) + ' / ' + v(l.bench) + ' / ' + v(l.deadlift) + ' ' + (unit || 'kg');
+  }
+  function leadLine(l, lifts, unit) {
+    return [leadYears(l && l.trainingYears), leadLifts(l, lifts, unit), l && l.goals].filter(Boolean).join(' \u00b7 ') || (l && l.email) || '';
+  }
+
   window.Clients = {
+    leadsWaiting: leadsWaiting, leadYears: leadYears, leadLifts: leadLifts, leadLine: leadLine,
     nextDueAfter: nextDueAfter, clientStatus: clientStatus, clientsSummary: clientsSummary,
     formatMoney: formatMoney, cadenceLabel: cadenceLabel, priceText: priceText, monthlyCents: monthlyCents, perText: perText, paceWords: paceWords,
     recordPayment: recordPayment, intakeMaxes: intakeMaxes, intakeLines: intakeLines,

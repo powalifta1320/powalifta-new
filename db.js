@@ -483,6 +483,14 @@ function mapDbScheduleRequest(r) {
     status: r.status || 'pending', note: r.note || null, createdAt: r.created_at || null, decidedAt: r.decided_at || null };
 }
 const _SR_COLS = 'id, athlete_id, coach_id, week_start, days, proposal, status, note, created_at, decided_at';
+// An application from a coach's profile (migration-coach-applications-2026-10-30.sql): loads in kg, the rest as typed.
+function mapDbApplication(r) {
+  const n = (v) => (v == null ? null : Number(v));
+  return { id: r.id, coachId: r.coach_id, name: r.name || '', email: r.email || '', trainingYears: r.training_years == null ? null : Number(r.training_years),
+    squat: n(r.squat_kg), bench: n(r.bench_kg), deadlift: n(r.deadlift_kg), goals: r.goals || '', note: r.note || '',
+    status: r.status || 'new', inviteCode: r.invite_code || null, createdAt: r.created_at || null, decidedAt: r.decided_at || null };
+}
+const _APP_COLS = 'id, coach_id, name, email, training_years, squat_kg, bench_kg, deadlift_kg, goals, note, status, invite_code, created_at, decided_at';
 const _SR_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 // Last week's Monday on this device's calendar: requests from then on are the ones that matter.
 function _srWeekAgo() {
@@ -2938,6 +2946,58 @@ const DB = {
     return { ok: true, request: mapDbScheduleRequest(data) };
   },
 
+  // ---------- APPLICATIONS (migration-coach-applications-2026-10-30.sql, night C) ----------
+  // From a coach's public profile: anyone applies through apply_to_coach (the server holds the caps: one waiting per
+  // email and coach, 3 a day per email, 30 a day per coach, the lengths); only that coach reads and decides them.
+  // Until the migration runs: the form says applications aren't open yet, the coach's Clients shows none.
+  //   applyToCoach({ coachId, name, email, trainingYears, squat, bench, deadlift (kg), goals, note }) → { ok } | { ok: false, notReady, reason }
+  //   listCoachApplications(coachId) → [application] (the last 120 days, newest first)
+  //   decideCoachApplication(id, status ('accepted' | 'declined' | 'new'), inviteCode?) → { ok, application } | { ok: false, notReady, error }
+  //   deleteCoachApplication(id) → { ok }
+  async applyToCoach(a) {
+    a = a || {};
+    const num = (v) => { const n = Number(v); return v == null || v === '' || !isFinite(n) ? null : n; };
+    try {
+      const { data, error } = await sb.rpc('apply_to_coach', {
+        p_coach: a.coachId || null, p_name: String(a.name || '').slice(0, 200), p_email: String(a.email || '').slice(0, 300),
+        p_training_years: num(a.trainingYears), p_squat: num(a.squat), p_bench: num(a.bench), p_deadlift: num(a.deadlift),
+        p_goals: a.goals ? String(a.goals).slice(0, 600) : null, p_note: a.note ? String(a.note).slice(0, 2000) : null });
+      if (error) {
+        if (/could not find the function|PGRST202|42883|schema cache/i.test(String(error.message || '') + ' ' + (error.code || ''))) return { ok: false, notReady: true, error };
+        // The server's own words (P0001): already applied, today's cap, a field too long. Anything else stays generic.
+        const reason = error.code === 'P0001' && error.message ? String(error.message).slice(0, 160) : null;
+        return { ok: false, reason, error };
+      }
+      return { ok: data === 'sent' };
+    } catch (e) { return { ok: false, offline: true, error: e }; }
+  },
+  async listCoachApplications(coachId) {
+    if (!coachId) return [];
+    const since = new Date(Date.now() - 120 * 86400000).toISOString();
+    const res = await _readAll('listCoachApplications', (countOpt) => sb.from('coach_applications').select(_APP_COLS, countOpt).eq('coach_id', coachId).gte('created_at', since),
+      { order: [['created_at', false], ['id', true]], count: false });
+    if (res.error && !res.rows.length) {
+      if (_isNotReady(res.error)) this._appReady = false; else console.warn('listCoachApplications', res.error);
+      return [];
+    }
+    this._appReady = true;
+    return res.rows.map(mapDbApplication);
+  },
+  async decideCoachApplication(id, status, inviteCode) {
+    if (!id || !['accepted', 'declined', 'new'].includes(status)) return { ok: false, error: new Error('Accept or decline') };
+    const patch = { status };
+    if (status === 'accepted') patch.invite_code = inviteCode ? String(inviteCode).slice(0, 12) : null;
+    const { data, error } = await sb.from('coach_applications').update(patch).eq('id', id).select(_APP_COLS).maybeSingle();
+    if (error) return { ok: false, notReady: _isNotReady(error), error };
+    if (!data) return { ok: false, error: new Error('Not one of yours') };
+    return { ok: true, application: mapDbApplication(data) };
+  },
+  async deleteCoachApplication(id) {
+    if (!id) return { ok: false };
+    const { error } = await sb.from('coach_applications').delete().eq('id', id);
+    return error ? { ok: false, notReady: _isNotReady(error), error } : { ok: true };
+  },
+
   // ---------- PROGRAM TEMPLATES ----------
   async listTemplates(coachId) {
     // RLS already filters to current coach's templates
@@ -4241,7 +4301,7 @@ const DB = {
       checkins: [], meets: [], checkinQuestions: [], checkinAnswers: [], programBlocks: [], painReports: [],
       marketplacePrograms: [], mySales: [], myPurchases: [],
       // Clients + payments (coach only, never the athlete's) and the intake (the athlete's own; their coach's roster's).
-      clientBilling: [], clientPayments: [], intakes: [], scheduleRequests: []
+      clientBilling: [], clientPayments: [], intakes: [], scheduleRequests: [], coachApplications: []
     };
     // Custom check-in answers: the last 10 weeks is plenty for "today", "this week" and averages.
     const _ciSince = (() => { const d = new Date(); d.setDate(d.getDate() - 70); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
@@ -4257,7 +4317,7 @@ const DB = {
       const ath = await this.listAthletesForCoach(profile.id);
       empty.athletes = ath;
       const athleteIds = ath.map(a => a.id);
-      const [[invs, programs, tpls], logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes, teams, clientBilling, clientPayments, intakes, chal, coachSettings, scheduleRequests] = await Promise.all([
+      const [[invs, programs, tpls], logs, bw, notes, goals, checkins, meets, mp, sales, ciQs, ciAs, blocks, healthDaily, painReports, nutritionDaily, coachNotes, teams, clientBilling, clientPayments, intakes, chal, coachSettings, scheduleRequests, coachApplications] = await Promise.all([
         ownP,
         this.listLogsForAthletes(athleteIds),
         this.listBwForAthletes(athleteIds),
@@ -4282,7 +4342,9 @@ const DB = {
           this._chHydrate({ id: profile.id, userType: 'coach' }).catch(() => ({ challenges: [], entries: [] })),
           // The coach's own settings (progression rules…): an object, {} until anything is saved.
           this.getCoachSettings(profile.id).catch(() => ({})),
-          this.listScheduleRequests(profile.id).catch(() => [])
+          this.listScheduleRequests(profile.id).catch(() => []),
+          // Applications from the coach's public profile (night C): Clients' leads.
+          this.listCoachApplications(profile.id).catch(() => [])
         ]);
         empty.challenges = chal.challenges;
         empty.challengeEntries = chal.entries;
@@ -4291,6 +4353,7 @@ const DB = {
         empty.clientPayments = clientPayments;
         empty.intakes = intakes;
         empty.scheduleRequests = scheduleRequests;
+        empty.coachApplications = coachApplications;
         empty.teams = teams;
         empty.healthDaily = healthDaily;
         empty.nutritionDaily = nutritionDaily;

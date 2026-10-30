@@ -9323,6 +9323,31 @@ group('results cards (teamBlockGain, teamPrWall)');
   });
 })();
 
+/* ===========================================================
+   Applications from a coach's profile (night C, 30 Oct): clients.js leadsWaiting / leadYears / leadLifts / leadLine,
+   the lead rows in Clients.
+   =========================================================== */
+group('applications (clients.js leads)');
+test('the waiting ones, the longest waiting first; decided ones aren\'t leads', () => {
+  const L = Clients.leadsWaiting([
+    { id: 'm', name: 'Mia', status: 'new', createdAt: '2026-10-29T10:00:00Z' },
+    { id: 'j', name: 'Jonas', status: 'new', createdAt: '2026-10-27T05:00:00Z' },
+    { id: 'a', name: 'Ana', status: 'accepted', createdAt: '2026-10-20T05:00:00Z' },
+    { id: 'd', name: 'Dee', status: 'declined', createdAt: '2026-10-21T05:00:00Z' },
+    { id: 'b', name: 'Bo', status: 'new', createdAt: '2026-10-29T10:00:00Z' }, null]);
+  eq(L.map(l => l.id).join(), 'j,b,m', 'Jonas waited longest; Bo and Mia at the same moment go by name');
+  eq(Clients.leadsWaiting(null).length, 0);
+});
+test('a lead\'s line: training age, best lifts in the coach\'s unit, the goal; the email when that\'s all there is', () => {
+  eq(Clients.leadYears(0), 'Under a year training'); eq(Clients.leadYears(1), '1 year training'); eq(Clients.leadYears(3), '3 years training');
+  eq(Clients.leadYears(5), '5 to 9 years training'); eq(Clients.leadYears(10), '10+ years training'); eq(Clients.leadYears(null), '');
+  const mia = { name: 'Mia', email: 'mia@example.com', trainingYears: 3, squat: 140, bench: 82.5, deadlift: 170, goals: 'A first meet' };
+  eq(Clients.leadLine(mia), '3 years training · 140 / 82.5 / 170 kg · A first meet');
+  eq(Clients.leadLine(mia, (kg) => String(Math.round(kg * 2.20462)), 'lb'), '3 years training · 309 / 182 / 375 lb · A first meet');
+  eq(Clients.leadLifts({ squat: 140, bench: null, deadlift: 170 }), '140 / – / 170 kg', 'a lift left out is a dash');
+  eq(Clients.leadLine({ email: 'x@example.com' }), 'x@example.com');
+});
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

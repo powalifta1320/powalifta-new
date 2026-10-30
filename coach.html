@@ -636,6 +636,7 @@ function renderCoachYou() {
   const rowIcon = (k) => (typeof YOU_ROW_META !== 'undefined' && YOU_ROW_META[k]) ? { icon: YOU_ROW_META[k].icon(), tint: YOU_ROW_META[k].tint } : {};
   const svg = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
   const overdue = window.ClientsUI && roster.length ? ClientsUI.overdueCount() : 0;
+  const leadsN = window.ClientsUI && ClientsUI.leads ? ClientsUI.leads().length : 0;
   const setup = fresh ? coachSetupSteps() : [];
   // The shared Settings rows, each once: the profile is the hero's Edit profile, the plan is the plan card.
   const settings = youSettingsRows('coach', () => renderCoachYou()).filter(r => r && r.label !== 'Profile' && !(window.CoachYou && r.label === 'Plan & billing'));
@@ -655,7 +656,8 @@ function renderCoachYou() {
     groups: [
       { title: 'Coaching', rows: [
         fresh ? { label: 'Get set up', value: setup.filter(x => x.done).length + ' of ' + setup.length, icon: svg('<path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/>'), tint: 'gold', onClick: () => (window.CoachYou ? CoachYou.openSetup() : go('athletes')()) } : null,
-        window.ClientsUI && roster.length ? { label: 'Clients', value: overdue ? overdue + ' overdue' : '', warn: !!overdue, icon: ClientsUI.ICON, tint: 'green', onClick: go('clients') } : null,
+        // Clients: what's overdue first; else applications from the profile waiting (night C), which come before a roster does.
+        window.ClientsUI && (roster.length || leadsN) ? { label: 'Clients', value: overdue ? overdue + ' overdue' : (leadsN ? leadsN + (leadsN === 1 ? ' application' : ' applications') : ''), warn: !!overdue, icon: ClientsUI.ICON, tint: 'green', onClick: go('clients') } : null,
         // How many more lifters fit your hours (capacity.js): room left, in lifters.
         window.CapacityUI ? { label: 'Capacity', value: CapacityUI.rowValue(), icon: CapacityUI.ICON, tint: 'iris', onClick: go('capacity') } : null,
         Object.assign({ label: 'Lifter progress', onClick: go('progress') }, rowIcon('Athlete progress')),
