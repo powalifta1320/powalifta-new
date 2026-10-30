@@ -9356,7 +9356,8 @@ function duplicateWeek(programId, weekIdx) {
     const newNum = (p.weeks.at(-1)?.number || 0) + 1;
     const cloned = {
       id: uid('wk'), number: newNum,
-      days: src.days.map(d => ({
+      // A swap on a day (a pin squat for the squat) was for that day only: the new week is the lifts as written.
+      days: src.days.map(dayAsWritten).map(d => ({
         id: uid('day'), name: d.name,
         exercises: d.exercises.map(ex => ({
           id: uid('ex'),
@@ -9387,7 +9388,7 @@ function saveProgramAsTemplate(programId, name) {
       payload: {
         weeks: p.weeks.map(wk => ({
           number: wk.number,
-          days: wk.days.map(d => ({
+          days: wk.days.map(dayAsWritten).map(d => ({   // a swap was for that day only
             name: d.name,
             exercises: d.exercises.map(ex => ({
               lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,

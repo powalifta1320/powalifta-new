@@ -9308,6 +9308,29 @@ group('swap an exercise (app.js swapApply)');
     const rb = reuseBlockWeeks([{ number: 1, days: [split] }], {});
     eq(rb.weeks[0].days[0].exercises.filter(e => e.lift === 'squat').length, 1); eq(rb.weeks[0].days[0].exercises[0].variant, 'Competition');
   });
+  test('today only: the coach\'s Duplicate week (Programs ⋯, Copy week › A new week at the end) and Save as template copy the lift as written', () => {
+    const saved = JSON.parse(JSON.stringify(Store.get()));
+    try {
+      const inPlace = dayOf([S('s1', 182.5, 3, 8), S('s2', 167.5, 5, 8), S('s3', 167.5, 5, 8)]);
+      swapApply(inPlace, 'e1', 'Pin', { stepKg: 2.5 });
+      eq(inPlace.exercises[0].sets.map(s => s.weight).join('/'), '170/155/155', 'the day itself is the pin squat');
+      const split = dayOf([done(S('t1', 182.5, 3, 8), 8), S('t2', 167.5, 5, 8), S('t3', 167.5, 5, 8)]);
+      split.id = 'd2';
+      swapApply(split, 'e1', 'Pin', { stepKg: 2.5, newId: 'e9' });
+      seed({ programs: [{ id: 'pdw', athleteId: 'adw', coachId: 'cdw', name: 'Block', weeks: [{ id: 'w1', number: 1, days: [inPlace, split] }] }], programTemplates: [] });
+      duplicateWeek('pdw', 0);
+      const p = Store.get().programs.find(x => x.id === 'pdw');
+      eq(p.weeks.length, 2);
+      const a = p.weeks[1].days[0].exercises[0], b = p.weeks[1].days[1].exercises;
+      eq(a.variant, 'Competition'); eq(a.swap, undefined); eq(a.sets.map(s => s.weight).join('/'), '182.5/167.5/167.5', 'the squat as written, not Pin 170/155/155');
+      eq(b.filter(e => e.lift === 'squat').length, 1, 'a split day is one squat again');
+      eq(b[0].variant, 'Competition'); eq(b[0].sets.map(s => s.weight + ':' + !!s.completed).join(), '182.5:false,167.5:false,167.5:false');
+      eq(p.weeks[0].days[0].exercises[0].variant, 'Pin', 'the week it came from keeps its swap');
+      saveProgramAsTemplate('pdw', 'T');
+      const t = Store.get().programTemplates[0].payload.weeks[0].days[0].exercises[0];
+      eq(t.variant, 'Competition'); eq(t.sets.map(s => s.weight).join('/'), '182.5/167.5/167.5');
+    } finally { Store.set(saved); }
+  });
 })();
 
 group('the meet on the weigh-in (app.js meetWeighLine)');

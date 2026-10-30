@@ -8778,7 +8778,8 @@ function sbDuplicateWeek(progId, wi) {
     const cloneSets = sets => sets.map(set => { const c = { ...set, id: uid('set'), completed: false, actualRpe: null, completedAt: null, lastLogId: null, note: '', weight: planWeight(set) }; delete c.plannedWeight; return c; });
     const cloneDay = d => ({ id: uid('day'), name: d.name, exercises: d.exercises.map(ex => ({ id: uid('ex'), lift: ex.lift, variant: ex.variant || '', exerciseName: ex.exerciseName || '', note: ex.note || '', sets: cloneSets(ex.sets) })) });
     const nextNum = Math.max(...p.weeks.map(w => w.number)) + 1;
-    p.weeks.push({ id: uid('wk'), number: nextNum, days: src.days.map(cloneDay) });
+    // A swap on a day (a pin squat for the squat) was for that day only: the new week is the lifts as written.
+    p.weeks.push({ id: uid('wk'), number: nextNum, days: src.days.map(dayAsWritten).map(cloneDay) });
   });
   sbPersist(progId);
   _selfBuilderActiveWeek = sbProg().weeks.length - 1;
