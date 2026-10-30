@@ -508,7 +508,7 @@ function _buildDemoData() {
     tiktok: 'demo.lifter',
     referralCode: 'DEMO42', referredByCode: null
   };
-  const coaches = [{ id: DC, name: 'Demo Coach', email: 'coach@powalifta.com', bio: 'Raw powerlifting coach. Strength blocks, meet prep and first meets, every block written for the lifter in front of me. I read every session and answer within a day.', avatarUrl: null, countryCode: null, createdAt: Date.now() }];
+  const coaches = [{ id: DC, name: 'Sam Ellis', email: 'coach@powalifta.com', bio: 'Raw powerlifting coach. Strength blocks, meet prep and first meets, every block written for the lifter in front of me. I read every session and answer within a day.', avatarUrl: null, countryCode: null, createdAt: Date.now() }];
 
   // --- 16 weeks of logged history: Mon=squat, Wed=bench, Fri=deadlift ---
   const workoutLogs = [];
@@ -742,7 +742,7 @@ function _buildCoachDemoData() {
   const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
 
   const user = {
-    id: DC, name: 'Demo Coach', email: 'demo-coach@powalifta.com', bio: 'Raw powerlifting coach. Strength blocks, meet prep and first meets, every block written for the lifter in front of me.',
+    id: DC, name: 'Sam Ellis', email: 'demo-coach@powalifta.com', bio: 'Raw powerlifting coach. Strength blocks, meet prep and first meets, every block written for the lifter in front of me.',
     coachId: null, userType: 'coach', isAdmin: false,
     subscriptionTier: 'pro', subscriptionStatus: 'active', avatarUrl: null, countryCode: null,
     billingProvider: document.documentElement.classList.contains('native') ? 'apple' : 'ls',  // no TDZ-prone helper this early
@@ -11462,7 +11462,7 @@ function _legacy_seedDemo() {
 
   const coach = {
     id: uid('coach'),
-    name: 'Demo Coach',
+    name: 'Sam Ellis',
     email: 'demo@coach.com',
     pwd: hashPwd('demo'),
     bio: 'IPF certified powerlifting coach. 10+ years experience. Specializes in raw classic powerlifting and RPE-based programming.',

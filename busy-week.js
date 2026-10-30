@@ -292,7 +292,7 @@
   function me() { try { if (typeof user !== 'undefined' && user && user.id) return user; } catch (e) {} return window._user || null; }
   function firstName(n) { return String(n || '').trim().split(/\s+/)[0] || ''; }
   function capFirst(t) { t = String(t || ''); return t.charAt(0).toUpperCase() + t.slice(1); }
-  // The lifter's coach by first name; the demo's "Demo Coach" reads as "your coach" (as the intake does).
+  // The lifter's coach by first name; a demo coach named "Demo …" reads as "your coach" (as the intake does).
   function coachFirst(u) {
     var c = u && u.coachId ? (storeOf().coaches || []).filter(function (x) { return x.id === u.coachId; })[0] : null;
     var f = c ? firstName(c.name) : '';

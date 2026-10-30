@@ -27,7 +27,7 @@
   function fromKg(kg) { var n = Number(kg); if (!(n > 0)) return ''; var v = lb() ? n / KGLB() : n; return String(Math.round(v * 2) / 2).replace(/\.0$/, ''); }
   function unitTag() { return lb() ? 'lb' : 'kg'; }
   function coach() { var u = me(); return u && u.coachId ? ((Store.get().coaches || []).find(function (c) { return c.id === u.coachId; }) || null) : null; }
-  // The demo's coach is called "Demo Coach": "Help Demo write…" reads wrong, so the demo says "your coach".
+  // A demo coach named "Demo …" would read "Help Demo write…", so the demo says "your coach" then (it is Sam Ellis now).
   function coachFirst() { var c = coach(), f = c && c.name ? String(c.name).split(' ')[0] : ''; return f && !(window._demoMode && /^demo$/i.test(f)) ? f : 'your coach'; }
   function brand() { var b = Store.get().coachBrand; return b && (b.name || b.logoUrl || b.color) ? b : null; }
   function mine() { var u = me(); return u ? ((Store.get().intakes || []).find(function (i) { return i.athleteId === u.id; }) || null) : null; }

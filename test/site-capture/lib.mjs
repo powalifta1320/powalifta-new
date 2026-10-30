@@ -16,7 +16,6 @@ export const BASE = (process.env.BASE || 'http://127.0.0.1:4191/').replace(/\/?$
 export const CAP = (process.env.CAP || path.join(ROOT, 'scratchpad-shots/site-capture')).replace(/\/?$/, '/');
 fs.mkdirSync(CAP, { recursive: true });
 export const HERE = path.dirname(new URL(import.meta.url).pathname) + '/';
-export const COACH = 'Sam Ellis';
 const LIVE = /^(https?|wss?):\/\/([^/?#]*\.)?(supabase\.co|plausible\.io)([:/?#]|$)/i;
 export async function launch(args = []) { return chromium.launch(Object.assign(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}, { args })); }
 async function guard(ctx) { await ctx.route(LIVE, (r) => r.abort('blockedbyclient')); }
@@ -53,7 +52,7 @@ export async function deskCtx(browser, { theme = 'light', dpr = 2, w = 1440, h =
   await ctx.clock.setFixedTime(new Date('2026-10-28T10:30:00Z'));
   return ctx;
 }
-// One story on one page: the demo coach gets a believable name (the app's own demo calls him "Demo Coach"); Tom made
+// One story on one page: the demo coach is Sam Ellis, as on the site (the app's own demo is named so since 30 Oct); Tom made
 // weight for the 105 class (his last check-in reads 104.3, the meet board's weigh-in 103.8); no live sets land
 // mid-capture; Arjun wears no Apple Watch (Apple Health reaches the App Store app only with 1.3, so the site never
 // shows it: no "Resting HR 8 above your usual" on Train or under the rest timer); optionally the desk's twenty lifters
@@ -63,7 +62,6 @@ export async function patchDemo(ctx, { twenty = false } = {}) {
   await ctx.route(/\/app\.js(\?.*)?$/, async (route) => {
     const r = await route.fetch(); let body = await r.text();
     const swap = (a, b) => { if (body.indexOf(a) < 0) throw new Error('site-capture: the demo changed, not found in app.js: ' + a); body = body.split(a).join(b); };
-    swap("'Demo Coach'", "'" + COACH + "'");
     swap("{ a: 'demo-a3', kg: 105.3 }", "{ a: 'demo-a3', kg: 104.3 }");
     swap('function liveDemoStart() {', 'function liveDemoStart() { return;');
     swap('const healthDaily = SOLO ? [] :', 'const healthDaily = true ? [] :');
