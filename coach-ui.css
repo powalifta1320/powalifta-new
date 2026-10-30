@@ -1588,9 +1588,9 @@ html.native:not(.desk) body.powa-app[data-nav="push"] .dash-main > section[data-
 html.native:not(.desk) body.powa-app[data-nav="pop"] .dash-main > section[data-pane]:not(.hidden) { animation: clPopIn 280ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
 
 /* --- 3. Header icons: 36 pt circles with a 44 pt target, and a press --- */
-html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite) { position: relative; transition: transform 140ms ease-out, background-color 150ms ease-out, color 150ms ease-out; }
-html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite)::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
-html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite):active { transform: scale(0.92); }
+html.native:not(.desk) body.powa-app :is(.sig-bell, #btn-invite) { position: relative; transition: transform 140ms ease-out, background-color 150ms ease-out, color 150ms ease-out; }
+html.native:not(.desk) body.powa-app :is(.sig-bell, #btn-invite)::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html.native:not(.desk) body.powa-app :is(.sig-bell, #btn-invite):active { transform: scale(0.92); }
 
 /* Pending invites: the same section title as the groups; the code in the body face, not wide display caps. */
 html.native:not(.desk) section[data-pane="athletes"] #invitesWrap { margin-top: 4px; }
@@ -1669,23 +1669,7 @@ html:not(.desk) section[data-pane="progress"] #progressArea > .ui-label:first-ch
 
 
 /* --- 9. Ask AI (the sheet) --- */
-/* No red wash behind the header and no red tint on the coach's own questions: the send arrow is the one
-   red. Controls reach the app's sizes: a 44 pt close, 36 pt segments, 34 pt suggestion chips in 13 px type
-   (they were 26 pt in 11 px), a 44 pt composer with a round send. */
-html.native:not(.desk) .ai-head { background: none; border-bottom-color: var(--line); }
-html.native:not(.desk) .ai-close { position: relative; width: 36px; height: 36px; border-radius: 50%; background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-2); transition: transform 140ms ease-out, background-color 150ms ease-out; }
-html.native:not(.desk) .ai-close::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
-html.native:not(.desk) .ai-close:active { transform: scale(0.92); }
-html.native:not(.desk) .ai-seg { border: 0; border-radius: 12px; }
-html.native:not(.desk) .ai-seg-btn { min-height: 34px; border-radius: 9px; font-size: 15px; font-weight: 600; }
-html.native:not(.desk) .ai-bubble { border-color: transparent; font-size: 15px; line-height: 1.45; padding: 10px 14px; border-radius: 14px; }
-
-html.native:not(.desk) .ai-msg.user .ai-bubble { background: var(--fill-3, rgba(255, 255, 255, 0.08)); }
-html.native:not(.desk) .ai-chips { gap: 8px; padding: 8px 16px 6px; }
-html.native:not(.desk) .ai-chip { min-height: 34px; padding: 0 14px; border: 0; background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text); font-size: 13px; font-weight: 600; transition: transform 140ms ease-out, background-color 150ms ease-out; }
-html.native:not(.desk) .ai-chip:active { transform: scale(0.96); background: var(--fill-4, rgba(255, 255, 255, 0.14)); }
-html.native:not(.desk) .ai-input-row { min-height: 48px; align-items: center; border-radius: 999px; padding: 4px 4px 4px 16px; }
-html.native:not(.desk) .ai-send { width: 40px; height: 40px; border-radius: 50%; }
+/* Moved to ai-chat.css (30 Oct, "ASK, ONE LOOK ON BOTH APPS"): the lifter app's Ask wears the same rules now. */
 
 /* --- 10. The first run (no lifters yet) --- */
 
@@ -1697,7 +1681,7 @@ html.native:not(.desk) .fr-wrap :is(.fr-num, .fr-chip) { font-size: 13px; }
 @media (prefers-reduced-motion: reduce) {
   /* No sideways travel: the page fades up from .45 instead (dash-fx.css turns the tab settle off). */
   html.native:not(.desk) body.powa-app:is([data-nav="push"], [data-nav="pop"]) .dash-main > section[data-pane]:not(.hidden) { animation: clFadeIn 180ms ease-out backwards !important; }
-  html.native:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, #btn-invite, .pane-back, .ai-close, .ai-chip):active, html.native:not(.desk) .cl-navback:active,
+  html.native:not(.desk) body.powa-app :is(.sig-bell, #btn-invite, .pane-back):active, html.native:not(.desk) .cl-navback:active,
   .cs-page.is-phone .cs-filters button:active, html:not(.desk) #addExerciseModal .set-row > .btn-icon:active { transform: none; }
 }
 

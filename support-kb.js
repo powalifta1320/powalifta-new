@@ -526,8 +526,8 @@ window.POWA_SUPPORT_KB = [
    "gemini",
    "what does the ai see"
   ],
-  "a": "Tap the red Ask AI button at the bottom right of your dashboard (on a phone it is the sparkle button in the top bar), or go to You → Help → Ask AI. It answers from your own training data (coaches get a coaching version), and nothing is sent unless you open it and ask: then your question plus a short summary of your training data (name, best lifts, last 7 days, bodyweight, program name) goes through our own server to Google's Gemini model, or to Groq as a backup if Google is down, never your password or payment details. There is a limit of 20 messages a day per account; after that it says \"You've hit today's assistant limit. It resets tomorrow.\" and keeps answering from your own data offline. The demo page gives offline sample answers only.",
-  "app": "Tap the sparkle button in the top bar, or go to You → Help → Ask AI. It answers from your own training data (coaches get a coaching version), and nothing is sent unless you open it and ask: then your question plus a short summary of your training data (name, best lifts, last 7 days, bodyweight, program name) goes through our own server to Google's Gemini model, or to Groq as a backup if Google is down, never your password or payment details. There is a limit of 20 messages a day per account; after that it says \"You've hit today's assistant limit. It resets tomorrow.\" and keeps answering from your own data offline. The demo gives offline sample answers only."
+  "a": "Tap **Ask AI** at the bottom right of your dashboard (in a phone's browser, the sparkle at the top), or go to You → Help → Ask AI. It answers from your own training data (coaches get a coaching version), and nothing is sent unless you open it and ask: then your question plus a short summary of your training data (name, best lifts, last 7 days, bodyweight, program name) goes through our own server to Google's Gemini model, or to Groq as a backup if Google is down, never your password or payment details. There is a limit of 20 messages a day per account; after that it says \"You've hit today's assistant limit. It resets tomorrow.\" and keeps answering from your own data offline. The demo page gives offline sample answers only.",
+  "app": "Tap **Ask** at the top of the screen, or go to You → Help → Ask AI (coaches: You → Help & support). It answers from your own training data (coaches get a coaching version), and nothing is sent unless you open it and ask: then your question plus a short summary of your training data (name, best lifts, last 7 days, bodyweight, program name) goes through our own server to Google's Gemini model, or to Groq as a backup if Google is down, never your password or payment details. There is a limit of 20 messages a day per account; after that it says \"You've hit today's assistant limit. It resets tomorrow.\" and keeps answering from your own data offline. The demo gives offline sample answers only."
  },
  {
   "id": "e1rm-calculation",
@@ -1274,7 +1274,7 @@ window.POWA_SUPPORT_KB = [
    "sell a program"
   ],
   "a": "Coaches sell training programs on the marketplace: as a lifter, go to You → Browse programs, tap a program, then tap its Buy for $… button, and Lemon Squeezy handles checkout. Once payment clears, the program lands in You → My library, where Install makes it your active program (this replaces your current one) and you can install it again later. Coaches list a program from You → Templates: tap Publish on a template, set your own price ($1 to $999, you keep 80% of each sale) and tap Submit for review, and it goes live once it's approved.",
-  "app": "In the iPhone app your program comes from your coach, or if you train on your own you write it yourself on the Program tab, or ask the assistant (the sparkle at the top) to draft one from your numbers."
+  "app": "In the iPhone app your program comes from your coach, or if you train on your own you write it yourself on the Program tab, or ask the assistant (**Ask** at the top) to draft one from your numbers."
  },
  {
   "id": "contact",
@@ -1564,7 +1564,7 @@ window.POWA_SUPPORT_KB = [
    "ask ai coach"
   ],
   "a": "Yes. Open **Ask AI**, stay on **Coaching** and ask in your own words: who needs me today, who's stalled, who's in pain, who's behind or quiet, who's over their class, meets coming up, PRs this week, who's working harder than you wrote, form checks or replies waiting, who needs a next block, new intakes, who owes you, or a lifter's name for their week.\n\nThose answers come straight from your roster, the same numbers as **Today** and **Lifters**, worked out on your device: exact, instant, and they work in the demo too. Tap a name to open that lifter. A question that asks why or what to change goes to the live AI instead.",
-  "app": "Yes. Tap the sparkle at the top, stay on **Coaching** and ask in your own words: who needs me today, who's stalled, who's in pain, who's behind or quiet, who's over their class, meets coming up, PRs this week, who needs a next block, new intakes, who owes you, or a lifter's name for their week. Those answers come straight from your roster on your phone, the same numbers as **Lifters**, so they're exact and instant. Tap a name to open that lifter."
+  "app": "Yes. Tap **Ask** at the top, stay on **Coaching** and ask in your own words: who needs me today, who's stalled, who's in pain, who's behind or quiet, who's over their class, meets coming up, PRs this week, who needs a next block, new intakes, who owes you, or a lifter's name for their week. Those answers come straight from your roster on your phone, the same numbers as **Lifters**, so they're exact and instant. Tap a name to open that lifter."
  },
  {
   "id": "coach-compare-blocks",
