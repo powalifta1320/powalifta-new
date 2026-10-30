@@ -5724,8 +5724,8 @@ test('jobs: one per lifter per kind; a meet today is one job', () => {
   eq(CL.jobText(J[1]).title, 'Autumn Open is today');
   eq(CL.jobText(J[1]).detail, 'Tom, Priya · Tom 0.3 kg over 105 · attempts not set');
 });
-test('the Lifters list keeps Home’s order: pain, then a meet today, then deskReasons’ groups', () => {
-  // The owner's call (29 Oct): one worst-first order everywhere. The kind decides first; how soon only breaks ties.
+test('the Lifters list keeps Home’s order: pain, then a meet today, then how soon', () => {
+  // The owner's call (29 Oct): pain first, everywhere, a meet today next; after that how soon decides, the kind breaks ties.
   const T = '2026-10-26';
   const rows = [
     clRow({ athlete: { id: 'q', name: 'Quinn Hale' }, reasons: [{ type: 'quiet', group: 7, text: 'Quiet' }], status: { ago: 9 } }),
@@ -5736,12 +5736,12 @@ test('the Lifters list keeps Home’s order: pain, then a meet today, then deskR
     clRow({ athlete: { id: 'p', name: 'Pat Lee' }, reasons: [{ type: 'pain', group: 1, text: 'Pain' }], status: { pain: { report: { severity: 4, day: '2026-10-20' }, count: 1 } } })
   ];
   const J = CL.clJobs(rows, { today: T });
-  eq(J.map(j => j.type).join(','), 'pain,meetday,weight,drift,message,quiet');
+  eq(J.map(j => j.type).join(','), 'pain,meetday,weight,message,drift,quiet');
   eq(J[0].tier, 1, 'a pain this week still leads a meet today (tier 0)');
   eq(J[1].tier, 0);
-  assert(J.findIndex(j => j.type === 'drift') < J.findIndex(j => j.type === 'message'), 'RPE (group 3) before their words (group 4), whatever the wait');
+  assert(J.findIndex(j => j.type === 'message') < J.findIndex(j => j.type === 'drift'), 'a lifter waiting a day on a reply before a week drifting half a point');
   const order = {}; J.forEach((it, i) => (it.r ? [it.r] : it.rows).forEach(r => { if (order[r.athlete.id] == null) order[r.athlete.id] = i; }));
-  eq(CL.clGroups(rows, { order })[0].rows.map(r => r.athlete.id).join(','), 'p,e,i,k,q', 'Check on reads the same order');
+  eq(CL.clGroups(rows, { order })[0].rows.map(r => r.athlete.id).join(','), 'p,e,k,i,q', 'Check on reads the same order');
 });
 test('jobs: a reply closes what a message can, not the week still to write', () => {
   const T = '2026-10-26';

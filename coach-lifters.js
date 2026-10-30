@@ -89,11 +89,10 @@
 
   var KIND = { message: 'answer', note: 'answer', formcheck: 'answer', pain: 'check', checkin: 'check', nocheckin: 'check', readiness: 'check', overshoot: 'check', drift: 'check',
     quiet: 'check', never: 'check', missed: 'check', stalling: 'check', meet: 'meet', weight: 'meet', offpace: 'meet', blockend: 'write', blockdone: 'write', noprogram: 'write' };
-  // Home's order (app.js deskReasons): pain first, then a meet today, then deskReasons' groups (2 meets and weigh-ins,
-  // 3 RPE, 4 their words, 5 form checks, 6 check-ins, 7 quiet, 8 the block, 9 stalling). A busy week to approve keeps its
-  // place before group 2; next week to write comes last. The kind decides first, how soon (clTier) breaks ties.
-  var ORDER = ['pain', 'meetday', 'busy', 'weight', 'meet', 'offpace', 'overshoot', 'drift', 'message', 'note', 'formcheck',
-    'checkin', 'nocheckin', 'readiness', 'quiet', 'missed', 'never', 'blockdone', 'blockend', 'noprogram', 'stalling', 'write'];
+  // The order of every list (the owner's call, 29 Oct: pain first, everywhere): a pain comes first, whatever else is
+  // going on, a meet today next; after that how soon (clTier) decides and the kind breaks ties, in this order.
+  var ORDER = ['pain', 'meetday', 'busy', 'weight', 'meet', 'overshoot', 'message', 'formcheck', 'drift', 'note', 'checkin', 'nocheckin', 'readiness', 'offpace',
+    'blockdone', 'blockend', 'quiet', 'missed', 'never', 'noprogram', 'stalling', 'write'];
   function waitHours(x) { var m = /(\d+)\s*(h|d)\b/.exec((x && x.text) || ''); if (!m) return 0; return Number(m[1]) * (m[2] === 'd' ? 24 : 1); }
   // How soon: 0 today, 1 this week's health and deadlines, 2 the program and replies, 3 planning and
   // engagement, 4 the long view. Pure over the row: unit-tested.
@@ -129,7 +128,7 @@
     return 0;
   }
   function jobCmp(a, b) {
-    return (a.done ? 1 : 0) - (b.done ? 1 : 0) || a.order - b.order || a.tier - b.tier || sev(a) - sev(b) ||
+    return (a.done ? 1 : 0) - (b.done ? 1 : 0) || (a.type === 'pain' ? 0 : 1) - (b.type === 'pain' ? 0 : 1) || a.tier - b.tier || a.order - b.order || sev(a) - sev(b) ||
       String(a.name || '').localeCompare(String(b.name || ''));
   }
   // Every job on the roster, one per lifter per kind (their most urgent reason of that kind), plus one
