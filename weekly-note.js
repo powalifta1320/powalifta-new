@@ -1006,19 +1006,27 @@
       if (cur) { c.removeAttribute('aria-hidden'); c.inert = false; } else { c.setAttribute('aria-hidden', 'true'); c.inert = true; }
       c.style.opacity = '';
     });
-    // Focus follows the card (a button pressed on the last one is gone): the new one's name, for a screen reader.
-    var head = lost && D.cards[D.i] && D.cards[D.i].querySelector('.wnd-name, .wnd-done-t');
-    if (head) { head.setAttribute('tabindex', '-1'); try { head.focus({ preventScroll: true }); } catch (e) {} }
+    // Focus follows the card (a button pressed on the last one is gone): the new one's name, for a screen reader,
+    // once it has landed (a focus now would lay the stage out inside the tap, before the spring's first frame).
+    if (lost) D.focusHead = true;
     deckPlace(D.x);
     deckBar();
     deckSoon();
+  }
+  function deckFocusHead() {
+    if (!D || !D.focusHead) return;
+    D.focusHead = false;
+    var ae = document.activeElement;
+    if (ae && ae !== document.body && D.root.contains(ae) && !(ae.closest('.wnd-card') && !ae.closest('.wnd-card.is-cur'))) return;   // they moved on themselves
+    var head = D.cards[D.i] && D.cards[D.i].querySelector('.wnd-name, .wnd-done-t');
+    if (head) { head.setAttribute('tabindex', '-1'); try { head.focus({ preventScroll: true }); } catch (e) {} }
   }
   // The cards either side of the one up, built while nothing moves (a card takes 10 to 15 ms of script with a big
   // roster: inside a tap it would hold the spring's first frame). A finger that lands first builds them at once.
   function deckSoon() {
     if (!D) return;
     clearTimeout(D.soonT);
-    D.soonT = setTimeout(function () { if (!D) return; if (D.anim || D.drag) { deckSoon(); return; } deckNeighbours(); }, 80);
+    D.soonT = setTimeout(function () { if (!D) return; if (D.anim || D.drag) { deckSoon(); return; } deckFocusHead(); deckNeighbours(); }, 80);
   }
   function deckNeighbours() {
     if (!D) return;
