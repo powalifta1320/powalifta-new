@@ -911,8 +911,12 @@
     });
     var wins = caWins(X.rows).filter(function (w) { return w.lifts.length; });
     var lane = caMeetLane(X.rows, 84), groups = caLaneGroups(lane.marks);
-    // The focal job above: when it is a meet, the countdown sets the next one big instead (never the same meet twice).
-    var f = X.lead && X.lead[0], skip = f && f.job && /^(meet|meetday)$/.test(f.job.type) ? (f.rows || [f.r]).map(function (r) { return r.athlete.id; }) : [];
+    // The meets Needs you shows above (its focal card and the two rows under it, needsHtml): the countdown sets the
+    // next one big instead (never the same meet twice). With pain first, a meet today is often the row under the focal card.
+    var skip = [];
+    (X.lead || []).slice(0, 3).forEach(function (f) {
+      if (f && f.job && /^(meet|meetday)$/.test(f.job.type)) (f.rows || [f.r]).forEach(function (r) { skip.push(r.athlete.id); });
+    });
     return {
       t: t, range: range, week: W, lastWeek: LW, strip: strip, lastStrip: lastStrip, quiet: quiet, behind: behind,
       strength: caTeamStrength(mom), line: line, effort: caEffortSplit(sets), lane: lane, groups: groups, countdown: caCountdown(groups, skip), skip: skip,
@@ -1148,9 +1152,8 @@
     var who = C.ids.map(firstOf);
     var big = C.days <= 0 ? 'Today' : C.days === 1 ? 'Tomorrow' : C.days + ' days';
     var sub = nameList(who, 3);
-    // The meet Needs you leads with (Tom's, on the day) is said once, in its focal card above: the tile never adds
-    // "Tom competes today" under another meet (29 Oct, the owner's carry-over). What comes next still reads here,
-    // unless that is the focal card's meet too.
+    // A meet Needs you shows (Tom's, on the day) is said once, above: the tile never adds "Tom competes today" under
+    // another meet (29 Oct, the owner's carry-over). What comes next still reads here, unless Needs you shows that too.
     var said = function (g) { return !!g && S.skip && S.skip.length > 0 && g.ids.every(function (id) { return S.skip.indexOf(id) >= 0; }); };
     if (C.after && !said(C.after)) sub += ' · then ' + nameList(C.after.ids.map(firstOf), 1) + ' ' + (C.after.days <= 0 ? 'today' : C.after.days === 1 ? 'tomorrow' : 'in ' + C.after.days + ' days');
     var faces = G.map(function (g, i) {
