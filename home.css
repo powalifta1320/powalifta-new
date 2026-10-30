@@ -806,10 +806,25 @@ html:not(.native) .native-welcome { display: none !important; }
 /* The modals stay put until the app and its styles have loaded; the page opens them after (index.html). */
 html:not(.native) .modal-backdrop { display: none; }
 html:not(.native) .modal-backdrop.open { display: flex; }
+/* The account windows (Log in, Sign up, the password reset, the two-factor code) are the page's dark whatever the
+   visitor's theme: the app's dark tokens (styles.css :root) on the windows alone. The document's theme and the stored
+   powa-theme stay the visitor's, so the inside pages keep following their setting. */
+body.home .modal-backdrop {
+  --bg: #0b0b0c; --bg-1: #111114; --bg-2: #16161a; --bg-3: #1d1d22; --line: #25252c; --line-2: #34343d;
+  --text: #f4f4f6; --text-2: #b8b8c0; --text-3: #8c8c96; --text-4: #808089;
+  --brand-red: #ff2d3f; --brand-red-2: #c81628; --red: #ff2d3f; --red-2: #c81628; --gold: #ffb547; --green: #4ed884; --blue: #5eb3ff;
+  --grad-card: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 42%);
+  --card-edge: inset 0 1px 0 rgba(255, 255, 255, 0.11), inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+  --elev-card: var(--card-edge), 0 3px 8px rgba(0, 0, 0, 0.45), 0 28px 56px -22px rgba(0, 0, 0, 0.95);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3); --shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  --ring: 0 0 0 3px rgba(255, 45, 63, 0.22); --modal-veil: rgba(0, 0, 0, 0.7); --card-sheen: rgba(255, 255, 255, 0.18); --hover-tint: rgba(255, 255, 255, 0.015);
+  --scheme: dark; color-scheme: dark; color: var(--text);
+}
+body.home .modal-backdrop .sa-apple { background: #fff; color: #000; }   /* Apple's mark on white over the dark */
+@media (hover: hover) { body.home .modal-backdrop .sa-apple:hover { filter: brightness(0.94); } }
 /* A modal's one action is the page's crimson with a white label. */
 body.home .modal .btn-primary { background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; border: 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.3); }
 body.home .modal .btn-primary::after { display: none; }
-body.home .modal-backdrop { color: var(--text); }   /* the app's text colour, light or dark theme */
 body.home .modal a { color: var(--text); }   /* links in ink, as on every public page */
 
 /* #pricing and #marketplace-teaser keep their ids (the iPhone app hides them by id); the app's styles.css still dresses

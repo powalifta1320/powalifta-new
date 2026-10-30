@@ -190,6 +190,11 @@
   window.addEventListener('hashchange', openCalc);
   if (location.hash === '#e1rm') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', openCalc); else openCalc(); }
 
+  /* --- The browser's bar stays the page's dark: the app (loaded for the account windows) sets theme-color by the
+     visitor's theme (white for light), but this page is dark whatever the theme. The stored theme is never touched,
+     so the inside pages keep following the visitor's setting. --- */
+  window.addEventListener('themechange', function () { var m = $('meta[name="theme-color"]'); if (m) m.setAttribute('content', '#0b0b0c'); });
+
   function relayout() { fitFw(); measurePage(); placeTocBar(); paintNav(); }
   relayout();
   window.addEventListener('scroll', onScrollNav, { passive: true });
