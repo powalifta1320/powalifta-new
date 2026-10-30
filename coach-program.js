@@ -1334,12 +1334,18 @@
       secondary: { label: 'Invite a lifter first', onClick: function () { openInviteModal(); } }
     });
   }
+  // A lifter with nothing running: their first block, or (with past blocks kept, after a delete or a finished
+  // block) their next one. → { hi, title }
+  function cpNoBlockWords(name, hasPast) {
+    return { hi: hasPast ? 'No block running' : 'No block yet', title: 'Write ' + first(name) + '\u2019s ' + (hasPast ? 'next' : 'first') + ' block' };
+  }
   function emptyNoBlock(aid) {
     var a = (Store.get().athletes || []).find(function (x) { return x.id === aid; }) || { name: 'them' };
+    var words = cpNoBlockWords(a.name, (Store.get().programBlocks || []).some(function (b) { return b && b.athleteId === aid; }));
     var wrap = el('div', { class: 'cp-empty' });
     var hero = el('div', { class: 'ca-hero cp-hero ca-rise' });
-    hero.appendChild(el('p', { class: 'ca-hero-hi' }, 'No block yet'));
-    hero.appendChild(el('h2', { class: 'ca-welcome-t' }, 'Write ' + first(a.name) + '’s first block'));
+    hero.appendChild(el('p', { class: 'ca-hero-hi' }, words.hi));
+    hero.appendChild(el('h2', { class: 'ca-welcome-t' }, words.title));
     hero.appendChild(el('p', { class: 'ca-hero-sub' }, 'Start blank and add the days, or let the app draft one from their maxes and goal.'));
     var create = el('button', { type: 'button', class: 'ca-btn is-red' }, 'Start a blank block');
     create.addEventListener('click', function () { if (typeof createProgramFor === 'function') createProgramFor(aid); });
@@ -1444,7 +1450,7 @@
     day: function () { return S.aid ? S.days[dayKey(S.aid, curWeek())] || 0 : 0; },
     // pure, for tests
     cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep, cpExpectedLoad: cpExpectedLoad,
-    openDeleteSheet: openDeleteSheet, deleteProgramSheet: deleteProgramSheet, deleteTemplateSheet: deleteTemplateSheet, cpDeleteProgramWords: cpDeleteProgramWords, cpDeleteTemplateWords: cpDeleteTemplateWords,
+    openDeleteSheet: openDeleteSheet, deleteProgramSheet: deleteProgramSheet, deleteTemplateSheet: deleteTemplateSheet, cpDeleteProgramWords: cpDeleteProgramWords, cpDeleteTemplateWords: cpDeleteTemplateWords, cpNoBlockWords: cpNoBlockWords,
     cpWantsHint: cpWantsHint, cpFitClass: cpFitClass, cpEveryChoices: cpEveryChoices, cpTplLine: cpTplLine, cpApplyLabel: cpApplyLabel, cpModePatch: cpModePatch, cpModePatches: cpModePatches, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm, cpSaveLine: cpSaveLine
   };
 })();

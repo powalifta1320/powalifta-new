@@ -8447,6 +8447,11 @@ test('Delete program and Delete template ask in the app’s own words: the name,
   eq(t.title, 'Delete “12-week peak <b>”?', 'the coach’s name as text (the sheet sets it as text, never markup)');
   eq(t.words, 'Lifters you gave it to keep their block. Only the saved template goes, and you can’t undo this.');
   eq(t.go + ' / ' + t.keep, 'Delete template / Keep template');
+  // After the delete: the sheet said the training was kept as a past block, so Programs says what comes next.
+  const nb = CPg.cpNoBlockWords('Arjun Mehta', true);
+  eq(nb.hi + ' · ' + nb.title, 'No block running · Write Arjun’s next block', 'past blocks kept: his next block');
+  const fb = CPg.cpNoBlockWords('Nina Petrova', false);
+  eq(fb.hi + ' · ' + fb.title, 'No block yet · Write Nina’s first block', 'never had one: her first');
 });
 
 /* ===========================================================
