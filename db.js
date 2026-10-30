@@ -1987,16 +1987,25 @@ const DB = {
   // Reads fail soft (null / []) so the Club tab falls back to its join screen
   // before the migration lands; writes throw a readable Error (see _clubErr).
   // UUID columns are filtered with .in(col, [id]), same as the leaderboard.
+  // No club is null; a read that failed (a weak signal) throws, so a pull to refresh keeps the club on screen
+  // (clubs.js reloadClub) instead of the join screen. Before the migration (no club tables): null.
   async getMyClub(userId) {
     if (!userId) return null;
+    const failed = (error) => {
+      if (_isNotReady(error)) return null;
+      const e = new Error('Your club did not load: ' + ((error && error.message) || 'network')); e.transient = true; throw e;
+    };
     const { data: mine, error } = await sb.from('club_members').select('club_id, role').in('user_id', [userId]).limit(1);
-    if (error || !mine || !mine[0]) return null;
+    if (error) return failed(error);
+    if (!mine || !mine[0]) return null;
     const clubId = mine[0].club_id;
     const [cRes, mRes] = await Promise.all([
       sb.from('clubs').select('*').in('id', [clubId]).limit(1),
       sb.from('club_members').select('*').in('club_id', [clubId])
     ]);
-    if (cRes.error || !cRes.data || !cRes.data[0]) return null;
+    if (cRes.error) return failed(cRes.error);
+    if (!cRes.data || !cRes.data[0]) return null;
+    if (mRes.error) return failed(mRes.error);   // a club with nobody on its board is not what's there
     return { club: mapDbClub(cRes.data[0]), role: mine[0].role, members: (mRes.data || []).map(mapDbClubMember) };
   },
   async listPublicClubs(opts = {}) {
@@ -2105,13 +2114,18 @@ const DB = {
     if (error) throw _clubErr(error);
     return Array.isArray(data) ? data[0] : data;
   },
-  // Newest first. null = the feed isn't switched on yet (pre-migration).
+  // Newest first. null = the feed isn't switched on yet (pre-migration); a read that failed throws (the callers
+  // catch it: a pull to refresh keeps the posts it has).
   async listClubPosts(clubId, opts = {}) {
     let q = sb.from('club_posts').select('*').in('club_id', [clubId])
       .order('created_at', { ascending: false }).limit(opts.limit || 40);
     if (opts.before) q = q.lt('created_at', opts.before);
     const { data, error } = await q;
-    if (error) { console.warn('listClubPosts', error); return null; }
+    if (error) {
+      if (_isNotReady(error)) return null;
+      console.warn('listClubPosts', error);
+      throw new Error('The club feed did not load: ' + (error.message || 'network'));
+    }
     return (data || []).map(mapDbClubPost);
   },
   async createClubPost(post) {

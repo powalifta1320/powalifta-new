@@ -360,6 +360,24 @@ await t('a roster list that could not be read is marked readFailed, never a plai
   got = await x.DB.listBwForAthletes(many);
   eq(got.length, 100, 'the first 100 lifters\' weigh-ins'); eq(got.readFailed, true, 'and it says it is not the whole list');
 });
+await t('the club: no club is null, a club read that failed throws (pull to refresh keeps the club on screen), not there yet is null', async () => {
+  const tables = { club_members: [{ user_id: 'u1', club_id: 'c1', role: 'member', display_name: 'Me' }, { user_id: 'u2', club_id: 'c1', role: 'owner', display_name: 'Coach' }],
+    clubs: [{ id: 'c1', name: 'Iron Club', visibility: 'public', member_count: 2 }], club_posts: [{ id: 'p1', club_id: 'c1', user_id: 'u2', body: 'Hi', created_at: '2026-10-30T08:00:00Z' }] };
+  let x = loadDb(tables);
+  const mine = await x.DB.getMyClub('u1');
+  eq(mine.club.name, 'Iron Club'); eq(mine.members.length, 2);
+  eq(await x.DB.getMyClub('u9'), null, 'not in a club: null');
+  eq((await x.DB.listClubPosts('c1')).length, 1);
+  const throws = async (fn) => { try { await fn(); return false; } catch (e) { return true; } };
+  x = loadDb(tables, { fail: () => ({ message: 'TypeError: Failed to fetch' }) });
+  ok(await throws(() => x.DB.getMyClub('u1')), 'no signal: it throws, never "no club"');
+  ok(await throws(() => x.DB.listClubPosts('c1')), 'the feed too');
+  x = loadDb(tables, { fail: (st) => (st.table === 'club_members' && st.inVals && st.inVals.includes('c1') ? { message: 'timeout' } : null) });
+  ok(await throws(() => x.DB.getMyClub('u1')), 'the board that failed to read is not an empty board');
+  x = loadDb({}, { fail: () => ({ code: '42P01', message: 'relation "club_members" does not exist' }) });
+  eq(await x.DB.getMyClub('u1'), null, 'before the migration: the join screen');
+  eq(await x.DB.listClubPosts('c1'), null, 'the feed not switched on yet');
+});
 await t('workout logs: a read that stops at its ceiling keeps the newest sets (and says so)', async () => {
   const r = rng(4), A = uuid(r), logs = [];
   for (let i = 0; i < 2500; i++) logs.push(logRow(r, uuid(r), A, isoDay(Date.UTC(2024, 0, 1) + i * 864e5 / 3), i));
