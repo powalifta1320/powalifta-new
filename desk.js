@@ -3084,7 +3084,9 @@ function dkWsWeek(r) {
           dkTip(aw0, 'Lifted ' + _num(kgToDisplay(row.logged.weight)) + '×' + row.logged.reps + (row.logged.rpe != null ? ' @' + _num(row.logged.rpe) : ''));
           got.appendChild(aw0);
         } else got.appendChild(dkLoggedRich(row.logged));
-        if (!row.logged.skipped && pw > 0 && row.logged.weight > 0 && Math.abs(row.logged.weight - pw) >= 0.5) {
+        // A swap moved the load to the variant's at the same effort: a close grip 105 against a bench 115 isn't "−10"
+        // (the RPE against what was written is the comparison), so no load difference is said for it.
+        if (!row.swap && !row.logged.skipped && pw > 0 && row.logged.weight > 0 && Math.abs(row.logged.weight - pw) >= 0.5) {
           var dl = row.logged.weight - pw;
           got.appendChild(el('span', { class: 'dk-sx-ld' }, (dl > 0 ? '+' : '−') + _num(kgToDisplay(Math.abs(dl)))));
         }
@@ -4688,7 +4690,10 @@ function dkBxRich(ex, prog, aid) {
 function dkBxLifted(ex) {
   var got = el('div', { class: 'dk-bx-got' });
   var sets = ex.sets || [];
-  if (!sets.some(function (s) { return s.completed || s.skipped || s.missed; })) return got;
+  // Swapped for a variant that day: said once, as what happened ("Lifted as close grip bench", app.js variantName),
+  // or before a set is logged "Swapped for close grip bench".
+  var sw = typeof exSwap === 'function' ? exSwap(ex) : null, swapped = !!(sw && sw.to !== sw.from);
+  if (!sets.some(function (s) { return s.completed || s.skipped || s.missed; })) { if (swapped) got.appendChild(dkSwapAtt(swapLine(ex))); return got; }
   var groups = groupSets(_deskPlanSets(ex));
   var bars = el('span', { class: 'dk-bx-bars' });
   var top = null, topG = null;
@@ -4704,8 +4709,7 @@ function dkBxLifted(ex) {
     var gap = _dkSetGap(top, topG), tn = _dkGapCls(gap);
     if (gap != null && tn !== 'on') { var gp = el('span', { class: 'dk-gap t-' + tn }, dkGapText(gap)); dkTip(gp, 'Top set RPE ' + (gap > 0 ? 'over' : 'under') + ' what was written'); got.appendChild(gp); }
   } else got.appendChild(el('span', { class: 'dk-dim' }, sets.some(function (s) { return s.skipped; }) ? 'Skipped' : 'Missed'));
-  var sl = typeof swapLine === 'function' ? swapLine(ex) : '';
-  if (sl) got.appendChild(dkSwapAtt(sl));
+  if (swapped) got.appendChild(dkSwapAtt(top ? 'Lifted as ' + variantName(ex.lift, sw.to) : swapLine(ex)));
   return got;
 }
 // A lift swapped for a variant on the day (the rack was taken: app.js swapApply), as the session's quiet chip.
@@ -4717,17 +4721,22 @@ function dkSwapAtt(text) {
 }
 function dkBxLine(box, prog, wi, di, ei, wkLogged) {
   var o = box._o, ex = prog.weeks[wi].days[di].exercises[ei];
-  var title = _exShortTitle(ex) || exTitle(ex);
-  var lockd = (ex.sets || []).some(function (s) { return s.completed; });
+  // A lift the lifter swapped for a variant that day (app.js exSwap) reads as the coach wrote it (exAsWritten), and
+  // its writing waits like a logged one: its sets are the variant's for that day, so a bench load typed here must
+  // not land on the close grip. What happened says the swap (dkBxLifted).
+  var sw = typeof exSwap === 'function' ? exSwap(ex) : null, swapped = !!(sw && sw.to !== sw.from);
+  var wx = swapped ? exAsWritten(ex) : ex;
+  var title = _exShortTitle(wx) || exTitle(wx);
+  var lockd = swapped || (ex.sets || []).some(function (s) { return s.completed; });
   var line = el('div', { class: 'dk-bx' + (lockd ? ' is-logged' : ''), 'data-cell': wi + '.' + di + '.' + ei });
   var id = el('div', { class: 'dk-bx-id lift-' + (MAIN_LIFTS.indexOf(ex.lift) >= 0 ? ex.lift : 'acc') });
   id.appendChild(el('i', { class: 'dk-lift-dot', 'aria-hidden': 'true' }));
   var nm = el('span', { class: 'dk-bx-name' }, title);
-  if (title !== exTitle(ex)) dkTip(nm, exTitle(ex));
+  if (title !== exTitle(wx)) dkTip(nm, exTitle(wx));
   id.appendChild(nm);
   line.appendChild(id);
-  line.appendChild(dkBxRx(box, prog, ex, wi, di, ei, line, lockd, title));
-  if (wkLogged) line.appendChild(dkBxLifted(ex));
+  line.appendChild(dkBxRx(box, prog, wx, wi, di, ei, line, lockd, title, swapped ? swapLine(ex) : ''));
+  if (wkLogged || swapped) line.appendChild(dkBxLifted(ex));
   if (!o.ro) {
     var more = el('button', { type: 'button', class: 'dk-icon-btn dk-bx-more', 'aria-label': title + ' options', 'aria-haspopup': 'menu', 'aria-expanded': 'false', html: DK_IC.more });
     more.addEventListener('click', function (e) { e.stopPropagation(); dkPopMenu(more, dkBxExMenu(box, o.aid, wi, di, ei, more), { alignRight: true }); });
@@ -4778,7 +4787,7 @@ function dkBxEditNote(box, wi, di, ei) {
   row.querySelector('input').focus();
 }
 // The prescription, edited in place: the drawing, with a field over it that shows when typed in.
-function dkBxRx(box, prog, ex, wi, di, ei, line, lockd, title) {
+function dkBxRx(box, prog, ex, wi, di, ei, line, lockd, title, swapTxt) {
   var o = box._o;
   var wrap = el('div', { class: 'dk-bx-rx' });
   var disp = dkBxRich(ex, prog, o.aid);
@@ -4788,7 +4797,7 @@ function dkBxRx(box, prog, ex, wi, di, ei, line, lockd, title) {
   inp.value = gridCellText(ex);
   inp.dataset.orig = inp.value;
   inp.dataset.wi = wi; inp.dataset.di = di; inp.dataset.ei = ei;
-  if (lockd) { inp.readOnly = true; dkTip(wrap, 'Logged: what they lifted stays as it was. ⋯ › Change it set by set'); }
+  if (lockd) { inp.readOnly = true; dkTip(wrap, swapTxt ? swapTxt + ' that day: what you wrote stays as it was. ⋯ › Change it set by set' : 'Logged: what they lifted stays as it was. ⋯ › Change it set by set'); }
   wrap.appendChild(inp);
   wrap.appendChild(disp);
   inp.addEventListener('focus', function () {

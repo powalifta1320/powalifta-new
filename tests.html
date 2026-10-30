@@ -9252,6 +9252,7 @@ group('swap an exercise (app.js swapApply)');
     const r = deskWeekReview(prog, { unit: 'kg', rules: null });
     eq(r.rows[0].title, 'Squat', 'the lift written'); eq(r.rows[0].swap.text, 'Swapped for pin squat');
     eq(r.rows[0].logged.weight, 140, 'what was lifted: the pin squat');
+    eq(r.rows.map(x => x.target.weight).join(), '150,140', 'each set read against what the coach wrote (not the pin squat\'s 140 and 130)');
     eq(r.rows[0].next && r.rows[0].next.ei, 0, 'next week\'s squat beside it');
     eq(r.rows[0].suggest.dir, 'down'); assert(r.rows[0].suggest.kg < 155 && r.rows[0].suggest.kg >= 155 * 0.9, 'lighter from the squat\'s 155: ' + r.rows[0].suggest.kg);
     // Split mid-way: the squat keeps next week; the pin squat part says what it was, with nothing to suggest twice.
@@ -9263,6 +9264,7 @@ group('swap an exercise (app.js swapApply)');
     const r2 = deskWeekReview(p2, { unit: 'kg', rules: null });
     eq(r2.rows.length, 2); eq(r2.rows[0].swap, null); eq(r2.rows[0].next.ei, 0);
     eq(r2.rows[1].swap.text, 'Swapped for pin squat'); eq(r2.rows[1].next, null, 'one suggestion for the squat, not two');
+    eq(r2.rows[1].target.weight, 140, 'the split-off part against the back-off as written');
   });
   test('next week written by RPE alone takes its load from the swap in the lift\'s own terms; so do the coach\'s rules', () => {
     const prog = { id: 'p', weeks: [

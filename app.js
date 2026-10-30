@@ -13161,11 +13161,12 @@ function deskWeekReview(prog, opts) {
   const W = weeks[last], N = next >= 0 ? weeks[next] : null;
   const rows = [];
   (W.days || []).forEach((day, di) => (day.exercises || []).forEach((ex, ei) => {
-    const groups = groupSets(_deskPlanSets(ex));
-    // A swap (the rack was taken: a pin squat for the squat) reads as the lift written, with next week's block
-    // for that lift beside it: the loads were moved at the same effort, so felt against written still holds. The
-    // part of a lift that split off mid-way leaves next week to the lift it came from (one suggestion, not two).
+    // A swap (a pin squat for the squat that day) reads as the lift written, with next week's block for that lift
+    // beside it: the loads were moved at the same effort, so felt against written still holds, and each set is read
+    // against what the coach wrote (exAsWritten: the same sets, in the same places). The part of a lift that split
+    // off mid-way leaves next week to the lift it came from (one suggestion, not two).
     const sw = exSwap(ex);
+    const groups = groupSets(_deskPlanSets(sw && sw.to !== sw.from ? exAsWritten(ex) : ex));
     const splitOff = !!(sw && sw.src != null && (day.exercises || []).some(e => e && e !== ex && String(e.id) === String(sw.src)));
     const same = sw
       ? (e) => !!e && e.lift === ex.lift && (e.variant || 'Competition') === sw.from && String(e.exerciseName || '') === String(ex.exerciseName || '')
@@ -13203,7 +13204,7 @@ function deskWeekReview(prog, opts) {
       if (open && acted) suggest = { kg: cur, delta: 0, dir: 'hold', acted: true };
       else if (open && felt != null && tgt != null && ng.rpe != null && ng.rpe !== '') {
         // A % set's load follows the max, and RPE-less back-offs give nothing to go on: no guess.
-        const s = smartNextLoad({ weight: (Number(top.weight) || 0) * k, planned: (Number(g.weight) || 0) * k, reps: top.reps, rpe: felt, target: tgt },
+        const s = smartNextLoad({ weight: (Number(top.weight) || 0) * k, planned: Number(g.weight) || 0, reps: top.reps, rpe: felt, target: tgt },
           { weight: from, reps: ng.reps, rpe: ng.rpe, weightHi: ng.weightHi }, unit);
         suggest = s ? _deskSuggestOf(s.kg, cur, step) : (from > 0 ? _deskSuggestOf(from, cur, step) : null);
         if (suggest && prg.fallback === 'keep') suggest = cur > 0 ? { kg: cur, delta: 0, dir: 'hold' } : null;
