@@ -404,6 +404,7 @@
 <script src="progression.js"></script><!-- Progression rules: how next week moves, in the coach's words (ProgressionUI; Settings on the desk, You › Progression rules on the phone) -->
 <script src="clients.js"></script><!-- Clients + payments and the intake: the pure helpers (window.Clients) for the coach's clients page and a lifter's About -->
 <script src="clients-ui.js"></script><!-- Clients: the screens (ClientsUI): the Clients page, a lifter's Client + About blocks, mark paid, packages, reminders -->
+<script src="coach-widget.js"></script><!-- The coach's Home Screen widgets: Need you, Next meet, Clients, Team week (CoachWidget.build over the Store; CoachWidget.sync, native only) -->
 <script src="career.js"></script><!-- Career: a lifter's lifelong record (careerEvents), read-only from their page: a sheet on the phone, a panel on the desk -->
 <script src="busy-week.js"></script><!-- Busy weeks: a lifter's days for the week and the plan; Today's job, Approve applies it to the program (BusyWeek) -->
 <script src="capacity.js"></script><!-- Capacity: the coach's hours against the work each lifter makes (CapacityUI: You › Capacity, Settings › Plan & seats) -->
@@ -533,6 +534,8 @@ function _coachReady() {
   const _fcReady = refreshFormChecks();
   // The Monday push opens coach.html?report=week: Last week's report, once the form checks are in.
   if (window.CoachReportUI) CoachReportUI.fromLink(_fcReady);
+  // The Home Screen widgets (native only, never in the demo): the coach's block, and the screen a widget opens.
+  _coachWidgetWatch();
 
   // A plan bought or changed anywhere (web checkout, the App Store, another device)
   // shows up here at once: app.js watches this coach's profile row (realtime, focus,
@@ -556,6 +559,48 @@ function _coachReady() {
   if (!isTourDone('coach') && !window._demoMode && !_desk()) {   // the tour points at the phone's tabs
     setTimeout(maybeStartCoachTour, 700);
   }
+}
+
+// =========================================================
+// HOME SCREEN WIDGETS (native): the coach's four (coach-widget.js builds their block)
+// =========================================================
+// Write the block now and whenever the roster redraws (renderRoster), and at once when the app goes to the
+// background (iOS may suspend it before a debounce runs); a widget's tap lands here as powalifta://coach/…
+// (WidgetBridgePlugin hands it over with takePending, on boot, on return and on its widgetOpen event).
+function _coachWidgetWatch() {
+  if (!(window.PowaNative && PowaNative.isNative()) || window._demoMode) return;
+  if (window.CoachWidget) CoachWidget.sync();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { if (window.CoachWidget) CoachWidget.sync(true); }
+    else drainCoachWidgetOpen();
+  });
+  // The event names its URL: only a coach widget's is taken here (anything else stays with the plugin).
+  try { const P = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PowaWidget; if (P && P.addListener) P.addListener('widgetOpen', (d) => { if (!d || !d.url || /^powalifta:\/\/coach\//.test(d.url)) drainCoachWidgetOpen(); }); } catch (e) {}
+  setTimeout(drainCoachWidgetOpen, 600);
+}
+// need · week: Home (who needs you, the week's ring) · meets: today's board, else Meets · clients: Clients ·
+// lifter?id=: that lifter's page (only one on this roster). A lifter's widgets queue weigh-ins and sets for a
+// lifter's account; on a coach's phone they show one line and no buttons, so there is nothing here to save.
+var _coachWidgetDraining = false;   // a var: the boot can reach this file's functions before a later let is set (TDZ)
+async function drainCoachWidgetOpen() {
+  if (!(window.PowaNative && PowaNative.isNative()) || window._demoMode || _coachWidgetDraining || !user) return;
+  _coachWidgetDraining = true;
+  try {
+    const r = await PowaNative.takeWidgetPending();
+    const m = /^powalifta:\/\/coach\/(need|week|meets|clients|lifter)(?:\?(.*))?$/.exec(String((r && r.open) || ''));
+    if (!m) return;
+    const go = (tab) => { const t = document.getElementById('tab-' + tab); if (t) t.click(); };
+    if (m[1] === 'clients') { go('clients'); return; }
+    go('home');
+    if (m[1] === 'meets') setTimeout(() => { try { if (window.MeetDay && MeetDay.openTodayBoard) MeetDay.openTodayBoard(); } catch (e) {} }, 300);
+    if (m[1] === 'lifter') {
+      let id = null;
+      try { id = new URLSearchParams(m[2] || '').get('id'); } catch (e) {}
+      const mine = id && (Store.get().athletes || []).some(a => a.id === id && a.coachId === user.id);
+      if (mine && window.CoachLifters) setTimeout(() => { try { CoachLifters.open(id); } catch (e) {} }, 300);
+    }
+  } catch (e) { console.warn('widget open', e); }
+  finally { _coachWidgetDraining = false; }
 }
 
 // =========================================================
@@ -1893,6 +1938,7 @@ function _apCalendar(logs, weeks) {
 
 function renderRoster() {
   renderPlanPill();
+  if (window.CoachWidget) CoachWidget.sync();   // the Home Screen widgets follow the roster (debounced, native only)
   // The phone's Home shows the same roster: it redraws with it (an unread count, a plan change, a fix).
   if (!_desk() && window.CoachApp) CoachApp.paintHomeIfShown();
   const area = document.getElementById('rosterArea');

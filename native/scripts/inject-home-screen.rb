@@ -9,8 +9,8 @@
 # script creates. `native/scripts/inject-all.sh` runs all three in the right order.
 #
 #   1. AppIconPlugin.swift + WidgetBridgePlugin.swift -> App target sources
-#   2. PowaHomeWidget.swift (+ PowaWidgets, PowaWidgetIntents, PowaHealthWidgets, PowaPRWidget)
-#      -> PowaWidget target sources
+#   2. PowaHomeWidget.swift (+ PowaWidgets, PowaWidgetIntents, PowaHealthWidgets, PowaPRWidget,
+#      PowaCoachWidgets) -> PowaWidget target sources
 #   3. App Group entitlements (group.com.powalifta.app) on BOTH targets — the widget
 #      reads the snapshot the app writes. With automatic signing Xcode registers the
 #      group on the App IDs itself; if a build complains, add it once by hand:
@@ -70,7 +70,7 @@ FileUtils.mkdir_p(WIDGET_DIR)
 # The bundle file is copied here too (not only by inject-live-activity.rb): it names
 # every widget, so a newer committed bundle must land even when only this injector runs.
 %w[PowaWidgetBundle.swift PowaHomeWidget.swift PowaWidgets.swift PowaWidgetIntents.swift PowaHealthWidgets.swift
-   PowaPRWidget.swift].each do |f|
+   PowaPRWidget.swift PowaCoachWidgets.swift].each do |f|
   FileUtils.cp(File.join(SRC, "Widget", f), File.join(WIDGET_DIR, f))
   ensure_source(widget_group, widget_target, File.join(WIDGET_DIR, f))
 end

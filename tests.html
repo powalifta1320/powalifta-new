@@ -118,6 +118,7 @@
 <script src="coach-program.js"></script>
 <script src="notify.js"></script>
 <script src="coach-you.js"></script>
+<script src="coach-widget.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -8125,9 +8126,9 @@ test("a lifter's page: Form checks, waiting ones first, the row says how many wa
 });
 
 /* ===========================================================
-   Home Screen widgets: the lifter's PR (app.js widgetLastPR)
+   Home Screen widgets: the lifter's PR (app.js widgetLastPR) and the coach's four (coach-widget.js)
    =========================================================== */
-group('Home Screen widgets: the PR');
+group('Home Screen widgets: the PR, the coach’s Need you, Next meet, Clients, Team week');
 test('PR widget: the latest PR as the PR moment shows it, never a first set', () => {
   const t = '2026-10-30';
   const L = (id, lift, date, e, who) => ({ id, athleteId: who || 'a', lift, date, e1rmComp: e, weight: 100, reps: 3, rpe: 8 });
@@ -8153,6 +8154,55 @@ test('PR widget: the latest PR as the PR moment shows it, never a first set', ()
     eq(w.unit, 'lbs'); eq(w.value, '453'); eq(w.delta, '+12', '453 against 441');
   } finally { if (saved == null) localStorage.removeItem(UNIT_KEY); else localStorage.setItem(UNIT_KEY, saved); }
   assert(JSON.stringify(w).length < 120, 'a few short strings');
+});
+test('coach widgets: Need you in Home’s order with the fix, the meets, this month’s money, the week', () => {
+  const CW = window.CoachWidget;
+  assert(CW && CL && CA, 'CoachWidget, CoachLifters and CoachApp are loaded');
+  const T = '2026-10-30';   // a Friday
+  const meet = { name: 'Autumn Open', date: T, weightClass: '83' };
+  const rows = [
+    clRow({ athlete: { id: 'k', name: 'Kofi Mensah' }, reasons: [{ type: 'message', group: 4, text: 'Message 1d', body: 'Can we move Friday?' }] }),
+    clRow({ athlete: { id: 't', name: 'Tom Boyle' }, meet: { days: 0, meet }, reasons: [{ type: 'meet', group: 2, text: 'Meet today' }] }),
+    clRow({ athlete: { id: 'p', name: 'Priya Shah' }, meet: { days: 0, meet }, reasons: [{ type: 'meet', group: 2, text: 'Meet today' }] }),
+    clRow({ athlete: { id: 's', name: 'Sarah Kim' }, meet: { days: 33, meet: { name: 'City Classic', date: '2026-12-02' } },
+      status: { pain: { report: { bodyPart: 'low_back', severity: 6, day: '2026-10-29' }, count: 1 } }, reasons: [{ type: 'pain', group: 1, text: 'Pain' }] }),
+    clRow({ athlete: { id: 'q', name: 'Quinn Hale' }, status: { ago: 9 }, reasons: [{ type: 'quiet', group: 7, text: 'Quiet' }] })
+  ];
+  const jobs = CL.clJobs(rows, { today: T });
+  const store = {
+    athletes: rows.map(r => Object.assign({ coachId: 'c' }, r.athlete)), programs: [], workoutLogs: [], meets: [],
+    clientBilling: [
+      { athleteId: 's', amountCents: 22000, currency: 'USD', cadence: 'monthly', nextDue: '2026-10-27', status: 'active' },
+      { athleteId: 'k', amountCents: 15000, currency: 'USD', cadence: 'monthly', nextDue: '2026-11-04', status: 'active' },
+      { athleteId: 'q', amountCents: 9000, currency: 'USD', cadence: 'monthly', nextDue: '2026-10-01', status: 'paused' }
+    ],
+    clientPayments: [{ athleteId: 'k', amountCents: 15000, currency: 'USD', paidOn: '2026-10-04' }, { athleteId: 'k', amountCents: 15000, currency: 'USD', paidOn: '2026-09-04' }]
+  };
+  const w = CW.build({ store, coachId: 'c', today: T, now: 1, rows, jobs, daysOf: () => [], unit: 'kg' });
+  eq(w.role, 'coach'); eq(w.at, 1); eq(w.unit, 'kg');
+  const c = w.coach;
+  eq(c.need, 4, 'Sarah, Tom, Priya and Kofi need you this week; Quinn going quiet is not "needs you"');
+  eq(c.jobs.map(j => j.name).join(' | '), 'Sarah | Autumn Open | Kofi', 'pain first, then the meet today, then how soon');
+  eq(c.jobs[0].id, 's'); eq(c.jobs[0].flag, 'Low back 6/10'); eq(c.jobs[0].verb, 'Message'); eq(c.jobs[0].tone, 'pain');
+  eq(c.jobs[1].id, null, 'a meet with two lifters opens the meets'); eq(c.jobs[1].flag, 'Today · Tom, Priya'); eq(c.jobs[1].verb, 'Meet day'); eq(c.jobs[1].tone, 'meet');
+  eq(c.jobs[2].flag, 'Wrote you · 1 day ago'); eq(c.jobs[2].verb, 'Reply'); eq(c.jobs[2].tone, 'msg');
+  eq(c.meets.map(m => m.name + ' ' + m.date + ' ' + m.who.join(',')).join(' | '), 'Autumn Open 2026-10-30 Tom,Priya | City Classic 2026-12-02 Sarah', 'one per meet, nearest first');
+  // money: Kofi paid $150 this month; Sarah's $220 fell due on the 27th (owed, overdue); a paused package is neither
+  eq(c.money.any, true); eq(c.money.got, '$150'); eq(c.money.of, '$370'); close(c.money.pct, 0.405, 0.001); eq(c.money.month, '2026-10');
+  eq(c.money.due.join(','), '2026-10-27,2026-11-04', 'the active packages’ next due dates: the widget counts overdue against its own today');
+  eq(c.week.done, 0); eq(c.week.planned, 0); eq(c.week.weekStart, '2026-10-26', 'the Monday');
+  eq(c.week.behind, 1); eq(c.week.behindName, 'Quinn', 'Lifters › Behind: going quiet');
+  // one lifter at a meet day reads like any job; all clear; no packages yet
+  const one = CW.jobRow({ job: { type: 'meetday', name: 'Autumn Open', days: 1, rows: [rows[1]] }, r: rows[1], rows: [rows[1]] });
+  eq(one.name, 'Tom'); eq(one.flag, 'Autumn Open · tomorrow'); eq(one.id, 't');
+  const calm = CW.build({ store, coachId: 'c', today: T, rows: [rows[4]], jobs: CL.clJobs([rows[4]], { today: T }), daysOf: () => [] });
+  eq(calm.coach.need, 0); eq(calm.coach.jobs.length, 0);
+  eq(CW.build({ store: Object.assign({}, store, { clientBilling: [] }), coachId: 'c', today: T, rows, jobs, daysOf: () => [] }).coach.money.any, false);
+  // user-written names are cut by code point (half an emoji blanks every widget) and kept short
+  const long = CW.meetsOf([clRow({ athlete: { id: 'z', name: '🏋️‍♀️🏋️‍♀️🏋️‍♀️🏋️‍♀️🏋️‍♀️🏋️‍♀️🏋️‍♀️🏋️‍♀️🏋️‍♀️🏋️‍♀️ Zed' }, meet: { days: 3, meet: { name: 'The Very Long Regional Powerlifting Championships', date: '2026-11-02' } } })]);
+  assert(Array.from(long[0].name).length <= 28 && /…$/.test(long[0].name), long[0].name);
+  JSON.parse(JSON.stringify(long));
+  assert(JSON.stringify(w).length < 1500, 'compact: well under the bridge’s 8 KB (' + JSON.stringify(w).length + ')');
 });
 
 /* ===========================================================
