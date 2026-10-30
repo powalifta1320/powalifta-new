@@ -9264,6 +9264,20 @@ group('swap an exercise (app.js swapApply)');
     eq(r2.rows.length, 2); eq(r2.rows[0].swap, null); eq(r2.rows[0].next.ei, 0);
     eq(r2.rows[1].swap.text, 'Swapped for pin squat'); eq(r2.rows[1].next, null, 'one suggestion for the squat, not two');
   });
+  test('next week written by RPE alone takes its load from the swap in the lift\'s own terms; so do the coach\'s rules', () => {
+    const prog = { id: 'p', weeks: [
+      { number: 1, days: [{ name: 'Bench', exercises: [{ id: 'b1', lift: 'bench', variant: 'Competition', sets: [S('a', 100, 4, 8)] }] }] },
+      { number: 2, days: [{ name: 'Bench', exercises: [{ id: 'b2', lift: 'bench', variant: 'Competition', sets: [S('c', 0, 4, 8.5)] }] }] }
+    ] };
+    swapApply(prog.weeks[0].days[0], 'b1', 'Close Grip', { stepKg: 2.5 });
+    eq(prog.weeks[0].days[0].exercises[0].sets[0].weight, 92.5, '100 ÷ 1.09 = 91.7');
+    done(prog.weeks[0].days[0].exercises[0].sets[0], 8, '2026-10-20');
+    const row = deskWeekReview(prog, { unit: 'kg', rules: null }).rows[0];
+    eq(row.logged.weight, 92.5, 'what was lifted'); eq(row.logged.writtenKg, 100.8, 'as a competition bench: 92.5 × 1.09');
+    eq(row.suggest.dir, 'set'); eq(row.suggest.kg, 102.5, '4 @8.5 from a 100.8 bench (from the close grip\'s 92.5 it would say 95)');
+    const r = progressionApply({ then: { kind: 'addLoad', value: 2.5 } }, row, 'kg');
+    eq(r.kg, 102.5, 'add 2.5 to 100.8, on the plates (not to 92.5)');
+  });
   test('today only: a copy of the day (duplicate, copy week, next block, template, team, reuse) is the lift as written', () => {
     const inPlace = dayOf([S('s1', 150, 3, 8), S('s2', 140, 5, 8, { pct: 75 })]);
     swapApply(inPlace, 'e1', 'Pin', { stepKg: 2.5 });

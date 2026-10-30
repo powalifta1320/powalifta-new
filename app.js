@@ -13036,7 +13036,7 @@ function progressionApply(rule, row, unit) {
   if (!rule || !rule.then || !row || !row.next || !row.next.group || !row.logged || row.logged.skipped) return null;
   const step = typeof loadStepKg === 'function' ? loadStepKg(unit) : 2.5;
   const cur = Number(row.next.group.weight) || 0;
-  const base = Number(row.logged.weight) || 0;
+  const base = Number(row.logged.writtenKg != null ? row.logged.writtenKg : row.logged.weight) || 0;   // a swap: in the written lift's terms
   const v = Number(rule.then.value);
   const round = (x) => (x > 0 ? Math.round(x / step) * step : 0);
   let kg = 0, sets;
@@ -13151,6 +13151,9 @@ function deskWeekReview(prog, opts) {
     const same = sw
       ? (e) => !!e && e.lift === ex.lift && (e.variant || 'Competition') === sw.from && String(e.exerciseName || '') === String(ex.exerciseName || '')
       : (e) => !!e && e.lift === ex.lift && (e.variant || '') === (ex.variant || '') && String(e.exerciseName || '') === String(ex.exerciseName || '');
+    // The swap's loads in the written lift's terms (a close grip bench 105 is a competition bench 114.5): next week's
+    // suggestion works from them (a week written by RPE alone takes its load from the top set) and so do the rules.
+    const k = sw && sw.to !== sw.from ? multiplierFor(ex.lift, sw.to) / multiplierFor(ex.lift, sw.from) : 1;
     const nd = N && !splitOff ? (N.days || [])[di] : null;
     let nei = -1;
     if (nd) nei = same((nd.exercises || [])[ei]) ? ei : (nd.exercises || []).findIndex(same);
@@ -13181,7 +13184,7 @@ function deskWeekReview(prog, opts) {
       if (open && acted) suggest = { kg: cur, delta: 0, dir: 'hold', acted: true };
       else if (open && felt != null && tgt != null && ng.rpe != null && ng.rpe !== '') {
         // A % set's load follows the max, and RPE-less back-offs give nothing to go on: no guess.
-        const s = smartNextLoad({ weight: top.weight, planned: g.weight, reps: top.reps, rpe: felt, target: tgt },
+        const s = smartNextLoad({ weight: (Number(top.weight) || 0) * k, planned: (Number(g.weight) || 0) * k, reps: top.reps, rpe: felt, target: tgt },
           { weight: from, reps: ng.reps, rpe: ng.rpe, weightHi: ng.weightHi }, unit);
         suggest = s ? _deskSuggestOf(s.kg, cur, step) : (from > 0 ? _deskSuggestOf(from, cur, step) : null);
         if (suggest && prg.fallback === 'keep') suggest = cur > 0 ? { kg: cur, delta: 0, dir: 'hold' } : null;
@@ -13190,7 +13193,8 @@ function deskWeekReview(prog, opts) {
         key: last + '.' + di + '.' + ei + '.' + gi, di, ei, gi, day: day.name || ('Day ' + (di + 1)), title: _exShortTitle(sw ? Object.assign({}, ex, { variant: sw.from }) : ex), lift: ex.lift,
         swap: sw && sw.to !== sw.from ? { to: sw.to, text: swapLine(ex) } : null,
         target: g, count: sets.filter(s => !s.extra).length, sig,
-        logged: top ? { weight: Number(top.weight) || 0, reps: Number(top.reps) || 0, rpe: felt, n: done.length, of: sets.length, short }
+        logged: top ? Object.assign({ weight: Number(top.weight) || 0, reps: Number(top.reps) || 0, rpe: felt, n: done.length, of: sets.length, short },
+          k !== 1 ? { writtenKg: Math.round((Number(top.weight) || 0) * k * 10) / 10 } : {})
           : (sets.some(s => s.skipped) ? { skipped: true, n: 0, of: sets.length } : null),
         delta: top && felt != null && tgt != null ? Math.round((felt - tgt) * 10) / 10 : null,
         next: ng ? { di, ei: nei, startIdx: ng.startIdx, count: ng.count, group: ng, locked, from, acted } : null,
