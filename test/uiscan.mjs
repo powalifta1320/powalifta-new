@@ -168,7 +168,8 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-chl-board' + suf, page: C, mode: 'web', theme, eval: "deskGo('club');setTimeout(() => { const b = document.querySelector('.chl-all'); if (b) b.click(); }, 200)" },
   { name: 'w-planner-aim' + suf, page: C, mode: 'web', theme, eval: "openAttemptPlanner('demo-cmeet-p1')" });
 // The desk's lifter page with a session where the rack was taken (Swapped for … on the session), dark and light.
-for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-ws-swap' + suf, page: C, mode: 'web', theme, eval: SWAP_INJ + "; openAthletePage('demo-a1')" });
+// (The desk keeps its own theme, powa-desk-theme: the light screen switches it, applyTheme, as the desk's own toggle does.)
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-ws-swap' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + SWAP_INJ + "; openAthletePage('demo-a1')" });
 // The desk's Last week report (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-report' + suf, page: C, mode: 'web', theme, eval: 'CoachReportUI.open()' });
 // Imports on the desk (coach.html at laptop width): the intake, a client list, a lifter's history, a guide, dark and light.
