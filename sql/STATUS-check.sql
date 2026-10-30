@@ -198,6 +198,14 @@ with checks(n, migration, applied) as (values
         and not exists (select 1 from pg_class c join pg_namespace s on s.oid = c.relnamespace
                          where s.nspname = 'public' and c.relkind in ('r', 'p')
                            and not exists (select 1 from pg_policies p where p.schemaname = 'public' and p.tablename = c.relname
-                                            and p.policyname = 'powa_mfa_aal2' and p.permissive = 'RESTRICTIVE')))
+                                            and p.policyname = 'powa_mfa_aal2' and p.permissive = 'RESTRICTIVE'))),
+  (61, 'migration-coach-applications-2026-10-30.sql  (applications from a coach''s public profile: apply_to_coach with caps, only that coach reads them; any time, it adds its own two-factor policy when row 60 is in)',
+        to_regclass('public.coach_applications') is not null
+        and to_regprocedure('public.apply_to_coach(uuid, text, text, integer, numeric, numeric, numeric, text, text)') is not null
+        and exists (select 1 from pg_trigger where tgname = 'trg_coach_applications_guard')
+        and (select count(*) from pg_policies where schemaname = 'public' and tablename = 'coach_applications'
+              and policyname <> 'powa_mfa_aal2') = 3
+        and coalesce(not has_table_privilege('anon', to_regclass('public.coach_applications'), 'select'), false)
+        and coalesce(not has_table_privilege('authenticated', to_regclass('public.coach_applications'), 'insert'), false))
 )
 select n, migration, applied from checks order by n;
