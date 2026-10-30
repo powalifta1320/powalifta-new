@@ -72,6 +72,9 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-client-paid' + suf, page: C, theme, eval: "ClientsUI.markPaid('demo-a3')" },
     { name: 'sh-client-package' + suf, page: C, theme, eval: "ClientsUI.editPackage('demo-a2')" },
     { name: 'sh-remove' + suf, page: C, theme, eval: "openRemoveLifterSheet('demo-a2', 'Sarah Kim')" },
+    // Delete program and Delete template ask in the app's own sheet, like Remove from roster (30 Oct).
+    { name: 'sh-del-program' + suf, page: C, theme, eval: tab('program') + ";setTimeout(() => CoachProgram.deleteProgramSheet(Store.get().programs.find(p => p.athleteId === 'demo-a1'), 'demo-a1'), 400)" },
+    { name: 'sh-del-template' + suf, page: C, theme, eval: tab('templates') + ";setTimeout(() => CoachProgram.deleteTemplateSheet(Store.get().programTemplates[0]), 400)" },
     // Lifters past six (24, searched), with two join requests, a pending invite's menu; a paid-up client's sheet.
     { name: 'c-athletes-many' + suf, page: C, theme, eval: "Store.update(st => { for (let i = 0; i < 20; i++) st.athletes.push(Object.assign({}, st.athletes.find(a => a.id === 'demo-a2'), { id: 'demo-x' + i, name: ['Leo', 'Priya', 'Marcus', 'Elena', 'Mei', 'Dev', 'Sofia', 'Jonah', 'Aisha', 'Tom\u00e1s'][i % 10] + ' ' + ['Grant', 'Shah', 'Doyle', 'Rossi', 'Tanaka', 'Patel', 'Alvarez', 'Reed', 'Okafor', 'Silva'][(i * 3) % 10] + (i >= 10 ? ' Jr' : ''), email: 'x' + i + '@demo.com', avatarUrl: null })); });" + tab('athletes') + ";setTimeout(() => { const q = document.querySelector('.ca-search .ca-q'); q.value = 'pri'; q.dispatchEvent(new Event('input')); }, 400)" },
     { name: 'c-athletes-join' + suf, page: C, theme, eval: tab('athletes') + ";setTimeout(() => { const h = document.createElement('div'); document.getElementById('rosterArea').prepend(h); h.appendChild(_joinRequestsPhone([{ id: 'r1', athleteName: 'Leo Grant', note: 'Meet in March, want a coach for the peak' }, { id: 'r2', athleteName: 'Priya Shah', note: '' }])); }, 400)" },
@@ -117,6 +120,9 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     // bell's list, the first-run tour, Progression rules and the form-check review.
     { name: 'sh-ask' + suf, page: C, theme, eval: 'openAIAssistant(); true' },
     { name: 'sh-ask-support' + suf, page: C, theme, eval: "openAIAssistant(); document.querySelector('.ai-seg-btn[data-mode=support]').click(); true" },
+    // The lifter app's Ask, the same sheet as the coach's (30 Oct), on Training and on Support.
+    { name: 'sh-ask-a' + suf, page: A, theme, eval: 'openAIAssistant(); true' },
+    { name: 'sh-ask-a-support' + suf, page: A, theme, eval: "openAIAssistant(); document.querySelector('.ai-seg-btn[data-mode=support]').click(); true" },
     { name: 'sh-bell' + suf, page: C, theme, eval: "document.querySelector('.sig-bell').click(); true" },
     { name: 'c-rules' + suf, page: C, theme, eval: tab('rules') },
     { name: 'sh-formcheck' + suf, page: C, theme, eval: "CoachLifters.open('demo-a1'); new Promise(r => setTimeout(r, 500)).then(() => { document.querySelector('#lifterPage [data-row=videos]').click(); return new Promise(r => setTimeout(r, 700)); }).then(() => { document.querySelector('[data-fc]').click(); return new Promise(r => setTimeout(r, 900)); })" },

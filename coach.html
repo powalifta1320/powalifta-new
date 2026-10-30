@@ -3871,7 +3871,8 @@ function programMenuActions(prog, athleteId) {
     } } : null,
     { label: 'Replace with an imported program', icon: ICONS.program, onClick: () => openSheetImport(athleteId) },
     { label: 'Export spreadsheet', icon: ICONS.program, onClick: () => exportProgramCsv(athleteId, athName) },
-    { label: 'Delete program', icon: ICONS.trash, danger: true, onClick: () => deleteProgram() }
+    // The phone asks in the app's own sheet (coach-program.js deleteProgramSheet); the laptop keeps the confirm.
+    { label: 'Delete program', icon: ICONS.trash, danger: true, onClick: () => (!_desk() && window.CoachProgram && CoachProgram.deleteProgramSheet) ? CoachProgram.deleteProgramSheet(prog, athleteId) : deleteProgram() }
   ];
 }
 window.programMenuActions = programMenuActions;
@@ -4110,11 +4111,13 @@ async function createProgramFor(athleteId) {
   try { if (!window._demoMode) await DB.upsertProgram(newProg); } catch (e) { console.error(e); toast('Could not save program'); }
   activeWeekIdx = 0; loadProgram();
 }
-async function deleteProgram() {
-  const aid = document.getElementById('progAthlete').value;
+// opts.confirmed: the phone asked already, in the app's own sheet (coach-program.js deleteProgramSheet); opts.athleteId:
+// whose program (default: the builder's lifter). The laptop's ⋯ keeps the confirm below.
+async function deleteProgram(opts) {
+  const aid = (opts && opts.athleteId) || document.getElementById('progAthlete').value;
   const cur = getProgramForAthlete(aid);
   const trained = programHasTraining(cur);
-  if (!confirm(trained ? 'Delete this program? Its logged training is kept as a past block.' : 'Delete the entire program? This cannot be undone.')) return;
+  if (!(opts && opts.confirmed) && !confirm(trained ? 'Delete this program? Its logged training is kept as a past block.' : 'Delete the entire program? This cannot be undone.')) return;
   if (trained) await archiveProgramIfTrained(cur);
   const pid = progIdForAthlete(aid);
   Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== aid); });

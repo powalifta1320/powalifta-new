@@ -1918,5 +1918,20 @@ window.POWA_SUPPORT_KB = [
    "leaving hevy"
   ],
   "a": "Hevy Coach has no export on the coach side, but each client can export from the Hevy app (Hevy's help pages): Profile → Settings → Export & Import Data → Export Data → Export Workouts. They send you the CSV (bring it in under **Bring your coaching in**, or Import their history from their page) or import it themselves in POWALIFTA (You → Your data → Import your training history). Hevy's CSV is read as it is: warm-ups left out, kg or lb from the file, RPE where they logged one. Routines don't export: screenshots come in through **Bring a program in**."
+ },
+ {
+  "id": "coach-delete-program",
+  "q": "What happens when I delete a program or a template?",
+  "t": [
+   "delete program",
+   "delete a program",
+   "delete template",
+   "delete a template",
+   "remove a program",
+   "deleted a program",
+   "undo delete program"
+  ],
+  "a": "A lifter's program goes from its ⋯ (next to the program's name) → **Delete program**. It asks first, naming it and saying what happens: if the lifter logged anything in it, that training is kept as a past block (under **Blocks** on their page) and only the weeks still to come are deleted; if nothing was logged yet, nothing is kept. Either way they have no program until you write or apply one. A template goes from **Templates**: open it, then **Delete template**. Lifters you gave it to keep their own block; only your saved copy goes. Neither can be undone, so **Keep** under the red button leaves everything as it is.",
+  "app": "A lifter's program goes from the ⋯ beside its name in **Programs** → **Delete program**. The app asks first, naming it and saying what happens: if the lifter logged anything in it, that training is kept as a past block (under **Blocks** on their page) and only the weeks still to come are deleted; if nothing was logged yet, nothing is kept. Either way they have no program until you write or apply one. A template goes from **Templates**: open it, then **Delete template**. Lifters you gave it to keep their own block; only your saved copy goes. Neither can be undone, so **Keep** under the red button leaves everything as it is."
  }
 ];

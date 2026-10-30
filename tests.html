@@ -8278,6 +8278,21 @@ test('the load hint: the top set, or a block with no load yet; never a later blo
   eq(CPg.cpWantsHint(1, { weight: null }), true, 'no load written');
   eq(CPg.cpWantsHint(1, { weight: '150' }), false, 'a load read as a number');
 });
+test('Delete program and Delete template ask in the app’s own words: the name, what goes and what stays', () => {
+  const tr = CPg.cpDeleteProgramWords({ name: 'Strength Block' }, 'Arjun Mehta', true);
+  eq(tr.title, 'Delete “Strength Block”?', 'the thing’s name, in quotes');
+  eq(tr.words, 'What Arjun logged is kept as a past block. The weeks still to come are deleted, and Arjun has no program until you write or apply one.', 'a trained block: what stays, what goes');
+  eq(tr.go + ' / ' + tr.keep, 'Delete program / Keep program');
+  const un = CPg.cpDeleteProgramWords({ name: 'Peak' }, 'Nina Petrova', false);
+  eq(un.words, 'Nothing in it is logged yet, so nothing is kept, and Nina has no program until you write or apply one. You can’t undo this.', 'nothing logged: nothing kept, and no undo');
+  eq(CPg.cpDeleteProgramWords({ name: '' }, '', false).title, 'Delete this program?', 'no name: plain words');
+  assert(/the lifter has no program/.test(CPg.cpDeleteProgramWords({}, null, false).words), 'no lifter name: still a sentence');
+  eq(CPg.cpDeleteProgramWords({ name: 'A'.repeat(80) }, 'Ada', false).title.length, 'Delete “'.length + 60 + '”?'.length, 'a long name is clipped to 60');
+  const t = CPg.cpDeleteTemplateWords({ name: '12-week peak <b>' });
+  eq(t.title, 'Delete “12-week peak <b>”?', 'the coach’s name as text (the sheet sets it as text, never markup)');
+  eq(t.words, 'Lifters you gave it to keep their block. Only the saved template goes, and you can’t undo this.');
+  eq(t.go + ' / ' + t.keep, 'Delete template / Keep template');
+});
 
 /* ===========================================================
    Data scale (2026-10-28): the roster's sets indexed per lifter, the per-lifter memos, the snapshot's
