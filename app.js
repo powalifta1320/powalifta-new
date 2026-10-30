@@ -4532,7 +4532,7 @@ async function generateCoachCard(kind, model, opts) {
     _cardTag(x, W, Y.tag, 'THIS BLOCK', tint);
     const avg = Number(model.avg) || 0;
     _cardBig(x, W, Y.big, (avg > 0 ? '+' : avg < 0 ? '−' : '') + fmt(Math.abs(avg)), unit.toUpperCase());
-    sub(x, W, Y.sub, 'MY LIFTERS\u2019 AVERAGE GAIN');
+    sub(x, W, Y.sub, avg >= 0 ? 'MY LIFTERS\u2019 AVERAGE GAIN' : 'MY LIFTERS\u2019 AVERAGE CHANGE');
     const top = (model.rows || []).slice(0, 3).map(r => ({ l: cardName(r.name), r: (r.delta > 0 ? '+' : r.delta < 0 ? '−' : '') + fmt(Math.abs(r.delta)) + ' ' + unit }));
     _cardLines(x, W, Y.lines, top, 80);
     small(x, W, Y.note, 'e1RM totals of ' + model.n + (model.n === 1 ? ' lifter' : ' lifters') + ', since the block began');

@@ -96,7 +96,7 @@ function cpApplyForm(coach) {
   const first = coach.name.split(' ')[0];
   const wrap = el('div', { class: 'cp-apply', id: 'apply' });
   if (window._user && window._user.id === coach.id) {
-    wrap.appendChild(el('p', { class: 'cp-apply-own' }, 'This is where lifters apply to you. What they send lands in Clients, and Accept sends them your invite link.'));
+    wrap.appendChild(el('p', { class: 'cp-apply-own' }, 'This is where lifters apply to you. What they send lands in Clients, where Send an invite emails them your invite link.'));
     return wrap;
   }
   const form = el('form', { class: 'cp-apply-form', novalidate: '', 'aria-label': 'Apply to train with ' + first });

@@ -9314,6 +9314,15 @@ group('results cards (teamBlockGain, teamPrWall)');
     eq(w[0].reps, 1); eq(w[1].variant, 'Paused');
     eq(teamPrWall(athletes, [], T).length, 0);
   });
+  test('the block in words: gained, held, or down (never "gained −2.5 kg")', () => {
+    const was = getUnit(); setUnit('kg');
+    try {
+      eq(CoachYou.blockWords({ avg: 5 }), 'My lifters gained 5 kg this block');
+      eq(CoachYou.blockWords({ avg: 0 }), 'My lifters held their e1RM totals this block');
+      eq(CoachYou.blockWords({ avg: -2.5 }), 'My lifters\u2019 e1RM totals are 2.5 kg down this block');
+      eq(CoachYou.blockWords(null), '');
+    } finally { setUnit(was); }
+  });
   test('a name on a public card is first name and initial; the lift says what was on the bar', () => {
     eq(cardName('Arjun Mehta'), 'Arjun M.'); eq(cardName('Mary Jane Watson'), 'Mary W.'); eq(cardName('Cher'), 'Cher'); eq(cardName('  '), 'Lifter');
     eq(prWallLift({ lift: 'squat', variant: 'Paused', weight: 170, reps: 3 }), 'Paused squat 170 × 3');

@@ -5793,7 +5793,7 @@ function openLifterCardView() {
   big.appendChild(el('div', { class: 'lc-total' }, el('b', {}, total > 0 ? String(Math.round(kgToDisplay(total))) : '–'), el('small', {}, unitLabel() + ' total')));
   big.appendChild(el('div', { class: 'lc-dots' }, el('b', {}, dots > 0 ? dots.toFixed(1) : '–'), el('small', {}, 'DOTS')));
   card.appendChild(big);
-  // Stronger than X% (night C): the total's line under the number, each lift's share beside its name.
+  // Stronger than X% (night C): the total's line under the number, each lift's share under its own.
   const pctLine = el('div', { class: 'lc-pct', hidden: '' });
   card.appendChild(pctLine);
   const lifts = el('div', { class: 'lc-lifts' });

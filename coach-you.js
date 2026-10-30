@@ -267,6 +267,13 @@
     return String(unitOf() === 'kg' ? Math.round(v * 2) / 2 : Math.round(v));
   }
   function signed(kg) { return (kg > 0 ? '+' : kg < 0 ? '\u2212' : '') + kgText(Math.abs(kg)) + ' ' + unitOf(); }
+  // "My lifters gained 5 kg this block", said truly when it went the other way (never "gained −2.5 kg").
+  function blockWords(b) {
+    if (!b) return '';
+    return b.avg > 0 ? 'My lifters gained ' + kgText(b.avg) + ' ' + unitOf() + ' this block'
+      : b.avg < 0 ? 'My lifters\u2019 e1RM totals are ' + kgText(-b.avg) + ' ' + unitOf() + ' down this block'
+      : 'My lifters held their e1RM totals this block';
+  }
   function weekText(today) {
     var d = function (iso) { return new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
     var from = typeof _addDaysISO === 'function' ? _addDaysISO(today, -6) : today;
@@ -299,7 +306,7 @@
         [].forEach.call(seg.children, function (b) { var on = b.getAttribute('data-rc') === pick; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
         var model = pick === 'block' ? M.block : (M.prs.length ? M.prs : null);
         say.textContent = pick === 'block'
-          ? (M.block ? 'My lifters gained ' + signed(M.block.avg).replace(/^\+/, '') + ' this block, on average: the e1RM totals of ' + plural(M.block.n, 'lifter') + ' with a block running.'
+          ? (M.block ? blockWords(M.block) + ', on average: the e1RM totals of ' + plural(M.block.n, 'lifter') + ' with a block running.'
             : 'Nobody has all three lifts logged both before and in a block running now, so there\u2019s no average to show yet.')
           : (M.prs.length ? plural(M.prs.length, 'PR') + ' this week, ' + weekText(M.today) + '.' : 'No PRs this week yet. The wall fills as your lifters set them.');
         go.disabled = !model;
@@ -323,7 +330,7 @@
         generateCoachCard(pick, model, cardOpts(M, null)).then(function (c) {
           if (!c) return;
           var name = pick === 'block' ? 'powalifta-block-results.png' : 'powalifta-pr-wall.png';
-          var text = pick === 'block' ? 'My lifters gained ' + signed(M.block.avg).replace(/^\+/, '') + ' this block' : plural(M.prs.length, 'PR') + ' this week';
+          var text = pick === 'block' ? blockWords(M.block) : plural(M.prs.length, 'PR') + ' this week';
           if (typeof shareCardFromCanvas === 'function') shareCardFromCanvas(c, name, text + ' · powalifta.com');
         });
       });
@@ -332,7 +339,7 @@
   }
 
   var api = { planState: planState, planModel: planModel, planCard: planCard, openSetup: openSetup, liftersWelcome: liftersWelcome, messagesWelcome: messagesWelcome, programsWelcome: programsWelcome,
-    resultsModel: resultsModel, resultsRow: resultsRow, openResults: openResults };
+    resultsModel: resultsModel, resultsRow: resultsRow, openResults: openResults, blockWords: blockWords };
   if (typeof window !== 'undefined') window.CoachYou = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
