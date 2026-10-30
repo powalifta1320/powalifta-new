@@ -14821,7 +14821,10 @@ function uiPullRefresh(scope, opts) {
     // A read that never answers (a dead signal) doesn't hold the screen down: after PTR_MAX_MS it settles and says it
     // couldn't. The loader keeps going (what it reads still lands), and a pull meanwhile waits on that same loader.
     const run = api.run || (api.run = Promise.resolve().then(() => (api.opts.onRefresh ? api.opts.onRefresh() : null)).finally(() => { api.run = null; }));
-    try { ok = (await Promise.race([run, new Promise(r => setTimeout(() => r(false), PTR_MAX_MS))])) !== false; } catch (e) { ok = false; console.warn('pull to refresh', e); }
+    let cap = 0;
+    const late = new Promise(res => { cap = setTimeout(() => res(false), PTR_MAX_MS); });
+    try { ok = (await Promise.race([run, late])) !== false; } catch (e) { ok = false; console.warn('pull to refresh', e); }
+    finally { clearTimeout(cap); }
     // Long enough to read as done, never a flash.
     setTimeout(() => {
       api.busy = false;
