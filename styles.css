@@ -13097,6 +13097,8 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
 [data-theme="light"] .meet-line .ml-warn::before { background: #e06414; }
 .today-note .tn-text.tx-meet { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 13px; line-height: 1.45; color: var(--text-2); }
 .today-strip .today-note .tn-text.tx-meet { -webkit-line-clamp: 2; }
+/* under the meet's line, the morning ritual's run ("12 days in a row"), one quieter line */
+.today-note .tn-text.tx-weigh-habit { margin-top: 3px; font-size: 13px; color: var(--text-3); }
 .ui-row.meet-row .ui-row-title { line-height: 1.4; }   /* the list's own size and weight, like the rows under it */
 
 /* ===== PULL TO REFRESH (2026-10-30, app.js uiPullRefresh): the Club feed and the coach's Lifters on a phone. A small

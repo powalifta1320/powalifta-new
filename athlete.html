@@ -2440,8 +2440,12 @@ function weighInRow() {
     applyLocalCut();
     const ml = meetWeighOf(user.id, today, getUnit() === 'lbs' ? 'lbs' : 'kg');
     const cut = ml ? null : athleteCut(user.id);
-    if (ml) body.appendChild(meetLineEl(ml, 'tn-text tx-meet'));
-    else if (cut) {
+    if (ml) {
+      body.appendChild(meetLineEl(ml, 'tn-text tx-meet'));
+      // The morning ritual's run stays under it, quieter. (This week against last steps aside: the line's pace is the
+      // trend now, and two readings of it could disagree.)
+      if (habit.streak >= 2) body.appendChild(el('span', { class: 'tn-text tn-one tx-weigh-habit' }, habit.streak + ' days in a row'));
+    } else if (cut) {
       const t = cut.line.split(' · ').slice(1).join(' · ');
       body.appendChild(el('span', { class: 'tn-text tn-one cut-line cut-' + cut.tone }, t.charAt(0).toUpperCase() + t.slice(1)));
     } else body.appendChild(el('span', { class: 'tn-text tn-one' }, parts.join(' · ')));
@@ -2978,7 +2982,7 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     pa.addEventListener('click', () => openPRAttemptSheet(ex.id));
     acts.appendChild(pa);
   }
-  // The rack is taken: Swap lists the lift's variants, the sets left at the same effort (openSwapSheet).
+  // Swap: the lift's variants for today, the sets left at the same effort (openSwapSheet).
   // On a phone it's the first of the icons at the row's end (styles.css .tx-act-ico), labelled for screen readers.
   if (isMain && ex.sets.some(s => !s.completed)) {
     const sw = el('button', { class: 'tx-act tx-act-ico tx-act-swap', type: 'button', 'aria-label': 'Swap for a variation', title: 'Swap for a variation', html: swapIconSvg() + '<span>Swap</span>' });
@@ -3027,7 +3031,7 @@ function _exCues(ex) {
   return k ? (EXERCISE_LIBRARY.find(e => _exNameKey(e.name) === k) || null) : null;
 }
 // ===== SWAP AN EXERCISE (2026-10-30) =====
-// The rack is taken: the card's Swap lists the lift's other variants with the next set's load on each, at the
+// A variation for today: the card's Swap lists the lift's other variants with the next set's load on each, at the
 // same effort (app.js swapOptions / swapApply). One tap swaps it for today; the toast and the card's line
 // undo it. Saved like any change to the session (persistProgram: the demo writes nothing), so the coach's
 // views say "Swapped for pin squat" on that session.
