@@ -9156,6 +9156,70 @@ test('a set deleted while its own send lands is deleted on the server through th
   assert(typeof _OUTBOX_DISPATCH.deleteLog === 'function', 'the outbox knows how to delete a set');
 });
 
+/* ===========================================================
+   Meets to calendar (night C, 30 Oct): app.js meetIcs, the .ics a lifter's meet card and the coach's Meets save.
+   =========================================================== */
+group('meets to calendar (meetIcs)');
+(() => {
+  const NOW = Date.UTC(2026, 9, 30, 12, 0, 0);
+  const unfold = (t) => t.replace(/\r\n /g, '');
+  const lines = (t) => unfold(t).split('\r\n');
+  const meet = { id: 'm-1', name: 'Fall Nationals', date: '2026-12-22', federation: 'Powerlifting America', division: 'Open', weightClass: '74 kg', weighIn: '2h', weighInAt: '2026-12-22T07:00:00' };
+  test('one all-day event on the meet date, and the weigh-in as its own timed event with a reminder', () => {
+    const r = meetIcs(meet, { now: NOW });
+    const L = lines(r.text);
+    eq(L[0], 'BEGIN:VCALENDAR'); eq(L[L.length - 2], 'END:VCALENDAR'); eq(L[L.length - 1], '', 'ends with CRLF');
+    assert(/\r\n/.test(r.text) && !/[^\r]\n/.test(r.text), 'every line ends in CRLF');
+    eq(L.filter(x => x === 'BEGIN:VEVENT').length, 2); eq(L.filter(x => x === 'END:VEVENT').length, 2);
+    assert(L.includes('DTSTART;VALUE=DATE:20261222') && L.includes('DTEND;VALUE=DATE:20261223'), 'all day, the end is the next day');
+    assert(L.includes('SUMMARY:Fall Nationals'), 'the meet');
+    assert(L.includes('DTSTART:20261222T070000') && L.includes('DTEND:20261222T083000'), 'the 2-hour weigh-in: 07:00 to 08:30, the meet\'s own time (no zone)');
+    assert(L.includes('SUMMARY:Weigh-in · Fall Nationals') && L.includes('TRIGGER:-PT30M'), 'its reminder 30 minutes before');
+    assert(L.includes('DESCRIPTION:Powerlifting America · Open · 74 kg class\\n2-hour weigh-in at 07:00'), 'federation, division, class and the weigh-in in plain words');
+    assert(L.includes('DTSTAMP:20261030T120000Z'), 'the stamp in UTC');
+    eq(r.filename, 'fall-nationals-2026-12-22.ics');
+  });
+  test('the same meet saved twice keeps its ids, so a calendar updates it instead of adding a copy', () => {
+    const a = lines(meetIcs(meet, { now: NOW }).text).filter(x => /^UID:/.test(x));
+    const b = lines(meetIcs(Object.assign({}, meet, { name: 'Fall Nationals (moved)' }), { now: NOW + 86400000 }).text).filter(x => /^UID:/.test(x));
+    eq(a.join(), 'UID:meet-m-1@powalifta.com,UID:weighin-m-1@powalifta.com'); eq(b.join(), a.join());
+    const g = lines(meetIcs({ name: 'City Classic', date: '2026-12-01' }, { now: NOW, uidKey: 'city classic|2026-12-01', who: ['Priya', 'Sarah'] }).text);
+    assert(g.includes('UID:meet-city-classic-2026-12-01@powalifta.com'), 'a grouped meet: its key, made safe');
+    assert(g.includes('DESCRIPTION:Lifting: Priya\\, Sarah'), 'the coach\'s lifters at it');
+  });
+  test('a 24-hour weigh-in the evening before; a time with a zone stays that moment in UTC; no time, no second event', () => {
+    let L = lines(meetIcs(Object.assign({}, meet, { weighIn: '24h', weighInAt: '2026-12-21T17:00' }), { now: NOW }).text);
+    assert(L.includes('DTSTART:20261221T170000') && L.includes('DTEND:20261221T180000'), '24 h: one hour from 17:00 the day before');
+    L = lines(meetIcs(Object.assign({}, meet, { weighInAt: '2026-12-22T07:00:00+01:00' }), { now: NOW }).text);
+    assert(L.includes('DTSTART:20261222T060000Z') && L.includes('DTEND:20261222T073000Z'), 'with an offset: UTC');
+    L = lines(meetIcs(Object.assign({}, meet, { weighInAt: null }), { now: NOW }).text);
+    eq(L.filter(x => x === 'BEGIN:VEVENT').length, 1, 'no time: the meet only');
+    assert(L.includes('DESCRIPTION:Powerlifting America · Open · 74 kg class\\n2-hour weigh-in'), 'the kind of weigh-in still said');
+    L = lines(meetIcs(Object.assign({}, meet, { weighInAt: 'tomorrow morning' }), { now: NOW }).text);
+    eq(L.filter(x => x === 'BEGIN:VEVENT').length, 1, 'a time that isn\'t one: no weigh-in event');
+  });
+  test('a name can\'t add a line of its own; commas and semicolons are escaped; a location only when known', () => {
+    const r = meetIcs({ id: 'x', name: 'Nationals, Day 1; Open\r\nATTENDEE:mailto:evil@example.com', date: '2026-12-22', location: 'Hall 3, Leeds' }, { now: NOW });
+    const L = lines(r.text);
+    assert(!L.some(x => /^ATTENDEE/.test(x)), 'no property smuggled in');
+    eq(L.find(x => /^SUMMARY:/.test(x)), 'SUMMARY:Nationals\\, Day 1\\; Open ATTENDEE:mailto:evil@example.com', 'kept as text');
+    assert(L.includes('LOCATION:Hall 3\\, Leeds'));
+    assert(!lines(meetIcs(meet, { now: NOW }).text).some(x => /^LOCATION/.test(x)), 'no location field when none is known');
+  });
+  test('long lines fold at 75 octets and never inside a character', () => {
+    const r = meetIcs({ id: 'y', name: 'Championnats de France de Force Athlétique — Élite Ü20 · ' + 'Ünïcödé '.repeat(12), date: '2026-12-22', federation: 'FFForce' }, { now: NOW });
+    const raw = r.text.split('\r\n');
+    const enc = new TextEncoder();
+    assert(raw.every(x => enc.encode(x).length <= 75), 'no line over 75 octets');
+    assert(raw.some(x => /^ /.test(x)), 'it did fold');
+    assert(lines(r.text).some(x => x.indexOf('SUMMARY:Championnats de France de Force Athlétique — Élite Ü20 · Ünïcödé') === 0), 'and unfolds to the name');
+    assert(!/�/.test(new TextDecoder().decode(enc.encode(r.text))), 'every piece is whole UTF-8');
+  });
+  test('no date, no file', () => {
+    eq(meetIcs({ name: 'Meet' }), null); eq(meetIcs(null), null); eq(meetIcs({ name: 'Meet', date: 'soon' }), null);
+  });
+})();
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

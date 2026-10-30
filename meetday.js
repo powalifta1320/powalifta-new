@@ -2596,6 +2596,9 @@ var MeetDay = (function () {
         acts.appendChild(btn(g.planned ? 'Attempts' : 'Plan attempts', 'md-btn-quiet', function () { openAttemptPlanner(g.rows[0].meetId); }));
         if (g.daysOut <= 1 && !boards.some(function (b) { return b.date === g.date && String(b.name).trim().toLowerCase() === g.name.toLowerCase(); }))
           acts.appendChild(btn('Start meet day', 'md-btn-quiet', function () { startMeetDay(g); }));
+        // Meets to calendar (night C): the meet and its weigh-in as an .ics (a download; the share sheet in the app).
+        if (typeof root.saveMeetToCalendar === 'function')
+          acts.appendChild(btn('Add to calendar', 'md-btn-quiet md-cal', function () { root.saveMeetToCalendar(calendarMeet(g), { uidKey: g.key, who: g.rows.map(function (r) { return first(r.name); }) }); }, { 'aria-label': 'Add ' + g.name + ' to your calendar' }));
         li.appendChild(acts);
         ul.appendChild(li);
       });
@@ -2645,6 +2648,11 @@ var MeetDay = (function () {
       ul.appendChild(E('li', {}, E('span', {}, E('b', {}, b.name), E('small', {}, dayText(b.date) + ' · ' + (b.status === 'done' ? 'finished' : 'not finished'))), btn('Open', 'md-btn-quiet', function () { openMeetDayBoard(b.id); })));
     });
     if (ul.children.length) { ps.appendChild(ul); host.appendChild(ps); }
+  }
+  // A grouped meet as one calendar event: one lifter's class when only one lifts at it.
+  function calendarMeet(g) {
+    return { name: g.name, date: g.date, federation: g.federation, division: g.division, weighIn: g.weighIn, weighInAt: g.weighInAt,
+      weightClass: g.rows.length === 1 ? g.rows[0].weightClass : '' };
   }
   function pickLifterButton() {
     var b = btn('Plan a lifter\'s meet', 'md-btn-quiet', function () {

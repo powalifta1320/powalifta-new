@@ -16897,6 +16897,86 @@ function meetAttemptsSet(m) {
   if (!m.id) return false;
   try { const lp = JSON.parse(localStorage.getItem('powa-attempt-plans') || 'null'); return !!(lp && has(lp[m.id])); } catch (e) { return false; }
 }
+// MEETS TO CALENDAR (night C, 30 Oct): a meet as an .ics file (iCalendar, RFC 5545) for Apple Calendar, Google
+// Calendar or Outlook. meet: { id?, name, date 'YYYY-MM-DD', federation?, division?, weightClass?, weighIn '2h'|'24h'?,
+// weighInAt 'YYYY-MM-DDTHH:MM[:SS]' (the meet's local time, as the planner saves it; or with Z/an offset)?, location? }.
+// opts: { now (ms or Date: DTSTAMP), who: ['Arjun', 'Tom'] (the coach's lifters at it), uidKey (a stable id for a
+// grouped meet) }. One all-day event on the meet date, and the weigh-in as its own timed event when its time is set
+// (1 h 30 for a 2-hour weigh-in, the IPF's window; 1 h for a 24-hour one), with a reminder 30 minutes before. The
+// same meet exported twice has the same UIDs, so a calendar updates it instead of adding a copy. Every text is
+// escaped and folded, so a name can't add a line of its own. → { text, filename } | null (no valid date). Pure: tested.
+function meetIcs(meet, opts) {
+  opts = opts || {};
+  const date = _isoDay(meet && meet.date);
+  if (!date) return null;
+  const clean = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max || 200);
+  const esc = (v) => String(v).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n');
+  // Lines longer than 75 octets fold onto the next with a space (RFC 5545 3.1), never inside a character.
+  const fold = (line) => {
+    const enc = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;
+    const bytes = (s) => enc ? enc.encode(s).length : unescape(encodeURIComponent(s)).length;
+    if (bytes(line) <= 75) return line;
+    const out = []; let cur = '', limit = 75;
+    for (const ch of Array.from(line)) {
+      if (bytes(cur + ch) > limit) { out.push(cur); cur = ''; limit = 74; }
+      cur += ch;
+    }
+    if (cur) out.push(cur);
+    return out.join('\r\n ');
+  };
+  const name = clean(meet.name, 120) || 'Meet';
+  const d8 = (iso) => iso.replace(/-/g, '');
+  const next = _addDaysISO(date, 1);
+  const stampMs = opts.now instanceof Date ? opts.now.getTime() : (Number(opts.now) || Date.now());
+  const utc = (ms) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'meet';
+  const key = clean(opts.uidKey || meet.id || (slug(name) + '-' + date), 80).replace(/[^A-Za-z0-9._-]/g, '-');
+  const who = (opts.who || []).map(w => clean(w, 40)).filter(Boolean);
+  const wi = meet.weighIn === '2h' || meet.weighIn === '24h' ? meet.weighIn : null;
+  const wiAt = String(meet.weighInAt || '');
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(Z|[+-]\d{2}:?\d{2})?$/.exec(wiAt);
+  let wiStart = null, wiEnd = null;
+  if (m) {
+    const mins = wi === '24h' ? 60 : 90;
+    if (m[7]) {   // a zone was given: the moment in UTC
+      const t = Date.parse(wiAt);
+      if (isFinite(t)) { wiStart = utc(t); wiEnd = utc(t + mins * 60000); }
+    } else {      // the meet's local time, as calendars read a time with no zone (floating)
+      const t = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+      const f = (ms) => new Date(ms).toISOString().slice(0, 19).replace(/[-:]/g, '');
+      wiStart = f(t); wiEnd = f(t + mins * 60000);
+    }
+  }
+  const clock = m ? m[4] + ':' + m[5] : '';
+  const details = [[clean(meet.federation, 60), clean(meet.division, 60), meet.weightClass ? clean(String(meet.weightClass).replace(/\s*kg\s*$/i, ''), 12) + ' kg class' : ''].filter(Boolean).join(' · '),
+    wi ? (wi === '2h' ? '2-hour weigh-in' : '24-hour weigh-in') + (clock ? ' at ' + clock : '') : '',
+    who.length ? 'Lifting: ' + who.join(', ') : ''].filter(Boolean);
+  const loc = clean(meet.location, 160);
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//POWALIFTA//Meets//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'BEGIN:VEVENT', 'UID:meet-' + key + '@powalifta.com', 'DTSTAMP:' + utc(stampMs),
+    'DTSTART;VALUE=DATE:' + d8(date), 'DTEND;VALUE=DATE:' + d8(next), 'SUMMARY:' + esc(name)];
+  if (details.length) lines.push('DESCRIPTION:' + esc(details.join('\n')));
+  if (loc) lines.push('LOCATION:' + esc(loc));
+  lines.push('TRANSP:TRANSPARENT', 'END:VEVENT');
+  if (wiStart) {
+    lines.push('BEGIN:VEVENT', 'UID:weighin-' + key + '@powalifta.com', 'DTSTAMP:' + utc(stampMs),
+      'DTSTART:' + wiStart, 'DTEND:' + wiEnd, 'SUMMARY:' + esc('Weigh-in · ' + name));
+    if (loc) lines.push('LOCATION:' + esc(loc));
+    lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc('Weigh-in in 30 minutes'), 'TRIGGER:-PT30M', 'END:VALARM', 'END:VEVENT');
+  }
+  lines.push('END:VCALENDAR');
+  return { text: lines.map(fold).join('\r\n') + '\r\n', filename: slug(name) + '-' + date + '.ics' };
+}
+// Save a meet's .ics: a download on the web, the share sheet the exports use in the iPhone app (_downloadBlob). The
+// demo too: it's a file on this device, nothing is sent. → the _downloadBlob promise
+function saveMeetToCalendar(meet, opts) {
+  const ics = meetIcs(meet, opts);
+  if (!ics) { toast('This meet has no date yet'); return Promise.resolve(false); }
+  return _downloadBlob(ics.filename, 'text/calendar;charset=utf-8', ics.text).then(done => {
+    if (done === 'downloaded') toast('Open ' + ics.filename + ' to add it to your calendar');
+    return done;
+  });
+}
 function _wkBetween(fromMon, toMon) { return Math.round((Date.parse(toMon + 'T12:00:00Z') - Date.parse(fromMon + 'T12:00:00Z')) / (7 * 86400000)); }
 // "W-3" (three weeks out), "Meet week", "W+1" (the week after).
 function meetWeekLabel(weekStartIso, meetIso) {

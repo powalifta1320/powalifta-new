@@ -4412,12 +4412,26 @@ function openMeetSheet() {
       uiRow({ title: 'Practise the commands', sub: 'A referee\'s pause, then the call. Tap early and it\'s a red', chevron: true, onClick: later(() => openCommandsDrill()) }),
       user.coachId ? null : uiRow({ title: 'Plan my first meet', sub: 'Twelve weeks that end on meet week', chevron: true, onClick: later(openFirstMeetSheet) }),
       user.coachId ? null : uiRow({ title: 'Build a peaking block to this date', chevron: true, onClick: () => { const v = di.value; close(); setTimeout(() => generatePeakingFromMeet(v), 220); } }),
-      uiRow({ title: 'Make it a card', chevron: true, onClick: () => shareMeetCard() })
+      uiRow({ title: 'Make it a card', chevron: true, onClick: () => shareMeetCard() }),
+      // Meets to calendar (night C): the meet (the coach's planned one on that date, with its weigh-in) as an .ics.
+      uiRow({ title: 'Add to calendar', sub: 'The meet, and the weigh-in when its time is set', chevron: true,
+        onClick: () => { const m = lifterCalendarMeet(di.value); if (m) saveMeetToCalendar(m); else toast('Set the meet date first'); } })
     ]));
     sheet.appendChild(acts);
   }, { cls: 'meet-sheet' });
 }
 window.openMeetSheet = openMeetSheet;
+// The meet a lifter adds to their calendar: their planned meet on that date (the coach's, with its federation, class
+// and weigh-in), else the next planned one when no date is typed, else just the date they set. → meet | null
+function lifterCalendarMeet(dateIso) {
+  const t = todayISO();
+  const mine = (Store.get().meets || []).filter(m => m.athleteId === user.id && isPlannedMeet(m) && m.date && String(m.date).slice(0, 10) >= t)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const d = String(dateIso || '').slice(0, 10);
+  if (d) return mine.find(m => String(m.date).slice(0, 10) === d) || { name: 'Powerlifting meet', date: d };
+  return mine[0] || null;
+}
+window.lifterCalendarMeet = lifterCalendarMeet;
 
 // FIRST MEET (app.js generateMeetPrep): pick the date, get a plan that ends on
 // meet week — build, get strong, peak, openers — and meet mode takes over on
@@ -5436,9 +5450,11 @@ function renderMeetHistory(area) {
       endHtml: planned ? '<span class="ui-tag">Planned</span>' : (isBest ? '<span class="ui-tag">Best</span>' : '') + '<b>' + exactW(meetTotal(m)) + '</b>' + u,   // a lifted total: exact, never rounded
       chevron: true,
       onClick: () => uiActionSheet(m.name, [
+        // A meet still ahead goes to the calendar (night C): the .ics with its weigh-in.
+        planned && String(m.date || '').slice(0, 10) >= todayISO() ? { label: 'Add to calendar', icon: ICONS.today, onClick: () => saveMeetToCalendar(m) } : null,
         { label: 'Edit result', icon: ICONS.edit, onClick: () => openMeetResultModal(m.id) },
         { label: 'Delete meet', icon: ICONS.trash, danger: true, onClick: () => deleteMeetResult(m.id) }
-      ])
+      ].filter(Boolean))
     });
   })));
   area.appendChild(uiList([uiRow({ title: 'OpenPowerlifting', sub: opl ? 'Linked to ' + opl.name + '. Check for new meets' : 'Bring in your meets, with every attempt', chevron: true, onClick: () => openOplSheet() })]));

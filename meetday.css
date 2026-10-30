@@ -368,7 +368,7 @@ html.md-open .ai-launcher { display: none; }
 .md-meet-count { font-size: 14px; font-weight: 700; }
 .md-meet-plans { font-size: 12px; color: var(--md-warn); font-weight: 600; }
 .md-meet-plans.is-all { color: var(--text-3); }
-.md-meet-acts { display: flex; gap: 8px; }
+.md-meet-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .md-days li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-top: 1px solid var(--md-hair); }
 .md-days li > span { display: flex; flex-direction: column; }
 .md-days b { font-size: 15px; font-weight: 650; }
