@@ -159,10 +159,13 @@
     });
   });
   /* --- The programs band shows once the shop has three published programs: this visit's count, if a page has taken it
-     (app.js siteProgramsReady keeps it ten minutes in powa-mp-count), or else one light read once the page is idle:
+     (app.js siteProgramsReady keeps it ten minutes in powa-mp-count), or else one light read as the reader nears the
+     end of the page (the close within 1600 px below the screen; the band sits under it, so it arrives out of sight):
      up to three ids of published programs, rows anyone may read (the shop lists them signed out), counted and kept
-     as app.js keeps them. The app's own files never load for it; the app counts again if it loads. The project's
-     address and public key are db.js's (SUPABASE_URL, SUPABASE_ANON_KEY): change them there and here together. --- */
+     as app.js keeps them. Never at load: a request then would sit in the opening's critical path (Lighthouse counts
+     it into the phone picture's LCP). The app's own files never load for it; the app counts again if it loads. The
+     project's address and public key are db.js's (SUPABASE_URL, SUPABASE_ANON_KEY): change them there and here
+     together. --- */
   var MP_KEY = 'powa-mp-count';
   function programsCount() {
     try { var mp = JSON.parse(sessionStorage.getItem(MP_KEY) || 'null'); if (mp && Date.now() - mp.at < 600000) { H.classList.toggle('has-programs', mp.n >= 3); return; } } catch (e) {}
@@ -178,8 +181,16 @@
       .catch(function () {});
   }
   try { var mp0 = JSON.parse(sessionStorage.getItem(MP_KEY) || 'null'); if (mp0 && Date.now() - mp0.at < 600000 && mp0.n >= 3) H.classList.add('has-programs'); } catch (e) {}
-  function whenIdle() { (window.requestIdleCallback || function (f) { return setTimeout(f, 1200); })(programsCount, { timeout: 5000 }); }
-  if (document.readyState === 'complete') whenIdle(); else window.addEventListener('load', whenIdle);
+  function countWhenNear() {
+    var near = $('#start') || $('footer.foot');
+    if (!near || !('IntersectionObserver' in window)) { setTimeout(programsCount, 4000); return; }
+    var mpIO = new IntersectionObserver(function (es) {
+      if (!es.some(function (e) { return e.isIntersecting; })) return;
+      mpIO.disconnect(); programsCount();
+    }, { rootMargin: '0px 0px 1600px 0px' });
+    mpIO.observe(near);
+  }
+  if (document.readyState === 'complete') countWhenNear(); else window.addEventListener('load', countWhenNear);
 
   /* --- A link to the max calculator (index.html#e1rm, from the guides) opens the eighth question. --- */
   function openCalc() { var d = document.getElementById('e1rm'); if (location.hash === '#e1rm' && d && !d.open) { d.open = true; d.scrollIntoView({ block: 'start' }); } }
