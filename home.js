@@ -159,8 +159,27 @@
     });
   });
   /* --- The programs band shows once the shop has three published programs: this visit's count, if a page has taken it
-     (app.js siteProgramsReady keeps it ten minutes); the app counts again when it loads. --- */
-  try { var mp = JSON.parse(sessionStorage.getItem('powa-mp-count') || 'null'); if (mp && Date.now() - mp.at < 600000 && mp.n >= 3) H.classList.add('has-programs'); } catch (e) {}
+     (app.js siteProgramsReady keeps it ten minutes in powa-mp-count), or else one light read once the page is idle:
+     up to three ids of published programs, rows anyone may read (the shop lists them signed out), counted and kept
+     as app.js keeps them. The app's own files never load for it; the app counts again if it loads. The project's
+     address and public key are db.js's (SUPABASE_URL, SUPABASE_ANON_KEY): change them there and here together. --- */
+  var MP_KEY = 'powa-mp-count';
+  function programsCount() {
+    try { var mp = JSON.parse(sessionStorage.getItem(MP_KEY) || 'null'); if (mp && Date.now() - mp.at < 600000) { H.classList.toggle('has-programs', mp.n >= 3); return; } } catch (e) {}
+    if (!window.fetch) return;
+    var sb = 'https://cxnotrikxvzncupswvio.supabase.co', key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4bm90cmlreHZ6bmN1cHN3dmlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3OTgwNDAsImV4cCI6MjA5MzM3NDA0MH0.fLl1sXdHnI8IeKUIKOB9Sh0HVATCdshcLXZs5oKuCuU';
+    fetch(sb + '/rest/v1/marketplace_programs?select=id&status=eq.published&limit=3', { headers: { apikey: key, Authorization: 'Bearer ' + key }, credentials: 'omit' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (rows) {
+        if (!Array.isArray(rows)) return;
+        H.classList.toggle('has-programs', rows.length >= 3);
+        try { sessionStorage.setItem(MP_KEY, JSON.stringify({ n: rows.length, at: Date.now() })); } catch (e) {}
+      })
+      .catch(function () {});
+  }
+  try { var mp0 = JSON.parse(sessionStorage.getItem(MP_KEY) || 'null'); if (mp0 && Date.now() - mp0.at < 600000 && mp0.n >= 3) H.classList.add('has-programs'); } catch (e) {}
+  function whenIdle() { (window.requestIdleCallback || function (f) { return setTimeout(f, 1200); })(programsCount, { timeout: 5000 }); }
+  if (document.readyState === 'complete') whenIdle(); else window.addEventListener('load', whenIdle);
 
   /* --- A link to the max calculator (index.html#e1rm, from the guides) opens the eighth question. --- */
   function openCalc() { var d = document.getElementById('e1rm'); if (location.hash === '#e1rm' && d && !d.open) { d.open = true; d.scrollIntoView({ block: 'start' }); } }
