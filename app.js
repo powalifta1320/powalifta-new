@@ -14779,7 +14779,7 @@ function uiPullRefresh(scope, opts) {
     st = { x0: t.clientX, y0: t.clientY, dir: null, armed: false };
   }, { passive: true });
   scope.addEventListener('touchmove', (e) => {
-    if (!st || !e.touches || e.touches.length !== 1) { if (st && e.touches && e.touches.length > 1) { st = null; settle(); } return; }
+    if (!st || !e.touches || e.touches.length !== 1) { if (st && e.touches && e.touches.length > 1) { const pulled = st.dir === 'pull'; st = null; if (pulled) settle(); } return; }
     const t = e.touches[0], dx = t.clientX - st.x0, dy = t.clientY - st.y0;
     if (!st.dir) {
       if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) { if (dy > 0 && e.cancelable) e.preventDefault(); return; }
@@ -14796,12 +14796,13 @@ function uiPullRefresh(scope, opts) {
   }, { passive: false });
   scope.addEventListener('touchend', () => {
     if (!st) return;
-    const go = st.dir === 'pull' && st.armed;
+    const pulled = st.dir === 'pull', go = pulled && st.armed;
     st = null;
+    if (!pulled) return;   // a tap: nothing was drawn, nothing to settle
     if (raf) { cancelAnimationFrame(raf); raf = 0; if (next) paint(next[0], next[1], next[2]); next = null; }
     if (go) refresh(); else settle();
   }, { passive: true });
-  scope.addEventListener('touchcancel', () => { if (st) { st = null; settle(); } }, { passive: true });
+  scope.addEventListener('touchcancel', () => { if (st) { const pulled = st.dir === 'pull'; st = null; if (pulled) settle(); } }, { passive: true });
   return api;
 }
 
