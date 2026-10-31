@@ -898,7 +898,7 @@ html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-row-sub { font-size: 1
 html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-icon-btn { position: relative; width: 44px; height: 44px; border-radius: 50%; color: var(--text-2); }
 html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-icon-btn:active { background: var(--pl-inset-2); }
 
-/* join requests on the phone (coach.html _joinRequestsPhone): a section like the rest, a calm row each, Decline quiet
+/* join requests on the phone (coach.html _newLiftersSection, New lifters): a section like the rest, a calm row each, Decline quiet
    and Accept in graphite. No glow, no red. */
 html:not(.desk) .jr-sec { margin: 0 0 24px; }
 html:not(.desk) .jr-list { display: flex; flex-direction: column; }
