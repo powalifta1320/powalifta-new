@@ -24,6 +24,8 @@ verify_jwt = false
 verify_jwt = false
 [functions.apple-notifications]
 verify_jwt = false
+[functions.apply-to-coach]
+verify_jwt = false
 [functions.send-program-assigned]
 verify_jwt = true
 [functions.send-push]

@@ -26,7 +26,8 @@ if command -v supabase >/dev/null 2>&1; then SB=(supabase); else SB=(npx --yes s
 
 # Public webhooks / unauthenticated callers — deploy WITHOUT JWT verification.
 # send-weekly-digest is cron-triggered (no user session) → gates on CRON_SECRET.
-NO_JWT=(ls-webhook ls-marketplace-webhook send-welcome send-client-error send-weekly-digest unsubscribe apple-notifications)
+# apply-to-coach: people who apply to a coach aren't signed in (its own limits per IP, per email and overall).
+NO_JWT=(ls-webhook ls-marketplace-webhook send-welcome send-client-error send-weekly-digest unsubscribe apple-notifications apply-to-coach)
 # Require a logged-in caller's JWT.
 WITH_JWT=(send-program-assigned send-push ai-chat send-invite delete-account ls-portal apple-iap program-read)
 
