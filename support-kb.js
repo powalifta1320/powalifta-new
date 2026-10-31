@@ -1931,7 +1931,7 @@ window.POWA_SUPPORT_KB = [
    "apple calendar meet",
    "google calendar meet"
   ],
-  "a": "Open the meet and tap **Add to calendar**. A lifter has it in the Meet day sheet (from Train's meet strip) and on a planned meet in Progress › PRs; a coach has it on every meet in **Meets**, on the phone and the laptop. You get an .ics file: the meet as an all-day event, and the weigh-in as its own event with a reminder 30 minutes before when its time is set. On the web it downloads (open it to add it to Apple Calendar, Google Calendar or Outlook); in the iPhone app the share sheet opens. Saving the same meet again updates it instead of adding a copy."
+  "a": "Open the meet and tap **Add to calendar**. A lifter has it in the Meet day sheet (from Train's meet strip) and on a planned meet in Progress › PRs; a coach has it on every meet in **Meets**, on the phone and the laptop. You get an .ics file: the meet as an all-day event, and the weigh-in as its own event with a reminder 30 minutes before when its time is set. On the web it downloads (open it to add it to Apple Calendar, Google Calendar or Outlook); in the iPhone app the share sheet opens. Saving the same meet again, even renamed or moved, updates it instead of adding a copy. When your lifters at one meet weigh in at different times, each time is its own event with their names."
  },
  {
   "id": "stronger-than",
@@ -1960,7 +1960,7 @@ window.POWA_SUPPORT_KB = [
    "post results",
    "block results"
   ],
-  "a": "Open **You › Results cards** (or tap Strength on Home, then **Make a results card**). **This block** is the average change in your lifters' e1RM totals since their current block began (only lifters with all three lifts logged before and during it count, and the card says how many). **PR wall** is every PR your lifters set in the last 7 days. Pick one and tap **Share the card**: a story (9:16) or a post (4:5). Names show as first name and initial, and with branding on, your colour and team name are on the card."
+  "a": "Open **You › Results cards** (or tap Strength on Home, then **Make a results card**). **This block** is the average change in your lifters' e1RM totals since their current block began (only lifters with all three lifts logged before and during it count, and the card says how many). **PR wall** is each lifter's best PR on each lift in the last 7 days. Pick one and tap **Share the card**: a story (9:16) or a post (4:5). Under the picker it says who the average counts and how many went up or down. Names show as first name and initial, and on Pro with branding on, your colour and team name are on the card."
  },
  {
   "id": "coach-applications",

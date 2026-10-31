@@ -8477,6 +8477,14 @@ group('you and the first run (coach-you.js)');
   });
 })();
 
+// Night C review m13: the Results sheet repeated the card; it now says who's counted and the spread under the average.
+test('results: who the block\'s average counts, and how many went up and down', () => {
+  eq(CoachYou.blockSay({ n: 2, running: 3, rows: [{ delta: 7.5 }, { delta: 2.5 }] }), 'Counted: 2 of 3 lifters with a block running (each needs all three lifts logged before the block and in it). 2 up, 0 down.');
+  eq(CoachYou.blockSay({ n: 14, running: 14, rows: Array.from({ length: 14 }, (_, i) => ({ delta: i < 9 ? 5 : i < 13 ? -2.5 : 0 })) }), 'Counted: all 14 lifters with a block running. 9 up, 4 down, 1 level.');
+  eq(CoachYou.blockSay({ n: 1, running: 1, rows: [{ delta: -5 }] }), 'Counted: the 1 lifter with a block running. 0 up, 1 down.');
+  eq(CoachYou.blockSay(null), '');
+});
+
 /* ===========================================================
    The desk's who-wrote-last (2026-10-28): a digest is read fresh every time (DB.coachInbox keeps none),
    the coach's own reply moves the thread at once (sent here, or heard live from their phone), and a
@@ -9217,6 +9225,32 @@ group('meets to calendar (meetIcs)');
   });
   test('no date, no file', () => {
     eq(meetIcs({ name: 'Meet' }), null); eq(meetIcs(null), null); eq(meetIcs({ name: 'Meet', date: 'soon' }), null);
+  });
+  // Night C review m2, m3: a grouped meet gave everyone the first lifter's weigh-in, and its id was its name and date.
+  test('a grouped meet: one weigh-in event per time, each naming its lifters; one shared time stays one event', () => {
+    const MD = window.MeetDay && MeetDay.pure;
+    const g = { key: 'fall nationals|2026-12-12', name: 'Fall Nationals', date: '2026-12-12', federation: 'USAPL', division: 'Open', weighIn: '2h', weighInAt: '2026-12-12T07:00',
+      rows: [{ meetId: 'm-b', name: 'Arjun Mehta', weighIn: '2h', weighInAt: '2026-12-12T07:00' }, { meetId: 'm-a', name: 'Sarah Kim', weighIn: '2h', weighInAt: '2026-12-12T13:00' }] };
+    const cm = MD.calendarMeet(g);
+    eq(JSON.stringify(cm.weighIns.map(w => [w.weighInAt, w.who.join()])), JSON.stringify([['2026-12-12T07:00', 'Arjun'], ['2026-12-12T13:00', 'Sarah']]));
+    const L = lines(meetIcs(cm, { now: NOW, uidKey: MD.calendarKey(g), who: ['Arjun', 'Sarah'] }).text);
+    const sums = L.filter(x => /^SUMMARY:Weigh-in/.test(x));
+    eq(JSON.stringify(sums), JSON.stringify(['SUMMARY:Weigh-in · Fall Nationals · Arjun', 'SUMMARY:Weigh-in · Fall Nationals · Sarah']));
+    eq(JSON.stringify(L.filter(x => /^DTSTART:/.test(x))), JSON.stringify(['DTSTART:20261212T070000', 'DTSTART:20261212T130000']), 'each at its own time');
+    assert(L.some(x => /^DESCRIPTION:.*Weigh-ins: Arjun 07:00\\, Sarah 13:00/.test(x)), 'the meet says both');
+    const uids = L.filter(x => /^UID:weighin-/.test(x));
+    eq(uids.length, 2); assert(uids[0] !== uids[1], 'two ids');
+    const same = MD.calendarMeet(Object.assign({}, g, { rows: g.rows.map(r => Object.assign({}, r, { weighInAt: '2026-12-12T07:00' })) }));
+    eq(same.weighIns, null, 'one time: the meet\'s own weigh-in');
+    const L2 = lines(meetIcs(same, { now: NOW, uidKey: 'k' }).text);
+    eq(L2.filter(x => /^SUMMARY:Weigh-in/.test(x)).join(), 'SUMMARY:Weigh-in · Fall Nationals');
+  });
+  test('the coach\'s calendar id is the meet\'s, not its name and date: renamed or moved, it updates', () => {
+    const MD = window.MeetDay && MeetDay.pure;
+    const g = { key: 'fall nationals|2026-12-12', rows: [{ meetId: 'm-b' }, { meetId: 'm-a' }] };
+    eq(MD.calendarKey(g), 'm-m-a');
+    eq(MD.calendarKey(Object.assign({}, g, { key: 'fall nationals (moved)|2026-12-19' })), 'm-m-a', 'the same after a rename or a move');
+    eq(MD.calendarKey({ key: 'x|2026-12-01', rows: [] }), 'x|2026-12-01', 'no ids: as before');
   });
 })();
 

@@ -17141,6 +17141,7 @@ function meetAttemptsSet(m) {
 // MEETS TO CALENDAR (night C, 30 Oct): a meet as an .ics file (iCalendar, RFC 5545) for Apple Calendar, Google
 // Calendar or Outlook. meet: { id?, name, date 'YYYY-MM-DD', federation?, division?, weightClass?, weighIn '2h'|'24h'?,
 // weighInAt 'YYYY-MM-DDTHH:MM[:SS]' (the meet's local time, as the planner saves it; or with Z/an offset)?, location? }.
+// weighIns: [{ weighIn, weighInAt, who: ['Arjun'], key }] (a grouped meet's lifters by weigh-in time) in place of the one.
 // opts: { now (ms or Date: DTSTAMP), who: ['Arjun', 'Tom'] (the coach's lifters at it), uidKey (a stable id for a
 // grouped meet) }. One all-day event on the meet date, and the weigh-in as its own timed event when its time is set
 // (1 h 30 for a 2-hour weigh-in, the IPF's window; 1 h for a 24-hour one), with a reminder 30 minutes before. The
@@ -17173,25 +17174,37 @@ function meetIcs(meet, opts) {
   const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'meet';
   const key = clean(opts.uidKey || meet.id || (slug(name) + '-' + date), 80).replace(/[^A-Za-z0-9._-]/g, '-');
   const who = (opts.who || []).map(w => clean(w, 40)).filter(Boolean);
-  const wi = meet.weighIn === '2h' || meet.weighIn === '24h' ? meet.weighIn : null;
-  const wiAt = String(meet.weighInAt || '');
-  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(Z|[+-]\d{2}:?\d{2})?$/.exec(wiAt);
-  let wiStart = null, wiEnd = null;
-  if (m) {
-    const mins = wi === '24h' ? 60 : 90;
-    if (m[7]) {   // a zone was given: the moment in UTC
-      const t = Date.parse(wiAt);
-      if (isFinite(t)) { wiStart = utc(t); wiEnd = utc(t + mins * 60000); }
-    } else {      // the meet's local time, as calendars read a time with no zone (floating)
-      const t = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
-      const f = (ms) => new Date(ms).toISOString().slice(0, 19).replace(/[-:]/g, '');
-      wiStart = f(t); wiEnd = f(t + mins * 60000);
+  // One weigh-in: { weighIn, weighInAt } → its event's times and clock, or null without a readable time.
+  const weigh = (o) => {
+    const wi = o && (o.weighIn === '2h' || o.weighIn === '24h') ? o.weighIn : null;
+    const at = String((o && o.weighInAt) || '');
+    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(Z|[+-]\d{2}:?\d{2})?$/.exec(at);
+    let start = null, end = null;
+    if (m) {
+      const mins = wi === '24h' ? 60 : 90;
+      if (m[7]) {   // a zone was given: the moment in UTC
+        const t = Date.parse(at);
+        if (isFinite(t)) { start = utc(t); end = utc(t + mins * 60000); }
+      } else {      // the meet's local time, as calendars read a time with no zone (floating)
+        const t = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+        const f = (ms) => new Date(ms).toISOString().slice(0, 19).replace(/[-:]/g, '');
+        start = f(t); end = f(t + mins * 60000);
+      }
     }
-  }
-  const clock = m ? m[4] + ':' + m[5] : '';
+    return { wi, start, clock: m ? m[4] + ':' + m[5] : '', end };
+  };
+  // A grouped meet whose lifters weigh in at different times (meet.weighIns: [{ weighIn, weighInAt, who, key }], night C
+  // review m2): one weigh-in event per time, each naming its lifters; one shared time stays one event for all.
+  const list = Array.isArray(meet.weighIns) && meet.weighIns.length
+    ? meet.weighIns.map(x => Object.assign(weigh(x), { who: (x.who || []).map(w => clean(w, 40)).filter(Boolean), key: clean(x.key || '', 40).replace(/[^A-Za-z0-9._-]/g, '-') }))
+    : [Object.assign(weigh(meet), { who: [], key: '' })];
+  const timed = list.filter(x => x.start);
+  const several = timed.length > 1;
+  const kind = (wi) => (wi === '2h' ? '2-hour weigh-in' : '24-hour weigh-in');
+  const wiLine = several ? 'Weigh-ins: ' + timed.map(x => (x.who.length ? x.who.join(' and ') + ' ' : '') + x.clock).join(', ')
+    : list[0].wi ? kind(list[0].wi) + (timed[0] ? ' at ' + timed[0].clock : '') : '';
   const details = [[clean(meet.federation, 60), clean(meet.division, 60), meet.weightClass ? clean(String(meet.weightClass).replace(/\s*kg\s*$/i, ''), 12) + ' kg class' : ''].filter(Boolean).join(' · '),
-    wi ? (wi === '2h' ? '2-hour weigh-in' : '24-hour weigh-in') + (clock ? ' at ' + clock : '') : '',
-    who.length ? 'Lifting: ' + who.join(', ') : ''].filter(Boolean);
+    wiLine, who.length ? 'Lifting: ' + who.join(', ') : ''].filter(Boolean);
   const loc = clean(meet.location, 160);
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//POWALIFTA//Meets//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
     'BEGIN:VEVENT', 'UID:meet-' + key + '@powalifta.com', 'DTSTAMP:' + utc(stampMs),
@@ -17199,12 +17212,12 @@ function meetIcs(meet, opts) {
   if (details.length) lines.push('DESCRIPTION:' + esc(details.join('\n')));
   if (loc) lines.push('LOCATION:' + esc(loc));
   lines.push('TRANSP:TRANSPARENT', 'END:VEVENT');
-  if (wiStart) {
-    lines.push('BEGIN:VEVENT', 'UID:weighin-' + key + '@powalifta.com', 'DTSTAMP:' + utc(stampMs),
-      'DTSTART:' + wiStart, 'DTEND:' + wiEnd, 'SUMMARY:' + esc('Weigh-in · ' + name));
+  timed.forEach((x) => {
+    lines.push('BEGIN:VEVENT', 'UID:weighin-' + key + (several && x.key ? '-' + x.key : '') + '@powalifta.com', 'DTSTAMP:' + utc(stampMs),
+      'DTSTART:' + x.start, 'DTEND:' + x.end, 'SUMMARY:' + esc('Weigh-in · ' + name + (several && x.who.length ? ' · ' + x.who.join(', ') : '')));
     if (loc) lines.push('LOCATION:' + esc(loc));
     lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc('Weigh-in in 30 minutes'), 'TRIGGER:-PT30M', 'END:VALARM', 'END:VEVENT');
-  }
+  });
   lines.push('END:VCALENDAR');
   return { text: lines.map(fold).join('\r\n') + '\r\n', filename: slug(name) + '-' + date + '.ics' };
 }
