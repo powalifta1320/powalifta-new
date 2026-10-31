@@ -71,10 +71,13 @@ const num = (v: unknown): number | null => {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // The applicant's email: open the link and the application goes to the coach.
-export function confirmEmail(o: { coach: string; link: string }): { subject: string; html: string; text: string } {
+// It shows what would be sent (the name, the line, the note's start), so someone whose email a stranger used can tell
+// it isn't theirs and simply not open it.
+export function confirmEmail(o: { coach: string; link: string; summary?: string }): { subject: string; html: string; text: string } {
   const coach = mailName(o.coach, 'the coach');
   const subject = `Confirm your application to ${coach}`;
-  const text = `You applied to train with ${coach} on POWALIFTA.
+  const what = String(o.summary || '').slice(0, 400);
+  const text = `You applied to train with ${coach} on POWALIFTA.${what ? '\n\nWhat you sent: ' + what : ''}
 
 Open this link to send it. ${coach} sees nothing until you do, and the link works for 48 hours:
 ${o.link}
@@ -88,7 +91,8 @@ POWALIFTA`;
 <div style="max-width:520px;margin:0 auto;padding:36px 24px;">
   <div style="font-weight:800;font-size:15px;letter-spacing:0.08em;margin:0 0 30px;">POWALIFTA</div>
   <h1 style="font-size:26px;line-height:1.2;letter-spacing:-0.02em;margin:0 0 14px;">Send your application to ${htmlEscape(coach)}</h1>
-  <p style="color:#b9b9c1;font-size:16px;line-height:1.6;margin:0 0 26px;">${htmlEscape(coach)} sees nothing until you open this. The link works for 48 hours.</p>
+  <p style="color:#b9b9c1;font-size:16px;line-height:1.6;margin:0 0 ${what ? 14 : 26}px;">${htmlEscape(coach)} sees nothing until you open this. The link works for 48 hours.</p>
+  ${what ? `<p style="color:#8e8e98;font-size:14px;line-height:1.6;margin:0 0 26px;padding:12px 14px;border:1px solid #232327;border-radius:12px;">What you sent: ${htmlEscape(what)}</p>` : ''}
   <a href="${htmlEscape(o.link)}" style="display:inline-block;background:#c41a2c;color:#ffffff;text-decoration:none;padding:14px 26px;border-radius:999px;font-weight:650;font-size:16px;">Send my application</a>
   <p style="color:#8e8e98;font-size:14px;line-height:1.6;margin:28px 0 0;">If it's a fit, ${htmlEscape(coach)} emails you an invite link.</p>
   <p style="color:#6f6f78;font-size:13px;line-height:1.6;margin:24px 0 0;padding-top:20px;border-top:1px solid #1d1d22;">Didn't apply? Ignore this email: nothing is sent without the link.</p>
@@ -185,7 +189,10 @@ async function apply(admin: any, req: Request, p: any): Promise<Response> {
   }
   const row = (Array.isArray(data) ? data[0] : data) || {};
   const link = `${SITE}/coach-profile.html?id=${encodeURIComponent(coachId)}#confirm=${token}`;
-  const sent = await sendMail(email, confirmEmail({ coach: String(row.coach_name || ''), link }));
+  const note = String(p?.note || '').replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/\s+/g, ' ').trim();
+  const summary = [mailName(p?.name, ''), leadSummary({ training_years: num(p?.trainingYears), squat_kg: num(p?.squat), bench_kg: num(p?.bench), deadlift_kg: num(p?.deadlift), bodyweight_kg: num(p?.bodyweight), next_meet: meet }),
+    String(p?.goals || '').replace(/[\p{Cc}\p{Cf}]/gu, ' ').trim().slice(0, 120), note ? '\u201c' + note.slice(0, 140) + (note.length > 140 ? '\u2026' : '') + '\u201d' : ''].filter(Boolean).join(' \u00b7 ');
+  const sent = await sendMail(email, confirmEmail({ coach: String(row.coach_name || ''), link, summary }));
   if (!sent) return json(502, { error: 'email_failed', message: 'We couldn’t send the email. Try again in a few minutes.' });
   return json(200, { ok: true });
 }

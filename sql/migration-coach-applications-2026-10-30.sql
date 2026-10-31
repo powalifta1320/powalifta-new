@@ -30,9 +30,10 @@
 --   nobody else        reads or writes anything: not another coach, not a lifter, not anon. No insert policy at all.
 --
 -- The rules:
---   - a repeat from the same email to the same coach before it's confirmed replaces the unconfirmed one (a new link);
---     once confirmed, the newest application from that email to that coach replaces the waiting one, so the real
---     person's own words always reach the coach (never "sent" and dropped)
+--   - every application has its own link: a stranger who reuses someone's email only sends that person an email (it
+--     shows what would be sent, so they can tell it isn't theirs), and can't replace the link they're waiting for; the
+--     one confirmed replaces every other from that email to that coach, waiting or unconfirmed, so the real person's
+--     own words always reach the coach (never "sent" and dropped)
 --   - the coach's list never refuses anyone: there is no cap per coach (junk never confirms, and expires)
 --   - names, goals and notes lose control and format characters (a right-to-left override can't spoof a name); an
 --     email with any is refused; lifts are rounded to 0.01 kg before they're checked (0.004 kg is "over 0" no more)
@@ -254,8 +255,6 @@ begin
   perform pg_advisory_xact_lock(hashtextextended('coach_applications:email:' || v_email, 0));
 
   perform public.coach_applications_tidy();
-  -- An unconfirmed one from this email to this coach: this one replaces it (only the newest link works).
-  delete from public.coach_applications a where a.coach_id = p_coach and a.email = v_email and a.confirmed_at is null;
 
   insert into public.coach_applications (coach_id, name, email, training_years, squat_kg, bench_kg, deadlift_kg, bodyweight_kg, next_meet, goals, note, confirm_hash)
   values (p_coach, v_name, v_email, p_training_years, v_sq, v_be, v_de, v_bw, p_next_meet, v_goals, v_note, p_confirm_hash)
@@ -267,7 +266,8 @@ revoke all on function public.apply_to_coach(uuid, text, text, integer, numeric,
 grant execute on function public.apply_to_coach(uuid, text, text, integer, numeric, numeric, numeric, numeric, date, text, text, text) to service_role;
 
 -- Confirm: the applicant opened their link (the edge function hashes the token). Within 48 hours the application
--- reaches the coach, replacing an earlier waiting one from the same email; a second open says so.
+-- reaches the coach, replacing every other from the same email to that coach (waiting, or still unconfirmed); a second
+-- open says so.
 -- → { result: 'confirmed' | 'already', id, coach_id, coach_name, name, training_years, squat_kg, bench_kg, deadlift_kg,
 --     bodyweight_kg, next_meet, goals } | { result: 'unknown' } (no such link, or it expired)
 create or replace function public.confirm_coach_application(p_hash text)
@@ -291,9 +291,9 @@ begin
   else
     perform pg_advisory_xact_lock(hashtextextended('coach_applications:coach:' || a.coach_id::text, 0));
     update public.coach_applications set confirmed_at = now() where id = a.id;
-    -- The newest from this email to this coach is the one the coach reads.
+    -- The one confirmed is the one the coach reads: the rest from this email to this coach go (a decided one stays).
     delete from public.coach_applications x where x.coach_id = a.coach_id and x.email = a.email and x.id <> a.id
-       and x.status = 'new' and x.confirmed_at is not null;
+       and x.status = 'new';
   end if;
   select split_part(btrim(coalesce(p.name, '')), ' ', 1) into v_coach from public.profiles p where p.id = a.coach_id;
   return jsonb_build_object('result', v_result, 'id', a.id, 'coach_id', a.coach_id, 'coach_name', coalesce(nullif(v_coach, ''), 'the coach'),

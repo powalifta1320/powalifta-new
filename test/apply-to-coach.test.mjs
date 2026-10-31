@@ -83,7 +83,6 @@ function world(o) {
       if (!String(p.p_name || '').trim() || String(p.p_name).length > 80) return { data: null, error: { code: 'P0001', message: 'Your name is 1 to 80 characters.' } };
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p.p_email)) return { data: null, error: { code: 'P0001', message: 'That email doesn’t look right.' } };
       if (!/^[0-9a-f]{64}$/.test(p.p_confirm_hash || '')) return { data: null, error: { code: '22023', message: 'a confirm hash is 64 hex characters' } };
-      W.apps = W.apps.filter(a => !(a.email === p.p_email && !a.confirmed));
       const id = 'app-' + (W.apps.length + 1) + '-' + Math.random().toString(36).slice(2, 6);
       W.apps.push({ id, p, email: p.p_email, hash: p.p_confirm_hash, confirmed: false });
       return { data: { result: 'pending', id, coach_name: 'Sam' }, error: null };
@@ -92,6 +91,7 @@ function world(o) {
       const a = W.apps.find(x => x.hash === p.p_hash);
       if (!a) return { data: { result: 'unknown' }, error: null };
       const was = a.confirmed; a.confirmed = true;
+      if (!was) W.apps = W.apps.filter(x => x === a || x.email !== a.email);   // the one confirmed replaces the rest from that email
       return { data: { result: was ? 'already' : 'confirmed', id: a.id, coach_id: SAM, coach_name: 'Sam', name: a.p.p_name, training_years: a.p.p_training_years,
         squat_kg: a.p.p_squat, bench_kg: a.p.p_bench, deadlift_kg: a.p.p_deadlift, bodyweight_kg: a.p.p_bodyweight, next_meet: a.p.p_next_meet, goals: a.p.p_goals }, error: null };
     }
@@ -143,6 +143,13 @@ await t('apply: stored unconfirmed with the hash of a fresh token; the applicant
   eq(W.apps[0].hash, W.sha(tok), 'only its hash is stored');
   ok(!SENT.some(m => m.to[0] === 'sam@coach.test') && !__PUSH.length, 'the coach hears nothing before the link is opened');
   eq(W.apps[0].p.p_bodyweight, 82.4); eq(W.apps[0].p.p_next_meet, '2026-12-12');
+});
+await t('the applicant\'s email shows what would be sent, so someone whose email was used can tell it isn\'t theirs', async () => {
+  world(); SENT.length = 0;
+  await call(Object.assign({}, MIA, { note: 'Knee was cranky last year. <b>Fine now.</b>' }));
+  const m = SENT[0];
+  ok(/What you sent: Mia Lane · 3 years training · 140 \/ 82\.5 \/ 170 kg · 82\.4 kg bodyweight · next meet 2026-12-12 · First meet in spring · “Knee was cranky last year\. <b>Fine now\.<\/b>”/.test(m.text), m.text.split('\n').slice(0, 4).join(' | '));
+  ok(/What you sent: Mia Lane/.test(m.html) && !/<b>Fine/.test(m.html) && /&lt;b&gt;Fine/.test(m.html), 'escaped in the HTML');
 });
 await t('two applications get two different tokens', async () => {
   world(); SENT.length = 0;
