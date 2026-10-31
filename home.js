@@ -106,7 +106,8 @@
     var r = function (el) { var b = el.getBoundingClientRect(); return [b.top + y0, b.bottom + y0]; };
     chapters = tocLinks.map(function (l) {
       var id = l.dataset.ch;
-      if (id === 'today') { var t = r($('#today')), w = r($('#who')); return [t[0], w[1]]; }
+      /* Today starts at its first words (on a laptop with motion they sit beside Arjun's phone, above the row). */
+      if (id === 'today') { var t = r($('#today')), c = r($('.land-copy')), w = r($('#who')); return [Math.min(t[0], c[0]), w[1]]; }
       return r(document.getElementById(id));
     });
   }
@@ -361,10 +362,9 @@
 
   /* --- The set's flight (scrubbed): it lifts off Arjun's set card and is carried to his squat card on Sam's laptop. Its
      two ends are wherever the page has them this frame. --- */
-  var land = $('#today');
-  var F = { p: 0 };
+  var F = { p: 0 }, phBody = $('#phBody');   // the phone itself (its figure also holds the legend on phones and tablets)
   function placeFly() {
-    var p = F.p, a = phone.getBoundingClientRect(), b = ring.getBoundingClientRect();
+    var p = F.p, a = phBody.getBoundingClientRect(), b = ring.getBoundingClientRect();
     var fw = fly.offsetWidth, fh = fly.offsetHeight;
     var sx = a.left + a.width * (196 / 393), sy = a.top + a.height * (236 / 852);
     var ex = b.left + b.width / 2, ey = b.top + b.height / 2;
@@ -374,37 +374,40 @@
     var k = k0 + (k1 - k0) * clamp(0, 1, (q - 0.55) / 0.45);
     gsap.set(fly, { x: sx + (ex - sx) * e - fw / 2 + arc, y: sy - up * (1 - e) + (ey - sy) * e - fh / 2, scale: k, rotation: (ex - sx) * 0.004 * Math.sin(Math.PI * q) });
   }
-  /* Where the window sits, and when each beat of it happens (scroll positions, from its layout). On a laptop the window
-     rises zoomed out on Sam's whole screen and zooms in to Arjun's page as it comes up; the set lands there; then, as
-     the list's words come level, it pans along the same screen to the list. Stacked, it zooms in as it rises and the set
-     lands at Arjun's page's real size; the list is its own figure below. */
+  /* Where the window sits, and when each beat of it happens (scroll positions, from its layout). The window rises zoomed
+     out on Sam's whole screen and zooms in to Arjun's page as it comes up; the set lands there and the total ticks;
+     then, as the list's words come level (on a laptop) or come up under it (stacked), it pans along the same screen to
+     the list. */
   var winTop = function () { return layoutTop(fwPort); };
   var crossStart = function () { return logStart() + (small() ? 140 : 160); };
-  var landAt = function () { return Math.max(crossStart() + 320, winTop() - vhOf() * (wide() ? 0.4 : 0.16)); };
+  var landAt = function () { return Math.max(crossStart() + 320, winTop() - vhOf() * (wide() ? 0.4 : 0.34)); };
   gsap.timeline({ defaults: { ease: 'none' }, scrollTrigger: { start: crossStart, end: landAt, scrub: 0.5, invalidateOnRefresh: true } })
     .fromTo(F, { p: 0 }, { p: 1, duration: 1, onUpdate: placeFly }, 0)
     .fromTo(fly, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.02 }, 0)
     .to(fly, { autoAlpha: 0, duration: 0.02 }, 0.98);
 
-  /* --- The window: Sam's whole screen, zoomed in to Arjun's page at its real size, then (laptops) panned to the list:
+  /* --- The window: Sam's whole screen, zoomed in to Arjun's page at its real size, then panned to the list:
      one scrubbed timeline, so its three states never fight. The squat card is ringed once as the set lands, then the
      total ticks up 651 to 656. --- */
-  function deskFit() { var w = fwPort.clientWidth, h = fwPort.clientHeight, s = w / 1440; return { x: 0, y: Math.max(0, (h - 900 * s) / 2), s: s }; }
+  /* Zoomed out: Sam's screen covering the window (no empty bands), centred on the line between his list and Arjun's page. */
+  function deskFit() {
+    var w = fwPort.clientWidth, h = fwPort.clientHeight, s = Math.max(w / 1440, h / 900), seen = w / s, cx = wide() ? 720 : 650;
+    return { x: -clamp(0, 1440 - seen, cx - seen / 2) * s, y: -(900 - h / s) / 2 * s, s: s };
+  }
   function deskHold() { var k = fk(); return { x: -668 * k, y: -16 * k, s: k }; }
-  var LIST = { x: -212, y: -180 };   // the list's view: "Check on" to Kofi, its group numbers clear of the window's edge
+  /* The list's view: "Check on" to Kofi, its group numbers clear of the window's edge (scaled a touch on a phone so its
+     numbers' column stays in). */
+  function deskList() { var s = Math.min(fk(), fwPort.clientWidth / 398); return { x: -222 * s, y: -180 * s, s: s }; }
   gsap.set(fwDesk, { transformOrigin: '0 0' });
   var listAt = function () { return winTop() - vhOf() * 0.08; };
   mm.add({ side: '(min-width: 1100px)', stack: '(max-width: 1099px)' }, function (ctx) {
-    var from = function (k) { return function () { return deskFit()[k]; }; }, hold = function (k) { return function () { return deskHold()[k]; }; };
-    if (ctx.conditions.side) {
-      /* In vh of scroll: zoom 0.56, hold 0.14 (the set lands, the total ticks), pan 0.22. */
-      gsap.timeline({ scrollTrigger: { start: function () { return winTop() - vhOf(); }, end: listAt, scrub: 0.6, invalidateOnRefresh: true } })
-        .fromTo(fwDesk, { x: from('x'), y: from('y'), scale: from('s') }, { x: hold('x'), y: hold('y'), scale: hold('s'), ease: INOUT, duration: 0.56 }, 0)
-        .to(fwDesk, { x: LIST.x, y: LIST.y, ease: INOUT, duration: 0.22 }, 0.7);
-      return;
-    }
-    gsap.timeline({ scrollTrigger: { start: function () { return winTop() - vhOf() * 0.92; }, end: function () { return winTop() - vhOf() * 0.3; }, scrub: 0.6, invalidateOnRefresh: true } })
-      .fromTo(fwDesk, { x: from('x'), y: from('y'), scale: from('s') }, { x: hold('x'), y: hold('y'), scale: hold('s'), ease: INOUT, duration: 1 }, 0);
+    var at = function (f, k) { return function () { return f()[k]; }; };
+    /* In vh of scroll before the window's top reaches 8% of the screen: zoom in as it rises, hold while the set lands and
+       the total ticks, then pan to the list. */
+    var A = ctx.conditions.side ? [1, 0.44, 0.3] : [0.92, 0.4, 0.24];
+    gsap.timeline({ scrollTrigger: { start: function () { return winTop() - vhOf() * A[0]; }, end: listAt, scrub: 0.6, invalidateOnRefresh: true } })
+      .fromTo(fwDesk, { x: at(deskFit, 'x'), y: at(deskFit, 'y'), scale: at(deskFit, 's') }, { x: at(deskHold, 'x'), y: at(deskHold, 'y'), scale: at(deskHold, 's'), ease: INOUT, duration: A[0] - A[1] }, 0)
+      .to(fwDesk, { x: at(deskList, 'x'), y: at(deskList, 'y'), scale: at(deskList, 's'), ease: INOUT, duration: A[2] - 0.08 }, A[0] - A[2]);
   });
   var desk = $('#fwDesk'), ovs = function (c) { return $('.' + c + ' .num', desk); };
   var wasEl = function (n) { return $('.was[src*="' + n + '"]', desk); };
@@ -437,42 +440,24 @@
 
   /* =====================================================================
      TODAY: the lifters who need Sam first, in the app's order, pain first (Priya and Sarah, then Tom's meet, Nina's busy
-     week, Elena over her class, Marcus over plan, the two who wrote). On a laptop the window has panned to Sam's list:
-     each group is ringed and numbered in turn and its reason lights in the chain beside it. Stacked, the list's own
-     figure builds row by row, each group's pin with it, and the chain rises above it.
+     week, Elena over her class, Marcus over plan, the two who wrote). The window has panned to Sam's list: each group is
+     ringed and numbered in turn and its reason lights in the chain beside it (below it on a phone). The list's own
+     figure is the still's.
      ===================================================================== */
   words($('#who-h'), { start: 'top 94%' });
   rise([$('.who .sub'), $('#rules')], { trigger: $('.who .sub'), start: 'top 94%' });
-  var listPic = $('.fw-port-list picture'), fpins = $$('.fpin'), chainLis = $$('#chain li');
-  var grps = $$('.grp', desk), mks = $$('.mk', desk);
-  var stops = [38, 170, 236, 302, 368, 434, 566];
-  var inset = function (y) { return 'inset(0% 0% ' + ((572 - y) / 572 * 100).toFixed(3) + '% 0%)'; };
-  mm.add({ side: '(min-width: 1100px)', stack: '(max-width: 1099px)' }, function (ctx) {
-    var listTl = gsap.timeline({ paused: true }), g, at;
-    if (ctx.conditions.side) {
-      gsap.set(chainLis, { opacity: 0.34 });
-      gsap.set(mks, { autoAlpha: 0, scale: 0.6 });
-      for (g = 1; g <= 6; g++) {
-        at = (g - 1) * 0.16;
-        listTl.to(chainLis[g - 1], { opacity: 1, duration: 0.3, ease: OUT }, at)
-          .to(mks[g - 1], { autoAlpha: 1, scale: 1, duration: 0.32, ease: ENTER }, at)
-          .fromTo(grps[g - 1], { opacity: 0 }, { opacity: 1, duration: 0.3, ease: OUT, immediateRender: false }, at)
-          .to(grps[g - 1], { opacity: 0.14, duration: 0.5, ease: INOUT }, at + 0.5);
-      }
-      onState(listTl, { start: listAt, end: 'max' });
-      return;
-    }
-    gsap.set(listPic, { clipPath: inset(38) });
-    gsap.set(fpins, { autoAlpha: 0, scale: 0.6 });
-    for (g = 1; g <= 6; g++) {
-      at = (g - 1) * 0.16;
-      listTl.to(listPic, { clipPath: inset(stops[g]), duration: 0.16, ease: 'none' }, at)
-        .to(fpins[g - 1], { autoAlpha: 1, scale: 1, duration: 0.32, ease: ENTER }, at + 0.06);
-    }
-    onState(listTl, { trigger: listPic, start: 'top 80%' });
-    rise(chainLis, { trigger: $('#chain'), start: 'top 90%', stagger: 0.07 });
-    rise([$('.fw-b')], { y: 24, start: 'top 96%' });
-  });
+  var chainLis = $$('#chain li'), grps = $$('.grp', desk), mks = $$('.mk', desk);
+  gsap.set(chainLis, { opacity: 0.34 });
+  gsap.set(mks, { autoAlpha: 0, scale: 0.6 });
+  var listTl = gsap.timeline({ paused: true });
+  for (var g = 1; g <= 6; g++) {
+    var gat = (g - 1) * 0.16;
+    listTl.to(chainLis[g - 1], { opacity: 1, duration: 0.3, ease: OUT }, gat)
+      .to(mks[g - 1], { autoAlpha: 1, scale: 1, duration: 0.32, ease: ENTER }, gat)
+      .fromTo(grps[g - 1], { opacity: 0 }, { opacity: 1, duration: 0.3, ease: OUT, immediateRender: false }, gat)
+      .to(grps[g - 1], { opacity: 0.14, duration: 0.5, ease: INOUT }, gat + 0.5);
+  }
+  onState(listTl, { start: listAt, end: 'max' });
 
   /* =====================================================================
      ANSWERS: the thread rises beside the words; Sam's note, then Arjun's set arrive the way messages do; Sent becomes
@@ -616,7 +601,7 @@
     $$('.cl-n .num', live).forEach(function (n, i) { count(clTl, n, 0.15 + i * 0.12, 1.3, OUT); });
     clTl.to(live, { autoAlpha: 0, duration: 0.35, ease: OUT }, 1.75);
   });
-  onState(clTl, { trigger: '.cl', start: 'top 74%' });
+  onState(clTl, { trigger: '.cl', start: 'top 84%' });
 
   /* =====================================================================
      PRICING: the offer settles (its words, Start coaching free, the branded phone rising with its labels); the plans
@@ -703,5 +688,9 @@
   function refresh() { fitFw(); ST.sort(); ST.refresh(); }
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(refresh);
   if (document.readyState === 'complete') requestAnimationFrame(refresh); else window.addEventListener('load', refresh);
+  /* Every picture keeps its place before it loads (width and height, per source), but a lazy one landing still re-reads
+     the page's map, once things settle, so no trigger is ever out by a picture. */
+  var refT = 0;
+  $$('.s-home img[loading="lazy"]').forEach(function (i) { if (!i.complete) i.addEventListener('load', function () { clearTimeout(refT); refT = setTimeout(function () { ST.refresh(); }, 200); }, { once: true }); });
   }
 })();

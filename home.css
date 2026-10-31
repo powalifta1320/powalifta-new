@@ -319,8 +319,8 @@ html.js .fw-a .fw-live { display: block; }
 
 /* Today on a laptop with motion: one row. The landing's words sit beside Arjun's phone (the column under its labels),
    right above the window they introduce; the list's words beside the window, which zooms in to Arjun's page, takes the
-   set, then pans along Sam's same screen to his list, ringed group by group in its order (home.js). The list's own
-   figure is the stacked layouts' (the still keeps the two panels). */
+   set, then pans along Sam's same screen to his list, ringed group by group in its order (home.js). (Stacked, the same
+   window does the same above the list's words. The still keeps the two panels and the list's own figure.) */
 @media (min-width: 1100px) {
   html.m .lab-cap { top: calc(150 / 852 * 100%); }
   html.m .today-ch { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: clamp(40px, 4.4vw, 64px); align-items: center;
@@ -329,16 +329,17 @@ html.js .fw-a .fw-live { display: block; }
   html.m .today-ch > .land, html.m .today-ch > .who { padding: 0; background: none; box-shadow: none; }
   html.m .land { position: static; display: block; grid-column: 2; grid-row: 1; }
   html.m .who { grid-column: 1; grid-row: 1; display: block; }
-  html.m .who .fw { display: none; }
   html.m .who .chain { margin-top: 24px; }
   html.m .land-copy { position: absolute; z-index: 4; left: calc(var(--pl) + var(--pw) * 1.0305 + 30px); top: calc(var(--fold) - var(--ph) * var(--pin) + var(--ph) * 470 / 852);
     width: calc(var(--fx) + var(--fw) - var(--gut) - var(--pl) - var(--pw) * 1.0305 - 30px); }
   html.m .land-copy .h2 { font-size: clamp(30px, 2.5vw, 38px); }
   html.m .land-copy .sub { margin-top: 14px; font-size: 16px; }
   html.m .land-copy .land-cap { margin-top: 16px; }
-  html.m .grp { display: block; position: absolute; border-radius: 14px; box-shadow: inset 0 0 0 1.5px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
-  html.m .mk { display: grid; place-items: center; position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); opacity: 0; }
 }
+/* With motion (every width) the window pans to the list, so the list's own figure is the still's. */
+html.m .who .fw { display: none; }
+html.m .grp { display: block; position: absolute; border-radius: 14px; box-shadow: inset 0 0 0 1.5px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
+html.m .mk { display: grid; place-items: center; position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); opacity: 0; }
 
 /* =====================================================================
    ANSWERS (dark): the lifter's phone, the reply arriving; their words next to what they lifted.
@@ -346,7 +347,7 @@ html.js .fw-a .fw-live { display: block; }
 .s-home .answers { position: relative; padding: var(--sec) 0; isolation: isolate; }
 .answers::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(40% 48% at 26% -10%, rgba(255, 59, 74, 0.08), transparent 70%); }
 .answers-in { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: center; }
-.thread { grid-column: 8 / span 4; grid-row: 1; justify-self: center; --pw: min(360px, 25vw); width: var(--pw); }
+.thread { grid-column: 8 / span 4; grid-row: 1; justify-self: center; --pw: min(336px, 23.4vw); width: var(--pw); }
 .thread .cap { margin-top: 18px; justify-content: center; }
 /* The crop ends under Sam's reply (626 of the screen's 852 pt), on a hairline. */
 .th-crop { height: calc(var(--pw) * 626 / 393 + var(--pw) * 0.0305 + 2px); overflow: hidden; padding: calc(var(--pw) * 0.0305 + 2px) calc(var(--pw) * 0.0305 + 5px) 0; margin: 0 calc((var(--pw) * 0.0305 + 5px) * -1); box-shadow: inset 0 -1px 0 var(--hair); }
@@ -401,7 +402,7 @@ html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 10
 /* The app's own Publish (desk.css .dk-btn primary): the one crimson on this screen. */
 .pub { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 999px; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; font-size: 15px; font-weight: 650; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.45); }
 .pub svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.next-also { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--hair); max-width: 40em; font-size: 17px; line-height: 1.55; font-weight: 600; color: var(--text); }
+.next-also { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hair); max-width: 40em; font-size: 17px; line-height: 1.55; font-weight: 600; color: var(--text); }
 
 /* =====================================================================
    MEET DAY: the striking moment. A black stage: Tom's phone (left), the platform (three lights, then the minute),
@@ -533,7 +534,7 @@ html.m .beat.is-on { --on: 1; color: #b8b8c0; }
 .moving-h { grid-column: 1 / span 6; grid-row: 1; max-width: 15em; }
 .move { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; }
 .msteps { grid-column: 1 / span 6; grid-row: 2; margin-top: 26px; }
-.step-i { display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 18px; padding: 18px 0 20px; border-top: 1px solid var(--hair); }
+.step-i { display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 18px; padding: 15px 0 17px; border-top: 1px solid var(--hair); }
 .step-i:last-child { border-bottom: 1px solid var(--hair); }
 .sn { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 14px/1 var(--font-num); font-style: normal; }
 .st p { font-size: 17px; line-height: 1.55; color: var(--text-2); text-wrap: pretty; }
@@ -546,7 +547,7 @@ html.m .beat.is-on { --on: 1; color: #b8b8c0; }
 .imp .cap, .cl .cap { margin-top: 14px; }
 .move-foot { margin-top: 20px; max-width: 44em; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; font-size: 16px; color: var(--text-2); }
 .move-foot .quiet { font-size: 16px; }
-.money { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); row-gap: 28px; align-items: center; margin-top: clamp(40px, 3.6vw, 52px); padding-top: clamp(40px, 3.6vw, 52px); border-top: 1px solid var(--hair); }
+.money { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); row-gap: 28px; align-items: center; margin-top: clamp(32px, 2.8vw, 40px); padding-top: clamp(32px, 2.8vw, 40px); border-top: 1px solid var(--hair); }
 .money-copy { grid-column: 1 / span 4; }
 .money-copy p { margin-top: 16px; max-width: 34em; font-size: 17px; line-height: 1.55; color: var(--text-2); text-wrap: pretty; }
 .money-copy .money-2 { margin-top: 12px; font-size: 16px; color: var(--text-3); }
@@ -577,7 +578,7 @@ html.m .cl-live-d { display: block; }
 .plans-head { grid-column: 1 / span 7; }
 .plans-head .lead { margin-top: 22px; }
 .plans-head .plans-cta { margin-top: 28px; }
-.brand-ph { position: relative; grid-column: 9 / span 4; justify-self: end; margin: 0 calc(var(--pw) * 0.0305 + 3px) 0 0; --pw: clamp(236px, 18vw, 260px); width: var(--pw); }
+.brand-ph { position: relative; grid-column: 9 / span 4; justify-self: end; margin: 0 calc(var(--pw) * 0.0305 + 3px) 0 0; --pw: clamp(220px, 16vw, 236px); width: var(--pw); }
 /* The crop ends just under Log set (480 of the screen's 852 pt), on the scale's rule. */
 .bp-crop { height: calc(var(--pw) * 480 / 393 + var(--pw) * 0.0305 + 2px); overflow: hidden; padding: calc(var(--pw) * 0.0305 + 2px) calc(var(--pw) * 0.0305 + 5px) 0; margin: 0 calc((var(--pw) * 0.0305 + 5px) * -1); }
 .brand-ph .ph-scr { font-size: calc(var(--pw) / 393 * 16); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
@@ -658,10 +659,10 @@ details.q:not([open]) > .qa, details.rules:not([open]) > .rules-body { display: 
 /* =====================================================================
    CLOSE (dark): one line, one action.
    ===================================================================== */
-.s-home .close { position: relative; padding: clamp(64px, 6.4vw, 96px) 0; isolation: isolate; overflow: hidden; }
+.s-home .close { position: relative; padding: clamp(56px, 5vw, 76px) 0; isolation: isolate; overflow: hidden; }
 .glow-close { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(38% 60% at 30% -10%, rgba(255, 59, 74, 0.12), transparent 70%); }
 .close-in { position: relative; z-index: 1; }
-.close-h { font-size: clamp(40px, 1rem + 4vw, 74px); line-height: 0.99; letter-spacing: -0.036em; max-width: 11em; }
+.close-h { font-size: clamp(40px, 1rem + 3.4vw, 66px); line-height: 0.99; letter-spacing: -0.036em; max-width: 11em; }
 .close .lead { margin-top: 20px; }
 .close .cta { margin-top: 32px; }
 
@@ -781,7 +782,7 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
    Phone width (the website on a phone, 393 x 852): the lifter's phone alone opens; it composes, it doesn't shrink.
    ===================================================================== */
 @media (max-width: 759px) {
-  :root { --pw: min(306px, 78vw); --pl: 0px; --sec: 52px; }
+  :root { --pw: min(290px, 74vw); --pl: 0px; --sec: 44px; }
   body { font-size: 16px; }
   .stage { padding: 84px 16px 0; }
   .glow-top { height: 100%; }
@@ -804,7 +805,7 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .lab-t { font-size: 16px; }
   .pin { position: absolute; z-index: 2; left: calc(377 / 393 * 100%); top: calc(var(--y) / 852 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
     background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); font-style: normal; box-shadow: 0 0 0 3px #050506; }
-  .max { position: static; width: auto; margin-top: 36px; padding-bottom: 48px; }
+  .max { position: static; width: auto; margin-top: 32px; padding-bottom: 40px; }
   .max-num { font-size: clamp(88px, 27vw, 120px); }
   .max-chart { height: 96px; }
   .max-from { margin-top: 30px; }
@@ -839,6 +840,7 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .wk-in { width: calc(1160px * 0.78); }
   html.m .wk-port { overflow: hidden; }
   .wk-foot { flex-direction: column; align-items: flex-start; }
+  .wk-foot .cap { flex: none; }   /* its 26em basis would be a height in a column */
   .wk-pub { flex-wrap: wrap; }
   .next-also { font-size: 16px; }
   .meet-h { margin-bottom: 18px; }
@@ -847,20 +849,20 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .judges { gap: 14px; }
   .judges i { width: 64px; }
   .clock-n { font-size: 84px; }
-  .beats { grid-template-columns: minmax(0, 1fr); row-gap: 10px; margin-top: 22px; }
+  .beats { grid-template-columns: minmax(0, 1fr); row-gap: 8px; margin-top: 18px; }
   .beat::before { display: none; }
-  .side-phone { --pw: min(240px, 62vw); }
-  .mp-crop { flex: none; height: calc(var(--pw) * 0.96); min-height: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
+  .side-phone { --pw: min(220px, 56vw); }
+  .mp-crop { flex: none; height: calc(var(--pw) * 0.9); min-height: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
   .mp { margin: 0 auto; }
   .side-board { padding-bottom: 0; }
   .meet-foot { margin-top: 14px; }
-  .step-i { grid-template-columns: 34px minmax(0, 1fr); column-gap: 14px; padding: 16px 0 18px; }
+  .step-i { grid-template-columns: 34px minmax(0, 1fr); column-gap: 14px; padding: 14px 0 16px; }
   .sn { width: 28px; height: 28px; font-size: 13px; }
   .st p { font-size: 16px; }
   .imp { margin-inline: -16px; width: auto; }
   .imp .sheet-crop { border-radius: 0; }
   .imp .cap { margin-inline: 16px; }
-  .money { margin-top: 36px; padding-top: 36px; }
+  .money { margin-top: 30px; padding-top: 30px; }
   .money-copy p { font-size: 16px; }
   .cl .sheet-crop { width: 251px; border-radius: 14px; }
   html.m .cl-live-d { display: none; }
@@ -877,13 +879,13 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .qa p { padding-right: 0; font-size: 16px; }
   .plans-top { display: block; }
   .plans-head .plans-cta { margin-top: 22px; }
-  .brand-ph { display: flex; flex-direction: column-reverse; margin: 28px auto 0; --pw: min(220px, 58vw); }
+  .brand-ph { display: flex; flex-direction: column-reverse; margin: 24px auto 0; --pw: min(200px, 52vw); }
   .brand-ph .cap { position: static; width: auto; margin: 0 0 14px; }
   .bp-crop { align-self: center; }
   .scale { margin-top: 0; }
   .qs-cols { grid-template-columns: minmax(0, 1fr); }
   .qs:first-child .q:last-child { border-bottom: 0; }
-  .s-home .close { padding: 56px 0; }
+  .s-home .close { padding: 48px 0; }
 }
 
 /* =====================================================================
@@ -914,6 +916,15 @@ body.home .modal-backdrop .sa-apple { background: #fff; color: #000; }   /* Appl
 body.home .modal .btn-primary { background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; border: 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.3); }
 body.home .modal .btn-primary::after { display: none; }
 body.home .modal a { color: var(--text); }   /* links in ink, as on every public page */
+
+/* The footer under the last call: the shared bar's footer, a little tighter here (and its three columns side by side on a
+   phone). */
+body.home .foot { padding: 48px 0 32px; }
+@media (max-width: 759px) {
+  body.home .foot-in { row-gap: 26px; }
+  body.home .foot-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 14px; row-gap: 22px; }
+  body.home .foot .foot-cols a { font-size: 14px; }
+}
 
 /* #pricing and #marketplace-teaser keep their ids (the iPhone app hides them by id); the app's styles.css still dresses
    both for its old landing page: not here. */
