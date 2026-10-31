@@ -33,6 +33,7 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="site.css">
 <link rel="stylesheet" href="pages.css">
+<script>/* An application's confirm link (#confirm=…, the apply-to-coach email): kept for the page, then out of the address and history before anything else reads it */(function(){try{var m=/[#&]confirm=([A-Za-z0-9_-]{20,100})/.exec(location.hash||'');if(m){window.__cpConfirm=m[1];history.replaceState(null,'',location.pathname+location.search);}}catch(e){}})();</script>
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 <script defer src="cookie-consent.js"></script>
@@ -87,16 +88,22 @@ function cpQuiet(href, label, back, cls) {
   return a;
 }
 
-// APPLY (night C, 30 Oct): the form behind step 1. It goes to DB.applyToCoach → apply_to_coach (SECURITY DEFINER, the
-// caps on the server: one waiting per email and coach, 3 a day per email, 30 a day per coach, the lengths); only this
-// coach reads it, in Clients. Best lifts are typed in kg or lb and sent in kg. The coach viewing their own page sees
-// how it works instead of a form.
+// APPLY (night C; fixed after its review, 30 Oct). The form behind step 1 goes to DB.applyToCoach → the apply-to-coach
+// edge function (limits per IP, per email and overall; a honeypot), which emails the applicant a link: nothing reaches
+// the coach until it's opened (the link comes back here as #confirm=…, cpConfirmBox). The page draws the form only when
+// DB.applicationsOpen says the function and the migration are both live (review B1); until then step 1 is "Reach out."
+// as before. A signed-in lifter gets Request to join instead (the coach's Lifters › New lifters, review M5); the coach
+// on their own page sees how it works. Best lifts and bodyweight are typed in kg or lb and sent in kg.
 const CP_YEARS = [['', 'Pick one'], ['0', 'Under a year'], ['1', '1 year'], ['2', '2 years'], ['3', '3 years'], ['4', '4 years'], ['5', '5 to 9 years'], ['10', '10 years or more']];
+function cpFine(first) {
+  return el('p', { class: 'cp-fine' }, 'Only ' + first + ' sees what you send, once you confirm your email. Kept 90 days after ' + first + ' answers. ',
+    el('a', { href: 'privacy.html#applications' }, 'Privacy'));
+}
 function cpApplyForm(coach) {
   const first = coach.name.split(' ')[0];
   const wrap = el('div', { class: 'cp-apply', id: 'apply' });
   if (window._user && window._user.id === coach.id) {
-    wrap.appendChild(el('p', { class: 'cp-apply-own' }, 'This is where lifters apply to you. What they send lands in Clients, where Send an invite emails them your invite link.'));
+    wrap.appendChild(el('p', { class: 'cp-apply-own' }, 'This is where lifters apply to you. Once they confirm their email, you get a push and an email, and the application waits on Lifters under New lifters, where Send an invite emails them your invite link.'));
     return wrap;
   }
   const form = el('form', { class: 'cp-apply-form', novalidate: '', 'aria-label': 'Apply to train with ' + first });
@@ -110,26 +117,35 @@ function cpApplyForm(coach) {
   const years = el('select', { name: 'years' });
   CP_YEARS.forEach(([v, t]) => years.appendChild(el('option', { value: v }, t)));
   let unit = 'kg';
-  const lift = (label) => el('input', { type: 'number', inputmode: 'decimal', min: '0', step: '0.5', placeholder: label, 'aria-label': 'Best ' + label.toLowerCase() });
-  const sq = lift('Squat'), be = lift('Bench'), de = lift('Deadlift');
+  const unitWord = el('span', { class: 'cp-u' }, 'kg');
+  const num = (nameAttr, label) => el('input', { type: 'number', name: nameAttr, inputmode: 'decimal', min: '0', step: '0.5', 'aria-label': label });
+  const sq = num('squat', 'Best squat'), be = num('bench', 'Best bench'), de = num('deadlift', 'Best deadlift');
+  const bw = num('bodyweight', 'Bodyweight');
+  const meet = el('input', { type: 'date', name: 'meet' });
   const unitSeg = el('div', { class: 'cp-unit', role: 'group', 'aria-label': 'Unit' });
   ['kg', 'lb'].forEach(u => {
     const b = el('button', { type: 'button', class: u === unit ? 'on' : '', 'aria-pressed': u === unit ? 'true' : 'false' }, u);
-    b.addEventListener('click', () => { unit = u; unitSeg.querySelectorAll('button').forEach(x => { const on = x.textContent === u; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); }); });
+    b.addEventListener('click', () => { unit = u; unitWord.textContent = u; unitSeg.querySelectorAll('button').forEach(x => { const on = x.textContent === u; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); }); });
     unitSeg.appendChild(b);
   });
   const goals = el('input', { type: 'text', name: 'goals', maxlength: '280', placeholder: 'A first meet, a total, a weight class' });
-  const note = el('textarea', { name: 'note', maxlength: '1000', rows: '4', placeholder: 'Injuries, your schedule, what you\u2019ve tried. Anything ' + first + ' should know.' });
+  const note = el('textarea', { name: 'note', maxlength: '1000', rows: '4', placeholder: 'Your schedule, what you’ve tried, anything that hurts. Anything ' + first + ' should know.' });
+  // Each lift box wears its name above it (a placeholder goes once you type: review m10).
+  const liftBox = (label, input) => el('label', { class: 'cp-lift' }, el('span', {}, label), input);
   const lifts = el('div', { class: 'form-group cp-f cp-lifts is-wide' }, el('span', { class: 'cp-lbl', id: 'cpa-lifts' }, 'Best lifts'),
-    el('div', { class: 'cp-lifts-row', role: 'group', 'aria-labelledby': 'cpa-lifts' }, sq, be, de, unitSeg));
+    el('div', { class: 'cp-lifts-row', role: 'group', 'aria-labelledby': 'cpa-lifts' }, liftBox('Squat', sq), liftBox('Bench', be), liftBox('Deadlift', de), unitSeg));
+  // A bot fills every field; a person never sees this one.
+  const hp = el('input', { type: 'text', name: 'company', tabindex: '-1', autocomplete: 'off' });
+  form.appendChild(el('div', { class: 'cp-hp', 'aria-hidden': 'true' }, el('label', {}, 'Company ', hp)));
   form.appendChild(el('div', { class: 'cp-apply-grid' },
-    field('Your name', name), field('Email', email, first + ' answers here'),
+    field('Your name', name), field('Email', email, 'We email you a link to confirm it'),
     field('Training age', years), field('Goals', goals),
+    el('div', { class: 'form-group cp-f cp-bw' }, el('label', { for: 'cpa-bw' }, 'Bodyweight'), el('div', { class: 'cp-bw-row' }, Object.assign(bw, { id: 'cpa-bw' }), unitWord)),
+    field('Next meet', meet, 'If one is planned'),
     lifts, field('A note', note, null, 'is-wide')));
   const send = el('button', { type: 'submit', class: 'btn btn-primary btn-lg cp-send' }, 'Send my application');
   const status = el('p', { class: 'cp-apply-status', role: 'status', 'aria-live': 'polite' });
-  form.appendChild(el('div', { class: 'cp-apply-foot' }, send,
-    el('p', { class: 'cp-fine' }, 'Only ' + first + ' sees what you send. ', el('a', { href: 'privacy.html' }, 'Privacy'))));
+  form.appendChild(el('div', { class: 'cp-apply-foot' }, send, cpFine(first)));
   form.appendChild(status);
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -138,7 +154,7 @@ function cpApplyForm(coach) {
     const nm = name.value.trim().replace(/\s+/g, ' ');
     if (!nm) return bad(name, 'Your name, please.');
     const em = email.value.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return bad(email, 'That email doesn\u2019t look right.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return bad(email, 'That email doesn’t look right.');
     const kg = (input) => {
       const v = parseFloat(String(input.value || '').replace(',', '.'));
       if (!(v > 0)) return null;
@@ -148,26 +164,74 @@ function cpApplyForm(coach) {
     const L = { squat: kg(sq), bench: kg(be), deadlift: kg(de) };
     const over = [[sq, L.squat], [be, L.bench], [de, L.deadlift]].find(([, v]) => v != null && v > 700);
     if (over) return bad(over[0], 'Best lifts are at most 700 kg (1,543 lb).');
-    send.disabled = true; send.textContent = 'Sending\u2026'; status.textContent = '';
+    const bwKg = kg(bw);
+    if (bwKg != null && (bwKg < 30 || bwKg > 250)) return bad(bw, 'Bodyweight is 30 to 250 kg (66 to 551 lb).');
+    send.disabled = true; send.textContent = 'Sending…'; status.textContent = '';
     const r = await DB.applyToCoach({ coachId: coach.id, name: nm, email: em, trainingYears: years.value === '' ? null : Number(years.value),
-      squat: L.squat, bench: L.bench, deadlift: L.deadlift, goals: goals.value.trim(), note: note.value.trim() });
+      squat: L.squat, bench: L.bench, deadlift: L.deadlift, bodyweight: bwKg, nextMeet: meet.value || null,
+      goals: goals.value.trim(), note: note.value.trim(), company: hp.value });
     send.disabled = false; send.textContent = 'Send my application';
     if (r && r.ok) {
       wrap.innerHTML = '';
       wrap.appendChild(el('div', { class: 'cp-sent', role: 'status' },
-        el('h3', {}, 'Sent to ' + first + '.'),
-        el('p', {}, first + ' reads it in POWALIFTA and answers by email, at ' + em + '. If it\u2019s a fit, that email carries your invite link.')));
+        el('h3', {}, 'Check your email.'),
+        el('p', {}, 'We sent a link to ' + em + '. Open it to send your application to ' + first + ': ' + first + ' sees nothing until you do. The link works for 48 hours.'),
+        el('p', { class: 'cp-sent-next' }, 'If it’s a fit, ' + first + ' emails you an invite link.')));
       return;
     }
     status.classList.add('is-bad');
-    status.textContent = r && r.notReady ? 'Applications aren\u2019t open here yet. Reach ' + first + (coach.instagram ? ' on Instagram' : ' another way') + ' for now.'
+    status.textContent = r && r.notReady ? 'Applications aren’t open here yet. Reach ' + first + (coach.instagram ? ' on Instagram' : ' another way') + ' for now.'
       : r && r.reason ? r.reason
       : r && r.offline ? 'No connection. Check it and send again.'
-      : 'That didn\u2019t send. Try again in a minute.';
+      : 'That didn’t send. Try again in a minute.';
   });
   wrap.appendChild(form);
   return wrap;
 }
+// A signed-in lifter asks from their own account (the coach's Lifters › New lifters; coach_requests, already live).
+function cpRequestJoin(coach, me) {
+  const first = coach.name.split(' ')[0];
+  const wrap = el('div', { class: 'cp-apply cp-req', id: 'apply' });
+  if (me.coachId === coach.id) { wrap.appendChild(el('p', { class: 'cp-apply-own' }, first + ' is your coach.')); return wrap; }
+  const box = el('div', { class: 'cp-sent cp-req-box' });
+  const btn = el('button', { type: 'button', class: 'btn btn-primary btn-lg cp-req-go' }, 'Request to join');
+  const say = el('p', { class: 'cp-apply-status', role: 'status', 'aria-live': 'polite' });
+  box.appendChild(el('h3', {}, 'Ask ' + first + ' to train you.'));
+  box.appendChild(el('p', {}, 'You’re signed in as ' + (me.name || 'a lifter') + '. ' + first + ' sees your request on Lifters' + (me.coachId ? '; accepting it moves you from your current coach.' : '.')));
+  box.appendChild(btn); box.appendChild(say);
+  wrap.appendChild(box);
+  const done = (t) => { btn.disabled = true; btn.className = 'btn btn-lg cp-req-go'; btn.textContent = t; };
+  DB.listMyCoachRequests(me.id).then((rows) => { const r = (rows || []).find(x => x.coachId === coach.id); if (r && r.status === 'pending') done('Requested'); }).catch(() => {});
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try { await DB.createCoachRequest(me.id, me.name, coach.id, ''); done('Requested'); say.textContent = 'Sent. ' + first + ' sees it on Lifters.'; }
+    catch (e) { btn.disabled = false; say.classList.add('is-bad'); say.textContent = 'That didn’t send. Check your connection and try again.'; }
+  });
+  return wrap;
+}
+// The applicant's link (#confirm=…, taken out of the address before anything else read it): this sends the application.
+function cpConfirmBox(coach, token) {
+  const first = coach.name.split(' ')[0];
+  const wrap = el('div', { class: 'cp-apply', id: 'apply' });
+  const box = el('div', { class: 'cp-sent', role: 'status', 'aria-live': 'polite' }, el('h3', {}, 'Sending your application…'));
+  wrap.appendChild(box);
+  DB.confirmApplication(token).then((r) => {
+    box.innerHTML = '';
+    if (r && r.ok) {
+      box.appendChild(el('h3', {}, r.state === 'already' ? 'Already sent to ' + first + '.' : 'Sent to ' + first + '.'));
+      box.appendChild(el('p', {}, first + ' has your application. If it’s a fit, ' + first + ' emails you an invite link.'));
+    } else if (r && r.offline) {
+      box.appendChild(el('h3', {}, 'No connection.'));
+      box.appendChild(el('p', {}, 'Open the link in your email again once you’re back online.'));
+    } else {
+      box.appendChild(el('h3', {}, 'That link doesn’t work any more.'));
+      box.appendChild(el('p', {}, 'A link works for 48 hours, and a newer application replaces it. Apply again from this page.'));
+    }
+  });
+  return wrap;
+}
+let _cpConfirm = null;
+try { _cpConfirm = window.__cpConfirm || null; } catch (e) {}
 
 function renderError(title, message) {
   const root = document.getElementById('cpRoot');
@@ -200,9 +264,12 @@ async function renderCoachProfile() {
 
   // Aggregate marketplace rating across this coach's catalog — social proof.
   // Non-fatal: if it fails or there are no reviews, the stat/section is omitted.
+  // Alongside it: are applications open here (the apply-to-coach function and its migration both live)? 2.5 s at most.
   let coachReviews = [];
-  try { coachReviews = await DB.listReviewsForCoach(id); }
-  catch (e) { console.warn('listReviewsForCoach', e); }
+  const [revs, appsOpen] = await Promise.all([
+    DB.listReviewsForCoach(id).catch((e) => { console.warn('listReviewsForCoach', e); return []; }),
+    DB.applicationsOpen ? DB.applicationsOpen(id).catch(() => false) : Promise.resolve(false)]);
+  coachReviews = revs || [];
   const coachReviewStats = reviewStats(coachReviews);
 
   const root = document.getElementById('cpRoot');
@@ -257,24 +324,40 @@ async function renderCoachProfile() {
   hero.appendChild(heroIn);
   root.appendChild(hero);
 
-  // How to join: a real sequence, so the homepage's numbered steps; the first one is the form under them (night C).
+  // How to join: a real sequence, so the homepage's numbered steps. What step 1 is depends on who's looking (night C,
+  // fixed after its review): applications open → Apply, with the form under the steps; a signed-in lifter → Request to
+  // join; the applicant's confirm link → that, in the form's place; else (applications not open here yet, a coach) the
+  // old way, Reach out.
   const first = coach.name.split(' ')[0];
+  const me = window._user || null;
+  const mode = _cpConfirm ? 'confirm' : me && me.userType === 'athlete' ? 'request' : me && me.id === coach.id ? (appsOpen ? 'own' : 'closed') : !me && appsOpen ? 'apply' : 'closed';
   const how = el('div', { class: 'cp-section' });
   const howIn = el('div', { class: 's-wrap' });
   howIn.appendChild(el('div', { class: 'cp-section-head' },
     el('h2', {}, 'Train with ' + first),
-    el('p', {}, 'Apply here. ' + first + ' reads it in POWALIFTA and answers by email.')
+    el('p', {}, mode === 'apply' || mode === 'own' || mode === 'confirm' ? 'Apply here. If it\u2019s a fit, ' + first + ' emails you an invite link.'
+      : mode === 'request' ? 'You\u2019re signed in: ask ' + first + ' from your account.' : 'Three steps to start training under a real coach.')
   ));
   const grid = el('ol', { class: 's-steps cp-steps' });
-  [
-    { h: 'Apply.', p: 'Where you are and where you want to go, in two minutes, below.' },
-    { h: 'Get your invite link.', p: 'If it\u2019s a fit, ' + first + ' sends it from POWALIFTA, or its 6-character code.' },
+  (mode === 'apply' || mode === 'own' || mode === 'confirm' ? [
+    { h: 'Apply.', p: 'Where you are and where you want to go, in two minutes, below. Then confirm your email.' },
+    { h: 'Get your invite link.', p: 'If it\u2019s a fit, ' + first + ' emails it to you from POWALIFTA, with its 6-character code.' },
     { h: 'Sign up and start training.', p: 'Open the link, or sign up with the code, and your program appears in your app.' }
-  ].forEach(s => {
+  ] : mode === 'request' ? [
+    { h: 'Ask to join.', p: 'Send ' + first + ' a request from your account, below.' },
+    { h: first + ' accepts.', p: 'You\u2019re linked: ' + first + ' writes your program and sees what you log.' },
+    { h: 'Start training.', p: 'Your program appears in your app.' }
+  ] : [
+    { h: 'Reach out.', p: 'Contact ' + first + ' to discuss your goals, training history and meet timeline.' },
+    { h: 'Get your invite link.', p: 'They send it from POWALIFTA, or its 6-character code.' },
+    { h: 'Sign up and start training.', p: 'Open the link, or sign up with the code, and your program appears in your app.' }
+  ]).forEach(s => {
     grid.appendChild(el('li', {}, el('b', {}, s.h), el('span', {}, s.p)));
   });
   howIn.appendChild(grid);
-  howIn.appendChild(cpApplyForm(coach));
+  if (mode === 'apply' || mode === 'own') howIn.appendChild(cpApplyForm(coach));
+  else if (mode === 'request') howIn.appendChild(cpRequestJoin(coach, me));
+  else if (mode === 'confirm') howIn.appendChild(cpConfirmBox(coach, _cpConfirm));
   how.appendChild(howIn);
   root.appendChild(how);
 
@@ -313,8 +396,9 @@ async function renderCoachProfile() {
   cta.appendChild(el('h2', {}, 'Already have your invite code?'));
   cta.appendChild(el('p', {}, 'Plug it in and you\'re training under ' + coach.name + ' in 30 seconds.'));
   const ctaRow = el('div', { class: 'cp-cta-row' });
-  // The page's one crimson is the application's Send (night C): signing up with a code is the quiet way.
-  const signupBtn = el('a', { class: 'btn btn-lg', href: 'index.html#signup-athlete' }, 'Sign up as a lifter');
+  // The page's one crimson: the application's Send, or a signed-in lifter's Request to join, when either is drawn above
+  // (night C); else, as before, Sign up as a lifter.
+  const signupBtn = el('a', { class: mode === 'closed' ? 'btn btn-primary btn-lg' : 'btn btn-lg', href: 'index.html#signup-athlete' }, 'Sign up as a lifter');
   ctaRow.appendChild(signupBtn); ctaRow.appendChild(cpQuiet('about.html', 'Learn about POWALIFTA'));
   cta.appendChild(ctaRow);
   ctaIn.appendChild(cta);

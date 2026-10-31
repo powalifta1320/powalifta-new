@@ -483,14 +483,31 @@ function mapDbScheduleRequest(r) {
     status: r.status || 'pending', note: r.note || null, createdAt: r.created_at || null, decidedAt: r.decided_at || null };
 }
 const _SR_COLS = 'id, athlete_id, coach_id, week_start, days, proposal, status, note, created_at, decided_at';
-// An application from a coach's profile (migration-coach-applications-2026-10-30.sql): loads in kg, the rest as typed.
+// An application from a coach's profile (migration-coach-applications-2026-10-30.sql): loads and bodyweight in kg, the
+// rest as typed. The coach reads only confirmed ones (RLS), so confirmedAt is when the applicant opened their link.
 function mapDbApplication(r) {
   const n = (v) => (v == null ? null : Number(v));
   return { id: r.id, coachId: r.coach_id, name: r.name || '', email: r.email || '', trainingYears: r.training_years == null ? null : Number(r.training_years),
-    squat: n(r.squat_kg), bench: n(r.bench_kg), deadlift: n(r.deadlift_kg), goals: r.goals || '', note: r.note || '',
-    status: r.status || 'new', inviteCode: r.invite_code || null, createdAt: r.created_at || null, decidedAt: r.decided_at || null };
+    squat: n(r.squat_kg), bench: n(r.bench_kg), deadlift: n(r.deadlift_kg), bodyweight: n(r.bodyweight_kg), nextMeet: r.next_meet || null,
+    goals: r.goals || '', note: r.note || '',
+    status: r.status || 'new', inviteCode: r.invite_code || null, createdAt: r.confirmed_at || r.created_at || null, decidedAt: r.decided_at || null };
 }
-const _APP_COLS = 'id, coach_id, name, email, training_years, squat_kg, bench_kg, deadlift_kg, goals, note, status, invite_code, created_at, decided_at';
+const _APP_COLS = 'id, coach_id, name, email, training_years, squat_kg, bench_kg, deadlift_kg, bodyweight_kg, next_meet, goals, note, status, invite_code, created_at, confirmed_at, decided_at';
+// The apply-to-coach edge function's answer, whatever its status: { status, body } (body: its JSON, or null). A
+// function that isn't deployed is a 404; no connection throws (FunctionsFetchError) and is { status: 0 }.
+async function _applyFn(body, timeoutMs) {
+  const call = (async () => {
+    const { data, error } = await sb.functions.invoke('apply-to-coach', { body });
+    if (!error) return { status: 200, body: data || null };
+    let status = 0, j = null;
+    try {
+      if (error.context && typeof error.context.clone === 'function') { status = error.context.status || 0; j = await error.context.clone().json(); }
+    } catch (_) { /* not JSON */ }
+    return { status, body: j, error };
+  })();
+  if (!timeoutMs) return call;
+  return Promise.race([call, new Promise((r) => setTimeout(() => r({ status: 0, body: null, timedOut: true }), timeoutMs))]);
+}
 const _SR_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 // Last week's Monday on this device's calendar: requests from then on are the ones that matter.
 function _srWeekAgo() {
@@ -2946,35 +2963,54 @@ const DB = {
     return { ok: true, request: mapDbScheduleRequest(data) };
   },
 
-  // ---------- APPLICATIONS (migration-coach-applications-2026-10-30.sql, night C) ----------
-  // From a coach's public profile: anyone applies through apply_to_coach (the server holds the caps: one waiting per
-  // email and coach, 3 a day per email, 30 a day per coach, the lengths); only that coach reads and decides them.
-  // Until the migration runs: the form says applications aren't open yet, the coach's Clients shows none.
-  //   applyToCoach({ coachId, name, email, trainingYears, squat, bench, deadlift (kg), goals, note }) → { ok } | { ok: false, notReady, reason }
-  //   listCoachApplications(coachId) → [application] (the last 120 days, newest first)
+  // ---------- APPLICATIONS (migration-coach-applications-2026-10-30.sql, the apply-to-coach edge function) ----------
+  // From a coach's public profile, through the apply-to-coach function only (it limits each IP, each email and
+  // everyone, and emails the applicant a link; nothing reaches the coach until it's opened); only that coach reads and
+  // decides the confirmed ones (night C review B1, M1 to M5).
+  //   applicationsOpen(coachId) → true only when the function answers that this coach takes applications (the profile
+  //     shows its form only then: never before the function and the migration are both live). 2.5 s at most.
+  //   applyToCoach({ coachId, name, email, trainingYears, squat, bench, deadlift, bodyweight (kg), nextMeet, goals, note,
+  //     company (the honeypot) }) → { ok } | { ok: false, reason } (the server's words) | { ok: false, notReady } | { ok: false, offline }
+  //   confirmApplication(token) → { ok, state: 'confirmed' | 'already', coach } | { ok: false, state: 'unknown' } | { ok: false, offline }
+  //   listCoachApplications(coachId) → [application]: every waiting one, whatever its age, and decisions from the last 120 days
   //   decideCoachApplication(id, status ('accepted' | 'declined' | 'new'), inviteCode?) → { ok, application } | { ok: false, notReady, error }
   //   deleteCoachApplication(id) → { ok }
+  async applicationsOpen(coachId) {
+    if (!coachId) return false;
+    try { const r = await _applyFn({ action: 'open', coachId }, 2500); return r.status === 200 && !!(r.body && r.body.open === true); }
+    catch (e) { return false; }
+  },
   async applyToCoach(a) {
     a = a || {};
     const num = (v) => { const n = Number(v); return v == null || v === '' || !isFinite(n) ? null : n; };
     try {
-      const { data, error } = await sb.rpc('apply_to_coach', {
-        p_coach: a.coachId || null, p_name: String(a.name || '').slice(0, 200), p_email: String(a.email || '').slice(0, 300),
-        p_training_years: num(a.trainingYears), p_squat: num(a.squat), p_bench: num(a.bench), p_deadlift: num(a.deadlift),
-        p_goals: a.goals ? String(a.goals).slice(0, 600) : null, p_note: a.note ? String(a.note).slice(0, 2000) : null });
-      if (error) {
-        if (/could not find the function|PGRST202|42883|schema cache/i.test(String(error.message || '') + ' ' + (error.code || ''))) return { ok: false, notReady: true, error };
-        // The server's own words (P0001): today's cap, a field too long. Anything else stays generic.
-        const reason = error.code === 'P0001' && error.message ? String(error.message).slice(0, 160) : null;
-        return { ok: false, reason, error };
-      }
-      return { ok: data === 'sent' };
+      const r = await _applyFn({ action: 'apply', coachId: a.coachId || null, name: String(a.name || '').slice(0, 200), email: String(a.email || '').slice(0, 300),
+        trainingYears: num(a.trainingYears), squat: num(a.squat), bench: num(a.bench), deadlift: num(a.deadlift), bodyweight: num(a.bodyweight),
+        nextMeet: a.nextMeet || null, goals: a.goals ? String(a.goals).slice(0, 600) : null, note: a.note ? String(a.note).slice(0, 2000) : null,
+        company: a.company ? String(a.company).slice(0, 200) : '' });
+      if (r.status === 200 && r.body && r.body.ok === true) return { ok: true };
+      if (r.status === 404 || r.status === 503) return { ok: false, notReady: true };
+      if (!r.status) return { ok: false, offline: true };
+      // The function's own words (a field too long, today's limit, the email that didn't go). Anything else stays generic.
+      const reason = r.body && r.body.message ? String(r.body.message).slice(0, 160) : null;
+      return { ok: false, reason };
     } catch (e) { return { ok: false, offline: true, error: e }; }
+  },
+  async confirmApplication(token) {
+    if (!token) return { ok: false, state: 'unknown' };
+    try {
+      const r = await _applyFn({ action: 'confirm', token: String(token).slice(0, 100) });
+      if (r.status === 200 && r.body) return r.body.ok ? { ok: true, state: r.body.state, coach: r.body.coach || '' } : { ok: false, state: 'unknown' };
+      if (!r.status) return { ok: false, offline: true };
+      return { ok: false, state: r.status === 429 ? 'busy' : 'failed' };
+    } catch (e) { return { ok: false, offline: true }; }
   },
   async listCoachApplications(coachId) {
     if (!coachId) return [];
     const since = new Date(Date.now() - 120 * 86400000).toISOString();
-    const res = await _readAll('listCoachApplications', (countOpt) => sb.from('coach_applications').select(_APP_COLS, countOpt).eq('coach_id', coachId).gte('created_at', since),
+    // Every waiting one whatever its age (the server deletes one nobody answered at 180 days), decisions for 120 days:
+    // one window on both sides, so no application can wait where the coach never looks (night C review M3).
+    const res = await _readAll('listCoachApplications', (countOpt) => sb.from('coach_applications').select(_APP_COLS, countOpt).eq('coach_id', coachId).or('status.eq.new,decided_at.gte."' + since + '"'),
       { order: [['created_at', false], ['id', true]], count: false });
     if (res.error && !res.rows.length) {
       if (_isNotReady(res.error)) this._appReady = false; else console.warn('listCoachApplications', res.error);

@@ -9377,6 +9377,16 @@ test('the waiting ones, the longest waiting first; decided ones aren\'t leads', 
   eq(L.map(l => l.id).join(), 'j,b,m', 'Jonas waited longest; Bo and Mia at the same moment go by name');
   eq(Clients.leadsWaiting(null).length, 0);
 });
+test('new lifters: how soon first (an upcoming meet, the soonest first), then the longest waiting, then by name', () => {
+  const T = '2026-10-30';
+  const L = Clients.leadsWaiting([
+    { id: 'old', name: 'Olu', status: 'new', createdAt: '2026-10-01T10:00:00Z' },
+    { id: 'far', name: 'Fay', status: 'new', createdAt: '2026-10-29T10:00:00Z', nextMeet: '2027-03-01' },
+    { id: 'soon', name: 'Sol', status: 'new', createdAt: '2026-10-29T11:00:00Z', nextMeet: '2026-11-20' },
+    { id: 'past', name: 'Pat', status: 'new', createdAt: '2026-10-02T10:00:00Z', nextMeet: '2026-10-10' }], T);
+  eq(L.map(l => l.id).join(), 'soon,far,old,past', 'meets ahead by date; a meet already past counts as none');
+  eq(Clients.newLifterCmp({ at: '2026-10-01', name: 'A', meet: null }, { at: '2026-10-01', name: 'B', meet: null }, T) < 0, true, 'a tie goes by name');
+});
 test('a lead\'s line: training age, best lifts in the coach\'s unit, the goal; the email when that\'s all there is', () => {
   eq(Clients.leadYears(0), 'Under a year training'); eq(Clients.leadYears(1), '1 year training'); eq(Clients.leadYears(3), '3 years training');
   eq(Clients.leadYears(5), '5 to 9 years training'); eq(Clients.leadYears(10), '10+ years training'); eq(Clients.leadYears(null), '');
@@ -9385,6 +9395,15 @@ test('a lead\'s line: training age, best lifts in the coach\'s unit, the goal; t
   eq(Clients.leadLine(mia, (kg) => String(Math.round(kg * 2.20462)), 'lb'), '3 years training · 309 / 182 / 375 lb · A first meet');
   eq(Clients.leadLifts({ squat: 140, bench: null, deadlift: 170 }), '140 / – / 170 kg', 'a lift left out is a dash');
   eq(Clients.leadLine({ email: 'x@example.com' }), 'x@example.com');
+});
+// Night C review m10: the coach couldn't tell who the lifter is (no bodyweight) or how soon (no meet).
+test('a lead\'s line also says the bodyweight and the next meet; a meet already past is left out', () => {
+  const mia = { name: 'Mia', email: 'mia@example.com', trainingYears: 3, squat: 140, bench: 82.5, deadlift: 170, bodyweight: 82.44, nextMeet: '2026-12-12', goals: 'A first meet' };
+  eq(Clients.leadLine(mia), '3 years training · 140 / 82.5 / 170 kg · 82.4 kg bodyweight · meet 2026-12-12 · A first meet');
+  eq(Clients.leadLine(mia, (kg) => String(Math.round(kg * 2.20462)), 'lb', { bw: (kg) => String(Math.round(kg * 2.20462 * 10) / 10), date: () => '12 Dec', today: '2026-10-30' }),
+    '3 years training · 309 / 182 / 375 lb · 181.7 lb bodyweight · meet 12 Dec · A first meet', 'in the coach\'s unit and date');
+  eq(Clients.leadLine(Object.assign({}, mia, { nextMeet: '2026-10-01' }), null, 'kg', { today: '2026-10-30' }), '3 years training · 140 / 82.5 / 170 kg · 82.4 kg bodyweight · A first meet');
+  eq(Clients.leadLine({ email: 'x@example.com', bodyweight: 0 }), 'x@example.com');
 });
 
 function render() {
