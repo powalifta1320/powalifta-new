@@ -1,10 +1,10 @@
 // -> import.png: site-img/home/import-* (mkimg.py import). The sample is nina-history.csv, beside this file.
-// The history import's preview on the desk (1440x900, light, 2x): Nina's old log pasted in, before anything is saved.
+// The history import's preview on the desk (1440x900, dark (THEME=light for a light version), 2x): Nina's old log pasted in, before anything is saved.
 import { readFileSync, writeFileSync } from 'node:fs';
-import { launch, deskCtx, patchDemo, BASE, CAP as OUT, HERE } from './lib.mjs';
+import { launch, deskCtx, patchDemo, BASE, CAP as OUT, HERE, THEME } from './lib.mjs';
 const csv = readFileSync(HERE + 'nina-history.csv', 'utf8');
 const b = await launch();
-const ctx = await deskCtx(b, { theme: 'light', dpr: 2 }); await patchDemo(ctx);
+const ctx = await deskCtx(b, { theme: THEME, dpr: 2 }); await patchDemo(ctx);
 const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message.slice(0, 160)));
 await p.goto(BASE + 'coach.html?demo=1', { waitUntil: 'load' }); await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(2000);
 // The paste-and-preview sheet itself (SwitchKit.historySheet; openHistoryImport may open the import intake first).

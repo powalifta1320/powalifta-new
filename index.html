@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="Coaches see every set as it’s logged, know who needs them today and run meet day. Lifters log free. Coach three lifters free.">
 <meta name="twitter:image" content="https://www.powalifta.com/og-home.jpg">
 <meta name="twitter:image:alt" content="The powerlifting app for coaches and their lifters: Sam’s laptop with his lifters and Arjun’s page, and Arjun’s phone mid-session, his top set of 182.5 kg for 5 ready to log.">
-<meta name="theme-color" content="#050506">
+<meta name="theme-color" content="#0b0b0c">
 <script>(function(){try{var k='powa-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);if(t==='light'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#ffffff');}}catch(e){}})();</script>
 <!-- Native shell launch — runs before anything paints. Adds html.native so the native
      welcome (#nativeWelcome) is the first frame. For a returning signed-in user (Supabase
@@ -58,7 +58,7 @@
       '<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">');
     return;
   }
-  var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#050506');   // the gym's dark, whatever the theme
+  var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#0b0b0c');   // the page is dark, whatever the theme (home.js keeps it so)
   document.write('<link rel="preload" href="/fonts/archivo-tw.woff2" as="font" type="font/woff2" crossorigin>' +
     '<link rel="preload" as="image" type="image/avif" imagesrcset="/site-img/home/desk-before-960.avif 960w, /site-img/home/desk-before-1440.avif 1440w, /site-img/home/desk-before-1920.avif 1920w" imagesizes="(min-width: 1100px) 49vw, 92vw" media="(min-width: 760px)" fetchpriority="high">' +
     '<link rel="preload" as="image" type="image/avif" imagesrcset="/site-img/home/lifter-train-590.avif 590w, /site-img/home/lifter-train-786.avif 786w, /site-img/home/lifter-train-1179.avif 1179w" imagesizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" fetchpriority="high">' +
@@ -278,8 +278,8 @@
 <!-- =====================================================================================================
      ACT ONE. What it is and who it is for, both real sides of the app in the first frame. Then one set, one camera:
      Arjun logs his top set on his phone, the app works out his max, the set flies to Sam's laptop, the laptop's own
-     screen becomes the room (the coach's daylight) and his page moves with the set; then the same real screen shows
-     the lifters who need Sam first, each with the fix.
+     dark screen grows to fill the frame and becomes the page (the coach's graphite) and his page moves with the set;
+     then the same real screen shows the lifters who need Sam first, each with the fix.
      On a laptop with motion the act holds the screen and the reader's scroll moves the camera; everywhere else it
      reads top to bottom, and without motion every part shows its last frame.
      ===================================================================================================== -->
@@ -291,7 +291,7 @@
       <h1 id="open-h" class="h1">The powerlifting app for coaches and their&nbsp;lifters.</h1>
       <ul class="lede">
         <li class="who-line"><i class="hue hue-green" aria-hidden="true"></i><span><b>Coaches</b> see every set as it’s logged, know who needs them today, and run meet&nbsp;day.</span></li>
-        <li class="who-line"><i class="hue hue-fire" aria-hidden="true"></i><span><b>Lifters</b> log every set and how hard it felt. The app works out their&nbsp;max.</span></li>
+        <li class="who-line"><i class="hue hue-lift" aria-hidden="true"></i><span><b>Lifters</b> log every set and how hard it felt. The app works out their&nbsp;max.</span></li>
       </ul>
       <div class="cta" id="heroCta">
         <a class="act-btn" href="/index.html#signup" data-intent>Start free</a>
@@ -301,15 +301,15 @@
     </div>
 
     <!-- Sam's laptop: the real coach app (his lifters, worst first, and Arjun's page), a device with a lid and a base.
-         The camera's window lives inside its screen: on a laptop with motion the screen becomes the room and the window
-         holds Arjun's page at its real size while only what changes moves. -->
+         The camera's window lives inside its screen: on a laptop with motion the screen grows into the room and the
+         window holds Arjun's page at its real size while only what changes moves. -->
     <figure class="laptop" id="laptop" aria-labelledby="laptop-cap">
       <div class="lt-shadow" aria-hidden="true"></div>
       <div class="lt-cam" id="ltCam">
         <div class="lt-body" id="ltBody">
           <div class="lt-lid" aria-hidden="true"><i class="lt-cam-dot"></i></div>
           <div class="lt-base" aria-hidden="true"></div>
-          <i class="lt-day" id="ltDay" aria-hidden="true"></i>
+          <i class="lt-room" id="ltRoom" aria-hidden="true"></i>
           <picture class="lt-screen" id="ltScreen">
             <source media="(max-width: 759px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
             <source type="image/avif" srcset="/site-img/home/desk-before-960.avif 960w, /site-img/home/desk-before-1440.avif 1440w, /site-img/home/desk-before-1920.avif 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
@@ -374,7 +374,7 @@
         </div>
       </div>
       <figcaption class="labels" id="labels">
-        <span class="lab-cap" id="phone-cap"><i class="hue hue-fire" aria-hidden="true"></i><span><b>Arjun’s phone.</b> Mid-session, his top&nbsp;set.</span></span>
+        <span class="lab-cap" id="phone-cap"><i class="hue hue-lift" aria-hidden="true"></i><span><b>Arjun’s phone.</b> Mid-session, his top&nbsp;set.</span></span>
         <span class="lab" style="--y: 233"><i class="lab-n" aria-hidden="true">1</i><i class="lab-l" aria-hidden="true"></i><span class="lab-t">Load × reps</span></span>
         <span class="lab" style="--y: 340"><i class="lab-n" aria-hidden="true">2</i><i class="lab-l" aria-hidden="true"></i><span class="lab-t">How hard it felt (RPE)</span></span>
         <span class="lab" style="--y: 435"><i class="lab-n" aria-hidden="true">3</i><i class="lab-l" aria-hidden="true"></i><span class="lab-t">One tap logs the set</span></span>
@@ -409,7 +409,7 @@
     </div>
 
     <!-- Today, 1: the set lands on Sam's laptop. -->
-    <div class="land t-light" id="today">
+    <div class="land t-desk" id="today">
       <h2 class="h2" id="land-h">Every set lands on your&nbsp;screen.</h2>
       <p class="sub">Load, reps and how it felt arrive next to what you wrote, as they’re logged. Arjun’s page moves with his&nbsp;set.</p>
       <p class="cap land-cap"><i class="hue hue-green" aria-hidden="true"></i><span><b>The same set, on Sam’s laptop.</b> Arjun’s page at its real&nbsp;size.</span></p>
@@ -441,7 +441,7 @@
     </div>
 
     <!-- Today, 2: the same screen, the other half: who needs Sam first, why, and the fix the app hands him. -->
-    <div class="who t-light" id="who">
+    <div class="who t-desk" id="who">
       <h2 class="h2" id="who-h">The lifters who need you come&nbsp;first.</h2>
       <p class="sub">The app reads every set, note and check-in, and ranks your lifters by what needs a decision today. Each one comes with its&nbsp;fix.</p>
       <ol class="chain" id="chain" aria-label="Why Sam’s lifters are in this order today, with the fix for each">
@@ -500,7 +500,7 @@
         </div>
         <i class="ph-btn ph-btn-a" aria-hidden="true"></i><i class="ph-btn ph-btn-b" aria-hidden="true"></i><i class="ph-btn ph-btn-c" aria-hidden="true"></i><i class="ph-btn ph-btn-p" aria-hidden="true"></i>
       </div>
-      <figcaption class="cap" id="thread-cap"><i class="hue hue-fire" aria-hidden="true"></i><span><b>Arjun’s phone.</b> His thread with Sam: the set, Seen, the&nbsp;reply.</span></figcaption>
+      <figcaption class="cap" id="thread-cap"><i class="hue hue-lift" aria-hidden="true"></i><span><b>Arjun’s phone.</b> His thread with Sam: the set, Seen, the&nbsp;reply.</span></figcaption>
     </figure>
     <div class="answers-copy">
       <h2 id="answers-h" class="h2">Their words, next to what they&nbsp;lifted.</h2>
@@ -511,9 +511,9 @@
 </section>
 
 <!-- =====================================================================================================
-     NEXT WEEK (daylight): written against lifted, the suggestion taken, the week published. The real desk.
+     NEXT WEEK (the coach's graphite): written against lifted, the suggestion taken, the week published. The real desk.
      ===================================================================================================== -->
-<section class="next t-light" id="program" aria-labelledby="next-h">
+<section class="next t-desk" id="program" aria-labelledby="next-h">
   <div class="wrap">
     <header class="next-head">
       <h2 id="next-h" class="h2">Next week, written from this&nbsp;week.</h2>
@@ -557,7 +557,7 @@
            numbers can change with the board. Its lower half runs below the stage's rule. -->
       <figure class="side side-phone" id="sidePhone" aria-labelledby="mp-cap">
         <i class="mdim" aria-hidden="true"></i>
-        <figcaption class="cap" id="mp-cap"><i class="hue hue-fire" aria-hidden="true"></i><span><b>Tom’s phone,</b> in the warm-up&nbsp;room.</span></figcaption>
+        <figcaption class="cap" id="mp-cap"><i class="hue hue-lift" aria-hidden="true"></i><span><b>Tom’s phone,</b> in the warm-up&nbsp;room.</span></figcaption>
         <div class="mp-crop">
           <div class="ph mp">
             <div class="ph-scr mp-scr">
@@ -703,9 +703,9 @@
 </section>
 
 <!-- =====================================================================================================
-     PRICING (daylight): one roster scale, four bands; Sam's twenty lifters fill it. (#pricing, as on the live site.)
+     PRICING (the coach's graphite): one roster scale, four bands; Sam's twenty lifters fill it. (#pricing, as on the live site.)
      ===================================================================================================== -->
-<section class="prices t-light" id="pricing" aria-labelledby="plans-h">
+<section class="prices t-desk" id="pricing" aria-labelledby="plans-h">
   <div class="wrap">
     <div class="plans-top">
       <header class="plans-head">
@@ -734,7 +734,7 @@
         <!-- What branding changes, labelled on the real screen (laptops); a caption on smaller screens. -->
         <span class="bp-lab" style="--y: 132" aria-hidden="true"><span class="bp-t">Your team’s name and logo</span><i class="bp-l"></i></span>
         <span class="bp-lab" style="--y: 465" aria-hidden="true"><span class="bp-t">Your team’s colour</span><i class="bp-l"></i></span>
-        <figcaption class="cap" id="brand-cap"><i class="hue hue-fire" aria-hidden="true"></i><span><b>On Pro and Premium,</b> Arjun’s app wears his team’s name, logo and&nbsp;colour.</span></figcaption>
+        <figcaption class="cap" id="brand-cap"><i class="hue hue-lift" aria-hidden="true"></i><span><b>On Pro and Premium,</b> Arjun’s app wears his team’s name, logo and&nbsp;colour.</span></figcaption>
       </figure>
     </div>
     <figure class="scale" id="scale" aria-labelledby="scale-cap">
@@ -773,9 +773,9 @@
 </section>
 
 <!-- =====================================================================================================
-     QUESTIONS (daylight): seven short answers, closed until opened.
+     QUESTIONS (the coach's graphite): seven short answers, closed until opened.
      ===================================================================================================== -->
-<section class="faq t-light" id="faq" aria-labelledby="faq-h">
+<section class="faq t-desk" id="faq" aria-labelledby="faq-h">
   <div class="wrap faq-in">
     <div class="faq-side">
       <h2 id="faq-h" class="h2">Questions coaches&nbsp;ask</h2>

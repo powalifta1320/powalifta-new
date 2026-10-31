@@ -1,4 +1,4 @@
-// Sam's laptop (the coach's desk, 1440 x 900 at 2x, light): Lifters with Arjun's page open, before and after his top set
+// Sam's laptop (the coach's desk, 1440 x 900 at 2x, dark: THEME=light for a light version): Lifters with Arjun's page open, before and after his top set
 // (182.5 kg x 5 at RPE 8) lands, and once more with the numbers that change left out (the homepage draws them live).
 // Also records where everything is (desk-values.json): the changing numbers and their regions on Arjun's page, and the
 // Lifters list row by row (name, why, rectangle), which the homepage's numbered pins and rings follow.
@@ -6,9 +6,9 @@
 //   desk-arjun-after.png   -> win-after-*, win-list-*
 //   desk-arjun-blank.png   -> desk-live-*, win-live-*
 import { writeFileSync } from 'node:fs';
-import { launch, deskCtx, patchDemo, arjunTopSet, mute, BASE, CAP } from './lib.mjs';
+import { launch, deskCtx, patchDemo, arjunTopSet, mute, BASE, CAP, THEME } from './lib.mjs';
 const b = await launch();
-const ctx = await deskCtx(b, { theme: process.env.THEME || 'light', dpr: 2 }); await patchDemo(ctx);
+const ctx = await deskCtx(b, { theme: THEME, dpr: 2 }); await patchDemo(ctx);
 const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message.slice(0, 160)));
 await p.goto(BASE + 'coach.html?demo=1', { waitUntil: 'load' }); await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(2000);
 await arjunTopSet(p);

@@ -90,21 +90,17 @@
     });
   });
 
-  /* --- The nav and the contents marker. All read from one map of the page: which floor is under the nav (dark glass
-     or daylight glass), which chapter of the coach's week is at 40% of the screen (the marker), and whether a page
-     crimson action is on screen (then the nav's ink pill steps back; one crimson per screen). --- */
-  var S = { day: false, acts: new Set(), log: false, heroHidden: false, actDay: false, stage: null };
+  /* --- The nav and the contents marker. All read from one map of the page: which chapter of the coach's week is at 40%
+     of the screen (the marker), and whether a page crimson action is on screen (then the nav's ink pill steps back;
+     one crimson per screen). The bar is the app's dark glass over every chapter: the page is dark, whatever the
+     visitor's theme. --- */
+  var S = { acts: new Set(), log: false, heroHidden: false, stage: null };
   var toc = $('#toc'), tocBar = $('#tocBar'), tocLinks = $$('#toc a'), tocOn = -1;
-  var floors = [], chapters = [];
+  var chapters = [];
   function measurePage() {
     var y0 = window.scrollY;
     var r = function (el) { var b = el.getBoundingClientRect(); return [b.top + y0, b.bottom + y0]; };
-    floors = [];
-    var act = $('#top'), staged = H.classList.contains('stage-on');
-    var a = r(act); floors.push({ a: a[0], b: a[1], day: function () { return staged ? S.actDay : false; } });
-    if (!staged) ['#today', '#who'].forEach(function (s) { var x = r($(s)); floors.push({ a: x[0], b: x[1], day: function () { return true; } }); });
-    $$('main > section:not(.act)').forEach(function (s) { var x = r(s), d = s.classList.contains('t-light'); floors.push({ a: x[0], b: x[1], day: function () { return d; } }); });
-    var foot = r($('.foot')); floors.push({ a: foot[0], b: foot[1], day: function () { return false; } });
+    var staged = H.classList.contains('stage-on');
     chapters = tocLinks.map(function (l) {
       var id = l.dataset.ch;
       if (id === 'today') {
@@ -122,9 +118,6 @@
   function paintNav() {
     var y = window.scrollY, vh = vhOf();
     nav.classList.toggle('is-on', y > 8);
-    var probe = y + 32, day = false;
-    for (var i = 0; i < floors.length; i++) { var f = floors[i]; if (probe >= f.a && probe < f.b) day = f.day(); }
-    nav.classList.toggle('is-day', y > 8 && day);
     var heroIn = S.acts.has('heroCta') && !S.heroHidden;
     var anyAct = heroIn || S.acts.has('plansCta') || S.acts.has('closeCta');
     nav.classList.toggle('has-pill', !anyAct);
@@ -196,6 +189,11 @@
   function openCalc() { var d = document.getElementById('e1rm'); if (location.hash === '#e1rm' && d && !d.open) { d.open = true; d.scrollIntoView({ block: 'start' }); } }
   window.addEventListener('hashchange', openCalc);
   if (location.hash === '#e1rm') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', openCalc); else openCalc(); }
+
+  /* --- The browser's bar stays the page's dark: the app (loaded for the account windows) sets theme-color by the
+     visitor's theme (white for light), but this page is dark whatever the theme. The stored theme is never touched,
+     so the inside pages keep following the visitor's setting. --- */
+  window.addEventListener('themechange', function () { var m = $('meta[name="theme-color"]'); if (m) m.setAttribute('content', '#0b0b0c'); });
 
   function relayout() { fitFw(); measurePage(); placeTocBar(); paintNav(); }
   relayout();
@@ -331,13 +329,14 @@
   /* =====================================================================
      ACT ONE ON A LAPTOP: the stage. The act holds the screen and the reader's scroll moves one camera: both sides on
      a desk; in on the lifter's phone; the set lifts off and flies to Sam's laptop as the laptop turns to face the
-     reader; the camera pushes in on its window while the screen's daylight grows out over the room; the window holds
-     Arjun's page at its real size; then a pan along the same screen to the lifters who need Sam first.
+     reader; the camera pushes in on its window while the laptop's own dark screen grows to fill the frame and becomes
+     the page (the coach's graphite); the window holds Arjun's page at its real size; then a pan along the same screen
+     to the lifters who need Sam first.
      ===================================================================== */
   function buildStage() {
     H.classList.add('stage-on');
     var stage = $('#stage'), laptop = $('#laptop'), cam = $('#ltCam'), ltShadow = $('.lt-shadow'), win = $('#win'), winIn = $('#winIn'), winShadow = $('#winShadow');
-    var day = $('#ltDay'), devParts = [$('.lt-lid'), $('.lt-base'), $('#ltScreen')];
+    var room = $('#ltRoom'), devParts = [$('.lt-lid'), $('.lt-base'), $('#ltScreen')];
     var phShadow = $('.ph-shadow'), land = $('#today'), who = $('#who'), chainItems = $$('#chain li');
     var grps = $$('#win .grp'), mks = $$('#win .mk'), sqRing = $('#sqRing');
     var G, vw, vh, g = {};
@@ -370,10 +369,10 @@
     var C = { vx: 0, vy: 0, fx: 0, fy: 0, s: 1, ry: 0, rx: 0, o: 1 };
     var P = { x: 0, y: 0, s: 1, ry: 0, o: 1 };   // the phone
     var D = { body: 1, win: 0, dim: 0 };          // the device falling away round its window; the phone stepping back
-    var W = { t: 0 };                             // the screen's daylight growing out over the room
+    var W = { t: 0 };                             // the screen growing out to fill the frame
     var pan = { t: 0 };                           // the pan along the screen to the list
     var PX = 440, PY = 130;
-    var lastDay = '';
+    var lastRoom = '';
     function render() {
       var fx = C.fx - PX * pan.t, fy = C.fy + PY * pan.t, s = C.s;
       var x = C.vx - fx * s, y = C.vy - fy * s;
@@ -386,16 +385,17 @@
       ltShadow.style.opacity = Math.min(D.body, C.o);
       winShadow.style.opacity = D.win;
       phDim.style.opacity = D.dim;
-      /* The wipe: the daylight starts as the screen itself and grows to the room (the camera is square-on by now). */
+      /* The wipe: the room starts as the screen itself (its corners, its lit rim) and grows until it is the page (the
+         camera is square-on by now). */
       var css;
       if (W.t <= 0) css = 'hidden';
       else {
         var e = INOUT(W.t), pad = 6 / s;
         var rx = lerp(0, -x / s - pad, e), ry = lerp(0, -y / s - pad, e), rw = lerp(1440, vw / s + 2 * pad, e), rh = lerp(900, vh / s + 2 * pad, e);
-        day.style.transform = 'translate(' + rx + 'px,' + ry + 'px) scale(' + (rw / 1440) + ',' + (rh / 900) + ')';
+        room.style.transform = 'translate(' + rx + 'px,' + ry + 'px) scale(' + (rw / 1440) + ',' + (rh / 900) + ')';
         css = 'visible';
       }
-      if (css !== lastDay) { day.style.visibility = css; lastDay = css; }
+      if (css !== lastRoom) { room.style.visibility = css; lastRoom = css; }
       phone.style.transform = 'translate3d(' + (P.x + 196.5 * P.s) + 'px,' + (P.y + 426 * P.s) + 'px,0) rotateY(' + P.ry + 'deg) scale(' + P.s + ') translate(-196.5px,-426px)';
       phone.style.opacity = P.o;
     }
@@ -414,7 +414,7 @@
     /* The arrival settle is the stylesheet's: it plays from the first paint, and this layer loads only once it has
        finished, so the camera starts from exactly where the devices came to rest. */
     gsap.set(phone, { transformOrigin: '0 0' });
-    cam.style.willChange = 'transform'; phone.style.willChange = 'transform, opacity'; day.style.willChange = 'transform';
+    cam.style.willChange = 'transform'; phone.style.willChange = 'transform, opacity'; room.style.willChange = 'transform';
 
     /* The window's live screen: the same capture with the changing numbers left out, sharp at its real size. */
     var winBase = $('.win-base', win), dpr = window.devicePixelRatio || 1;
@@ -475,13 +475,12 @@
 
     /* The master: one timeline the reader's scroll plays (units; the act is 10.1 long). State changes inside the held
        act fire from the timeline's own time (it is scrubbed, so it settles a moment after the reader stops). */
-    var DAY_AT = 5.7;
+    var ROOM_AT = 5.7;
     var tl = gsap.timeline({ paused: true, defaults: { ease: 'none' }, onUpdate: function () {
       render(); placeFly();
       var t = tl.time();
       labGate(t, 1.6); pressGate(t, 2.15); maxGate(t, 2.35); deskGate(t, 6.0); landGate(t, 6.1); whoGate(t, 8.3);
       var hh = t > 0.6; if (hh !== S.heroHidden) { S.heroHidden = hh; onScrollNav(); }
-      var d = t >= DAY_AT; if (d !== S.actDay) { S.actDay = d; onScrollNav(); }
     } });
     /* B0 → B1: the words step aside, the camera moves in on the lifter's phone; the laptop turns away and recedes. */
     tl.to([copy, ltCap], { y: -60, duration: 0.65, ease: INOUT }, 0.25)
@@ -493,7 +492,7 @@
     /* B2: the max arrives where the words were; the reader holds on it. */
       .to(max, { autoAlpha: 1, x: 0, duration: 0.5, ease: OUT }, 2.2)
     /* B3: the set lifts off and flies; the phone steps back and leaves; the laptop turns to face the reader, then the
-       camera pushes in on its window while the daylight grows out of its screen and the device falls away. */
+       camera pushes in on its window while its screen grows out to fill the frame and the device falls away. */
       .to([max, labs, labCap], { autoAlpha: 0, duration: 0.5, ease: OUT }, 3.5)
       .to('.glow-top', { opacity: 0, duration: 0.8, ease: OUT }, 3.6)
       .fromTo(F, { p: 0 }, { p: 1, duration: 2.4, ease: 'none', immediateRender: false }, 3.6)
@@ -520,14 +519,14 @@
     });
     var T = function () { return tl.duration(); };
     S.stage = {
-      /* "Today" is on screen from the moment the daylight arrives to the end of the act. */
-      today: function () { var a = st.start, L = st.end - st.start, b = $('#top').getBoundingClientRect().bottom + window.scrollY; return [a + L * (DAY_AT / T()), b]; },
+      /* "Today" is on screen from the moment the screen has grown into the room to the end of the act. */
+      today: function () { var a = st.start, L = st.end - st.start, b = $('#top').getBoundingClientRect().bottom + window.scrollY; return [a + L * (ROOM_AT / T()), b]; },
       todayY: function () { return Math.round(st.start + (st.end - st.start) * (6.6 / T())); }
     };
     window.__fxStage = { st: st, tl: tl };
     return function () {
-      H.classList.remove('stage-on'); S.stage = null; S.heroHidden = false; S.actDay = false;
-      [cam, win, winIn, winShadow, phone, ltShadow, phShadow, phDim, day, max, land, who, copy, ltCap, fly, $('.glow-top')].concat(devParts).forEach(function (el) { if (el) el.removeAttribute('style'); });
+      H.classList.remove('stage-on'); S.stage = null; S.heroHidden = false;
+      [cam, win, winIn, winShadow, phone, ltShadow, phShadow, phDim, room, max, land, who, copy, ltCap, fly, $('.glow-top')].concat(devParts).forEach(function (el) { if (el) el.removeAttribute('style'); });
     };
   }
 

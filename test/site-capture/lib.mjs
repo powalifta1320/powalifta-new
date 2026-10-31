@@ -4,6 +4,7 @@
 //   BASE        the repo served over http (default http://127.0.0.1:4191/, as test/uiscan.mjs)
 //   CAP         where the raw captures go (default <repo>/scratchpad-shots/site-capture/, gitignored)
 //   CHROME_PATH a Chromium for playwright-core (optional)
+//   THEME       the desk's theme for the laptop pictures: dark (the homepage is all dark, 30 Oct) or light
 // Nothing reaches the live services: Supabase and Plausible are refused in every context.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,6 +17,7 @@ export const BASE = (process.env.BASE || 'http://127.0.0.1:4191/').replace(/\/?$
 export const CAP = (process.env.CAP || path.join(ROOT, 'scratchpad-shots/site-capture')).replace(/\/?$/, '/');
 fs.mkdirSync(CAP, { recursive: true });
 export const HERE = path.dirname(new URL(import.meta.url).pathname) + '/';
+export const THEME = process.env.THEME === 'light' ? 'light' : 'dark';
 const LIVE = /^(https?|wss?):\/\/([^/?#]*\.)?(supabase\.co|plausible\.io)([:/?#]|$)/i;
 export async function launch(args = []) { return chromium.launch(Object.assign(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}, { args })); }
 async function guard(ctx) { await ctx.route(LIVE, (r) => r.abort('blockedbyclient')); }
@@ -39,8 +41,8 @@ export async function safeAreas(ctx, page) {
   await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 59, topMax: 59, bottom: 34, bottomMax: 34, left: 0, leftMax: 0, right: 0, rightMax: 0 } }).catch(() => {});
   return cdp;
 }
-// The coach's desk on a laptop (light by default), 1440 x 900 at 2x, the same fixed day.
-export async function deskCtx(browser, { theme = 'light', dpr = 2, w = 1440, h = 900 } = {}) {
+// The coach's desk on a laptop (THEME: dark by default), 1440 x 900 at 2x, the same fixed day.
+export async function deskCtx(browser, { theme = THEME, dpr = 2, w = 1440, h = 900 } = {}) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: dpr, colorScheme: theme, serviceWorkers: 'block' });
   await guard(ctx);
   await ctx.addInitScript((t) => { try {
