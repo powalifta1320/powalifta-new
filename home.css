@@ -687,7 +687,7 @@ html.m .fly { display: block; visibility: hidden; }
    individual translate property, so the score's own transforms (the depth parallax) compose with it. Without motion
    every word is simply there. The motion layer (GSAP) loads once this has finished. */
 @keyframes riseIn { from { opacity: 0; transform: translateY(12px); } }
-@keyframes settleIn { from { opacity: 0; transform: translateY(8px) scale(0.96); } }
+@keyframes settleIn { from { opacity: 0; translate: 0 8px; scale: 0.96; } }   /* individual properties: the press keeps its transform */
 @keyframes easeUp { from { translate: 0 24px; } }
 @keyframes glowUp { from { opacity: 0.4; } }
 html.m .h1 .w { display: inline-block; animation: riseIn 640ms var(--ease-enter) calc(60ms + var(--i) * 60ms) both; }

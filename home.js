@@ -601,7 +601,7 @@
     $$('.cl-n .num', live).forEach(function (n, i) { count(clTl, n, 0.15 + i * 0.12, 1.3, OUT); });
     clTl.to(live, { autoAlpha: 0, duration: 0.35, ease: OUT }, 1.75);
   });
-  onState(clTl, { trigger: '.cl', start: 'top 84%' });
+  onState(clTl, { trigger: '.cl', start: 'top 92%' });
 
   /* =====================================================================
      PRICING: the offer settles (its words, Start coaching free, the branded phone rising with its labels); the plans
@@ -688,9 +688,10 @@
   function refresh() { fitFw(); ST.sort(); ST.refresh(); }
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(refresh);
   if (document.readyState === 'complete') requestAnimationFrame(refresh); else window.addEventListener('load', refresh);
-  /* Every picture keeps its place before it loads (width and height, per source), but a lazy one landing still re-reads
-     the page's map, once things settle, so no trigger is ever out by a picture. */
-  var refT = 0;
-  $$('.s-home img[loading="lazy"]').forEach(function (i) { if (!i.complete) i.addEventListener('load', function () { clearTimeout(refT); refT = setTimeout(function () { ST.refresh(); }, 200); }, { once: true }); });
+  /* Every picture keeps its place before it loads (width and height, per source); if one landing ever changes the page's
+     height anyway, the page's map is re-read once things settle, so no trigger is ever out by a picture. */
+  var refT = 0, pageH = document.documentElement.scrollHeight;
+  ST.addEventListener('refresh', function () { pageH = document.documentElement.scrollHeight; });
+  $$('.s-home img[loading="lazy"]').forEach(function (i) { if (!i.complete) i.addEventListener('load', function () { clearTimeout(refT); refT = setTimeout(function () { if (document.documentElement.scrollHeight !== pageH) ST.refresh(); }, 200); }, { once: true }); });
   }
 })();
