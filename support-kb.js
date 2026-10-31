@@ -1933,5 +1933,45 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "A lifter's program goes from its ⋯ (next to the program's name) → **Delete program**. It asks first and says what happens: if the lifter logged anything in it, that training is kept as a past block (under **Blocks** on their page) and only the weeks still to come are deleted; if nothing was logged yet, nothing is kept. Either way they have no program until you write or apply one. A template goes from **Templates**: open it, then **Delete template**. Lifters you gave it to keep their own block; only your saved copy goes. Neither can be undone, so **Cancel** (on a phone, **Keep**) leaves everything as it is.",
   "app": "A lifter's program goes from the ⋯ beside its name in **Programs** → **Delete program**. The app asks first, naming it and saying what happens: if the lifter logged anything in it, that training is kept as a past block (under **Blocks** on their page) and only the weeks still to come are deleted; if nothing was logged yet, nothing is kept. Either way they have no program until you write or apply one. A template goes from **Templates**: open it, then **Delete template**. Lifters you gave it to keep their own block; only your saved copy goes. Neither can be undone, so **Keep program** (or **Keep template**) leaves everything as it is."
+ },
+ {
+  "id": "swap-exercise",
+  "q": "Can I swap a lift for a variation today?",
+  "t": [
+   "swap an exercise",
+   "swap exercise",
+   "swap for a variation",
+   "swap the bench",
+   "swap the deadlift",
+   "swap the squat",
+   "use a variation instead"
+  ],
+  "a": "Yes, for today only: when you want a variation instead of what's written (a tweak that needs a gentler version, the kit you have today, or your coach's call). On **Train**, tap the **Swap** arrows in the lift card's row of buttons and pick another variation of the same lift: for the squat that's Paused, Tempo or Pin Squat. The sets you haven't done move to the same effort: the load follows the variation's factor (a pin squat counts as 1.08 of a competition squat, so 182.5 becomes 170), rounded to your plates, and your estimated max stays competition-equivalent. Sets you already logged stay as they were. **Undo** is on the message that pops up and on the card's \"Swapped from …\" line until you log a swapped set. Your coach sees \"Swapped for pin squat\" on that session, and their program stays as they wrote it. If something hurts, tell your coach with **Something hurt** first."
+ },
+ {
+  "id": "meet-weight-line",
+  "q": "What does \"Meet in 23 days · 1.4 kg over 83 · on pace\" mean?",
+  "t": [
+   "a week gets there",
+   "behind on weight",
+   "make weight by the meet",
+   "on pace for my meet",
+   "over my class",
+   "over the class"
+  ],
+  "a": "It's your next meet, your weight class and your pace in one line, on Train's weigh-in tile and first in **Bodyweight** → **Make weight**. The meet is the next one on your calendar (or the class and date you set in Make weight). It reads your weigh-ins, not one morning: the middle part is your average over the last week against the class (in the last two days before the meet, that morning's weigh-in). The last part is the same call your coach sees: **on weight** at or under the class; **on pace** when your weigh-ins are coming down fast enough to get there by meet day (a few hundred grams over with weeks to go is only water); **hold your weight** when you're only just over but creeping up; **0.5 kg a week gets there** when you need to lose faster than you are; **behind**, with a small orange triangle, when that would take more than 1% of your bodyweight a week, or it's meet day and you're still over. The pace needs at least four weigh-ins across a week. Then talk the class through with your coach."
+ },
+ {
+  "id": "pull-to-refresh",
+  "q": "How do I refresh the club feed or my lifters?",
+  "t": [
+   "pull down to refresh",
+   "pull to refresh",
+   "refresh my lifters",
+   "refresh the club",
+   "refresh the feed",
+   "refresh the roster"
+  ],
+  "a": "On a phone, pull down from the top of **Club** or the coach's **Lifters** tab and let go once the ring fills: it spins while the app reads everything again, then the screen settles back. Offline, it says it couldn't refresh and what you had stays on screen. On a laptop there's nothing to pull: the coach's desk updates live."
  }
 ];

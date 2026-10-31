@@ -1498,7 +1498,9 @@ async function bootstrap(expectedType, onReady, opts) {
   }
 
   try {
-    Store.set(await DB.hydrateAll(profile));
+    const fresh = await DB.hydrateAll(profile);
+    keepUnreadLists(fresh, (_readSnapshot(profile.id) || {}).store);
+    Store.set(fresh);
   } catch (e) {
     console.error('hydrate failed', e);
     // Flaky / offline: fall back to the cached snapshot so the dashboard still
@@ -1526,6 +1528,21 @@ async function bootstrap(expectedType, onReady, opts) {
   _flushQueuesSoon();
 }
 window.bootstrap = bootstrap;
+// The boot's lists that couldn't be read (a weak signal: db.js answers [] and marks it readFailed) keep this device's
+// copy (the offline snapshot's store, snap) instead of an empty one: a coach's pain flags and meets survive a bad
+// connection, and the next snapshot doesn't save the empty list over them. The roster itself is never patched (a
+// roster that can't be read throws, and the boot opens the device's copy). Mutates fresh → the keys it kept. Pure.
+function keepUnreadLists(fresh, snap) {
+  const kept = [];
+  if (!fresh || !snap) return kept;
+  Object.keys(fresh).forEach(k => {
+    const v = fresh[k], old = snap[k];
+    if (k === 'athletes' || !Array.isArray(v) || !v.readFailed || v.length || !Array.isArray(old) || !old.length) return;
+    fresh[k] = old; kept.push(k);
+  });
+  if (kept.length) console.warn('Not read, this device\'s copy kept:', kept.join(', '));
+  return kept;
+}
 let _snapSoonT = null;
 function _snapshotSoon() {
   if (_snapSoonT) return;
@@ -3668,10 +3685,24 @@ async function _lvResync() {
     }
   } catch (e) { console.warn('live resync', e); failed = true; }
   finally { _lv.resyncing = false; }
-  if (!_lv.me) return;
+  if (!_lv.me) return false;
   if (_lv.again) _lvResyncSoon(0);
   else if (failed && _lv.status !== 'off' && _lv.status !== 'paused') _lvResyncSoon(30000);
+  return !failed;
 }
+// The catch-up a reconnect runs, now and awaited (the coach's pull to refresh): the programs that moved (by rev,
+// never this device's base: the same merge as a live row, so nothing typed here and not yet saved is lost), the
+// last two days of sets and the form checks, applied at once. → true when it read, false when a read failed,
+// null with nothing live to catch up (the demo, signed out).
+async function liveCatchUp() {
+  if (window._demoMode || !_lv.me || !window.DB || !DB.liveProgramRows) return null;
+  clearTimeout(_lv.resyncT); _lv.resyncT = null;
+  for (let i = 0; _lv.resyncing && i < 100; i++) await new Promise(r => setTimeout(r, 100));
+  const ok = await _lvResync();
+  if (_lv.q) _lv.q.flushNow();
+  return ok === true;
+}
+window.liveCatchUp = liveCatchUp;
 // The coach's desk says so, quietly, when the programs channel has been down for a while (the backoff
 // ran out; it still tries every minute). Refresh tries now.
 function _lvPausedMarker(show) {
@@ -6600,6 +6631,219 @@ function multiplierFor(lift, variant) {
 function exercisesFor(lift) { return ACCESSORY_EXERCISES[lift] || []; }
 
 // =========================================================
+// SWAP AN EXERCISE (2026-10-30). A variation for today (a tweak, the kit, the coach's call): the squat becomes a pin squat. The sets
+// still to do carry over at the same effort: a variant's multiplier says how much harder it is than
+// the competition lift, so its load is the load × (from's multiplier ÷ to's), on the gym's plates
+// (loadStepKg). The log carries the new variant, so the e1RM stays competition-equivalent
+// (calcCompE1RM). For today only: the swap lives on that day's exercise,
+//   ex.swap = { from: the variant as written, on: the day, src?: the exercise it split off from,
+//               srcVariant?, sets: [{ at, src?, id?, f: { weight, weightHi?, plannedWeight?, pct?, pctHi? } }] }
+// where at is the set's place in this exercise (src its place in the one it split off from) and f its
+// load fields before this swap. Nothing logged yet: the exercise changes in place. Some sets logged
+// (they stay what they were): the rest split off into a new exercise right after it. Undo puts it all
+// back while none of the carried sets is logged. Pure over the caller's day; unit-tested.
+// =========================================================
+const _SWAP_FIELDS = ['weight', 'weightHi', 'plannedWeight', 'pct', 'pctHi'];
+// A variant as a coach says it in a sentence: "pin squat", "close grip bench", "pin press", "RDL".
+function variantName(lift, variant) {
+  const v = String(variant || 'Competition');
+  if (/^rdl$/i.test(v)) return 'RDL';
+  if (/^pin press$/i.test(v)) return 'pin press';
+  return (v + ' ' + String(LIFT_LABELS[lift] || lift || '')).trim().toLowerCase();
+}
+// A load at the same effort on another variant of the lift, in kg, rounded to stepKg (the gym's smallest
+// jump). 0 (a load picked by feel) stays 0; the same variant keeps the load exactly.
+function swapLoadKg(kg, lift, fromVariant, toVariant, stepKg) {
+  const k = Number(kg);
+  if (!(k > 0)) return 0;
+  if (String(fromVariant || 'Competition') === String(toVariant || 'Competition')) return k;
+  const step = Number(stepKg) > 0 ? Number(stepKg) : 2.5;
+  const raw = k * multiplierFor(lift, fromVariant || 'Competition') / multiplierFor(lift, toVariant || 'Competition');
+  return Math.round(Math.round(raw / step) * step * 1000) / 1000;
+}
+// A set's load fields, only the ones it has (what a swap keeps to put back).
+function _swapPick(s) {
+  const f = {};
+  _SWAP_FIELDS.forEach(k => { if (s && s[k] != null && s[k] !== '') f[k] = s[k]; });
+  return f;
+}
+function _swapSet(s, f) {
+  _SWAP_FIELDS.forEach(k => { delete s[k]; });
+  Object.keys(f || {}).forEach(k => { s[k] = f[k]; });
+  if (!('weight' in s)) s.weight = 0;
+  return s;
+}
+// Load fields on fromV → the same effort on toV. A % of the competition max means nothing on a variant,
+// so it goes (Undo brings it back); the same variant keeps everything as it was.
+function _swapConv(f, lift, fromV, toV, stepKg) {
+  if (String(fromV || 'Competition') === String(toV || 'Competition')) return Object.assign({}, f);
+  const out = { weight: swapLoadKg(f.weight, lift, fromV, toV, stepKg) };
+  if (Number(f.weightHi) > 0) out.weightHi = swapLoadKg(f.weightHi, lift, fromV, toV, stepKg);
+  if ('plannedWeight' in f) out.plannedWeight = swapLoadKg(f.plannedWeight, lift, fromV, toV, stepKg);
+  return out;
+}
+// The swap on an exercise, or null: { from (as written), to (now), src, on, recs, undoable }.
+// undoable: every carried set is still there and none of them is logged.
+function exSwap(ex) {
+  const sw = ex && ex.swap;
+  if (!sw || typeof sw !== 'object' || !MAIN_LIFTS.includes(ex.lift)) return null;
+  const recs = Array.isArray(sw.sets) ? sw.sets.filter(r => r && Number.isInteger(r.at)) : [];
+  const sets = ex.sets || [];
+  const here = (r) => { const s = sets[r.at]; return !!s && (r.id == null || s.id == null || String(s.id) === String(r.id)); };
+  const undoable = recs.length > 0 && recs.every(r => here(r) && !sets[r.at].completed);
+  return { from: sw.from || 'Competition', to: ex.variant || 'Competition', src: sw.src != null ? sw.src : null, on: sw.on || null, recs, undoable };
+}
+// What the coach reads on the session: "Swapped for pin squat", or '' (as written, or no swap).
+function swapLine(ex) {
+  const sw = exSwap(ex);
+  return sw && sw.to !== sw.from ? 'Swapped for ' + variantName(ex.lift, sw.to) : '';
+}
+// The other variants of the lift, for the Swap sheet: [{ variant, mult, written, next: { kg, reps } | null }].
+// next is the first set still to do at that variant's load (kg 0: picked by feel). stepKg: loadStepKg(unit).
+function swapOptions(ex, stepKg) {
+  if (!ex || !MAIN_LIFTS.includes(ex.lift) || !VARIANTS[ex.lift]) return [];
+  const sw = exSwap(ex), cur = ex.variant || 'Competition', written = sw ? sw.from : cur;
+  const si = (ex.sets || []).findIndex(s => s && !s.completed);
+  const set = si >= 0 ? ex.sets[si] : null;
+  // The first set's load as written when the swap kept it, so a second swap never rounds twice.
+  const rec = sw ? sw.recs.find(r => r.at === si) : null;
+  const baseV = rec ? written : cur, baseKg = rec ? Number((rec.w || rec.f || {}).weight) || 0 : Number(set && set.weight) || 0;
+  return variantsFor(ex.lift).filter(v => v !== cur).map(v => ({
+    variant: v, mult: multiplierFor(ex.lift, v), written: v === written,
+    next: set ? { kg: swapLoadKg(baseKg, ex.lift, baseV, v, stepKg), reps: set.reps } : null
+  }));
+}
+// Swap exercise exId of day to variant `to`. opts: { stepKg, date, newId }. Mutates day.
+// → { exId: the exercise that carries the sets now, split, undone? } or null (nothing to swap).
+// Each record keeps f (the set's load fields to put back) and, split off, w (them as written).
+function swapApply(day, exId, to, opts) {
+  opts = opts || {};
+  const exs = (day && day.exercises) || [];
+  const ei = exs.findIndex(e => e && String(e.id) === String(exId));
+  const ex = exs[ei];
+  if (!ex || !MAIN_LIFTS.includes(ex.lift) || !VARIANTS[ex.lift] || VARIANTS[ex.lift][to] == null) return null;
+  const cur = ex.variant || 'Competition';
+  if (to === cur || !Array.isArray(ex.sets)) return null;
+  const left = [];
+  ex.sets.forEach((s, i) => { if (s && !s.completed) left.push(i); });
+  if (!left.length) return null;
+  const old = exSwap(ex), written = old ? old.from : cur, step = opts.stepKg;
+  // Back where it came from with nothing logged on it since: that is the undo.
+  const home = old ? (old.src != null ? (ex.swap.srcVariant || written) : written) : null;
+  if (old && old.undoable && to === home) {
+    const back = old.src != null && exs.some(e => e && e !== ex && String(e.id) === String(old.src)) ? old.src : ex.id;
+    return swapUndo(day, ex.id) ? { exId: back, split: false, undone: true } : null;
+  }
+  const recAt = (i) => (old ? old.recs.find(r => r.at === i && (r.id == null || ex.sets[i].id == null || String(r.id) === String(ex.sets[i].id))) : null) || null;
+  // A set's load as written, for converting from (never twice rounded): its record's, else its own on this variant.
+  const base = (i) => { const r = recAt(i); return r ? { v: written, f: r.w || r.f || {} } : { v: cur, f: _swapPick(ex.sets[i]) }; };
+  const asWritten = (b) => (b.v === written ? Object.assign({}, b.f) : _swapConv(b.f, ex.lift, b.v, written, step));
+  if (!ex.sets.some(s => s && s.completed)) {
+    // Nothing lifted on it yet: it changes in place.
+    const recs = left.map(i => recAt(i) || { at: i, id: ex.sets[i].id != null ? ex.sets[i].id : undefined, f: asWritten(base(i)) });
+    left.forEach(i => { const b = base(i); _swapSet(ex.sets[i], _swapConv(b.f, ex.lift, b.v, to, step)); });
+    ex.variant = to;
+    const keep = old && old.src != null ? { src: ex.swap.src, srcVariant: ex.swap.srcVariant } : {};
+    ex.swap = Object.assign(keep, { from: written, on: opts.date || (old && old.on) || null, sets: recs });
+    return { exId: ex.id, split: false };
+  }
+  // Some sets are logged: they stay what they were, and the rest split off into a new exercise after it.
+  const nx = { id: opts.newId || (typeof uid === 'function' ? uid('ex') : 'ex' + Date.now()), lift: ex.lift, variant: to, exerciseName: ex.exerciseName || '', note: ex.note || '', sets: [] };
+  if (Number(ex.restSec) > 0) nx.restSec = ex.restSec;
+  const recs = [];
+  left.forEach((i, k) => {
+    const s = ex.sets[i], b = base(i);
+    recs.push({ at: k, src: i, id: s.id != null ? s.id : undefined, f: _swapPick(s), w: asWritten(b) });
+    _swapSet(s, _swapConv(b.f, ex.lift, b.v, to, step));
+    nx.sets.push(s);
+  });
+  for (let k = left.length - 1; k >= 0; k--) ex.sets.splice(left[k], 1);
+  nx.swap = { from: written, on: opts.date || null, src: ex.id, srcVariant: cur, sets: recs };
+  exs.splice(ei + 1, 0, nx);
+  return { exId: nx.id, split: true };
+}
+// Undo a swap while none of its sets is logged: in place, the variant and the loads as written; split off,
+// its sets go back into the exercise they came from, in their places. Mutates day → true when undone.
+function swapUndo(day, exId) {
+  const exs = (day && day.exercises) || [];
+  const ei = exs.findIndex(e => e && String(e.id) === String(exId));
+  const ex = exs[ei], sw = exSwap(ex);
+  if (!sw || !sw.undoable) return false;
+  const src = sw.src != null ? exs.find(e => e && e !== ex && String(e.id) === String(sw.src)) : null;
+  if (src) {
+    const extra = ex.sets.filter((s, i) => !sw.recs.some(r => r.at === i) && s && !s.completed);
+    sw.recs.slice().sort((a, b) => (Number(a.src) || 0) - (Number(b.src) || 0)).forEach(r => {
+      const s = ex.sets[r.at];
+      if (!s) return;
+      _swapSet(s, r.f || {});
+      src.sets.splice(Math.min(Number(r.src) || 0, src.sets.length), 0, s);
+    });
+    // A set added on the swapped exercise since goes back too, at the end, at the same effort.
+    extra.forEach(s => { _swapSet(s, _swapConv(_swapPick(s), ex.lift, sw.to, src.variant || 'Competition')); src.sets.push(s); });
+    exs.splice(ei, 1);
+    return true;
+  }
+  const back = sw.src != null ? (ex.swap.srcVariant || sw.from) : sw.from;
+  ex.sets.forEach((s, i) => {
+    const r = sw.recs.find(x => x.at === i);
+    if (r) _swapSet(s, r.f || {});
+    else if (s && !s.completed) _swapSet(s, _swapConv(_swapPick(s), ex.lift, sw.to, back));
+  });
+  ex.variant = back;
+  delete ex.swap;
+  return true;
+}
+// An exercise as the coach wrote it: the variant and every load as written, no swap kept. What a copy starts from
+// (Duplicate day, Copy week, the next block, a template, a team, Reuse a block): a swap is for that day only. A copy.
+function exAsWritten(ex) {
+  if (!ex || !ex.swap || typeof ex.swap !== 'object') return ex;
+  const e = JSON.parse(JSON.stringify(ex)), sw = e.swap, recs = Array.isArray(sw.sets) ? sw.sets : [];
+  const from = sw.from || 'Competition', cur = e.variant || 'Competition';
+  (e.sets || []).forEach((s, i) => {
+    if (!s) return;
+    const r = recs.find(x => x && x.at === i);
+    if (r) _swapSet(s, r.w || r.f || {});
+    else if (MAIN_LIFTS.includes(e.lift)) _swapSet(s, _swapConv(_swapPick(s), e.lift, cur, from));
+  });
+  e.variant = from;
+  delete e.swap;
+  return e;
+}
+// A day as the coach wrote it: every swap undone, and a lift that split mid-way back in one piece (its sets in their
+// places, as written). The day itself when it has no swap; else a copy.
+function dayAsWritten(day) {
+  if (!day || !(day.exercises || []).some(e => e && e.swap)) return day;
+  const d = JSON.parse(JSON.stringify(day)), exs = d.exercises;
+  for (let k = exs.length - 1; k >= 0; k--) {
+    const ex = exs[k], sw = ex && ex.swap;
+    if (!sw || sw.src == null) continue;
+    const src = exs.find(e => e && e !== ex && String(e.id) === String(sw.src));
+    if (!src || !Array.isArray(src.sets)) continue;
+    (Array.isArray(sw.sets) ? sw.sets : []).slice().sort((a, b) => (Number(a.src) || 0) - (Number(b.src) || 0)).forEach(r => {
+      const s = (ex.sets || [])[r.at];
+      if (!s) return;
+      _swapSet(s, r.w || r.f || {});
+      src.sets.splice(Math.min(Number(r.src) || 0, src.sets.length), 0, s);
+    });
+    exs.splice(k, 1);
+  }
+  d.exercises = exs.map(exAsWritten);
+  return d;
+}
+// One session's swaps (the day whose sets were logged on date): "Swapped for pin squat", two "Swapped for
+// pin squat and close grip bench", or ''. What the coach's Last session says.
+function sessionSwapLine(prog, date) {
+  const names = [];
+  (((prog && prog.weeks) || [])).forEach(w => (w.days || []).forEach(d => {
+    const exs = d.exercises || [];
+    if (!exs.some(e => (e.sets || []).some(s => s && s.completed && String(s.completedAt || '').slice(0, 10) === date))) return;
+    exs.forEach(e => { const t = swapLine(e); if (t && !names.includes(t.slice(12))) names.push(t.slice(12)); });
+  }));
+  if (!names.length) return '';
+  return 'Swapped for ' + (names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]);
+}
+
+// =========================================================
 // EXERCISE LIBRARY — coaching cues for the competition lifts, their
 // training variants, and the core accessories. Pure data + lookups,
 // keyed off the SAME lift/variant taxonomy as logging (VARIANTS /
@@ -9080,7 +9324,8 @@ function duplicateDay(programId, weekIdx, dayIdx) {
     const p = s.programs.find(p => p.id === programId);
     const d = p && p.weeks[weekIdx] && p.weeks[weekIdx].days[dayIdx];
     if (!d) return;
-    const clone = { id: uid('day'), name: (d.name || 'Day') + ' (copy)', exercises: (d.exercises || []).map(ex => ({
+    const dw = dayAsWritten(d);   // a swap on the day was for that day only
+    const clone = { id: uid('day'), name: (d.name || 'Day') + ' (copy)', exercises: (dw.exercises || []).map(ex => ({
       id: uid('ex'), lift: ex.lift, variant: ex.variant || '', exerciseName: ex.exerciseName || '', note: ex.note || '',
       sets: (ex.sets || []).map(set => ({ id: uid('set'), weight: planWeight(set), reps: set.reps, rpe: set.rpe, tempo: set.tempo || '',
         completed: false, actualRpe: null, completedAt: null, note: '', ...rxOf(set) }))
@@ -9107,7 +9352,7 @@ function copyExercise(programId, weekIdx, dayIdx, exIdx) {
   Store.update(s => {
     const p = s.programs.find(p => p.id === programId);
     if (!p) return;
-    const ex = p.weeks[weekIdx].days[dayIdx].exercises[exIdx];
+    const ex = exAsWritten(p.weeks[weekIdx].days[dayIdx].exercises[exIdx]);   // a swap was for that day only
     const cloned = {
       id: uid('ex'),
       lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
@@ -9129,7 +9374,8 @@ function duplicateWeek(programId, weekIdx) {
     const newNum = (p.weeks.at(-1)?.number || 0) + 1;
     const cloned = {
       id: uid('wk'), number: newNum,
-      days: src.days.map(d => ({
+      // A swap on a day (a pin squat for the squat) was for that day only: the new week is the lifts as written.
+      days: src.days.map(dayAsWritten).map(d => ({
         id: uid('day'), name: d.name,
         exercises: d.exercises.map(ex => ({
           id: uid('ex'),
@@ -9160,7 +9406,7 @@ function saveProgramAsTemplate(programId, name) {
       payload: {
         weeks: p.weeks.map(wk => ({
           number: wk.number,
-          days: wk.days.map(d => ({
+          days: wk.days.map(dayAsWritten).map(d => ({   // a swap was for that day only
             name: d.name,
             exercises: d.exercises.map(ex => ({
               lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,
@@ -12814,7 +13060,7 @@ function progressionApply(rule, row, unit) {
   if (!rule || !rule.then || !row || !row.next || !row.next.group || !row.logged || row.logged.skipped) return null;
   const step = typeof loadStepKg === 'function' ? loadStepKg(unit) : 2.5;
   const cur = Number(row.next.group.weight) || 0;
-  const base = Number(row.logged.weight) || 0;
+  const base = Number(row.logged.writtenKg != null ? row.logged.writtenKg : row.logged.weight) || 0;   // a swap: in the written lift's terms
   const v = Number(rule.then.value);
   const round = (x) => (x > 0 ? Math.round(x / step) * step : 0);
   let kg = 0, sets;
@@ -12920,9 +13166,20 @@ function deskWeekReview(prog, opts) {
   const W = weeks[last], N = next >= 0 ? weeks[next] : null;
   const rows = [];
   (W.days || []).forEach((day, di) => (day.exercises || []).forEach((ex, ei) => {
-    const groups = groupSets(_deskPlanSets(ex));
-    const same = (e) => !!e && e.lift === ex.lift && (e.variant || '') === (ex.variant || '') && String(e.exerciseName || '') === String(ex.exerciseName || '');
-    const nd = N && (N.days || [])[di];
+    // A swap (a pin squat for the squat that day) reads as the lift written, with next week's block for that lift
+    // beside it: the loads were moved at the same effort, so felt against written still holds, and each set is read
+    // against what the coach wrote (exAsWritten: the same sets, in the same places). The part of a lift that split
+    // off mid-way leaves next week to the lift it came from (one suggestion, not two).
+    const sw = exSwap(ex);
+    const groups = groupSets(_deskPlanSets(sw && sw.to !== sw.from ? exAsWritten(ex) : ex));
+    const splitOff = !!(sw && sw.src != null && (day.exercises || []).some(e => e && e !== ex && String(e.id) === String(sw.src)));
+    const same = sw
+      ? (e) => !!e && e.lift === ex.lift && (e.variant || 'Competition') === sw.from && String(e.exerciseName || '') === String(ex.exerciseName || '')
+      : (e) => !!e && e.lift === ex.lift && (e.variant || '') === (ex.variant || '') && String(e.exerciseName || '') === String(ex.exerciseName || '');
+    // The swap's loads in the written lift's terms (a close grip bench 105 is a competition bench 114.5): next week's
+    // suggestion works from them (a week written by RPE alone takes its load from the top set) and so do the rules.
+    const k = sw && sw.to !== sw.from ? multiplierFor(ex.lift, sw.to) / multiplierFor(ex.lift, sw.from) : 1;
+    const nd = N && !splitOff ? (N.days || [])[di] : null;
     let nei = -1;
     if (nd) nei = same((nd.exercises || [])[ei]) ? ei : (nd.exercises || []).findIndex(same);
     const nex = nei >= 0 ? nd.exercises[nei] : null;
@@ -12952,15 +13209,17 @@ function deskWeekReview(prog, opts) {
       if (open && acted) suggest = { kg: cur, delta: 0, dir: 'hold', acted: true };
       else if (open && felt != null && tgt != null && ng.rpe != null && ng.rpe !== '') {
         // A % set's load follows the max, and RPE-less back-offs give nothing to go on: no guess.
-        const s = smartNextLoad({ weight: top.weight, planned: g.weight, reps: top.reps, rpe: felt, target: tgt },
+        const s = smartNextLoad({ weight: (Number(top.weight) || 0) * k, planned: Number(g.weight) || 0, reps: top.reps, rpe: felt, target: tgt },
           { weight: from, reps: ng.reps, rpe: ng.rpe, weightHi: ng.weightHi }, unit);
         suggest = s ? _deskSuggestOf(s.kg, cur, step) : (from > 0 ? _deskSuggestOf(from, cur, step) : null);
         if (suggest && prg.fallback === 'keep') suggest = cur > 0 ? { kg: cur, delta: 0, dir: 'hold' } : null;
       }
       const row = {
-        key: last + '.' + di + '.' + ei + '.' + gi, di, ei, gi, day: day.name || ('Day ' + (di + 1)), title: _exShortTitle(ex), lift: ex.lift,
+        key: last + '.' + di + '.' + ei + '.' + gi, di, ei, gi, day: day.name || ('Day ' + (di + 1)), title: _exShortTitle(sw ? Object.assign({}, ex, { variant: sw.from }) : ex), lift: ex.lift,
+        swap: sw && sw.to !== sw.from ? { to: sw.to, text: swapLine(ex) } : null,
         target: g, count: sets.filter(s => !s.extra).length, sig,
-        logged: top ? { weight: Number(top.weight) || 0, reps: Number(top.reps) || 0, rpe: felt, n: done.length, of: sets.length, short }
+        logged: top ? Object.assign({ weight: Number(top.weight) || 0, reps: Number(top.reps) || 0, rpe: felt, n: done.length, of: sets.length, short },
+          k !== 1 ? { writtenKg: Math.round((Number(top.weight) || 0) * k * 10) / 10 } : {})
           : (sets.some(s => s.skipped) ? { skipped: true, n: 0, of: sets.length } : null),
         delta: top && felt != null && tgt != null ? Math.round((felt - tgt) * 10) / 10 : null,
         next: ng ? { di, ei: nei, startIdx: ng.startIdx, count: ng.count, group: ng, locked, from, acted } : null,
@@ -13042,7 +13301,8 @@ function deskApplyNextWeek(weeks, nextIdx, edits) {
 // each exercise they replace is the coach's for this lifter (ovr): a push asks, never doubles it.
 function deskCopyWeekDays(srcDays, oldDays) {
   const olds = oldDays || [];
-  return (srcDays || []).map((d, k) => {
+  return (srcDays || []).map((d0, k) => {
+    const d = dayAsWritten(d0);   // a swap (a pin squat for the squat) was for that day only
     const od = olds[k] || null, used = {};
     const nd = { id: uid('day'), name: d.name, exercises: (d.exercises || []).map((ex, ei) => {
       const ne = { id: uid('ex'), lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note || '',
@@ -13162,7 +13422,7 @@ async function archiveProgramIfTrained(prog, opts) {
 // The next block from this one: the same weeks, fresh, with the main lifts' loads a step heavier
 // (+stepKg on weights, +2.5 on percentages). Accessories stay as they were.
 function nextBlockWeeks(prog, stepKg) {
-  return (prog.weeks || []).map(w => ({ id: uid('wk'), number: w.number, days: (w.days || []).map(d => ({ id: uid('day'), name: d.name, exercises: (d.exercises || []).map(e => ({
+  return (prog.weeks || []).map(w => ({ id: uid('wk'), number: w.number, days: (w.days || []).map(dayAsWritten).map(d => ({ id: uid('day'), name: d.name, exercises: (d.exercises || []).map(e => ({
     id: uid('ex'), lift: e.lift, variant: e.variant || '', exerciseName: e.exerciseName || '', note: e.note || '',
     sets: (e.sets || []).filter(s => !s.extra).map(s => {
       const main = ['squat', 'bench', 'deadlift'].includes(e.lift);
@@ -13371,6 +13631,52 @@ function restSuggestion(readiness, set) {
 function getRestNudgeOn() { try { return localStorage.getItem('powa-rest-nudge') !== '0'; } catch (e) { return true; } }
 function setRestNudgeOn(on) { try { localStorage.setItem('powa-rest-nudge', on ? '1' : '0'); } catch (e) {} }
 
+// ===== ONE RULE FOR THE CUT (2026-10-30): the coach's flag (cutPlan → coachAthleteStatus 'offpace', "Cut off pace")
+// and the lifter's line on the weigh-in (meetWeighLine) judge the same weight by the same trend, so they never
+// disagree. Pure; unit-tested.
+// The weight a cut is judged by: the 7-day average (one salty dinner, or one light morning, isn't the trend), except
+// in the last 2 days before the date, when the scale that morning is what counts (the water cut is on purpose).
+function cutWeighKg(smoothedKg, rawKg, days) {
+  return days != null && days >= 0 && days <= 2 && Number(rawKg) > 0 ? Number(rawKg) : Number(smoothedKg);
+}
+// The trend in kg a week (least squares over the last 28 days), only once there is one: at least 4 weigh-ins across
+// a week (7 mornings, first to last). Two weigh-ins a day apart are water, not a trend (null).
+function bwTrendSlope(series) {
+  const pts = (series || []).filter(p => p && p.date && Number(p.weight) > 0);
+  if (pts.length < 4) return null;
+  const lastT = Date.parse(pts[pts.length - 1].date);
+  const win = pts.filter(p => lastT - Date.parse(p.date) <= 28 * DAY_MS);
+  if (win.length < 4 || lastT - Date.parse(win[0].date) < 6 * DAY_MS) return null;
+  const perDay = linregSlope(win.map(p => Date.parse(p.date) / DAY_MS), win.map(p => Number(p.weight)));
+  return perDay == null ? null : perDay * 7;
+}
+// The verdict. over: kg over the class (rounded to 0.1), gap: the same unrounded, days: to the date (null: none),
+// slope: bwTrendSlope. Off pace when more than a few hundred grams over (that much is water with weeks to go) and
+// losing under 60% of what it takes a week, or still over on the day.
+// → { weeksLeft, needPerWk (kg a week still to lose, null with no date or nothing to lose), tone: 'good' | 'amber'
+//     (climbing) | 'off', offPace, made }
+function cutPace(o) {
+  const over = Number(o.over), gap = o.gap != null ? Number(o.gap) : over, days = o.days == null ? null : Number(o.days);
+  const slope = o.slope == null || !isFinite(Number(o.slope)) ? null : Number(o.slope);
+  const weeksLeft = days == null ? null : Math.round(days / 7 * 10) / 10;
+  const made = over <= 0;
+  let needPerWk = null, tone = 'good', offPace = false;
+  if (!made && weeksLeft != null && weeksLeft > 0) needPerWk = Math.round(over / weeksLeft * 100) / 100;
+  if (made) {
+    if (slope != null && slope > 0.25 && -gap < 1) tone = 'amber';      // creeping back up to the line
+  } else if (weeksLeft != null && weeksLeft <= 0) {
+    // The date passed, still over: a flag for the meet weekend (3 days), then just "missed",
+    // so the coach's Today doesn't carry it until someone edits the goal.
+    tone = 'off'; offPace = days >= -3;
+  } else if (needPerWk != null) {
+    const losing = slope != null ? -slope : 0;                            // kg a week actually coming off
+    // A few hundred grams over with weeks to go is water, not a missed cut: no flag for that.
+    if (over > 0.3 && losing < needPerWk * 0.6) { offPace = true; tone = 'off'; }
+    else if (slope != null && slope > 0.1) tone = 'amber';                // going up during a cut
+  } else if (slope != null && slope > 0.1) tone = 'amber';
+  return { weeksLeft, needPerWk, tone, offPace, made };
+}
+
 // ===== CUT TRACKER (brief 4.3 · M7) =====
 // The bodyweight curve against the class line is the feature; calories are supporting.
 //   series   [{ date, weight }] ascending, kg     classKg  the class limit (83)
@@ -13383,27 +13689,12 @@ function cutPlan(series, classKg, cutBy, todayIso) {
   if (!(limit > 0) || !series || !series.length) return null;
   const today = todayIso || todayISO();
   const st = bwCutBulkStats(series, limit, 'cut');
-  const cur = st.smoothedCurrent;
   const raw = Number(series[series.length - 1].weight);
-  const over = Math.round((cur - limit) * 10) / 10;            // smoothed: one salty dinner isn't "over"
   const days = cutBy ? Math.round((Date.parse(cutBy + 'T12:00:00Z') - Date.parse(today + 'T12:00:00Z')) / 86400000) : null;
-  const weeksLeft = days == null ? null : Math.round(days / 7 * 10) / 10;
-  const slope = st.slopePerWeek;
-  const made = over <= 0;
-  let needPerWk = null, tone = 'good', offPace = false;
-  if (!made && weeksLeft != null && weeksLeft > 0) needPerWk = Math.round(over / weeksLeft * 100) / 100;
-  if (made) {
-    if (slope != null && slope > 0.25 && limit - cur < 1) tone = 'amber';    // creeping back up to the line
-  } else if (weeksLeft != null && weeksLeft <= 0) {
-    // The date passed, still over: a flag for the meet weekend (3 days), then just "missed",
-    // so the coach's Today doesn't carry it until someone edits the goal.
-    tone = 'off'; offPace = days >= -3;
-  } else if (needPerWk != null) {
-    const losing = slope != null ? -slope : 0;                            // kg a week actually coming off
-    // A few hundred grams over with weeks to go is water, not a missed cut: no flag for that.
-    if (over > 0.3 && losing < needPerWk * 0.6) { offPace = true; tone = 'off'; }
-    else if (slope != null && slope > 0.1) tone = 'amber';                // going up during a cut
-  } else if (slope != null && slope > 0.1) tone = 'amber';
+  const cur = cutWeighKg(st.smoothedCurrent, raw, days);
+  const over = Math.round((cur - limit) * 10) / 10;            // smoothed: one salty dinner isn't "over"
+  const slope = bwTrendSlope(series);
+  const { weeksLeft, needPerWk, tone, offPace, made } = cutPace({ over, gap: cur - limit, days, slope });
   const u = (typeof unitLabel === 'function') ? unitLabel() : 'kg';
   const disp = (kg, d) => (typeof kgToDisplay === 'function' ? Number(kgToDisplay(kg, d == null ? 1 : d)) : Math.round(kg * 10) / 10);
   const bits = [disp(raw).toFixed(1) + ' ' + u, 'class ' + limit];
@@ -13444,6 +13735,87 @@ function athleteCut(athleteId, todayIso) {
   const series = _ofAthlete(s.bodyweight, athleteId).filter(b => Number(b.weight) > 0)
     .sort((a, b) => String(a.date).localeCompare(String(b.date))).map(b => ({ date: b.date, weight: Number(b.weight) }));
   return cutPlan(series, g.targetClass, g.cutBy || null, todayIso);
+}
+
+// ===== THE MEET ON THE WEIGH-IN (2026-10-30) =====
+// One plain line where the lifter weighs in (Train's weigh-in tile, the Bodyweight screen): the meet, the class
+// and the pace, each said once. "Meet in 23 days · 1.6 kg over 83 · 0.5 kg a week gets there".
+//   o = { days (to the meet, 0 = today), cls (the class limit, kg), bw (the weight a cut is judged by, kg: cutWeighKg,
+//         the 7-day average), slope (the trend, kg a week: bwTrendSlope, null without one yet), unit ('kg' | 'lbs') }
+// The verdict is the coach's own (cutPace, the rule behind "Cut off pace"), so the two never disagree:
+// at or under the class, on weight. Over: on pace while the trend gets there (or it's a few hundred grams of water
+// with weeks to go); hold your weight when that's all it is but the trend is climbing; off pace, the weekly pace
+// that gets there ("0.5 kg a week gets there"), or behind when that needs more than 1% of bodyweight a week (the
+// safe rate: faster costs strength) or it's meet day. → null | { text, parts: [meet, gap, verdict], verdict:
+// 'on weight' | 'on pace' | 'pace' | 'hold' | 'behind', warn (behind: the orange triangle, never red), over, needKgWk }
+const MEET_SAFE_PCT_WK = 0.01;
+function meetWeighLine(o) {
+  o = o || {};
+  const cls = Number(o.cls), bw = Number(o.bw);
+  const days = o.days == null || !isFinite(Number(o.days)) ? null : Math.max(0, Math.round(Number(o.days)));
+  if (!(cls > 0) || !(bw > 0) || days == null) return null;
+  const lbs = o.unit === 'lbs', u = lbs ? 'lb' : 'kg';
+  const disp = (kg) => (Math.round((lbs ? kg / KG_PER_LB : kg) * 10) / 10).toFixed(1);
+  const clsTxt = String(Math.round(cls * 10) / 10) + (lbs ? ' kg' : '');   // a class keeps its kg name
+  const over = Math.round((bw - cls) * 10) / 10;
+  const meet = days === 0 ? 'Meet today' : days === 1 ? 'Meet tomorrow' : 'Meet in ' + days + ' days';
+  const p = cutPace({ over, gap: bw - cls, days, slope: o.slope });
+  let gap, verdict;
+  const needKgWk = p.needPerWk;
+  if (p.made) {
+    gap = over < 0 ? disp(-over) + ' ' + u + ' under ' + clsTxt : 'at ' + clsTxt;
+    verdict = 'on weight';
+  } else {
+    gap = disp(over) + ' ' + u + ' over ' + clsTxt;
+    if (p.offPace) verdict = needKgWk == null || needKgWk > MEET_SAFE_PCT_WK * bw ? 'behind' : 'pace';
+    else verdict = p.tone === 'amber' ? 'hold' : 'on pace';
+  }
+  const vTxt = verdict === 'pace' ? disp(Math.max(0.1, needKgWk)) + ' ' + u + ' a week gets there' : verdict === 'hold' ? 'hold your weight' : verdict;
+  const parts = [meet, gap, vTxt];
+  return { text: parts.join(' · '), parts, verdict, warn: verdict === 'behind', over, needKgWk };
+}
+// The line for a lifter from the Store: their next meet (deskNextMeet) against its class (deskBodyweightVsClass),
+// else the class and date they're making weight for (goals.targetClass and cutBy: the meet). The class can come
+// from the goal when the meet has none. Judged as cutPlan judges the coach's flag: the weight by cutWeighKg, the
+// trend by bwTrendSlope. null without a class, a date ahead, or a weigh-in in the last 3 weeks.
+// → meetWeighLine's answer + { src: 'meet' | 'goal', cls, name }
+function meetWeighOf(athleteId, todayIso, unit) {
+  const t = todayIso || todayISO();
+  const s = Store.get();
+  const g = (s.goals || []).find(x => x.athleteId === athleteId) || {};
+  const gCls = Number(g.targetClass) > 0 ? String(g.targetClass) : null;
+  const nm = deskNextMeet(athleteId, t);
+  let days = null, vs = null, src = null, name = null;
+  if (nm) {
+    vs = deskBodyweightVsClass(athleteId, nm.meet) || (gCls && !nm.meet.weightClass ? deskBodyweightVsClass(athleteId, { weightClass: gCls }) : null);
+    if (vs) { days = nm.days; src = 'meet'; name = nm.meet.name || null; }
+  }
+  const by = g.cutBy ? String(g.cutBy).slice(0, 10) : null;
+  if (!vs && gCls && by && by >= t) {
+    vs = deskBodyweightVsClass(athleteId, { weightClass: gCls });
+    if (vs) { days = _deskDays(t, by); src = 'goal'; }
+  }
+  if (!vs) return null;
+  const series = _ofAthlete(s.bodyweight, athleteId).filter(b => Number(b.weight) > 0)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date))).map(b => ({ date: String(b.date).slice(0, 10), weight: Number(b.weight) }));
+  if (!series.length || _deskDays(series[series.length - 1].date, t) > 21) return null;   // an old weigh-in says nothing about now
+  const bw = cutWeighKg(bwCutBulkStats(series, null, 'maintain').smoothedCurrent, series[series.length - 1].weight, days);
+  const line = meetWeighLine({ days, cls: vs.cls, bw, slope: bwTrendSlope(series), unit });
+  return line ? Object.assign(line, { src, cls: vs.cls, name }) : null;
+}
+// The line as a node: each part stays whole, and the "·" before a part goes with it (a wrap falls between parts,
+// never inside "1.4 kg over 83", and never leaves a "·" at the end of a line); "behind" wears the orange triangle
+// in ink words. Its text is ml.text. cls: the classes of the wrapping span.
+function meetLineEl(ml, cls) {
+  const n = el('span', { class: (cls || '') + ' meet-line' + (ml.warn ? ' is-behind' : '') });
+  ml.parts.forEach((p, i) => {
+    if (i) n.appendChild(document.createTextNode(' '));
+    const part = el('span', { class: 'ml-part' });
+    if (i) part.appendChild(document.createTextNode('· '));
+    part.appendChild(i === 2 && ml.warn ? el('span', { class: 'ml-warn' }, p) : document.createTextNode(p));
+    n.appendChild(part);
+  });
+  return n;
 }
 
 // ===== HOME SCREEN WIDGETS: READINESS + WEIGHT CLASS (Apple Health, 1.3) =====
@@ -13583,9 +13955,19 @@ function buildCutSection(athleteId, opts) {
   const cut = athleteCut(athleteId);
   const food = opts.nutritionRows && opts.nutritionRows.length ? nutritionWeek(opts.nutritionRows) : null;
   const hasTargets = Number(g.kcalTarget) > 0 || Number(g.proteinTarget) > 0;
-  if (!cut && !food && !hasTargets) return [];
+  // THE MEET ON THE WEIGH-IN (meetWeighOf, the lifter's Bodyweight): the meet, the class and the pace in one line
+  // leads, and the class line under it goes when it would only say the same class again.
+  const line = opts.line || null;
+  if (!cut && !food && !hasTargets && !line) return [];
   const rows = [];
-  if (cut) {
+  if (line) {
+    const lr = uiRow({ title: line.text, chevron: !!opts.onEdit, onClick: opts.onEdit || null });
+    const lt = lr.querySelector('.ui-row-title');
+    if (lt) { lt.textContent = ''; lt.appendChild(meetLineEl(line, 'ml-row')); }
+    lr.classList.add('meet-row');
+    rows.push(lr);
+  }
+  if (cut && !(line && Number(cut.classKg) === Number(line.cls))) {
     const txt = cutRowText(cut, !!opts.mine);
     rows.push(uiRow({ lead: el('span', { class: 'ui-dot cut-dot ' + ({ good: 'ok', amber: 'warn', off: 'bad' }[cut.tone] || 'ok') }), title: txt.title, sub: txt.sub,
       subTone: cut.tone === 'off' ? 'alert' : null, chevron: !!opts.onEdit, onClick: opts.onEdit || null }));
@@ -14194,13 +14576,15 @@ function uiRpeSlider(value, onPick, opts) {
   let cur = num(value);
   steps.forEach((r, i) => {
     const whole = r % 1 === 0;
-    track.appendChild(el('span', { class: 'rpe-stop' + (whole ? ' is-whole' : '') + (r === target ? ' is-target' : ''), style: '--i:' + i, 'aria-hidden': 'true' }, whole ? String(r) : ''));
+    track.appendChild(el('span', { class: 'rpe-stop' + (whole ? ' is-whole' : '') + (r === target ? ' is-target' : ''), style: '--i:' + i, 'data-v': String(r), 'aria-hidden': 'true' }, whole ? String(r) : ''));
   });
   const fill = el('span', { class: 'rpe-fill', 'aria-hidden': 'true' });
   const knob = el('span', { class: 'rpe-knob', 'aria-hidden': 'true' });
   track.appendChild(fill); track.appendChild(knob);
   const paint = () => {
     wrap.classList.toggle('has-value', cur != null);
+    // The whole number under the knob is the knob's to say: the track's own label steps aside (it was hidden under it).
+    track.querySelectorAll('.rpe-stop.is-whole').forEach(st => st.classList.toggle('is-under', cur != null && Number(st.dataset.v) === cur));
     if (cur != null) {
       wrap.style.setProperty('--rc', rpeColor(cur));
       wrap.style.setProperty('--rpe-t', String(steps.indexOf(cur) / last));
@@ -14339,6 +14723,159 @@ function uiLongPress(node, fn) {
   });
   node.addEventListener('contextmenu', (e) => { e.preventDefault(); if (!fired) fn(e); });
   return node;
+}
+
+// =========================================================
+// PULL TO REFRESH (2026-10-30): the phone's own gesture on the Club feed and the coach's Lifters. At the top of
+// the page a pull down stretches the screen with a rubber band (the further, the less it gives), a small spinner
+// fills as it comes and turns once it's past the line; let go past it and the screen's own loader runs (the
+// club's, the roster's) while the screen waits a little way down, then it settles back. Phone only (a touch
+// screen under 900 pt wide, never the coach's laptop desk). Reduced motion: nothing stretches or springs, the
+// spinner fades in where it sits and pulses. Transform and opacity only, one paint a frame.
+// =========================================================
+// The rubber band (UIScrollView's curve): how far the screen moves for a pull of dy px, never past dim. Pure.
+function ptrRubber(dy, dim, c) {
+  const d = Math.max(0, Number(dy) || 0), D = Number(dim) > 0 ? Number(dim) : 800, k = Number(c) > 0 ? Number(c) : 0.55;
+  return (1 - 1 / (d * k / D + 1)) * D;
+}
+// A pull of dy px: { offset (px the screen moves), progress (0 to 1, the line), armed (past it) }. With reduced
+// motion nothing moves (offset 0) and half the finger's travel is the reach. opts: { reduce, dim, line }. Pure.
+function ptrState(dy, opts) {
+  opts = opts || {};
+  const line = Number(opts.line) > 0 ? Number(opts.line) : 64;
+  const offset = opts.reduce ? 0 : ptrRubber(dy, opts.dim);
+  const reach = opts.reduce ? Math.max(0, Number(dy) || 0) * 0.5 : offset;
+  return { offset: Math.round(offset * 10) / 10, progress: Math.min(1, reach / line), armed: reach >= line };
+}
+// The longest a pull holds the screen down for its loader (a dead signal): then it settles and says it couldn't.
+const PTR_MAX_MS = 10000;
+// Where the gesture lives: a touch screen narrower than a laptop, and never the coach's desk.
+function ptrEnabled() {
+  if (typeof document === 'undefined' || document.documentElement.classList.contains('desk')) return false;
+  try { return matchMedia('(pointer: coarse)').matches && window.innerWidth < 900; } catch (e) { return false; }
+}
+// scope: the screen's pane (its <section>). opts: { onRefresh: () => Promise (the screen's loader; a throw or a
+// false says it couldn't), when: () => bool (the screen is showing), label }. → its controller, or null.
+function uiPullRefresh(scope, opts) {
+  if (!scope || typeof window === 'undefined') return null;
+  if (scope._ptr) { scope._ptr.opts = opts || scope._ptr.opts; return scope._ptr; }
+  const api = { busy: false, opts: opts || {} };
+  scope._ptr = api;
+  const LINE = 64, HOLD = 52, SLOP = 4;
+  const reduce = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+  let st = null, ind = null, say = null, raf = 0, next = null, top0 = 0;
+  const ensure = () => {
+    if (!ind || !ind.isConnected) {
+      ind = el('div', { class: 'ptr', 'aria-hidden': 'true' });
+      ind.innerHTML = '<svg viewBox="0 0 28 28"><circle class="ptr-track" cx="14" cy="14" r="10.5"/><circle class="ptr-arc" cx="14" cy="14" r="10.5" pathLength="100"/></svg>';
+      document.body.appendChild(ind);
+    }
+    if (!say || !say.isConnected) { say = el('div', { class: 'ptr-say', role: 'status', 'aria-live': 'polite' }); document.body.appendChild(say); }
+    return ind;
+  };
+  // One paint a frame: the screen down by off, the spinner in the gap above it (or, reduced, where it sits).
+  const paint = (off, prog, spin) => {
+    const i = ensure(), r = reduce();
+    scope.style.transform = r || off <= 0 ? '' : 'translate3d(0,' + off.toFixed(1) + 'px,0)';
+    const y = r ? top0 + 4 : top0 + off - 40;
+    i.style.transform = 'translate3d(-50%,' + y.toFixed(1) + 'px,0)';
+    i.style.opacity = String(Math.max(0, Math.min(1, prog)));
+    const arc = i.querySelector('.ptr-arc'), svg = i.querySelector('svg');
+    if (!spin) {
+      arc.style.strokeDasharray = (Math.max(0, Math.min(1, prog)) * 76).toFixed(1) + ' 100';
+      svg.style.transform = r ? '' : 'rotate(' + (prog * 220 - 90).toFixed(1) + 'deg)';
+    }
+    i.classList.toggle('is-armed', prog >= 1);
+  };
+  const frame = (off, prog, spin) => {
+    next = [off, prog, spin];
+    if (raf) return;
+    raf = requestAnimationFrame(() => { raf = 0; const n = next; next = null; if (n) paint(n[0], n[1], n[2]); });
+  };
+  const settle = () => {
+    if (raf) { cancelAnimationFrame(raf); raf = 0; next = null; }
+    const i = ensure(), r = reduce();
+    i.classList.remove('is-spinning');
+    i.style.transition = r ? 'opacity 180ms ease-out' : 'opacity 200ms ease-out, transform 360ms cubic-bezier(0.23, 1, 0.32, 1)';
+    i.style.opacity = '0';
+    if (!r) {
+      i.style.transform = 'translate3d(-50%,' + (top0 - 40).toFixed(1) + 'px,0)';
+      scope.style.transition = 'transform 360ms cubic-bezier(0.23, 1, 0.32, 1)';
+      scope.style.transform = 'translate3d(0,0,0)';
+    }
+    setTimeout(() => {
+      if (st) return;   // a new pull began
+      scope.style.transition = ''; scope.style.transform = ''; scope.style.willChange = '';
+      i.style.transition = '';
+    }, 380);
+  };
+  const refresh = async () => {
+    api.busy = true;
+    const i = ensure(), r = reduce();
+    i.style.transition = r ? 'opacity 180ms ease-out' : 'transform 280ms cubic-bezier(0.23, 1, 0.32, 1)';
+    if (!r) {
+      scope.style.transition = 'transform 280ms cubic-bezier(0.23, 1, 0.32, 1)';
+      scope.style.transform = 'translate3d(0,' + HOLD + 'px,0)';
+    }
+    paint(r ? 0 : HOLD, 1, true);
+    i.querySelector('.ptr-arc').style.strokeDasharray = '76 100';
+    i.classList.add('is-spinning');
+    say.textContent = 'Refreshing';
+    const t0 = Date.now();
+    let ok = true;
+    // A read that never answers (a dead signal) doesn't hold the screen down: after PTR_MAX_MS it settles and says it
+    // couldn't. The loader keeps going (what it reads still lands), and a pull meanwhile waits on that same loader.
+    const run = api.run || (api.run = Promise.resolve().then(() => (api.opts.onRefresh ? api.opts.onRefresh() : null)).finally(() => { api.run = null; }));
+    let cap = 0;
+    const late = new Promise(res => { cap = setTimeout(() => res(false), PTR_MAX_MS); });
+    try { ok = (await Promise.race([run, late])) !== false; } catch (e) { ok = false; console.warn('pull to refresh', e); }
+    finally { clearTimeout(cap); }
+    // Long enough to read as done, never a flash.
+    setTimeout(() => {
+      api.busy = false;
+      settle();
+      say.textContent = ok ? 'Up to date' : '';
+      if (!ok) toast(api.opts.failText || 'Couldn’t refresh. Check your connection');
+      else hapticTap('LIGHT');
+    }, Math.max(0, 500 - (Date.now() - t0)));
+  };
+  scope.addEventListener('touchstart', (e) => {
+    st = null;
+    if (api.busy || !e.touches || e.touches.length !== 1 || !ptrEnabled()) return;
+    if (api.opts.when && !api.opts.when()) return;
+    if ((window.scrollY || document.documentElement.scrollTop || 0) > 0) return;
+    if (e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (document.querySelector('.ui-sheet-veil, .modal-backdrop.open, .modal-backdrop.show')) return;
+    const t = e.touches[0];
+    top0 = scope.getBoundingClientRect().top;
+    st = { x0: t.clientX, y0: t.clientY, dir: null, armed: false };
+  }, { passive: true });
+  scope.addEventListener('touchmove', (e) => {
+    if (!st || !e.touches || e.touches.length !== 1) { if (st && e.touches && e.touches.length > 1) { const pulled = st.dir === 'pull'; st = null; if (pulled) settle(); } return; }
+    const t = e.touches[0], dx = t.clientX - st.x0, dy = t.clientY - st.y0;
+    if (!st.dir) {
+      if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) { if (dy > 0 && e.cancelable) e.preventDefault(); return; }
+      st.dir = dy > 0 && Math.abs(dy) >= Math.abs(dx) && (window.scrollY || 0) <= 0 ? 'pull' : 'no';
+      if (st.dir === 'no') { st = null; return; }
+      scope.style.transition = ''; scope.style.willChange = 'transform';
+      ensure().style.transition = '';
+    }
+    if (e.cancelable) e.preventDefault();
+    const s = ptrState(dy - SLOP, { reduce: reduce(), dim: window.innerHeight || 800, line: LINE });
+    if (s.armed && !st.armed) hapticTick();
+    st.armed = s.armed;
+    frame(s.offset, s.progress, false);
+  }, { passive: false });
+  scope.addEventListener('touchend', () => {
+    if (!st) return;
+    const pulled = st.dir === 'pull', go = pulled && st.armed;
+    st = null;
+    if (!pulled) return;   // a tap: nothing was drawn, nothing to settle
+    if (raf) { cancelAnimationFrame(raf); raf = 0; if (next) paint(next[0], next[1], next[2]); next = null; }
+    if (go) refresh(); else settle();
+  }, { passive: true });
+  scope.addEventListener('touchcancel', () => { if (st) { const pulled = st.dir === 'pull'; st = null; if (pulled) settle(); } }, { passive: true });
+  return api;
 }
 
 // Reactions are fixed keys, never free text, so they need no moderation path.
@@ -16390,6 +16927,11 @@ function _tmExPrecious(x) { return !!(x && (_tmExClaimed(x) || (x.sets || []).so
 function _tmDayPrecious(x) { return !!(x && (x.exercises || []).some(e => e.srcId == null || _tmExPrecious(e))); }
 function _tmWeekPrecious(x) { return !!(x && (x.days || []).some(d => d.srcId == null || _tmDayPrecious(d))); }
 function _tmEx(mex, i, xex, opts, ctx) {
+  // A swap the lifter has logged on (a pin squat that day, in place): that session is theirs as lifted, so the push
+  // leaves it (the team's variant over a logged pin squat would say they squatted 170 as written). An unlogged swap
+  // never gets here: _tmResolveSwaps undid it.
+  const xsw = xex && xex.swap ? exSwap(xex) : null;
+  if (xsw && !xsw.undoable && xsw.src == null && xsw.to !== xsw.from) return xex;
   if (_tmExClaimed(xex)) {
     // Theirs. Reported only when the master would have changed it.
     const shadow = _tmEx(mex, i, _tmUnclaim(xex), opts, { noMax: {}, keptOwn: [] });
@@ -16408,9 +16950,25 @@ function _tmEx(mex, i, xex, opts, ctx) {
 }
 // One lifter's copy of the master. memberWeeks null = their first copy.
 // opts { maxes, unit, stepKg }. → { weeks, keptOwn: [{ exId, srcId, lift, title }], noMax: [lift] }
+// A swap on the lifter's day with nothing logged on it yet (a pin squat for the squat today) is undone before the
+// team's plan lands (a copy): the push writes over what the coach wrote, so it must find the day as written, not a
+// swap whose Undo would then take the push back, or a split-off part beside the back-offs the push puts back. The
+// lifter can swap again. A swap with a set logged on it happened, and stays. Pure.
+function _tmResolveSwaps(weeks) {
+  if (!(weeks || []).some(w => (w.days || []).some(d => (d.exercises || []).some(e => e && e.swap)))) return weeks;
+  const out = _tmClone(weeks);
+  out.forEach(w => (w.days || []).forEach(d => {
+    for (let k = (d.exercises || []).length - 1; k >= 0; k--) {   // backwards: an undone split-off part leaves the list
+      const e = d.exercises[k], sw = e && e.swap ? exSwap(e) : null;
+      if (sw && sw.undoable) swapUndo(d, e.id);
+    }
+  }));
+  return out;
+}
 function teamMemberWeeks(masterWeeks, memberWeeks, opts) {
   opts = opts || {};
   const ctx = { noMax: {}, keptOwn: [] };
+  memberWeeks = memberWeeks ? _tmResolveSwaps(memberWeeks) : memberWeeks;
   const weeks = _tmMergeList(masterWeeks, memberWeeks, (mw, wi, xw) => {
     const w = Object.assign({}, xw || {});
     Object.keys(mw || {}).forEach(k => { if (k !== 'id' && k !== 'days' && k !== 'srcId') w[k] = _tmClone(mw[k]); });
@@ -16495,10 +17053,12 @@ function teamMasterFromProgram(prog, maxes) {
       d.srcId = md.id;
       md.exercises = (d.exercises || []).map(e => {
         const me = { id: uid('ex') };
-        Object.keys(e).forEach(k => { if (!['id', 'sets', 'srcId', 'ovr'].includes(k)) me[k] = _tmClone(e[k]); });
+        const ew = exAsWritten(e);   // a swap (a pin squat for the squat) was that lifter's day only: the team gets the lift as written
+        Object.keys(ew).forEach(k => { if (!['id', 'sets', 'srcId', 'ovr', 'swap'].includes(k)) me[k] = _tmClone(ew[k]); });
         e.srcId = me.id; delete e.ovr;
-        me.sets = (e.sets || []).filter(s => !s.extra).map(s => {
-          const ms = Object.assign(_tmRx(s), { id: uid('set'), weight: planWeight(s) || 0, reps: s.plannedReps || s.reps, completed: false });
+        // The lifter's own sets keep their links (s); the master's loads are the ones written (w, the same place).
+        me.sets = (e.sets || []).map((s, si) => [s, (ew.sets || [])[si] || s]).filter(x => !x[0].extra).map(([s, w]) => {
+          const ms = Object.assign(_tmRx(w), { id: uid('set'), weight: planWeight(w) || 0, reps: w.plannedReps || w.reps, completed: false });
           const mx = MAIN_LIFTS.indexOf(e.lift) >= 0 ? teamMaxKg(maxes, e.lift) : 0;
           if ((ms.pct == null || ms.pct === '') && mx > 0 && Number(ms.weight) > 0) {
             ms.pct = _tmPctOf(Number(ms.weight), mx);
@@ -16530,7 +17090,7 @@ function reuseBlockWeeks(weeks, opts) {
   opts = opts || {};
   const src = opts.srcMaxes || {}, dst = opts.dstMaxes || {};
   const noSrcMax = MAIN_LIFTS.filter(L => !(teamMaxKg(src, L) > 0));
-  const clean = _tmClone(weeks || []).map(w => Object.assign({}, w, { days: (w.days || []).map(d => {
+  const clean = _tmClone(weeks || []).map(w => Object.assign({}, w, { days: (w.days || []).map(dayAsWritten).map(d => {
     const nd = Object.assign({}, d);
     delete nd.scheduledDate;
     nd.exercises = (d.exercises || []).map(e => Object.assign({}, e, { sets: (e.sets || []).filter(s => s && !s.extra && !s.attempt).map(s => {

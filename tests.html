@@ -9322,6 +9322,390 @@ group('the merge review\'s two-factor follow-ups (29 Oct)');
   }
 })();
 
+group('swap an exercise (app.js swapApply)');
+(() => {
+  const S = (id, weight, reps, rpe, extra) => Object.assign({ id, weight, reps, rpe, completed: false, actualRpe: null, completedAt: null }, extra || {});
+  const done = (s, felt, date) => Object.assign(s, { completed: true, actualRpe: felt, completedAt: date || '2026-10-30' });
+  const dayOf = (sets, variant) => ({ id: 'd1', name: 'Squat day', exercises: [{ id: 'e1', lift: 'squat', variant: variant || 'Competition', note: 'Brace', sets }, { id: 'e2', lift: 'legs', exerciseName: 'Leg Press', sets: [S('a1', 120, 10, 8)] }] });
+  test('a variant in a coach\'s words: pin squat, close grip bench, pin press, RDL', () => {
+    eq(variantName('squat', 'Pin'), 'pin squat');
+    eq(variantName('bench', 'Close Grip'), 'close grip bench');
+    eq(variantName('bench', 'Pin Press'), 'pin press');
+    eq(variantName('deadlift', 'RDL'), 'RDL');
+    eq(variantName('squat', ''), 'competition squat');
+  });
+  test('the same effort on another variant: the load × (from ÷ to), on the gym\'s plates; by feel stays by feel', () => {
+    eq(swapLoadKg(150, 'squat', 'Competition', 'Pin', 2.5), 140, '150 ÷ 1.08 = 138.9');
+    eq(swapLoadKg(140, 'squat', 'Pin', 'Competition', 2.5), 150, '140 × 1.08 = 151.2');
+    eq(swapLoadKg(100, 'bench', 'Competition', 'Incline', 2.5), 90, '100 ÷ 1.12 = 89.3');
+    eq(swapLoadKg(200, 'deadlift', 'Competition', 'RDL', 2.5), 182.5, '200 ÷ 1.10 = 181.8');
+    eq(swapLoadKg(151, 'squat', 'Competition', 'Competition', 2.5), 151, 'the same variant keeps the load exactly');
+    eq(swapLoadKg(0, 'squat', 'Competition', 'Pin', 2.5), 0, 'a load picked by feel');
+    eq(swapLoadKg(150, 'squat', 'Competition', 'Pin', 5), 140, 'a 5 kg gym');
+    // The e1RM stays competition-equivalent: the pin squat's comp-equivalent max is within one jump of the squat's.
+    const e1 = calcCompE1RM(150, 3, 8, 'squat', 'Competition'), e2 = calcCompE1RM(swapLoadKg(150, 'squat', 'Competition', 'Pin', 2.5), 3, 8, 'squat', 'Pin');
+    assert(Math.abs(e1 - e2) <= calcE1RM(2.5, 3, 8) * 1.08, 'within one plate jump: ' + e1.toFixed(1) + ' vs ' + e2.toFixed(1));
+  });
+  test('nothing logged yet: the exercise swaps in place, every set still to do at the same effort', () => {
+    const day = dayOf([S('s1', 150, 3, 8), S('s2', 140, 5, 8, { weightHi: 145 }), S('s3', 0, 5, 8), S('s4', 155, 3, 8, { plannedWeight: 150 }), S('s5', 120, 5, 7, { pct: 75 })]);
+    const r = swapApply(day, 'e1', 'Pin', { stepKg: 2.5, date: '2026-10-30' });
+    eq(JSON.stringify(r), JSON.stringify({ exId: 'e1', split: false }));
+    const ex = day.exercises[0];
+    eq(ex.variant, 'Pin'); eq(day.exercises.length, 2, 'no new exercise');
+    eq(ex.sets.map(s => s.weight).join(), '140,130,0,142.5,110');
+    eq(ex.sets[1].weightHi, 135, 'a range\'s top moves with it'); eq(ex.sets[3].plannedWeight, 140, 'the plan beside a typed load too');
+    eq(ex.sets[4].pct, undefined, 'a % of the competition max means nothing on a pin squat');
+    eq(ex.sets.map(s => s.reps + '@' + s.rpe).join(), '3@8,5@8,5@8,3@8,5@7', 'reps and the RPE stay: same effort');
+    eq(ex.swap.from, 'Competition'); eq(ex.swap.on, '2026-10-30');
+    eq(swapLine(ex), 'Swapped for pin squat'); eq(exSwap(ex).undoable, true);
+    eq(day.exercises[1].sets[0].weight, 120, 'the leg press is not touched');
+  });
+  test('undo is the written lift back, every load exactly as it was; back to as written from the sheet is the same', () => {
+    const day = dayOf([S('s1', 152.5, 3, 8), S('s2', 140, 5, 8, { weightHi: 145 }), S('s3', 120, 5, 7, { pct: 75, pctHi: 77.5 })]);
+    swapApply(day, 'e1', 'Pin', { stepKg: 2.5 });
+    eq(swapUndo(day, 'e1'), true);
+    const ex = day.exercises[0];
+    eq(ex.variant, 'Competition'); eq(ex.swap, undefined); eq(swapLine(ex), '');
+    eq(JSON.stringify(ex.sets.map(s => [s.weight, s.weightHi, s.pct, s.pctHi])), JSON.stringify([[152.5, undefined, undefined, undefined], [140, 145, undefined, undefined], [120, undefined, 75, 77.5]]));
+    swapApply(day, 'e1', 'Tempo', { stepKg: 2.5 });
+    const r = swapApply(day, 'e1', 'Competition', { stepKg: 2.5 });
+    eq(r.undone, true); eq(ex.variant, 'Competition'); eq(ex.sets[0].weight, 152.5);
+  });
+  test('a second swap converts from the load as written, never rounding twice', () => {
+    const day = dayOf([S('s1', 120, 3, 8)]);
+    swapApply(day, 'e1', 'Pin', { stepKg: 2.5 });
+    eq(day.exercises[0].sets[0].weight, 110, '120 ÷ 1.08 = 111.1');
+    swapApply(day, 'e1', 'Tempo', { stepKg: 2.5 });
+    eq(day.exercises[0].sets[0].weight, 107.5, '120 ÷ 1.12 = 107.1 (from the pin squat\'s 110 it would be 105)');
+    eq(day.exercises[0].swap.from, 'Competition', 'still the lift as written');
+    swapUndo(day, 'e1');
+    eq(day.exercises[0].sets[0].weight, 120);
+  });
+  test('some sets logged: they stay the squat, the rest split off into the pin squat right after it; undo puts them back in their places', () => {
+    const day = dayOf([done(S('s1', 150, 3, 8), 8), S('s2', 140, 5, 8), done(S('s3', 140, 5, 8), 8.5), S('s4', 140, 5, 8)]);
+    const r = swapApply(day, 'e1', 'Pin', { stepKg: 2.5, newId: 'e9', date: '2026-10-30' });
+    eq(JSON.stringify(r), JSON.stringify({ exId: 'e9', split: true }));
+    eq(day.exercises.map(e => e.id).join(), 'e1,e9,e2');
+    const a = day.exercises[0], b = day.exercises[1];
+    eq(a.variant, 'Competition'); eq(a.sets.map(s => s.id).join(), 's1,s3', 'the logged sets stay what they were'); eq(swapLine(a), '');
+    eq(b.variant, 'Pin'); eq(b.sets.map(s => s.id + ':' + s.weight).join(), 's2:130,s4:130'); eq(b.note, 'Brace', 'the coach\'s cue comes along');
+    eq(swapLine(b), 'Swapped for pin squat'); eq(b.swap.src, 'e1'); eq(exSwap(b).undoable, true);
+    eq(swapUndo(day, 'e9'), true);
+    eq(day.exercises.map(e => e.id).join(), 'e1,e2');
+    eq(day.exercises[0].sets.map(s => s.id + ':' + s.weight).join(), 's1:150,s2:140,s3:140,s4:140', 'back in their places, loads as written');
+  });
+  test('a swapped set logged: undo is gone (it happened), and nothing to do or a wrong lift is not a swap', () => {
+    const day = dayOf([S('s1', 150, 3, 8), S('s2', 140, 5, 8)]);
+    swapApply(day, 'e1', 'Pin', { stepKg: 2.5 });
+    done(day.exercises[0].sets[0], 8);
+    eq(exSwap(day.exercises[0]).undoable, false); eq(swapUndo(day, 'e1'), false);
+    eq(day.exercises[0].variant, 'Pin', 'nothing changed');
+    const all = dayOf([done(S('s1', 150, 3, 8), 8)]);
+    eq(swapApply(all, 'e1', 'Pin', { stepKg: 2.5 }), null, 'every set logged');
+    eq(swapApply(dayOf([S('s1', 150, 3, 8)]), 'e1', 'Competition', { stepKg: 2.5 }), null, 'already that variant');
+    eq(swapApply(dayOf([S('s1', 150, 3, 8)]), 'e1', 'Incline', { stepKg: 2.5 }), null, 'a bench variant on a squat');
+    eq(swapApply(dayOf([S('s1', 150, 3, 8)]), 'e2', 'Pin', { stepKg: 2.5 }), null, 'an accessory');
+  });
+  test('swapped, one pin squat logged, rack free again: the rest go back to the squat as written', () => {
+    const day = dayOf([S('s1', 152.5, 3, 8), S('s2', 140, 5, 8)]);
+    swapApply(day, 'e1', 'Pin', { stepKg: 2.5 });
+    done(day.exercises[0].sets[0], 8);
+    const r = swapApply(day, 'e1', 'Competition', { stepKg: 2.5, newId: 'e8' });
+    eq(r.split, true);
+    const a = day.exercises[0], b = day.exercises[1];
+    eq(swapLine(a), 'Swapped for pin squat', 'the logged pin squat says so');
+    eq(b.variant, 'Competition'); eq(b.sets[0].weight, 140, 'the back-offs as written'); eq(swapLine(b), '', 'as written: nothing to say');
+    eq(swapUndo(day, 'e8'), true);
+    eq(day.exercises[0].sets.map(s => s.weight).join(), '140,130', 'undo: back on the pin squat as they were');
+  });
+  test('the Swap sheet\'s choices: the other variants, the next set\'s load on each, the lift as written once swapped', () => {
+    const day = dayOf([done(S('s0', 100, 5, 6), 6), S('s1', 150, 3, 8), S('s2', 140, 5, 8)]);
+    const o = swapOptions(day.exercises[0], 2.5);
+    eq(o.map(x => x.variant + ':' + x.next.kg + 'x' + x.next.reps).join(), 'Paused:140x3,Tempo:135x3,Pin:140x3');
+    eq(o.some(x => x.written), false);
+    const d2 = dayOf([S('s1', 120, 3, 8)]);
+    swapApply(d2, 'e1', 'Pin', { stepKg: 2.5 });
+    const o2 = swapOptions(d2.exercises[0], 2.5);
+    eq(o2.map(x => x.variant).join(), 'Competition,Paused,Tempo');
+    eq(o2[0].written, true); eq(o2[0].next.kg, 120, 'as written, exactly');
+    eq(o2[2].next.kg, 107.5, 'from the load as written');
+    eq(swapOptions({ lift: 'legs', sets: [] }, 2.5).length, 0);
+  });
+  test('the coach\'s Last session: what was swapped that day, said once', () => {
+    const d1 = dayOf([S('s1', 150, 3, 8), S('s2', 140, 5, 8)]);
+    swapApply(d1, 'e1', 'Pin', { stepKg: 2.5 });
+    d1.exercises[0].sets.forEach(s => done(s, 8, '2026-10-29'));
+    const bench = { id: 'b1', lift: 'bench', variant: 'Competition', sets: [S('b', 100, 5, 8)] };
+    const d2 = { id: 'd2', exercises: [bench] };
+    swapApply(d2, 'b1', 'Close Grip', { stepKg: 2.5 });
+    done(bench.sets[0], 8, '2026-10-29');
+    const prog = { weeks: [{ id: 'w1', days: [d1, d2] }] };
+    eq(sessionSwapLine(prog, '2026-10-29'), 'Swapped for pin squat and close grip bench');
+    eq(sessionSwapLine(prog, '2026-10-28'), '', 'another day');
+    eq(sessionSwapLine({ weeks: [{ days: [d1] }] }, '2026-10-29'), 'Swapped for pin squat');
+  });
+  test('the coach\'s review reads a swap as the lift written: next week\'s squat beside it, its suggestion from the same effort', () => {
+    const mk = (id, w, r, rpe) => S(id, w, r, rpe);
+    const prog = { id: 'p', weeks: [
+      { number: 1, days: [{ name: 'Squat', exercises: [{ id: 'q1', lift: 'squat', variant: 'Competition', sets: [mk('a', 150, 3, 8), mk('b', 140, 5, 8)] }] }] },
+      { number: 2, days: [{ name: 'Squat', exercises: [{ id: 'q2', lift: 'squat', variant: 'Competition', sets: [mk('c', 155, 3, 8), mk('d', 145, 5, 8)] }] }] }
+    ] };
+    swapApply(prog.weeks[0].days[0], 'q1', 'Pin', { stepKg: 2.5 });
+    prog.weeks[0].days[0].exercises[0].sets.forEach(s => done(s, 9, '2026-10-20'));   // a full RPE over: lighter next week
+    const r = deskWeekReview(prog, { unit: 'kg', rules: null });
+    eq(r.rows[0].title, 'Squat', 'the lift written'); eq(r.rows[0].swap.text, 'Swapped for pin squat');
+    eq(r.rows[0].logged.weight, 140, 'what was lifted: the pin squat');
+    eq(r.rows.map(x => x.target.weight).join(), '150,140', 'each set read against what the coach wrote (not the pin squat\'s 140 and 130)');
+    eq(r.rows[0].next && r.rows[0].next.ei, 0, 'next week\'s squat beside it');
+    eq(r.rows[0].suggest.dir, 'down'); assert(r.rows[0].suggest.kg < 155 && r.rows[0].suggest.kg >= 155 * 0.9, 'lighter from the squat\'s 155: ' + r.rows[0].suggest.kg);
+    // Split mid-way: the squat keeps next week; the pin squat part says what it was, with nothing to suggest twice.
+    const p2 = JSON.parse(JSON.stringify(prog));
+    const d0 = p2.weeks[0].days[0];
+    d0.exercises = [{ id: 'q1', lift: 'squat', variant: 'Competition', sets: [done(mk('a', 150, 3, 8), 8, '2026-10-20'), mk('b', 140, 5, 8)] }];
+    swapApply(d0, 'q1', 'Pin', { stepKg: 2.5, newId: 'q9' });
+    done(d0.exercises[1].sets[0], 8, '2026-10-20');
+    const r2 = deskWeekReview(p2, { unit: 'kg', rules: null });
+    eq(r2.rows.length, 2); eq(r2.rows[0].swap, null); eq(r2.rows[0].next.ei, 0);
+    eq(r2.rows[1].swap.text, 'Swapped for pin squat'); eq(r2.rows[1].next, null, 'one suggestion for the squat, not two');
+    eq(r2.rows[1].target.weight, 140, 'the split-off part against the back-off as written');
+  });
+  test('next week written by RPE alone takes its load from the swap in the lift\'s own terms; so do the coach\'s rules', () => {
+    const prog = { id: 'p', weeks: [
+      { number: 1, days: [{ name: 'Bench', exercises: [{ id: 'b1', lift: 'bench', variant: 'Competition', sets: [S('a', 100, 4, 8)] }] }] },
+      { number: 2, days: [{ name: 'Bench', exercises: [{ id: 'b2', lift: 'bench', variant: 'Competition', sets: [S('c', 0, 4, 8.5)] }] }] }
+    ] };
+    swapApply(prog.weeks[0].days[0], 'b1', 'Close Grip', { stepKg: 2.5 });
+    eq(prog.weeks[0].days[0].exercises[0].sets[0].weight, 92.5, '100 ÷ 1.09 = 91.7');
+    done(prog.weeks[0].days[0].exercises[0].sets[0], 8, '2026-10-20');
+    const row = deskWeekReview(prog, { unit: 'kg', rules: null }).rows[0];
+    eq(row.logged.weight, 92.5, 'what was lifted'); eq(row.logged.writtenKg, 100.8, 'as a competition bench: 92.5 × 1.09');
+    eq(row.suggest.dir, 'set'); eq(row.suggest.kg, 102.5, '4 @8.5 from a 100.8 bench (from the close grip\'s 92.5 it would say 95)');
+    const r = progressionApply({ then: { kind: 'addLoad', value: 2.5 } }, row, 'kg');
+    eq(r.kg, 102.5, 'add 2.5 to 100.8, on the plates (not to 92.5)');
+  });
+  test('today only: a copy of the day (duplicate, copy week, next block, template, team, reuse) is the lift as written', () => {
+    const inPlace = dayOf([S('s1', 150, 3, 8), S('s2', 140, 5, 8, { pct: 75 })]);
+    swapApply(inPlace, 'e1', 'Pin', { stepKg: 2.5 });
+    done(inPlace.exercises[0].sets[0], 8);
+    const before = JSON.stringify(inPlace);
+    const w = dayAsWritten(inPlace);
+    eq(JSON.stringify(inPlace), before, 'the day itself is not touched');
+    eq(w.exercises[0].variant, 'Competition'); eq(w.exercises[0].swap, undefined);
+    eq(w.exercises[0].sets.map(s => s.weight + (s.pct ? '/' + s.pct : '')).join(), '150,140/75', 'loads (and the %) as written');
+    const split = dayOf([done(S('s1', 150, 3, 8), 8), S('s2', 140, 5, 8), S('s3', 140, 5, 8)]);
+    swapApply(split, 'e1', 'Pin', { stepKg: 2.5, newId: 'e9' });
+    const w2 = dayAsWritten(split);
+    eq(w2.exercises.map(e => e.id + ':' + e.variant).join(), 'e1:Competition,e2:undefined', 'the split part back in one piece');
+    eq(w2.exercises[0].sets.map(s => s.id + ':' + s.weight).join(), 's1:150,s2:140,s3:140');
+    eq(dayAsWritten(dayOf([S('s1', 150, 3, 8)])).exercises[0].variant, 'Competition', 'no swap: the day as it is');
+    // Copy week and the next block.
+    const copied = deskCopyWeekDays([inPlace], []);
+    eq(copied[0].exercises[0].variant, 'Competition'); eq(copied[0].exercises[0].swap, undefined);
+    eq(copied[0].exercises[0].sets.map(s => s.weight + ':' + !!s.completed).join(), '150:false,140:false');
+    const nb = nextBlockWeeks({ weeks: [{ number: 1, days: [inPlace] }] }, 2.5);
+    eq(nb[0].days[0].exercises[0].variant, 'Competition'); eq(nb[0].days[0].exercises[0].sets[0].weight, 152.5, 'as written, one jump heavier');
+    // A team made from this program: the master is the squat as written; the lifter's own copy keeps their day, linked.
+    const tm = teamMasterFromProgram({ weeks: [{ id: 'w1', number: 1, days: [inPlace] }] }, {});
+    const me = tm.weeks[0].days[0].exercises[0], mine = tm.linked[0].days[0].exercises[0];
+    eq(me.variant, 'Competition'); eq(me.swap, undefined); eq(me.sets[0].weight, 150);
+    eq(mine.variant, 'Pin'); assert(!!mine.swap, 'the lifter keeps their swap'); eq(mine.srcId, me.id); eq(mine.sets[0].srcId, me.sets[0].id, 'their sets stay linked');
+    // Reuse a block for another lifter.
+    const rb = reuseBlockWeeks([{ number: 1, days: [split] }], {});
+    eq(rb.weeks[0].days[0].exercises.filter(e => e.lift === 'squat').length, 1); eq(rb.weeks[0].days[0].exercises[0].variant, 'Competition');
+  });
+  test('a team push the day a lifter swaps: an unlogged swap is undone first (the push lands on the day as written); a logged one stays', () => {
+    const master = [{ id: 'mw1', number: 1, days: [{ id: 'md1', name: 'Squat day', exercises: [{ id: 'me1', lift: 'squat', variant: 'Competition', sets: [S('ms1', 182.5, 3, 8.5), S('ms2', 167.5, 5, 8), S('ms3', 167.5, 5, 8)] }] }] }];
+    const opts = { maxes: {}, unit: 'kg', stepKg: 2.5 };
+    const first = teamMemberWeeks(master, null, opts).weeks;
+    // In place, nothing logged: the coach then makes the team's squat a paused squat.
+    const inPlace = JSON.parse(JSON.stringify(first));
+    swapApply(inPlace[0].days[0], inPlace[0].days[0].exercises[0].id, 'Pin', { stepKg: 2.5 });
+    const m2 = JSON.parse(JSON.stringify(master)); m2[0].days[0].exercises[0].variant = 'Paused';
+    const a = teamMemberWeeks(m2, inPlace, opts).weeks[0].days[0].exercises;
+    eq(a.length, 1); eq(a[0].variant, 'Paused', 'the coach\'s push'); eq(a[0].swap, undefined, 'no swap left whose Undo would take the push back');
+    eq(a[0].sets.map(s => s.weight).join('/'), '182.5/167.5/167.5');
+    eq(inPlace[0].days[0].exercises[0].variant, 'Pin', 'the weeks it was given are not touched');
+    // Split mid-way (the top set logged): the back-offs go back to the squat, once.
+    const split = JSON.parse(JSON.stringify(first));
+    done(split[0].days[0].exercises[0].sets[0], 8.5);
+    swapApply(split[0].days[0], split[0].days[0].exercises[0].id, 'Pin', { stepKg: 2.5, newId: 'x9' });
+    const m3 = JSON.parse(JSON.stringify(master)); m3[0].days[0].exercises[0].sets[2].reps = 4;
+    const b = teamMemberWeeks(m3, split, opts).weeks[0].days[0].exercises;
+    eq(b.map(e => e.variant).join(), 'Competition', 'one squat, no pin squat beside it');
+    eq(b[0].sets.map(s => s.weight + 'x' + s.reps + (s.completed ? '✓' : '')).join(' '), '182.5x3✓ 167.5x5 167.5x4', 'the logged set kept, the push on the rest');
+    // A swapped set logged: it happened, and stays.
+    const lifted = JSON.parse(JSON.stringify(first));
+    swapApply(lifted[0].days[0], lifted[0].days[0].exercises[0].id, 'Pin', { stepKg: 2.5 });
+    done(lifted[0].days[0].exercises[0].sets[0], 8);
+    const c = teamMemberWeeks(master, lifted, opts).weeks[0].days[0].exercises;
+    assert(c.some(e => e.variant === 'Pin' && e.sets.some(s => s.completed)), 'the logged pin squat stays');
+  });
+  test('today only: the coach\'s Duplicate week (Programs ⋯, Copy week › A new week at the end) and Save as template copy the lift as written', () => {
+    const saved = JSON.parse(JSON.stringify(Store.get()));
+    try {
+      const inPlace = dayOf([S('s1', 182.5, 3, 8), S('s2', 167.5, 5, 8), S('s3', 167.5, 5, 8)]);
+      swapApply(inPlace, 'e1', 'Pin', { stepKg: 2.5 });
+      eq(inPlace.exercises[0].sets.map(s => s.weight).join('/'), '170/155/155', 'the day itself is the pin squat');
+      const split = dayOf([done(S('t1', 182.5, 3, 8), 8), S('t2', 167.5, 5, 8), S('t3', 167.5, 5, 8)]);
+      split.id = 'd2';
+      swapApply(split, 'e1', 'Pin', { stepKg: 2.5, newId: 'e9' });
+      seed({ programs: [{ id: 'pdw', athleteId: 'adw', coachId: 'cdw', name: 'Block', weeks: [{ id: 'w1', number: 1, days: [inPlace, split] }] }], programTemplates: [] });
+      duplicateWeek('pdw', 0);
+      const p = Store.get().programs.find(x => x.id === 'pdw');
+      eq(p.weeks.length, 2);
+      const a = p.weeks[1].days[0].exercises[0], b = p.weeks[1].days[1].exercises;
+      eq(a.variant, 'Competition'); eq(a.swap, undefined); eq(a.sets.map(s => s.weight).join('/'), '182.5/167.5/167.5', 'the squat as written, not Pin 170/155/155');
+      eq(b.filter(e => e.lift === 'squat').length, 1, 'a split day is one squat again');
+      eq(b[0].variant, 'Competition'); eq(b[0].sets.map(s => s.weight + ':' + !!s.completed).join(), '182.5:false,167.5:false,167.5:false');
+      eq(p.weeks[0].days[0].exercises[0].variant, 'Pin', 'the week it came from keeps its swap');
+      saveProgramAsTemplate('pdw', 'T');
+      const t = Store.get().programTemplates[0].payload.weeks[0].days[0].exercises[0];
+      eq(t.variant, 'Competition'); eq(t.sets.map(s => s.weight).join('/'), '182.5/167.5/167.5');
+    } finally { Store.set(saved); }
+  });
+})();
+
+group('the meet on the weigh-in (app.js meetWeighLine)');
+(() => {
+  const L = (o) => meetWeighLine(Object.assign({ unit: 'kg', slope: 0 }, o));
+  test('the owner\'s line: meet, the class, the pace, each once (the spec\'s case: 84.6 for the 83 class, 23 days → 0.5 kg a week gets there)', () => {
+    eq(L({ days: 23, cls: 83, bw: 84.6 }).text, 'Meet in 23 days · 1.6 kg over 83 · 0.5 kg a week gets there', 'flat: the pace it takes');
+    eq(L({ days: 23, cls: 83, bw: 84.4, slope: -0.5 }).text, 'Meet in 23 days · 1.4 kg over 83 · on pace', 'losing 0.5 a week gets there');
+    eq(L({ days: 23, cls: 83, bw: 82.4 }).text, 'Meet in 23 days · 0.6 kg under 83 · on weight');
+    eq(L({ days: 23, cls: 83, bw: 83 }).text, 'Meet in 23 days · at 83 · on weight');
+    eq(L({ days: 1, cls: 83, bw: 82.9 }).parts[0], 'Meet tomorrow'); eq(L({ days: 0, cls: 83, bw: 82.9 }).parts[0], 'Meet today');
+    eq(L({ days: 23, cls: 83, bw: 84.6 }).warn, false);
+  });
+  test('behind: what is left needs more than 1% of bodyweight a week, or it\'s meet day and still over (the orange triangle, not red)', () => {
+    const b = L({ days: 14, cls: 83, bw: 87 });   // 4 over in 2 weeks: 2 a week, 0.87 is the most
+    eq(b.verdict, 'behind'); eq(b.warn, true); eq(b.text, 'Meet in 14 days · 4.0 kg over 83 · behind');
+    eq(L({ days: 0, cls: 83, bw: 84 }).verdict, 'behind', 'meet day, still 1 kg over');
+    eq(L({ days: 1, cls: 83, bw: 83.3 }).verdict, 'on pace', 'tomorrow, 300 g over: that much is water');
+    eq(L({ days: 1, cls: 83, bw: 84 }).verdict, 'behind', 'tomorrow, 1 kg over');
+  });
+  test('the trend decides on pace; off pace says the pace that gets there; climbing a little over says hold', () => {
+    eq(L({ days: 28, cls: 83, bw: 86, slope: 0 }).text, 'Meet in 28 days · 3.0 kg over 83 · 0.8 kg a week gets there', 'flat: 3 over 4 weeks');
+    eq(L({ days: 28, cls: 83, bw: 86, slope: -0.5 }).verdict, 'on pace', 'losing 0.5 a week: 60% of the 0.75 it takes');
+    eq(L({ days: 28, cls: 83, bw: 86, slope: null }).verdict, 'pace', 'no trend yet: the pace it takes');
+    eq(L({ days: 28, cls: 83, bw: 83.2, slope: 0.3 }).text, 'Meet in 28 days · 0.2 kg over 83 · hold your weight', 'a few hundred grams over, climbing');
+    eq(L({ days: 28, cls: 83, bw: 83.2, slope: 0 }).verdict, 'on pace', 'a few hundred grams over, steady: water');
+    eq(L({ days: 56, cls: 83, bw: 89, slope: -0.8 }).verdict, 'on pace', 'eight weeks, 6 over, losing 0.8: the trend gets there');
+  });
+  test('pounds: the gap and the pace in pounds, the class by its kg name; nothing to say without a class, a weigh-in or a date', () => {
+    eq(meetWeighLine({ days: 23, cls: 83, bw: 84.6, slope: 0, unit: 'lbs' }).text, 'Meet in 23 days · 3.5 lb over 83 kg · 1.1 lb a week gets there');
+    eq(L({ days: 23, cls: 0, bw: 84 }), null); eq(L({ days: 23, cls: 83, bw: 0 }), null); eq(L({ days: null, cls: 83, bw: 84 }), null);
+  });
+  test('a trend needs a week: at least 4 weigh-ins over 7 mornings (two a day apart are water)', () => {
+    const t = '2026-10-30', ser = (pts) => pts.map(([d, w]) => ({ date: _addDaysISO(t, -d), weight: w }));
+    eq(bwTrendSlope(ser([[1, 86.2], [0, 85.0]])), null, 'two weigh-ins');
+    eq(bwTrendSlope(ser([[3, 86], [2, 85.8], [1, 85.6], [0, 85.4]])), null, 'four in four days');
+    close(bwTrendSlope(ser([[6, 86], [4, 85.8], [2, 85.6], [0, 85.4]])), -0.7, 0.01, 'four across a week');
+    eq(cutWeighKg(84.3, 83.9, 23), 84.3, 'weeks out: the 7-day average'); eq(cutWeighKg(84.3, 82.9, 2), 82.9, 'two days out: the scale that morning');
+  });
+  test('from the Store: the next meet and its class; the goal\'s class when the meet has none; the goal\'s date with no meet', () => {
+    const saved = JSON.parse(JSON.stringify(Store.get()));
+    try {
+      const t = '2026-10-30', a = 'mw1';
+      const bw = (d, kg) => ({ id: 'b' + d, athleteId: a, date: _addDaysISO(t, -d), weight: kg });
+      const series = [bw(14, 85.0), bw(10, 84.8), bw(7, 84.7), bw(3, 84.5), bw(0, 84.4)];
+      seed({ bodyweight: series, goals: [], meets: [{ id: 'm1', athleteId: a, name: 'Winter Open', date: _addDaysISO(t, 23), weightClass: '83 kg', status: 'planned' }] });
+      const m = meetWeighOf(a, t, 'kg');
+      eq(m.text, 'Meet in 23 days · 1.5 kg over 83 · on pace', 'the 7-day average (84.5), losing 0.3 a week'); eq(m.src, 'meet'); eq(m.name, 'Winter Open');
+      Store.get().meets[0].weightClass = '';
+      eq(meetWeighOf(a, t, 'kg'), null, 'no class anywhere');
+      Store.get().goals = [{ id: a, athleteId: a, targetClass: 83, cutBy: null }];
+      eq(meetWeighOf(a, t, 'kg').text, 'Meet in 23 days · 1.5 kg over 83 · on pace', 'the goal\'s class, the meet\'s date');
+      Store.get().meets = [];
+      eq(meetWeighOf(a, t, 'kg'), null, 'a class but no date');
+      Store.get().goals[0].cutBy = _addDaysISO(t, 63);
+      const gl = meetWeighOf(a, t, 'kg');
+      eq(gl.src, 'goal'); eq(gl.parts[0], 'Meet in 63 days');
+      Store.get().goals[0].cutBy = _addDaysISO(t, -2);
+      eq(meetWeighOf(a, t, 'kg'), null, 'that date has passed');
+      Store.get().goals[0].cutBy = _addDaysISO(t, 63);
+      Store.get().bodyweight = [bw(30, 84.4)];
+      eq(meetWeighOf(a, t, 'kg'), null, 'the last weigh-in is a month old');
+      Store.get().bodyweight = series;
+      Store.get().meets = [{ id: 'm2', athleteId: a, name: 'Open', date: _addDaysISO(t, 10), weightClass: '120+', status: 'planned' }];
+      Store.get().goals = [];
+      eq(meetWeighOf(a, t, 'kg'), null, '120+ has no ceiling');
+    } finally { Store.set(saved); }
+  });
+  test('one verdict: the lifter\'s line never says on pace or on weight when the coach\'s cut reads off pace, nor the other way', () => {
+    const saved = JSON.parse(JSON.stringify(Store.get()));
+    try {
+      const t = '2026-10-30', a = 'mw2';
+      const days = (n, f) => Array.from({ length: n }, (_, i) => ({ id: 'v' + i, athleteId: a, date: _addDaysISO(t, -(n - 1 - i)), weight: f(i, n) }));
+      const run = (bws, by) => {
+        seed({ meets: [], goals: [{ id: a, athleteId: a, bwDirection: 'cut', targetClass: 83, cutBy: _addDaysISO(t, by) }], bodyweight: bws });
+        return { line: meetWeighOf(a, t, 'kg'), cut: athleteCut(a, t) };
+      };
+      // The spec's case: 15 days flat at 84.6, 23 days out.
+      let r = run(days(15, () => 84.6), 23);
+      eq(r.line.text, 'Meet in 23 days · 1.6 kg over 83 · 0.5 kg a week gets there'); eq(r.cut.offPace, true);
+      eq(r.line.parts[2].replace(/ kg a week gets there/, ''), r.cut.line.match(/need −([\d.]+)/)[1], 'the same pace as the coach\'s "need −0.5/wk"');
+      // Two weigh-ins a day apart: no trend, so no "on pace".
+      r = run([{ id: 'w1', athleteId: a, date: _addDaysISO(t, -1), weight: 86.2 }, { id: 'w2', athleteId: a, date: t, weight: 85.0 }], 21);
+      assert(r.line.verdict !== 'on pace', r.line.text); eq(r.cut.offPace, true);
+      // One light morning after a steady fortnight: the week's average, not that morning.
+      r = run(days(15, (i, n) => (i === n - 1 ? 85.0 : 86.5)), 21);
+      eq(r.line.parts[1], '3.3 kg over 83'); eq(r.line.verdict, 'behind'); eq(r.cut.offPace, true);
+      // Losing steadily: both on pace.
+      r = run(days(22, (i) => 86 - i * 0.07), 28);
+      eq(r.line.verdict, 'on pace'); eq(r.cut.offPace, false);
+      // Two days out after a water cut: the scale that morning, both on weight.
+      r = run(days(7, (i, n) => (i === n - 1 ? 82.9 : 83.8)), 2);
+      eq(r.line.text, 'Meet in 2 days · 0.1 kg under 83 · on weight'); eq(r.cut.made, true); eq(r.cut.offPace, false);
+      // Every case in a sweep agrees.
+      [[84.6, 0], [84.6, -0.4], [84.6, -0.1], [83.2, 0], [83.2, 0.05], [86, -0.5], [90, -0.3]].forEach(([w0, wk]) => [7, 14, 23, 40].forEach(by => {
+        const x = run(days(22, (i, n) => w0 - wk * (n - 1 - i) / 7), by);
+        const neg = x.line.verdict === 'pace' || x.line.verdict === 'behind';
+        eq(neg, x.cut.offPace, w0 + ' kg, ' + wk + '/wk, ' + by + ' days: ' + x.line.text + ' vs ' + (x.cut.flag || 'no flag'));
+        eq(x.line.verdict === 'on weight', x.cut.made, 'on weight is made');
+      }));
+    } finally { Store.set(saved); }
+  });
+})();
+
+group('pull to refresh (app.js uiPullRefresh)');
+(() => {
+  test('the rubber band: it gives less the further it goes, never past the screen', () => {
+    eq(ptrRubber(0, 852), 0); eq(ptrRubber(-30, 852), 0, 'a push up is not a pull');
+    close(ptrRubber(100, 800), 51.5, 0.2, 'UIScrollView\'s curve, c 0.55');
+    let last = 0, lastGain = Infinity;
+    for (let d = 20; d <= 600; d += 20) {
+      const o = ptrRubber(d, 852), gain = o - last;
+      assert(o > last, 'it keeps moving: ' + d);
+      assert(gain < lastGain + 1e-9, 'each 20 px gives less than the one before: ' + d);
+      assert(o < 852, 'never past the screen');
+      last = o; lastGain = gain;
+    }
+    assert(ptrRubber(300, 852) < 300 * 0.6, 'well under the finger');
+  });
+  test('the line: about 125 px of finger arms it; reduced motion moves nothing and half the travel is the reach', () => {
+    const a = ptrState(100, { dim: 852, line: 64 }), b = ptrState(130, { dim: 852, line: 64 });
+    eq(a.armed, false); assert(a.progress > 0.7 && a.progress < 1, 'nearly there: ' + a.progress);
+    eq(b.armed, true); eq(b.progress, 1); assert(b.offset >= 64 && b.offset < 70, 'just past the line: ' + b.offset);
+    const r = ptrState(130, { reduce: true, line: 64 });
+    eq(r.offset, 0, 'nothing stretches'); eq(r.armed, true);
+    eq(ptrState(64, { reduce: true, line: 64 }).progress, 0.5);
+    eq(ptrState(0, { dim: 852 }).progress, 0);
+  });
+  test('the boot: a list it couldn\'t read (db.js readFailed) keeps this device\'s copy, never the roster, never a list that was read', () => {
+    const failed = (a) => { Object.defineProperty(a, 'readFailed', { value: true }); return a; };
+    const fresh = { athletes: failed([]), painReports: failed([]), meets: [{ id: 'm2' }], goals: failed([]), invites: failed([{ code: 'NEW1' }]), bodyweight: [] };
+    const snap = { athletes: [{ id: 'a1' }], painReports: [{ id: 'p1' }], meets: [{ id: 'm1' }], goals: [], invites: [{ code: 'OLD1' }], bodyweight: [{ id: 'b1' }] };
+    const kept = keepUnreadLists(fresh, snap);
+    eq(kept.join(), 'painReports', 'only the empty list that failed, and only when the device has it');
+    eq(fresh.painReports.map(p => p.id).join(), 'p1', 'the pain report stays');
+    eq(fresh.meets.map(m => m.id).join(), 'm2', 'a list that was read is the server\'s');
+    eq(fresh.bodyweight.length, 0, 'read and empty: empty');
+    eq(fresh.invites.map(i => i.code).join(), 'NEW1', 'a half read keeps the rows it has');
+    eq(fresh.athletes.length, 0, 'the roster is never patched');
+    eq(keepUnreadLists(fresh, null).length, 0, 'no copy on this device: nothing to keep');
+  });
+})();
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

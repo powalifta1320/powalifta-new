@@ -31,6 +31,16 @@ fs.mkdirSync(outDir, { recursive: true });
 
 const tab = (t) => "document.querySelector('[data-tab=\"" + t + "\"]').click()";
 const A = 'athlete.html?demo=1', SO = 'athlete.html?demo=1&solo=1', C = 'coach.html?demo=1', F = 'coach.html?demo=1&fresh=1';
+// Night B helpers. SWAP_INJ: Arjun's latest logged main lift saved as a swap (squat to pin squat, bench to close grip,
+// deadlift to RDL), as his phone would have, on his last session's date (the demo's logs and program dates differ).
+// MEET_BEHIND: the demo lifter's meet 14 days out at 83 kg and a week of weigh-ins at 87.2 kg (the line judges the week, as
+// the coach's cut does). MEET_PACE_LB: a meet 23 days out at 83 kg, a fortnight flat at 84.6 kg, in pounds (the longest
+// verdict: "1.1 lb a week gets there"), with the morning run under it. PULL_HOLD: a pull of 220 px
+// on the screen's pane with the finger still down (touch events, so the app's own gesture code draws it).
+const SWAP_INJ = "(() => { const s = Store.get(), p = s.programs.find(x => x.athleteId === 'demo-a1'); const last = s.workoutLogs.filter(l => l.athleteId === 'demo-a1').map(l => l.date).sort().pop(); let hit = null; p.weeks.forEach(w => w.days.forEach(d => d.exercises.forEach(e => { if (['squat', 'bench', 'deadlift'].includes(e.lift) && (e.variant || 'Competition') === 'Competition' && e.sets.some(x => x.completed)) hit = e; }))); const to = { squat: 'Pin', bench: 'Close Grip', deadlift: 'RDL' }[hit.lift]; hit.swap = { from: 'Competition', on: last, sets: hit.sets.map((x, i) => ({ at: i, f: { weight: x.weight } })) }; hit.sets.forEach(x => { x.weight = swapLoadKg(x.weight, hit.lift, 'Competition', to, 2.5); if (x.completed) x.completedAt = last; }); hit.variant = to; Store.bump(); })()";
+const MEET_BEHIND = "Store.update(s => { s.meets.push({ id: 'uiscan-meet', athleteId: 'demo-athlete', name: 'Winter Classic', date: _addDaysISO(todayISO(), 14), weightClass: '83 kg', status: 'planned' }); const wk = _addDaysISO(todayISO(), -7); s.bodyweight.filter(x => x.athleteId === 'demo-athlete' && x.date >= wk).forEach(x => { x.weight = 87.2; }); })";
+const MEET_PACE_LB = "localStorage.setItem('powa-unit', 'lbs'); Store.update(s => { s.meets.push({ id: 'uiscan-meet2', athleteId: 'demo-athlete', name: 'Winter Classic', date: _addDaysISO(todayISO(), 23), weightClass: '83 kg', status: 'planned' }); const d = (i) => _addDaysISO(todayISO(), -i); s.bodyweight = s.bodyweight.filter(x => !(x.athleteId === 'demo-athlete' && x.date >= d(14))); for (let i = 0; i <= 14; i++) s.bodyweight.push({ id: 'us' + i, athleteId: 'demo-athlete', date: d(i), weight: 84.6 }); })";
+const PULL_HOLD = "(async () => { await new Promise(r => setTimeout(r, 900)); const p = [...document.querySelectorAll('section[data-pane]')].find(x => !x.classList.contains('hidden') && x.offsetParent); const T = (y) => new Touch({ identifier: 7, target: p, clientX: 196, clientY: y }); p.dispatchEvent(new TouchEvent('touchstart', { touches: [T(420)], changedTouches: [T(420)], bubbles: true, cancelable: true })); for (let i = 1; i <= 12; i++) { p.dispatchEvent(new TouchEvent('touchmove', { touches: [T(420 + i * 18)], changedTouches: [T(420 + i * 18)], bubbles: true, cancelable: true })); await new Promise(r => setTimeout(r, 20)); } return true; })()";
 const screens = [];
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
   for (const t of ['today', 'progress', 'club', 'coach', 'you', 'bodyweight', 'library', 'career']) screens.push({ name: 'a-' + t + suf, page: A, theme, eval: t === 'today' ? null : tab(t) });
@@ -140,6 +150,24 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'c-rules' + suf, page: C, theme, eval: tab('rules') },
     { name: 'sh-formcheck' + suf, page: C, theme, eval: "CoachLifters.open('demo-a1'); new Promise(r => setTimeout(r, 500)).then(() => { document.querySelector('#lifterPage [data-row=videos]').click(); return new Promise(r => setTimeout(r, 700)); }).then(() => { document.querySelector('[data-fc]').click(); return new Promise(r => setTimeout(r, 900)); })" },
     { name: 'f-tour' + suf, page: F, theme, eval: "localStorage.removeItem('powa-tour-coach-done'); window.replayCoachTour(); true" });
+  // Night B (30 Oct). Swap an exercise: the Swap sheet over Train, Train with today's squat swapped (the card's line
+  // and Undo), the coach's sheet, Programs and the laptop's lifter page (below) with a swapped session. The meet on the
+  // weigh-in: Train's tile and Bodyweight with a meet 14 days out, behind (the triangle). Pull to refresh: Club and
+  // Lifters held mid-pull (a touch still down: the screen down, the ring filled).
+  screens.push(
+    { name: 'sh-swap' + suf, page: A, theme, eval: "openSwapSheet(getCurrentDay().day.exercises[0].id)" },
+    { name: 'a-today-swapped' + suf, page: A, theme, eval: "doSwap(getCurrentDay().day.exercises[0].id, 'Pin'); document.querySelectorAll('.toast').forEach(t => t.remove()); true" },
+    { name: 'a-today-meet' + suf, page: A, theme, eval: MEET_BEHIND + "; renderToday(); const t = document.querySelector('.tx-weigh').closest('.ts-tile'); t.parentNode.scrollLeft = t.offsetLeft - 16; true" },
+    { name: 'a-bodyweight-meet' + suf, page: A, theme, eval: MEET_BEHIND + ';' + tab('bodyweight') },
+    { name: 'sh-athlete-swap' + suf, page: C, theme, eval: SWAP_INJ + "; openAthleteSheet('demo-a1')" },
+    { name: 'c-program-swap' + suf, page: C, theme, eval: SWAP_INJ + ';' + tab('program') },
+    { name: 'a-club-pull' + suf, page: A, theme, eval: tab('club') + ';' + PULL_HOLD },
+    { name: 'c-athletes-pull' + suf, page: C, theme, eval: tab('athletes') + ';' + PULL_HOLD },
+    // The Night B fixes: the split card (the top set logged, the back-offs a pin squat after it, the cue once) and the
+    // meet's line off pace in pounds on Train's tile and on Bodyweight.
+    { name: 'a-today-split' + suf, page: A, theme, eval: "toggleSet(getCurrentDay().day.exercises[0].id, 0, true, { rpe: 8.5 }); doSwap(getCurrentDay().day.exercises[0].id, 'Pin'); document.querySelectorAll('.toast').forEach(t => t.remove()); true" },
+    { name: 'a-today-meet-lb' + suf, page: A, theme, eval: MEET_PACE_LB + "; renderToday(); const t = document.querySelector('.tx-weigh').closest('.ts-tile'); t.parentNode.scrollLeft = t.offsetLeft - 16; true" },
+    { name: 'a-bodyweight-meet-lb' + suf, page: A, theme, eval: MEET_PACE_LB + ';' + tab('bodyweight') });
 }
 for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   for (const p of ['index.html', 'about.html', 'faq.html', 'guides.html', 'guide-rpe.html', 'marketplace.html', 'leaderboard.html', 'exercises.html', 'join.html?code=ABC234', 'reset-password.html', 'privacy.html', 'terms.html', A, SO, C, F]) {
@@ -166,6 +194,13 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-coach-club' + suf, page: C, mode: 'web', theme, eval: "deskGo('club')" },
   { name: 'w-chl-board' + suf, page: C, mode: 'web', theme, eval: "deskGo('club');setTimeout(() => { const b = document.querySelector('.chl-all'); if (b) b.click(); }, 200)" },
   { name: 'w-planner-aim' + suf, page: C, mode: 'web', theme, eval: "openAttemptPlanner('demo-cmeet-p1')" });
+// The desk's lifter page with a session where the rack was taken (Swapped for … on the session), dark and light.
+// (The desk keeps its own theme, powa-desk-theme: the light screen switches it, applyTheme, as the desk's own toggle does.)
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-ws-swap' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + SWAP_INJ + "; openAthletePage('demo-a1')" });
+// The same swap in the laptop's builder (the lift as written, "Lifted as …") and in Messages' Last sessions, dark and light.
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
+  { name: 'w-pb-swap' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + SWAP_INJ + "; const p = Store.get().programs.find(x => x.athleteId === 'demo-a1'); const wi = p.weeks.findIndex(w => w.days.some(d => d.exercises.some(e => e.swap))); deskGo('programs'); const s = document.getElementById('progAthlete'); if (s) { s.value = 'demo-a1'; s.dispatchEvent(new Event('change', { bubbles: true })); } activeWeekIdx = wi; loadProgram(); true" },
+  { name: 'w-msg-swap' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + SWAP_INJ + "; deskGo('messages'); new Promise(r => setTimeout(r, 400)).then(() => { dkOpenThread('demo-a1'); return true; })" });
 // The desk's Last week report (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-report' + suf, page: C, mode: 'web', theme, eval: 'CoachReportUI.open()' });
 // Imports on the desk (coach.html at laptop width): the intake, a client list, a lifter's history, a guide, dark and light.

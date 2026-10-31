@@ -2435,16 +2435,23 @@ function weighInRow() {
     const parts = [];
     if (habit.streak >= 2) parts.push(habit.streak + ' days in a row');
     parts.push(habit.delta != null ? (Math.abs(habit.delta) < 0.05 ? 'week level with last' : 'week ' + signed(habit.delta)) : dTxt);
-    // Making weight: the class line instead ("Class 83 · 9 wk to go · need −0.2/wk"), coloured for the goal.
+    // A meet ahead (app.js meetWeighOf): the meet, the class and the pace in one plain line, the whole tile wide
+    // (it says what the trend picture did). Else making weight with no date: the class line, coloured for the goal.
     applyLocalCut();
-    const cut = athleteCut(user.id);
-    if (cut) {
+    const ml = meetWeighOf(user.id, today, getUnit() === 'lbs' ? 'lbs' : 'kg');
+    const cut = ml ? null : athleteCut(user.id);
+    if (ml) {
+      body.appendChild(meetLineEl(ml, 'tn-text tx-meet'));
+      // The morning ritual's run stays under it, quieter. (This week against last steps aside: the line's pace is the
+      // trend now, and two readings of it could disagree.)
+      if (habit.streak >= 2) body.appendChild(el('span', { class: 'tn-text tn-one tx-weigh-habit' }, habit.streak + ' days in a row'));
+    } else if (cut) {
       const t = cut.line.split(' · ').slice(1).join(' · ');
       body.appendChild(el('span', { class: 'tn-text tn-one cut-line cut-' + cut.tone }, t.charAt(0).toUpperCase() + t.slice(1)));
     } else body.appendChild(el('span', { class: 'tn-text tn-one' }, parts.join(' · ')));
     row.appendChild(body);
     // The smoothed 7-day trend, not the raw daily noise.
-    const tr = bwCutBulkStats(list.map(b => ({ date: b.date, weight: b.weight })), null, 'maintain').trend;
+    const tr = ml ? [] : bwCutBulkStats(list.map(b => ({ date: b.date, weight: b.weight })), null, 'maintain').trend;
     const spark = uiSparkline(tr.slice(-21).map(p => kgToDisplay(p.weight)));
     if (spark) row.appendChild(el('span', { class: 'tx-weigh-spark', html: spark }));
     row.addEventListener('click', () => { const t = document.getElementById('tab-bodyweight'); if (t) t.click(); });
@@ -2456,7 +2463,10 @@ function weighInRow() {
     top.appendChild(el('span', { class: 'tn-ic tx-weigh-ic', 'aria-hidden': 'true', html: ICONS.scale }));
     const tb = el('span', { class: 'tn-body' });
     tb.appendChild(el('span', { class: 'tn-title' }, 'Morning weigh-in'));
-    tb.appendChild(el('span', { class: 'tn-text tn-one' }, habit.streak >= 2 ? 'Keep your ' + habit.streak + '-day run going'
+    // A meet ahead: where their weigh-ins leave them (app.js meetWeighOf: the week's average, the coach's own call).
+    applyLocalCut();
+    const ml = meetWeighOf(user.id, today, getUnit() === 'lbs' ? 'lbs' : 'kg');
+    tb.appendChild(ml ? meetLineEl(ml, 'tn-text tx-meet') : el('span', { class: 'tn-text tn-one' }, habit.streak >= 2 ? 'Keep your ' + habit.streak + '-day run going'
       : prev ? 'Last ' + formatWeight(prev.weight) + ' · ' + _relDay(prev.date) : 'Start your bodyweight trend'));
     top.appendChild(tb);
     top.addEventListener('click', () => openWeighInSheet(() => renderToday()));
@@ -2785,8 +2795,11 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
   const tb = el('div', { class: 'tx-title' });
   tb.appendChild(el('h3', {}, exTitleOf(ex)));
   const meta = [];
+  // SWAP AN EXERCISE (app.js swapApply): a swap says so on its own line under the head (not twice up here).
+  const swp = isMain ? exSwap(ex) : null;
+  const swpShow = !!(swp && (swp.to !== swp.from || swp.src != null));
   // A variant is "a squat variation"; the competition lift needs no label (its name says it).
-  if (isMain) { if (multiplierFor(ex.lift, ex.variant) !== 1) meta.push(LIFT_LABELS[ex.lift] + ' variation'); }
+  if (isMain) { if (!swpShow && multiplierFor(ex.lift, ex.variant) !== 1) meta.push(LIFT_LABELS[ex.lift] + ' variation'); }
   else if (ACCESSORY_LIFTS.includes(ex.lift)) meta.push(LIFT_LABELS[ex.lift]);
   else if (isCardio) meta.push('Cardio');
   // The ring already counts the sets (0/3), so the line under the name doesn't.
@@ -2800,9 +2813,24 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     head.appendChild(hit);
   }
   card.appendChild(head);
+  // Today's swap, where the coach's cue sits: what it was, and Undo while none of it is logged.
+  if (swpShow) {
+    const was = swp.src != null ? ((ex.swap && ex.swap.srcVariant) || swp.from) : swp.from;
+    const sl = el('div', { class: 'tx-swap' });
+    sl.appendChild(el('span', { class: 'tx-swap-k' }, 'Swapped'));
+    sl.appendChild(el('span', { class: 'tx-swap-t' }, 'from ' + variantName(ex.lift, was)));
+    if (swp.undoable) {
+      const u = el('button', { class: 'tx-swap-undo', type: 'button', 'aria-label': 'Undo the swap, back to ' + variantName(ex.lift, was) }, 'Undo');
+      u.addEventListener('click', () => undoSwap(ex.id));
+      sl.appendChild(u);
+    }
+    card.appendChild(sl);
+  }
 
-  // The program's note: the coach's cue, or (training on your own) your own note, never "Coach".
-  if (ex.note) card.appendChild(el('div', { class: 'ech-coach tx-cue', html: '<span>' + (selfCoached ? 'Note' : 'Coach') + '</span>' + escHtml(ex.note) }));
+  // The program's note: the coach's cue, or (training on your own) your own note, never "Coach". The part of a lift
+  // that split off mid-way (a swap) carries the same cue: the card it came from, right above, already says it.
+  const cueSaid = !!(swp && swp.src != null && ex.note && (cur.day.exercises || []).some(e => e !== ex && String(e.id) === String(swp.src) && e.note === ex.note));
+  if (ex.note && !cueSaid) card.appendChild(el('div', { class: 'ech-coach tx-cue', html: '<span>' + (selfCoached ? 'Note' : 'Coach') + '</span>' + escHtml(ex.note) }));
   // TEAM PROGRAMS: on a team program, an exercise the coach changed just for them says so, once and
   // quietly. Lifters never see "team": these are their own loads.
   if (!selfCoached && ex.srcId != null && ex.ovr) card.appendChild(el('div', { class: 'tx-adj' }, 'Your coach adjusted this for you'));
@@ -2954,6 +2982,13 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
     pa.addEventListener('click', () => openPRAttemptSheet(ex.id));
     acts.appendChild(pa);
   }
+  // Swap: the lift's variants for today, the sets left at the same effort (openSwapSheet).
+  // On a phone it's the first of the icons at the row's end (styles.css .tx-act-ico), labelled for screen readers.
+  if (isMain && ex.sets.some(s => !s.completed)) {
+    const sw = el('button', { class: 'tx-act tx-act-ico tx-act-swap', type: 'button', 'aria-label': 'Swap for a variation', title: 'Swap for a variation', html: swapIconSvg() + '<span>Swap</span>' });
+    sw.addEventListener('click', () => openSwapSheet(ex.id));
+    acts.appendChild(sw);
+  }
   // Something hurt: on the exercise you're on (or one you've started), coached lifters only.
   if (user.coachId && (isCurrent || (doneCount > 0 && !exDone))) {
     // On a phone it's an icon beside Note's (styles.css .tx-act-ico), so the row stays one line.
@@ -2995,6 +3030,82 @@ function _exCues(ex) {
   const k = _exNameKey(ex.exerciseName);
   return k ? (EXERCISE_LIBRARY.find(e => _exNameKey(e.name) === k) || null) : null;
 }
+// ===== SWAP AN EXERCISE (2026-10-30) =====
+// A variation for today: the card's Swap lists the lift's other variants with the next set's load on each, at the
+// same effort (app.js swapOptions / swapApply). One tap swaps it for today; the toast and the card's line
+// undo it. Saved like any change to the session (persistProgram: the demo writes nothing), so the coach's
+// views say "Swapped for pin squat" on that session.
+// (A function, not a const: the demo draws Train before this line runs, and a const would be in its TDZ.)
+function swapIconSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4 3 8l4 4"/><path d="M3 8h13"/><path d="m17 20 4-4-4-4"/><path d="M21 16H8"/></svg>'; }
+function _swapStep() { return loadStepKg(getUnit() === 'lbs' ? 'lbs' : 'kg'); }
+// The in-memory picks for an exercise's sets (smart next set, readiness, the RPE picked): its sets moved.
+function _swapForget(exId) {
+  const pre = String(exId) + '_';
+  [_smartLoad, _readyLoad, _feltRpe].forEach(m => Object.keys(m).forEach(k => { if (k.indexOf(pre) === 0) delete m[k]; }));
+}
+function _swapDay(s, cur) {
+  const p = (s.programs || []).find(x => x.athleteId === user.id);
+  const wk = p && p.weeks.find(w => String(w.id) === String(cur.week.id));
+  return wk && wk.days.find(d => String(d.id) === String(cur.day.id));
+}
+function openSwapSheet(exId) {
+  const cur = getCurrentDay();
+  const ex = cur && cur.day.exercises.find(e => e.id === exId);
+  if (!ex) return;
+  const opts = swapOptions(ex, _swapStep());
+  if (!opts.length) return;
+  uiSheet('Swap ' + exTitleOf(ex), (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'For today only. The sets left keep the same effort, and ' + (user.coachId ? 'your coach sees the swap.' : 'your e1RM still counts.')));
+    const rows = opts.map(o => {
+      const n = o.next;
+      const load = !n ? '' : n.kg > 0 ? 'Next set ' + formatWeight(n.kg) + ' × ' + n.reps : 'Next set ' + n.reps + ' reps, load by feel';
+      return uiRow({
+        title: exTitleOf(Object.assign({}, ex, { variant: o.variant })),
+        sub: o.written ? ['As written', load].filter(Boolean).join(' · ') : load,
+        chevron: false,   // a tap swaps at once: nothing opens
+        onClick: () => { close(); setTimeout(() => doSwap(exId, o.variant), 240); }
+      });
+    });
+    const list = uiList(rows);
+    list.classList.add('swap-list');
+    sheet.appendChild(list);
+  }, { cls: 'swap-sheet' });
+}
+window.openSwapSheet = openSwapSheet;
+function doSwap(exId, to) {
+  const cur = getCurrentDay(), prog = getProgram();
+  if (!cur || !prog) return;
+  const ex0 = cur.day.exercises.find(e => e.id === exId);
+  if (!ex0) return;
+  let res = null;
+  Store.update(s => { const d = _swapDay(s, cur); if (d) res = swapApply(d, exId, to, { stepKg: _swapStep(), date: getSessionDate() }); });
+  if (!res) return;
+  _swapForget(exId); _swapForget(res.exId);
+  persistProgram(prog.id);
+  renderToday();
+  hapticTap('LIGHT');
+  if (res.undone) { toast('Back to ' + variantName(ex0.lift, to)); return; }
+  toastAction('Swapped for ' + variantName(ex0.lift, to), 'Undo', () => undoSwap(res.exId));
+}
+window.doSwap = doSwap;
+function undoSwap(exId) {
+  const cur = getCurrentDay(), prog = getProgram();
+  if (!cur || !prog) return;
+  const ex0 = cur.day.exercises.find(e => e.id === exId);
+  const sw = ex0 ? exSwap(ex0) : null;
+  if (!sw) return;
+  const back = sw.src != null ? ((ex0.swap && ex0.swap.srcVariant) || sw.from) : sw.from;
+  let ok = false;
+  Store.update(s => { const d = _swapDay(s, cur); if (d) ok = swapUndo(d, exId); });
+  if (!ok) { toast('A set is logged on it, so the swap stays'); renderToday(); return; }
+  _swapForget(exId); if (sw.src != null) _swapForget(sw.src);
+  persistProgram(prog.id);
+  renderToday();
+  hapticTap('LIGHT');
+  toast('Back to ' + variantName(ex0.lift, back));
+}
+window.undoSwap = undoSwap;
+
 function openExerciseDetail(exId) {
   const find = () => { const c = getCurrentDay(); return c ? c.day.exercises.find(e => e.id === exId) : null; };
   const ex0 = find();
@@ -8673,7 +8784,8 @@ function sbDuplicateWeek(progId, wi) {
     const cloneSets = sets => sets.map(set => { const c = { ...set, id: uid('set'), completed: false, actualRpe: null, completedAt: null, lastLogId: null, note: '', weight: planWeight(set) }; delete c.plannedWeight; return c; });
     const cloneDay = d => ({ id: uid('day'), name: d.name, exercises: d.exercises.map(ex => ({ id: uid('ex'), lift: ex.lift, variant: ex.variant || '', exerciseName: ex.exerciseName || '', note: ex.note || '', sets: cloneSets(ex.sets) })) });
     const nextNum = Math.max(...p.weeks.map(w => w.number)) + 1;
-    p.weeks.push({ id: uid('wk'), number: nextNum, days: src.days.map(cloneDay) });
+    // A swap on a day (a pin squat for the squat) was for that day only: the new week is the lifts as written.
+    p.weeks.push({ id: uid('wk'), number: nextNum, days: src.days.map(dayAsWritten).map(cloneDay) });
   });
   sbPersist(progId);
   _selfBuilderActiveWeek = sbProg().weeks.length - 1;
@@ -8976,6 +9088,9 @@ function renderBodyweight() {
   const g = s.goals.find(x => x.athleteId === user.id);
   const dir = (g && g.bwDirection) || 'maintain';
 
+  // THE MEET ON THE WEIGH-IN (app.js meetWeighOf): the meet, the class and the pace, said once, first in Make weight.
+  applyLocalCut();
+  const ml = meetWeighOf(user.id, todayISO(), getUnit() === 'lbs' ? 'lbs' : 'kg');
   // HERO: the latest number, with logging right inside it.
   const hero = el('div', { class: 'ui-hero bw-hero' });
   const last = bw.at(-1);
@@ -8989,7 +9104,7 @@ function renderBodyweight() {
       sub.appendChild(el('span', { class: 'ui-flat' }, Math.abs(sl) < 0.05 ? 'Steady' : (sl < 0 ? '↓ ' : '↑ ') + kgToDisplay(Math.abs(sl), 1) + ' ' + u + ' a week'));
     }
     // The class being made when a cut is set (the cut card's class), else the weigh-in's.
-    const cls = liftersClass(last.weight, getSexPref(), g && g.targetClass);
+    const cls = ml ? null : liftersClass(last.weight, getSexPref(), g && g.targetClass);   // the meet's line says the class
     if (cls) sub.appendChild(el('span', {}, cls + ' class'));
     if (sub.children.length) hero.appendChild(sub);
   } else {
@@ -8997,9 +9112,8 @@ function renderBodyweight() {
   }
   if (logRow) hero.appendChild(logRow);
   area.appendChild(hero);
-  // Make weight (brief 4.3): the class line, the pace to the meet, food against the targets.
-  applyLocalCut();
-  const cutNodes = buildCutSection(user.id, { mine: true, nutritionRows: myFoodRows(), onEdit: () => openCutSheet() });
+  // Make weight (brief 4.3): the meet's line (or the class line), food against the targets.
+  const cutNodes = buildCutSection(user.id, { mine: true, nutritionRows: myFoodRows(), onEdit: () => openCutSheet(), line: ml });
   if (cutNodes.length) cutNodes.forEach(n => area.appendChild(n));
   else if (bw.length) area.appendChild(uiList([uiRow({ title: 'Make weight for a class', sub: 'Your weigh-ins against the class line, by the meet', chevron: true, onClick: () => openCutSheet() })]));
   if (!bw.length) return;
@@ -9037,10 +9151,12 @@ function renderBodyweight() {
     const off = Number(kgToDisplay(left, 1)) || 0;
     const holdEnd = !off ? '<span class="ui-up">On weight</span>' : '<b>' + kgToDisplay(left, 1) + '</b> ' + u + (cur > target ? ' over' : ' under');
     const paceTxt = stats.pace ? stats.pace.text.charAt(0).toUpperCase() + stats.pace.text.slice(1) : null;
+    // A goal on the meet's class: the meet's line already said how far over or under it is.
+    const saidAbove = !!(ml && Math.abs(Number(target) - Number(ml.cls)) < 0.05);
     area.appendChild(uiList([uiRow({
       title: verb + kgToDisplay(target) + ' ' + u,
       sub: paceTxt,
-      endHtml: dir !== 'cut' && dir !== 'gain' ? holdEnd : atGoal ? '<span class="ui-up">At goal</span>' : '<b>' + kgToDisplay(Math.max(0, left), 1) + '</b>' + u + ' to go',
+      endHtml: saidAbove ? '' : dir !== 'cut' && dir !== 'gain' ? holdEnd : atGoal ? '<span class="ui-up">At goal</span>' : '<b>' + kgToDisplay(Math.max(0, left), 1) + '</b>' + u + ' to go',
       chevron: true,
       onClick: () => openGoalsModal()
     })]));

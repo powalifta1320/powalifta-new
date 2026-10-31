@@ -582,12 +582,17 @@
   function tileOf(ex) { return typeof _pbTile === 'function' ? _pbTile(ex) : String(exTitle(ex)).charAt(0).toUpperCase(); }
   // An exercise: its tile and name, then each block of sets as Train says it, the note, what was lifted.
   function exRowEl(prog, aid, wi, di, ex, ei) {
-    var b = el('button', { type: 'button', class: 'cp-exrow' + (MAIN.indexOf(ex.lift) >= 0 ? ' lift-' + ex.lift : ' lift-acc'), 'aria-label': 'Edit ' + exTitle(ex) });
-    var html = '<span class="cp-tile" aria-hidden="true">' + esc(tileOf(ex)) + '</span><span class="cp-ex-main"><span class="cp-ex-t">' + esc(exTitle(ex)) + '</span>';
+    // A lift the lifter swapped for a variant that day (app.js exSwap) reads as the coach wrote it, its name and its
+    // sets (exAsWritten); what happened says the swap, once: "Lifted as close grip bench 105×4 @8, …", or before a
+    // set is logged "Swapped for close grip bench".
+    var sw = typeof exSwap === 'function' ? exSwap(ex) : null, swapped = !!(sw && sw.to !== sw.from);
+    var wx = swapped && typeof exAsWritten === 'function' ? exAsWritten(ex) : ex;
+    var b = el('button', { type: 'button', class: 'cp-exrow' + (MAIN.indexOf(ex.lift) >= 0 ? ' lift-' + ex.lift : ' lift-acc'), 'aria-label': 'Edit ' + exTitle(wx) });
+    var html = '<span class="cp-tile" aria-hidden="true">' + esc(tileOf(wx)) + '</span><span class="cp-ex-main"><span class="cp-ex-t">' + esc(exTitle(wx)) + '</span>';
     if (ex.lift === 'cardio') {
       html += '<span class="cp-set"><span class="cp-set-l">' + esc(plural((ex.sets || []).length, 'bout')) + '</span></span>';
     } else {
-      var plan = (ex.sets || []).map(function (s) { return Object.assign({}, s, { weight: typeof planWeight === 'function' ? planWeight(s) : s.weight, reps: s.plannedReps || s.reps }); });
+      var plan = (wx.sets || []).map(function (s) { return Object.assign({}, s, { weight: typeof planWeight === 'function' ? planWeight(s) : s.weight, reps: s.plannedReps || s.reps }); });
       var blocks = typeof groupSets === 'function' ? groupSets(plan) : [];
       if (!blocks.length) html += '<span class="cp-set is-none">No sets yet</span>';
       blocks.forEach(function (blk) {
@@ -601,7 +606,8 @@
     }
     if (ex.note) html += '<span class="cp-note">' + esc(ex.note) + '</span>';
     var lifted = typeof _gridActualHtml === 'function' ? _gridActualHtml(ex) : '';   // escaped there (athlete-written numbers)
-    if (lifted) html += '<span class="cp-lifted"><span>Lifted</span> ' + lifted + '</span>';
+    if (lifted) html += '<span class="cp-lifted' + (swapped ? ' cp-swapped' : '') + '"><span>' + (swapped ? 'Lifted as ' + esc(variantName(ex.lift, sw.to)) : 'Lifted') + '</span> ' + lifted + '</span>';
+    else if (swapped) html += '<span class="cp-swapped">' + esc(swapLine(ex)) + '</span>';
     html += '</span>' + ic('chev', 2.2);
     b.innerHTML = html;
     b.addEventListener('click', function () { openEditor(aid, wi, di, ei); });

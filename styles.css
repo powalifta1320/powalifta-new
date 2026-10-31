@@ -11182,6 +11182,7 @@ html.native body.powa-app .today-head .th-more {
 }
 .rpe-slider .rpe-stop.is-whole { width: auto; height: auto; background: none; font-size: var(--fs-sm, 14px); font-weight: 650; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .rpe-slider .rpe-stop.is-target::after { content: ''; position: absolute; left: 50%; top: calc(50% + 13px); width: 12px; height: 3px; margin-left: -6px; border-radius: 2px; background: var(--text-3); }
+.rpe-slider .rpe-stop.is-whole.is-under { visibility: hidden; }   /* the knob over it says the number */
 .rpe-slider .rpe-stop:not(.is-whole).is-target::after { top: 10px; }
 .rpe-slider .rpe-fill {
   position: absolute; left: 4px; top: 4px; bottom: 4px; width: calc(var(--pad) + (100% - 2 * var(--pad)) * var(--rpe-t, 0));
@@ -12655,7 +12656,10 @@ html[data-theme="light"]:not(.desk) body.powa-app :is(.msg-row.theirs, .vn-previ
 .rest-timer.has-why { flex-wrap: wrap; row-gap: 6px; }
 .rest-timer > .rt-why { flex: 1 0 100%; order: 9; margin: 0; padding: 0 4px 2px; font-size: 12px; line-height: 1.3; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tn-text.cut-line.cut-amber { color: var(--gold, #ffbf3c); }
-.tn-text.cut-line.cut-off { color: var(--brand-red); }
+.tn-text.cut-line.cut-off { color: var(--text-2); }
+/* Off pace is a status: the orange triangle beside ink words, never red (30 Oct). */
+.tn-text.cut-line.cut-off::before { content: ''; display: inline-block; width: 9px; height: 8px; margin-right: 6px; background: var(--warn, #ff9f43); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
+[data-theme="light"] .tn-text.cut-line.cut-off::before { background: #e06414; }
 [data-theme="light"] .tn-text.cut-line.cut-amber { color: #9a6a00; }
 .cut-sheet .cut-q { margin: 14px 2px 8px; font-size: 15px; font-weight: 650; color: var(--text); }
 .cut-sheet .cut-classes { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -13061,3 +13065,57 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
 .bwk-sheet .bwk-go { margin-top: 16px; }
 .bwk-sheet .bwk-go:disabled { opacity: 0.45; }
 @media (prefers-reduced-motion: reduce) { .bwk-sheet .bwk-day, .bwk-sheet .bwk-day .bwk-dn { transition: none; } .bwk-sheet .bwk-day:active { transform: none; } }
+
+/* ===== SWAP AN EXERCISE (2026-10-30, athlete.html openSwapSheet / app.js swapApply). The card says it once,
+   where the coach's cue sits: "Swapped from competition squat" in the cue's 13 type, and Undo as the card's
+   graphite pill (a 44 pt target) while none of it is logged. A swap is a choice, so ink only: no colour, no red.
+   The Swap action is the first of the row's icons on a phone (.tx-act-ico), labelled from 768 px. */
+.tx-card .tx-swap { display: flex; align-items: center; gap: 6px; min-height: 34px; margin: 10px 2px 0; font-size: 13px; line-height: 1.4; color: var(--text-2); }
+.tx-swap-k { flex: none; font-weight: 650; color: var(--text); }
+.tx-swap-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx-swap-undo {
+  position: relative; z-index: 2; flex: none; margin-left: auto; height: 34px; padding: 0 13px; border: 0; border-radius: 999px;
+  background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text); font: inherit; font-size: 13px; font-weight: 650;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 140ms ease-out, background-color 140ms ease-out;
+}
+.tx-swap-undo::before { content: ''; position: absolute; inset: -5px -4px; }
+.tx-swap-undo:active { transform: scale(0.96); background: var(--fill-3, rgba(255, 255, 255, 0.1)); }
+.tx-swap-undo:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.swap-sheet .swap-list { margin-top: 4px; }
+/* A 375 pt phone: Add set · PR attempt and three icons stay on one line (a little less air between them). */
+@media (max-width: 389px) {
+  .tx-card .tx-acts { gap: 4px; }
+  .tx-card .tx-acts .tx-act:not(.tx-act-ico) { padding: 0 10px 0 9px; }
+}
+@media (prefers-reduced-motion: reduce) { .tx-swap-undo { transition: none; } .tx-swap-undo:active { transform: none; } }
+
+/* ===== THE MEET ON THE WEIGH-IN (2026-10-30, app.js meetWeighLine / meetLineEl): "Meet in 23 days · 1.4 kg over
+   83 · on pace" where the lifter weighs in. Each part stays whole, so a wrap falls between parts; ink words, and
+   "behind" wears the orange triangle (never red). On Train's weigh-in tile it has the tile's width (the trend
+   picture steps aside: the line says where the trend goes) and two lines at most; first in Bodyweight's Make weight. */
+.meet-line .ml-part { white-space: nowrap; }
+.meet-line .ml-warn::before { content: ''; display: inline-block; width: 9px; height: 8px; margin-right: 5px; background: var(--warn, #ff9f43); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
+[data-theme="light"] .meet-line .ml-warn::before { background: #e06414; }
+.today-note .tn-text.tx-meet { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 13px; line-height: 1.45; color: var(--text-2); }
+.today-strip .today-note .tn-text.tx-meet { -webkit-line-clamp: 2; }
+/* under the meet's line, the morning ritual's run ("12 days in a row"), one quieter line */
+.today-note .tn-text.tx-weigh-habit { margin-top: 3px; font-size: 13px; color: var(--text-3); }
+.ui-row.meet-row .ui-row-title { line-height: 1.4; }   /* the list's own size and weight, like the rows under it */
+
+/* ===== PULL TO REFRESH (2026-10-30, app.js uiPullRefresh): the Club feed and the coach's Lifters on a phone. A small
+   ring in the gap the pull opens above the screen: it fills to the line in the quiet ink, turns ink once past it,
+   then spins while the screen's loader runs. Reduced motion: it fades in where it sits and pulses, nothing turns. */
+.ptr { position: fixed; top: 0; left: 50%; z-index: 60; width: 28px; height: 28px; opacity: 0; pointer-events: none; transform: translate3d(-50%, -60px, 0); }
+.ptr svg { display: block; width: 100%; height: 100%; overflow: visible; transform: rotate(-90deg); }
+.ptr-track { fill: none; stroke: var(--fill-3, rgba(255, 255, 255, 0.1)); stroke-width: 2.5; }
+.ptr-arc { fill: none; stroke: var(--text-3); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 0 100; transition: stroke 120ms linear; }
+.ptr.is-armed .ptr-arc, .ptr.is-spinning .ptr-arc { stroke: var(--text); }
+.ptr.is-spinning svg { animation: ptrSpin 0.8s linear infinite; }
+@keyframes ptrSpin { from { transform: rotate(130deg); } to { transform: rotate(490deg); } }
+.ptr-say { position: fixed; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@keyframes ptrPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .ptr.is-spinning svg { animation: none; }
+  .ptr.is-spinning { animation: ptrPulse 1.2s ease-in-out infinite; }
+  .ptr-arc { transition: none; }
+}

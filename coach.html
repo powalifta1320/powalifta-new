@@ -1446,7 +1446,9 @@ function openAthleteSheet(athleteId) {
       // app.js rosterLogsFor: this lifter's sets from the per-lifter index, not a pass over the roster's.
       const day = rosterLogsFor(a.id).filter(l => l.date === o.lastLog.date);
       const ton = day.reduce((x, l) => x + (Number(l.weight) || 0) * (Number(l.reps) || 0), 0);
-      sheet.appendChild(uiList([uiRow({ title: 'Last session · ' + fmtDateShort(o.lastLog.date), sub: day.length + (day.length === 1 ? ' set · ' : ' sets · ') + Math.round(kgToDisplay(ton)).toLocaleString() + ' ' + unitLabel() + ' moved' + (o.lastRpe ? ' · last RPE ' + o.lastRpe : '') })]));
+      // A lift swapped for a variant that day (app.js sessionSwapLine) says so, once.
+      const swp = typeof sessionSwapLine === 'function' ? sessionSwapLine(o.program, o.lastLog.date) : '';
+      sheet.appendChild(uiList([uiRow({ title: 'Last session · ' + fmtDateShort(o.lastLog.date), sub: day.length + (day.length === 1 ? ' set · ' : ' sets · ') + Math.round(kgToDisplay(ton)).toLocaleString() + ' ' + unitLabel() + ' moved' + (o.lastRpe ? ' · last RPE ' + o.lastRpe : '') + (swp ? ' · ' + swp.charAt(0).toLowerCase() + swp.slice(1) : '') })]));
     }
     const acts = el('div', { class: 'aq-acts' });
     const msg = el('button', { class: 'btn btn-primary btn-lg', type: 'button' }, unread ? 'Message (' + unread + ' new)' : 'Message');
@@ -1907,10 +1909,55 @@ function _apCalendar(logs, weeks) {
   return wrap;
 }
 
+// PULL TO REFRESH on Lifters (the phone, app.js uiPullRefresh): the roster read again, then the tab redrawn. Who is
+// on it and what they told you (weigh-ins, notes, check-ins, meets, pain, answers, requests) as the server has it
+// now; their programs, the last two days of sets and the form checks through the app's catch-up (app.js
+// liveCatchUp: the live merge, so nothing this phone hasn't saved is lost: a full re-hydrate would make each
+// program this phone's merge base); the unread counts. The demo reads nothing: it redraws from its own Store.
+// A list that couldn't be read is not an empty one: db.js answers [] on a weak signal and marks it readFailed (it
+// doesn't throw), so that list keeps what this phone has (pain first, the meet today) and the pull says it couldn't
+// refresh (→ false) instead of "Up to date". A roster that couldn't be read leaves everything as it is.
+async function reloadRoster() {
+  if (window._demoMode) { await new Promise(r => setTimeout(r, 650)); renderRoster(); return true; }
+  if (navigator.onLine === false || !window.DB || !DB.listAthletesForCoach) return false;
+  let ath;
+  try { ath = await DB.listAthletesForCoach(user.id); } catch (e) { console.warn('reloadRoster', e); return false; }
+  if (!Array.isArray(ath) || ath.readFailed) return false;
+  const ids = ath.map(a => a.id);
+  const since = isoLocal(new Date(Date.now() - 70 * 864e5));   // as the app opens it: ten weeks of answers
+  // undefined: this build has no such read (nothing to say); null: it threw (not read).
+  const get = (fn, ...args) => (typeof DB[fn] === 'function' ? DB[fn](...args).catch(() => null) : Promise.resolve(undefined));
+  const [invites, bodyweight, sessionNotes, goals, checkins, meets, checkinAnswers, painReports, healthDaily, scheduleRequests, intakes] = await Promise.all([
+    get('listInvites', user.id), get('listBwForAthletes', ids), get('listNotesForAthletes', ids), get('listGoalsForAthletes', ids),
+    get('listCheckinsForAthletes', ids), get('listMeetsForAthletes', ids), get('listCheckinAnswers', since), get('listPainReports', ids),
+    get('listHealthDaily', ids), get('listScheduleRequests', user.id), get('listIntakes', user.id, ids)
+  ]);
+  const lists = { invites, bodyweight, sessionNotes, goals, checkins, meets, checkinAnswers, painReports, healthDaily, scheduleRequests, intakes };
+  const read = (x) => Array.isArray(x) && !x.readFailed;
+  const notRead = Object.keys(lists).filter(k => lists[k] !== undefined && !read(lists[k]));
+  const before = (Store.get().athletes || []).map(a => a.id).sort().join(',');
+  Store.update(s => {
+    s.athletes = ath;
+    Object.keys(lists).forEach(k => { if (read(lists[k])) s[k] = lists[k]; });   // a list that couldn't be read stays
+  });
+  if (ids.slice().sort().join(',') !== before && typeof liveStart === 'function') liveStart();   // a lifter joined or left
+  let caught = null;   // true read, false failed, null nothing live to catch up
+  if (typeof liveCatchUp === 'function') { try { caught = await liveCatchUp(); } catch (e) { caught = false; } }
+  if (caught === false) notRead.push('programs');
+  try { await refreshFormChecks(); } catch (e) {}
+  try { refreshUnreadBadges(); } catch (e) {}
+  renderRoster();
+  if (notRead.length) { console.warn('reloadRoster: not read, kept', notRead.join(', ')); return false; }
+  return true;
+}
+window.reloadRoster = reloadRoster;
+
 function renderRoster() {
   renderPlanPill();
   // The phone's Home shows the same roster: it redraws with it (an unread count, a plan change, a fix).
   if (!_desk() && window.CoachApp) CoachApp.paintHomeIfShown();
+  // Pull to refresh on the phone's Lifters (app.js uiPullRefresh: touch, never the laptop desk), once.
+  { const lp = document.querySelector('section[data-pane="athletes"]'); if (lp && typeof uiPullRefresh === 'function') uiPullRefresh(lp, { onRefresh: reloadRoster, when: () => !_desk() && !lp.classList.contains('hidden') }); }
   const area = document.getElementById('rosterArea');
   if (!area) return;
   area.innerHTML = '';
@@ -4813,7 +4860,8 @@ async function saveProgramAsTemplate(prog, name) {
     id: newId, coachId: user.id, name, createdAt: Date.now(),
     payload: { weeks: prog.weeks.map(wk => ({
       number: wk.number,
-      days: wk.days.map(d => ({
+      // A swap on a day (a pin squat for the squat) was for that day only: the template keeps the lifts as written.
+      days: wk.days.map(d0 => typeof dayAsWritten === 'function' ? dayAsWritten(d0) : d0).map(d => ({
         name: d.name,
         exercises: d.exercises.map(ex => ({
           lift: ex.lift, variant: ex.variant, exerciseName: ex.exerciseName, note: ex.note,

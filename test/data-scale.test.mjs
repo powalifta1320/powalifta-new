@@ -327,6 +327,57 @@ await t('a group of lifters whose read fails is tried again; one that keeps fail
   eq(got.length, logs.length - 300, 'the group that keeps failing is left out');
   ok(x.warns.some(w => /listLogsForAthletes: 10 of 25 ids could not be read/.test(w)), 'and said: ' + x.warns.join(' | '));
 });
+await t('a roster list that could not be read is marked readFailed, never a plain empty list (pull to refresh keeps what it has)', async () => {
+  const r = rng(9), ids = [], pain = [], bw = [];
+  const today = isoDay(Date.now());
+  for (let k = 0; k < 3; k++) {
+    const A = uuid(r); ids.push(A);
+    pain.push({ id: uuid(r), athlete_id: A, day: today, created_at: today + 'T08:00:00.000000+00:00', area: 'low back', score: 6 });
+    bw.push({ id: uuid(r), athlete_id: A, date: today, weight: 84.6 });
+  }
+  const lists = [['listInvites', ['c1']], ['listBwForAthletes', [ids]], ['listNotesForAthletes', [ids]], ['listGoalsForAthletes', [ids]],
+    ['listCheckinsForAthletes', [ids]], ['listMeetsForAthletes', [ids]], ['listCheckinAnswers', [today]], ['listPainReports', [ids]],
+    ['listHealthDaily', [ids]], ['listScheduleRequests', ['c1']], ['listIntakes', ['c1', ids]]];
+  // Read: the rows, not marked; an empty list that was read is just empty.
+  let x = loadDb({ pain_reports: pain, bodyweight: bw });
+  let got = await x.DB.listPainReports(ids);
+  eq(got.length, 3); eq(got.readFailed, undefined, 'read: not marked');
+  eq((await x.DB.listBwForAthletes(ids)).length, 3);
+  eq((await x.DB.listMeetsForAthletes(ids)).readFailed, undefined, 'read and empty: not marked');
+  // The connection drops after the roster: every list answers [] (callers work as before), marked.
+  x = loadDb({ pain_reports: pain, bodyweight: bw }, { fail: () => ({ message: 'TypeError: Failed to fetch' }) });
+  for (const [fn, args] of lists) {
+    const v = await x.DB[fn](...args);
+    ok(Array.isArray(v) && v.length === 0 && v.readFailed === true, fn + ' marks a failed read: ' + JSON.stringify(v) + ' ' + (v && v.readFailed));
+  }
+  // A table that isn't there yet (before its migration) is a real, empty list.
+  x = loadDb({}, { fail: () => ({ code: '42P01', message: 'relation "pain_reports" does not exist' }) });
+  eq((await x.DB.listPainReports(ids)).readFailed, undefined, 'not there yet: empty, not failed');
+  // Some lifters' rows came and some never did (a group kept failing): marked too, the rows it has kept.
+  const many = [], bws = [];
+  for (let k = 0; k < 150; k++) { const A = uuid(r); many.push(A); bws.push({ id: uuid(r), athlete_id: A, date: today, weight: 80 }); }
+  x = loadDb({ bodyweight: bws }, { fail: (st) => (st.inVals && st.inVals.includes(many[120]) ? { message: 'down' } : null) });
+  got = await x.DB.listBwForAthletes(many);
+  eq(got.length, 100, 'the first 100 lifters\' weigh-ins'); eq(got.readFailed, true, 'and it says it is not the whole list');
+});
+await t('the club: no club is null, a club read that failed throws (pull to refresh keeps the club on screen), not there yet is null', async () => {
+  const tables = { club_members: [{ user_id: 'u1', club_id: 'c1', role: 'member', display_name: 'Me' }, { user_id: 'u2', club_id: 'c1', role: 'owner', display_name: 'Coach' }],
+    clubs: [{ id: 'c1', name: 'Iron Club', visibility: 'public', member_count: 2 }], club_posts: [{ id: 'p1', club_id: 'c1', user_id: 'u2', body: 'Hi', created_at: '2026-10-30T08:00:00Z' }] };
+  let x = loadDb(tables);
+  const mine = await x.DB.getMyClub('u1');
+  eq(mine.club.name, 'Iron Club'); eq(mine.members.length, 2);
+  eq(await x.DB.getMyClub('u9'), null, 'not in a club: null');
+  eq((await x.DB.listClubPosts('c1')).length, 1);
+  const throws = async (fn) => { try { await fn(); return false; } catch (e) { return true; } };
+  x = loadDb(tables, { fail: () => ({ message: 'TypeError: Failed to fetch' }) });
+  ok(await throws(() => x.DB.getMyClub('u1')), 'no signal: it throws, never "no club"');
+  ok(await throws(() => x.DB.listClubPosts('c1')), 'the feed too');
+  x = loadDb(tables, { fail: (st) => (st.table === 'club_members' && st.inVals && st.inVals.includes('c1') ? { message: 'timeout' } : null) });
+  ok(await throws(() => x.DB.getMyClub('u1')), 'the board that failed to read is not an empty board');
+  x = loadDb({}, { fail: () => ({ code: '42P01', message: 'relation "club_members" does not exist' }) });
+  eq(await x.DB.getMyClub('u1'), null, 'before the migration: the join screen');
+  eq(await x.DB.listClubPosts('c1'), null, 'the feed not switched on yet');
+});
 await t('workout logs: a read that stops at its ceiling keeps the newest sets (and says so)', async () => {
   const r = rng(4), A = uuid(r), logs = [];
   for (let i = 0; i < 2500; i++) logs.push(logRow(r, uuid(r), A, isoDay(Date.UTC(2024, 0, 1) + i * 864e5 / 3), i));

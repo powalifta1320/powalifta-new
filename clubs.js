@@ -41,6 +41,7 @@
   let _codeSheetShown = false;
   let _reacts = {};        // postId → [{ userId, reaction }] (club_post_reactions)
   let _unsubReacts = null; // live reactions channel teardown
+  let _loadFailed = false; // the last load couldn't reach the club (offline): a refresh keeps what's on screen
 
   const MAIN = ['squat', 'bench', 'deadlift'];
   const me = () => window._user || (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
@@ -464,12 +465,15 @@
       _loaded = true; return;
     }
     if (!u || !window.DB || !DB.getMyClub) { _data = null; _loaded = true; return; }
-    try { _data = await DB.getMyClub(u.id); } catch (e) { _data = null; }
+    _loadFailed = false;
+    try { _data = await DB.getMyClub(u.id); } catch (e) { _data = null; _loadFailed = true; }
     _loaded = true;
     if (_data) {
       const staff = _data.role === 'owner' || _data.role === 'admin';
+      // A feed that didn't load (a weak signal: it throws, where a feed not switched on yet is null) is a failed
+      // load too: a pull to refresh then keeps the posts on screen (reloadClub).
       const [posts, reqs, buds] = await Promise.all([
-        DB.listClubPosts ? DB.listClubPosts(_data.club.id).catch(() => null) : null,
+        DB.listClubPosts ? DB.listClubPosts(_data.club.id).catch(() => { _loadFailed = true; return null; }) : null,
         staff && DB.listClubRequests ? DB.listClubRequests(_data.club.id).catch(() => []) : [],
         DB.listMyBuddies ? DB.listMyBuddies().catch(() => []) : []
       ]);
@@ -477,7 +481,7 @@
       _buddies = (buds || []).filter(b => b.clubId === _data.club.id);
       _reacts = {};
       if (posts && posts.length && DB.listPostReactions) {
-        const rx = await DB.listPostReactions(posts.map(p => p.id)).catch(() => []);
+        const rx = await DB.listPostReactions(posts.map(p => p.id)).catch(() => { _loadFailed = true; return []; });
         (rx || []).forEach(putReact);
       }
       watchFeed(_data.club.id);
@@ -492,8 +496,9 @@
         }
         if (mineIdx >= 0) _data.members[mineIdx] = Object.assign({}, _data.members[mineIdx], stats);
       }
-    } else { _posts = null; _requests = []; _buddies = []; watchFeed(null); }
-    try { localStorage.setItem('powa-club-name', _data && _data.club ? _data.club.name : ''); } catch (e) {}
+    } else { _posts = null; _requests = []; _buddies = []; if (!_loadFailed) watchFeed(null); }
+    // A club that didn't load is not "no club": the name this phone remembers stays (and the live feed keeps listening).
+    if (!_loadFailed) { try { localStorage.setItem('powa-club-name', _data && _data.club ? _data.club.name : ''); } catch (e) {} }
   }
 
   // Live feed: a member's new post slides in at the top while you're looking.
@@ -530,6 +535,29 @@
     if (!_loaded) _container.innerHTML = '<div class="ui-skel"><i style="height:190px"></i><i style="height:46px"></i><i style="height:120px"></i><i style="height:120px"></i></div>';
     await load();
     if (_data && _data.club) renderClub(_container); else renderJoin(_container);
+    // PULL TO REFRESH (app.js uiPullRefresh, phones only): the club's pane, once.
+    const pane = _container.closest ? _container.closest('section[data-pane]') : null;
+    if (pane && typeof uiPullRefresh === 'function') uiPullRefresh(pane, { onRefresh: reloadClub, when: () => !pane.classList.contains('hidden') });
+  }
+  // A pull to refresh: the club read again through its own loader and drawn in place (no skeleton), with the
+  // coach's challenge card above it. Offline, or a read that failed while the phone still thinks it's online
+  // (db.js getMyClub and listClubPosts throw then; no club is null), what's on screen stays and the pull says it
+  // couldn't. The demo reads nothing: its club, posts and reactions live on this page.
+  async function reloadClub() {
+    if (!_container) return false;
+    if (isDemo()) await new Promise(r => setTimeout(r, 600));
+    else if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+    const before = { data: _data, posts: _posts, requests: _requests, buddies: _buddies, reacts: _reacts };
+    await load();
+    if (_loadFailed) {
+      // What's on screen stays as it was (a club, or the join screen), and the pull says it couldn't.
+      _data = before.data; _posts = before.posts; _requests = before.requests; _buddies = before.buddies; _reacts = before.reacts;
+      if (_data && _data.club) watchFeed(_data.club.id);   // the same club: listening as before
+      return false;
+    }
+    if (_data && _data.club) renderClub(_container); else renderJoin(_container);
+    try { if (window.Challenges && Challenges.refresh) Challenges.refresh(); } catch (e) {}
+    return true;
   }
 
   const fmtNum = (v) => (v == null ? '–' : (Math.round(v * 10) / 10).toLocaleString());
@@ -1843,6 +1871,7 @@
   }
   window.PowaClubs = {
     refresh: () => { _loaded = false; return renderClubTab(); },
+    reload: reloadClub,
     cachedName,
     shareLog,
     myClubStats,
