@@ -690,8 +690,9 @@
       body = '<div class="ca-sk-head">' + sk('ca-sk-av is-96') + sk('ca-sk-name', '56%') + sk('ca-sk-line', '40%') + '</div>' +
         '<div class="ca-sk-acts">' + times(4, function () { return sk('ca-sk-act'); }) + '</div>' + sk('ca-sk-card');
     } else if (kind === 'program') {
-      body = '<div class="ca-hero ca-sk-hero is-short">' + sk('ca-sk-t', '48%') + sk('ca-sk-line', '64%') + '</div>' + sk('ca-sk-weeks') +
-        '<div class="ca-sk-chips">' + times(3, function () { return sk('ca-sk-chip'); }) + '</div>' + sk('ca-sk-card');
+      // The builder's shape (31 Oct): the block's line, the week stepper, the day segments, the day's title, its cards.
+      body = sk('ca-sk-line is-sub', '62%') + '<div class="ca-sk-step">' + sk('ca-sk-disc') + sk('ca-sk-t', '38%') + sk('ca-sk-disc') + '</div>' + sk('ca-sk-weeks is-seg') +
+        '<div class="ca-sk-day">' + sk('ca-sk-t', '42%') + sk('ca-sk-line', '30%') + '</div>' + sk('ca-sk-card is-ex') + sk('ca-sk-card is-ex');
     } else {
       // Home's own shape: the grid's four tiles (two rows of two: a name, a number, a picture, a line), who needs you.
       var tile = function () { return '<span class="ca-sk-t2">' + sk('ca-sk-line', '46%') + sk('ca-sk-num2', '58%') + sk('ca-sk-spark') + sk('ca-sk-line', '40%') + '</span>'; };

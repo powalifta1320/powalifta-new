@@ -8422,6 +8422,47 @@ test('a day: its summary, rest days, the day to open', () => {
   eq(CPg.cpNextDay({ days: [{ exercises: [{ sets: [{ completed: true }] }] }] }), 0, 'all done: the first');
   eq(CPg.cpLoadStep(false, 'kg'), 2.5); eq(CPg.cpLoadStep(false, 'lb'), 5); eq(CPg.cpLoadStep(true, 'kg'), 2.5);
 });
+test('the builder reads like Train: the block’s line, the week stepper’s words, the days’ segments', () => {
+  eq(CPg.cpBlockLine({ name: 'Strength Block', sessions: 9, done: 21, total: 92 }), 'Strength Block · 9 sessions · 23% done');
+  eq(CPg.cpBlockLine({ name: '  ', sessions: 1, done: 0, total: 0 }), 'Program · 1 session', 'no name: Program; no sets: no %');
+  eq(CPg.cpBlockLine({ name: 'Peak <b>', sessions: 0, done: 5, total: 4 }), 'Peak <b> · 100% done', 'plain text (drawn as text); never past 100%');
+  eq(CPg.cpWeekWhen(0, 0), 'this week'); eq(CPg.cpWeekWhen(1, 0), 'next week'); eq(CPg.cpWeekWhen(3, 0), 'in 3 weeks');
+  eq(CPg.cpWeekWhen(0, 1), 'last week'); eq(CPg.cpWeekWhen(0, 2), '2 weeks ago');
+  eq(CPg.cpWeekWhen(1, -1), '', 'nobody knows their week: nothing said'); eq(CPg.cpWeekWhen(1, null), '');
+  eq(CPg.cpDayShort('Squat Day'), 'Squat'); eq(CPg.cpDayShort('Day 1'), 'Day 1', 'a number alone keeps its Day');
+  eq(CPg.cpDayShort('Day 2 - Bench'), 'Bench'); eq(CPg.cpDayShort('Openers'), 'Openers'); eq(CPg.cpDayShort('Monday'), 'Monday', 'a day of the week is a name');
+  const d = (name, n) => ({ name, exercises: Array.from({ length: n == null ? 1 : n }, () => ({ sets: [{}] })) });
+  eq(CPg.cpDayLabels([d('Squat Day'), d('Bench Day'), d('Deadlift Day'), d('Rest', 0)]).join(' · '), 'Squat · Bench · Deadlift · Rest', 'four days: the short names fit');
+  eq(CPg.cpDayLabels([d('Squat Day'), d('Bench Day'), d('Deadlift Day'), d('Upper Day'), d('Rest', 0)]).join(' · '), 'Day 1 · Day 2 · Day 3 · Day 4 · Rest', 'five: Deadlift is too long, so every day is numbered (a rest day still says Rest)');
+  eq(CPg.cpDayLabels([d('Heavy squat and bench'), d('Pull')]).join(' · '), 'Day 1 · Day 2', 'one name too long for its segment numbers them all');
+  eq(CPg.cpDayLabels(Array.from({ length: 7 }, (x, i) => d('S' + i))).slice(-1)[0], 'Day 7', 'past five the row scrolls, numbered');
+  eq(CPg.cpDayLabels([]).length, 0);
+});
+test('the editor says what they logged once: as written, and the same exercise next week', () => {
+  eq(CPg.cpWrittenText([{ weight: 180, reps: 3, rpe: 8 }, { weight: 155, reps: 5, rpe: 7 }, { weight: 155, reps: 5, rpe: 7 }], 'kg'), '180×3 @8, 2×155×5 @7', 'the Lifted line’s shorthand');
+  eq(CPg.cpWrittenText([{ weight: 0, reps: 3, rpe: 8 }], 'kg'), '3 reps @8', 'no load: reps');
+  eq(CPg.cpWrittenText([{ weight: 147.5, pct: 70, reps: 4 }], 'kg'), '70%×4', 'a % as the coach wrote it');
+  eq(CPg.cpWrittenText([{ weight: 85, reps: 8, rpe: 8, rir: true }], 'kg'), '85×8 · 2 RIR');
+  eq(CPg.cpWrittenText([], 'kg'), '');
+  const ex = (lift, variant, name) => ({ lift, variant: variant || '', exerciseName: name || '', sets: [] });
+  const weeks = [{ days: [{ exercises: [ex('squat'), ex('squat', 'Paused')] }, { exercises: [ex('bench')] }] },
+    { days: [{ exercises: [ex('squat', 'Paused'), ex('squat')] }, { exercises: [ex('legs', '', 'Leg Press')] }] }];
+  eq(JSON.stringify(CPg.cpNextWeekMatch(weeks, 0, 0, weeks[0].days[0].exercises[0])), JSON.stringify({ wi: 1, di: 0, ei: 1 }), 'the same lift and variant, on the same day');
+  eq(CPg.cpNextWeekMatch(weeks, 0, 1, weeks[0].days[1].exercises[0]), null, 'not in next week: no way there');
+  eq(CPg.cpNextWeekMatch(weeks, 1, 0, weeks[1].days[0].exercises[0]), null, 'the last week has no next');
+  eq(JSON.stringify(CPg.cpNextWeekMatch(weeks, 0, 5, ex('legs', '', 'leg press'))), JSON.stringify({ wi: 1, di: 1, ei: 0 }), 'another day of that week; the name in any case');
+});
+test('the block’s one ⋯: the block, its weeks, keep or share it, Delete apart; every action once', () => {
+  const acts = ['Notify Arjun', 'Rebuild from goal…', 'Add week', 'Save as template', 'Maxes for % work', 'Set fields', 'Start the next block', 'Update % loads from their maxes', 'Replace with an imported program', 'Export spreadsheet', 'Delete program', 'Something new'].map(label => ({ label }));
+  const G = CPg.cpBlockMenu(acts, { rename: { label: 'Rename the block' }, templates: { label: 'Your templates' }, weeks: [{ label: 'Duplicate week 1' }, { label: 'Remove week 1' }], patch: { addWeek: { label: 'Add a week' }, exported: { label: 'Export as a file' } } });
+  eq(G.map(g => g.title).join('|'), 'Block|Weeks|Share|');
+  eq(G[0].items.map(a => a.label).join(' | '), 'Notify Arjun | Rename the block | Start the next block | Rebuild from goal… | Replace with an imported program | Maxes for % work | Update % loads from their maxes | Set fields | Something new', 'an action added on the laptop joins the block’s group');
+  eq(G[1].items.map(a => a.label).join(' | '), 'Add a week | Duplicate week 1 | Remove week 1');
+  eq(G[2].items.map(a => a.label).join(' | '), 'Save as template | Your templates | Export as a file');
+  eq(G[3].items.map(a => a.label).join(' | '), 'Delete program', 'Delete apart, last');
+  eq(G.reduce((n, g) => n + g.items.length, 0), acts.length + 4, 'every laptop action once, plus rename, templates and the two week actions');
+  eq(CPg.cpBlockMenu([{ label: 'Notify Sam' }], {}).length, 1, 'empty groups are left out');
+});
 test('the load their e1RM points to: the app’s own RPE table, rounded to their jump', () => {
   eq(CPg.cpExpectedLoad(200, 1, 3, 8, 2.5), 172.5, '3 @ 8 from a 200 e1RM');
   eq(CPg.cpExpectedLoad(200, 1, 1, 10, 2.5), 200, 'a single at 10 is the e1RM');
