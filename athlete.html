@@ -5451,7 +5451,7 @@ function renderMeetHistory(area) {
       chevron: true,
       onClick: () => uiActionSheet(m.name, [
         // A meet still ahead goes to the calendar (night C): the .ics with its weigh-in.
-        planned && String(m.date || '').slice(0, 10) >= todayISO() ? { label: 'Add to calendar', icon: ICONS.today, onClick: () => saveMeetToCalendar(m) } : null,
+        planned && String(m.date || '').slice(0, 10) >= todayISO() ? { label: 'Add to calendar', icon: ICONS.calendar, onClick: () => saveMeetToCalendar(m) } : null,
         { label: 'Edit result', icon: ICONS.edit, onClick: () => openMeetResultModal(m.id) },
         { label: 'Delete meet', icon: ICONS.trash, danger: true, onClick: () => deleteMeetResult(m.id) }
       ].filter(Boolean))

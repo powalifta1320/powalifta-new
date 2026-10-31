@@ -11306,13 +11306,14 @@ body.powa-app .pr-toast.pr-moment.is-leaving { opacity: 0; transition: opacity v
 .lc-av { display: grid; place-items: center; flex: none; width: 52px; height: 52px; overflow: hidden; border-radius: 50%; background: rgba(255, 255, 255, 0.08); font-size: 18px; font-weight: 750; }
 .lc-av img { width: 100%; height: 100%; object-fit: cover; }
 .lc-name { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
-.lc-club { margin-top: 3px; font-size: 13px; color: var(--text-3, #8a8a92); }
+/* The club line sits where the card's light falls by default: #d2d2d8 reads 4.5:1 there (night C review m15: 2.45:1). */
+.lc-club { margin-top: 3px; font-size: 13px; color: #d2d2d8; }
 .lc-big { position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: auto; }
 .lc-total b, .lc-dots b { display: block; font-family: var(--font-display); font-stretch: var(--num-stretch, 104%); font-weight: 800; line-height: 0.95; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
 .lc-total b { font-size: 64px; }
 .lc-dots { text-align: right; }
 .lc-dots b { font-size: 30px; color: var(--pr, #f2c25b); }
-.lc-total small, .lc-dots small { display: block; margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--text-3, #8a8a92); }
+.lc-total small, .lc-dots small { display: block; margin-top: 4px; font-size: 13px; font-weight: 600; color: #a6a6b0; }   /* 4.5:1 on the card (4.36 at --text-3) */
 .lc-lifts { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; }
 .lc-lift { padding: 10px 10px 9px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
 .lc-lift span { display: block; font-size: 12px; font-weight: 650; color: var(--lc, #fff); }
@@ -13101,7 +13102,9 @@ html.desk .cv-modal .cv-ev.k-meet .cv-ic { background: color-mix(in srgb, var(--
 /* Found by night C's scan of the Meet day sheet (unscanned before): the third attempt's name in the light theme takes
    the darker shade of its lift's colour, as text does there (Light theme legibility); the date field's hit area is
    its row (padding, not a taller look); a closed Warm-up room lays nothing out. */
-[data-theme="light"] body .ml-a.is-third span, [data-theme="light"] body.powa-app .ml-a.is-third span { color: color-mix(in srgb, var(--lc) 56%, #000); }
+[data-theme="light"] body .ml-a.is-third span, [data-theme="light"] body.powa-app .ml-a.is-third span { color: color-mix(in srgb, var(--lc) 46%, #000); }
+/* The hero's green "+22 kg in 4 weeks" on white read 1.8:1 (night C review m15): the light theme's darker green. */
+html[data-theme="light"] body.powa-app .ui-hero .ui-up { color: #11733f; }
 .meet-date input[type=date] { padding: 8px 0 !important; margin: -8px 0; min-height: 44px; }
 .ml-warm:not([open]) > :not(summary) { display: none; }
 @media (prefers-reduced-motion: reduce) { .pg-pct, .lc-pct { animation: none; } }
