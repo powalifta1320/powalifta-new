@@ -1421,7 +1421,7 @@ html:not(.desk) .cp-logged { margin-top: 16px; padding: 14px 16px 16px; border-r
 html:not(.desk) .cp-logged.lift-acc { --lc: var(--lift-acc, #9a9aa6); }
 html:not(.desk) .cp-lg-row { margin: 0; font-size: 15px; line-height: 1.45; color: var(--text); overflow-wrap: anywhere; }
 html:not(.desk) .cp-lg-row + .cp-lg-row { margin-top: 4px; }
-html:not(.desk) .cp-lg-k { margin-right: 6px; font-weight: 650; color: var(--text-3); }
+html:not(.desk) .cp-lg-k { margin-right: 2px; font-weight: 650; color: var(--text-3); }
 html:not(.desk) .cp-lg-row + .cp-lg-row .cp-lg-k { color: var(--lc); }
 html[data-theme="light"]:not(.desk) .cp-lg-row + .cp-lg-row .cp-lg-k { color: color-mix(in srgb, var(--lc) 56%, #000); }
 html:not(.desk) .cp-lg-v { font-family: var(--font-num); font-weight: 600; font-variant-numeric: tabular-nums; }

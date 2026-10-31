@@ -1076,7 +1076,7 @@
     (ex.sets || []).forEach(function (s, i) { if (s && (s.completed || s.missed)) idx.push(i); });
     var plan = idx.map(function (i) { var s = (wx.sets || [])[i] || ex.sets[i]; return Object.assign({}, s, { weight: typeof planWeight === 'function' ? planWeight(s) : s.weight, reps: s.plannedReps || s.reps }); });
     var box = el('div', { class: 'cp-logged' + (MAIN.indexOf(ex.lift) >= 0 ? ' lift-' + ex.lift : ' lift-acc') });
-    var row = function (k, html) { var p = el('p', { class: 'cp-lg-row' }); p.innerHTML = '<span class="cp-lg-k">' + esc(k) + '</span><span class="cp-lg-v">' + html + '</span>'; box.appendChild(p); };
+    var row = function (k, html) { var p = el('p', { class: 'cp-lg-row' }); p.innerHTML = '<span class="cp-lg-k">' + esc(k) + '</span> <span class="cp-lg-v">' + html + '</span>'; box.appendChild(p); };
     var written = cpWrittenText(plan, unit(), disp);
     if (written) row('Written', esc(written));
     var lifted = typeof _gridActualHtml === 'function' ? _gridActualHtml(ex) : '';   // escaped there
