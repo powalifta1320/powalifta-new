@@ -10068,6 +10068,24 @@ group('results cards (teamBlockGain, teamPrWall)');
       eq(CoachYou.blockWords(null), '');
     } finally { setUnit(was); }
   });
+  test('a lifter who keeps their name off their coach\'s posts: still in the block\'s average, as "A lifter"; off the PR wall (the owner, 31 Oct)', () => {
+    const programs = [{ id: 'pa', athleteId: 'a', startsOn: '2026-10-12', weeks: wk(4) }, { id: 'pd', athleteId: 'd', startsOn: '2026-10-05', weeks: wk(6) }];
+    const logs = [L('1', 'a', 'squat', '2026-09-20', 200), L('2', 'a', 'bench', '2026-09-20', 130), L('3', 'a', 'deadlift', '2026-09-21', 240),
+      L('4', 'a', 'squat', '2026-10-20', 210), L('5', 'a', 'bench', '2026-10-21', 132.5), L('6', 'a', 'deadlift', '2026-10-22', 250),
+      L('15', 'd', 'squat', '2026-09-20', 180), L('16', 'd', 'bench', '2026-09-20', 100), L('17', 'd', 'deadlift', '2026-09-20', 200),
+      L('18', 'd', 'squat', '2026-10-10', 185), L('19', 'd', 'bench', '2026-10-10', 100), L('20', 'd', 'deadlift', '2026-10-10', 205)];
+    const g = teamBlockGain([{ id: 'a', name: 'Arjun Mehta' }, { id: 'd', name: 'Dee Lane', nameOnResults: false }], programs, logs, T);
+    eq(g.n, 2, 'still counted'); eq(g.avg, 16.5, 'the same average');
+    eq(g.rows.map(r => cardRowName(r)).join(), 'Arjun M.,A lifter', 'the card names Arjun, not Dee');
+    eq(cardRowName({ name: 'Dee Lane' }), 'Dee L.', 'named unless they turned it off');
+    const w = teamPrWall([{ id: 'a', name: 'Arjun Mehta', nameOnResults: false }, { id: 'b', name: 'Bea' }],
+      [L('a1', 'a', 'squat', '2026-10-01', 200), L('a2', 'a', 'squat', '2026-10-28', 205), L('b1', 'b', 'squat', '2026-10-01', 140), L('b3', 'b', 'squat', '2026-10-24', 150)], T);
+    eq(w.map(p => p.id).join(), 'b', 'Arjun\'s PR stays off the wall');
+    eq(CoachYou.unnamedSay(g), '1 keeps their name off your posts: “A lifter” on the card, still counted.');
+    eq(CoachYou.unnamedSay({ rows: [{ named: true }] }), '');
+    eq(CoachYou.unnamedSay(null, [{ id: 'a', nameOnResults: false }, { id: 'b' }]), '1 lifter keeps their name off your posts, so isn’t on the wall.');
+    eq(CoachYou.unnamedSay(null, [{ id: 'b' }]), '');
+  });
   test('a name on a public card is first name and initial; the lift says what was on the bar', () => {
     eq(cardName('Arjun Mehta'), 'Arjun M.'); eq(cardName('Mary Jane Watson'), 'Mary W.'); eq(cardName('Cher'), 'Cher'); eq(cardName('  '), 'Lifter');
     eq(prWallLift({ lift: 'squat', variant: 'Paused', weight: 170, reps: 3 }), 'Paused squat 170 × 3');

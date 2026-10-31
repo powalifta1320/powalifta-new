@@ -6061,6 +6061,20 @@ function buildYouBodyweight() {
   return wrap;
 }
 
+// Results cards (coach-you.js): the lifter's first name and initial on their coach's public cards, or "A lifter"
+// (the owner, 31 Oct: "lifters can opt out"). The profile holds it (profiles.name_on_results); the switch shows the
+// new value only once the server has it, so a failed save never claims the name is off. The demo keeps it on this page.
+function nameOnResultsOn() { const u = getCurrentUser() || {}; return u.nameOnResults !== false; }
+async function toggleNameOnResults() {
+  const u = getCurrentUser(), next = !nameOnResultsOn();
+  if (!window._demoMode && window.DB && DB.setNameOnResults) {
+    let r;
+    try { r = await DB.setNameOnResults(next); } catch (e) { r = { ok: false }; }
+    if (!r || !r.ok) { toast('Couldn’t save that. Check your connection and try again.'); return !next; }
+  }
+  if (u) u.nameOnResults = next;
+  return next;
+}
 function renderAthleteYou() {
   const area = document.getElementById('youArea');
   if (!area) return;
@@ -6115,6 +6129,8 @@ function renderAthleteYou() {
             v.textContent = proxy.getAttribute('data-on') === '1' ? 'On' : 'Off';
           } },
         selfCoached ? { label: 'Find a coach', onClick: go('coach') } : null,
+        selfCoached ? null : { label: 'Name on your coach’s posts', value: nameOnResultsOn() ? 'On' : 'Off',
+          onClick: async (row, v) => { v.textContent = (await toggleNameOnResults()) ? 'On' : 'Off'; } },
         { label: 'Refer a lifter', onClick: () => openReferralSheet() }
       ] },
       { title: 'Settings', rows: youSettingsRows('athlete', () => renderAthleteYou()) },

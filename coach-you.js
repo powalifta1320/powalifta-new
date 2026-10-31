@@ -283,6 +283,14 @@
     return 'Counted: ' + (running > b.n ? b.n + ' of ' + running + ' lifters with a block running (each needs all three lifts logged before the block and in it).'
       : (b.n === 1 ? 'the 1 lifter' : 'all ' + b.n + ' lifters') + ' with a block running.') + ' ' + up + ' up, ' + down + ' down' + (level ? ', ' + level + ' level' : '') + '.';
   }
+  // Lifters who keep their name off their coach's posts (profiles.name_on_results; the owner, 31 Oct: "lifters can opt
+  // out"): the block card says "A lifter" for them and the PR wall leaves them off. The sheet says so. Pure: tested.
+  function unnamedSay(b, roster) {
+    var n = b ? b.rows.filter(function (r) { return r.named === false; }).length : 0;
+    if (b) return n ? (n === 1 ? '1 keeps their name off your posts: “A lifter” on the card, still counted.' : n + ' keep their names off your posts: “A lifter” on the card, still counted.') : '';
+    var off = (roster || []).filter(function (a) { return a && a.nameOnResults === false; }).length;
+    return off ? (off === 1 ? '1 lifter keeps their name off your posts, so isn’t on the wall.' : off + ' lifters keep their names off your posts, so aren’t on the wall.') : '';
+  }
   function weekText(today) {
     var d = function (iso) { return new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
     var from = typeof _addDaysISO === 'function' ? _addDaysISO(today, -6) : today;
@@ -308,7 +316,7 @@
     var M = resultsModel();
     var pick = start === 'prs' || start === 'block' ? start : (M.block ? 'block' : (M.prs.length ? 'prs' : 'block'));
     uiSheet('Results cards', function (sheet) {
-      sheet.appendChild(node('<p class="ui-sheet-sub">Your lifters\u2019 own numbers as a card for Instagram, a story or a post. Names show as first name and initial.</p>'));
+      sheet.appendChild(node('<p class="ui-sheet-sub">Your lifters\u2019 own numbers as a card for Instagram, a story or a post. Names show as first name and initial, unless a lifter turned that off.</p>'));
       var seg = node('<div class="ui-seg cy-rc-seg" role="tablist" aria-label="Card"><button type="button" role="tab" data-rc="block">This block</button><button type="button" role="tab" data-rc="prs">PR wall</button></div>');
       var say = node('<p class="cy-rc-say" aria-live="polite"></p>');
       var frame = node('<div class="cy-rc-frame"></div>');
@@ -319,10 +327,11 @@
         [].forEach.call(seg.children, function (b) { var on = b.getAttribute('data-rc') === pick; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
         var model = pick === 'block' ? M.block : (M.prs.length ? M.prs : null);
         // What the card doesn't say: who counts and who doesn't, and the spread under the average (night C review m13).
-        say.textContent = pick === 'block'
+        var off = pick === 'block' ? unnamedSay(M.block) : unnamedSay(null, store().athletes);
+        say.textContent = (pick === 'block'
           ? (M.block ? blockSay(M.block)
             : 'Nobody has all three lifts logged both before and in a block running now, so there\u2019s no average to show yet.')
-          : (M.prs.length ? plural(M.prs.length, 'PR') + ' this week, ' + weekText(M.today) + '.' : 'No PRs this week yet. The wall fills as your lifters set them.');
+          : (M.prs.length ? plural(M.prs.length, 'PR') + ' this week, ' + weekText(M.today) + '.' : 'No PRs this week yet. The wall fills as your lifters set them.')) + (off ? ' ' + off : '');
         go.disabled = !model;
         frame.innerHTML = '';
         frame.classList.toggle('is-empty', !model);
@@ -353,7 +362,7 @@
   }
 
   var api = { planState: planState, planModel: planModel, planCard: planCard, openSetup: openSetup, liftersWelcome: liftersWelcome, messagesWelcome: messagesWelcome, programsWelcome: programsWelcome,
-    resultsModel: resultsModel, resultsRow: resultsRow, openResults: openResults, blockWords: blockWords, blockSay: blockSay, cardOpts: cardOpts };
+    resultsModel: resultsModel, resultsRow: resultsRow, openResults: openResults, blockWords: blockWords, blockSay: blockSay, unnamedSay: unnamedSay, cardOpts: cardOpts };
   if (typeof window !== 'undefined') window.CoachYou = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

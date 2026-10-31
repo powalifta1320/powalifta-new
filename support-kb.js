@@ -2015,7 +2015,7 @@ window.POWA_SUPPORT_KB = [
    "post results",
    "block results"
   ],
-  "a": "Open **You › Results cards** (or tap Strength on Home, then **Make a results card**). **This block** is the average change in your lifters' e1RM totals since their current block began (only lifters with all three lifts logged before and during it count, and the card says how many). **PR wall** is each lifter's best PR on each lift in the last 7 days. Pick one and tap **Share the card**: a story (9:16) or a post (4:5). Under the picker it says who the average counts and how many went up or down. Names show as first name and initial, and on Pro with branding on, your colour and team name are on the card."
+  "a": "Open **You › Results cards** (or tap Strength on Home, then **Make a results card**). **This block** is the average change in your lifters' e1RM totals since their current block began (only lifters with all three lifts logged before and during it count, and the card says how many). **PR wall** is each lifter's best PR on each lift in the last 7 days. Pick one and tap **Share the card**: a story (9:16) or a post (4:5). Under the picker it says who the average counts and how many went up or down. Names show as first name and initial, and on Pro with branding on, your colour and team name are on the card. A lifter can keep their name off your posts (in their app, You › Community): they still count in the average, as \"A lifter\" on the card, and stay off the PR wall. Only they can change it."
  },
  {
   "id": "coach-applications",
@@ -2030,5 +2030,18 @@ window.POWA_SUPPORT_KB = [
    "accept application"
   ],
   "a": "Your public coach profile has an **Apply** form for people who aren't on POWALIFTA yet: name, email, training age, best lifts, bodyweight, next meet, goals and a note. They get an email to confirm it, and you see nothing until they do, so nobody can apply in someone else's name. Then you get a push and an email, and the application waits on **Lifters** under **New lifters**, with the join requests from lifters already in the app (the tab shows how many, and Home has a row while anyone waits). The one with the soonest meet comes first, then whoever has waited longest. Tap one to read it, then **Send <name> an invite** (it emails them your invite link, with a code tied to their email, and takes a seat like any invite), **Decline** (nothing is sent, and you can undo it), or **Delete as spam**. Tap their email to write to them yourself. A signed-in lifter who opens your profile gets **Request to join** instead. Applications are deleted 90 days after you decide, or after 180 days unanswered."
+  },
+ {
+  "id": "name-on-coach-posts",
+  "q": "Can I keep my name off my coach's posts?",
+  "t": [
+   "keep my name off",
+   "name off my coach",
+   "my coach posted",
+   "name on instagram",
+   "hide my name",
+   "name on my coach's posts"
+  ],
+  "a": "Yes. Your coach can post a card of their lifters' results, for example on Instagram: the team's average gain this block, and this week's PRs. Each lifter shows as their first name and the first letter of their last name. To keep yours off: **You** → **Community** → **Name on your coach's posts** → Off. You still count in the team's average (the card says \"A lifter\" for you), and your PRs stay off the PR wall. Turn it back on any time; only you can change it."
  }
 ];

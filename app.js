@@ -1466,6 +1466,8 @@ async function bootstrap(expectedType, onReady, opts) {
     // Apple Health (1.3): the lifter shares sleep + resting HR with their coach.
     shareHealth: !!profile.share_health_with_coach,
     shareNutrition: !!profile.share_nutrition_with_coach,
+    // Results cards: the lifter's name on their coach's posts, unless they turned it off (migration-results-optout).
+    nameOnResults: profile.name_on_results !== false,
     // Who bills the coach's plan ('apple' | 'ls' | null) and when its paid period
     // ends: getCurrentTier() treats the plan as Free 3 days after that.
     billingProvider: billingProviderOf(profile),
@@ -4565,7 +4567,7 @@ async function generateCoachCard(kind, model, opts) {
     const avg = Number(model.avg) || 0;
     _cardBig(x, W, Y.big, (avg > 0 ? '+' : avg < 0 ? '−' : '') + fmt(Math.abs(avg)), unit.toUpperCase());
     sub(x, W, Y.sub, avg >= 0 ? 'MY LIFTERS\u2019 AVERAGE GAIN' : 'MY LIFTERS\u2019 AVERAGE CHANGE');
-    const top = (model.rows || []).slice(0, 3).map(r => ({ l: cardName(r.name), r: (r.delta > 0 ? '+' : r.delta < 0 ? '−' : '') + fmt(Math.abs(r.delta)) + ' ' + unit }));
+    const top = (model.rows || []).slice(0, 3).map(r => ({ l: cardRowName(r), r: (r.delta > 0 ? '+' : r.delta < 0 ? '−' : '') + fmt(Math.abs(r.delta)) + ' ' + unit }));
     _cardLines(x, W, Y.lines, top, 80);
     small(x, W, Y.note, 'e1RM totals of ' + model.n + (model.n === 1 ? ' lifter' : ' lifters') + ', since the block began');
     _cardFooter(x, W, Y.foot, footer);
@@ -12128,6 +12130,7 @@ const YOU_ROW_META = {
   'Browse programs':     { tint: 'orange', icon: () => _YI('<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>') },
   'Leaderboard':         { tint: 'gold',   icon: () => _YI('<path d="M8 21V11h8v10"/><path d="M3 21v-6h5"/><path d="M16 21v-8h5v8"/><path d="M2 21h20"/>') },
   'Find a coach':        { tint: 'green',  icon: () => ICONS.athletes },
+  'Name on your coach’s posts': { tint: 'sky', icon: () => _YI('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16c.6-1.5 1.8-2.3 3.2-2.3s2.6.8 3.2 2.3"/><path d="M14.5 10h4M14.5 13.5h3"/>') },
   'Refer a lifter':      { tint: 'pink',   icon: () => _YI('<rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13"/><path d="M3 12h18"/><path d="M12 8c-2-4-6-4-6-1.5S10 8 12 8zM12 8c2-4 6-4 6-1.5S14 8 12 8z"/>') },
   'Ask AI':              { tint: 'iris',   icon: () => _YI('<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>') },
   'Settings':            { tint: 'gray',   icon: () => _YI('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>') },
@@ -18157,7 +18160,8 @@ function teamBlockGain(athletes, programs, logs, todayIso) {
     running++;
     const ach = blockAchieved(prog, logs, a.id, t);
     if (!ach || !ach.total) return;
-    rows.push({ id: a.id, name: a.name || '', delta: ach.total.delta, before: ach.total.before, now: ach.total.now });
+    // named: false when the lifter keeps their name off their coach's posts (profiles.name_on_results): still counted.
+    rows.push({ id: a.id, name: a.name || '', named: a.nameOnResults !== false, delta: ach.total.delta, before: ach.total.before, now: ach.total.now });
   });
   if (!rows.length) return null;
   rows.sort((x, y) => y.delta - x.delta || String(x.name).localeCompare(String(y.name)));
@@ -18179,7 +18183,8 @@ function teamPrWall(athletes, logs, todayIso) {
     (by.get(l.athleteId) || by.set(l.athleteId, []).get(l.athleteId)).push(l);
   });
   (athletes || []).forEach(a => {
-    if (!a || !a.id) return;
+    // A lifter who keeps their name off their coach's posts isn't on the wall (a wall row is a name; no average to count in).
+    if (!a || !a.id || a.nameOnResults === false) return;
     const mine = (by.get(a.id) || []).slice().sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : String(x.id) < String(y.id) ? -1 : String(x.id) > String(y.id) ? 1 : 0));
     const best = {}, prs = {};
     mine.forEach(l => {
@@ -18203,6 +18208,9 @@ function cardName(name) {
   if (!w.length) return 'Lifter';
   return w.length > 1 ? w[0] + ' ' + w[w.length - 1].charAt(0).toUpperCase() + '.' : w[0];
 }
+// A block card's row: the name, or "A lifter" for one who keeps their name off their coach's posts (the owner,
+// 31 Oct: "lifters can opt out"; teamBlockGain's named). Pure.
+function cardRowName(r) { return r && r.named === false ? 'A lifter' : cardName(r && r.name); }
 // What a PR wall row says was lifted: "Squat 182.5 × 3", "Squat 205" for a single, the variant's name when it isn't
 // the competition lift ("Paused squat 170 × 3"). fmt: a kg → display text function (the coach's unit). Pure.
 function prWallLift(p, fmt) {
@@ -18212,7 +18220,7 @@ function prWallLift(p, fmt) {
   const name = v === 'Competition' ? base : (VN[v] || v.charAt(0).toUpperCase() + v.slice(1).toLowerCase() + ' ' + String(base).toLowerCase());
   return name + ' ' + show(p.weight) + (p.reps > 1 ? ' × ' + p.reps : '');
 }
-if (typeof window !== 'undefined') Object.assign(window, { rpePctOfMax, teamWeekLoads, teamPushPreview, teamStripOverrides, calendarBarMeet, calendarWarnings, calendarDragWeeks, moveBlockStart, blockAchieved, teamBlockGain, teamPrWall, cardName, prWallLift });
+if (typeof window !== 'undefined') Object.assign(window, { rpePctOfMax, teamWeekLoads, teamPushPreview, teamStripOverrides, calendarBarMeet, calendarWarnings, calendarDragWeeks, moveBlockStart, blockAchieved, teamBlockGain, teamPrWall, cardName, cardRowName, prWallLift });
 
 // ----- Scoring per federation (brief §8: one number, the formula always named) -----
 // IPF and its member federations score in IPF GL points; everyone else knows DOTS. (SPF is the

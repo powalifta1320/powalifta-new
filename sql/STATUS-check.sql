@@ -210,6 +210,10 @@ with checks(n, migration, applied) as (values
               and policyname <> 'powa_mfa_aal2') = 3
         and coalesce(not has_table_privilege('anon', to_regclass('public.coach_applications'), 'select'), false)
         and coalesce(not has_table_privilege('authenticated', to_regclass('public.coach_applications'), 'insert'), false)
-        and coalesce(not has_function_privilege('anon', to_regprocedure('public.apply_to_coach(uuid, text, text, integer, numeric, numeric, numeric, numeric, date, text, text, text)'), 'execute'), false))
+        and coalesce(not has_function_privilege('anon', to_regprocedure('public.apply_to_coach(uuid, text, text, integer, numeric, numeric, numeric, numeric, date, text, text, text)'), 'execute'), false)),
+  (62, 'migration-results-optout-2026-10-31.sql  (a lifter keeps their name off their coach''s Results cards: profiles.name_on_results, only the lifter, an admin or the service role changes it)',
+        exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'profiles'
+                 and column_name = 'name_on_results' and data_type = 'boolean' and is_nullable = 'NO' and column_default = 'true')
+        and exists (select 1 from pg_trigger where tgname = 'trg_profiles_results_name_guard'))
 )
 select n, migration, applied from checks order by n;

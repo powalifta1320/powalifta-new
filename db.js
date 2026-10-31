@@ -140,6 +140,8 @@ function mapDbProfileToAthlete(r) {
     id: r.id, name: r.name, email: r.email, coachId: r.coach_id,
     // The lifter's kg / lb (profiles.unit, migration-program-integrity-2026-10-22.sql), null until set.
     unit: r.unit === 'lb' ? 'lbs' : r.unit === 'kg' ? 'kg' : null,
+    // Their name on the coach's Results cards (migration-results-optout-2026-10-31.sql), on until they turn it off.
+    nameOnResults: r.name_on_results !== false,
     avatarUrl: r.avatar_url || null,
     countryCode: r.country_code || null,
     instagram: r.instagram || null,
@@ -2353,6 +2355,14 @@ const DB = {
   async deleteProgram(id) {
     const { error } = await sb.from('programs').delete().in('id', [id]);
     if (error) throw error;
+  },
+  // The lifter's name on their coach's Results cards (migration-results-optout-2026-10-31.sql): off = "A lifter".
+  async setNameOnResults(on) {
+    const uid = await this.getUserId();
+    if (!uid) return { ok: false };
+    const { error } = await sb.from('profiles').update({ name_on_results: !!on }).in('id', [uid]);
+    if (error) return { ok: false, notReady: _isNotReady(error) || !!_missingCol(error, ['name_on_results']), error };
+    return { ok: true };
   },
   // ---------- APPLE HEALTH SHARING (migration-health-2026-10-22.sql) ----------
   // The lifter's choice to share sleep + resting heart rate with their coach.
