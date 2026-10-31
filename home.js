@@ -1,13 +1,22 @@
 /* =====================================================================
    home.js — the homepage's page layer and its motion score (GSAP 3.15 + ScrollTrigger, vendored in vendor/).
-   The website only: index.html's head script adds it outside the iPhone app, and loads GSAP after the page has loaded.
-   The page layer (the bar, its contents marker, the meet-day radio group, the questions) works without GSAP.
-   The score: every moment is driven by the reader's scroll (scrubbed, so it reverses with the reader) or is a state
-   change (it plays forward, and back faster from wherever it is). Nothing loops and nothing runs on a timer. Only
-   transform, opacity and an SVG clip move; numbers count from the old value to the new one. The app's curves
-   exactly: ease-out 0.23, 1, 0.32, 1 for anything arriving; ease-in-out 0.77, 0, 0.175, 1 for anything moving on
-   screen; no overshoot. Without JavaScript, with reduced motion, or if GSAP misses its 4 s, the HTML is the last
-   frame of every chapter (the designed still); the score starts each moment from its before-state and plays to it.
+   The website only: index.html's head script adds it outside the iPhone app, and loads GSAP after the page has loaded
+   and its arrival (home.css, from the first paint) has finished.
+   The page layer (the bar, its contents marker, one crimson per screen, the meet-day radio group, the questions) works
+   without GSAP.
+   The score (the owner, 31 Oct: a landing page that moves as it scrolls, never a held stage): every chapter is in the
+   page's flow and complete at any scroll position; its motion plays in place as it arrives. Two kinds of moment:
+   - a state change, played forward as its block arrives and back (faster) if the reader scrolls back above it:
+     headlines rising word by word, lines and screens rising 12 to 40 px, lists building in their order, numbers
+     counting from the old value to the new, a message arriving, a press;
+   - a short scrubbed touch, tied to the reader's scroll: the depth between the laptop and the phone, the set's flight
+     from Arjun's phone to his page, the window zooming from Sam's whole screen to Arjun's page, the week panning on
+     a phone.
+   Only transform, opacity and clip-path move (plus two small SVG strokes drawing). Curves: cubic-bezier(0.22, 1, 0.36,
+   1) for anything entering, (0.77, 0, 0.175, 1) for moves between stops, the app's (0.23, 1, 0.32, 1) for presses and
+   state; no overshoot, text never from scale 0. Without JavaScript, with reduced motion, or if GSAP misses its 4 s,
+   the HTML is the last frame of every chapter (the designed still); a reader already part-way down when the score
+   arrives sees what is on screen finished, not replayed.
    The account modals, the app bundle and the max calculator are index.html's own glue, not this file.
    ===================================================================== */
 (function () {
@@ -18,13 +27,13 @@
   var nav = $('#nav');
   var vwOf = function () { return window.innerWidth; }, vhOf = function () { return window.innerHeight; };
   var small = function () { return vwOf() < 760; };
-  var docTop = function (el) { return el.getBoundingClientRect().top + window.scrollY; };
+  var wide = function () { return vwOf() >= 1100; };
+  /* Where a block sits in the page's layout (offsets, not boxes), so a moving layer never moves a trigger. */
+  function layoutTop(el) { var y = 0; while (el) { y += el.offsetTop; el = el.offsetParent; } return y; }
   var clamp = function (a, b, v) { return Math.max(a, Math.min(b, v)); };
-  var lerp = function (a, b, t) { return a + (b - a) * t; };
-  var smooth = function (t) { t = clamp(0, 1, t); return t * t * (3 - 2 * t); };
   var motionOK = function () { return H.classList.contains('m'); };
 
-  /* The app's curves, exactly: a cubic-bezier solver (the browser's own method), handed to GSAP as functions. */
+  /* The curves, exactly: a cubic-bezier solver (the browser's own method), handed to GSAP as functions. */
   function bezier(p1x, p1y, p2x, p2y) {
     var cx = 3 * p1x, bx = 3 * (p2x - p1x) - cx, ax = 1 - cx - bx;
     var cy = 3 * p1y, by = 3 * (p2y - p1y) - cy, ay = 1 - cy - by;
@@ -40,7 +49,7 @@
     }
     return function (x) { return x <= 0 ? 0 : x >= 1 ? 1 : sy(solve(x)); };
   }
-  var OUT = bezier(0.23, 1, 0.32, 1), INOUT = bezier(0.77, 0, 0.175, 1);
+  var OUT = bezier(0.23, 1, 0.32, 1), ENTER = bezier(0.22, 1, 0.36, 1), INOUT = bezier(0.77, 0, 0.175, 1);
 
   /* =====================================================================
      THE PAGE LAYER (with or without motion)
@@ -72,41 +81,33 @@
     });
   });
 
-  /* --- The true-size window onto Arjun's page (tablets): 1:1 when it fits, scaled to fit below. --- */
-  var fwPort = $('#fwA .fw-port'), fwLive = $('#fwLive');
-  function fitFw() {
-    if (!fwPort || !fwLive) return;
-    if (small()) { fwLive.style.transform = ''; return; }
-    var k = Math.min(1, fwPort.clientWidth / 756);
-    fwLive.style.transform = k < 1 ? 'scale(' + k + ')' : '';
-  }
+  /* --- The true-size window onto Arjun's page: 1:1 when it fits (or on a phone, where it shows his page's left side at
+     its real size), scaled to fit on tablets. The score's zoom ends where this holds it. --- */
+  var fwPort = $('#fwA .fw-port'), fwDesk = $('#fwDesk');
+  function fk() { return (!fwPort || small()) ? 1 : Math.min(1, fwPort.clientWidth / 756); }
+  function fitFw() { if (fwDesk) fwDesk.style.setProperty('--fk', String(fk())); }
 
   /* --- Questions and the order's rules: native details; with motion the answer arrives (opacity and 6 px). --- */
   $$('details.q, details.rules').forEach(function (d) {
     var body = $('.qa, .rules-body', d);
     d.addEventListener('toggle', function () {
-      if (!d.open || !motionOK() || !body || !body.animate) return;
+      if (!d.open || !motionOK() || !body || !body.animate || d.dataset.held) return;
       body.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
     });
   });
 
-  /* --- The nav and the contents marker. All read from one map of the page: which chapter of the coach's week is at 40%
-     of the screen (the marker), and whether a page crimson action is on screen (then the nav's ink pill steps back;
-     one crimson per screen). The bar is the app's dark glass over every chapter: the page is dark, whatever the
-     visitor's theme. --- */
-  var S = { acts: new Set(), log: false, heroHidden: false, stage: null };
+  /* --- The nav and the contents marker: which chapter of the coach's week is at 40% of the screen, and whether a page
+     action is on screen (then the nav's ink pill steps back). The bar is the app's dark glass over every chapter. --- */
+  var S = { acts: new Set(), decRed: false };
   var toc = $('#toc'), tocBar = $('#tocBar'), tocLinks = $$('#toc a'), tocOn = -1;
   var chapters = [];
   function measurePage() {
     var y0 = window.scrollY;
     var r = function (el) { var b = el.getBoundingClientRect(); return [b.top + y0, b.bottom + y0]; };
-    var staged = H.classList.contains('stage-on');
     chapters = tocLinks.map(function (l) {
       var id = l.dataset.ch;
-      if (id === 'today') {
-        if (staged && S.stage) return S.stage.today();
-        var t = r($('#today')), w = r($('#who')); return [t[0], w[1]];
-      }
+      /* Today starts at its first words (on a laptop with motion they sit beside Arjun's phone, above the row). */
+      if (id === 'today') { var t = r($('#today')), c = r($('.land-copy')), w = r($('#who')); return [Math.min(t[0], c[0]), w[1]]; }
       return r(document.getElementById(id));
     });
   }
@@ -118,11 +119,7 @@
   function paintNav() {
     var y = window.scrollY, vh = vhOf();
     nav.classList.toggle('is-on', y > 8);
-    var heroIn = S.acts.has('heroCta') && !S.heroHidden;
-    var anyAct = heroIn || S.acts.has('plansCta') || S.acts.has('closeCta');
-    nav.classList.toggle('has-pill', !anyAct);
-    H.classList.toggle('red-busy', S.log && heroIn);
-    /* The contents marker: the chapter at 40% of the screen. */
+    nav.classList.toggle('has-pill', !(S.acts.has('heroCta') || S.acts.has('plansCta') || S.acts.has('closeCta')));
     var at = y + vh * 0.4, on = -1;
     for (var k = 0; k < chapters.length; k++) { var c = chapters[k]; if (c && at >= c[0] && at < c[1]) on = k; }
     if (on !== tocOn) {
@@ -135,22 +132,36 @@
       }
     }
   }
-  var navTick = false;
-  function onScrollNav() { if (!navTick) { navTick = true; requestAnimationFrame(function () { navTick = false; paintNav(); }); } }
-  if ('IntersectionObserver' in window) {
-    var actIO = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) S.acts.add(e.target.id); else S.acts.delete(e.target.id); }); onScrollNav(); }, { rootMargin: '-64px 0px 0px 0px' });
-    ['#heroCta', '#plansCta', '#closeCta'].forEach(function (s) { actIO.observe($(s)); });
-    new IntersectionObserver(function (es) { es.forEach(function (e) { S.log = e.isIntersecting; }); onScrollNav(); }).observe($('#logBtn'));
-  }
-  /* "Today" on a laptop with motion sits inside the held act: its link lands on the moment the set arrives. */
-  tocLinks.forEach(function (l) {
-    l.addEventListener('click', function (e) {
-      if (l.dataset.ch !== 'today' || !S.stage) return;
-      e.preventDefault();
-      window.scrollTo(0, S.stage.todayY());
-      history.replaceState(null, '', '#today');
+
+  /* --- One crimson per screen. The real screens keep their own action's colour (Log set on Arjun's phone, Publish on
+     Sam's week, Declare on his board while it is crimson): while one is on screen, the page's Start buttons step back to
+     ink. Two of a kind on one screen: the one nearer the middle keeps the crimson. --- */
+  var reds = [
+    { el: $('#heroCta .act-btn'), app: false }, { el: $('#logBtn'), app: true }, { el: $('#pub'), app: true },
+    { el: $('#decBtn'), app: true, on: function () { return S.decRed; } },
+    { el: $('#plansCta .act-btn'), app: false }, { el: $('#closeCta .act-btn'), app: false }
+  ].filter(function (r) { return r.el; });
+  var redsIn = new Set();
+  function paintReds() {
+    var vh = vhOf(), mid = vh / 2, live = [];
+    reds.forEach(function (r) {
+      if (!redsIn.has(r.el) || (r.on && !r.on())) return;
+      var b = r.el.getBoundingClientRect();
+      if (b.bottom > 64 && b.top < vh) live.push({ r: r, d: Math.abs((b.top + b.bottom) / 2 - mid) });
     });
-  });
+    var apps = live.filter(function (o) { return o.r.app; }), pick1 = function (list) { return list.sort(function (a, b) { return a.d - b.d; })[0]; };
+    var keep = apps.length ? pick1(apps) : (live.length ? pick1(live) : null);
+    reds.forEach(function (r) { r.el.classList.toggle('is-quiet', !!keep && r !== keep.r && live.some(function (o) { return o.r === r; })); });
+  }
+  var tick = false;
+  function onScroll() { if (!tick) { tick = true; requestAnimationFrame(function () { tick = false; paintNav(); paintReds(); }); } }
+  if ('IntersectionObserver' in window) {
+    var actIO = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) S.acts.add(e.target.id); else S.acts.delete(e.target.id); }); onScroll(); }, { rootMargin: '-64px 0px 0px 0px' });
+    ['#heroCta', '#plansCta', '#closeCta'].forEach(function (s) { actIO.observe($(s)); });
+    var redIO = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) redsIn.add(e.target); else redsIn.delete(e.target); }); onScroll(); });
+    reds.forEach(function (r) { redIO.observe(r.el); });
+  }
+
   /* --- The programs band shows once the shop has three published programs: this visit's count, if a page has taken it
      (app.js siteProgramsReady keeps it ten minutes in powa-mp-count), or else one light read as the reader nears the
      end of the page (the close within 1600 px below the screen; the band sits under it, so it arrives out of sight):
@@ -195,9 +206,9 @@
      so the inside pages keep following the visitor's setting. --- */
   window.addEventListener('themechange', function () { var m = $('meta[name="theme-color"]'); if (m) m.setAttribute('content', '#0b0b0c'); });
 
-  function relayout() { fitFw(); measurePage(); placeTocBar(); paintNav(); }
+  function relayout() { fitFw(); measurePage(); placeTocBar(); paintNav(); paintReds(); }
   relayout();
-  window.addEventListener('scroll', onScrollNav, { passive: true });
+  window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', relayout, { passive: true });
   window.addEventListener('load', relayout);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
@@ -224,14 +235,18 @@
   gsap.registerPlugin(ST);
   ST.config({ ignoreMobileResize: true });
   gsap.defaults({ overwrite: false });
+  /* While the score boots, a moment whose block the reader has already reached shows finished (never replayed under
+     them); after that, every moment plays as its block arrives. */
+  var booting = true;
 
   /* --- Numbers in the app's formats; a count runs from the shown value to the target. --- */
-  function fmt(v, f) { return (f === 'plus' ? '+' : '') + Math.round(v); }
+  function fmt(v, f) { v = Math.round(v); return f === 'plus' ? '+' + v : f === 'usd' ? '$' + v.toLocaleString('en-US') : String(v); }
   function show(el, v) { el.textContent = fmt(v, el.dataset.fmt); }
-  function fromVal(el) { show(el, Number(el.dataset.from)); }
-  function count(tl, el, at, dur) {
+  function count(tl, el, at, dur, ease) {
+    if (!el) return;
     var a = Number(el.dataset.from), b = Number(el.dataset.to), o = { v: a };
-    tl.fromTo(o, { v: a }, { v: b, duration: dur || 0.8, ease: OUT, onUpdate: function () { show(el, o.v); } }, at);
+    show(el, a);
+    tl.fromTo(o, { v: a }, { v: b, duration: dur || 0.8, ease: ease || OUT, onUpdate: function () { show(el, o.v); } }, at);
   }
   /* Two-state words: the old line leaves upward, the new one arrives from below. */
   function swapStart(el) { var k = el.children; for (var i = 0; i < k.length; i++) gsap.set(k[i], { autoAlpha: i === 0 ? 1 : 0 }); }
@@ -240,24 +255,54 @@
     tl.fromTo(a, { autoAlpha: 1, y: 0 }, { autoAlpha: 0, y: -4, duration: 0.16, ease: OUT, immediateRender: false }, at)
       .fromTo(b, { autoAlpha: 0, y: 4 }, { autoAlpha: 1, y: 0, duration: 0.3, ease: OUT, immediateRender: false }, at + 0.1);
   }
-  /* A state change: plays on the way down, plays back (faster) on the way up, from wherever it is. */
+  /* A state change: plays as its block arrives, back (faster) if the reader scrolls back above it. */
   function onState(tl, o) {
-    return ST.create(Object.assign({ onEnter: function () { tl.timeScale(1).play(); }, onLeaveBack: function () { tl.timeScale(1.6).reverse(); } }, o));
+    return ST.create(Object.assign({
+      onEnter: function () { if (booting) tl.progress(1); else tl.timeScale(1).play(); },
+      onLeaveBack: function () { tl.timeScale(Math.max(1.6, tl.duration() / 0.9)).reverse(); }
+    }, o));
   }
-  /* A state change fired from a scrubbed timeline's time (inside a held scene). */
-  function gate(tl) { var on = false; return function (p, at) { if (p >= at && !on) { on = true; tl.timeScale(1).play(); } else if (p < at && on) { on = false; tl.timeScale(1.6).reverse(); } }; }
+  /* Blocks rising into place in turn: 12 px and their opacity (screens a little further), never from scale 0. */
+  function rise(targets, o) {
+    o = o || {};
+    targets = (targets || []).filter(Boolean);
+    if (!targets.length) return null;
+    var tl = gsap.timeline({ paused: true })
+      .fromTo(targets, { autoAlpha: 0, y: o.y || 12 }, { autoAlpha: 1, y: 0, duration: o.dur || 0.64, stagger: o.stagger == null ? 0.07 : o.stagger, ease: ENTER });
+    onState(tl, { trigger: o.trigger || targets[0], start: o.start || 'top 90%' });
+    return tl;
+  }
+  /* A headline rising word by word: whole words (a no-break space keeps its pair), so the lines break where they did. */
+  function splitWords(el) {
+    if (!el) return [];
+    if (el.dataset.split) return $$('.w', el);
+    var out = [];
+    Array.prototype.slice.call(el.childNodes).forEach(function (n) {
+      if (n.nodeType !== 3) return;
+      var frag = document.createDocumentFragment();
+      n.textContent.split(/( +)/).forEach(function (p) {
+        if (!p) return;
+        if (/^ +$/.test(p)) { frag.appendChild(document.createTextNode(p)); return; }
+        var s = document.createElement('span'); s.className = 'w'; s.textContent = p; frag.appendChild(s); out.push(s);
+      });
+      el.replaceChild(frag, n);
+    });
+    el.dataset.split = '1';
+    return out;
+  }
+  function words(el, o) { return el ? rise(splitWords(el), Object.assign({ trigger: el, stagger: 0.05, dur: 0.6 }, o || {})) : null; }
   /* AVIF where it decodes (a one-pixel probe), WebP otherwise. */
   var AVIF = 'data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUIAAADybWV0YQAAAAAAAAAoaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAGxpYmF2aWYAAAAADnBpdG0AAAAAAAEAAAAeaWxvYwAAAABEAAABAAEAAAABAAABGgAAAB0AAAAoaWluZgAAAAAAAQAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAamlwcnAAAABLaXBjbwAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAAAxhdjFDgQ0MAAAAABNjb2xybmNseAACAAIAAYAAAAAXaXBtYQAAAAAAAAABAAEEAQKDBAAAACVtZGF0EgAKCBgANogQEAwgMg8f8D///8WfhwB8+ErK42A=';
   function avif(cb) { var p = new Image(); p.onload = function () { cb(true); }; p.onerror = function () { cb(false); }; p.src = AVIF; }
 
   /* =====================================================================
-     ACT ONE. Shared by both layouts.
+     ACT ONE: the set. Arjun logs it on his phone, the app works out his max beside it, the set flies to his page on
+     Sam's laptop; the window zooms from Sam's whole screen to Arjun's page; his total ticks up.
      ===================================================================== */
-  var phone = $('#phone'), logB = $('#logBtn'), next = $('.ph-next', phone), phDim = $('#phDim');
-  var labs = $$('.lab', phone), labCap = $('.lab-cap', phone);
+  var phone = $('#phone'), logB = $('#logBtn'), next = $('.ph-next', phone), laptop = $('#laptop');
   var max = $('#max'), maxTags = $('.max-tags', max), maxFrom = $('.max-from', max), strip = $('.odo-strip', max);
   var clipR = $('#maxClipR'), maxEnd = $('#maxEnd'), maxChart = $('.max-chart', max);
-  var fly = $('#fly'), copy = $('#openCopy'), ltCap = $('#laptop-cap');
+  var fly = $('#fly'), ring = $('#fwRing'), ringRect = $('#fwRing rect');
   /* The phone a moment later is only ever seen with motion: fetched once the score starts (decoded off the main thread). */
   avif(function (ok) { next.srcset = ok ? next.dataset.srcset : next.dataset.fallback; if (next.decode) next.decode().catch(function () {}); });
   /* The next chapters' pictures, decoded ahead so no frame waits on one mid-scroll. On a laptop they are fetched now; on a
@@ -265,451 +310,317 @@
   function warm() { var eager = !small(); $$('#thread img, #wk img, #imp img, .cl img, .brand-ph img, #fwA img, .fw-b img').forEach(function (i) { if (eager && i.loading === 'lazy') i.loading = 'eager'; if (i.complete && i.decode) i.decode().catch(function () {}); }); }
   if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 1500 }); else setTimeout(warm, 600);
 
-  /* M2 · Log set (a state change): the button presses and releases; the phone moves on as the app does (set 2 up,
-     the rest timer docked). */
+  /* Depth (laptops): the laptop behind lags the reader's scroll, the phone in front leads it; scrubbed over the
+     opening, on the transform (the arrival moved the individual translate). */
+  var mm = gsap.matchMedia();
+  mm.add('(min-width: 1100px)', function () {
+    var depth = gsap.timeline({ scrollTrigger: { start: 0, end: function () { return vhOf() * 1.1; }, scrub: 0.4, invalidateOnRefresh: true } })
+      .fromTo(laptop, { y: 0 }, { y: 96, ease: 'none', duration: 1 }, 0)
+      .fromTo(phone, { y: 0 }, { y: -48, ease: 'none', duration: 1 }, 0);
+    return function () { depth.scrollTrigger.kill(); depth.kill(); gsap.set([laptop, phone], { clearProps: 'transform' }); };
+  });
+
+  /* Log set (a state change as the button reaches the middle of the screen): it presses and releases; the phone moves on
+     as the app does (set 2 up, the rest timer docked). Beside it on a laptop (below it on a phone) the 228 panel has
+     risen; the max rolls 223 to 228 as the line climbs to the new point, then +5 kg and New PR land, then the set it
+     came from. */
+  var digitH = function () { return strip.firstElementChild.offsetHeight; };
   gsap.set(next, { autoAlpha: 0 });
-  var logTl = gsap.timeline({ paused: true })
-    .to(logB, { scale: 0.97, duration: 0.11, ease: OUT }, 0)
-    .to(logB, { scale: 1, duration: 0.28, ease: OUT }, 0.12)
-    .to(next, { autoAlpha: 1, duration: 0.22, ease: OUT }, 0.16);
-  /* M3 · The max (a state change once it is read): the 16-week line is drawn to last week; only the last digit rolls,
-     223 to 228, while the line climbs to the new point; +5 kg and New PR land, then the set it came from. */
   gsap.set([maxTags, maxFrom], { autoAlpha: 0, y: 8 });
   gsap.set(strip, { y: 0 });
   gsap.set(clipR, { attr: { width: 93.6 } });
   var endFrom = function () { return { x: -(98 - 91.6) / 100 * maxChart.offsetWidth, y: (29.73 - 17.55) / 100 * maxChart.offsetHeight }; };
   gsap.set(maxEnd, { x: function () { return endFrom().x; }, y: function () { return endFrom().y; } });
-  var maxTl = gsap.timeline({ paused: true })
-    .to(strip, { y: function () { return -5 * strip.firstElementChild.offsetHeight; }, duration: 0.8, ease: OUT }, 0)
-    .to(clipR, { attr: { width: 104 }, duration: 0.6, ease: INOUT }, 0)
-    .to(maxEnd, { x: 0, y: 0, duration: 0.6, ease: INOUT }, 0)
-    .to(maxTags, { autoAlpha: 1, y: 0, duration: 0.3, ease: OUT }, 0.46)
-    .to(maxFrom, { autoAlpha: 1, y: 0, duration: 0.3, ease: OUT }, 0.58);
-
-  /* M1 · The labels (a state change once the set card is in view): each leader draws out from the card's edge, then
-     its words arrive. Laptops only; on tablets and phones the legend is plain text beside or above the phone. */
-  var labTl = gsap.timeline({ paused: true });
-  function buildLabels() {
-    labTl.clear();
-    gsap.set(labCap, { autoAlpha: 0, x: -6 });
-    labs.forEach(function (l) { gsap.set($('.lab-l', l), { scaleX: 0 }); gsap.set($('.lab-t', l), { autoAlpha: 0, x: -6 }); });
-    labTl.to(labCap, { autoAlpha: 1, x: 0, duration: 0.3, ease: OUT }, 0);
-    labs.forEach(function (l, i) {
-      labTl.to($('.lab-l', l), { scaleX: 1, duration: 0.32, ease: OUT }, 0.1 + i * 0.07)
-        .to($('.lab-t', l), { autoAlpha: 1, x: 0, duration: 0.28, ease: OUT }, 0.18 + i * 0.07);
-    });
+  function logTl() {
+    return gsap.timeline()
+      .to(logB, { scale: 0.97, duration: 0.11, ease: OUT }, 0)
+      .to(logB, { scale: 1, duration: 0.28, ease: OUT }, 0.12)
+      .to(next, { autoAlpha: 1, duration: 0.26, ease: OUT }, 0.16);
   }
-
-  /* M5 · The landing (a state change as the set arrives): the squat card is ringed once, every number that changed
-     counts from its old value, the old marks give way, the set line changes, the PR mark arrives. */
-  function landingTl(scope, ring) {
-    var nums = $$('.num', scope), was = $$('.was', scope), pr = $('.ov-pr', scope), swaps = $$('.ov.swap', scope);
-    nums.forEach(fromVal);
-    gsap.set(was, { opacity: 1 });
-    gsap.set(pr, { autoAlpha: 0, scale: 0.9, transformOrigin: '0% 50%' });
-    swaps.forEach(swapStart);
-    var tl = gsap.timeline({ paused: true })
-      .fromTo(ring, { opacity: 0, scale: 0.985 }, { opacity: 1, scale: 1, duration: 0.24, ease: OUT }, 0)
-      .to(ring, { opacity: 0, duration: 0.9, ease: INOUT }, 0.85)
-      .to(was, { opacity: 0, duration: 0.5, ease: OUT }, 0.12)
-      .to(pr, { autoAlpha: 1, scale: 1, duration: 0.36, ease: OUT }, 0.62);
-    nums.forEach(function (el, i) { count(tl, el, 0.1 + i * 0.035, 0.8); });
-    swaps.forEach(function (el, i) { swapIn(tl, el, 0.16 + i * 0.05); });
-    return tl;
+  function maxTl() {
+    return gsap.timeline()
+      .to(strip, { y: function () { return -5 * digitH(); }, duration: 0.9, ease: OUT }, 0)
+      .to(clipR, { attr: { width: 104 }, duration: 0.7, ease: INOUT }, 0)
+      .to(maxEnd, { x: 0, y: 0, duration: 0.7, ease: INOUT }, 0)
+      .to(maxTags, { autoAlpha: 1, y: 0, duration: 0.34, ease: ENTER }, 0.5)
+      .to(maxFrom, { autoAlpha: 1, y: 0, duration: 0.34, ease: ENTER }, 0.62);
   }
-
-  var mm = gsap.matchMedia();
-  /* The held act starts from the top of the page: a reader already part-way down when this layer arrives (a slow
-     connection) keeps the flow, so nothing under them jumps. */
-  mm.add({ stage: '(min-width: 1100px) and (min-height: 640px)', flow: '(max-width: 1099px), (max-height: 639px)' }, function (ctx) {
-    if (ctx.conditions.stage && window.scrollY < vhOf() * 0.35) return buildStage();
-    return buildFlow();
+  var logStart = function () { return Math.max(40, layoutTop(logB) + logB.offsetHeight / 2 - vhOf() * (small() ? 0.62 : 0.5)); };
+  /* The 228 panel rises as it arrives (24 px), showing last week's 223 until the set is logged. */
+  rise([max], { y: 24, start: 'top 92%', dur: 0.7 });
+  mm.add({ side: '(min-width: 1100px)', stack: '(max-width: 1099px)' }, function (ctx) {
+    if (ctx.conditions.side) {
+      /* Side by side: one beat, the press, then the max a moment later. (The labels drew on with the arrival.) */
+      onState(gsap.timeline({ paused: true }).add(logTl(), 0).add(maxTl(), 0.3), { start: logStart, end: 'max' });
+      return;
+    }
+    /* Stacked: the press as the button reaches the screen, the max as it does; the legend rises with the phone. */
+    onState(logTl().pause(), { start: logStart, end: 'max' });
+    onState(maxTl().pause(), { trigger: '.max-num', start: 'top 72%' });
+    rise($$('.lab-cap, .lab', phone), { trigger: phone, start: 'top 92%', stagger: 0.06 });
   });
 
-  /* =====================================================================
-     ACT ONE ON A LAPTOP: the stage. The act holds the screen and the reader's scroll moves one camera: both sides on
-     a desk; in on the lifter's phone; the set lifts off and flies to Sam's laptop as the laptop turns to face the
-     reader; the camera pushes in on its window while the laptop's own dark screen grows to fill the frame and becomes
-     the page (the coach's graphite); the window holds Arjun's page at its real size; then a pan along the same screen
-     to the lifters who need Sam first.
-     ===================================================================== */
-  function buildStage() {
-    H.classList.add('stage-on');
-    var stage = $('#stage'), laptop = $('#laptop'), cam = $('#ltCam'), ltShadow = $('.lt-shadow'), win = $('#win'), winIn = $('#winIn'), winShadow = $('#winShadow');
-    var room = $('#ltRoom'), devParts = [$('.lt-lid'), $('.lt-base'), $('#ltScreen')];
-    var phShadow = $('.ph-shadow'), land = $('#today'), who = $('#who'), chainItems = $$('#chain li');
-    var grps = $$('#win .grp'), mks = $$('#win .mk'), sqRing = $('#sqRing');
-    var G, vw, vh, g = {};
-    /* Where everything stands at each beat, for this screen (the first frame matches the stylesheet's exactly). */
-    function measure() {
-      vw = vwOf(); vh = vhOf(); G = clamp(16, 64, vw * 0.0445);
-      var fw = Math.min(vw, 1440), fx = (vw - fw) / 2, R = fx + fw;
-      var fold = Math.max(640, vh);
-      g.lw0 = fw * 0.49; g.s0 = g.lw0 / 1440; g.lx0 = R - G - fw * 0.012 - g.lw0; g.ly0 = 120;
-      g.pw = Math.min(393, fw * 0.273); g.p0 = g.pw / 393; g.px0 = fx + fw * 0.417; g.py0 = fold - g.pw * 2.16794 * 0.42;
-      g.p2 = Math.min(0.8, (vh - 64 - 40) / 852);
-      g.maxW = Math.min(470, fw * 0.33);
-      g.px2 = fx + G + g.maxW + 64; g.py2 = 64 + (vh - 64 - 852 * g.p2) / 2;
-      /* The laptop turned away and gone back, most of it past the right edge, so the labels read on the dark. */
-      g.s2 = g.s0 * 0.62; g.lx2 = Math.max(R - G - 1440 * g.s2 * 0.42, vw - 1440 * g.s2 * 0.42 - G); g.ly2 = 64 + (vh - 64 - 900 * g.s2) / 2 - 10;
-      g.textW = Math.min(500, fw * 0.36);
-      g.k = Math.min(1, (fw - 2 * G - g.textW - 64) / 756, (vh - 64 - 64) / 576);
-      g.wx = R - G - 756 * g.k; g.wy = 64 + (vh - 64 - 576 * g.k) / 2;
-      /* Facing the reader again at the first frame's size, its window already where the push-in will hold it. */
-      g.s25 = g.s0; g.wx25 = g.wx; g.wy25 = g.wy + 24;
-      gsap.set(max, { width: g.maxW });
-      gsap.set(max, { y: Math.max(84, (vh - max.offsetHeight) / 2 + 18) });
-      gsap.set([land, who], { width: g.textW });
-      /* The order's rules open as a card over the whole chain they explain. */
-      who.style.setProperty('--chain-h', $('#chain').offsetHeight + 'px');
-      /* The laptop's caption over its lid, at its left edge (as in the stylesheet's first frame). */
-      gsap.set(ltCap, { x: g.lx0, y: g.ly0 - 26 * g.s0 - 12 - ltCap.offsetHeight });
-    }
-    /* The camera: which desk point (fx, fy) sits at which screen point (vx, vy), at scale s, turned ry / rx. */
-    var C = { vx: 0, vy: 0, fx: 0, fy: 0, s: 1, ry: 0, rx: 0, o: 1 };
-    var P = { x: 0, y: 0, s: 1, ry: 0, o: 1 };   // the phone
-    var D = { body: 1, win: 0, dim: 0 };          // the device falling away round its window; the phone stepping back
-    var W = { t: 0 };                             // the screen growing out to fill the frame
-    var pan = { t: 0 };                           // the pan along the screen to the list
-    var PX = 440, PY = 130;
-    var lastRoom = '';
-    function render() {
-      var fx = C.fx - PX * pan.t, fy = C.fy + PY * pan.t, s = C.s;
-      var x = C.vx - fx * s, y = C.vy - fy * s;
-      cam.style.transform = 'translate3d(' + (x + 720 * s) + 'px,' + (y + 450 * s) + 'px,0) rotateY(' + C.ry + 'deg) rotateX(' + C.rx + 'deg) scale(' + s + ') translate(-720px,-450px)';
-      cam.style.opacity = C.o;
-      win.style.transform = 'translate(' + (-PX * pan.t) + 'px,' + (PY * pan.t) + 'px)';
-      winShadow.style.transform = win.style.transform;
-      winIn.style.transform = 'translate(' + (-(668 - PX * pan.t)) + 'px,' + (-(16 + PY * pan.t)) + 'px)';
-      for (var i = 0; i < devParts.length; i++) devParts[i].style.opacity = D.body;
-      ltShadow.style.opacity = Math.min(D.body, C.o);
-      winShadow.style.opacity = D.win;
-      phDim.style.opacity = D.dim;
-      /* The wipe: the room starts as the screen itself (its corners, its lit rim) and grows until it is the page (the
-         camera is square-on by now). */
-      var css;
-      if (W.t <= 0) css = 'hidden';
-      else {
-        var e = INOUT(W.t), pad = 6 / s;
-        var rx = lerp(0, -x / s - pad, e), ry = lerp(0, -y / s - pad, e), rw = lerp(1440, vw / s + 2 * pad, e), rh = lerp(900, vh / s + 2 * pad, e);
-        room.style.transform = 'translate(' + rx + 'px,' + ry + 'px) scale(' + (rw / 1440) + ',' + (rh / 900) + ')';
-        css = 'visible';
-      }
-      if (css !== lastRoom) { room.style.visibility = css; lastRoom = css; }
-      phone.style.transform = 'translate3d(' + (P.x + 196.5 * P.s) + 'px,' + (P.y + 426 * P.s) + 'px,0) rotateY(' + P.ry + 'deg) scale(' + P.s + ') translate(-196.5px,-426px)';
-      phone.style.opacity = P.o;
-    }
-    var K = {};
-    function keys() {
-      K.c0 = { vx: g.lx0, vy: g.ly0, fx: 0, fy: 0, s: g.s0, ry: 0, rx: 0, o: 1 };
-      K.c2 = { vx: g.lx2, vy: g.ly2, fx: 0, fy: 0, s: g.s2, ry: -24, rx: 1, o: 0.3 };
-      K.c25 = { vx: g.wx25, vy: g.wy25, fx: 668, fy: 16, s: g.s25, ry: 0, rx: 0, o: 1 };
-      K.c3 = { vx: g.wx, vy: g.wy, fx: 668, fy: 16, s: g.k, ry: 0, rx: 0, o: 1 };
-      K.p0 = { x: g.px0, y: g.py0, s: g.p0, ry: 0, o: 1 };
-      K.p2 = { x: g.px2, y: g.py2, s: g.p2, ry: 0, o: 1 };
-      K.p3 = { x: g.px2 - 140, y: g.py2 + vh * 0.46, s: g.p2 * 0.86, ry: 7, o: 0 };
-    }
-    measure(); keys();
-    Object.assign(C, K.c0); Object.assign(P, K.p0); render();
-    /* The arrival settle is the stylesheet's: it plays from the first paint, and this layer loads only once it has
-       finished, so the camera starts from exactly where the devices came to rest. */
-    gsap.set(phone, { transformOrigin: '0 0' });
-    cam.style.willChange = 'transform'; phone.style.willChange = 'transform, opacity'; room.style.willChange = 'transform';
-
-    /* The window's live screen: the same capture with the changing numbers left out, sharp at its real size. */
-    var winBase = $('.win-base', win), dpr = window.devicePixelRatio || 1;
-    avif(function (ok) {
-      var big = dpr >= 1.5;
-      winBase.src = big ? (ok ? winBase.dataset.avif : winBase.dataset.src) : (ok ? winBase.dataset.avif1 : winBase.dataset.src1);
-      var done = function () { winBase.classList.add('is-ready'); win.classList.add('is-live'); };
-      if (winBase.decode) winBase.decode().then(done, done); else winBase.onload = done;
-      $$('.was', win).forEach(function (w) { if (w.dataset.src) w.src = w.dataset.src; });
-    });
-
-    /* Before-states for this layout. */
-    buildLabels();
-    var deskTl = landingTl(win, sqRing);
-    gsap.set(max, { autoAlpha: 0, x: -24 });
-    gsap.set([land, who], { autoAlpha: 0 });
-    gsap.set(grps, { opacity: 0 }); gsap.set(mks, { autoAlpha: 0, scale: 0.6 });
-    gsap.set(chainItems, { opacity: 0.32 });
-    gsap.set(fly, { autoAlpha: 0 });
-    var landKids = $$('.h2, .sub, .cap', land), whoKids = [$('.h2', who), $('.sub', who), $('#rules')];
-
-    /* The landing's words, a state change as the set touches down: the headline, then its line, then the caption. */
-    var landTl = gsap.timeline({ paused: true })
-      .set(land, { autoAlpha: 1 }, 0)
-      .fromTo(landKids, { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.42, stagger: 0.08, ease: OUT, immediateRender: false }, 0.02);
-    /* The list's words, and the order explained on the real list: a ring round each group, its number, its fix. */
-    var whoTl = gsap.timeline({ paused: true })
-      .set(who, { autoAlpha: 1 }, 0)
-      .fromTo(whoKids, { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.42, stagger: 0.08, ease: OUT, immediateRender: false }, 0.02);
-    chainItems.forEach(function (li, i) {
-      var at = 0.3 + i * 0.12, mk = li.dataset.mk;
-      whoTl.to(li, { opacity: 1, duration: 0.3, ease: OUT }, at)
-        .to(mks.filter(function (m) { return m.dataset.mk === mk; }), { autoAlpha: 1, scale: 1, duration: 0.3, ease: OUT }, at)
-        .fromTo(grps.filter(function (m) { return m.dataset.mk === mk; }), { opacity: 0 }, { opacity: 1, duration: 0.3, ease: OUT, immediateRender: false }, at)
-        .to(grps.filter(function (m) { return m.dataset.mk === mk; }), { opacity: 0.12, duration: 0.5, ease: INOUT }, at + 0.5);
-    });
-    var pressGate = gate(logTl), maxGate = gate(maxTl), labGate = gate(labTl), deskGate = gate(deskTl), landGate = gate(landTl), whoGate = gate(whoTl);
-
-    /* The set in flight. First it lifts straight up off the phone (the screen under it steps back, so no two sets'
-       numbers share a frame), then it is carried along an arc and set down on the squat card in the window. Its two
-       ends are wherever the camera has them this frame. */
-    var F = { p: 0 };
-    function placeFly() {
-      var p = F.p;
-      if (p <= 0 || p >= 1) { if (fly.style.visibility !== 'hidden') gsap.set(fly, { autoAlpha: 0 }); return; }
-      var fw = fly.offsetWidth, fh = fly.offsetHeight;
-      var sx = P.x + 196 * P.s, sy = P.y + 236 * P.s;
-      var s = C.s, cfx = C.fx - PX * pan.t, cfy = C.fy + PY * pan.t;
-      var ex = C.vx + (800.7 - cfx) * s, ey = C.vy + (498 - cfy) * s;
-      var up = smooth(p / 0.16) * 84;                         // the lift
-      var q = clamp(0, 1, (p - 0.1) / 0.9), e = INOUT(q);    // the carry
-      var x = lerp(sx, ex, e), y = lerp(sy - up, ey, e) - Math.sin(Math.PI * q) * 70;
-      var k0 = P.s * 1.06, k1 = clamp(0.5, 1, 233 * s / fw);
-      var k = lerp(k0, k1, smooth((q - 0.55) / 0.45)) * (1 + 0.05 * Math.sin(Math.PI * q));
-      var rot = (ex - sx) * 0.005 * Math.sin(Math.PI * q);
-      gsap.set(fly, { x: x - fw / 2, y: y - fh / 2, scale: k, rotation: rot, autoAlpha: p > 0.95 ? (1 - p) / 0.05 : 1 });
-    }
-
-    /* The master: one timeline the reader's scroll plays (units; the act is 10.1 long). State changes inside the held
-       act fire from the timeline's own time (it is scrubbed, so it settles a moment after the reader stops). */
-    var ROOM_AT = 5.7;
-    var tl = gsap.timeline({ paused: true, defaults: { ease: 'none' }, onUpdate: function () {
-      render(); placeFly();
-      var t = tl.time();
-      labGate(t, 1.6); pressGate(t, 2.15); maxGate(t, 2.35); deskGate(t, 6.0); landGate(t, 6.1); whoGate(t, 8.3);
-      var hh = t > 0.6; if (hh !== S.heroHidden) { S.heroHidden = hh; onScrollNav(); }
-    } });
-    /* B0 → B1: the words step aside, the camera moves in on the lifter's phone; the laptop turns away and recedes. */
-    tl.to([copy, ltCap], { y: -60, duration: 0.65, ease: INOUT }, 0.25)
-      .to($('.h1', copy), { opacity: 0, duration: 0.65, ease: INOUT }, 0.25)
-      .to([$('.lede', copy), $('#heroCta'), $('.cta-note', copy), ltCap], { autoAlpha: 0, duration: 0.65, ease: INOUT }, 0.25)
-      .to(C, { vx: function () { return K.c2.vx; }, vy: function () { return K.c2.vy; }, s: function () { return K.c2.s; }, ry: -24, rx: 1, o: 0.3, duration: 1.7, ease: INOUT }, 0.3)
-      .to(P, { x: function () { return K.p2.x; }, y: function () { return K.p2.y; }, s: function () { return K.p2.s; }, ry: 0, duration: 1.55, ease: INOUT }, 0.45)
-      .to(phShadow, { opacity: 0.6, duration: 1.7 }, 0.3)
-    /* B2: the max arrives where the words were; the reader holds on it. */
-      .to(max, { autoAlpha: 1, x: 0, duration: 0.5, ease: OUT }, 2.2)
-    /* B3: the set lifts off and flies; the phone steps back and leaves; the laptop turns to face the reader, then the
-       camera pushes in on its window while its screen grows out to fill the frame and the device falls away. */
-      .to([max, labs, labCap], { autoAlpha: 0, duration: 0.5, ease: OUT }, 3.5)
-      .to('.glow-top', { opacity: 0, duration: 0.8, ease: OUT }, 3.6)
-      .fromTo(F, { p: 0 }, { p: 1, duration: 2.4, ease: 'none', immediateRender: false }, 3.6)
-      .to(D, { dim: 0.66, duration: 0.35, ease: OUT }, 3.6)
-      .to(P, { x: function () { return K.p3.x; }, y: function () { return K.p3.y; }, s: function () { return K.p3.s; }, ry: 7, duration: 1.25, ease: INOUT }, 3.85)
-      .to(P, { o: 0, duration: 0.8, ease: OUT }, 4.0)
-      .to(C, { vx: function () { return K.c25.vx; }, vy: function () { return K.c25.vy; }, fx: 668, fy: 16, s: function () { return K.c25.s; }, ry: 0, rx: 0, o: 1, duration: 1.1, ease: INOUT }, 3.8)
-      .to(C, { vx: function () { return K.c3.vx; }, vy: function () { return K.c3.vy; }, s: function () { return K.c3.s; }, duration: 1.2, ease: INOUT }, 4.9)
-      .to(W, { t: 1, duration: 0.8, ease: 'none' }, 5.15)
-      .to(D, { body: 0, duration: 0.7, ease: INOUT }, 5.5)
-      .to(D, { win: 1, duration: 0.4, ease: OUT }, 5.8)
-    /* B4: the landing's words step up; the camera pans along the same screen to the list; its words arrive. */
-      .to(land, { y: function () { return landY() - 70; }, autoAlpha: 0, duration: 0.6, ease: INOUT }, 7.3)
-      .fromTo(pan, { t: 0 }, { t: 1, duration: 1.5, ease: INOUT, immediateRender: false }, 7.4)
-      .to({}, { duration: 1.2 }, 8.9);
-    var landY = function () { return g.wy + (576 * g.k - land.offsetHeight) / 2; };
-    var whoY = function () { return g.wy + (576 * g.k - who.offsetHeight) / 2; };
-    gsap.set(land, { y: landY }); gsap.set(who, { y: whoY });
-
-    var LEN = function () { return Math.round(vhOf() * 3.7); };
-    var st = ST.create({
-      trigger: stage, start: 'top top', end: function () { return '+=' + LEN(); }, pin: true, anticipatePin: 1, scrub: 0.6, animation: tl, invalidateOnRefresh: true,
-      onRefresh: function () { measure(); keys(); gsap.set(land, { y: landY }); gsap.set(who, { y: whoY }); tl.invalidate(); render(); }
-    });
-    var T = function () { return tl.duration(); };
-    S.stage = {
-      /* "Today" is on screen from the moment the screen has grown into the room to the end of the act. */
-      today: function () { var a = st.start, L = st.end - st.start, b = $('#top').getBoundingClientRect().bottom + window.scrollY; return [a + L * (ROOM_AT / T()), b]; },
-      todayY: function () { return Math.round(st.start + (st.end - st.start) * (6.6 / T())); }
-    };
-    window.__fxStage = { st: st, tl: tl };
-    return function () {
-      H.classList.remove('stage-on'); S.stage = null; S.heroHidden = false;
-      [cam, win, winIn, winShadow, phone, ltShadow, phShadow, phDim, room, max, land, who, copy, ltCap, fly, $('.glow-top')].concat(devParts).forEach(function (el) { if (el) el.removeAttribute('style'); });
-    };
+  /* --- The set's flight (scrubbed): it lifts off Arjun's set card and is carried to his squat card on Sam's laptop. Its
+     two ends are wherever the page has them this frame. --- */
+  var F = { p: 0 }, phBody = $('#phBody');   // the phone itself (its figure also holds the legend on phones and tablets)
+  function placeFly() {
+    var p = F.p, a = phBody.getBoundingClientRect(), b = ring.getBoundingClientRect();
+    var fw = fly.offsetWidth, fh = fly.offsetHeight;
+    var sx = a.left + a.width * (196 / 393), sy = a.top + a.height * (236 / 852);
+    var ex = b.left + b.width / 2, ey = b.top + b.height / 2;
+    var up = Math.min(1, p / 0.18) * (small() ? 30 : 56);
+    var q = clamp(0, 1, (p - 0.08) / 0.92), e = INOUT(q), arc = (small() ? 0 : 70) * Math.sin(Math.PI * q);
+    var k0 = a.width / 393 * 1.04, k1 = clamp(0.42, 1, b.width / fw);
+    var k = k0 + (k1 - k0) * clamp(0, 1, (q - 0.55) / 0.45);
+    gsap.set(fly, { x: sx + (ex - sx) * e - fw / 2 + arc, y: sy - up * (1 - e) + (ey - sy) * e - fh / 2, scale: k, rotation: (ex - sx) * 0.004 * Math.sin(Math.PI * q) });
   }
+  /* Where the window sits, and when each beat of it happens (scroll positions, from its layout). The window rises zoomed
+     out on Sam's whole screen and zooms in to Arjun's page as it comes up; the set lands there and the total ticks;
+     then, as the list's words come level (on a laptop) or come up under it (stacked), it pans along the same screen to
+     the list. */
+  var winTop = function () { return layoutTop(fwPort); };
+  var crossStart = function () { return logStart() + (small() ? 140 : 160); };
+  var landAt = function () { return Math.max(crossStart() + 320, winTop() - vhOf() * (wide() ? 0.4 : 0.34)); };
+  gsap.timeline({ defaults: { ease: 'none' }, scrollTrigger: { start: crossStart, end: landAt, scrub: 0.5, invalidateOnRefresh: true } })
+    .fromTo(F, { p: 0 }, { p: 1, duration: 1, onUpdate: placeFly }, 0)
+    .fromTo(fly, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.02 }, 0)
+    .to(fly, { autoAlpha: 0, duration: 0.02 }, 0.98);
 
-  /* =====================================================================
-     ACT ONE IN THE FLOW (tablets, phones, short laptops): the same moments, as the page reads top to bottom.
-     ===================================================================== */
-  function buildFlow() {
-    if (vwOf() >= 1100) {
-      buildLabels();
-      onState(labTl, { trigger: phone, start: function () { return 'top+=' + Math.round(phone.offsetHeight * 233 / 852) + ' 66%'; } });
-    }
-    var logStart = function () { return Math.max(40, docTop(logB) + logB.offsetHeight / 2 - vhOf() * (small() ? 0.62 : 0.5)); };
-    onState(logTl, { start: logStart, end: 'max' });
-    onState(maxTl, { trigger: '.max-num', start: function () { return small() ? 'top 72%' : 'top 70%'; } });
-
-    /* The set's crossing (scrubbed): from the phone to the squat card in the window onto Sam's laptop below. */
-    var ring = $('#fwRing'), fwTl = landingTl(fwLive, ring), F = { p: 0 };
-    function placeFly() {
-      var p = F.p, a = phone.getBoundingClientRect(), b = ring.getBoundingClientRect();
-      var fw = fly.offsetWidth, fh = fly.offsetHeight;
-      var sx = a.left + a.width * (196 / 393), sy = a.top + a.height * (236 / 852);
-      var ex = b.left + b.width / 2, ey = b.top + b.height / 2;
-      var e = INOUT(p), arc = (small() ? 0 : 60) * Math.sin(Math.PI * p);
-      var end = clamp(0.5, 1, b.width / fw), k = 1 + (end - 1) * clamp(0, 1, (p - 0.7) / 0.3);
-      gsap.set(fly, { x: sx + (ex - sx) * e - fw / 2 + arc, y: sy + (ey - sy) * e - fh / 2, scale: k });
-    }
-    var crossStart = function () { return Math.max(logStart() + 160, docTop(maxFrom) + maxFrom.offsetHeight - vhOf() * 0.5); };
-    var crossEnd = function () { var b = ring.getBoundingClientRect(); return Math.max(crossStart() + 320, b.top + window.scrollY + b.height / 2 - vhOf() * 0.55); };
-    var crossTl = gsap.timeline({ defaults: { ease: 'none' }, scrollTrigger: { start: crossStart, end: crossEnd, scrub: 0.5, invalidateOnRefresh: true } })
-      .fromTo(F, { p: 0 }, { p: 1, duration: 1, onUpdate: placeFly }, 0)
-      .fromTo(fly, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.015 }, 0)
-      .to(fly, { autoAlpha: 0, duration: 0.015 }, 0.985);
-    var landST = onState(fwTl, { start: crossEnd, end: 'max' });
-    return function () { gsap.set(fly, { autoAlpha: 0 }); if (crossTl.scrollTrigger) crossTl.scrollTrigger.kill(); crossTl.kill(); landST.kill(); };
+  /* --- The window: Sam's whole screen, zoomed in to Arjun's page at its real size, then panned to the list:
+     one scrubbed timeline, so its three states never fight. The squat card is ringed once as the set lands, then the
+     total ticks up 651 to 656. --- */
+  /* Zoomed out: Sam's screen covering the window (no empty bands), centred on the line between his list and Arjun's page. */
+  function deskFit() {
+    var w = fwPort.clientWidth, h = fwPort.clientHeight, s = Math.max(w / 1440, h / 900), seen = w / s, cx = wide() ? 720 : 650;
+    return { x: -clamp(0, 1440 - seen, cx - seen / 2) * s, y: -(900 - h / s) / 2 * s, s: s };
   }
+  function deskHold() { var k = fk(); return { x: -668 * k, y: -16 * k, s: k }; }
+  /* The list's view: "Check on" to Kofi, its group numbers clear of the window's edge (scaled a touch on a phone so its
+     numbers' column stays in). */
+  function deskList() { var s = Math.min(fk(), fwPort.clientWidth / 398); return { x: -222 * s, y: -180 * s, s: s }; }
+  gsap.set(fwDesk, { transformOrigin: '0 0' });
+  var listAt = function () { return winTop() - vhOf() * 0.08; };
+  mm.add({ side: '(min-width: 1100px)', stack: '(max-width: 1099px)' }, function (ctx) {
+    var at = function (f, k) { return function () { return f()[k]; }; };
+    /* In vh of scroll before the window's top reaches 8% of the screen: zoom in as it rises, hold while the set lands and
+       the total ticks, then pan to the list. */
+    var A = ctx.conditions.side ? [1, 0.44, 0.3] : [0.92, 0.4, 0.24];
+    gsap.timeline({ scrollTrigger: { start: function () { return winTop() - vhOf() * A[0]; }, end: listAt, scrub: 0.6, invalidateOnRefresh: true } })
+      .fromTo(fwDesk, { x: at(deskFit, 'x'), y: at(deskFit, 'y'), scale: at(deskFit, 's') }, { x: at(deskHold, 'x'), y: at(deskHold, 'y'), scale: at(deskHold, 's'), ease: INOUT, duration: A[0] - A[1] }, 0)
+      .to(fwDesk, { x: at(deskList, 'x'), y: at(deskList, 'y'), scale: at(deskList, 's'), ease: INOUT, duration: A[2] - 0.08 }, A[0] - A[2]);
+  });
+  var desk = $('#fwDesk'), ovs = function (c) { return $('.' + c + ' .num', desk); };
+  var wasEl = function (n) { return $('.was[src*="' + n + '"]', desk); };
+  /* The landing: the line drawn round the squat card, its number 223 to 228 and +6 to +8, the PR mark, the set line;
+     the week's training count and Arjun's row on the list move with it. */
+  gsap.set(ring, { autoAlpha: 0 }); gsap.set(ringRect, { strokeDasharray: 100, strokeDashoffset: 100 });
+  var pr = $('.ov-pr', desk), sw1 = [$('.ov-foot', desk), $('.ov-trf', desk)];
+  gsap.set(pr, { autoAlpha: 0, scale: 0.9, transformOrigin: '0% 50%' });
+  sw1.forEach(swapStart);
+  var was1 = [wasEl('was-sq2'), wasEl('was-tr2'), wasEl('was-pips2')], was2 = [wasEl('was-hero2')];
+  gsap.set(was1.concat(was2), { opacity: 1 });
+  var land1 = gsap.timeline({ paused: true })
+    .set(ring, { autoAlpha: 1 }, 0)
+    .to(ringRect, { strokeDashoffset: 0, duration: 0.6, ease: INOUT }, 0)
+    .to(ring, { autoAlpha: 0, duration: 0.8, ease: INOUT }, 1.4)
+    .to(was1, { opacity: 0, duration: 0.5, ease: OUT }, 0.12)
+    .to(pr, { autoAlpha: 1, scale: 1, duration: 0.36, ease: OUT }, 0.5);
+  [ovs('ov-sq'), ovs('ov-d'), ovs('ov-tr'), ovs('ov-row')].forEach(function (el, i) { count(land1, el, 0.1 + i * 0.04, 0.8); });
+  sw1.forEach(function (el, i) { swapIn(land1, el, 0.16 + i * 0.05); });
+  /* His total, 651 to 656, and the four weeks' gain, as the set's line is drawn. */
+  var land2 = gsap.timeline({ paused: true }).to(was2, { opacity: 0, duration: 0.5, ease: OUT }, 0.08);
+  count(land2, ovs('ov-total'), 0.05, 0.9); count(land2, $('.ov-chip .num', desk), 0.12, 0.9);
+  onState(land1, { start: landAt, end: 'max' });
+  onState(land2, { start: function () { return landAt() + 30; }, end: 'max' });
+
+  /* The landing's words, and the window rising into the page. */
+  words($('#land-h'), { start: 'top 94%' });
+  rise([$('.land .sub'), $('.land-cap')], { trigger: $('.land .sub'), start: 'top 94%' });
+  rise([$('#fwA')], { y: 36, start: 'top 96%', dur: 0.8 });
 
   /* =====================================================================
-     ANSWERS: Sam reads the set ("Sent" becomes "Seen"), then his reply arrives under it, the way a message lands.
+     TODAY: the lifters who need Sam first, in the app's order, pain first (Priya and Sarah, then Tom's meet, Nina's busy
+     week, Elena over her class, Marcus over plan, the two who wrote). The window has panned to Sam's list: each group is
+     ringed and numbered in turn and its reason lights in the chain beside it (below it on a phone). The list's own
+     figure is the still's.
      ===================================================================== */
-  var sent = $('.tl-sent'), seen = $('.tl-seen'), reply = $('#reply');
+  words($('#who-h'), { start: 'top 94%' });
+  rise([$('.who .sub'), $('#rules')], { trigger: $('.who .sub'), start: 'top 94%' });
+  var chainLis = $$('#chain li'), grps = $$('.grp', desk), mks = $$('.mk', desk);
+  gsap.set(chainLis, { opacity: 0.34 });
+  gsap.set(mks, { autoAlpha: 0, scale: 0.6 });
+  var listTl = gsap.timeline({ paused: true });
+  for (var g = 1; g <= 6; g++) {
+    var gat = (g - 1) * 0.16;
+    listTl.to(chainLis[g - 1], { opacity: 1, duration: 0.3, ease: OUT }, gat)
+      .to(mks[g - 1], { autoAlpha: 1, scale: 1, duration: 0.32, ease: ENTER }, gat)
+      .fromTo(grps[g - 1], { opacity: 0 }, { opacity: 1, duration: 0.3, ease: OUT, immediateRender: false }, gat)
+      .to(grps[g - 1], { opacity: 0.14, duration: 0.5, ease: INOUT }, gat + 0.5);
+  }
+  onState(listTl, { start: listAt, end: 'max' });
+
+  /* =====================================================================
+     ANSWERS: the thread rises beside the words; Sam's note, then Arjun's set arrive the way messages do; Sent becomes
+     Seen; Sam's reply lands under it.
+     ===================================================================== */
+  words($('#answers-h'));
+  rise([$('.answers-copy .lead'), $('.also')], { trigger: $('.answers-copy .lead'), start: 'top 92%' });
+  rise([$('#thread .th-crop'), $('#thread-cap')], { trigger: $('#thread'), y: 40, start: 'top 94%', dur: 0.8 });
+  gsap.fromTo('#thread', { y: 26 }, { y: -26, ease: 'none', scrollTrigger: { trigger: '#answers', start: 'top bottom', end: 'bottom top', scrub: 0.4 } });
+  var sent = $('.tl-sent'), seen = $('.tl-seen'), reply = $('#reply'), tlNote = $('.tl-note'), tlSet = $('.tl-set');
   gsap.set(seen, { autoAlpha: 0 });
-  gsap.set(reply, { autoAlpha: 0, y: 18 });
-  var replyTl = gsap.timeline({ paused: true })
-    .to(sent, { autoAlpha: 0, duration: 0.18, ease: OUT }, 0)
-    .to(seen, { autoAlpha: 1, duration: 0.3, ease: OUT }, 0.08)
-    .to(reply, { autoAlpha: 1, y: 0, duration: 0.42, ease: OUT }, 0.5);
-  onState(replyTl, { trigger: '#thread', start: function () { return small() ? 'top 40%' : 'top 30%'; } });
+  var threadTl = gsap.timeline({ paused: true })
+    .fromTo(tlNote, { autoAlpha: 0, x: -14 }, { autoAlpha: 1, x: 0, duration: 0.46, ease: ENTER }, 0)
+    .fromTo(tlSet, { autoAlpha: 0, x: 22 }, { autoAlpha: 1, x: 0, duration: 0.5, ease: ENTER }, 0.38)
+    .fromTo(sent, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.2, ease: OUT }, 0.74)
+    .to(sent, { autoAlpha: 0, duration: 0.18, ease: OUT }, 1.18)
+    .to(seen, { autoAlpha: 1, duration: 0.3, ease: OUT }, 1.26)
+    .fromTo(reply, { autoAlpha: 0, x: -12, y: 14 }, { autoAlpha: 1, x: 0, y: 0, duration: 0.5, ease: ENTER }, 1.62);
+  onState(threadTl, { trigger: '#thread', start: function () { return small() ? 'top 62%' : 'top 70%'; } });
 
   /* =====================================================================
-     NEXT WEEK: the suggestion Sam's own rule wrote is taken (bench 155 to 145), then Publish arrives: the one crimson
-     here. Nothing reaches Marcus until Sam sends it. On phones the reader's scroll first pans along the true-size row.
+     NEXT WEEK: the week rises; Sam takes the suggestion his own rule wrote (bench 155 to 145): the row turns to
+     "Took 145", the week's header to "Suggestions taken"; then Publish week 3 arrives, the one crimson here. On a
+     phone the reader's scroll first pans along the true-size row.
      ===================================================================== */
-  var wkBefore = $('.wk-before'), wkTap = $('#wkTap'), pub = $('#pub'), pubT = $('.wk-pub-t');
+  words($('#next-h'));
+  rise([$('.next-head .lead')], { start: 'top 92%' });
+  rise($$('.wk-cols span'), { trigger: $('#wk'), start: 'top 88%', stagger: 0.09 });
+  var wkPort = $('#wkPort'), wkIn = $('#wkIn'), wkTap = $('#wkTap'), wkB1 = $('.wk-b1'), wkB2 = $('.wk-b2'), pub = $('#pub'), pubT = $('.wk-pub-t');
+  rise([wkPort], { y: 30, start: 'top 94%', dur: 0.8 });
+  rise([$('#wk-cap'), $('.next-also')], { trigger: $('#wk-cap'), start: 'top 96%' });
   gsap.set([pub, pubT], { autoAlpha: 0 });
   gsap.set(pub, { scale: 0.94, transformOrigin: '0% 50%' });
+  var b1From = 'inset(73.902% 0.345% 13.437% 66.897%)', b1To = 'inset(73.902% 0.345% 13.437% 99.655%)';
   var takeTl = gsap.timeline({ paused: true })
-    .fromTo(wkTap, { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.18, ease: OUT }, 0)
-    .to(wkBefore, { autoAlpha: 0, duration: 0.32, ease: OUT }, 0.2)
-    .to(wkTap, { opacity: 0, duration: 0.4, ease: OUT }, 0.42)
-    .to(pub, { autoAlpha: 1, scale: 1, duration: 0.34, ease: OUT }, 0.62)
-    .to(pubT, { autoAlpha: 1, duration: 0.3, ease: OUT }, 0.74);
-  var wkIn = $('#wkIn'), wkPort = $('#wkPort');
+    .fromTo(wkTap, { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.2, ease: OUT }, 0)
+    .fromTo(wkB1, { clipPath: b1From }, { clipPath: b1To, duration: 0.6, ease: INOUT, immediateRender: false }, 0.22)
+    .to(wkTap, { opacity: 0, duration: 0.4, ease: OUT }, 0.5)
+    .fromTo(wkB2, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.4, ease: OUT, immediateRender: false }, 0.9)
+    .to(pub, { autoAlpha: 1, scale: 1, duration: 0.36, ease: ENTER }, 1.2)
+    .fromTo(pubT, { y: 8 }, { autoAlpha: 1, y: 0, duration: 0.34, ease: ENTER }, 1.32);
   mm.add({ phoneW: '(max-width: 759px)', wideW: '(min-width: 760px)' }, function (ctx) {
     if (ctx.conditions.phoneW) {
-      gsap.timeline({ scrollTrigger: { trigger: wkPort, start: 'top 82%', end: 'top 30%', scrub: 0.5, invalidateOnRefresh: true } })
+      var pan = gsap.timeline({ scrollTrigger: { trigger: wkPort, start: 'top 82%', end: 'top 30%', scrub: 0.5, invalidateOnRefresh: true } })
         .fromTo(wkIn, { x: 0 }, { x: function () { var cs = getComputedStyle(wkPort); return -(wkIn.offsetWidth - (wkPort.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight))); }, ease: 'none', duration: 1 });
-      onState(takeTl, { trigger: wkPort, start: 'top 30%' });
-    } else {
-      onState(takeTl, { trigger: wkPort, start: 'bottom 90%' });
+      var a = onState(takeTl, { trigger: wkPort, start: 'top 30%' });
+      return function () { a.kill(); pan.scrollTrigger.kill(); pan.kill(); gsap.set(wkIn, { clearProps: 'transform' }); };
     }
+    var b = onState(takeTl, { trigger: wkPort, start: 'bottom 88%' });
+    return function () { b.kill(); };
   });
 
   /* =====================================================================
-     MEET DAY: the striking moment. On a laptop the stage holds the screen (sticky) for the whole run: the camera
-     starts close on the dark lights while the room around them goes dark; all three turn white in one frame; Sam marks
-     it and Tom's phone wakes with his next attempt; the camera pulls back to the team; the platform's minute runs;
-     the call. On smaller screens the stage scrolls and the same beats run from the lights to the Declare.
+     MEET DAY: a chapter like the others. As the platform arrives the three lights come on one by one: good lift. Tom's
+     phone wakes with his next attempt and Declare turns crimson; the platform's minute runs, smoothly, 1:00 to 0:41;
+     the call: Declare presses and becomes Declared 215, the board's 2nd fills, and on Tom's phone he is one out.
      ===================================================================== */
-  var meet = $('#meet'), scene = $('#scene'), judgesBox = $('#judges'), judges = $$('#judges i');
+  words($('#meet-h'));
+  var scene = $('#scene'), judgesBox = $('#judges'), judges = $$('#judges i');
   var cell1 = $('#cell1'), cell2 = $('#cell2'), dec = $('#decBtn'), beats = $$('#beats .beat');
   var clockN = $('#clockN'), clockBar = $('#clockBar'), mpOn = $('#mpOn');
-  var dimmed = $$('#meet .mdim');
-  /* The platform before the lights: Tom's opener on the bar, the lights dark, the minute not started, the planned next
-     attempt waiting on the board and on his phone (asleep in his hand). */
   judges.forEach(function (i) { i.classList.add('is-off'); });
   judgesBox.setAttribute('aria-label', 'The three lights, not on yet');
-  gsap.set('#verdict', { autoAlpha: 0, y: 6 });
-  gsap.set('#clock', { autoAlpha: 0 });
+  gsap.set('#verdict', { autoAlpha: 0, y: 8 });
   [$('#slabOut'), $('#slabDec'), cell1, cell2, $('.swap', dec)].forEach(swapStart);
   var red = document.createElement('span'); red.className = 'dec-red'; red.setAttribute('aria-hidden', 'true'); dec.insertBefore(red, dec.firstChild);
   gsap.set(red, { opacity: 0 });
   gsap.set('#meetCap', { autoAlpha: 0, y: 8 });
   gsap.set(mpOn, { autoAlpha: 0 });
-  function clockText(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+  function clockText(s) { s = Math.max(0, Math.ceil(s - 1e-6)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
   function setClock(s) { var t = clockText(s); if (clockN.textContent !== t) clockN.textContent = t; }
+  var minute = { s: 60 };
   setClock(60);
   gsap.set(clockBar, { scaleX: 1 });
   function beatTo(n) { beats.forEach(function (b, i) { b.classList.toggle('is-on', i <= n); }); }
   beatTo(0);
-
-  /* M · The lights (a state change after the held beat): all three white in one frame. The board marks it good, Tom's
-     phone wakes with his next attempt, the minute starts on the platform, and Declare turns crimson. */
-  var lightsTl = gsap.timeline({ paused: true })
-    .add(function () { var on = !lightsTl.reversed(); judges.forEach(function (i) { i.classList.toggle('is-off', !on); }); judgesBox.setAttribute('aria-label', on ? 'Three white lights: a good lift' : 'The three lights, not on yet'); }, 0.001)
-    .to('#verdict', { autoAlpha: 1, y: 0, duration: 0.32, ease: OUT }, 0.08)
-    .to('#clock', { autoAlpha: 1, duration: 0.3, ease: OUT }, 0.26)
-    .to(red, { opacity: 1, duration: 0.24, ease: OUT }, 0.34)
-    .to(mpOn, { autoAlpha: 1, duration: 0.42, ease: OUT }, 0.3);
-  swapIn(lightsTl, cell1, 0.18);
-  /* M · The minute (scrubbed): 1:00 runs down to 0:41 on the platform's clock as the reader scrolls, its bar draining.
-     (The app's board and the lifter's card show no countdown; the minute is the platform's.) */
-  var minute = { s: 60 };
-  var minuteTl = gsap.timeline({ paused: true, defaults: { ease: 'none' } })
-    .to(minute, { s: 41, duration: 1, onUpdate: function () { setClock(minute.s); } }, 0)
-    .to(clockBar, { scaleX: 41 / 60, duration: 1 }, 0);
-  /* M · The call (a state change at 0:41): Declare presses and settles to Declared; the board's 2nd fills; on Tom's
-     phone it drops "not declared yet" and he is one out. The choice locks, as it does on the day. */
-  var callTl = gsap.timeline({ paused: true })
-    .add(function () { lock(!callTl.reversed()); }, 0.001)
-    .to(dec, { scale: 0.97, duration: 0.11, ease: OUT }, 0)
-    .to(dec, { scale: 1, duration: 0.28, ease: OUT }, 0.12)
-    .to(red, { opacity: 0, duration: 0.24, ease: OUT }, 0.08)
-    .fromTo('#slab', { boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.07)' }, { boxShadow: '0 0 0 2px rgba(52, 217, 130, 0.85)', duration: 0.3, ease: OUT, immediateRender: false }, 0.3)
-    .to('#slab', { boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.07)', duration: 0.8, ease: INOUT }, 1.1)
-    .to('#meetCap', { autoAlpha: 1, y: 0, duration: 0.36, ease: OUT }, 0.5);
-  swapIn(callTl, $('.swap', dec), 0.08);
-  swapIn(callTl, cell2, 0.16);
-  swapIn(callTl, $('#slabDec'), 0.3);
-  swapIn(callTl, $('#slabOut'), 0.36);
-  var litGate = gate(lightsTl), callGate = gate(callTl);
-
-  mm.add({ held: '(min-width: 1100px) and (min-height: 700px)', open: '(max-width: 1099px), (max-height: 699px)' }, function (ctx) {
-    if (ctx.conditions.held) {
-      /* The camera, round the lights: in close while the room goes dark, then back to the whole team. */
-      /* Its origin: the lights' middle across, the meet's name down, so the name holds still under the headline. */
-      var focus = function () { var j = judgesBox.getBoundingClientRect(), m = $('.stage-meta').getBoundingClientRect(), s = scene.getBoundingClientRect(); return (j.left + j.width / 2 - s.left) + 'px ' + (m.top - s.top) + 'px'; };
-      var camTl = gsap.timeline({ paused: true, defaults: { ease: 'none' } })
-        .fromTo(scene, { scale: 1 }, { scale: 1.26, duration: 0.07, ease: INOUT, immediateRender: false }, 0)
-        .fromTo(dimmed, { opacity: 0 }, { opacity: 0.93, duration: 0.07, ease: INOUT, immediateRender: false }, 0)
-        .to(scene, { scale: 1, duration: 0.2, ease: INOUT }, 0.15)
-        .to(dimmed, { opacity: 0, duration: 0.18, ease: INOUT }, 0.17)
-        .to({}, { duration: 0.65 }, 0.35);
-      var run = ST.create({
-        trigger: meet, start: 'top top', end: 'bottom bottom', invalidateOnRefresh: true,
-        onRefresh: function () { gsap.set(scene, { clearProps: 'transform' }); gsap.set(scene, { transformOrigin: focus() }); camTl.invalidate(); },
-        onUpdate: function (st) {
-          var p = st.progress;
-          gsap.to(camTl, { progress: p, duration: 0.4, ease: OUT, overwrite: true });
-          litGate(p, 0.115);
-          gsap.to(minuteTl, { progress: clamp(0, 1, (p - 0.3) / 0.44), duration: 0.4, ease: OUT, overwrite: true });
-          callGate(p, 0.8);
-          beatTo(p < 0.115 ? 0 : p < 0.52 ? 1 : 2);
-        }
-      });
-      gsap.set(scene, { transformOrigin: focus(), willChange: 'transform' });
-      return function () { run.kill(); camTl.progress(0).kill(); gsap.set(scene, { clearProps: 'transform,willChange' }); gsap.set(dimmed, { clearProps: 'opacity' }); };
-    }
-    var s0 = function () { return docTop(judges[0]) - vhOf() * 0.72; };
-    var s1 = function () { return Math.max(s0() + 240, docTop(dec) - vhOf() * 0.62); };
-    var flow = ST.create({ start: s0, end: s1, invalidateOnRefresh: true, onUpdate: function (st) {
-      var p = st.progress;
-      litGate(p, 0.01);
-      gsap.to(minuteTl, { progress: clamp(0, 1, (p - 0.04) / 0.86), duration: 0.35, ease: OUT, overwrite: true });
-      callGate(p, 0.94);
-      beatTo(p < 0.01 ? 0 : p < 0.5 ? 1 : 2);
-    } });
-    return function () { flow.kill(); };
+  var meetTl = gsap.timeline({ paused: true });
+  /* The lights, one by one (a callback each way, so scrolling back turns them off in turn). */
+  judges.forEach(function (j, i) {
+    meetTl.add(function () { var on = !meetTl.reversed(); j.classList.toggle('is-off', !on); if (i === 2) { judgesBox.setAttribute('aria-label', on ? 'Three white lights: a good lift' : 'The three lights, not on yet'); beatTo(on ? 1 : 0); } }, 0.001 + i * 0.24)
+      .fromTo(j, { scale: 0.9 }, { scale: 1, duration: 0.4, ease: ENTER, immediateRender: false }, 0.001 + i * 0.24);
   });
+  meetTl.to('#verdict', { autoAlpha: 1, y: 0, duration: 0.4, ease: ENTER }, 0.66)
+    .to(mpOn, { autoAlpha: 1, duration: 0.42, ease: OUT }, 0.74)
+    .add(function () { S.decRed = !meetTl.reversed(); paintReds(); }, 0.8)
+    .to(red, { opacity: 1, duration: 0.24, ease: OUT }, 0.8);
+  swapIn(meetTl, cell1, 0.7);
+  /* The platform's minute: a real, smooth countdown, a second at a time, its bar draining with it. */
+  var RUN = 4.2, T0 = 1.0;
+  meetTl.to(minute, { s: 41, duration: RUN, ease: 'none', onUpdate: function () { setClock(minute.s); } }, T0)
+    .fromTo(clockBar, { scaleX: 1 }, { scaleX: 41 / 60, duration: RUN, ease: 'none', immediateRender: false }, T0);
+  /* The call at 0:41. */
+  var C = T0 + RUN + 0.15;
+  meetTl.add(function () { var on = !meetTl.reversed(); lock(on); beatTo(on ? 2 : 1); }, C)
+    .to(dec, { scale: 0.97, duration: 0.11, ease: OUT }, C)
+    .to(dec, { scale: 1, duration: 0.28, ease: OUT }, C + 0.12)
+    .to(red, { opacity: 0, duration: 0.24, ease: OUT }, C + 0.08)
+    .add(function () { S.decRed = meetTl.reversed(); paintReds(); }, C + 0.2)
+    .fromTo('#slab', { boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.07)' }, { boxShadow: '0 0 0 2px rgba(52, 217, 130, 0.85)', duration: 0.3, ease: OUT, immediateRender: false }, C + 0.3)
+    .to('#slab', { boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.07)', duration: 0.8, ease: INOUT }, C + 1.1)
+    .to('#meetCap', { autoAlpha: 1, y: 0, duration: 0.36, ease: ENTER }, C + 0.5);
+  swapIn(meetTl, $('.swap', dec), C + 0.08);
+  swapIn(meetTl, cell2, C + 0.16);
+  swapIn(meetTl, $('#slabDec'), C + 0.3);
+  swapIn(meetTl, $('#slabOut'), C + 0.36);
+  onState(meetTl, { trigger: scene, start: function () { return small() ? 'top 74%' : 'top 66%'; } });
+  rise($$('#meet .side > .cap'), { trigger: scene, start: 'top 90%', stagger: 0.1 });
+  rise(beats.concat([$('.meet-after')]), { trigger: $('#beats'), start: 'top 96%', stagger: 0.08 });
 
   /* =====================================================================
-     MOVING OVER: each step's arrow draws from what you bring to what it becomes (a state change, as the step arrives).
+     MOVING OVER: the three steps tick in, one after another (the number, its words, the arrow to what it becomes);
+     the import's preview rises beside them, unrolling.
      ===================================================================== */
-  $$('#steps .step-i').forEach(function (s) {
-    var paths = $$('.becomes svg path', s);
+  words($('#moving-h'));
+  var stepsTl = gsap.timeline({ paused: true });
+  $$('#steps .step-i').forEach(function (s, i) {
+    var at = i * 0.24, paths = $$('.becomes svg path', s);
     gsap.set(paths, { strokeDasharray: 32, strokeDashoffset: 32 });
-    var tl = gsap.timeline({ paused: true }).to(paths, { strokeDashoffset: 0, duration: 0.5, ease: OUT }, 0);
-    onState(tl, { trigger: s, start: 'top 78%' });
+    stepsTl.fromTo($('.sn', s), { autoAlpha: 0, scale: 0.7 }, { autoAlpha: 1, scale: 1, duration: 0.42, ease: ENTER }, at)
+      .fromTo($('.st p', s), { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 0.55, ease: ENTER }, at + 0.05)
+      .fromTo($('.becomes', s), { autoAlpha: 0, x: -8 }, { autoAlpha: 1, x: 0, duration: 0.5, ease: ENTER }, at + 0.16)
+      .to(paths, { strokeDashoffset: 0, duration: 0.5, ease: OUT }, at + 0.2);
   });
+  onState(stepsTl, { trigger: '#steps', start: 'top 84%' });
+  var impTl = gsap.timeline({ paused: true })
+    .fromTo('#imp', { autoAlpha: 0, y: 32 }, { autoAlpha: 1, y: 0, duration: 0.8, ease: ENTER }, 0)
+    .fromTo('#imp .sheet-crop', { clipPath: 'inset(0% 0% 100% 0% round 18px)' }, { clipPath: 'inset(0% 0% 0% 0% round 18px)', duration: 0.9, ease: INOUT }, 0.08)
+    .fromTo('#imp-cap', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: ENTER }, 0.6);
+  onState(impTl, { trigger: '#imp', start: 'top 88%' });
+  rise([$('.move-foot')], { start: 'top 96%' });
+
+  /* KNOW WHO HAS PAID: the month's paid total counts up to $2,650 as its bar fills to 82%; Recurring to $3,248 (on a
+     laptop); then the live numbers hand over to the capture's own (they match it). */
+  rise([$('#money-h'), $('.money-copy p:not(.money-2)'), $('.money-2')], { trigger: $('#money-h'), start: 'top 90%' });
+  rise([$('.cl')], { y: 30, start: 'top 94%', dur: 0.8 });
+  var clTl = gsap.timeline({ paused: true });
+  $$('.cl-live').forEach(function (live) {
+    var pb = $('.cl-pb', live);
+    gsap.set(live, { autoAlpha: 1 });
+    clTl.fromTo(pb, { clipPath: 'inset(0% 0% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 100%)', duration: 1.3, ease: OUT, immediateRender: true }, 0.15);
+    $$('.cl-n .num', live).forEach(function (n, i) { count(clTl, n, 0.15 + i * 0.12, 1.3, OUT); });
+    clTl.to(live, { autoAlpha: 0, duration: 0.35, ease: OUT }, 1.75);
+  });
+  onState(clTl, { trigger: '.cl', start: 'top 92%' });
 
   /* =====================================================================
-     PRICING: Sam's roster joins (scrubbed). The first three are free; as the reader scrolls the other seventeen take
-     their seats, the plan they fall in lights, and the line under the scale reads the count and the price.
+     PRICING: the offer settles (its words, Start coaching free, the branded phone rising with its labels); the plans
+     arrive left to right, and Sam's roster fills from 11 to 20 lifters on Pro, a seat at a time.
      ===================================================================== */
+  words($('#plans-h'));
+  rise([$('.plans-head .lead')], { start: 'top 92%' });
+  var plansTl = gsap.timeline({ paused: true })
+    .fromTo('#plansCta .act-btn', { autoAlpha: 0, y: 8, scale: 0.96 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, ease: ENTER }, 0)
+    .fromTo('#plansCta .cta-note', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: ENTER }, 0.1);
+  onState(plansTl, { trigger: '#plansCta', start: 'top 94%' });
+  var bpTl = gsap.timeline({ paused: true }).fromTo('.brand-ph .bp-crop', { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.8, ease: ENTER }, 0);
+  $$('.bp-lab').forEach(function (l, i) {
+    bpTl.fromTo($('.bp-l', l), { scaleX: 0, transformOrigin: '100% 50%' }, { scaleX: 1, duration: 0.4, ease: ENTER }, 0.45 + i * 0.12)
+      .fromTo($('.bp-t', l), { autoAlpha: 0, x: 6 }, { autoAlpha: 1, x: 0, duration: 0.4, ease: ENTER }, 0.55 + i * 0.12);
+  });
+  bpTl.fromTo('#brand-cap', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: ENTER }, 0.3);
+  onState(bpTl, { trigger: '.brand-ph', start: 'top 90%' });
+  rise($$('#scale .band'), { trigger: '#scale', start: 'top 92%', stagger: 0.08, y: 14 });
   var seats = $$('#scale .f:not(.f-open)'), bands = $$('#scale .band'), scN = $('#scN'), plan = $('#scPlan');
   var planKids = plan ? Array.prototype.slice.call(plan.children) : [];
   var shown = -1;
@@ -722,19 +633,65 @@
     scN.textContent = String(n);
     planKids.forEach(function (k, i) { k.style.visibility = i === t ? 'visible' : 'hidden'; });
   }
-  paintRoster(3);
-  ST.create({
-    trigger: '#scale', start: function () { return small() ? 'top 80%' : 'top 90%'; }, end: function () { return small() ? 'bottom 40%' : 'bottom 62%'; },
-    onUpdate: function (st) { paintRoster(3 + Math.round(st.progress * 17)); },
-    onLeave: function () { paintRoster(20); }, onLeaveBack: function () { paintRoster(3); }
-  });
+  paintRoster(11);
+  var R = { n: 11 };
+  var rosterTl = gsap.timeline({ paused: true }).fromTo(R, { n: 11 }, { n: 20, duration: 1.35, ease: 'power1.inOut', onUpdate: function () { paintRoster(Math.round(R.n)); } }, 0.1);
+  onState(rosterTl, { trigger: '#scale', start: function () { return small() ? 'top 70%' : 'top 76%'; } });
+  rise([$('.scale-cap'), $('.plans-foot')], { trigger: $('.scale-cap'), start: 'top 97%' });
 
-  /* Every trigger refreshes in page order (the held act adds its scroll length above the later ones); the page map
-     is re-read after each refresh. */
-  ST.addEventListener('refresh', function () { measurePage(); paintNav(); });
+  /* =====================================================================
+     QUESTIONS: they arrive in turn; the first opens to its answer (its place was kept, so the questions under it slide
+     down as it opens and nothing else on the page moves). A reader who opens or closes it first simply has it.
+     ===================================================================== */
+  words($('#faq-h'));
+  rise([$('.faq-demo')], { start: 'top 94%' });
+  rise($$('.qs .q > summary'), { trigger: '.qs-cols', start: 'top 90%', stagger: 0.045 });
+  var q1 = $('.q-first'), qa1 = q1 && $('.qa', q1);
+  if (q1 && qa1 && q1.open) {
+    var below = [], n1 = q1.nextElementSibling;
+    while (n1) { below.push(n1); n1 = n1.nextElementSibling; }
+    var lift = function () { return -qa1.offsetHeight + 'px'; };
+    q1.dataset.held = '1'; q1.classList.add('is-shut');
+    gsap.set(qa1, { autoAlpha: 0, clipPath: 'inset(0% 0% 100% 0%)' });
+    gsap.set(below, { '--qy': lift });
+    var openTl = gsap.timeline({ paused: true, onComplete: function () { delete q1.dataset.held; }, onReverseComplete: function () { q1.dataset.held = '1'; } })
+      .add(function () { q1.classList.toggle('is-shut', openTl.reversed()); }, 0.001)
+      .to(below, { '--qy': '0px', duration: 0.6, ease: INOUT }, 0)
+      .to(qa1, { autoAlpha: 1, clipPath: 'inset(0% 0% 0% 0%)', duration: 0.6, ease: INOUT }, 0)
+      .fromTo($('p', qa1), { y: -8 }, { y: 0, duration: 0.6, ease: ENTER }, 0.12);
+    var openST = onState(openTl, { trigger: q1, start: 'top 74%' });
+    /* The reader's own click wins: the question is theirs from then on. */
+    $('summary', q1).addEventListener('click', function () {
+      if (!openST) return;
+      openST.kill(); openST = null; openTl.progress(1).kill();
+      gsap.set(below, { clearProps: '--qy' }); gsap.set(qa1, { clearProps: 'all' });
+      q1.classList.remove('is-shut'); delete q1.dataset.held;
+    });
+  }
+
+  /* =====================================================================
+     THE LAST CALL: the line rises, then Start coaching free settles; the footer comes to rest under it.
+     ===================================================================== */
+  words($('#close-h'), { start: 'top 88%', stagger: 0.06 });
+  rise([$('.close .lead')], { start: 'top 94%' });
+  var closeTl = gsap.timeline({ paused: true })
+    .fromTo('#closeCta .act-btn', { autoAlpha: 0, y: 8, scale: 0.96 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, ease: ENTER }, 0)
+    .fromTo('#closeCta .quiet', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.5, stagger: 0.08, ease: ENTER }, 0.12);
+  onState(closeTl, { trigger: '#closeCta', start: 'top 96%' });
+  rise([$('.foot-brand')].concat($$('.foot-cols > div'), [$('.foot-c')]), { trigger: '.foot', start: 'top 96%', stagger: 0.07, y: 16 });
+
+  /* Every trigger refreshes in page order; the page map is re-read after each refresh. The boot ends two frames after
+     the first refresh: from then on every moment plays as its block arrives. */
+  ST.addEventListener('refresh', function () { measurePage(); paintNav(); paintReds(); });
   ST.sort(); ST.refresh();
+  requestAnimationFrame(function () { requestAnimationFrame(function () { booting = false; window.__fxReady = true; }); });
   function refresh() { fitFw(); ST.sort(); ST.refresh(); }
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(refresh);
   if (document.readyState === 'complete') requestAnimationFrame(refresh); else window.addEventListener('load', refresh);
+  /* Every picture keeps its place before it loads (width and height, per source); if one landing ever changes the page's
+     height anyway, the page's map is re-read once things settle, so no trigger is ever out by a picture. */
+  var refT = 0, pageH = document.documentElement.scrollHeight;
+  ST.addEventListener('refresh', function () { pageH = document.documentElement.scrollHeight; });
+  $$('.s-home img[loading="lazy"]').forEach(function (i) { if (!i.complete) i.addEventListener('load', function () { clearTimeout(refT); refT = setTimeout(function () { if (document.documentElement.scrollHeight !== pageH) ST.refresh(); }, 200); }, { once: true }); });
   }
 })();
