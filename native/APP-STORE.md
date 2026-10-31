@@ -71,6 +71,31 @@ Terms of Use: https://www.powalifta.com/terms.html
 Privacy Policy: https://www.powalifta.com/privacy.html
 ```
 
+**What's New** (version notes, ≤4000) — v1.3 (DRAFT, 31 Oct: drop any line 1.2 already shipped):
+```
+New in 1.3
+
+For coaches
+- The coach app on iPhone: Home opens on your team's week (training, strength, effort and meets), then whoever needs you, pain first
+- Monday review: each lifter's week drafted into a note from their own logs. Read it, change a word, send it, next
+- Results cards for Instagram: your lifters' average gain this block, and this week's PR wall. Lifters can keep their name off
+- New lifters: people who apply from your profile and lifters who ask to join, in one place
+- Meet day on your phone: the board, the lights, the clock and the next attempt. Add a meet to your calendar
+- Clients: what each lifter pays, who has paid and who is due
+- Home Screen widgets for coaches: who needs you, the next meet, clients and your team's week
+
+For lifters
+- Swap a lift for a variation today: the same effort, and your coach still sees what they wrote
+- Your meet, your class and your pace on the weigh-in: how far over you are and what a week needs to get there
+- Stronger than X% of lifters in your class, from public meet results
+- Apple Health: weigh-ins both ways, every session saved as a workout, sleep and resting heart rate on Train
+- A PR widget, and a fresh look for every widget
+- Pull down to refresh Club
+
+And
+- A set logged while you were offline is never lost
+```
+
 **What's New** (version notes, ≤4000) — v1.2:
 ```
 New in 1.2
