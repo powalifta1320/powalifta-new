@@ -1463,16 +1463,17 @@
     if (!hasDom) return;
     var n = 0, m = unreadMap();
     Object.keys(m).forEach(function (k) { n += Math.max(0, Number(m[k]) || 0); });
-    paintTabBadge('messages', n, '', 'Messages', n ? 'Messages, ' + plural(n, 'unread') : null);
+    paintTabBadge('messages', n, 'ca-tbadge', 'Messages', n ? 'Messages, ' + plural(n, 'unread') : null);
     var nl = newLiftersPeople().length;
-    paintTabBadge('athletes', nl, 'is-ink', 'Lifters', nl ? 'Lifters, ' + nl + ' new ' + (nl === 1 ? 'lifter' : 'lifters') + ' waiting' : null);
+    // Its own class: .ca-tbadge stays the one unread count on the bar (what reads it, and the flows, find one).
+    paintTabBadge('athletes', nl, 'ca-tbadge-nl', 'Lifters', nl ? 'Lifters, ' + nl + ' new ' + (nl === 1 ? 'lifter' : 'lifters') + ' waiting' : null);
   }
   function paintTabBadge(src, n, cls, label, aria) {
     var bt = document.querySelector('.bottom-tab[data-src="' + src + '"]');
     if (!bt) return;
-    var b = bt.querySelector('.ca-tbadge');
+    var b = bt.querySelector('.' + cls);
     if (!n) { if (b) b.remove(); if (bt.getAttribute('aria-label') !== label && bt.hasAttribute('data-ca-aria')) bt.setAttribute('aria-label', label); return; }
-    if (!b) { b = document.createElement('span'); b.className = 'ca-tbadge' + (cls ? ' ' + cls : ''); b.setAttribute('aria-hidden', 'true'); bt.appendChild(b); }
+    if (!b) { b = document.createElement('span'); b.className = cls; b.setAttribute('aria-hidden', 'true'); bt.appendChild(b); }
     b.textContent = n > 9 ? '9+' : String(n);
     bt.setAttribute('aria-label', aria); bt.setAttribute('data-ca-aria', '1');
   }

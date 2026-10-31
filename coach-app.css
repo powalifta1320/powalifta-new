@@ -778,15 +778,15 @@ html.native:not(.desk) .bottom-tab { position: relative; }
    styles.css should take the same two values for the lifter app */
 html.native:not(.desk) body.powa-app .bottom-tab:not(.active) { color: rgba(235, 235, 245, 0.64); }
 html.native[data-theme="light"]:not(.desk) body.powa-app .bottom-tab:not(.active) { color: rgba(60, 60, 67, 0.82); }
-html.native:not(.desk) .ca-tbadge {
+html.native:not(.desk) :is(.ca-tbadge, .ca-tbadge-nl) {
   position: absolute; top: 5px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
   background: #34e08c; color: #04140c; font: 700 11px/18px var(--font-num, inherit); text-align: center; font-variant-numeric: tabular-nums; z-index: 2; pointer-events: none;
   box-shadow: 0 0 0 2px rgba(12, 12, 15, 0.92);
 }
 html.native[data-theme="light"]:not(.desk) .ca-tbadge { background: #0c7a45; color: #fff; box-shadow: 0 0 0 2px #fff; }
 /* Lifters' count (new lifters waiting) is ink: the tab's own hue is the red, which stays the screen's one action's. */
-html.native:not(.desk) .ca-tbadge.is-ink { background: #f2f2f5; color: #0b0b0c; }
-html.native[data-theme="light"]:not(.desk) .ca-tbadge.is-ink { background: #1c1c1f; color: #fff; }
+html.native:not(.desk) .ca-tbadge-nl { background: #f2f2f5; color: #0b0b0c; }
+html.native[data-theme="light"]:not(.desk) .ca-tbadge-nl { background: #1c1c1f; color: #fff; }
 /* Home: new lifters waiting, one calm row under Needs you (coach-app.js newLiftersHtml): the faces, who, a chevron. */
 html:not(.desk) .ca-newl { margin-top: 20px; }
 html:not(.desk) .ca-newl-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 72px; padding: 12px 16px; border: 1px solid var(--ca-edge); border-radius: 20px; background: var(--ca-card); box-shadow: var(--pl-lip); color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 140ms ease-out; }
