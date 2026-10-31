@@ -449,7 +449,7 @@
       { label: 'Your templates', icon: ic('note'), onClick: toTemplates },
       take(/^Export/, { label: 'Export as a file', icon: ic('down') })];
     take(/^Add week/);
-    var del = take(/^Delete program/);
+    var del = take(/^Delete program/);   // it asks in the app's own sheet on the phone (programMenuActions)
     var rest = acts.filter(function (a) { return used.indexOf(a) < 0; });
     menu(prog.name || 'Program', [tell, next, how.concat(rest), keep, [del]]);
   }
@@ -1225,12 +1225,9 @@
       }
       var del = el('button', { type: 'button', class: 'cp-sheet-quiet cp-sheet-del' });
       del.innerHTML = ICONS.trash + '<span>Delete template</span>';
+      // Asked in the app's own sheet over this one: Keep comes back here, Delete closes both.
       del.addEventListener('click', function () {
-        if (!confirm('Delete “' + (t.name || 'this template') + '”? Lifters who have it keep their block.')) return;
-        Store.update(function (s) { s.programTemplates = (s.programTemplates || []).filter(function (x) { return x.id !== t.id; }); });
-        if (typeof persistDeleteTemplate === 'function') persistDeleteTemplate(t.id);
-        close();
-        renderTemplates(document.getElementById('templatesArea'));
+        deleteTemplateSheet(t, function () { close(); renderTemplates(document.getElementById('templatesArea')); });
       });
       sheet.appendChild(del);
     }, { cls: 'cp-tpl-sheet' });
@@ -1337,12 +1334,18 @@
       secondary: { label: 'Invite a lifter first', onClick: function () { openInviteModal(); } }
     });
   }
+  // A lifter with nothing running: their first block, or (with past blocks kept, after a delete or a finished
+  // block) their next one. → { hi, title }
+  function cpNoBlockWords(name, hasPast) {
+    return { hi: hasPast ? 'No block running' : 'No block yet', title: 'Write ' + first(name) + '\u2019s ' + (hasPast ? 'next' : 'first') + ' block' };
+  }
   function emptyNoBlock(aid) {
     var a = (Store.get().athletes || []).find(function (x) { return x.id === aid; }) || { name: 'them' };
+    var words = cpNoBlockWords(a.name, (Store.get().programBlocks || []).some(function (b) { return b && b.athleteId === aid; }));
     var wrap = el('div', { class: 'cp-empty' });
     var hero = el('div', { class: 'ca-hero cp-hero ca-rise' });
-    hero.appendChild(el('p', { class: 'ca-hero-hi' }, 'No block yet'));
-    hero.appendChild(el('h2', { class: 'ca-welcome-t' }, 'Write ' + first(a.name) + '’s first block'));
+    hero.appendChild(el('p', { class: 'ca-hero-hi' }, words.hi));
+    hero.appendChild(el('h2', { class: 'ca-welcome-t' }, words.title));
     hero.appendChild(el('p', { class: 'ca-hero-sub' }, 'Start blank and add the days, or let the app draft one from their maxes and goal.'));
     var create = el('button', { type: 'button', class: 'ca-btn is-red' }, 'Start a blank block');
     create.addEventListener('click', function () { if (typeof createProgramFor === 'function') createProgramFor(aid); });
@@ -1365,6 +1368,79 @@
     return wrap;
   }
 
+  /* ---------------------------------------------------------------- Delete program / Delete template
+     The app's own ask, built like Remove from roster (coach.html openRemoveLifterSheet): the thing's name, honest
+     words about what goes and what stays, the destructive action as the sheet's crimson, Keep in ink under it.
+     The laptop keeps its browser confirm (coach.html deleteProgram, desk.js's template ⋯), as Remove does there. */
+  function quoteName(s, fallback) { var n = String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); return n ? '“' + (n.length > 60 ? n.slice(0, 59).trim() + '…' : n) + '”' : fallback; }
+  // What Delete program says. prog: the lifter's program; name: the lifter's name; trained: a set in it is logged
+  // (app.js programHasTraining), so deleteProgram keeps the block as a past block (archiveProgramIfTrained).
+  function cpDeleteProgramWords(prog, name, trained) {
+    var who = first(name) || 'the lifter';
+    return {
+      title: 'Delete ' + quoteName(prog && prog.name, 'this program') + '?',
+      words: trained
+        ? 'What ' + who + ' logged is kept as a past block. The weeks still to come are deleted, and ' + who + ' has no program until you write or apply one.'
+        : 'Nothing in it is logged yet, so nothing is kept, and ' + who + ' has no program until you write or apply one. You can’t undo this.',
+      go: 'Delete program', keep: 'Keep program'
+    };
+  }
+  // What Delete template says: a lifter it was applied to has their own copy (applyTemplateToLifters copies it).
+  function cpDeleteTemplateWords(t) {
+    return {
+      title: 'Delete ' + quoteName(t && t.name, 'this template') + '?',
+      words: 'Lifters you gave it to keep their block. Only the saved template goes, and you can’t undo this.',
+      go: 'Delete template', keep: 'Keep template'
+    };
+  }
+  // The sheet. o: { title, words, go, keep, face: { name, avatarUrl } | null, onGo: async () → true when done, onDone }
+  function openDeleteSheet(o) {
+    if (typeof uiSheet !== 'function') return null;
+    return uiSheet(o.title, function (sheet, close) {
+      var h = sheet.querySelector('.ui-sheet-h');
+      if (o.face && o.face.name) {
+        var face = el('span', { class: 'ui-av rm-face av-h' + (typeof avatarHue === 'function' ? avatarHue(o.face.name) : 0), 'data-name': o.face.name, 'aria-hidden': 'true' }, typeof initials === 'function' ? initials(o.face.name) : '');
+        if (o.face.avatarUrl) face.innerHTML = '<img src="' + esc(o.face.avatarUrl) + '" alt="">';
+        if (h) sheet.insertBefore(face, h); else sheet.appendChild(face);
+      }
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub rm-words' }, o.words));
+      var go = el('button', { class: 'ca-btn is-red rm-go', type: 'button' }, o.go);
+      var keep = el('button', { class: 'ca-btn is-quiet rm-keep', type: 'button' }, o.keep);
+      go.addEventListener('click', async function () {
+        if (go.getAttribute('aria-busy') === 'true') return;
+        go.setAttribute('aria-busy', 'true');
+        var ok = false;
+        try { ok = await o.onGo(); } catch (e) { ok = false; }
+        go.removeAttribute('aria-busy');
+        close();
+        if (ok && o.onDone) { try { o.onDone(); } catch (e) {} }
+      });
+      keep.addEventListener('click', close);
+      sheet.appendChild(el('div', { class: 'rm-acts' }, go, keep));
+    }, { cls: 'rm-sheet cp-del-sheet' });
+  }
+  // Delete program from the block's ⋯ (Programs): the lifter's face, then coach.html deleteProgram, asked here.
+  function deleteProgramSheet(prog, aid) {
+    var a = (Store.get().athletes || []).find(function (x) { return x.id === aid; }) || {};
+    var w = cpDeleteProgramWords(prog, a.name, typeof programHasTraining === 'function' && programHasTraining(prog));
+    return openDeleteSheet(Object.assign(w, {
+      face: a.name ? { name: a.name, avatarUrl: a.avatarUrl } : null,
+      onGo: async function () { if (typeof deleteProgram !== 'function') return false; await deleteProgram({ confirmed: true, athleteId: aid }); return true; }
+    }));
+  }
+  // Delete template from a template's sheet: asked over it (Keep goes back to it), and both close on Delete.
+  function deleteTemplateSheet(t, onDone) {
+    var w = cpDeleteTemplateWords(t);
+    return openDeleteSheet(Object.assign(w, {
+      onGo: async function () {
+        Store.update(function (s) { s.programTemplates = (s.programTemplates || []).filter(function (x) { return x.id !== t.id; }); });
+        if (typeof persistDeleteTemplate === 'function') persistDeleteTemplate(t.id);
+        return true;
+      },
+      onDone: onDone
+    }));
+  }
+
   // A lifter switched elsewhere (their card's Program, a fix) lands on their week, not the last one shown.
   function reset() { S.aid = null; }
 
@@ -1374,6 +1450,7 @@
     day: function () { return S.aid ? S.days[dayKey(S.aid, curWeek())] || 0 : 0; },
     // pure, for tests
     cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep, cpExpectedLoad: cpExpectedLoad,
+    openDeleteSheet: openDeleteSheet, deleteProgramSheet: deleteProgramSheet, deleteTemplateSheet: deleteTemplateSheet, cpDeleteProgramWords: cpDeleteProgramWords, cpDeleteTemplateWords: cpDeleteTemplateWords, cpNoBlockWords: cpNoBlockWords,
     cpWantsHint: cpWantsHint, cpFitClass: cpFitClass, cpEveryChoices: cpEveryChoices, cpTplLine: cpTplLine, cpApplyLabel: cpApplyLabel, cpModePatch: cpModePatch, cpModePatches: cpModePatches, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm, cpSaveLine: cpSaveLine
   };
 })();

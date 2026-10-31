@@ -163,6 +163,9 @@ html:not(.desk) .ca-btn:active { transform: scale(0.97); transition-duration: 90
 html:not(.desk) .ca-btn.is-red:active { filter: brightness(0.92); }
 html:not(.desk) .ca-btn.is-soft:active { background: var(--fill-4, rgba(255, 255, 255, 0.14)); }
 html:not(.desk) .ca-btn[aria-busy="true"] { opacity: 0.6; pointer-events: none; }
+/* the quiet one: ink on nothing, the same size and weight (Skip, Keep); pressed, the inset */
+html:not(.desk) .ca-btn.is-quiet { background: none; color: var(--text) !important; box-shadow: none; }
+html:not(.desk) .ca-btn.is-quiet:active { background: var(--pl-inset-2); }
 html:not(.desk) .ca-pill {
   position: relative; flex: none; display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border: 0; border-radius: 999px;
   background: var(--pl-inset-2); color: var(--text) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer;
@@ -218,11 +221,7 @@ html:not(.desk) .ca-face.is-big .ca-live { width: 18px; height: 18px; right: 10p
 /* a face without a ring (Home's job, a job row) wears its lip as a 2 pt ring 2 pt out */
 html:not(.desk) .ca-av.pl-lip { outline: 2px solid var(--pf); outline-offset: 2px; }
 
-/* the assistant's entry is a plain "Ask" (foundation v2: no sparkle, robot or persona); the same 36 pt height */
-html.native:not(.desk) body.powa-app .nav-ai { width: auto; min-width: 0; padding: 0 14px; border-radius: 999px; }
-html.native:not(.desk) body.powa-app .nav-ai svg { display: none; }
-html.native:not(.desk) body.powa-app .nav-ai::before { content: 'Ask'; font-family: var(--font-body); font-size: 15px; font-weight: 650; line-height: 1; letter-spacing: -0.005em; color: var(--text); }
-html.native[data-theme="light"]:not(.desk) body.powa-app .nav-ai { background: rgba(15, 15, 25, 0.07); }
+/* the assistant's entry is a plain "Ask" (foundation v2: no sparkle, robot or persona): ai-chat.css, for both apps */
 /* the header's search: a 36 pt circle like the assistant and the bell, a 44 pt target */
 html:not(.desk) body.powa-app .ca-hbtn {
   position: relative; display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%;
@@ -829,7 +828,7 @@ html:not(.desk) body.powa-app .rm-sheet .rm-face { flex: none; display: inline-g
 html:not(.desk) body.powa-app .rm-sheet .ui-sheet-h { margin: 0 0 8px; text-wrap: balance; }
 html:not(.desk) body.powa-app .rm-sheet .rm-words { margin: 0 0 24px; font-size: 17px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
 html:not(.desk) .rm-acts { display: flex; flex-direction: column; gap: 4px; }
-html:not(.desk) body.powa-app .rm-sheet .rm-keep { background: none; color: var(--text) !important; box-shadow: none; }
+html:not(.desk) body.powa-app .rm-sheet .rm-keep { background: none; color: var(--text) !important; box-shadow: none; }   /* = .ca-btn.is-quiet */
 html:not(.desk) body.powa-app .rm-sheet .rm-keep:active { background: var(--pl-inset-2); }
 
 /* =================================================================== A LIFTER (the card) */
@@ -2251,62 +2250,7 @@ html:not(.desk) body.powa-app .ca-pg .ui-text-btn::after { content: ''; position
 html:not(.desk) body.powa-app .btn-primary { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.18); }
 html[data-theme="light"]:not(.desk) body.powa-app .btn-primary { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(120, 10, 20, 0.18), 0 6px 14px -8px rgba(120, 10, 20, 0.45); }
 
-/* Ask: a plain sheet, like the laptop's (no robot in its head or beside an answer, no persona). The coach's question
-   is a quiet bubble; the composer is Messages' composer: the box an inset pill, Send the crimson 44 pt circle once
-   there is something to send and quiet before; a number in an answer is ink. Its title is a sheet's (22, 800). */
-html:not(.desk) body.powa-app .ai-panel :is(.ai-head-mark, .ai-msg-av) { display: none; }
-@media (max-width: 480px) { html:not(.desk) body.powa-app .ai-panel { border-radius: 22px 22px 0 0; } }
-html:not(.desk) body.powa-app .ai-panel .ai-head { gap: 10px; padding: 16px 12px 12px 20px; }
-html:not(.desk) body.powa-app .ai-panel .ai-head-title { font-family: var(--font-body); font-stretch: 100%; font-size: 22px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; text-transform: none; }
-html:not(.desk) body.powa-app .ai-panel .ai-head-sub { margin-top: 2px; font-size: 15px; line-height: 1.35; color: var(--text-3); }
-html:not(.desk) body.powa-app .ai-panel .ai-mode-pill { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--pl-inset-2); color: var(--text-2); font-size: 13px; font-weight: 600; }
-html:not(.desk) body.powa-app .ai-panel .ai-mode-pill::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ca-gold); }
-html:not(.desk) body.powa-app .ai-panel .ai-mode-pill.live::before { background: var(--ca-live); }
-html:not(.desk) body.powa-app .ai-panel .ai-seg { margin: 12px 16px 0; padding: 3px; border: 0; border-radius: 12px; background: var(--pl-inset); }
-html:not(.desk) body.powa-app .ai-panel .ai-seg-btn { position: relative; min-height: 38px; border-radius: 9px; color: var(--text-2); font-size: 15px; font-weight: 600; }
-html:not(.desk) body.powa-app .ai-panel .ai-seg-btn::after { content: ''; position: absolute; inset: -3px 0; }
-html:not(.desk) body.powa-app .ai-panel .ai-seg-btn.is-on { background: var(--pl-raise); color: var(--text); box-shadow: var(--pl-raise-shade); }
-html:not(.desk) body.powa-app .ai-panel .ai-body { padding: 16px 16px 8px; gap: 12px; }
-html:not(.desk) body.powa-app .ai-panel .ai-msg.assistant .ai-bubble { background: var(--pl-inset); }
-html:not(.desk) body.powa-app .ai-panel .ai-msg.user .ai-bubble { background: var(--pl-inset-2); }
-html:not(.desk) body.powa-app .ai-panel .ai-bubble .ai-num { color: var(--text); }
-html:not(.desk) body.powa-app .ai-panel .ai-bubble .ai-who:focus-visible { outline-color: var(--text); }
-html:not(.desk) body.powa-app .ai-panel .ai-chips { gap: 8px; padding: 8px 16px 8px; }
-html:not(.desk) body.powa-app .ai-panel .ai-chip { position: relative; min-height: 38px; padding: 0 14px; background: var(--pl-inset-2); color: var(--text); font-size: 15px; font-weight: 600; }
-html:not(.desk) body.powa-app .ai-panel .ai-chip::after { content: ''; position: absolute; inset: -3px 0; }
-html:not(.desk) body.powa-app .ai-panel .ai-chip:hover { border-color: transparent; background: var(--pl-inset-2); color: var(--text); }
-/* a drafted program: a card on the answer's fill, in sentence case; Insert into builder graphite (Send is the red) */
-html:not(.desk) body.powa-app .ai-panel .ai-prog-card { margin-top: 12px; padding: 14px 14px 12px; border: 0; border-radius: 14px; background: var(--pl-inset-2); }
-html:not(.desk) body.powa-app .ai-panel .ai-prog-name { font-family: var(--font-body); font-stretch: 100%; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; text-transform: none; }
-html:not(.desk) body.powa-app .ai-panel :is(.ai-prog-meta, .ai-prog-sub) { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-2); }
-html:not(.desk) body.powa-app .ai-panel :is(.ai-prog-day-name, .ai-prog-day-set) { font-size: 15px; }
-html:not(.desk) body.powa-app .ai-panel .ai-prog-day { border-bottom-color: var(--ca-hair); }
-html:not(.desk) body.powa-app .ai-panel .ai-prog-apply { height: auto; min-height: 44px; border-radius: 999px; background: var(--pl-raise); box-shadow: var(--pl-raise-shade); color: var(--text); font-size: 17px; font-weight: 600; }
-html:not(.desk) body.powa-app .ai-panel .ai-prog-apply:hover { transform: none; }
-html:not(.desk) body.powa-app .ai-panel .ai-prog-apply.done { border: 0; background: color-mix(in srgb, var(--ca-live) 16%, transparent); box-shadow: none; color: var(--ca-live); }
-/* the composer */
-html:not(.desk) body.powa-app .ai-panel .ai-foot { padding: 8px 16px calc(12px + env(safe-area-inset-bottom)); border-top-color: var(--ca-hair); }
-html:not(.desk) body.powa-app .ai-panel .ai-input-row { min-height: 0; align-items: flex-end; gap: 8px; padding: 0; border: 0; border-radius: 0; background: none; }
-html:not(.desk) body.powa-app .ai-panel .ai-input { min-height: 44px; padding: 10px 16px; border-radius: 22px; background: var(--pl-inset); color: var(--text); font-size: 17px; line-height: 1.4; }
-html:not(.desk) body.powa-app[data-accent] .ai-panel .ai-input:focus { border-color: transparent; box-shadow: none; background: var(--pl-inset-2); }
-html:not(.desk) body.powa-app .ai-panel .ai-send {
-  width: 44px; height: 44px; border-radius: 50%; background: var(--pl-red); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out, color 150ms ease-out;
-}
-html:not(.desk) body.powa-app .ai-panel .ai-send svg { width: 20px; height: 20px; }
-html:not(.desk) body.powa-app .ai-panel .ai-send:hover { transform: none; }
-html:not(.desk) body.powa-app .ai-panel .ai-send:active:not(:disabled) { transform: scale(0.92); filter: brightness(0.92); transition-duration: 90ms; }
-html:not(.desk) body.powa-app .ai-panel :is(.ai-input-row:has(.ai-input:placeholder-shown) .ai-send, .ai-send:disabled) { background: var(--pl-inset-2); color: var(--text-3); box-shadow: none; opacity: 1; }
-html:not(.desk) body.powa-app .ai-panel .ai-foot-note { margin-top: 8px; font-size: 13px; }
-/* Support's way to a person: the row on the app's inset, its two links graphite pills 44 pt to the touch */
-html:not(.desk) body.powa-app .ai-panel .ai-human { padding: 8px 8px 8px 16px; border: 0; border-radius: 14px; background: var(--pl-inset); }
-html:not(.desk) body.powa-app .ai-panel .ai-human::before { display: none; }
-html:not(.desk) body.powa-app .ai-panel .ai-human-txt { font-size: 15px; font-weight: 600; color: var(--text); }
-html:not(.desk) body.powa-app .ai-panel .ai-human-btn { min-height: 36px; padding: 0 14px; border: 0; background: var(--pl-inset-2); color: var(--text); font-size: 15px; font-weight: 600; }
-html:not(.desk) body.powa-app .ai-panel .ai-human-btn::after { content: ''; position: absolute; inset: -4px 0; }
-html:not(.desk) body.powa-app .ai-panel .ai-human-btn[data-human="wa"]::before { box-shadow: none; }
-html:not(.desk) body.powa-app .ai-panel .ai-human.is-lit { animation: none; }
-@media (prefers-reduced-motion: reduce) { html:not(.desk) body.powa-app .ai-panel .ai-send:active:not(:disabled) { transform: none; } }
+/* Ask: a plain sheet, the same on the coach phone and the lifter app: ai-chat.css ("ASK, ONE LOOK ON BOTH APPS"). */
 
 /* the bell's list: an unread row's dot is ink, as the bell's own dot is (it wore the screen's hue: fire on Home) */
 html:not(.desk) body.powa-app .sig-sheet .sig-unread .ui-row-title::after { background: var(--text); }
@@ -2400,11 +2344,6 @@ html:not(.desk) body.powa-app .im-quiet::after { content: ''; position: absolute
 html:not(.desk) body.powa-app .ig-src.is-secondary { color: var(--text-2) !important; }
 html:not(.desk) body.powa-app .ig-src.is-secondary::before { content: ''; display: inline-block; width: 9px; height: 8px; margin: 0 6px 0 0; vertical-align: 0; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 
-/* Ask's answer rows (a lifter's name, what's going on under it): the line 15 like the answer, the name 44 pt to the
-   touch (the whole row opens the lifter) */
-html:not(.desk) body.powa-app .ai-panel .ai-bubble .ai-li-sub { font-size: 15px; }
-html:not(.desk) body.powa-app .ai-panel .ai-bubble li.ai-li-who .ai-who { position: relative; }
-html:not(.desk) body.powa-app .ai-panel .ai-bubble li.ai-li-who .ai-who::after { content: ''; position: absolute; inset: -7px 0; }
 /* the form-check review's compare: Back to drawing 15; a drawing's mark on the timeline 44 wide to the touch, and
    its touch area ends above the scrubber's thumb, so a finger on the thumb drags even when the playhead sits on a mark */
 html:not(.desk) body.powa-app .vr .vr-btn { font-size: 15px; }
@@ -2472,4 +2411,144 @@ html:not(.desk) #powa-conn-banner:not(.show) .pcb-dot { animation: none; }
   html:not(.desk) body.powa-app [data-pane] .ca-rise { animation: none !important; }
   html:not(.desk) :is(.ca-btn, .ca-pill, .ca-tile, .ca-rowcard, .ca-fb, .ca-chip, .ca-act, .ca-ov, .ca-hbtn, .cp-day, .cp-fab, .st-btn, .cp-ibtn, .cp-hint-use, .ca-g):active { transform: none !important; }
   html:not(.desk) .cp-fab.is-hidden { transform: none; }
+}
+
+/* =================================================================== WEEKLY NOTES: THE DECK (30 Oct, weekly-note.js openDeck)
+   Monday's review on the phone, from Home's Coaching and You › Coaching: a full screen over the app (above the tab
+   bar, under a sheet it opens and the toasts), one lifter a card. The bar: Close, the title and where you are, a mark
+   a lifter (green sent, steel skipped, ink the one up). A card: who (the face, the name 28, two lines at most), the
+   note first on the inset (what goes, so Send never sends words that aren't on the screen), then what the note
+   leaves out as one card (flags, the top sets it doesn't give, their words, the days they trained: each fact once a
+   card), and at its foot Skip quiet beside "Send to <first name>", the card's one crimson. Cards move on transform only (the spring is JS); the
+   deck itself rises like a sheet. Reduced motion: it fades, and the cards crossfade. */
+html:not(.desk) .wnd {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 150; display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px); background: var(--bg); color: var(--text); overflow: hidden; overscroll-behavior: contain;
+}
+@keyframes wndUp { from { transform: translate3d(0, 100%, 0); } to { transform: none; } }
+@keyframes wndDown { to { transform: translate3d(0, 100%, 0); } }
+@keyframes wndFadeIn { from { opacity: 0.45; } to { opacity: 1; } }
+@keyframes wndFadeOut { to { opacity: 0; } }
+html:not(.desk) .wnd.is-in { animation: wndUp var(--pl-d-state) var(--pl-spring); }
+html:not(.desk) .wnd.is-leaving { animation: wndDown 240ms cubic-bezier(0.4, 0, 1, 1) forwards; pointer-events: none; }
+/* the deck's buttons take the app's type; a button's own rule (.ca-btn, .wnd-skip) still sets its size and weight */
+:where(html:not(.desk) .wnd) button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
+html:not(.desk) .wnd :focus-visible { outline: 2px solid color-mix(in srgb, var(--text) 72%, transparent); outline-offset: 2px; }
+html:not(.desk) .wnd :is(.wnd-name, .wnd-done-t):focus { outline: none; }   /* focus moves there for a screen reader, never drawn */
+/* the bar */
+/* the bar: Back (gone on the first card) on the left, the title and where you are, Close on the right */
+html:not(.desk) .wnd-bar { flex: none; display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; min-height: 52px; padding: 4px 12px 0; }
+html:not(.desk) :is(.wnd-x, .wnd-back) {
+  position: relative; display: grid; place-items: center; width: 36px; height: 36px; margin: 4px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--fill-2, rgba(255, 255, 255, 0.06)); color: var(--text-2) !important; cursor: pointer; transition: transform 140ms ease-out, background-color 150ms ease-out;
+}
+html:not(.desk) .wnd-back { grid-column: 1; grid-row: 1; }
+html:not(.desk) .wnd-x { grid-column: 3; grid-row: 1; }
+html:not(.desk) .wnd-back[hidden] { display: none; }
+html:not(.desk) :is(.wnd-x, .wnd-back)::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html:not(.desk) :is(.wnd-x, .wnd-back) svg { width: 18px; height: 18px; }
+html:not(.desk) .wnd-back svg { width: 20px; height: 20px; }
+html:not(.desk) :is(.wnd-x, .wnd-back):active { transform: scale(0.92); background: var(--fill-4, rgba(255, 255, 255, 0.14)); }
+html:not(.desk) .wnd-ttl { grid-column: 2; grid-row: 1; min-width: 0; text-align: center; }
+/* who is up, said to a screen reader when the card changes (never drawn) */
+html:not(.desk) .wnd-live { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+/* the page under the deck stays put (a phone's browser would scroll it under the finger) */
+html.wnd-open:not(.desk), html.wnd-open:not(.desk) body { overflow: hidden; }
+html:not(.desk) .wnd-title { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); }
+html:not(.desk) .wnd-count { margin: 1px 0 0; min-height: 17px; font-size: 13px; line-height: 1.3; color: var(--text-3); font-variant-numeric: tabular-nums; }
+html:not(.desk) .wnd-marks { flex: none; display: flex; gap: 3px; height: 3px; margin: 8px 16px 0; }
+html:not(.desk) .wnd-marks[hidden] { display: none; }
+html:not(.desk) .wnd-marks i { flex: 1 1 0; min-width: 2px; border-radius: 2px; background: var(--pl-inset-2); transition: background-color 220ms ease-out; }
+html:not(.desk) .wnd-marks i.is-sent { background: var(--pl-viz-done); }
+html:not(.desk) .wnd-marks i.is-skip { background: color-mix(in srgb, var(--text-3) 55%, transparent); }
+html:not(.desk) .wnd-marks i.is-now { background: var(--text); }
+html:not(.desk) .wnd-marks.is-bar { gap: 0; border-radius: 2px; background: var(--pl-inset-2); overflow: hidden; }
+html:not(.desk) .wnd-marks.is-bar i { flex: none; background: var(--text-2); transition: width 260ms var(--ca-ease); }
+/* the cards: side by side on the stage, moved by transform only; the one up is the only one read or tapped */
+html:not(.desk) .wnd-stage { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; touch-action: pan-y; }
+html:not(.desk) .wnd-card { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; flex-direction: column; background: var(--bg); backface-visibility: hidden; will-change: transform; }
+html:not(.desk) .wnd-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 20px 16px 24px; }
+/* who */
+html:not(.desk) .wnd-who { display: flex; align-items: center; gap: 14px; min-width: 0; }
+html:not(.desk) .wnd-who .ui-av.wnd-av { flex: none; width: 56px; height: 56px; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+html:not(.desk) .wnd-whot { min-width: 0; }
+html:not(.desk) .wnd-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: 28px; font-weight: 800; letter-spacing: -0.024em; line-height: 1.1; color: var(--text); overflow-wrap: anywhere; text-wrap: balance; }
+html:not(.desk) .wnd-meta { margin: 4px 0 0; font-size: 15px; line-height: 1.35; color: var(--text-2); overflow-wrap: anywhere; }
+html:not(.desk) .wnd-h { margin: 28px 4px 12px; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; line-height: 1.2; color: var(--text); }
+/* their week: one card on the surface */
+html:not(.desk) .wnd-wcard { padding: 4px 16px; background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip); }
+html:not(.desk) .wnd-sess { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; box-shadow: inset 0 1px 0 var(--ca-hair); }
+html:not(.desk) .wnd-sess-n { margin: 0; font-size: 15px; line-height: 1.35; color: var(--text-2); white-space: nowrap; }
+html:not(.desk) :is(.wnd-wcard > :first-child, .wnd-wcard > :first-child > :first-child) { box-shadow: none; }
+html:not(.desk) .wnd-days { display: flex; gap: 6px; }
+html:not(.desk) .wnd-day { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 14px; }
+html:not(.desk) .wnd-day i { width: 8px; height: 8px; border-radius: 50%; background: var(--pl-inset-2); }
+html:not(.desk) .wnd-day.on i { background: var(--pl-viz-done); }
+html:not(.desk) .wnd-day small { font-size: 13px; line-height: 1; color: var(--text-3); }
+html:not(.desk) .wnd-day.is-today small { color: var(--text); font-weight: 700; }
+html:not(.desk) .wnd-top { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto 76px; align-items: center; column-gap: 12px; min-height: 56px; box-shadow: inset 0 1px 0 var(--ca-hair); }
+html:not(.desk) .wnd-ld { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); }
+html:not(.desk) .wnd-ld.lift-squat { background: var(--pl-viz-sq); }
+html:not(.desk) .wnd-ld.lift-bench { background: var(--pl-viz-bp); }
+html:not(.desk) .wnd-ld.lift-deadlift { background: var(--pl-viz-dl); }
+html:not(.desk) .wnd-tn { min-width: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html:not(.desk) .wnd-pr { margin-left: 8px; padding: 1px 6px; border-radius: 6px; background: color-mix(in srgb, var(--pl-viz-gold) 16%, transparent); color: var(--pl-viz-gold); font-size: 13px; font-style: normal; font-weight: 700; vertical-align: 1px; }
+html[data-theme="light"]:not(.desk) .wnd-pr { color: var(--ca-gold); }
+html:not(.desk) .wnd-tv { font-family: var(--font-num); font-stretch: 108%; font-size: 17px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+html:not(.desk) .wnd-tv small { font-size: 15px; font-weight: 600; color: var(--text-2); }
+html:not(.desk) .wnd-te { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; min-width: 0; }
+html:not(.desk) .wnd-te b { font-family: var(--font-num); font-stretch: 108%; font-size: 17px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+html:not(.desk) .wnd-te small { font-size: 13px; color: var(--text-3); white-space: nowrap; }
+/* a status (over what was written, over the class, pain, a flagged check-in): the orange triangle beside ink words */
+html:not(.desk) :is(.wnd-top.is-over .wnd-te b, .wnd-fact.is-warn dd b)::before { content: ''; display: inline-block; width: 9px; height: 8px; margin-right: 6px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 1px; }
+html:not(.desk) .wnd-facts { margin: 0; }
+html:not(.desk) .wnd-fact { display: grid; grid-template-columns: 96px minmax(0, 1fr); column-gap: 12px; padding: 14px 0; box-shadow: inset 0 1px 0 var(--ca-hair); }
+html:not(.desk) .wnd-fact dt { padding-top: 1px; font-size: 15px; line-height: 1.35; color: var(--text-2); }
+html:not(.desk) .wnd-fact dd { display: flex; flex-direction: column; gap: 2px; min-width: 0; margin: 0; }
+html:not(.desk) .wnd-fact dd b { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; color: var(--text); }
+html:not(.desk) .wnd-fact dd span { font-size: 15px; line-height: 1.35; color: var(--text-2); overflow-wrap: anywhere; }
+html:not(.desk) .wnd-words { margin: 0; padding: 14px 0 16px; box-shadow: inset 0 1px 0 var(--ca-hair); }
+html:not(.desk) .wnd-words figcaption { font-size: 13px; line-height: 1.3; color: var(--text-3); }
+html:not(.desk) .wnd-words blockquote { margin: 6px 0 0; font-size: 17px; line-height: 1.45; color: var(--text); overflow-wrap: anywhere; }
+html:not(.desk) .wnd-none { margin: 0; padding: 14px 0 16px; box-shadow: inset 0 1px 0 var(--ca-hair); font-size: 15px; color: var(--text-2); }
+/* the note: the inset, the coach's own type size; read-only once it went */
+html:not(.desk) body.powa-app textarea.wnd-ta {
+  display: block; width: 100%; min-height: 168px; box-sizing: border-box; margin: 0; padding: 14px 16px; resize: none; overflow: hidden;
+  border: 0; border-radius: 14px; background: var(--pl-inset); box-shadow: none; color: var(--text); font-family: var(--font-body); font-size: 17px; line-height: 1.5;
+}
+html:not(.desk) body.powa-app textarea.wnd-ta:focus { outline: none; border: 0; background: var(--pl-inset-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 22%, transparent); }
+html:not(.desk) body.powa-app textarea.wnd-ta[readonly] { color: var(--text-2); }
+html:not(.desk) .wnd-foot { margin: 8px 4px 0; font-size: 13px; line-height: 1.35; color: var(--text-3); }
+/* the card's foot: Skip quiet, Send the crimson; once sent, the word Sent and Next */
+html:not(.desk) .wnd-acts { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px max(12px, env(safe-area-inset-bottom, 0px)); background: var(--bg); box-shadow: inset 0 1px 0 var(--ca-hair); }
+html:not(.desk) .wnd.is-kb .wnd-acts { padding-bottom: 8px; }
+html:not(.desk) .wnd-acts .ca-btn { flex: 1 1 0; width: auto; min-width: 0; }
+html:not(.desk) .wnd-acts .ca-btn.wnd-skip { flex: none; min-width: 76px; padding: 0 16px; }
+html:not(.desk) .wnd-send span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html:not(.desk) .wnd-err { flex: 1 0 100%; margin: 0 4px 4px; font-size: 15px; line-height: 1.35; color: var(--text); }
+html:not(.desk) .wnd-err::before { content: ''; display: inline-block; width: 9px; height: 8px; margin-right: 8px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 1px; }
+html:not(.desk) .wnd-sent { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+html:not(.desk) .wnd-sent svg { flex: none; width: 20px; height: 20px; color: var(--pl-viz-done); }
+html:not(.desk) .wnd-sent span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html:not(.desk) .wnd-acts.is-sent .ca-btn { flex: 0 0 auto; min-width: 128px; }
+html:not(.desk) .wnd-acts.is-done { flex-direction: column; align-items: stretch; gap: 4px; }
+html:not(.desk) .wnd-acts.is-done .ca-btn { flex: none; width: 100%; }
+/* the end */
+html:not(.desk) .wnd-done .wnd-scroll { display: flex; flex-direction: column; justify-content: center; }
+html:not(.desk) .wnd-done-in { display: flex; flex-direction: column; align-items: center; padding: 24px 8px 32px; text-align: center; }
+html:not(.desk) .wnd-done-ic { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: color-mix(in srgb, var(--pl-viz-done) 15%, transparent); color: var(--pl-viz-done); }
+html:not(.desk) .wnd-done-ic svg { width: 30px; height: 30px; }
+html:not(.desk) .wnd-done-t { margin: 20px 0 0; font-family: var(--font-body); font-stretch: 100%; font-size: 28px; font-weight: 800; letter-spacing: -0.024em; line-height: 1.1; color: var(--text); text-wrap: balance; }
+html:not(.desk) .wnd-done-s { max-width: 320px; margin: 8px 0 0; font-size: 17px; line-height: 1.45; color: var(--text-2); text-wrap: balance; }
+html:not(.desk) .wnd-faces { display: flex; justify-content: center; margin-top: 24px; padding-left: 8px; }
+html:not(.desk) .wnd-faces .ui-av { width: 40px; height: 40px; margin-left: -8px; font-size: 15px; font-weight: 800; box-shadow: 0 0 0 3px var(--bg); }
+html:not(.desk) .wnd-faces .wnd-more { display: grid; place-items: center; width: 40px; height: 40px; margin-left: -8px; border-radius: 50%; background: var(--pl-inset-2); box-shadow: 0 0 0 3px var(--bg); color: var(--text-2); font-size: 13px; font-style: normal; font-weight: 700; }
+/* a tablet's column: the card reads at a phone's measure in the middle */
+@media (min-width: 700px) {
+  html:not(.desk) :is(.wnd-scroll, .wnd-acts) { padding-left: max(16px, calc((100% - 560px) / 2)); padding-right: max(16px, calc((100% - 560px) / 2)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not(.desk) .wnd.is-in { animation: wndFadeIn 200ms ease-out; }
+  html:not(.desk) .wnd.is-leaving { animation: wndFadeOut 160ms ease-out forwards; }
+  html:not(.desk) :is(.wnd-x, .wnd-back):active { transform: none; }
 }

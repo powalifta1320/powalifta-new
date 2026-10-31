@@ -5,7 +5,9 @@
       8 weeks out or closer, next week's change when one was applied). Pure over the Store and opts: no
       clock, no randomness, and every number comes from their log. Laptop: Today's "Weekly notes" opens a
       queue (draft on the left, their week on the right, Send → the next lifter). Phone: a lifter's page has
-      "Write the week's note" → a sheet.
+      "Write the week's note" → a sheet; Home's Coaching and You › Coaching have "Weekly notes N" → the deck
+      (openDeck: one lifter a card, swiped or tapped through, Monday's review). Queue and deck share one state
+      (queueStart...) and the jobs' order (pain first).
    2. Saved replies: per coach (localStorage 'powa-saved-replies-<coachId>', four defaults), tapped into
       any composer; "Save this as a reply" keeps the current text.
    3. Message everyone (or a team) from the phone's Messages tab, one thread per lifter.
@@ -28,6 +30,7 @@
     'How did that feel? Send me the top set if you can.'
   ];
   var MAX_REPLIES = 30, MAX_REPLY_LEN = 600;
+  var MARKS_MAX = 24;      // past this many lifters the queue's marks become one bar (the laptop's queue and the phone's deck)
 
   /* ---------------------------------------------------------------- small pure helpers */
   function d10(v) { return String(v == null ? '' : v).slice(0, 10); }
@@ -175,10 +178,11 @@
   }
 
   /* ---------------------------------------------------------------- the note, line by line */
-  // pr: what goes first when there are too many (low = keep); ord: where it sits in the note.
+  // pr: what goes first when there are too many (low = keep); ord: where it sits in the note; lifts: the lifts whose
+  // top set the line gives (the deck shows only the ones the note leaves out).
   function weeklyNoteLines(f) {
     var U = f.unit, out = [];
-    var add = function (k, pr, ord, text) { if (text) out.push({ k: k, pr: pr, ord: ord, text: text }); };
+    var add = function (k, pr, ord, text, lifts) { if (text) out.push({ k: k, pr: pr, ord: ord, text: text, lifts: lifts || [] }); };
     var S = f.sessions;
     // 1. Sessions, with their name.
     var sl;
@@ -191,24 +195,26 @@
     add('sessions', 0, 0, f.first ? f.first + ', ' + sl : cap(sl));
     if (!S.done) add('quiet', 1, 1, 'Everything OK? Tell me what got in the way and we’ll fit the week around it.');
     else if (S.planned > 0 && S.done < S.planned) add('short', 5, 1, 'If the week is getting tight, tell me and we’ll fit the sessions around it.');
-    // 2. PRs.
-    if (f.prs.length === 1) add('pr', 3, 2, LIFT[f.prs[0].lift] + ' PR: ' + wTxt(f.prs[0].kg, U) + ' × ' + f.prs[0].reps + '. Well done.');
-    else if (f.prs.length === 2) add('pr', 3, 2, LIFT[f.prs[0].lift] + ' and ' + f.prs[1].lift + ' PRs: ' + wTxt(f.prs[0].kg, U) + ' × ' + f.prs[0].reps + ' and ' + wTxt(f.prs[1].kg, U) + ' × ' + f.prs[1].reps + '. Well done.');
+    // 2. PRs (one or two with their sets: a top set that is the PR is said there).
+    var prSame = function (x) { return f.prs.some(function (p) { return p.lift === x.lift && p.kg === x.kg && p.reps === x.reps; }); };
+    var liftsOf = function (list) { return list.map(function (x) { return x.lift; }); };
+    var prTops = f.prs.length <= 2 ? liftsOf(f.tops.filter(prSame)) : [];
+    if (f.prs.length === 1) add('pr', 3, 2, LIFT[f.prs[0].lift] + ' PR: ' + wTxt(f.prs[0].kg, U) + ' × ' + f.prs[0].reps + '. Well done.', prTops);
+    else if (f.prs.length === 2) add('pr', 3, 2, LIFT[f.prs[0].lift] + ' and ' + f.prs[1].lift + ' PRs: ' + wTxt(f.prs[0].kg, U) + ' × ' + f.prs[0].reps + ' and ' + wTxt(f.prs[1].kg, U) + ' × ' + f.prs[1].reps + '. Well done.', prTops);
     else if (f.prs.length >= 3) add('pr', 3, 2, 'PRs on squat, bench and deadlift. Well done.');
     // 3. Top sets: what felt off what you wrote, one line each; what landed on it, together.
     var setTxt = function (x) { return wTxt(x.kg, U) + ' × ' + x.reps; };
     var off = f.tops.filter(function (x) { return x.d != null && Math.abs(x.d) >= 0.5; }).sort(function (a, b) { return Math.abs(b.d) - Math.abs(a.d); });
-    var prSame = function (x) { return f.prs.some(function (p) { return p.lift === x.lift && p.kg === x.kg && p.reps === x.reps; }); };
     var on = f.tops.filter(function (x) { return x.d != null && Math.abs(x.d) < 0.5 && !prSame(x); });
     off.slice(0, 2).forEach(function (x, i) {
-      add('off' + i, i ? 5 : 3, 3 + i, x.name + ' ' + setTxt(x) + ' felt @' + rpeTxt(x.felt) + ', written @' + rpeTxt(x.wroteLo) + (x.wroteHi != null ? '–' + rpeTxt(x.wroteHi) : '') + '.');
+      add('off' + i, i ? 5 : 3, 3 + i, x.name + ' ' + setTxt(x) + ' felt @' + rpeTxt(x.felt) + ', written @' + rpeTxt(x.wroteLo) + (x.wroteHi != null ? '–' + rpeTxt(x.wroteHi) : '') + '.', [x.lift]);
     });
-    if (on.length === 1) add('on', 6, 5, on[0].name + ' ' + setTxt(on[0]) + ' @' + rpeTxt(on[0].felt) + ', right where I wrote it.');
-    else if (on.length === 2) add('on', 6, 5, on[0].name + ' ' + setTxt(on[0]) + ' and ' + on[1].name.toLowerCase() + ' ' + setTxt(on[1]) + ' both landed right on the RPE I wrote.');
-    else if (on.length >= 3) add('on', 6, 5, 'Squat, bench and deadlift top sets all landed right on the RPE I wrote.');
+    if (on.length === 1) add('on', 6, 5, on[0].name + ' ' + setTxt(on[0]) + ' @' + rpeTxt(on[0].felt) + ', right where I wrote it.', liftsOf(on));
+    else if (on.length === 2) add('on', 6, 5, on[0].name + ' ' + setTxt(on[0]) + ' and ' + on[1].name.toLowerCase() + ' ' + setTxt(on[1]) + ' both landed right on the RPE I wrote.', liftsOf(on));
+    else if (on.length >= 3) add('on', 6, 5, 'Squat, bench and deadlift top sets all landed right on the RPE I wrote.', liftsOf(on));
     if (!off.length && !on.length) {
       var plain = f.tops.filter(function (x) { return !prSame(x); });
-      if (plain.length) add('tops', 7, 6, 'Top sets: ' + listJoin(plain.map(function (x) { return x.name.toLowerCase() + ' ' + setTxt(x) + (x.felt != null ? ' @' + rpeTxt(x.felt) : ''); })) + '.');
+      if (plain.length) add('tops', 7, 6, 'Top sets: ' + listJoin(plain.map(function (x) { return x.name.toLowerCase() + ' ' + setTxt(x) + (x.felt != null ? ' @' + rpeTxt(x.felt) : ''); })) + '.', liftsOf(plain));
     }
     // 4. The e1RM, when it moved.
     if (f.e1rm && f.e1rm.notable) {
@@ -322,24 +328,165 @@
     return mine.some(function (l) { return d10(l.date) >= since && d10(l.date) <= t; });
   }
   // Lifters who trained in the last 7 days and haven't had a note in the last six. rows: desk rows
-  // ({ athlete, reasons }); the worst first (Today's order), then by name.
+  // ({ athlete, reasons }); the worst first, then by name. opts.order ({ athleteId: place }, coach-lifters.js
+  // CoachLifters.model().order) puts them in the jobs' order, as every coach list is (pain first, then a meet
+  // today, then how soon; a lifter with no open job after everyone with one); without it, by reasons[0].group.
   function weeklyNoteDue(rows, opts) {
     opts = opts || {};
-    var t = opts.today || todayIso();
+    var t = opts.today || todayIso(), ord = opts.order || null;
+    var place = function (r) { var v = ord ? ord[r.athlete.id] : null; return v == null ? Infinity : v; };
     return (rows || []).filter(function (r) {
       var id = r && r.athlete && r.athlete.id;
       if (!id || !trainedThisWeek(id, t)) return false;
       var last = lastNoteOn(id, opts);
       return !last || daysBetween(last, t) >= GAP_DAYS;
     }).sort(function (a, b) {
-      var ga = a.reasons && a.reasons[0] ? a.reasons[0].group : 99, gb = b.reasons && b.reasons[0] ? b.reasons[0].group : 99;
-      return ga - gb || String(a.athlete.name).localeCompare(String(b.athlete.name));
+      if (ord) { var pa = place(a), pb = place(b); if (pa !== pb) return pa < pb ? -1 : 1; }
+      else {
+        var ga = a.reasons && a.reasons[0] ? a.reasons[0].group : 99, gb = b.reasons && b.reasons[0] ? b.reasons[0].group : 99;
+        if (ga !== gb) return ga - gb;
+      }
+      return String(a.athlete.name).localeCompare(String(b.athlete.name));
     });
   }
+
+  /* ---------------------------------------------------------------- the queue's state
+     One record of a review, shared by the laptop's queue (openQueue) and the phone's deck (openDeck): the lifters
+     in order, who is up (i; rows.length is the end), who was sent or skipped, each lifter's edits. Pure: the UI
+     calls these, then paints. */
+  function queueStart(rows, t) { return { rows: (rows || []).slice(), i: 0, t: t || todayIso(), sent: [], skipped: [], edits: {}, busy: false }; }
+  function queueCurrent(Q) { return Q && Q.i >= 0 && Q.i < Q.rows.length ? Q.rows[Q.i] : null; }
+  function queueDone(Q) { return !Q || Q.i >= Q.rows.length; }
+  function rowId(r) { return r && r.athlete ? r.athlete.id : null; }
+  function queueIsSent(Q, id) { return !!Q && Q.sent.some(function (r) { return rowId(r) === id; }); }
+  function queueIsSkipped(Q, id) { return !!Q && Q.skipped.some(function (r) { return rowId(r) === id; }); }
+  // Their note went: they're sent (once), no longer skipped, and their edits are done with. The place stays put.
+  function queueMarkSent(Q, id) {
+    var r = Q.rows.filter(function (x) { return rowId(x) === id; })[0];
+    if (!r) return Q;
+    if (!queueIsSent(Q, id)) Q.sent.push(r);
+    Q.skipped = Q.skipped.filter(function (x) { return rowId(x) !== id; });
+    delete Q.edits[id];
+    return Q;
+  }
+  // Sent, then the next lifter (the laptop's Send).
+  function queueSent(Q) { var r = queueCurrent(Q); if (!r) return Q; queueMarkSent(Q, rowId(r)); Q.i++; return Q; }
+  // On to the next one; the one left is skipped unless their note went.
+  function queueSkip(Q) {
+    var r = queueCurrent(Q);
+    if (!r) return Q;
+    if (!queueIsSent(Q, rowId(r)) && !queueIsSkipped(Q, rowId(r))) Q.skipped.push(r);
+    Q.i++;
+    return Q;
+  }
+  // Back one (the deck's swipe right): that lifter is up again, so no longer skipped.
+  function queueBack(Q) {
+    if (!Q || Q.i <= 0) return Q;
+    Q.i--;
+    var id = rowId(Q.rows[Q.i]);
+    Q.skipped = Q.skipped.filter(function (x) { return rowId(x) !== id; });
+    return Q;
+  }
+  // The ones skipped become the queue (the end's "Back to the ones you skipped"); what was sent stays counted.
+  function queueAgain(Q) { Q.rows = Q.skipped.slice(); Q.skipped = []; Q.i = 0; return Q; }
   function sentThisWeek(rows, opts) {
     opts = opts || {};
     var t = opts.today || todayIso();
     return (rows || []).filter(function (r) { var last = lastNoteOn(r.athlete.id, opts); return last && daysBetween(last, t) < GAP_DAYS; });
+  }
+
+  /* ---------------------------------------------------------------- the server's word, on the phone too
+     A note sent from the laptop or another phone is on the server only: each lifter's weeklyAt in the coach's thread
+     digest (db.js listThreadsForCoach). The laptop desk reads that digest for itself (_dk.threads); the phone has no
+     desk to do it, so it reads it here: when Home or You draw the count (at most once a minute), when the deck opens
+     on one older than a minute, and when the app comes back to the front. A note the coach sends from another device
+     while this one is open arrives live (coach.html's roster channel → heard). When what it learns moves the count,
+     Home and You redraw ('powa:weekly-notes'). The demo reads its own Store and never asks. */
+  var PH = { threads: null, at: 0, me: null, p: null, tok: null };
+  var PH_FRESH = 60000;
+  var PAINTED = null;   // the count last drawn (Home's tile, You's row): a digest that changes it redraws them
+  // The digest's rows → { athleteId: { weeklyAt, lastAt, lastSenderId } } (null forgets it).
+  function takeThreads(rows, me) {
+    if (rows == null) { PH.threads = null; PH.at = 0; PH.me = null; PH.p = null; PH.tok = null; return null; }
+    var map = {};
+    (rows || []).forEach(function (r) { if (r && r.athleteId) map[r.athleteId] = { athleteId: r.athleteId, weeklyAt: r.weeklyAt || null, lastAt: r.lastAt || null, lastSenderId: r.lastSenderId || null }; });
+    PH.threads = map; PH.at = Date.now(); PH.me = me || myId();
+    return map;
+  }
+  // The desk's digest and the phone's, joined: each lifter's latest weekly note from either (a page can have both:
+  // it was the laptop desk, then the window narrowed to the phone).
+  function threadsJoin(a, b) {
+    if (!a || !b) return a || b || null;
+    var out = {};
+    [a, b].forEach(function (m) {
+      Object.keys(m).forEach(function (k) {
+        var t = m[k], cur = out[k];
+        if (t && (!cur || (t.weeklyAt && (!cur.weeklyAt || String(t.weeklyAt) > String(cur.weeklyAt))))) out[k] = t;
+      });
+    });
+    return out;
+  }
+  function threads() {
+    var dk = null;
+    try { dk = typeof _dk !== 'undefined' ? _dk.threads || null : null; } catch (e) { dk = null; }
+    return threadsJoin(dk, PH.threads);
+  }
+  function phoneDigestSig() { var th = PH.threads || {}; return Object.keys(th).sort().map(function (k) { return k + '=' + (th[k].weeklyAt || ''); }).join('|'); }
+  // Read the digest unless the one we have is younger than maxAge ms (default a minute). → a promise of the digest.
+  function refreshThreads(maxAge) {
+    var db = typeof window !== 'undefined' ? window.DB : null, me = myId();
+    if (demo() || !db || typeof db.listThreadsForCoach !== 'function' || !me) return Promise.resolve(PH.threads);
+    if (PH.threads && PH.me === me && PH.at && Date.now() - PH.at < (maxAge == null ? PH_FRESH : maxAge)) return Promise.resolve(PH.threads);
+    if (PH.p) return PH.p;
+    var tok = {};
+    PH.tok = tok;
+    var settle = function () { if (PH.tok === tok) { PH.tok = null; PH.p = null; } };
+    var done = function (rows) {
+      settle();
+      if (Array.isArray(rows)) {
+        var was = phoneDigestSig(), prev = PH.threads;
+        takeThreads(rows, me);
+        // A note heard live after this read left isn't in it: keep it (as the desk's deskThreadsMerge does).
+        if (prev) Object.keys(prev).forEach(function (k) { var o = prev[k], n = PH.threads[k]; if (o && o.local && o.weeklyAt && (!n || !n.weeklyAt || String(n.weeklyAt) < String(o.weeklyAt))) PH.threads[k] = o; });
+        if (phoneDigestSig() !== was) changed();
+      }
+      return PH.threads;
+    };
+    var fail = function () { settle(); return PH.threads; };
+    var r;
+    try { r = db.listThreadsForCoach(me); } catch (e) { settle(); return Promise.resolve(PH.threads); }
+    if (!r || typeof r.then !== 'function') return Promise.resolve(done(r));
+    var q = r.then(done, fail);
+    if (PH.tok === tok) PH.p = q && typeof q.then === 'function' ? q : Promise.resolve(PH.threads);
+    return PH.p || Promise.resolve(PH.threads);
+  }
+  // The coach's own message, heard live from another device: a weekly note counts at once, no read.
+  function heard(m) {
+    if (!m || !m.athleteId || !m.meta || !m.meta.weekly) return false;
+    var me = myId();
+    if (!me || m.senderId !== me) return false;
+    var th = PH.threads || (PH.threads = {});
+    var t = th[m.athleteId] || (th[m.athleteId] = { athleteId: m.athleteId, weeklyAt: null });
+    var at = String(m.createdAt || new Date().toISOString());
+    if (t.weeklyAt && String(t.weeklyAt) >= at) return false;
+    t.weeklyAt = at; t.local = true;
+    changed();
+    return true;
+  }
+  // The count moved under what's drawn: Home and You redraw it.
+  function changed() {
+    if (!PAINTED) return;
+    var c;
+    try { c = countsNow(PAINTED.rows, PAINTED.opts); } catch (e) { return; }
+    if (c.due === PAINTED.due && c.sent === PAINTED.sent) return;
+    PAINTED.due = c.due; PAINTED.sent = c.sent;
+    try { window.dispatchEvent(new CustomEvent('powa:weekly-notes', { detail: { due: c.due, sent: c.sent } })); } catch (e) {}
+  }
+  // The laptop desk reads its own digest (desk.js dkFetchThreads): only the phone asks here.
+  function warm() {
+    if (demo()) return;
+    try { if (isDeskNow() && typeof _dk !== 'undefined' && _dk.threads) return; } catch (e) {}
+    refreshThreads(PH_FRESH);
   }
 
   /* ---------------------------------------------------------------- saved replies (pure part) */
@@ -383,6 +530,7 @@
   var IC = {
     pen: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
     chev: '<path d="m9 6 6 6-6 6"/>',
+    chevl: '<path d="m15 6-6 6 6 6"/>',
     x: '<path d="M6 6l12 12M18 6 6 18"/>',
     check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
     save: '<path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/>',
@@ -394,7 +542,10 @@
   function isDeskNow() { return typeof isDesk === 'function' ? isDesk() : document.documentElement.classList.contains('desk'); }
   function reduced() { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
   function deskRows() { try { if (typeof dkRowsFresh === 'function') { dkRowsFresh(); return (typeof _dk !== 'undefined' && _dk.rows) || []; } } catch (e) {} return []; }
-  function threads() { try { return typeof _dk !== 'undefined' ? _dk.threads || null : null; } catch (e) { return null; } }
+  // Back in front after a while (the phone): the count drawn may be out of date; read the digest again.
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    try { document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && PAINTED && !isDeskNow()) warm(); }); } catch (e) {}
+  }
   function dayWord(iso) {
     var d = daysBetween(iso, todayIso());
     if (d <= 0) return 'today'; if (d === 1) return 'yesterday';
@@ -424,10 +575,10 @@
   function openQueue(opts) {
     opts = opts || {};
     if (Q) return;
-    var rows = opts.rows || weeklyNoteDue(deskRows(), { threads: threads() });
+    var rows = opts.rows || weeklyNoteDue(deskRows(), { threads: threads(), order: jobsOrder() });
     if (!rows.length) { if (typeof toast === 'function') toast('Everyone who trained has their note this week'); return; }
     var t = todayIso();
-    Q = { rows: rows, i: 0, t: t, sent: [], skipped: [], edits: {}, busy: false };
+    Q = queueStart(rows, t);
     var veil = document.createElement('div');
     veil.className = 'dk-veil wn-veil';
     var box = document.createElement('div');
@@ -490,7 +641,7 @@
   }
   // The queue as marks: sent or skipped, this one, still to come (a plain bar past 24 lifters).
   function qBar(N, i) {
-    if (N > 24) return '<span class="wn-bar" aria-hidden="true"><i style="width:' + Math.round(i / N * 100) + '%"></i></span>';
+    if (N > MARKS_MAX) return '<span class="wn-bar" aria-hidden="true"><i style="width:' + Math.round(i / N * 100) + '%"></i></span>';
     var o = '<span class="wn-marks" aria-hidden="true">';
     for (var k = 0; k < N; k++) o += '<i class="' + (k < i ? 'is-past' : k === i ? 'is-now' : '') + '"></i>';
     return o + '</span>';
@@ -510,15 +661,12 @@
       if (typeof toast === 'function') toast('Couldn’t send to ' + firstName(r.athlete.name) + '. Check your connection');
       return;
     }
-    Q.sent.push(r);
-    delete Q.edits[r.athlete.id];
-    Q.i++;
+    queueSent(Q);
     qPaint(false);
   }
   function qSkip() {
     if (!Q || Q.busy) return;
-    Q.skipped.push(Q.rows[Q.i]);
-    Q.i++;
+    queueSkip(Q);
     qPaint(false);
   }
   function qDone() {
@@ -533,7 +681,7 @@
           '<button type="button" class="cl-btn" data-close>Done</button></div></div>';
     Q.box.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', closeQueue); });
     var again = Q.box.querySelector('[data-again]');
-    if (again) again.addEventListener('click', function () { Q.rows = sk; Q.skipped = []; Q.i = 0; Q.box.classList.remove('is-done'); qPaint(false); });
+    if (again) again.addEventListener('click', function () { queueAgain(Q); Q.box.classList.remove('is-done'); qPaint(false); });
     var done = Q.box.querySelector('.wn-done-a .cl-btn:not(.quiet)');
     if (done) done.focus({ preventScroll: true });
   }
@@ -586,7 +734,7 @@
   /* ---------------------------------------------------------------- the phone: a lifter's page and the sheet */
   function lifterEntryHtml(r, o) {
     o = o || {};
-    var id = r.athlete.id, t = todayIso(), last = lastNoteOn(id, {}), sent = last && daysBetween(last, t) < GAP_DAYS;
+    var id = r.athlete.id, t = todayIso(), last = lastNoteOn(id, { threads: threads() }), sent = last && daysBetween(last, t) < GAP_DAYS;
     return '<button type="button" class="cl-wnrow' + (o.rise != null ? ' rise" style="--i:' + o.rise : '') + '" data-wn-one="' + esc(id) + '">' +
       '<span class="cl-tic">' + ic('pen') + '</span><span class="cl-wn-t"><b>Write the week’s note</b><span>' +
       (sent ? '<i class="cl-wn-ok" aria-hidden="true"></i>Sent ' + esc(dayWord(last)) : 'Drafted from their last 7 days') + '</span></span>' + ic('chev') + '</button>';
@@ -618,6 +766,579 @@
       requestAnimationFrame(function () { autosize(ta, Math.round(window.innerHeight * 0.5)); });
       ta.addEventListener('input', function () { autosize(ta, Math.round(window.innerHeight * 0.5)); });
     }, { cls: 'wn-sheet' });
+  }
+
+  /* ---------------------------------------------------------------- the phone: Monday review (the deck)
+     Everyone due a note, one card each, in the jobs' order (pain first, then a meet today, then how soon): their
+     week as the evidence (sessions done of written, each lift's top set felt against written, bodyweight against
+     their class, pain and the check-in, their words), the draft under it to edit, "Send to <first name>" the card's
+     one crimson and Skip quiet beside it; then the next lifter, and a done card at the end. Swipe left for the next
+     card, right for the one before: the card follows the finger 1:1 and settles on the coach phone's spring
+     (k 260, c 33: no overshoot); with reduced motion the cards crossfade. One state with the laptop's queue
+     (queueStart / queueSkip / queueBack / queueMarkSent / queueAgain), one send path (sendNote → desk.js
+     dkSendMessage: the demo writes its own Store only and says Sent here). Opened from Home's Coaching
+     (coach-app.js tilesHtml) and You › Coaching (coach.html renderCoachYou). Styles: coach-app.css "WEEKLY NOTES:
+     THE DECK". */
+  var D = null;
+  var KEPT = {};       // the coach's edits by lifter, kept while the page is open: a close (✕, Escape) never throws them away
+  var CARD_GAP = 16;   // the ground between two cards in flight
+  var SPRING_K = 260, SPRING_C = 33;
+  // The jobs' order (coach-lifters.js: every coach list), as { athleteId: place }; null when it can't be had.
+  function jobsOrder() {
+    try { var M = window.CoachLifters && CoachLifters.model ? CoachLifters.model({ reuse: true }) : null; return M && M.order ? M.order : null; } catch (e) { return null; }
+  }
+  // Home's and You's number: how many are due a note, and how many have theirs this week. rows: desk rows;
+  // opts: { today, coachId } (tests). Drawing it also asks for the server's digest when ours is older than a minute.
+  function countsNow(rows, opts) {
+    rows = rows || deskRows();
+    var o = { threads: threads(), today: opts && opts.today, coachId: opts && opts.coachId };
+    return { due: weeklyNoteDue(rows, o).length, sent: sentThisWeek(rows, o).length };
+  }
+  function counts(rows, opts) {
+    var c = countsNow(rows, opts);
+    PAINTED = { due: c.due, sent: c.sent, rows: rows, opts: opts };
+    warm();
+    return c;
+  }
+  function painLine(p) {
+    if (!p) return null;
+    if (p.checkin) return { v: 'Yes on the check-in', s: p.count >= 2 ? p.count + ' days this week' : cap(dayWord(p.day)) };
+    var part = typeof painPartLabel === 'function' ? painPartLabel(p.part, p.side) : String(p.part || 'Pain');
+    var lift = p.lift ? (typeof painLiftLabel === 'function' ? painLiftLabel(p.lift) : p.lift) : '';
+    return { v: part + ' ' + p.sev + '/10', s: [lift, p.count >= 2 ? (p.count === 2 ? 'twice' : p.count + ' times') + ' this week' : dayWord(p.day)].filter(Boolean).join(' · ') };
+  }
+  // The check-in's flags (app.js checkinAlerts: today or yesterday), pain aside: the pain row says it.
+  function checkinLines(aid, t) {
+    var s = storeOf(), me = myId();
+    var qs = (s.checkinQuestions || []).filter(function (q) { return !me || !q.coachId || q.coachId === me; });
+    if (!qs.length) return [];
+    return weekCheckinFlags(qs, s.checkinAnswers || [], aid, t);
+  }
+  // A day as the coach says it, counted from t: today, yesterday, or its weekday.
+  function dayWordFrom(iso, t) {
+    var d = daysBetween(iso, t);
+    if (d <= 0) return 'today';
+    if (d === 1) return 'yesterday';
+    try { return new Date(d10(iso) + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long' }); } catch (e) { return d10(iso); }
+  }
+  // The check-in's flags over the whole week (app.js checkinAlerts looks at today and yesterday only, so Wednesday's
+  // was missing from Monday's review): for each question flagged in the last 7 days, its latest flag with the day, and
+  // how often when it's more than once (a pattern is a decision). Worst first. Pain aside: the pain row says it.
+  // qs: the coach's questions; answers: anyone's. → ['Soreness 8/10 yesterday, twice this week', ...]
+  function weekCheckinFlags(qs, answers, aid, t) {
+    if (typeof checkinAlerts !== 'function') return [];
+    var out = [];
+    (qs || []).forEach(function (q) {
+      if (!q) return;
+      var hits = [];
+      for (var i = 0; i <= 6; i++) {
+        var d = addDays(t, -i);
+        var a = (answers || []).filter(function (x) { return x && x.questionId === q.id && x.athleteId === aid && d10(x.period) === d; });
+        if (!a.length) continue;
+        var al = [];
+        try { al = checkinAlerts([q], a, aid, d) || []; } catch (e) { al = []; }
+        al.forEach(function (x) { if (x && x.text && !/^Pain\b/.test(x.text)) hits.push({ text: String(x.text).replace(/ today$/, ''), day: d, sev: Number(x.severity) || 0 }); });
+      }
+      if (!hits.length) return;
+      var h = hits[0];   // the latest: the days run from t back
+      out.push({ text: h.text + ' ' + dayWordFrom(h.day, t) + (hits.length >= 2 ? ', ' + (hits.length === 2 ? 'twice' : hits.length + ' days') + ' this week' : ''),
+        sev: Math.max.apply(null, hits.map(function (x) { return x.sev; })), day: h.day });
+    });
+    return out.sort(function (a, b) { return b.sev - a.sev || b.day.localeCompare(a.day); }).map(function (x) { return x.text; });
+  }
+  // What the note says, fact by fact (weeklyNoteLines' kept lines): their keys, and the lifts whose top set they give.
+  function noteSays(lines) {
+    var s = { keys: {}, tops: {} };
+    (lines || []).forEach(function (l) { s.keys[l.k] = true; (l.lifts || []).forEach(function (L) { s.tops[L] = true; }); });
+    return s;
+  }
+  // The card's evidence: only what the note doesn't say, so each fact is said once on the card (the owner's rule).
+  // The days they trained (the note says how many), each top set the note doesn't give, bodyweight, pain and the
+  // e1RM when the note had no room for them, the check-in's flags and their own words (never in a note).
+  // checkin: the check-in's lines (checkinLines). → { days, tops, bw, noWeighIn, pain, e1rm, checkin, words }
+  function deckExtras(f, lines, checkin) {
+    var s = noteSays(lines), prs = f.prs || [];
+    return {
+      days: ((f.sessions && f.sessions.days) || []).slice(),
+      tops: (f.tops || []).filter(function (x) { return !s.tops[x.lift]; }).map(function (x) {
+        var o = {};
+        Object.keys(x).forEach(function (k) { o[k] = x[k]; });
+        o.pr = !s.keys.pr && prs.some(function (p) { return p.lift === x.lift; });
+        return o;
+      }),
+      bw: !s.keys.bw && f.bw ? f.bw : null,
+      noWeighIn: !s.keys.bw && !f.bw && f.meetNoWeighIn ? f.meetNoWeighIn : null,
+      pain: !s.keys.pain && f.pain ? f.pain : null,
+      e1rm: !s.keys.e1rm && f.e1rm && f.e1rm.notable ? f.e1rm : null,
+      checkin: (checkin || []).slice(),
+      words: f.words || null
+    };
+  }
+  function coachUnit() { try { return typeof getUnit === 'function' ? getUnit() : 'kg'; } catch (e) { return 'kg'; } }
+  // The evidence, drawn: flags first (pain, bodyweight, the check-in, the e1RM: the orange triangle beside ink words
+  // when it's a problem), then the top sets the note leaves out (felt against written), their words, the days. Colour
+  // on the lift dots, the done day and a PR only. o: { unit (the lifter's), coachUnit, today }: a lifter whose unit
+  // isn't the coach's has it said.
+  function deckExtrasHtml(x, o) {
+    o = o || {};
+    var U = o.unit || 'kg', other = U !== (o.coachUnit || U), t = o.today || todayIso(), html = '';
+    var rows = [];
+    var pl = painLine(x.pain);
+    if (pl) rows.push({ k: 'Pain', v: pl.v, s: pl.s, warn: true });
+    if (x.bw) rows.push({ k: 'Bodyweight', v: wTxt(x.bw.kg, U) + ' ' + uTxt(U), s: (x.bw.over > 0 ? wTxt(x.bw.over, U) + ' ' + uTxt(U) + ' over the ' : 'On weight for the ') + n1(x.bw.cls) + ' kg class · ' + (x.bw.meet || 'Meet') + ' ' + whenMeet(x.bw.days), warn: x.bw.over > 0 });
+    else if (x.noWeighIn) rows.push({ k: 'Bodyweight', v: 'No weigh-in', s: (x.noWeighIn.name || 'Meet') + ' ' + whenMeet(x.noWeighIn.days), warn: false });
+    if (x.checkin.length) rows.push({ k: 'Check-in', v: x.checkin[0], s: x.checkin.slice(1).join(' · '), warn: true });
+    if (x.e1rm) {
+      var dv = Math.round(x.e1rm.delta / (U === 'lbs' ? KG_PER_LB : 1));
+      rows.push({ k: 'Total e1RM', v: String(Math.round(inUnit(x.e1rm.now, U))) + ' ' + uTxt(U), s: (dv > 0 ? '+' : dv < 0 ? '−' : '') + Math.abs(dv) + ' in ' + plural(x.e1rm.weeks, 'week'), warn: dv < 0 });
+    }
+    if (rows.length) html += '<dl class="wnd-facts">' + rows.map(function (r) {
+      return '<div class="wnd-fact' + (r.warn ? ' is-warn' : '') + '"><dt>' + esc(r.k) + '</dt><dd><b>' + esc(r.v) + '</b>' + (r.s ? '<span>' + esc(r.s) + '</span>' : '') + '</dd></div>';
+    }).join('') + '</dl>';
+    if (x.tops.length) {
+      html += '<div class="wnd-tops">' + x.tops.map(function (y) {
+        var over = y.d != null && y.d >= 0.5;
+        var wrote = y.wroteLo != null ? 'wrote ' + rpeTxt(y.wroteLo) + (y.wroteHi != null ? '–' + rpeTxt(y.wroteHi) : '') : '';
+        var said = y.name + ' ' + wTxt(y.kg, U) + (other ? ' ' + uTxt(U) : '') + ' × ' + y.reps + (y.felt != null ? ', felt @' + rpeTxt(y.felt) : '') + (wrote ? ', ' + wrote : '') + (y.pr ? ', a PR' : '');
+        return '<div class="wnd-top' + (over ? ' is-over' : '') + '" role="group" aria-label="' + esc(said) + '"><i class="wnd-ld lift-' + esc(y.lift) + '" aria-hidden="true"></i>' +
+          '<span class="wnd-tn">' + esc(y.name) + (y.pr ? '<em class="wnd-pr">PR</em>' : '') + '</span>' +
+          '<span class="wnd-tv">' + esc(wTxt(y.kg, U)) + '<small>' + (other ? ' ' + uTxt(U) : '') + ' × ' + esc(String(y.reps)) + '</small></span>' +
+          '<span class="wnd-te"><b>' + (y.felt != null ? '@' + esc(rpeTxt(y.felt)) : '–') + '</b>' + (wrote ? '<small>' + esc(wrote) + '</small>' : '') + '</span></div>';
+      }).join('') + '</div>';
+    }
+    if (x.words) html += '<figure class="wnd-words"><figcaption>In their words · ' + esc(cap(dayWord(x.words.when))) + '</figcaption><blockquote>“' + esc(x.words.text.length > 220 ? x.words.text.slice(0, 219).trim() + '…' : x.words.text) + '”</blockquote></figure>';
+    var days = '', named = [];
+    for (var i = 6; i >= 0; i--) {
+      var iso = addDays(t, -i), on = x.days.indexOf(iso) >= 0, lbl = '', full = '';
+      try { var dt = new Date(iso + 'T12:00:00'); lbl = dt.toLocaleDateString(undefined, { weekday: 'narrow' }); full = dt.toLocaleDateString(undefined, { weekday: 'long' }); } catch (e) {}
+      if (on) named.push(i === 0 ? 'today' : full || iso);
+      days += '<span class="wnd-day' + (on ? ' on' : '') + (i === 0 ? ' is-today' : '') + '"><i></i><small>' + esc(lbl) + '</small></span>';
+    }
+    html += '<div class="wnd-sess"><p class="wnd-sess-n">Days trained</p><div class="wnd-days" role="img" aria-label="' + esc(named.length ? 'Trained ' + listJoin(named) : 'Nothing logged in the last 7 days') + '">' + days + '</div></div>';
+    return '<div class="wnd-week"><h4 class="wnd-h">Not in your note</h4><div class="wnd-wcard">' + html + '</div></div>';
+  }
+  // Who: the face, the name (two lines at most), the block and week.
+  function deckWhoHtml(a, meta) {
+    return '<div class="wnd-who">' + avHtml(a, 'wnd-av') + '<div class="wnd-whot"><h3 class="wnd-name"><span>' + esc(a.name) + '</span></h3><p class="wnd-meta">' + esc(meta) + '</p></div></div>';
+  }
+  // The note: what goes, first, so Send never sends words that aren't on the screen.
+  function deckNoteHtml(f1, sent, isDemo) {
+    return '<div class="wnd-note"><h4 class="wnd-h">Your note</h4>' +
+      '<textarea class="wnd-ta" maxlength="2000" spellcheck="true" aria-label="Note to ' + esc(f1) + '"' + (sent ? ' readonly' : '') + '></textarea>' +
+      '<p class="wnd-foot">' + (sent ? 'In your thread with ' + esc(f1) + (isDemo ? ', in the demo only.' : '.') : 'Drafted from their last 7 days. Every number is from their log.') + '</p></div>';
+  }
+  function deckActsHtml(a, sent) {
+    var f1 = firstName(a.name);
+    if (sent) return '<div class="wnd-acts is-sent"><p class="wnd-sent" role="status">' + ic('check', 2.6) + '<span>Sent to ' + esc(f1) + '</span></p><button type="button" class="ca-btn is-soft wnd-next" data-wnd="next">Next</button></div>';
+    return '<div class="wnd-acts"><button type="button" class="ca-btn is-quiet wnd-skip" data-wnd="skip">Skip</button><button type="button" class="ca-btn is-red wnd-send" data-wnd="send"><span>Send to ' + esc(f1) + '</span></button></div>';
+  }
+  function deckLifterCard(r) {
+    var a = r.athlete, f1 = firstName(a.name), f = weeklyNoteFacts(a.id, { today: D.t }), st = r.status || {};
+    var lines = weeklyNoteLines(f);
+    var sent = queueIsSent(D, a.id);
+    var draft = sent ? (D.sentText[a.id] || '') : (D.edits[a.id] != null ? D.edits[a.id] : lines.map(function (l) { return l.text; }).join('\n'));
+    var meta = st.program ? (st.program.name || 'Program') + (st.week && st.week.total ? ' · week ' + (st.week.idx + 1) + ' of ' + st.week.total : '') : 'No block running';
+    var card = document.createElement('div');
+    card.className = 'wnd-card' + (sent ? ' is-sent' : '');
+    card.setAttribute('data-aid', a.id);
+    card.setAttribute('role', 'group');
+    card.setAttribute('aria-label', a.name);
+    card.innerHTML = '<div class="wnd-scroll">' + deckWhoHtml(a, meta) + deckNoteHtml(f1, sent, demo()) +
+        deckExtrasHtml(deckExtras(f, lines, checkinLines(a.id, f.today)), { unit: f.unit, coachUnit: coachUnit(), today: f.today }) +
+      '</div>' + deckActsHtml(a, sent);
+    var ta = card.querySelector('.wnd-ta');
+    ta.value = draft;
+    return card;
+  }
+  // The end, as words: what went, the faces it went to, and the way back to anyone skipped. Opened with nobody due,
+  // it says so in the coach's words (everyone has theirs, or nobody trained). Q: the deck's queue (+ empty, sentWeek).
+  function deckDoneModel(Q, isDemo) {
+    var n = Q.sent.length, title, sub, faces;
+    if (Q.empty && !n) {
+      var sw = Q.sentWeek || [];
+      title = sw.length ? 'Every note is out' : 'No notes due';
+      sub = sw.length ? plural(sw.length, 'lifter') + (sw.length === 1 ? ' has' : ' have') + ' this week’s note.' : 'A lifter is due a note once they train, and again a week after their last one.';
+      faces = sw.map(function (r) { return r.athlete; });
+    } else {
+      title = n ? plural(n, 'note') + ' sent' : 'Nothing sent';
+      sub = n ? (n === 1 ? 'It’s in your thread with ' + firstName(Q.sent[0].athlete.name) : 'Each one is in their thread') + (isDemo ? ', in the demo only' : '') + '.' : 'Everyone you skipped is still due.';
+      faces = Q.sent.map(function (r) { return r.athlete; });
+    }
+    return { title: title, sub: sub, faces: faces, skipped: Q.skipped.length };
+  }
+  function deckDoneHtml(m) {
+    return '<div class="wnd-scroll"><div class="wnd-done-in" role="status"><span class="wnd-done-ic">' + ic('check', 2.6) + '</span>' +
+        '<h3 class="wnd-done-t">' + esc(m.title) + '</h3><p class="wnd-done-s">' + esc(m.sub) + '</p>' +
+        (m.faces.length ? '<span class="wnd-faces" aria-hidden="true">' + m.faces.slice(0, 8).map(function (a) { return avHtml(a); }).join('') + (m.faces.length > 8 ? '<i class="wnd-more">+' + (m.faces.length - 8) + '</i>' : '') + '</span>' : '') +
+      '</div></div>' +
+      '<div class="wnd-acts is-done"><button type="button" class="ca-btn is-soft" data-wnd="close">Done</button>' +
+        (m.skipped ? '<button type="button" class="ca-btn is-quiet wnd-again" data-wnd="again">Back to the ' + (m.skipped === 1 ? 'one' : m.skipped) + ' you skipped</button>' : '') + '</div>';
+  }
+  function paintDone(card) { card.innerHTML = deckDoneHtml(deckDoneModel(D, demo())); }
+  function deckCard(k) {
+    var N = D.rows.length;
+    if (k < 0 || k > N) return null;
+    var card = D.cards[k];
+    if (!card) {
+      if (k === N) { card = document.createElement('div'); card.className = 'wnd-card wnd-done'; card.setAttribute('role', 'group'); card.setAttribute('aria-label', 'Done'); }
+      else card = deckLifterCard(D.rows[k]);
+      card.setAttribute('data-k', String(k));
+      D.stage.appendChild(card);
+      D.cards[k] = card;
+      var ta = card.querySelector('.wnd-ta');
+      if (ta) autosize(ta);
+    }
+    if (k === N) paintDone(card);
+    return card;
+  }
+  // The stage's width, read once a layout (deckSettle, a resize), never inside a frame of the spring.
+  function deckWidth() { if (D && !D.w && D.stage) D.w = D.stage.clientWidth; return (D && D.w) || window.innerWidth || 393; }
+  // Every card sits at its place beside the one up: x is how far the one up is from home.
+  function deckPlace(x) {
+    var W = deckWidth();
+    Object.keys(D.cards).forEach(function (k) {
+      var d = Number(k) - D.i;
+      D.cards[k].style.transform = 'translate3d(' + (x + d * (W + CARD_GAP)).toFixed(2) + 'px,0,0)';
+    });
+  }
+  // The one up and its two neighbours are drawn (the rest are let go); only the one up can be read or tapped.
+  function deckSettle() {
+    Object.keys(D.cards).forEach(function (k) { if (Math.abs(Number(k) - D.i) > 1) { D.cards[k].remove(); delete D.cards[k]; } });
+    deckCard(D.i);   // the one up; its neighbours come once it has landed (deckSoon), never inside the tap that moved it
+    var ae = document.activeElement, lost = !ae || ae === document.body || (D.root.contains(ae) && !!ae.closest('.wnd-card') && !ae.closest('.wnd-card[data-k="' + D.i + '"]'));
+    Object.keys(D.cards).forEach(function (k) {
+      var c = D.cards[k], cur = Number(k) === D.i;
+      c.classList.toggle('is-cur', cur);
+      if (cur) { c.removeAttribute('aria-hidden'); c.inert = false; } else { c.setAttribute('aria-hidden', 'true'); c.inert = true; }
+      c.style.opacity = '';
+    });
+    // Focus follows the card (a button pressed on the last one is gone): the new one's name, for a screen reader,
+    // once it has landed (a focus now would lay the stage out inside the tap, before the spring's first frame).
+    if (lost) D.focusHead = true;
+    deckPlace(D.x);
+    deckBar();
+    deckSoon();
+  }
+  function deckFocusHead() {
+    if (!D || !D.focusHead) return;
+    D.focusHead = false;
+    var ae = document.activeElement;
+    if (ae && ae !== document.body && D.root.contains(ae) && !(ae.closest('.wnd-card') && !ae.closest('.wnd-card.is-cur'))) return;   // they moved on themselves
+    var head = D.cards[D.i] && D.cards[D.i].querySelector('.wnd-name, .wnd-done-t');
+    if (head) { head.setAttribute('tabindex', '-1'); try { head.focus({ preventScroll: true }); } catch (e) {} }
+  }
+  // The cards either side of the one up, built while nothing moves (a card takes 10 to 15 ms of script with a big
+  // roster: inside a tap it would hold the spring's first frame). A finger that lands first builds them at once.
+  function deckSoon() {
+    if (!D) return;
+    clearTimeout(D.soonT);
+    D.soonT = setTimeout(function () { if (!D) return; if (D.anim || D.drag) { deckSoon(); return; } deckFocusHead(); deckNeighbours(); }, 80);
+  }
+  function deckNeighbours() {
+    if (!D) return;
+    var made = false;
+    [D.i - 1, D.i + 1].forEach(function (k) {
+      if (k < 0 || k > D.rows.length || D.cards[k]) return;
+      var c = deckCard(k);
+      c.setAttribute('aria-hidden', 'true'); c.inert = true;
+      made = true;
+    });
+    if (made) deckPlace(D.x);
+  }
+  // Where you are: "2 of 5" and a mark a lifter (green sent, steel skipped, ink the one up); one bar past MARKS_MAX.
+  function deckBar() {
+    var N = D.rows.length, c = D.root.querySelector('.wnd-count'), m = D.root.querySelector('.wnd-marks');
+    c.textContent = N && D.i < N ? (D.i + 1) + ' of ' + N : '';
+    // Back to the lifter before, as a button too (a swipe isn't for everyone): gone on the first card. A screen reader
+    // hears who is up (the live line), as the card's name takes focus only when what had it is gone.
+    var back = D.root.querySelector('[data-wnd="back"]'), hide = D.i <= 0;
+    if (back) {
+      if (hide && document.activeElement === back) { var h = D.cards[D.i] && D.cards[D.i].querySelector('.wnd-name, .wnd-done-t'); if (h) { h.setAttribute('tabindex', '-1'); try { h.focus({ preventScroll: true }); } catch (e) {} } }
+      back.hidden = hide;
+    }
+    var live = D.root.querySelector('.wnd-live'), cur = D.rows[D.i];
+    if (live && D.liveOn) live.textContent = cur ? cur.athlete.name + ', ' + (D.i + 1) + ' of ' + N : (D.cards[N] && D.cards[N].querySelector('.wnd-done-t') ? D.cards[N].querySelector('.wnd-done-t').textContent : '');
+    if (N <= 1) { m.hidden = true; m.innerHTML = ''; return; }
+    m.hidden = false;
+    if (N > MARKS_MAX) { m.className = 'wnd-marks is-bar'; m.innerHTML = '<i style="width:' + Math.round(Math.min(D.i, N) / N * 1000) / 10 + '%"></i>'; return; }
+    m.className = 'wnd-marks';
+    var o = '';
+    for (var k = 0; k < N; k++) {
+      var id = rowId(D.rows[k]);
+      o += '<i class="' + (k === D.i ? 'is-now' : queueIsSent(D, id) ? 'is-sent' : queueIsSkipped(D, id) ? 'is-skip' : '') + '"></i>';
+    }
+    m.innerHTML = o;
+  }
+  function deckStop() { if (D && D.anim) { cancelAnimationFrame(D.anim); D.anim = null; } }
+  // The spring: x'' = -k (x - to) - c x', from where the card is, at the finger's speed (px/s). Never past home:
+  // the speed is held under what would carry it through (no overshoot, as the owner's spring rule says).
+  function deckSpring(to, v0) {
+    deckStop();
+    var x = D.x - to, v = Number(v0) || 0, w = Math.sqrt(SPRING_K), last = null;
+    if (x > 0 && v < -w * x) v = -w * x;
+    if (x < 0 && v > -w * x) v = -w * x;
+    var step = function (now) {
+      if (!D) return;
+      if (last == null) last = now;
+      var dt = Math.min(0.05, Math.max(0, (now - last) / 1000)), h = dt / 4;
+      last = now;
+      for (var j = 0; j < 4; j++) { var acc = -SPRING_K * x - SPRING_C * v; v += acc * h; x += v * h; }
+      D.x = to + x;
+      if (Math.abs(x) < 0.4 && Math.abs(v) < 12) { D.x = to; deckPlace(D.x); D.anim = null; return; }
+      deckPlace(D.x);
+      D.anim = requestAnimationFrame(step);
+    };
+    D.anim = requestAnimationFrame(step);
+  }
+  // Reduced motion: no travel. The one leaving fades out where it is, the one arriving fades up from .45.
+  function deckCrossfade(fromK) {
+    deckStop();
+    D.x = 0;
+    var old = D.cards[fromK];
+    deckSettle();
+    var cur = D.cards[D.i];
+    if (old && old !== cur && old.animate && D.cards[fromK] === old) {
+      old.style.transform = 'translate3d(0,0,0)';
+      old.style.zIndex = '2';
+      var a = old.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: 'ease-out', fill: 'forwards' });
+      a.onfinish = function () { old.style.zIndex = ''; try { a.cancel(); } catch (e) {} if (D) deckPlace(D.x); };
+    }
+    if (cur && cur.animate) cur.animate([{ opacity: 0.45 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' });
+  }
+  // One card on (dir 1) or back (dir -1), from a button, a key or a swipe that let go past the line (v0: its speed).
+  function deckGo(dir, v0) {
+    if (!D) return false;
+    var N = D.rows.length, to = D.i + dir;
+    if (to < 0 || to > N) { if (!reduced()) deckSpring(0, 0); return false; }
+    var fromK = D.i, ae = document.activeElement;
+    if (ae && ae.blur && ae.closest && ae.closest('.wnd-card')) ae.blur();
+    if (dir > 0) queueSkip(D); else queueBack(D);
+    try { if (typeof hapticTap === 'function') hapticTap('LIGHT'); } catch (e) {}
+    if (reduced()) { deckCrossfade(fromK); return true; }
+    D.x += dir * (deckWidth() + CARD_GAP);
+    deckSettle();
+    deckSpring(0, v0 != null ? v0 : -dir * 2400);
+    return true;
+  }
+  // The finger: past 10 pt sideways the cards follow it 1:1 (a vertical move scrolls the card instead); let go past
+  // 28% of the width, or flicked, and the next card comes up on the spring; else the card springs home. Past the
+  // first or the last card the pull gives (a third, and less the further it goes).
+  function deckSwipe(stage) {
+    var x0 = 0, y0 = 0, base = 0, armed = false, drag = false, samples = [];
+    stage.addEventListener('touchstart', function (e) {
+      if (!D || e.touches.length !== 1) {
+        // A second finger: no swipe; a card already moving goes home.
+        if (D && drag) { drag = false; D.drag = false; var c0 = D.cards[D.i]; if (c0) c0.style.opacity = ''; if (reduced()) { D.x = 0; deckPlace(0); } else deckSpring(0, 0); }
+        armed = false; return;
+      }
+      var ta = e.target && e.target.closest ? e.target.closest('textarea') : null;
+      if (ta && document.activeElement === ta) { armed = false; return; }   // typing: the note keeps its touches
+      var p = e.touches[0];
+      armed = true; drag = false; x0 = p.clientX; y0 = p.clientY; samples = [{ x: p.clientX, t: e.timeStamp }];
+      if (D.anim) deckStop();   // caught mid-flight: it carries on from where it is
+      deckNeighbours();         // the card it may pull in is there before the finger moves
+      base = D.x;
+    }, { passive: true });
+    stage.addEventListener('touchmove', function (e) {
+      if (!armed || !D) return;
+      var p = e.touches[0], dx = p.clientX - x0, dy = p.clientY - y0;
+      if (!drag) {
+        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { armed = false; if (D.x !== 0 && !reduced()) deckSpring(0, 0); return; }
+        if (Math.abs(dx) < 10) return;
+        drag = true; D.drag = true; x0 = p.clientX;   // from here the card is under the finger, without a jump
+        dx = 0;
+      }
+      e.preventDefault();
+      var W = deckWidth(), N = D.rows.length, x = base + dx;
+      if ((x > 0 && D.i <= 0) || (x < 0 && D.i >= N)) x = (x > 0 ? 1 : -1) * Math.min(W * 0.3, Math.abs(x) / 3);
+      D.x = x;
+      if (reduced()) { var cur = D.cards[D.i]; if (cur) cur.style.opacity = String(1 - Math.min(0.55, Math.abs(x) / W)); }
+      else deckPlace(x);
+      samples.push({ x: p.clientX, t: e.timeStamp });
+      if (samples.length > 8) samples.shift();
+    }, { passive: false });
+    var end = function () {
+      if (!armed || !D) { armed = false; return; }
+      armed = false;
+      // A touch that never became a swipe, on a card caught away from home: it goes home.
+      if (!drag) { if (D.x !== 0 && !D.anim) { if (reduced()) { D.x = 0; deckPlace(0); } else deckSpring(0, 0); } return; }
+      drag = false; D.drag = false;
+      // The finger-up after a swipe must not also tap what is under it.
+      var swallow = function (ev) { ev.stopPropagation(); ev.preventDefault(); };
+      D.root.addEventListener('click', swallow, true);
+      setTimeout(function () { if (D) D.root.removeEventListener('click', swallow, true); }, 350);
+      var b = samples[samples.length - 1], a = samples.filter(function (s) { return b.t - s.t <= 100; })[0] || samples[0];
+      var v = b && a && b.t - a.t >= 16 ? (b.x - a.x) / (b.t - a.t) : 0;   // px per ms
+      var W = deckWidth(), N = D.rows.length, x = D.x;
+      var dir = (x < -W * 0.28 || (v < -0.45 && x < -24)) ? 1 : (x > W * 0.28 || (v > 0.45 && x > 24)) ? -1 : 0;
+      if ((dir === 1 && D.i >= N) || (dir === -1 && D.i <= 0)) dir = 0;
+      if (reduced()) {
+        var cur = D.cards[D.i]; if (cur) cur.style.opacity = '';
+        D.x = 0;
+        if (dir) deckGo(dir); else deckPlace(0);
+        return;
+      }
+      if (dir) deckGo(dir, v * 1000); else deckSpring(0, v * 1000);
+    };
+    stage.addEventListener('touchend', end);
+    stage.addEventListener('touchcancel', end);
+  }
+  async function deckSend(btn) {
+    if (!D || D.busy) return;
+    var r = queueCurrent(D);
+    if (!r) return;
+    var id = r.athlete.id, f1 = firstName(r.athlete.name), card = D.cards[D.i], ta = card && card.querySelector('.wnd-ta'), body = ta ? ta.value.trim() : '';
+    if (!body) { if (ta) ta.focus(); return; }
+    D.busy = true;
+    btn.setAttribute('aria-busy', 'true');
+    var ok = await sendNote(id, body, D.t);
+    if (!D) return;
+    D.busy = false;
+    btn.removeAttribute('aria-busy');
+    if (!ok) { deckSay(card, 'Couldn\u2019t send to ' + f1 + '. Check your connection and send again.'); return; }
+    queueMarkSent(D, id);
+    D.sentText[id] = body;
+    delete KEPT[id];
+    // The card says Sent where its buttons were, its note now what went; a beat later the next lifter comes up.
+    if (ta) { ta.readOnly = true; ta.blur(); }
+    card.classList.add('is-sent');
+    var acts = card.querySelector('.wnd-acts');
+    if (acts) acts.outerHTML = deckActsHtml(r.athlete, true);
+    var foot = card.querySelector('.wnd-foot');
+    if (foot) foot.textContent = 'In your thread with ' + f1 + (window._demoMode ? ', in the demo only.' : '.');
+    try { if (typeof hapticTap === 'function') hapticTap('MEDIUM'); } catch (e) {}
+    deckBar();
+    setTimeout(function () { if (D && !D.drag && rowId(queueCurrent(D)) === id) deckGo(1); }, 650);
+  }
+  // Said on the card, above its buttons, where the coach is looking (a toast would sit over Close and the title).
+  function deckSay(card, text) {
+    var acts = card && card.querySelector('.wnd-acts');
+    if (!acts) return;
+    var p = acts.querySelector('.wnd-err');
+    if (!p) { p = document.createElement('p'); p.className = 'wnd-err'; p.setAttribute('role', 'alert'); acts.insertBefore(p, acts.firstChild); }
+    p.textContent = text;
+  }
+  // On the phone's keyboard the deck shrinks to what's left above it, so Send stays in reach.
+  function deckFit() {
+    var vv = window.visualViewport;
+    if (!D || !vv) return;
+    var kb = vv.height < window.innerHeight - 120;
+    D.root.classList.toggle('is-kb', kb);
+    D.root.style.height = kb ? vv.height + 'px' : '';
+    D.root.style.top = kb ? vv.offsetTop + 'px' : '';
+    D.root.style.bottom = kb ? 'auto' : '';
+  }
+  var OPENING = false;
+  function openDeck(opts) {
+    opts = opts || {};
+    if (D || OPENING || typeof document === 'undefined') return;
+    if (isDeskNow()) { openQueue(); return; }   // the laptop has its queue
+    // A real account: what the server knows first (a note sent from the laptop since), unless it was read in the
+    // last minute. A slow network opens on what we have after 2.5 s.
+    var db = window.DB;
+    if (!opts.rows && !demo() && db && typeof db.listThreadsForCoach === 'function' && !(PH.threads && PH.at && Date.now() - PH.at < PH_FRESH)) {
+      OPENING = true;
+      var from = opts.from && opts.from.setAttribute ? opts.from : null;
+      if (from) from.setAttribute('aria-busy', 'true');
+      var go = function () { if (!OPENING) return; OPENING = false; if (from) from.removeAttribute('aria-busy'); openDeckNow(opts); };
+      refreshThreads(PH_FRESH).then(go, go);
+      setTimeout(go, 2500);
+      return;
+    }
+    openDeckNow(opts);
+  }
+  function openDeckNow(opts) {
+    if (D || typeof document === 'undefined') return;
+    var rows = opts.rows || weeklyNoteDue(deskRows(), { threads: threads(), order: jobsOrder() });
+    D = queueStart(rows, todayIso());
+    D.opts = opts; D.cards = {}; D.sentText = {}; D.x = 0; D.anim = null; D.drag = false;
+    Object.keys(KEPT).forEach(function (k) { D.edits[k] = KEPT[k]; });   // what the coach wrote before a close
+    D.empty = !rows.length;
+    D.sentWeek = D.empty ? sentThisWeek(deskRows(), { threads: threads() }) : [];
+    var root = document.createElement('div');
+    root.className = 'wnd';
+    root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', 'Weekly notes');
+    root.innerHTML = '<div class="wnd-bar">' +
+        '<button type="button" class="wnd-back" data-wnd="back" aria-label="Back to the lifter before" hidden>' + ic('chevl', 2.2) + '</button>' +
+        '<div class="wnd-ttl"><h2 class="wnd-title">Weekly notes</h2><p class="wnd-count"></p></div>' +
+        '<button type="button" class="wnd-x" data-wnd="close" aria-label="Close weekly notes">' + ic('x', 2.2) + '</button>' +
+      '</div><p class="wnd-live" aria-live="polite"></p><div class="wnd-marks" aria-hidden="true" hidden></div><div class="wnd-stage"></div>';
+    document.body.appendChild(root);
+    D.root = root; D.stage = root.querySelector('.wnd-stage');
+    document.documentElement.classList.add('wnd-open');
+    // The app under it is out of reach while it's up: Tab, a switch or VoiceOver (aria-modal alone doesn't stop
+    // them). A sheet or a toast opened over the deck comes later, so it isn't.
+    D.inerted = [];
+    Array.prototype.forEach.call(document.body.children, function (n) { if (n !== root && !n.inert && !/^(SCRIPT|STYLE|TEMPLATE|LINK)$/.test(n.tagName)) { n.inert = true; D.inerted.push(n); } });
+    // Like every sheet: the tap that opened it can't land on what sits under the finger now.
+    var openedAt = Date.now();
+    root.addEventListener('click', function (e) { if (Date.now() - openedAt < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
+    root.addEventListener('click', function (e) {
+      if (!D) return;
+      var b = e.target && e.target.closest ? e.target.closest('[data-wnd]') : null;
+      if (!b) return;
+      var k = b.getAttribute('data-wnd');
+      if (k === 'close') closeDeck();
+      else if (k === 'back') deckGo(-1);
+      else if (k === 'send') deckSend(b);
+      else if (k === 'skip' || k === 'next') deckGo(1);
+      else if (k === 'again') {
+        queueAgain(D);
+        Object.keys(D.cards).forEach(function (c) { D.cards[c].remove(); });
+        D.cards = {}; D.x = 0;
+        deckSettle();
+        var cur = D.cards[D.i];
+        if (cur && cur.animate && !reduced()) cur.animate([{ opacity: 0.45, transform: 'translate3d(24px,0,0)' }, { opacity: 1, transform: 'translate3d(0,0,0)' }], { duration: 340, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+      }
+    });
+    root.addEventListener('input', function (e) {
+      if (!D || !e.target || !e.target.classList || !e.target.classList.contains('wnd-ta')) return;
+      var card = e.target.closest('.wnd-card'), id = card && card.getAttribute('data-aid');
+      if (id && !queueIsSent(D, id)) { D.edits[id] = e.target.value; KEPT[id] = e.target.value; }
+      autosize(e.target);
+    });
+    D.onKey = function (e) {
+      if (!D) return;
+      if (document.querySelector('.ui-sheet-veil:not(.leaving)')) return;   // a sheet over the deck takes its keys
+      if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeDeck(); return; }
+      var inField = e.target && /^(TEXTAREA|INPUT)$/.test(e.target.tagName);
+      if (!inField && e.key === 'ArrowRight') { e.preventDefault(); deckGo(1); }
+      else if (!inField && e.key === 'ArrowLeft') { e.preventDefault(); deckGo(-1); }
+    };
+    document.addEventListener('keydown', D.onKey, true);
+    // Off the phone (the window widened into the laptop desk) the deck gives way; a turn re-places the cards.
+    D.onResize = function () { if (!D) return; if (isDeskNow()) { closeDeck(); return; } D.w = 0; deckPlace(D.x); };
+    window.addEventListener('resize', D.onResize);
+    if (window.visualViewport) { window.visualViewport.addEventListener('resize', deckFit); window.visualViewport.addEventListener('scroll', deckFit); }
+    deckSwipe(D.stage);
+    deckSettle();
+    D.liveOn = true;   // from here a change of card is said (the first is the card's name, which takes focus)
+    // Into the dialog: the first card's name (for a screen reader; never drawn as a ring).
+    var h0 = D.cards[D.i] && D.cards[D.i].querySelector('.wnd-name, .wnd-done-t');
+    if (h0) { h0.setAttribute('tabindex', '-1'); try { h0.focus({ preventScroll: true }); } catch (e) {} }
+    root.classList.add('is-in');
+    root.addEventListener('animationend', function once(e) { if (e.target === root) { root.classList.remove('is-in'); root.removeEventListener('animationend', once); } });
+  }
+  function closeDeck() {
+    if (!D) return;
+    var d = D;
+    deckStop();
+    clearTimeout(d.soonT);
+    D = null;
+    document.removeEventListener('keydown', d.onKey, true);
+    window.removeEventListener('resize', d.onResize);
+    if (window.visualViewport) { window.visualViewport.removeEventListener('resize', deckFit); window.visualViewport.removeEventListener('scroll', deckFit); }
+    document.documentElement.classList.remove('wnd-open');
+    (d.inerted || []).forEach(function (n) { n.inert = false; });
+    var ae = document.activeElement;
+    if (ae && ae.blur && d.root.contains(ae)) ae.blur();
+    d.root.classList.remove('is-in');
+    d.root.classList.add('is-leaving');
+    var gone = false, fin = function () { if (gone) return; gone = true; d.root.remove(); };
+    d.root.addEventListener('animationend', fin);
+    setTimeout(fin, 320);
+    // What opened it redraws (Home's count, You's row); else the screen under it does, as after the laptop's queue.
+    try { if (d.opts && d.opts.onClose) d.opts.onClose({ sent: d.sent.length }); else if (window.CoachLifters && CoachLifters.refresh) CoachLifters.refresh(); } catch (e) {}
   }
 
   /* ---------------------------------------------------------------- saved replies: the picker */
@@ -814,6 +1535,13 @@
     DEFAULT_REPLIES: DEFAULT_REPLIES.slice(), repliesKey: repliesKey, repliesParse: repliesParse, repliesAdd: repliesAdd, repliesRemove: repliesRemove,
     loadReplies: loadReplies, saveReplies: saveReplies,
     todayEntryHtml: todayEntryHtml, openQueue: openQueue, closeQueue: closeQueue, lifterEntryHtml: lifterEntryHtml, openSheet: openSheet,
+    openDeck: openDeck, closeDeck: closeDeck, counts: counts, jobsOrder: jobsOrder,
+    threads: threads, takeThreads: takeThreads, refreshThreads: refreshThreads, heard: heard,
+    // the deck's card, pure (tests): what the note says, the evidence it leaves out, each piece as HTML
+    noteSays: noteSays, deckExtras: deckExtras, deckExtrasHtml: deckExtrasHtml, deckWhoHtml: deckWhoHtml, deckNoteHtml: deckNoteHtml,
+    deckActsHtml: deckActsHtml, deckDoneModel: deckDoneModel, deckDoneHtml: deckDoneHtml, painLine: painLine, weekCheckinFlags: weekCheckinFlags,
+    queueStart: queueStart, queueCurrent: queueCurrent, queueDone: queueDone, queueIsSent: queueIsSent, queueIsSkipped: queueIsSkipped,
+    queueMarkSent: queueMarkSent, queueSent: queueSent, queueSkip: queueSkip, queueBack: queueBack, queueAgain: queueAgain,
     pickReply: pickReply, replyButton: replyButton, broadcastRowEl: broadcastRowEl, openBroadcast: openBroadcast, insertAt: insertAt
   };
   window.WeeklyNote = API;

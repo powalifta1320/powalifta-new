@@ -526,8 +526,8 @@ window.POWA_SUPPORT_KB = [
    "gemini",
    "what does the ai see"
   ],
-  "a": "Tap the red Ask AI button at the bottom right of your dashboard (on a phone it is the sparkle button in the top bar), or go to You → Help → Ask AI. It answers from your own training data (coaches get a coaching version), and nothing is sent unless you open it and ask: then your question plus a short summary of your training data (name, best lifts, last 7 days, bodyweight, program name) goes through our own server to Google's Gemini model, or to Groq as a backup if Google is down, never your password or payment details. There is a limit of 20 messages a day per account; after that it says \"You've hit today's assistant limit. It resets tomorrow.\" and keeps answering from your own data offline. The demo page gives offline sample answers only.",
-  "app": "Tap the sparkle button in the top bar, or go to You → Help → Ask AI. It answers from your own training data (coaches get a coaching version), and nothing is sent unless you open it and ask: then your question plus a short summary of your training data (name, best lifts, last 7 days, bodyweight, program name) goes through our own server to Google's Gemini model, or to Groq as a backup if Google is down, never your password or payment details. There is a limit of 20 messages a day per account; after that it says \"You've hit today's assistant limit. It resets tomorrow.\" and keeps answering from your own data offline. The demo gives offline sample answers only."
+  "a": "Tap **Ask AI** at the bottom right of your dashboard (in a phone's browser, the sparkle at the top), or go to You → Help → Ask AI. It answers from your own training data (coaches get a coaching version), and nothing is sent unless you open it and ask: then your question plus a short summary of your training data (name, best lifts, last 7 days, bodyweight, program name) goes through our own server to Google's Gemini model, or to Groq as a backup if Google is down, never your password or payment details. There is a limit of 20 messages a day per account; after that it says \"You've hit today's assistant limit. It resets tomorrow.\" and keeps answering from your own data offline. The demo page gives offline sample answers only.",
+  "app": "Tap **Ask** at the top of the screen, or go to You → Help → Ask AI (coaches: You → Help & support). It answers from your own training data (coaches get a coaching version), and nothing is sent unless you open it and ask: then your question plus a short summary of your training data (name, best lifts, last 7 days, bodyweight, program name) goes through our own server to Google's Gemini model, or to Groq as a backup if Google is down, never your password or payment details. There is a limit of 20 messages a day per account; after that it says \"You've hit today's assistant limit. It resets tomorrow.\" and keeps answering from your own data offline. The demo gives offline sample answers only."
  },
  {
   "id": "e1rm-calculation",
@@ -1274,7 +1274,7 @@ window.POWA_SUPPORT_KB = [
    "sell a program"
   ],
   "a": "Coaches sell training programs on the marketplace: as a lifter, go to You → Browse programs, tap a program, then tap its Buy for $… button, and Lemon Squeezy handles checkout. Once payment clears, the program lands in You → My library, where Install makes it your active program (this replaces your current one) and you can install it again later. Coaches list a program from You → Templates: tap Publish on a template, set your own price ($1 to $999, you keep 80% of each sale) and tap Submit for review, and it goes live once it's approved.",
-  "app": "In the iPhone app your program comes from your coach, or if you train on your own you write it yourself on the Program tab, or ask the assistant (the sparkle at the top) to draft one from your numbers."
+  "app": "In the iPhone app your program comes from your coach, or if you train on your own you write it yourself on the Program tab, or ask the assistant (**Ask** at the top) to draft one from your numbers."
  },
  {
   "id": "contact",
@@ -1564,7 +1564,7 @@ window.POWA_SUPPORT_KB = [
    "ask ai coach"
   ],
   "a": "Yes. Open **Ask AI**, stay on **Coaching** and ask in your own words: who needs me today, who's stalled, who's in pain, who's behind or quiet, who's over their class, meets coming up, PRs this week, who's working harder than you wrote, form checks or replies waiting, who needs a next block, new intakes, who owes you, or a lifter's name for their week.\n\nThose answers come straight from your roster, the same numbers as **Today** and **Lifters**, worked out on your device: exact, instant, and they work in the demo too. Tap a name to open that lifter. A question that asks why or what to change goes to the live AI instead.",
-  "app": "Yes. Tap the sparkle at the top, stay on **Coaching** and ask in your own words: who needs me today, who's stalled, who's in pain, who's behind or quiet, who's over their class, meets coming up, PRs this week, who needs a next block, new intakes, who owes you, or a lifter's name for their week. Those answers come straight from your roster on your phone, the same numbers as **Lifters**, so they're exact and instant. Tap a name to open that lifter."
+  "app": "Yes. Tap **Ask** at the top, stay on **Coaching** and ask in your own words: who needs me today, who's stalled, who's in pain, who's behind or quiet, who's over their class, meets coming up, PRs this week, who needs a next block, new intakes, who owes you, or a lifter's name for their week. Those answers come straight from your roster on your phone, the same numbers as **Lifters**, so they're exact and instant. Tap a name to open that lifter."
  },
  {
   "id": "coach-compare-blocks",
@@ -1594,8 +1594,8 @@ window.POWA_SUPPORT_KB = [
    "weekly check-in message",
    "feedback every week"
   ],
-  "a": "On the laptop, **Today** shows **Weekly notes** with the number of lifters due one (anyone who trained in the last 7 days and hasn't had a note in 6). It opens one lifter at a time: a draft on the left, written from their last 7 days (sessions done against planned, top sets written against how they felt, a PR, a real change in their e1RM total, pain, bodyweight against their class before a meet, and next week's change if you applied one), and their week on the right. Every number comes from their log. Edit it as much as you like, then **Send to** them (⌘↵) or **Skip**, and the next lifter comes up.\n\nOn the phone, open a lifter and tap **Write the week's note**. A note goes into your thread with them like any message.",
-  "app": "Open a lifter and tap **Write the week's note**. The draft is written from their last 7 days (sessions done against planned, top sets written against how they felt, PRs, their e1RM total, pain, bodyweight before a meet) and every number comes from their log. Edit it, then **Send**: it lands in your thread with them like any message."
+  "a": "On the laptop, **Today** shows **Weekly notes** with the number of lifters due one (anyone who trained in the last 7 days and hasn't had a note in 6). It opens one lifter at a time: a draft on the left, written from their last 7 days (sessions done against planned, top sets written against how they felt, a PR, a real change in their e1RM total, pain, bodyweight against their class before a meet, and next week's change if you applied one), and their week on the right. Every number comes from their log. Edit it as much as you like, then **Send to** them (⌘↵) or **Skip**, and the next lifter comes up.\n\nOn the phone, **Weekly notes** sits under **Coaching** on **Home** and on **You**, with the number due. It opens everyone due one, a card each, in the order Home lists them (pain first): the draft first, written from their last 7 days, then what it leaves out (their check-in, their own words, a top set it doesn't mention, the days they trained). Edit it, then **Send to** them or **Skip**, or swipe to the next card (back with **‹** at the top left, or a swipe the other way). A note you sent from the laptop counts on the phone too. To write one lifter's note, open them and tap **Week's note**. A note goes into your thread with them like any message.",
+  "app": "On **Home** or **You**, tap **Weekly notes** under **Coaching** (the number is how many are due: anyone who trained in the last 7 days and hasn't had a note in 6). It opens them a card each, in the order Home lists them (pain first): the draft first, written from their last 7 days with every number from their log, then what it leaves out (their check-in, their own words, a top set it doesn't mention, the days they trained). Edit it, then **Send to** them or **Skip**, or swipe to the next card (back with **‹** at the top left, or a swipe the other way); it lands in your thread with them like any message. A note you sent from the laptop counts here too. To write one lifter's note, open them and tap **Week's note**."
  },
  {
   "id": "coach-saved-replies",
@@ -1918,5 +1918,20 @@ window.POWA_SUPPORT_KB = [
    "leaving hevy"
   ],
   "a": "Hevy Coach has no export on the coach side, but each client can export from the Hevy app (Hevy's help pages): Profile → Settings → Export & Import Data → Export Data → Export Workouts. They send you the CSV (bring it in under **Bring your coaching in**, or Import their history from their page) or import it themselves in POWALIFTA (You → Your data → Import your training history). Hevy's CSV is read as it is: warm-ups left out, kg or lb from the file, RPE where they logged one. Routines don't export: screenshots come in through **Bring a program in**."
+ },
+ {
+  "id": "coach-delete-program",
+  "q": "What happens when I delete a program or a template?",
+  "t": [
+   "delete program",
+   "delete a program",
+   "delete template",
+   "delete a template",
+   "remove a program",
+   "deleted a program",
+   "undo delete program"
+  ],
+  "a": "A lifter's program goes from its ⋯ (next to the program's name) → **Delete program**. It asks first and says what happens: if the lifter logged anything in it, that training is kept as a past block (under **Blocks** on their page) and only the weeks still to come are deleted; if nothing was logged yet, nothing is kept. Either way they have no program until you write or apply one. A template goes from **Templates**: open it, then **Delete template**. Lifters you gave it to keep their own block; only your saved copy goes. Neither can be undone, so **Cancel** (on a phone, **Keep**) leaves everything as it is.",
+  "app": "A lifter's program goes from the ⋯ beside its name in **Programs** → **Delete program**. The app asks first, naming it and saying what happens: if the lifter logged anything in it, that training is kept as a past block (under **Blocks** on their page) and only the weeks still to come are deleted; if nothing was logged yet, nothing is kept. Either way they have no program until you write or apply one. A template goes from **Templates**: open it, then **Delete template**. Lifters you gave it to keep their own block; only your saved copy goes. Neither can be undone, so **Keep program** (or **Keep template**) leaves everything as it is."
  }
 ];

@@ -655,6 +655,8 @@ function renderCoachYou() {
     groups: [
       { title: 'Coaching', rows: [
         fresh ? { label: 'Get set up', value: setup.filter(x => x.done).length + ' of ' + setup.length, icon: svg('<path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/>'), tint: 'gold', onClick: () => (window.CoachYou ? CoachYou.openSetup() : go('athletes')()) } : null,
+        // Monday review (weekly-note.js): everyone due a note this week, one card each.
+        window.WeeklyNote && WeeklyNote.openDeck && roster.length ? _youWeeklyNotesRow(svg) : null,
         window.ClientsUI && roster.length ? { label: 'Clients', value: overdue ? overdue + ' overdue' : '', warn: !!overdue, icon: ClientsUI.ICON, tint: 'green', onClick: go('clients') } : null,
         // How many more lifters fit your hours (capacity.js): room left, in lifters.
         window.CapacityUI ? { label: 'Capacity', value: CapacityUI.rowValue(), icon: CapacityUI.ICON, tint: 'iris', onClick: go('capacity') } : null,
@@ -685,6 +687,20 @@ function renderCoachYou() {
   Array.from(area.children).forEach((n, i) => { n.classList.add('ca-rise'); n.style.setProperty('--i', String(Math.min(i, 6))); });
 }
 window.renderCoachYou = renderCoachYou;
+// You › Coaching's Weekly notes row: how many are due (or all sent), and the deck (weekly-note.js openDeck).
+// A function declaration: hoisted, so a first render can't meet it in the TDZ.
+function _youWeeklyNotesRow(svg) {
+  let n = { due: 0, sent: 0 };
+  try { n = WeeklyNote.counts(); } catch (e) {}
+  return { id: 'youWeeklyNotes', label: 'Weekly notes', value: _youWeeklyNotesValue(n), icon: svg('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>'), tint: 'blue',
+    onClick: (row) => WeeklyNote.openDeck({ from: row, onClose: () => { const p = document.querySelector('[data-pane="you"]'); if (p && !p.classList.contains('hidden')) renderCoachYou(); } }) };
+}
+function _youWeeklyNotesValue(n) { return n.due ? n.due + ' due' : n.sent ? 'All sent' : ''; }
+// The count moved (a note sent from the laptop or another phone, weekly-note.js): You's row says so in place.
+window.addEventListener('powa:weekly-notes', () => {
+  const v = document.querySelector('#youWeeklyNotes .yr-value');
+  if (v && window.WeeklyNote) { try { v.textContent = _youWeeklyNotesValue(WeeklyNote.counts()); } catch (e) {} }
+});
 
 // The phone's docked top bar keeps a back button on a sub-screen (a lifter, Clients, Templates…): the
 // page's own "‹ Lifters" sits in the bar's row at rest and scrolls away under the docked bar, so the
@@ -2258,7 +2274,7 @@ function openRemoveLifterSheet(athleteId, athleteName, opts) {
     if (h) sheet.insertBefore(face, h); else sheet.appendChild(face);
     sheet.appendChild(el('p', { class: 'ui-sheet-sub rm-words' }, _removeLifterWords()));
     const go = el('button', { class: 'ca-btn is-red rm-go', type: 'button' }, 'Remove ' + first);
-    const keep = el('button', { class: 'ca-btn rm-keep', type: 'button' }, 'Keep ' + first);
+    const keep = el('button', { class: 'ca-btn is-quiet rm-keep', type: 'button' }, 'Keep ' + first);
     go.addEventListener('click', async () => {
       if (go.getAttribute('aria-busy') === 'true') return;
       go.setAttribute('aria-busy', 'true');
@@ -2391,7 +2407,8 @@ function subscribeRosterMessages() {
     if (!m) return;
     // The coach's own (this device or another): no badge changes. The desk takes it as who wrote last
     // at once (desk.js deskHeard: a reply from their phone clears "Message waiting" here too), no read.
-    if (m.senderId === user.id) { _deskCall('deskHeard', m); return; }
+    // A weekly note among them leaves the phone's count at once too (weekly-note.js heard).
+    if (m.senderId === user.id) { _deskCall('deskHeard', m); if (window.WeeklyNote && WeeklyNote.heard) WeeklyNote.heard(m); return; }
     scheduleUnreadRefresh();
   });
 }
@@ -3871,7 +3888,8 @@ function programMenuActions(prog, athleteId) {
     } } : null,
     { label: 'Replace with an imported program', icon: ICONS.program, onClick: () => openSheetImport(athleteId) },
     { label: 'Export spreadsheet', icon: ICONS.program, onClick: () => exportProgramCsv(athleteId, athName) },
-    { label: 'Delete program', icon: ICONS.trash, danger: true, onClick: () => deleteProgram() }
+    // The phone asks in the app's own sheet (coach-program.js deleteProgramSheet); the laptop keeps the confirm.
+    { label: 'Delete program', icon: ICONS.trash, danger: true, onClick: () => (!_desk() && window.CoachProgram && CoachProgram.deleteProgramSheet) ? CoachProgram.deleteProgramSheet(prog, athleteId) : deleteProgram() }
   ];
 }
 window.programMenuActions = programMenuActions;
@@ -4110,11 +4128,13 @@ async function createProgramFor(athleteId) {
   try { if (!window._demoMode) await DB.upsertProgram(newProg); } catch (e) { console.error(e); toast('Could not save program'); }
   activeWeekIdx = 0; loadProgram();
 }
-async function deleteProgram() {
-  const aid = document.getElementById('progAthlete').value;
+// opts.confirmed: the phone asked already, in the app's own sheet (coach-program.js deleteProgramSheet); opts.athleteId:
+// whose program (default: the builder's lifter). The laptop's ⋯ keeps the confirm below.
+async function deleteProgram(opts) {
+  const aid = (opts && opts.athleteId) || document.getElementById('progAthlete').value;
   const cur = getProgramForAthlete(aid);
   const trained = programHasTraining(cur);
-  if (!confirm(trained ? 'Delete this program? Its logged training is kept as a past block.' : 'Delete the entire program? This cannot be undone.')) return;
+  if (!(opts && opts.confirmed) && !confirm(trained ? 'Delete this program? Its logged training is kept as a past block.' : 'Delete the entire program? This cannot be undone.')) return;
   if (trained) await archiveProgramIfTrained(cur);
   const pid = progIdForAthlete(aid);
   Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== aid); });

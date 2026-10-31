@@ -6447,6 +6447,171 @@ test('who is due: trained this week, no note in six days, the worst first', () =
     eq(WN.lastNoteOn('wd', { coachId: 'wc' }), '2026-10-25');
   } finally { Store.set(saved); }
 });
+test('a note sent from the laptop or another phone: the phone reads the server’s digest, so that lifter is no longer due (Home, You, the deck)', () => {
+  const saved = Store.get(), savedDB = window.DB, savedDemo = window._demoMode, savedUser = window._user;
+  Store.set(wnStore());
+  try {
+    window._demoMode = false; window._user = { id: 'wc', name: 'Coach' };
+    WN.takeThreads(null);
+    const rows = [{ athlete: { id: 'wa', name: 'Ada Lane' }, reasons: [{ group: 1 }] }, { athlete: { id: 'wd', name: 'Di Moss' }, reasons: [] }];
+    let asked = [];
+    // The server's digest (db.js listThreadsForCoach): Ada had her note on Tuesday, from the laptop.
+    window.DB = { listThreadsForCoach: (id) => { asked.push(id); return { then: (ok) => { ok([{ athleteId: 'wa', lastAt: '2026-10-27T08:00:00Z', lastSenderId: 'wc', unread: 0, weeklyAt: '2026-10-27T08:00:00Z' }]); return { then() {} }; } }; } };
+    const before = WN.counts(rows, { today: WT, coachId: 'wc' });
+    eq(asked.join(), 'wc', 'drawing the count reads the coach’s own digest');
+    WN.takeThreads(null);
+    eq(WN.due(rows, { today: WT, coachId: 'wc', threads: WN.threads() }).map(r => r.athlete.id).join(','), 'wa,wd', 'nothing read: both due (the blocker: the phone never knew)');
+    WN.refreshThreads(0);
+    eq(asked.length, 2, 'read again when asked for a fresh one');
+    eq(WN.lastNoteOn('wa', { coachId: 'wc', threads: WN.threads() }), '2026-10-27', 'the day of the laptop’s note');
+    const c = WN.counts(rows, { today: WT, coachId: 'wc' });
+    eq(c.due, 1, 'Ada is no longer due'); eq(c.sent, 1, 'and counts as sent this week');
+    eq(before.due + before.sent, 2, 'the count covers the same lifters');
+    WN.refreshThreads();
+    eq(asked.length, 2, 'a digest read in the last minute is used as it is');
+    // Heard live (coach.html's roster channel): Di's note goes from the laptop while the phone is open.
+    WN.heard({ athleteId: 'wd', coachId: 'wc', senderId: 'wc', body: 'Week', meta: { weekly: WT }, createdAt: WT + 'T09:30:00Z' });
+    eq(WN.counts(rows, { today: WT, coachId: 'wc' }).due, 0, 'heard live: nobody due');
+    WN.refreshThreads(0);   // a read that left before Di's note went (the server answers with Ada's only)
+    eq(WN.counts(rows, { today: WT, coachId: 'wc' }).due, 0, 'a read from before it doesn’t take the heard note back');
+    WN.heard({ athleteId: 'wa', coachId: 'wc', senderId: 'wa', body: 'Thanks', meta: { weekly: WT }, createdAt: WT + 'T10:00:00Z' });
+    eq(WN.lastNoteOn('wa', { coachId: 'wc', threads: WN.threads() }), '2026-10-27', 'only the coach’s own notes count');
+    // The demo reads its own Store and never asks the server.
+    window._demoMode = true; asked = [];
+    WN.takeThreads(null); WN.refreshThreads(0);
+    eq(asked.length, 0, 'the demo never reads');
+  } finally { WN.takeThreads && WN.takeThreads(null); window.DB = savedDB; window._demoMode = savedDemo; window._user = savedUser; Store.set(saved); }
+});
+test('the deck’s card: the note first, and under it only what the note leaves out (each fact once a card)', () => {
+  const saved = Store.get();
+  Store.set(wnStore());
+  try {
+    const f = WN.facts('wa', { today: WT, unit: 'kg', applied: [] });
+    const lines = WN.lines(f);
+    eq(lines.map(l => l.k).join(','), 'sessions,pr,off0,on,bw,pain', 'Ada’s six lines');
+    eq(lines.filter(l => l.lifts.length).map(l => l.k + ':' + l.lifts.join('+')).join(' '), 'pr:deadlift off0:bench on:squat', 'the lifts whose top set each line gives');
+    const x = WN.deckExtras(f, lines, ['Soreness 8/10 yesterday']);
+    eq(x.tops.length, 0, 'every top set is in the note: none again under it');
+    eq(x.bw, null, 'bodyweight is in the note'); eq(x.pain, null, 'so is the pain'); eq(x.e1rm, null, 'a flat e1RM is said nowhere');
+    eq(x.days.join(','), '2026-10-22,2026-10-24,2026-10-26', 'the days they trained (the note says how many)');
+    eq(x.checkin.join(), 'Soreness 8/10 yesterday', 'the check-in is never in a note'); eq(x.words.text, 'Pull felt fast. Back was a bit tight after.', 'nor their words');
+    const h = WN.deckExtrasHtml(x, { unit: 'kg', coachUnit: 'kg', today: WT });
+    assert(/Not in your note/.test(h) && /Days trained/.test(h) && /Soreness 8\/10 yesterday/.test(h) && /Pull felt fast/.test(h), 'what the note leaves out');
+    assert(!/sessions|Low back|74\.8|wnd-pr|wnd-top/.test(h), 'nothing the note says: no session count, pain, weigh-in, PR or top set');
+    eq((h.match(/class="wnd-day on/g) || []).length, 3, 'three days lit');
+  } finally { Store.set(saved); }
+  // A full week with too much to say: what the note had no room for comes back under it, the PR said once.
+  const base = { first: 'Cy', unit: 'kg', today: WT, sessions: { done: 2, planned: 4, days: ['2026-10-23', '2026-10-26'] }, tops: [], prs: [], e1rm: null, pain: null, bw: null, meetNoWeighIn: null, next: [], words: null, nextDay: null };
+  const tops = [{ lift: 'squat', name: 'Squat', kg: 200, reps: 2, felt: 9.5, wrote: 8, wroteLo: 8, wroteHi: null, d: 1.5 },
+    { lift: 'bench', name: 'Bench', kg: 130, reps: 3, felt: 7, wrote: 8.5, wroteLo: 8, wroteHi: 8.5, d: -1 },
+    { lift: 'deadlift', name: 'Deadlift', kg: 230, reps: 3, felt: 8.5, wrote: 9, wroteLo: 8, wroteHi: 9, d: 0 }];
+  const many = Object.assign({}, base, { tops, prs: [{ lift: 'squat', kg: 200, reps: 2 }, { lift: 'bench', kg: 135, reps: 1 }], e1rm: { now: 600, delta: 20, weeks: 4, notable: true },
+    bw: { kg: 82.4, cls: 83, over: -0.6, meet: 'Regionals', days: 9 }, pain: { part: 'hip', side: 'right', sev: 3, lift: 'squat', count: 1, day: '2026-10-26' },
+    next: [{ lift: 'squat', title: 'Squat', fromKg: 200, toKg: 195, reps: 2 }] });
+  const ml = WN.lines(many), mx = WN.deckExtras(many, ml, []);
+  eq(ml.map(l => l.k).join(','), 'sessions,pr,off0,bw,next,pain', 'six lines: bench’s line, the on-target deadlift and the e1RM had no room');
+  eq(mx.tops.map(t => t.lift + (t.pr ? '+PR' : '')).join(','), 'bench,deadlift', 'their top sets come back under the note, the PR chip not (the note says it)');
+  assert(mx.e1rm && mx.e1rm.delta === 20, 'the e1RM comes back too'); eq(mx.bw, null); eq(mx.pain, null);
+  const mh = WN.deckExtrasHtml(mx, { unit: 'kg', coachUnit: 'kg', today: WT });
+  assert(/Bench/.test(mh) && /wrote 8–8\.5/.test(mh) && /Total e1RM/.test(mh) && /\+20 in 4 weeks/.test(mh) && !/Squat/.test(mh), 'bench and deadlift felt against written, the e1RM; never the squat the note gives');
+  // Three PRs: the note names them without their sets, so a PR'd top set shows under it, without the chip.
+  const three = Object.assign({}, base, { tops: [{ lift: 'squat', name: 'Squat', kg: 150, reps: 3, felt: 8, wrote: 8, wroteLo: 8, wroteHi: null, d: 0 }],
+    prs: [{ lift: 'squat', kg: 150, reps: 3 }, { lift: 'bench', kg: 100, reps: 2 }, { lift: 'deadlift', kg: 200, reps: 1 }] });
+  const tx = WN.deckExtras(three, WN.lines(three), []);
+  eq(tx.tops.map(t => t.lift + (t.pr ? '+PR' : '')).join(','), 'squat', 'the squat set, not said in the note, is shown; its PR is said there');
+  // A lifter in pounds on a coach in kilos: the unit is said; the same unit: it isn't.
+  const lbx = { days: [], tops: [{ lift: 'deadlift', name: 'Deadlift', kg: 130, reps: 5, felt: 8, wroteLo: 8, wroteHi: null, d: 0, pr: false }], bw: null, noWeighIn: null, pain: null, e1rm: null, checkin: [], words: null };
+  assert(/286\.6<small> lbs × 5/.test(WN.deckExtrasHtml(lbx, { unit: 'lbs', coachUnit: 'kg', today: WT })), 'pounds, said');
+  assert(/286\.6<small> × 5/.test(WN.deckExtrasHtml(lbx, { unit: 'lbs', coachUnit: 'lbs', today: WT })), 'the coach’s own unit: bare');
+});
+test('the check-in on the deck’s card covers their whole week, not only today and yesterday', () => {
+  const qs = [{ id: 'q-sore', coachId: 'wc', prompt: 'How sore are you?', kind: 'scale', cadence: 'daily', active: true },
+    { id: 'q-energy', coachId: 'wc', prompt: 'Energy today?', kind: 'scale', cadence: 'daily', active: true },
+    { id: 'q-pain', coachId: 'wc', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily', active: true }];
+  const ans = (q, day, num, who) => ({ id: q + day + (who || 'wa'), questionId: q, athleteId: who || 'wa', coachId: 'wc', period: day, num });
+  const answers = [ans('q-sore', '2026-10-27', 8), ans('q-sore', '2026-10-24', 9), ans('q-sore', '2026-10-20', 9),   // the 20th is 8 days back
+    ans('q-energy', '2026-10-23', 2), ans('q-energy', '2026-10-28', 6), ans('q-pain', '2026-10-26', 1), ans('q-sore', '2026-10-28', 9, 'wb')];
+  const flags = WN.weekCheckinFlags(qs, answers, 'wa', WT);
+  eq(flags.length, 2, 'soreness and energy; pain is the pain row’s, last week’s soreness is out, Bo’s is his');
+  eq(flags[0], 'Soreness 8/10 yesterday, twice this week', 'the latest, with the day, and the pattern');
+  assert(/^Energy 2\/10 \S+$/.test(flags[1]) && !/today|yesterday/.test(flags[1]), 'Friday’s low energy, by its weekday (the old row only looked at today and yesterday): ' + flags[1]);
+  eq(WN.weekCheckinFlags(qs, [ans('q-sore', WT, 5)], 'wa', WT).length, 0, 'nothing flagged: nothing said');
+  eq(WN.weekCheckinFlags([], answers, 'wa', WT).length, 0, 'no questions: nothing');
+});
+test('the deck’s pieces escape what lifters and coaches typed (a name, a meet, their words)', () => {
+  const bad = '<img src=x onerror=alert(1)>';
+  const who = WN.deckWhoHtml({ id: 'z', name: bad }, 'Block ' + bad);
+  assert(!/<img src=x/.test(who) && /&lt;img src=x onerror=alert\(1\)&gt;/.test(who), 'the name and the block');
+  assert(!/<img src=x/.test(WN.deckActsHtml({ name: bad }, false)) && !/<img src=x/.test(WN.deckActsHtml({ name: bad }, true)), 'Send to and Sent to');
+  assert(!/<img src=x/.test(WN.deckNoteHtml(bad, true, false)), 'the note’s label and foot');
+  const x = { days: [], tops: [{ lift: 'squat', name: bad, kg: 100, reps: 5, felt: 8, wroteLo: 8, wroteHi: null, d: 0, pr: false }], bw: { kg: 64.1, cls: 63, over: 1.1, meet: bad, days: 35 }, noWeighIn: null,
+    pain: { part: 'low_back', side: null, sev: 6, lift: 'deadlift', count: 2, day: WT }, e1rm: null, checkin: [bad], words: { text: bad, when: WT, kind: 'message' } };
+  const h = WN.deckExtrasHtml(x, { unit: 'kg', coachUnit: 'kg', today: WT });
+  assert(!/<img src=x/.test(h), 'the meet, a lift’s name, the check-in and their words stay text');
+  assert(/1\.1 kg over the 63 kg class · &lt;img/.test(h), 'the meet’s name, escaped, in its place');
+  const pl = WN.painLine({ part: 'low_back', side: null, sev: 6, lift: 'deadlift', count: 2, day: WT });
+  assert(/6\/10$/.test(pl.v) && /twice this week/.test(pl.s) && /deadlift/i.test(pl.s), 'pain: the part at its worst, the lift, how often');
+  eq(WN.painLine({ checkin: true, count: 3, day: WT }).s, '3 days this week'); eq(WN.painLine(null), null);
+  // The end: what went and to whom, the way back to the ones skipped; nobody due says so.
+  const r = (id, name) => ({ athlete: { id, name } });
+  const Q = WN.queueStart([r('a', 'Sarah Kim'), r('b', bad)], WT);
+  WN.queueSent(Q); WN.queueSkip(Q);
+  const m = WN.deckDoneModel(Q, true);
+  eq(m.title, '1 note sent'); eq(m.sub, 'It’s in your thread with Sarah, in the demo only.'); eq(m.skipped, 1);
+  const dh = WN.deckDoneHtml(m);
+  assert(/Back to the one you skipped/.test(dh) && /data-wnd="close"/.test(dh), 'Done, and back to the one skipped');
+  const E = Object.assign(WN.queueStart([], WT), { empty: true, sentWeek: [r('c', bad)] });
+  const em = WN.deckDoneModel(E, false);
+  eq(em.title, 'Every note is out'); eq(em.sub, '1 lifter has this week’s note.');
+  assert(!/<img src=x/.test(WN.deckDoneHtml(em)), 'a face’s name stays text');
+  eq(WN.deckDoneModel(Object.assign(WN.queueStart([], WT), { empty: true, sentWeek: [] }), false).title, 'No notes due');
+});
+test('who is due, in the jobs’ order (pain first, then how soon): the deck and the laptop’s queue', () => {
+  const saved = Store.get();
+  Store.set(wnStore({ messages: [{ id: 'm1', coachId: 'wc', athleteId: 'wd', senderId: 'wc', body: 'Week note', meta: { weekly: '2026-10-25' }, createdAt: '2026-10-25T09:00:00Z' }] }));
+  try {
+    const rows = [{ athlete: { id: 'wd', name: 'Di Moss' }, reasons: [] }, { athlete: { id: 'wb', name: 'Bo Reed' }, reasons: [{ group: 7 }] }, { athlete: { id: 'wa', name: 'Ada Lane' }, reasons: [{ group: 1 }] }];
+    const T = '2026-10-31';
+    eq(WN.due(rows, { today: T, coachId: 'wc' }).map(r => r.athlete.id).join(','), 'wa,wd', 'no order given: the worst reason first, as before');
+    eq(WN.due(rows, { today: T, coachId: 'wc', order: { wd: 0, wa: 3 } }).map(r => r.athlete.id).join(','), 'wd,wa', 'the jobs’ order decides');
+    eq(WN.due(rows, { today: T, coachId: 'wc', order: { wa: 5 } }).map(r => r.athlete.id).join(','), 'wa,wd', 'a lifter with no open job comes after everyone with one');
+    eq(WN.due(rows, { today: T, coachId: 'wc', order: {} }).map(r => r.athlete.id).join(','), 'wa,wd', 'nobody with a job: by name');
+  } finally { Store.set(saved); }
+});
+test('the queue’s state: sent, skipped, back and again, one record for the laptop’s queue and the phone’s deck', () => {
+  const r = (id, name) => ({ athlete: { id, name } });
+  const ids = (list) => list.map(x => x.athlete.id).join(',');
+  const Q = WN.queueStart([r('a', 'Ada'), r('b', 'Bo'), r('c', 'Cy')], '2026-10-28');
+  eq(WN.queueCurrent(Q).athlete.id, 'a'); eq(Q.t, '2026-10-28'); eq(WN.queueDone(Q), false);
+  Q.edits.a = 'my words';
+  WN.queueSent(Q);
+  eq(Q.i, 1, 'sent: on to the next'); eq(ids(Q.sent), 'a'); assert(!('a' in Q.edits), 'their edits are done with');
+  WN.queueSkip(Q);
+  eq(ids(Q.skipped), 'b', 'skipped'); eq(WN.queueCurrent(Q).athlete.id, 'c');
+  WN.queueBack(Q);
+  eq(WN.queueCurrent(Q).athlete.id, 'b', 'back one'); eq(Q.skipped.length, 0, 'up again: no longer skipped');
+  WN.queueBack(Q);
+  eq(WN.queueCurrent(Q).athlete.id, 'a'); assert(WN.queueIsSent(Q, 'a'), 'a sent card stays sent');
+  WN.queueBack(Q);
+  eq(Q.i, 0, 'never before the first');
+  WN.queueSkip(Q);
+  eq(Q.skipped.length, 0, 'moving on from a sent card never skips it'); eq(Q.i, 1);
+  WN.queueSkip(Q); WN.queueSkip(Q);
+  assert(WN.queueDone(Q), 'the end'); eq(WN.queueCurrent(Q), null); eq(ids(Q.skipped), 'b,c');
+  WN.queueSkip(Q);
+  eq(Q.i, 3, 'past the end nothing moves');
+  WN.queueBack(Q);
+  eq(WN.queueCurrent(Q).athlete.id, 'c'); eq(ids(Q.skipped), 'b', 'c is up again');
+  WN.queueSkip(Q);
+  WN.queueAgain(Q);
+  eq(ids(Q.rows), 'b,c', 'the ones skipped become the queue'); eq(Q.i, 0); eq(Q.skipped.length, 0); eq(Q.sent.length, 1, 'what went stays counted');
+  WN.queueMarkSent(Q, 'c');
+  assert(WN.queueIsSent(Q, 'c')); eq(Q.i, 0, 'marking sent never moves the place');
+  WN.queueMarkSent(Q, 'c');
+  eq(Q.sent.length, 2, 'sent once'); eq(WN.queueMarkSent(Q, 'zz').sent.length, 2, 'someone not in the queue: nothing');
+  const E = WN.queueStart([], 't');
+  assert(WN.queueDone(E), 'nobody due: already at the end'); eq(WN.queueBack(E).i, 0); eq(WN.queueSkip(E).i, 0);
+});
 test('records: the note sent and next week’s change, per coach, for a week', () => {
   const keys = ['powa-weekly-notes-wc-t', 'powa-week-changes-wc-t'];
   try {
@@ -7907,6 +8072,12 @@ test("Home's numbers: trained in 7 days, this week's PRs, unread", () => {
   const wins = CA.caWins(rows);
   eq(wins.map(w => w.id).join(','), 'a,c', 'most PRs first, nobody without a win');
 });
+test("Home's Weekly notes line: due ones to write, else all out, else nobody due yet", () => {
+  eq(CA.caNotesLine({ due: 2, sent: 1 }), 'to write this week', 'the count beside it says how many');
+  eq(CA.caNotesLine({ due: 0, sent: 3 }), 'All sent this week');
+  eq(CA.caNotesLine({ due: 0, sent: 0 }), 'Due once they train');
+  eq(CA.caNotesLine(null), 'Due once they train', 'nothing known: still a sentence');
+});
 // Home's summary (Plates, 28 Oct): the maths that gathers the app's own numbers into the five pictures.
 test("Home's week strip: Monday to Sunday, one session per lifter per day", () => {
   const logs = [
@@ -8289,6 +8460,26 @@ test('the load hint: the top set, or a block with no load yet; never a later blo
   eq(CPg.cpWantsHint(2, { weight: 0 }), true, 'a later block with no load yet');
   eq(CPg.cpWantsHint(1, { weight: null }), true, 'no load written');
   eq(CPg.cpWantsHint(1, { weight: '150' }), false, 'a load read as a number');
+});
+test('Delete program and Delete template ask in the app’s own words: the name, what goes and what stays', () => {
+  const tr = CPg.cpDeleteProgramWords({ name: 'Strength Block' }, 'Arjun Mehta', true);
+  eq(tr.title, 'Delete “Strength Block”?', 'the thing’s name, in quotes');
+  eq(tr.words, 'What Arjun logged is kept as a past block. The weeks still to come are deleted, and Arjun has no program until you write or apply one.', 'a trained block: what stays, what goes');
+  eq(tr.go + ' / ' + tr.keep, 'Delete program / Keep program');
+  const un = CPg.cpDeleteProgramWords({ name: 'Peak' }, 'Nina Petrova', false);
+  eq(un.words, 'Nothing in it is logged yet, so nothing is kept, and Nina has no program until you write or apply one. You can’t undo this.', 'nothing logged: nothing kept, and no undo');
+  eq(CPg.cpDeleteProgramWords({ name: '' }, '', false).title, 'Delete this program?', 'no name: plain words');
+  assert(/the lifter has no program/.test(CPg.cpDeleteProgramWords({}, null, false).words), 'no lifter name: still a sentence');
+  eq(CPg.cpDeleteProgramWords({ name: 'A'.repeat(80) }, 'Ada', false).title.length, 'Delete “'.length + 60 + '”?'.length, 'a long name is clipped to 60');
+  const t = CPg.cpDeleteTemplateWords({ name: '12-week peak <b>' });
+  eq(t.title, 'Delete “12-week peak <b>”?', 'the coach’s name as text (the sheet sets it as text, never markup)');
+  eq(t.words, 'Lifters you gave it to keep their block. Only the saved template goes, and you can’t undo this.');
+  eq(t.go + ' / ' + t.keep, 'Delete template / Keep template');
+  // After the delete: the sheet said the training was kept as a past block, so Programs says what comes next.
+  const nb = CPg.cpNoBlockWords('Arjun Mehta', true);
+  eq(nb.hi + ' · ' + nb.title, 'No block running · Write Arjun’s next block', 'past blocks kept: his next block');
+  const fb = CPg.cpNoBlockWords('Nina Petrova', false);
+  eq(fb.hi + ' · ' + fb.title, 'No block yet · Write Nina’s first block', 'never had one: her first');
 });
 
 /* ===========================================================

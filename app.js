@@ -11771,9 +11771,9 @@ function _sheetSwallowEarlyClicks(veil) {
   const openedAt = Date.now();
   const s = veil.querySelector('.ui-sheet');
   if (s) s._presentAt = openedAt;   // the early-tap guard's clock starts at open
-  // Over a full-screen mode (Lift mode, meet mode, the commands drill, the year wrap, all at
-  // z-index 150) a sheet opens above it, not invisibly underneath (Plate math from Lift mode).
-  if (document.querySelector('.lift-mode, .meet-mode, .cmd-mode, .wrap-mode')) veil.style.zIndex = '155';
+  // Over a full-screen mode (Lift mode, meet mode, the commands drill, the year wrap, the coach's weekly-notes
+  // deck, all at z-index 150) a sheet opens above it, not invisibly underneath (Plate math from Lift mode).
+  if (document.querySelector('.lift-mode, .meet-mode, .cmd-mode, .wrap-mode, .wnd')) veil.style.zIndex = '155';
   veil.addEventListener('click', (e) => {
     if (Date.now() - openedAt < 400) { e.stopPropagation(); e.preventDefault(); }
   }, true);
@@ -11795,7 +11795,7 @@ function uiSheet(title, build, opts) {
     veil.classList.add('leaving');
     setTimeout(() => { veil.remove(); if (opts.onClose) opts.onClose(); }, 200);
   };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const onKey = (e) => { if (e.key === 'Escape' && _sheetIsTop(veil)) close(); };
   veil.appendChild(sheet);
   _sheetSwallowEarlyClicks(veil);
   _sheetDrag(veil, sheet, close);
@@ -11804,6 +11804,11 @@ function uiSheet(title, build, opts) {
   document.body.appendChild(veil);
   build(sheet, close);
   return close;
+}
+// Sheets stack (Delete template over a template's sheet): Escape closes the top one only, as a tap on its veil does.
+function _sheetIsTop(veil) {
+  const open = document.querySelectorAll('.ui-sheet-veil:not(.leaving)');
+  return !open.length || open[open.length - 1] === veil;
 }
 
 // Rest settings: how long (Short / Standard / Long, previewed on three real
@@ -11978,7 +11983,7 @@ function uiActionSheet(title, actions, opts) {
     veil.classList.add('leaving');
     setTimeout(() => veil.remove(), 200);
   };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const onKey = (e) => { if (e.key === 'Escape' && _sheetIsTop(veil)) close(); };
   actions.filter(Boolean).forEach(a => {
     const b = el('button', { type: 'button', class: a.danger ? 'danger' : '' });
     b.innerHTML = (a.icon || '') + '<span>' + escHtml(a.label) + '</span>';
@@ -14902,7 +14907,7 @@ function _sheetDrag(veil, sheet, close) {
     if (!document.documentElement.classList.contains('native') || e.touches.length !== 1) return;
     const t = e.touches[0];
     if (t.clientX > 24) return;
-    if (document.querySelector('.ui-sheet-veil, .pr-toast')) return;
+    if (document.querySelector('.ui-sheet-veil, .pr-toast, .wnd')) return;   // a sheet, or the weekly-notes deck (its own swipe)
     back = document.querySelector('.pane-back');
     pane = back && back.closest('[data-pane]');
     if (!pane) return;
