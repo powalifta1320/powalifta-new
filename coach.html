@@ -2463,6 +2463,14 @@ async function refreshUnreadBadges() {
       _unreadByAthlete = map;
       _deskCall('deskRefresh', inbox.threads ? { threads: inbox.threads } : undefined);
       return;
+    } else if (DB.coachInbox) {
+      // The phone wants who wrote last too (the night A review): without it Home's "Wrote you" read the demo's
+      // Store, which a real account never fills, so a lifter's message never came up there. The same one read
+      // as the desk; the phone keeps the digest where the desk does (_dk.threads, merged so a read that left
+      // before the coach's own reply can't put "Wrote you" back). No digest (that read failed): keep the last.
+      const inbox = await DB.coachInbox(user.id);
+      inbox.unread.forEach(m => { if (m.coachId === user.id && msgThreadLive(user.id, m.athleteId)) map[m.athleteId] = (map[m.athleteId] || 0) + 1; });
+      if (inbox.threads && typeof _dk !== 'undefined') _dk.threads = deskThreadsMerge(_dk.threads, inbox.threads);
     } else {
       const unread = await DB.listUnreadForUser(user.id);
       // Only threads with a live link count: a former lifter's thread is read-only (row 59), so its unread
@@ -2476,7 +2484,7 @@ async function refreshUnreadBadges() {
     if (document.querySelector('[data-tab="athletes"]').classList.contains('active') ||
         document.getElementById('rosterArea').children.length) {
       renderRoster();
-    }
+    } else if (window.CoachApp) CoachApp.paintHomeIfShown();   // Home before Lifters was ever drawn: its counts and "Wrote you"
   } catch (e) {
     console.warn('refreshUnreadBadges', e);
     // Home's Unread says it couldn't load (a dash), not 0; the next refresh fills it in.
@@ -2532,9 +2540,25 @@ function subscribeRosterMessages() {
     // The coach's own (this device or another): no badge changes. The desk takes it as who wrote last
     // at once (desk.js deskHeard: a reply from their phone clears "Message waiting" here too), no read.
     // A weekly note among them leaves the phone's count at once too (weekly-note.js heard).
-    if (m.senderId === user.id) { _deskCall('deskHeard', m); if (window.WeeklyNote && WeeklyNote.heard) WeeklyNote.heard(m); return; }
+    if (m.senderId === user.id) { _deskCall('deskHeard', m); _phoneThreadSaw(m); if (window.WeeklyNote && WeeklyNote.heard) WeeklyNote.heard(m); return; }
     scheduleUnreadRefresh();
   });
+  // Back to the front: iOS pauses the socket in the background, so a message that came meanwhile was never heard.
+  // Read the inbox again, so the Messages count and Home's "Wrote you" catch up. Once per page.
+  if (!_unreadOnShow) {
+    _unreadOnShow = true;
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && user && !window._demoMode) scheduleUnreadRefresh(); });
+  }
+}
+var _unreadOnShow;   // a var with no value: the boot can reach subscribeRosterMessages before this line runs (TDZ, and no reset)
+// The phone's "who wrote last" (refreshUnreadBadges keeps it in _dk.threads): the coach's own message, sent from a
+// thread here or heard live from another device, clears that lifter's "Wrote you" at once, no read (the desk's
+// deskHeard, for the phone). m: the message as the server stored it, created_at and all.
+function _phoneThreadSaw(m) {
+  if (_desk() || typeof _dk === 'undefined' || !_dk.threads || !m || !m.athleteId) return;
+  if (!deskThreadSaw(_dk.threads, m)) return;
+  if (window.CoachApp) CoachApp.paintHomeIfShown();
+  _repaintRosterSoon();
 }
 
 // The thread with one lifter. The demo opens the same thread on its in-memory Store (renderMessageThread
@@ -2551,7 +2575,8 @@ function openAthleteMessages(athleteId, athleteName, draft) {
     athleteId: athleteId,
     viewerId: user.id,
     otherName: (athleteName || '').split(' ')[0],
-    draft: typeof draft === 'string' ? draft : ''
+    draft: typeof draft === 'string' ? draft : '',
+    onSent: _phoneThreadSaw
   });
   // Opening the thread marks it read; clear this athlete's badge optimistically
   // and refresh from the server once the modal is closed.
@@ -2748,7 +2773,7 @@ async function renderMessages(opts) {
 
     const host = el('div', { class: 'msg-inbox-thread-host' });
     detailCol.appendChild(host);
-    const drawn = renderMessageThread(host, { coachId: user.id, athleteId: athlete.id, viewerId: user.id, otherName: (athlete.name || '').split(' ')[0] });
+    const drawn = renderMessageThread(host, { coachId: user.id, athleteId: athlete.id, viewerId: user.id, otherName: (athlete.name || '').split(' ')[0], onSent: _phoneThreadSaw });
     // The thread marks itself read once it has loaded: count again then, so the Messages tab's number drops
     // (the count below runs before that and read the old unread).
     if (drawn && drawn.then) drawn.then(() => refreshUnreadBadges(), () => {});

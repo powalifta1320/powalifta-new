@@ -397,8 +397,9 @@
 
   /* ---------------------------------------------------------------- the server's word, on the phone too
      A note sent from the laptop or another phone is on the server only: each lifter's weeklyAt in the coach's thread
-     digest (db.js listThreadsForCoach). The laptop desk reads that digest for itself (_dk.threads); the phone has no
-     desk to do it, so it reads it here: when Home or You draw the count (at most once a minute), when the deck opens
+     digest (db.js listThreadsForCoach). The laptop desk reads that digest for itself (_dk.threads), and the phone keeps
+     the one its inbox read brings (coach.html refreshUnreadBadges, for Home's "Wrote you"), but that read waits on a
+     message arriving, so the phone also reads it here: when Home or You draw the count (at most once a minute), when the deck opens
      on one older than a minute, and when the app comes back to the front. A note the coach sends from another device
      while this one is open arrives live (coach.html's roster channel → heard). When what it learns moves the count,
      Home and You redraw ('powa:weekly-notes'). The demo reads its own Store and never asks. */
