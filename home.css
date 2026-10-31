@@ -7,10 +7,12 @@
    All dark (the owner, 30 Oct: "we make all on dark mode"; a light version comes later, shown by the visitor's
    setting): no chapter has a light floor, whatever the visitor's theme. Floors still carry meaning: the gym's dark
    (the lifter's side, the app's floor), the coach's graphite (his desk at night: Today, Next week, Pricing,
-   Questions), the platform's black (meet day). Floors change by hard edges with a lit top rim as chapters scroll,
-   and once by the laptop's own dark screen growing to fill the frame. Depth comes the app's way: raised surfaces
-   with a lit top rim, the desk's screens set in as dark panes, the colour of the real screens, and one soft light
-   at the top of a chapter, never behind a device.
+   Questions), the platform's black (meet day). Floors change by hard edges with a lit top rim as chapters scroll.
+   Depth comes the app's way: raised surfaces with a lit top rim, the desk's screens set in as dark panes, the colour
+   of the real screens, and one soft light at the top of a chapter, never behind a device.
+   Dense (the owner, 31 Oct: "why does a landing page have so many plain spaces"): no held screens, no runway. Every
+   screen of scroll carries a headline, its line, a real screen at a readable size and a proof point or an action;
+   text sits beside its screen, the sides alternating. The motion plays inside the content as it arrives (home.js).
    One frame (1440 at most, centred), one 12-column grid, one type scale, one caption style.
    site.css draws the bar, the footer and Archivo (shared with every public page); home.js is the page layer and
    the motion score. The app's own styles.css arrives only with the log-in and sign-up modals, slotted in before
@@ -26,7 +28,8 @@
   --sq: #38c6ff; --be: #a98bff; --dl: #ffbf3c; --c-gold: #ffc23d;
   --c-green: #34e08c; --up: #34d982;
   --act-top: #dc2637; --act-bot: #c41a2c;           /* the one action: darker crimson, white label (4.8:1 at the top) */
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);       /* arriving and state: strong ease-out, no overshoot */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);       /* state changes and presses: strong ease-out, no overshoot */
+  --ease-enter: cubic-bezier(0.22, 1, 0.36, 1);     /* things entering (the motion brief) */
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);   /* moving on screen */
   --t-press: 140ms; --t-state: 220ms;
   /* The floors and surfaces (the app's dark): the gym, the coach's graphite, a card raised on it, the dark desk's own
@@ -40,7 +43,7 @@
   --gut: clamp(16px, 4.45vw, 64px);
   --wrap: 1312px;
   --cg: clamp(16px, 2.23vw, 32px);                  /* the grid's column gap */
-  --sec: clamp(96px, 10vw, 152px);                  /* the space between chapters */
+  --sec: clamp(48px, 4.4vw, 64px);                  /* a chapter's padding, top and bottom: tight, never a void */
   --fold: max(640px, 100svh);
   /* Arjun's phone in the act: true size (393 x 852) up to 27.3% of the frame. --pin: the share of it above the fold. */
   --pw: min(393px, var(--fw) * 0.273);
@@ -109,8 +112,6 @@ body.home::before, body.home::after { content: none; display: none; }   /* the a
 .act-btn:active { transform: scale(0.97); }
 @media (hover: hover) and (pointer: fine) { .act-btn:hover { filter: brightness(1.07); } }
 .act-btn:focus-visible { outline: 2px solid var(--text, #f4f4f6); outline-offset: 3px; border-radius: 999px; }
-/* One crimson per screen: while the app's own crimson button (Log set) is on screen, the page's steps back to ink. */
-html.red-busy #heroCta .act-btn { background: #f4f4f6; color: #0b0b0d; box-shadow: none; }
 .quiet { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 600; color: var(--text); text-decoration: none; }
 .quiet .arr { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--t-state) var(--ease-out); }
 @media (hover: hover) and (pointer: fine) { .quiet:hover .arr { transform: translateX(3px); } }
@@ -146,7 +147,7 @@ html.js .bar:not(.has-pill) .bar-pill { opacity: 0; transform: translateY(-4px);
    ACT ONE: the flow (the still, phones, tablets, short laptops). The stage (below) re-places it on laptops.
    ===================================================================== */
 .s-home .act { position: relative; z-index: 3; isolation: isolate; padding: 0; }
-.stage { position: relative; padding-top: calc(var(--fold) - var(--ph) * var(--pin) + var(--ph) + 120px); }
+.stage { position: relative; padding-top: calc(var(--fold) - var(--ph) * var(--pin) + var(--ph) + 44px); }
 /* The lifter app's warm light from the top of the screen (Train), never behind a device. */
 .glow-top { position: absolute; inset: 0 0 auto; height: var(--fold); pointer-events: none; z-index: -1;
   background: radial-gradient(42% 46% at 36% -16%, rgba(255, 59, 74, 0.13), transparent 70%); }
@@ -159,7 +160,7 @@ html.js .bar:not(.has-pill) .bar-pill { opacity: 0; transform: translateY(-4px);
 .open-copy .cta-note { margin-top: 14px; }
 
 /* Sam's laptop, a real device: the screen at 1440 x 900 desk px, scaled as one (lid, screen, base).
-   One desk px is 1em inside the laptop (the container's width / 1440). */
+   One desk px is 1em inside the laptop (the container's width / 1440). --par: the depth parallax (home.js). */
 .laptop { position: absolute; z-index: 1; right: calc(var(--fx) + var(--gut) + var(--fw) * 0.012); top: 120px; width: calc(var(--fw) * 0.49); aspect-ratio: 1440 / 900; margin: 0; container-type: inline-size; }
 .lt-cam { position: absolute; left: 0; top: 0; width: 1440em; height: 900em; font-size: calc(100cqw / 1440); transform-origin: 0 0; }
 .lt-body { position: absolute; inset: 0; }
@@ -173,15 +174,10 @@ html.js .bar:not(.has-pill) .bar-pill { opacity: 0; transform: translateY(-4px);
 .lt-base { position: absolute; left: -150em; right: -150em; top: calc(100% + 30em); height: 40em; border-radius: 4em 4em 34em 34em;
   background: linear-gradient(180deg, #d9dbe0 0%, #b9bcc4 38%, #8f939b 100%); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.65), inset 0 -3px 6px rgba(0, 0, 0, 0.25); }
 .lt-base::before { content: ''; position: absolute; left: 50%; top: 0; width: 230em; height: 12em; margin-left: -115em; border-radius: 0 0 14em 14em; background: linear-gradient(180deg, #a9acb4, #c6c9cf); }
-/* The coach's room, held under the screen: on the stage the screen's own ground grows out of its edges (its lit rim
-   leading) to fill the frame, and the graphite page is what it becomes. */
-.lt-room { display: none; }
 /* Its shadow on the desk: a soft ellipse that follows the device. */
 .lt-shadow { position: absolute; left: -6%; right: -6%; bottom: -15%; height: 22%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0)); pointer-events: none; }
 /* Over the laptop's lid, at its left edge: the first thing the eye meets after the headline. */
 .lt-cap { position: absolute; left: 0; bottom: calc(100% + 1.806cqw + 12px); white-space: nowrap; }
-/* The camera's window: the same screen, live. Only on the stage. */
-.win, .win-shadow { display: none; }
 
 /* Arjun's phone: the real lifter app (iPhone app layout), true size on a laptop. */
 .hphone { position: absolute; z-index: 3; left: var(--pl); top: calc(var(--fold) - var(--ph) * var(--pin)); width: var(--pw); margin: 0; font-size: calc(var(--pw) / 393 * 16); }
@@ -190,8 +186,6 @@ html.js .bar:not(.has-pill) .bar-pill { opacity: 0; transform: translateY(-4px);
 .ph-shadow { position: absolute; left: 8%; right: 8%; bottom: -3%; height: 10%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0)); pointer-events: none; }
 .ph-next { position: absolute; inset: 0; height: 100%; display: none; }
 html.m .ph-next { display: block; visibility: hidden; opacity: 0; }
-/* As the logged set lifts off, the screen under it steps back, so no two sets' numbers ever share a frame. */
-.ph-dim { position: absolute; inset: 0; z-index: 4; background: #050506; opacity: 0; pointer-events: none; }
 /* Log set over the capture, in the one-action crimson (the app's geometry: 35, 409 / 323 x 52). */
 .log { position: absolute; left: 2.1875em; top: 25.575em; width: 20.1875em; height: 3.25em; display: flex; align-items: center; justify-content: center; border-radius: 999px;
   background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.45); }
@@ -208,14 +202,8 @@ html.m .ph-next { display: block; visibility: hidden; opacity: 0; }
 .lab-l::before { content: ''; position: absolute; left: -3px; top: -2.5px; width: 6px; height: 6px; border-radius: 50%; background: #f4f4f6; }
 .lab-t { font-size: 17px; font-weight: 650; letter-spacing: -0.012em; color: #f4f4f6; }
 .pin { display: none; }
-/* With motion on a laptop the leaders draw on in the act: they start drawn back from the first paint, so a slow script
-   never shows them and then takes them away. (Without motion, or if the script misses 4 s, they simply show.) */
-@media (min-width: 1100px) and (min-height: 640px) {
-  html.m .lab-cap, html.m .lab-t { opacity: 0; visibility: hidden; }
-  html.m .lab-l { transform: scaleX(0); }
-}
-/* In the flow on a laptop the phone stands in front of the laptop's base, so its caption sits under the labels. */
-@media (min-width: 1100px) { html:not(.stage-on) .lab-cap { top: calc(520 / 852 * 100%); } }
+/* On a laptop the phone stands in front of the laptop's base, so its caption sits under the labels. */
+@media (min-width: 1100px) { .lab-cap { top: calc(520 / 852 * 100%); } }
 
 /* What the app worked out: one big number (white, as the app sets a PR), its plain label, the line it moved. */
 .max { position: absolute; left: calc(var(--fx) + var(--gut)); top: calc(var(--fold) + 40px); width: calc(var(--pl) - var(--fx) - var(--gut) - 56px); max-width: 500px; z-index: 2; }
@@ -233,30 +221,31 @@ html.m .ph-next { display: block; visibility: hidden; opacity: 0; }
 .max-tags { margin-top: 18px; display: flex; align-items: center; gap: 14px; }
 .up-tag { padding: 5px 12px; border-radius: 999px; background: rgba(52, 217, 130, 0.14); color: var(--up); font-family: var(--font-num); font-size: 15px; font-weight: 750; }
 .pr-tag { font-size: 15px; font-weight: 750; color: var(--c-gold); }
-.max-chart { position: relative; height: 132px; margin-top: 24px; }
+.max-chart { position: relative; height: 112px; margin-top: 22px; }
 .max-svg { width: 100%; height: 100%; overflow: visible; }
 .max-area { fill: url(#maxGrad); }
 .max-line { fill: none; stroke: var(--sq); stroke-width: 2.5px; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .max-pt, .max-end { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--floor); box-shadow: inset 0 0 0 2px var(--c-gold); }
 .max-end { width: 14px; height: 14px; margin: -7px 0 0 -7px; background: var(--c-gold); box-shadow: 0 0 0 3px var(--floor); }
 .max-x { position: absolute; left: 0; right: 0; top: calc(100% + 10px); display: flex; justify-content: space-between; font-size: 13px; font-weight: 500; color: var(--text-3); }
-.max-from { margin-top: 42px; max-width: 30em; font-size: 16px; line-height: 1.5; color: var(--text-2); }
+.max-from { margin-top: 34px; max-width: 30em; font-size: 16px; line-height: 1.5; color: var(--text-2); }
 
-/* Today, in the flow: two graphite panels below the opening (the landing, then the list), the desk's lit rim along the
-   top of the first and its shadowed rim under the second. */
-.land, .who { position: relative; padding: clamp(88px, 9vw, 128px) calc(var(--fx) + var(--gut)); }
-.land { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "h fw" "s fw" "c fw"; column-gap: clamp(40px, 4vw, 64px); align-content: center; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+/* Today: two graphite panels below the opening (the landing, then the list), the desk's lit rim along the top of the
+   first and its shadowed rim under the second. The sides alternate: words then screen, screen then words. */
+.land, .who { position: relative; padding: var(--sec) calc(var(--fx) + var(--gut)); }
+.land { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "copy fw"; column-gap: clamp(40px, 4vw, 64px); align-content: center; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
   background-image: radial-gradient(52% 70% at 18% 0%, rgba(236, 240, 255, 0.05), transparent 72%); }   /* the screen's cool light over the words */
-.land .h2 { grid-area: h; align-self: end; }
-.land .sub { grid-area: s; margin-top: 20px; max-width: 26em; }
-.land-cap { grid-area: c; margin-top: 24px; align-self: start; }
+.land-copy { grid-area: copy; align-self: center; }
+.land .sub { margin-top: 20px; max-width: 26em; }
+.land-cap { margin-top: 24px; }
 .land .fw { grid-area: fw; }
-.who { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "h fw" "s fw" "l fw" "r fw"; column-gap: clamp(40px, 4vw, 64px); align-content: center; box-shadow: inset 0 1px 0 var(--hair), inset 0 -1px 0 rgba(0, 0, 0, 0.45); }
+.who { display: grid; grid-template-columns: auto minmax(0, 34em); grid-template-areas: "fw h" "fw s" "fw l" "fw r"; column-gap: clamp(48px, 8vw, 128px); align-content: center; box-shadow: inset 0 1px 0 var(--hair), inset 0 -1px 0 rgba(0, 0, 0, 0.45); }
 .who .h2 { grid-area: h; }
 .who .sub { grid-area: s; margin-top: 18px; max-width: 28em; }
 .who .chain { grid-area: l; }
 .who .rules { grid-area: r; }
 .who .fw { grid-area: fw; align-self: center; }
+.who .h2 { align-self: end; }
 
 /* A true-size window onto the laptop's screen: the dark desk set into the graphite as a pane of its own ground, framed
    by a hairline lit along its top. */
@@ -264,20 +253,24 @@ html.m .ph-next { display: block; visibility: hidden; opacity: 0; }
 .fw-port, .fw-port-list picture, .wk-port, .sheet-crop { --pane: 0 0 0 1px rgba(255, 255, 255, 0.085), 0 -1px 0 0.5px rgba(255, 255, 255, 0.06), 0 34px 70px -38px rgba(0, 0, 0, 0.95); }
 .fw-port { position: relative; overflow: hidden; width: min(756px, 54vw); aspect-ratio: 756 / 576; border-radius: 16px; background: var(--screen); box-shadow: var(--pane); }
 .fw-still img { width: 100%; aspect-ratio: 756 / 576; }
-.fw-live { display: none; position: absolute; left: 0; top: 0; width: 756px; height: 576px; transform-origin: 0 0; }
+.fw-live { display: none; position: absolute; inset: 0; overflow: hidden; background: var(--screen); }
 html.js .fw-a .fw-still { display: none; }
 html.js .fw-a .fw-live { display: block; }
-.fw-base { width: 756px; height: 576px; max-width: none; }
-/* The list, with the chain's numbers beside its rows (a margin keeps them clear of the screen's own edge). */
+.fw-desk { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; transform: translate(calc(-668px * var(--fk, 1)), calc(-16px * var(--fk, 1))) scale(var(--fk, 1)); }
+.fw-desk picture, .fw-base { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; max-width: none; }
+/* The list, with the chain's numbers beside its rows (a margin keeps them clear of the screen's own edge). Cut under
+   the sixth group (Arjun and Kofi): every lifter the chain names is in view. */
 .fw-port-list { width: 420px; aspect-ratio: auto; padding-left: 34px; overflow: visible; background: transparent; box-shadow: none; border-radius: 0; }
-.fw-port-list picture { display: block; overflow: hidden; border-radius: 16px; background: var(--screen); box-shadow: var(--pane); }
+.fw-port-list picture { display: block; overflow: hidden; aspect-ratio: 386 / 572; border-radius: 16px; background: var(--screen); box-shadow: var(--pane); }
 .fw-port-list img { width: 100%; }
-/* The pins beside the list's rows: light discs with ink numbers, as the phone's. */
-.fpin { position: absolute; left: 0; top: calc(var(--y) / 700 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); }
+/* The pins beside the list's rows: light discs with ink numbers, as the phone's (the rows' own geometry, out of 572). */
+.fpin { position: absolute; left: 0; top: calc(var(--y) / 572 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); }
 .fw-b .cap { margin-top: 14px; padding-left: 34px; }
 .was { position: absolute; max-width: none; opacity: 0; pointer-events: none; }
-/* The squat card ringed as the set lands: the desk's "up" green, a crisp ring, no halo. */
-.ring { position: absolute; border-radius: 22px; box-shadow: 0 0 0 2px rgba(52, 217, 130, 0.78); opacity: 0; pointer-events: none; }
+.grp, .mk { display: none; }
+/* The squat card ringed as the set lands: the desk's "up" green, a crisp line drawn round it once, no halo. */
+.ring { position: absolute; overflow: visible; opacity: 0; pointer-events: none; }
+.ring rect { fill: none; stroke: rgba(52, 217, 130, 0.85); stroke-width: 2; vector-effect: non-scaling-stroke; }
 
 /* Live numbers over the capture, in the desk's own type (dark theme, measured from the app: cap-desk's desk-values.json). */
 .ov { position: absolute; display: flex; align-items: center; white-space: nowrap; color: #f3f3f5; font-family: var(--font-num); pointer-events: none; }
@@ -323,7 +316,29 @@ html.js .fw-a .fw-live { display: block; }
 .tiers dt { font-size: 14px; font-weight: 700; color: var(--text); }
 .tiers dd { font-size: 14px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
 .tiers-foot { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hair); font-size: 13px; color: var(--text-3); }
-.grp, .mk { display: none; }
+
+/* Today on a laptop with motion: one row. The landing's words sit beside Arjun's phone (the column under its labels),
+   right above the window they introduce; the list's words beside the window, which zooms in to Arjun's page, takes the
+   set, then pans along Sam's same screen to his list, ringed group by group in its order (home.js). The list's own
+   figure is the stacked layouts' (the still keeps the two panels). */
+@media (min-width: 1100px) {
+  html.m .lab-cap { top: calc(150 / 852 * 100%); }
+  html.m .today-ch { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: clamp(40px, 4.4vw, 64px); align-items: center;
+    padding: var(--sec) calc(var(--fx) + var(--gut)); background: radial-gradient(52% 70% at 80% 0%, rgba(236, 240, 255, 0.05), transparent 72%), var(--desk);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -1px 0 rgba(0, 0, 0, 0.45); }
+  html.m .today-ch > .land, html.m .today-ch > .who { padding: 0; background: none; box-shadow: none; }
+  html.m .land { position: static; display: block; grid-column: 2; grid-row: 1; }
+  html.m .who { grid-column: 1; grid-row: 1; display: block; }
+  html.m .who .fw { display: none; }
+  html.m .who .chain { margin-top: 24px; }
+  html.m .land-copy { position: absolute; z-index: 4; left: calc(var(--pl) + var(--pw) * 1.0305 + 30px); top: calc(var(--fold) - var(--ph) * var(--pin) + var(--ph) * 470 / 852);
+    width: calc(var(--fx) + var(--fw) - var(--gut) - var(--pl) - var(--pw) * 1.0305 - 30px); }
+  html.m .land-copy .h2 { font-size: clamp(30px, 2.5vw, 38px); }
+  html.m .land-copy .sub { margin-top: 14px; font-size: 16px; }
+  html.m .land-copy .land-cap { margin-top: 16px; }
+  html.m .grp { display: block; position: absolute; border-radius: 14px; box-shadow: inset 0 0 0 1.5px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
+  html.m .mk { display: grid; place-items: center; position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); opacity: 0; }
+}
 
 /* =====================================================================
    ANSWERS (dark): the lifter's phone, the reply arriving; their words next to what they lifted.
@@ -331,17 +346,31 @@ html.js .fw-a .fw-live { display: block; }
 .s-home .answers { position: relative; padding: var(--sec) 0; isolation: isolate; }
 .answers::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(40% 48% at 26% -10%, rgba(255, 59, 74, 0.08), transparent 70%); }
 .answers-in { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: center; }
-.thread { grid-column: 2 / span 4; justify-self: center; --pw: min(393px, 27.3vw); width: var(--pw); }
-.thread .cap { margin-top: 30px; justify-content: center; }
+.thread { grid-column: 8 / span 4; grid-row: 1; justify-self: center; --pw: min(360px, 25vw); width: var(--pw); }
+.thread .cap { margin-top: 18px; justify-content: center; }
+/* The crop ends under Sam's reply (626 of the screen's 852 pt), on a hairline. */
+.th-crop { height: calc(var(--pw) * 626 / 393 + var(--pw) * 0.0305 + 2px); overflow: hidden; padding: calc(var(--pw) * 0.0305 + 2px) calc(var(--pw) * 0.0305 + 5px) 0; margin: 0 calc((var(--pw) * 0.0305 + 5px) * -1); box-shadow: inset 0 -1px 0 var(--hair); }
+.thread .ph-scr { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 .tl { position: absolute; max-width: none; pointer-events: none; }
 /* The layers, placed in the screen's own points (out of 393 x 852). */
 .tl-reply { left: 0; top: calc(494 / 852 * 100%); width: 100%; height: auto; }
 .tl-seen, .tl-sent { left: calc(280 / 393 * 100%); top: calc(466 / 852 * 100%); width: calc(100 / 393 * 100%); height: auto; }
 .tl-sent { display: none; }
 html.m .tl-sent { display: block; }
-.answers-copy { grid-column: 7 / span 6; }
+.answers-copy { grid-column: 1 / span 6; grid-row: 1; }
 .answers-copy .lead { margin-top: 24px; }
-.also { margin-top: 30px; padding-top: 24px; border-top: 1px solid var(--hair); max-width: 34em; font-size: 17px; line-height: 1.6; color: var(--text-2); text-wrap: pretty; }
+.also { margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--hair); max-width: 34em; font-size: 17px; line-height: 1.6; color: var(--text-2); text-wrap: pretty; }
+/* The thread's messages as their own layers while motion plays it: each is the capture cut to its bubble, over a patch
+   of the thread's own ground (#050505), so at rest they are the capture exactly. */
+.tl-patch, .tl-bub { display: none; }
+html.m .tl-patch { display: block; position: absolute; z-index: 1; background: #050505; pointer-events: none; }
+html.m .tl-bub { display: block; position: absolute; z-index: 2; inset: 0; pointer-events: none; }
+html.m .tl-bub img { width: 100%; aspect-ratio: 393 / 852; }
+.tl-p-note { left: calc(17 / 393 * 100%); top: calc(175 / 852 * 100%); width: calc(309 / 393 * 100%); height: calc(108 / 852 * 100%); }
+.tl-p-set { left: calc(130 / 393 * 100%); top: calc(295 / 852 * 100%); width: calc(246 / 393 * 100%); height: calc(171 / 852 * 100%); }
+.tl-note { clip-path: inset(calc(176 / 852 * 100%) calc(68.3 / 393 * 100%) calc(570.7 / 852 * 100%) calc(18 / 393 * 100%) round calc(var(--pw) * 12 / 393)); }
+.tl-set { clip-path: inset(calc(296 / 852 * 100%) calc(18.3 / 393 * 100%) calc(387.3 / 852 * 100%) calc(131 / 393 * 100%) round calc(var(--pw) * 12 / 393)); }
+.tl { z-index: 3; }
 .also b { color: var(--text); font-weight: 700; }
 
 /* =====================================================================
@@ -349,8 +378,10 @@ html.m .tl-sent { display: block; }
    published.
    ===================================================================== */
 .s-home .next { position: relative; padding: var(--sec) 0; box-shadow: var(--rim); }
-.next-head .lead { margin-top: 16px; max-width: 40em; }
-.wk { margin-top: clamp(28px, 2.6vw, 38px); width: min(1192px, 100%); }
+.next-head { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: end; }
+.next-head .h2 { grid-column: 1 / span 6; }
+.next-head .lead { grid-column: 7 / span 6; max-width: 36em; }
+.wk { margin-top: clamp(24px, 2.2vw, 32px); width: min(1192px, 100%); }
 /* What each column is, pinned above it: what Sam wrote, what Marcus lifted (and how it felt), next week. */
 .wk-cols { position: relative; height: 34px; margin: 0 16px; }
 .wk-cols span { position: absolute; left: calc(var(--x) / 1160 * 100%); top: 2px; padding-left: 12px; font-size: 14px; font-weight: 650; color: var(--text); white-space: nowrap; }
@@ -360,6 +391,9 @@ html.m .tl-sent { display: block; }
 .wk-in picture, .wk-in img { position: absolute; inset: 0; width: 100%; height: 100%; }
 .wk-before { display: none; }
 html.m .wk-before { display: block; }
+/* What the take changes, and nothing else: the suggestion's row (1) and the week's header (2). */
+html.m .wk-b1 { clip-path: inset(calc(286 / 387 * 100%) calc(4 / 1160 * 100%) calc(52 / 387 * 100%) calc(776 / 1160 * 100%)); }
+html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 100%)); }
 .tap { position: absolute; left: calc(959 / 1160 * 100%); top: calc(294.8 / 387 * 100%); width: calc(184 / 1160 * 100%); height: calc(32 / 387 * 100%); border-radius: 999px; box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
 .wk-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px 40px; margin-top: 18px; }
 .wk-foot .cap { flex: 1 1 26em; max-width: 40em; }
@@ -367,7 +401,7 @@ html.m .wk-before { display: block; }
 /* The app's own Publish (desk.css .dk-btn primary): the one crimson on this screen. */
 .pub { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 999px; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; font-size: 15px; font-weight: 650; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.45); }
 .pub svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.next-also { margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--hair); max-width: 40em; font-size: 17px; line-height: 1.55; font-weight: 600; color: var(--text); }
+.next-also { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--hair); max-width: 40em; font-size: 17px; line-height: 1.55; font-weight: 600; color: var(--text); }
 
 /* =====================================================================
    MEET DAY: the striking moment. A black stage: Tom's phone (left), the platform (three lights, then the minute),
@@ -376,12 +410,8 @@ html.m .wk-before { display: block; }
    ===================================================================== */
 .s-home .meet { padding: 0; }
 .meet { position: relative; background: var(--black); color: #f4f4f6; --bg: var(--black); --text: #f4f4f6; --text-2: #b8b8c0; --text-3: #8c8c96; --hair: rgba(255, 255, 255, 0.1); color-scheme: dark; }
-.meet-stage { display: flex; flex-direction: column; width: min(100% - 2 * var(--gut), var(--wrap)); margin: 0 auto; padding: var(--sec) 0 clamp(64px, 6vw, 96px); }
-@media (min-width: 1100px) and (min-height: 700px) {
-  html.m .meet { height: 330vh; }
-  html.m .meet-stage { position: sticky; top: 0; height: 100vh; height: 100svh; padding: calc(64px + clamp(16px, 3.4vh, 34px)) 0 clamp(14px, 2.6vh, 26px); }
-}
-.meet-h { margin-bottom: clamp(18px, 3.2vh, 34px); max-width: none; }
+.meet-stage { display: flex; flex-direction: column; width: min(100% - 2 * var(--gut), var(--wrap)); margin: 0 auto; padding: var(--sec) 0; }
+.meet-h { margin-bottom: clamp(18px, 2.4vw, 30px); max-width: none; }
 .scene-clip { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin: -18px -18px 0; padding: 18px 18px 0; overflow: clip; }
 .scene { display: grid; grid-template-columns: minmax(0, clamp(240px, 21vw, 300px)) minmax(0, 1fr) minmax(0, clamp(380px, 30.5vw, 440px)); grid-template-areas: "phone mid board";
   column-gap: clamp(24px, 3.4vw, 64px); align-items: start; flex: 1 1 auto; min-height: 0; }
@@ -500,38 +530,53 @@ html.m .beat.is-on { --on: 1; color: #b8b8c0; }
    MOVING OVER, AND THE MONEY (dark).
    ===================================================================== */
 .s-home .moving { position: relative; padding: var(--sec) 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
-.moving-h { max-width: 15em; }
-.move { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; margin-top: clamp(44px, 4.5vw, 64px); }
-.msteps { grid-column: 1 / span 6; }
-.step-i { display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 18px; padding: 24px 0 26px; border-top: 1px solid var(--hair); }
+.moving-h { grid-column: 1 / span 6; grid-row: 1; max-width: 15em; }
+.move { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; }
+.msteps { grid-column: 1 / span 6; grid-row: 2; margin-top: 26px; }
+.step-i { display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 18px; padding: 18px 0 20px; border-top: 1px solid var(--hair); }
 .step-i:last-child { border-bottom: 1px solid var(--hair); }
 .sn { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 14px/1 var(--font-num); font-style: normal; }
 .st p { font-size: 17px; line-height: 1.55; color: var(--text-2); text-wrap: pretty; }
 .st b { color: var(--text); font-weight: 700; }
 .st .becomes { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-weight: 650; color: var(--text); }
 .becomes svg { flex: none; width: 24px; height: 12px; fill: none; stroke: var(--c-green); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 32; stroke-dashoffset: 0; }
-.imp { grid-column: 8 / span 5; justify-self: end; width: min(100%, 496px); margin-top: 8px; }
+.imp { grid-column: 8 / span 5; grid-row: 1 / span 2; align-self: center; justify-self: end; width: min(100%, 496px); }
 .sheet-crop { overflow: hidden; border-radius: 18px; background: #141418; box-shadow: var(--pane); }   /* the import sheet's own ground */
 .sheet-crop img { width: 100%; }
 .imp .cap, .cl .cap { margin-top: 14px; }
-.move-foot { margin-top: 28px; max-width: 44em; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; font-size: 16px; color: var(--text-2); }
+.move-foot { margin-top: 20px; max-width: 44em; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; font-size: 16px; color: var(--text-2); }
 .move-foot .quiet { font-size: 16px; }
-.money { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); row-gap: 36px; margin-top: clamp(88px, 9vw, 136px); padding-top: clamp(56px, 5vw, 72px); border-top: 1px solid var(--hair); }
-.money-copy { grid-column: 1 / span 6; }
+.money { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); row-gap: 28px; align-items: center; margin-top: clamp(40px, 3.6vw, 52px); padding-top: clamp(40px, 3.6vw, 52px); border-top: 1px solid var(--hair); }
+.money-copy { grid-column: 1 / span 4; }
 .money-copy p { margin-top: 16px; max-width: 34em; font-size: 17px; line-height: 1.55; color: var(--text-2); text-wrap: pretty; }
 .money-copy .money-2 { margin-top: 12px; font-size: 16px; color: var(--text-3); }
-.cl { grid-column: 1 / -1; width: min(100%, 992px); }
-.sheet-desk { background: var(--screen); }
+.cl { grid-column: 5 / span 8; width: 100%; }
+.sheet-desk { position: relative; background: var(--screen); }
+/* The month's total and its paid bar, live over the capture while motion plays (patches of the card's own ground). */
+.cl-live { display: none; }
+html.m .cl-live { position: absolute; inset: 0; container-type: inline-size; pointer-events: none; }
+html.m .cl-live-d { display: block; }
+.cl-patch { position: absolute; display: block; background: rgb(26, 25, 30); }
+.cl-pb { background: rgb(42, 42, 44); border-radius: 999px 0 0 999px; }
+.cl-n { position: absolute; display: flex; align-items: baseline; white-space: nowrap; color: #f4f4f6; font-family: var(--font-num); font-weight: 800; font-stretch: 104%; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+.cl-live-d .cl-pn { left: calc(34 / 1984 * 100%); top: calc(124 / 716 * 100%); width: calc(198 / 1984 * 100%); height: calc(70 / 716 * 100%); }
+.cl-live-d .cl-n { left: calc(39 / 1984 * 100%); top: calc(128.5 / 716 * 100%); font-size: calc(27.2 / 992 * 100cqw); }
+.cl-live-d .cl-pb { left: calc(37 / 1984 * 100%); top: calc(213 / 716 * 100%); width: calc(331 / 1984 * 100%); height: calc(14 / 716 * 100%); }
+.cl-live-d .cl-pr { left: calc(1543 / 1984 * 100%); top: calc(124 / 716 * 100%); width: calc(198 / 1984 * 100%); height: calc(70 / 716 * 100%); }
+.cl-live-d .cl-n2 { left: calc(1548 / 1984 * 100%); }
+.cl-live-p .cl-pn { left: calc(46 / 502 * 100%); top: calc(122 / 656 * 100%); width: calc(196 / 502 * 100%); height: calc(70 / 656 * 100%); }
+.cl-live-p .cl-n { left: calc(51 / 502 * 100%); top: calc(126.5 / 656 * 100%); font-size: calc(27.2 / 251 * 100cqw); }
+.cl-live-p .cl-pb { left: calc(49 / 502 * 100%); top: calc(211 / 656 * 100%); width: calc(331 / 502 * 100%); height: calc(14 / 656 * 100%); }
 
 /* =====================================================================
    PRICING (the coach's graphite): one roster scale, four bands, Sam's twenty lifters filling it.
    ===================================================================== */
-.s-home .prices { padding: clamp(88px, 8.4vw, 120px) 0 clamp(56px, 5vw, 72px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+.s-home .prices { padding: var(--sec) 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
   background-image: radial-gradient(40% 520px at 16% 0%, rgba(255, 226, 190, 0.05), transparent 72%); }   /* a warm lamp over the offer */
 .plans-top { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; }
 .plans-head { grid-column: 1 / span 7; }
 .plans-head .lead { margin-top: 22px; }
-.plans-head .plans-cta { margin-top: 34px; }
+.plans-head .plans-cta { margin-top: 28px; }
 .brand-ph { position: relative; grid-column: 9 / span 4; justify-self: end; margin: 0 calc(var(--pw) * 0.0305 + 3px) 0 0; --pw: clamp(236px, 18vw, 260px); width: var(--pw); }
 /* The crop ends just under Log set (480 of the screen's 852 pt), on the scale's rule. */
 .bp-crop { height: calc(var(--pw) * 480 / 393 + var(--pw) * 0.0305 + 2px); overflow: hidden; padding: calc(var(--pw) * 0.0305 + 2px) calc(var(--pw) * 0.0305 + 5px) 0; margin: 0 calc((var(--pw) * 0.0305 + 5px) * -1); }
@@ -546,7 +591,7 @@ html.m .beat.is-on { --on: 1; color: #b8b8c0; }
 .bp-l::after { content: ''; position: absolute; right: -3px; top: -2.5px; width: 6px; height: 6px; border-radius: 50%; background: #f4f4f6; }
 @media (min-width: 1100px) { .brand-ph .cap { display: none; } }
 @media (max-width: 1099px) { .bp-lab { display: none; } }
-.scale { padding-top: clamp(40px, 4vw, 56px); border-top: 1px solid var(--hair); }
+.scale { margin-top: 8px; padding-top: clamp(28px, 2.6vw, 36px); border-top: 1px solid var(--hair); }
 .bands { display: grid; grid-template-columns: 3fr 7fr 15fr 5fr; }
 .band { min-width: 0; padding-right: clamp(8px, 1vw, 14px); }
 .band:last-child { padding-right: 0; }
@@ -572,46 +617,53 @@ html.m .beat.is-on { --on: 1; color: #b8b8c0; }
 .b-pro .band-k b, .b-pro .price b { color: var(--text); }
 html.m .b-pro:not(.is-on) .band-k { border-top-color: rgba(255, 255, 255, 0.12); }
 html.m .b-pro:not(.is-on) .band-k b, html.m .b-pro:not(.is-on) .price b { color: var(--text-2); }
-.scale-cap { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 32px; margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--hair); }
+.scale-cap { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 32px; margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--hair); }
 .sc-state { display: flex; align-items: baseline; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); font-weight: 650; color: var(--text); }
 .sc-n b { font-family: var(--font-num); font-stretch: var(--num-stretch); font-weight: 800; font-variant-numeric: tabular-nums; }
 .sc-sep { padding: 0 0.45em; color: var(--text-3); }
 #scPlan > :not(:last-child) { visibility: hidden; }
 .sc-each { font-size: 15px; color: var(--text-3); }
-.plans-foot { margin-top: 26px; }
+.plans-foot { margin-top: 18px; }
 .fine { max-width: 40em; font-size: 15px; line-height: 1.55; color: var(--text-2); }
 .plans-cta { gap: 12px 20px; }
 
 /* =====================================================================
    QUESTIONS (the coach's graphite): closed until opened.
    ===================================================================== */
-.s-home .faq { padding: clamp(40px, 4vw, 56px) 0 var(--sec); box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.45); }
-.faq-in { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; padding-top: clamp(56px, 5vw, 80px); border-top: 1px solid var(--hair); }
-.faq-side { grid-column: 1 / span 4; position: sticky; top: 112px; }
-.faq-demo { margin-top: 22px; max-width: 22em; font-size: 16px; line-height: 1.55; color: var(--text-2); }
+.s-home .faq { padding: 0 0 var(--sec); box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.45); }
+.faq-in { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; padding-top: var(--sec); border-top: 1px solid var(--hair); }
+.faq-side { grid-column: 1 / span 3; }
+.faq-demo { margin-top: 20px; max-width: 22em; font-size: 16px; line-height: 1.55; color: var(--text-2); }
 .faq-demo .quiet { display: flex; width: max-content; margin-top: 12px; font-size: 16px; }
-.qs { grid-column: 6 / span 7; border-bottom: 1px solid var(--hair); }
+/* Two columns of questions, each its own list (opening one moves only its column). */
+.qs-cols { grid-column: 4 / span 9; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; }
+.qs { min-width: 0; }
 .q { border-top: 1px solid var(--hair); }
-.q summary { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 0; list-style: none; cursor: pointer; font-size: 19px; font-weight: 650; letter-spacing: -0.012em; line-height: 1.35; }
+.qs .q:last-child { border-bottom: 1px solid var(--hair); }
+.q summary { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 0; list-style: none; cursor: pointer; font-size: 18px; font-weight: 650; letter-spacing: -0.012em; line-height: 1.35; transition: color var(--t-state) ease; }
 .q summary::-webkit-details-marker { display: none; }
 .q summary:focus-visible { outline-offset: 6px; }
 .qi { position: relative; flex: none; width: 28px; height: 28px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); transition: background-color var(--t-state) ease; }
 .qi::before, .qi::after { content: ''; position: absolute; left: 50%; top: 50%; width: 12px; height: 1.8px; margin: -0.9px 0 0 -6px; border-radius: 1px; background: currentColor; transition: transform 260ms var(--ease-out); }
 .qi::after { transform: rotate(90deg); }
 details[open] > summary .qi::after { transform: rotate(0deg); }
+/* The first question, held shut by the score until it opens in view (its answer's place is kept: the questions under it
+   ride up on translate, which moves nothing in the page's layout). */
+.q.is-shut > summary .qi::after { transform: rotate(90deg); }
+.qs .q { translate: 0 var(--qy, 0px); }
 details.q:not([open]) > .qa, details.rules:not([open]) > .rules-body { display: none; }   /* closed: not laid out either */
 @media (hover: hover) and (pointer: fine) { .q summary:hover .qi, .rules summary:hover .qi { background: rgba(255, 255, 255, 0.13); } }
-.qa p { max-width: 40em; padding: 0 0 24px; font-size: 17px; line-height: 1.6; color: var(--text-2); text-wrap: pretty; }
+.qa p { max-width: 40em; padding: 0 0 20px; font-size: 16px; line-height: 1.6; color: var(--text-2); text-wrap: pretty; }
 
 /* =====================================================================
    CLOSE (dark): one line, one action.
    ===================================================================== */
-.s-home .close { position: relative; padding: clamp(120px, 12vw, 176px) 0; isolation: isolate; overflow: hidden; }
+.s-home .close { position: relative; padding: clamp(64px, 6.4vw, 96px) 0; isolation: isolate; overflow: hidden; }
 .glow-close { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(38% 60% at 30% -10%, rgba(255, 59, 74, 0.12), transparent 70%); }
 .close-in { position: relative; z-index: 1; }
 .close-h { font-size: clamp(40px, 1rem + 4vw, 74px); line-height: 0.99; letter-spacing: -0.036em; max-width: 11em; }
-.close .lead { margin-top: 24px; }
-.close .cta { margin-top: 40px; }
+.close .lead { margin-top: 20px; }
+.close .cta { margin-top: 32px; }
 
 /* ---------- The set in flight (only while motion plays the story): fixed to the screen, placed every frame. Lifted,
    it carries the deeper shadow of something held above the phone. */
@@ -628,64 +680,70 @@ html.m .fly { display: block; visibility: hidden; }
 .fy-rpe { align-self: center; margin-left: 8px; padding: 4px 9px; border-radius: 999px; background: rgba(207, 203, 76, 0.16); color: #e2de6c; font-family: var(--font-body); font-size: 13px; font-weight: 700; }
 .fy-fly { background: color-mix(in srgb, var(--sq) 14%, #101012); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sq) 32%, transparent), 0 30px 60px -20px rgba(0, 0, 0, 0.85), 0 8px 18px -6px rgba(0, 0, 0, 0.5); }
 
-/* ---------- The arrival settles once on load: the devices turn a few degrees toward the reader (transform only; the
-   words never move, so everything is readable from the first frame). The motion layer loads once it has finished. */
-@keyframes settleLaptop { from { transform: perspective(2200px) rotateY(-7deg) translateY(14px); } to { transform: perspective(2200px) rotateY(0deg) translateY(0); } }
-@keyframes settlePhone { from { transform: perspective(2200px) rotateY(6deg) translateY(22px); } to { transform: perspective(2200px) rotateY(0deg) translateY(0); } }
+/* ---------- The arrival (motion only, CSS from the first paint, so nothing waits on a script): the headline rises word
+   by word, the two lines follow, Start free settles, then the laptop and the phone ease up 24 px. Text rises 12 px with
+   its opacity, never from scale 0. The pictures never fade (they are the page's largest paint): they only move, on the
+   individual translate property, so the score's own transforms (the depth parallax) compose with it. Without motion
+   every word is simply there. The motion layer (GSAP) loads once this has finished. */
+@keyframes riseIn { from { opacity: 0; transform: translateY(12px); } }
+@keyframes settleIn { from { opacity: 0; transform: translateY(8px) scale(0.96); } }
+@keyframes easeUp { from { translate: 0 24px; } }
 @keyframes glowUp { from { opacity: 0.4; } }
-html.m:not(.stage-on) .laptop { animation: settleLaptop 1100ms var(--ease-out) both; }
-html.m:not(.stage-on) .hphone { animation: settlePhone 1200ms var(--ease-out) 60ms both; }
-html.m .glow-top { animation: glowUp 1300ms var(--ease-out) both; }
+html.m .h1 .w { display: inline-block; animation: riseIn 640ms var(--ease-enter) calc(60ms + var(--i) * 60ms) both; }
+html.m .lede li { animation: riseIn 620ms var(--ease-enter) both; }
+html.m .lede li:nth-child(1) { animation-delay: 460ms; }
+html.m .lede li:nth-child(2) { animation-delay: 540ms; }
+html.m #heroCta .act-btn { animation: settleIn 600ms var(--ease-enter) 640ms both; }
+html.m #heroCta .quiet { animation: riseIn 560ms var(--ease-enter) 700ms both; }
+html.m .open-copy .cta-note { animation: riseIn 560ms var(--ease-enter) 760ms both; }
+html.m .laptop { animation: easeUp 1100ms var(--ease-enter) 220ms both; }
+html.m .hphone { animation: easeUp 1200ms var(--ease-enter) 320ms both; }
+html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
+/* Words the score splits to rise in turn (section headlines): whole words, so the lines break where they did. */
+.s-home .w { display: inline-block; }
+/* On a laptop the phone's labels arrive with it: each leader draws out from the card's edge, then its words. */
+@keyframes drawX { from { transform: scaleX(0); } }
+@keyframes riseInT { from { opacity: 0; translate: 0 12px; } }
+@keyframes slideInT { from { opacity: 0; translate: -6px 0; } }
+@media (min-width: 1100px) {
+  html.m .lab-cap { animation: slideInT 520ms var(--ease-enter) 900ms both; }
+  html.m .lab .lab-l { animation: drawX 460ms var(--ease-enter) both; }
+  html.m .lab .lab-t { animation: slideInT 480ms var(--ease-enter) both; }
+  html.m .lab:nth-child(2) .lab-l { animation-delay: 980ms; } html.m .lab:nth-child(2) .lab-t { animation-delay: 1060ms; }
+  html.m .lab:nth-child(3) .lab-l { animation-delay: 1070ms; } html.m .lab:nth-child(3) .lab-t { animation-delay: 1150ms; }
+  html.m .lab:nth-child(4) .lab-l { animation-delay: 1160ms; } html.m .lab:nth-child(4) .lab-t { animation-delay: 1240ms; }
+}
+
+/* ---------- Touch and pointer feedback (with or without the score): presses give way, links lean toward where they go. */
+.act-btn, .bar .bar-pill, .pub { transition: transform var(--t-press) var(--ease-out), translate var(--t-state) var(--ease-out), filter var(--t-press) ease; }
+.bar .bar-pill:active, .pub:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) {
+  .act-btn:hover { translate: 0 -1px; }
+  .bar .bar-pill:hover { filter: brightness(0.92); }
+  .q summary:hover { color: #fff; }
+  .foot .foot-cols a { transition: color var(--t-state) ease, translate var(--t-state) var(--ease-out); }
+  .foot .foot-cols a:hover { translate: 2px 0; }
+}
+.q summary:active .qi, .rules summary:active .qi { transform: scale(0.9); }
+.qi { transition: background-color var(--t-state) ease, transform var(--t-press) var(--ease-out); }
+.dec-opts button:active:not([aria-disabled="true"]), .mx .mx-unit button:active, .mx .mx-share:active { transform: scale(0.97); }
+.dec-opts button, .mx .mx-unit button, .mx .mx-share { transition: background-color var(--t-state) ease, color var(--t-state) ease, transform var(--t-press) var(--ease-out); }
+/* One crimson per screen: when two page actions share the screen, the one further from the middle steps back to ink. */
+.act-btn.is-quiet, .pub.is-quiet { background: #f4f4f6; color: #0b0b0d; box-shadow: none; }
+.log.is-quiet { background: #f4f4f6; color: #0b0b0d; }
+.dec-btn.is-quiet .dec-red { visibility: hidden; }
 
 /* =====================================================================
-   THE STAGE (laptops with motion, set by the script): act one holds the screen. Every part sits where the first
-   frame has it; the camera (the script) moves them from there.
-   ===================================================================== */
-html.stage-on .stage { height: 100vh; height: 100svh; padding: 0; overflow: hidden; perspective: 2400px; perspective-origin: 60% 45%; }
-html.stage-on .glow-top { height: 100%; }
-html.stage-on .laptop { right: auto; left: 0; top: 0; width: 1440px; height: 900px; aspect-ratio: auto; transform: none; animation: none; container-type: normal; }
-html.stage-on .lt-cam { font-size: 1px; }
-html.stage-on .lt-cap { left: 0; top: 0; bottom: auto; transform-origin: 0 0; }
-html.stage-on .lt-shadow { left: 2%; right: 2%; bottom: -14%; height: 20%; }
-/* The room: the screen's own shape (its corners, a lit rim like the glass's edge), the coach's graphite inside. It
-   starts as the screen and grows, the rim leading, until it is the page (home.js, the wipe). */
-html.stage-on .lt-room { display: block; position: absolute; left: 0; top: 0; width: 1440px; height: 900px; border-radius: 14px; background: radial-gradient(52% 70% at 18% 0%, rgba(236, 240, 255, 0.05), transparent 72%), var(--desk); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.2); transform-origin: 0 0; visibility: hidden; }
-html.stage-on .win { display: block; position: absolute; left: 668px; top: 16px; width: 756px; height: 576px; overflow: hidden; border-radius: 14px; }
-html.stage-on .win-in { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform: translate(-668px, -16px); }
-html.stage-on .win.is-live .win-in { background: var(--screen); }   /* the desk's ground under its live screen (covered by it) */
-html.stage-on .win-base { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; max-width: none; opacity: 0; }
-html.stage-on .win-base.is-ready { opacity: 1; }
-html.stage-on .win .ov, html.stage-on .win .was, html.stage-on .win .ring, html.stage-on .win .grp, html.stage-on .win .mk { visibility: hidden; }
-html.stage-on .win.is-live .ov, html.stage-on .win.is-live .was, html.stage-on .win.is-live .ring, html.stage-on .win.is-live .grp, html.stage-on .win.is-live .mk { visibility: visible; }
-html.stage-on .win-shadow { display: block; position: absolute; left: 668px; top: 16px; width: 756px; height: 576px; border-radius: 14px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.09), 0 -1px 0 0.5px rgba(255, 255, 255, 0.06), 0 40px 80px -40px rgba(0, 0, 0, 0.95); opacity: 0; pointer-events: none; }
-html.stage-on .grp { display: block; position: absolute; border-radius: 14px; box-shadow: inset 0 0 0 1.5px rgba(244, 244, 246, 0.85); opacity: 0; }
-html.stage-on .mk { display: grid; place-items: center; position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); opacity: 0; }
-html.stage-on .hphone { left: 0; top: 0; width: 393px; --pw: 393px; font-size: 16px; transform-origin: 0 0; animation: none; }
-html.stage-on .labels { width: 360px; }
-html.stage-on .lab-t { font-size: 20px; }
-html.stage-on .lab-cap { font-size: 16px; }
-html.stage-on .max { left: calc(var(--fx) + var(--gut)); top: 0; width: 470px; transform-origin: 0 0; }
-html.stage-on .land, html.stage-on .who { position: absolute; z-index: 5; left: calc(var(--fx) + var(--gut)); top: 0; width: min(500px, 36vw); padding: 0; display: block; background: transparent; box-shadow: none; }
-html.stage-on .land .fw, html.stage-on .who .fw { display: none; }
-html.stage-on .land .sub { margin-top: 18px; }
-html.stage-on .land-cap { margin-top: 22px; }
-html.stage-on .who .chain { margin-top: 22px; }
-html.stage-on .chain li { padding: 5px 0; }
-/* On the stage the rules open over the chain they explain (a card), so the held screen never runs off its foot. */
-html.stage-on .rules { position: relative; margin-top: 12px; }
-html.stage-on .rules-body { position: absolute; left: -18px; right: -18px; bottom: calc(100% + 8px); min-height: calc(var(--chain-h, 0px) + 12px); margin: 0; z-index: 2; }
-
-/* =====================================================================
-   Tablet and small laptop (760 to 1099), and laptops without the stage below 1100: the flow, stacked.
+   Tablet and small laptop (760 to 1099): the same chapters, stacked.
    ===================================================================== */
 @media (max-width: 1099px) and (min-width: 760px) {
   :root { --pw: min(340px, 40vw); --pl: 0px; }
   .stage { display: grid; grid-template-columns: minmax(0, 1fr); padding: 112px var(--gut) 0; }
   .glow-top { height: 100%; }
   .open-copy { position: static; width: min(680px, 100%); }
-  .laptop { position: relative; right: auto; top: auto; width: calc(100% - 52px); margin: 56px auto 96px; }
-  .lt-cap { left: 0; bottom: auto; top: calc(100% + 44px); }
-  .hphone { position: relative; left: auto; top: auto; width: auto; margin: 56px 0 0; display: flex; align-items: flex-start; gap: 48px; }
+  .laptop { position: relative; right: auto; top: auto; width: calc(100% - 52px); margin: 48px auto 72px; }
+  .lt-cap { left: 0; bottom: auto; top: calc(100% + 40px); }
+  .hphone { position: relative; left: auto; top: auto; width: auto; margin: 40px 0 0; display: flex; align-items: flex-start; gap: 48px; }
   .ph-body { flex: none; width: var(--pw); }
   .labels { position: static; width: auto; margin-top: calc(var(--pw) * 0.36); display: grid; gap: 10px; }
   .lab-cap { position: static; transform: none; margin-bottom: 4px; }
@@ -694,44 +752,51 @@ html.stage-on .rules-body { position: absolute; left: -18px; right: -18px; botto
   .lab-n { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 13px/1 var(--font-num); font-style: normal; }
   .pin { position: absolute; z-index: 2; left: calc(377 / 393 * 100%); top: calc(var(--y) / 852 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
     background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); font-style: normal; box-shadow: 0 0 0 3px #050506; }
-  .max { position: static; width: auto; max-width: 560px; margin-top: 64px; padding-bottom: 96px; }
+  .max { position: static; width: auto; max-width: 560px; margin-top: 48px; padding-bottom: 56px; }
   .land, .who { margin: 0 calc(-1 * var(--gut)); padding-inline: var(--gut); }
-  .land, .who { grid-template-columns: minmax(0, 1fr); grid-template-areas: "h" "s" "c" "fw"; row-gap: 0; }
+  .land, .who { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
+  .land { grid-template-areas: "copy" "fw"; }
   .who { grid-template-areas: "h" "s" "l" "r" "fw"; }
-  .land .fw, .who .fw { margin-top: 40px; }
+  .land .fw, .who .fw { margin-top: 32px; }
   .fw-port { width: 100%; }
-  .answers-in, .move, .money, .faq-in, .plans-top { grid-template-columns: minmax(0, 1fr); row-gap: 40px; }
-  .thread, .answers-copy, .msteps, .imp, .money-copy, .cl, .faq-side, .qs, .plans-head { grid-column: 1; }
+  .answers-in, .move, .money, .faq-in, .plans-top { grid-template-columns: minmax(0, 1fr); row-gap: 32px; }
+  .thread, .answers-copy, .moving-h, .msteps, .imp, .money-copy, .cl, .faq-side, .qs-cols, .plans-head { grid-column: 1; grid-row: auto; }
+  .msteps { margin-top: 0; }
   .thread { justify-self: start; --pw: min(340px, 44vw); }
   .imp { justify-self: start; }
+  .next-head .h2, .next-head .lead { grid-column: 1 / -1; }
+  .next-head .lead { margin-top: 16px; }
   .scene { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "mid mid" "phone board"; row-gap: 32px; }
   .side-phone { --pw: min(272px, 34vw); }
-  .beats { grid-template-columns: minmax(0, 1fr); row-gap: 12px; margin-top: 28px; }
+  .beats { grid-template-columns: minmax(0, 1fr); row-gap: 12px; margin-top: 24px; }
   .beat::before { display: none; }
   .bands { grid-template-columns: 3fr 7fr; row-gap: 32px; }
   .brand-ph { grid-column: 1; justify-self: start; margin-top: 8px; }
   .brand-ph .cap { right: auto; left: calc(100% + 32px); bottom: 24px; }
-  .faq-side { position: static; }
+  .qs-cols { grid-template-columns: minmax(0, 1fr); }
+  .qs:first-child .q:last-child { border-bottom: 0; }
 }
 
 /* =====================================================================
    Phone width (the website on a phone, 393 x 852): the lifter's phone alone opens; it composes, it doesn't shrink.
    ===================================================================== */
 @media (max-width: 759px) {
-  :root { --pw: min(306px, 78vw); --pl: 0px; --sec: 88px; }
+  :root { --pw: min(306px, 78vw); --pl: 0px; --sec: 52px; }
   body { font-size: 16px; }
   .stage { padding: 84px 16px 0; }
   .glow-top { height: 100%; }
   .open-copy { position: static; width: auto; }
   .h1 { font-size: clamp(31px, 8.6vw, 38px); line-height: 1.04; }
+  .h2 { font-size: clamp(28px, 7.6vw, 32px); }
   .lede { margin-top: 16px; gap: 10px; font-size: 16px; line-height: 1.42; }
   .open-copy .cta { margin-top: 22px; gap: 12px 20px; }
   .open-copy .cta-note { margin-top: 12px; }
   .act-btn { height: 50px; padding: 0 24px; }
+  .lead, .sub { font-size: 16px; }
   /* The coach's laptop is too small to read here: the coach's side opens below, at its real size. */
   .laptop { display: none; }
-  .hphone { position: relative; left: auto; top: auto; margin: 44px auto 0; display: flex; flex-direction: column; width: var(--pw); }
-  .labels { order: -1; position: static; width: auto; margin: 0 0 28px; display: grid; gap: 8px; font-size: 16px; }
+  .hphone { position: relative; left: auto; top: auto; margin: 32px auto 0; display: flex; flex-direction: column; width: var(--pw); }
+  .labels { order: -1; position: static; width: auto; margin: 0 0 22px; display: grid; gap: 8px; font-size: 16px; }
   .lab-cap { position: static; transform: none; margin-bottom: 4px; white-space: normal; }
   .lab { position: static; transform: none; gap: 12px; }
   .lab-l { display: none; }
@@ -739,26 +804,35 @@ html.stage-on .rules-body { position: absolute; left: -18px; right: -18px; botto
   .lab-t { font-size: 16px; }
   .pin { position: absolute; z-index: 2; left: calc(377 / 393 * 100%); top: calc(var(--y) / 852 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
     background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); font-style: normal; box-shadow: 0 0 0 3px #050506; }
-  .max { position: static; width: auto; margin-top: 52px; padding-bottom: 88px; }
+  .max { position: static; width: auto; margin-top: 36px; padding-bottom: 48px; }
   .max-num { font-size: clamp(88px, 27vw, 120px); }
-  .max-chart { height: 112px; }
-  .land, .who { margin: 0 -16px; padding: 88px 16px; grid-template-columns: minmax(0, 1fr); grid-template-areas: "h" "s" "c" "fw"; }
+  .max-chart { height: 96px; }
+  .max-from { margin-top: 30px; }
+  .land, .who { margin: 0 -16px; padding: var(--sec) 16px; grid-template-columns: minmax(0, 1fr); }
+  .land { grid-template-areas: "copy" "fw"; }
   .who { grid-template-areas: "h" "s" "l" "r" "fw"; }
-  .land .fw, .who .fw { margin-top: 32px; }
+  .land .sub, .who .sub { margin-top: 14px; }
+  .land-cap { margin-top: 16px; }
+  .land .fw, .who .fw { margin-top: 24px; }
   /* A true-size window onto the laptop: Arjun's name, his total and his squat, as they read on the desk. */
   .fw-port { width: 100%; aspect-ratio: auto; height: 576px; }
   .fw-still { display: block; width: 756px; }
   .fw-still img { width: 756px; max-width: none; }
   .fw-port-list { width: 100%; height: auto; padding-left: 32px; }
-  .fw-b .cap { padding-left: 32px; }
-  .chain li { grid-template-columns: 26px minmax(0, 1fr); row-gap: 8px; padding: 8px 0; }
-  .chain .fix { grid-column: 2; justify-self: start; height: 28px; font-size: 13px; }
+  .chain { margin-top: 22px; }
+  .chain li { grid-template-columns: 26px minmax(0, 1fr) auto; column-gap: 12px; padding: 6px 0; }
+  .chain .fix { height: 28px; padding: 0 10px; font-size: 12.5px; }
+  .chain .fix-apply { grid-column: 2 / -1; justify-self: start; margin-top: 6px; }
   .ch-t b { font-size: 16px; }
+  .ch-t span { font-size: 14px; }
   .tiers div { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
-  .answers-in, .move, .money, .faq-in, .plans-top { grid-template-columns: minmax(0, 1fr); row-gap: 36px; }
-  .thread, .answers-copy, .msteps, .imp, .money-copy, .cl, .faq-side, .qs, .plans-head { grid-column: 1; }
-  .answers-copy { order: -1; }
-  .thread { --pw: min(300px, 74vw); }
+  .answers-in, .move, .money, .faq-in, .plans-top { grid-template-columns: minmax(0, 1fr); row-gap: 28px; }
+  .thread, .answers-copy, .moving-h, .msteps, .imp, .money-copy, .cl, .faq-side, .qs-cols, .plans-head { grid-column: 1; grid-row: auto; }
+  .msteps { margin-top: 0; }
+  .thread { --pw: min(280px, 72vw); }
+  .also { margin-top: 20px; padding-top: 16px; font-size: 16px; }
+  .next-head .h2, .next-head .lead { grid-column: 1 / -1; }
+  .next-head .lead { margin-top: 14px; }
   /* The week: a true-size strip the reader's scroll pans across (without motion it scrolls sideways). */
   .wk-cols { display: none; }
   .wk-port { margin-inline: -16px; padding: 10px 16px 2px; border-radius: 0; overflow-x: auto; overflow-y: hidden; }
@@ -766,37 +840,50 @@ html.stage-on .rules-body { position: absolute; left: -18px; right: -18px; botto
   html.m .wk-port { overflow: hidden; }
   .wk-foot { flex-direction: column; align-items: flex-start; }
   .wk-pub { flex-wrap: wrap; }
-  .meet-stage { padding: 88px 0 56px; }
-  .scene { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "phone" "board"; row-gap: 28px; }
+  .next-also { font-size: 16px; }
+  .meet-h { margin-bottom: 18px; }
+  .scene { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "phone" "board"; row-gap: 22px; }
+  .mid { padding-bottom: 0; }
   .judges { gap: 14px; }
-  .judges i { width: 76px; }
-  .clock-n { font-size: 96px; }
-  .beats { grid-template-columns: minmax(0, 1fr); row-gap: 12px; margin-top: 28px; }
+  .judges i { width: 64px; }
+  .clock-n { font-size: 84px; }
+  .beats { grid-template-columns: minmax(0, 1fr); row-gap: 10px; margin-top: 22px; }
   .beat::before { display: none; }
-  .side-phone { --pw: min(260px, 66vw); }
-  .mp-crop { flex: none; height: calc(var(--pw) * 1.12); min-height: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
+  .side-phone { --pw: min(240px, 62vw); }
+  .mp-crop { flex: none; height: calc(var(--pw) * 0.96); min-height: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
   .mp { margin: 0 auto; }
-  .step-i { grid-template-columns: 34px minmax(0, 1fr); column-gap: 14px; }
+  .side-board { padding-bottom: 0; }
+  .meet-foot { margin-top: 14px; }
+  .step-i { grid-template-columns: 34px minmax(0, 1fr); column-gap: 14px; padding: 16px 0 18px; }
   .sn { width: 28px; height: 28px; font-size: 13px; }
   .st p { font-size: 16px; }
   .imp { margin-inline: -16px; width: auto; }
   .imp .sheet-crop { border-radius: 0; }
   .imp .cap { margin-inline: 16px; }
+  .money { margin-top: 36px; padding-top: 36px; }
+  .money-copy p { font-size: 16px; }
   .cl .sheet-crop { width: 251px; border-radius: 14px; }
-  .bands { grid-template-columns: minmax(0, 1fr); row-gap: 28px; }
-  .band { padding-right: 0; }
-  /* Each plan reads as one block: its rule and name, its price, then the lifters it seats. */
-  .band { display: flex; flex-direction: column; }
-  .seats { order: 3; margin-top: 14px; grid-auto-flow: row; grid-template-columns: repeat(8, minmax(0, 1fr)); row-gap: 8px; height: auto; }
-  .f { width: 32px; font-size: 11px; }
-  .scale-cap { flex-direction: column; align-items: flex-start; }
-  .q summary { font-size: 17px; padding: 18px 0; }
+  html.m .cl-live-d { display: none; }
+  html.m .cl-live-p { display: block; }
+  /* The four plans as a 2 x 2: each reads as one block, its rule and name, its price, then the lifters it seats. */
+  .bands { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; row-gap: 24px; }
+  .band { padding-right: 0; display: flex; flex-direction: column; }
+  .seats { order: 3; margin-top: 12px; grid-auto-flow: row; grid-template-columns: repeat(5, minmax(0, 1fr)); row-gap: 6px; height: auto; }
+  .f { width: 28px; font-size: 10px; }
+  .band-k { margin-top: 0; }
+  .price b { font-size: 26px; }
+  .scale-cap { flex-direction: column; align-items: flex-start; margin-top: 22px; }
+  .q summary { font-size: 17px; padding: 16px 0; }
   .qa p { padding-right: 0; font-size: 16px; }
   .plans-top { display: block; }
-  .brand-ph { display: flex; flex-direction: column-reverse; margin: 40px auto 0; --pw: min(280px, 72vw); }
-  .brand-ph .cap { position: static; width: auto; margin: 0 0 18px; }
+  .plans-head .plans-cta { margin-top: 22px; }
+  .brand-ph { display: flex; flex-direction: column-reverse; margin: 28px auto 0; --pw: min(220px, 58vw); }
+  .brand-ph .cap { position: static; width: auto; margin: 0 0 14px; }
   .bp-crop { align-self: center; }
-  .faq-side { position: static; }
+  .scale { margin-top: 0; }
+  .qs-cols { grid-template-columns: minmax(0, 1fr); }
+  .qs:first-child .q:last-child { border-bottom: 0; }
+  .s-home .close { padding: 56px 0; }
 }
 
 /* =====================================================================

@@ -276,19 +276,18 @@
 <main id="main">
 
 <!-- =====================================================================================================
-     ACT ONE. What it is and who it is for, both real sides of the app in the first frame. Then one set, one camera:
-     Arjun logs his top set on his phone, the app works out his max, the set flies to Sam's laptop, the laptop's own
-     dark screen grows to fill the frame and becomes the page (the coach's graphite) and his page moves with the set;
-     then the same real screen shows the lifters who need Sam first, each with the fix.
-     On a laptop with motion the act holds the screen and the reader's scroll moves the camera; everywhere else it
-     reads top to bottom, and without motion every part shows its last frame.
+     ACT ONE. What it is and who it is for, both real sides of the app in the first frame. Then one set, in place:
+     Arjun logs his top set on his phone and the app works out his max beside it; the set flies to Arjun's page on
+     Sam's laptop (the window zooms from Sam's whole screen to Arjun's page as it rises); then the same screen's list,
+     the lifters who need Sam first, each with the fix. No held screens: every part is in the page's flow, and
+     without motion every part shows its last frame.
      ===================================================================================================== -->
 <section class="act t-dark" id="top" aria-labelledby="open-h">
   <div class="stage" id="stage">
     <i class="glow-top" aria-hidden="true"></i>
 
     <div class="open-copy" id="openCopy">
-      <h1 id="open-h" class="h1">The powerlifting app for coaches and their&nbsp;lifters.</h1>
+      <h1 id="open-h" class="h1"><span class="w" style="--i:0">The</span> <span class="w" style="--i:1">powerlifting</span> <span class="w" style="--i:2">app</span> <span class="w" style="--i:3">for</span> <span class="w" style="--i:4">coaches</span> <span class="w" style="--i:5">and</span> <span class="w" style="--i:6">their&nbsp;lifters.</span></h1>
       <ul class="lede">
         <li class="who-line"><i class="hue hue-green" aria-hidden="true"></i><span><b>Coaches</b> see every set as it’s logged, know who needs them today, and run meet&nbsp;day.</span></li>
         <li class="who-line"><i class="hue hue-lift" aria-hidden="true"></i><span><b>Lifters</b> log every set and how hard it felt. The app works out their&nbsp;max.</span></li>
@@ -300,56 +299,19 @@
       <p class="cta-note">Free for lifters. Coach three lifters free.</p>
     </div>
 
-    <!-- Sam's laptop: the real coach app (his lifters, worst first, and Arjun's page), a device with a lid and a base.
-         The camera's window lives inside its screen: on a laptop with motion the screen grows into the room and the
-         window holds Arjun's page at its real size while only what changes moves. -->
+    <!-- Sam's laptop: the real coach app (his lifters, worst first, and Arjun's page), a device with a lid and a base. -->
     <figure class="laptop" id="laptop" aria-labelledby="laptop-cap">
       <div class="lt-shadow" aria-hidden="true"></div>
       <div class="lt-cam" id="ltCam">
         <div class="lt-body" id="ltBody">
           <div class="lt-lid" aria-hidden="true"><i class="lt-cam-dot"></i></div>
           <div class="lt-base" aria-hidden="true"></div>
-          <i class="lt-room" id="ltRoom" aria-hidden="true"></i>
           <picture class="lt-screen" id="ltScreen">
             <source media="(max-width: 759px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
             <source type="image/avif" srcset="/site-img/home/desk-before-960.avif 960w, /site-img/home/desk-before-1440.avif 1440w, /site-img/home/desk-before-1920.avif 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
             <img src="/site-img/home/desk-before-1440.webp" srcset="/site-img/home/desk-before-960.webp 960w, /site-img/home/desk-before-1440.webp 1440w, /site-img/home/desk-before-1920.webp 1920w" sizes="(min-width: 1100px) 49vw, 92vw" width="1440" height="900" fetchpriority="high" loading="lazy" decoding="async"
               alt="The coach app on Sam’s laptop. Left, his lifters, the ones who need him first: Priya Shah, pain on her check-in; Sarah Kim, low back 6 of 10; Tom Boyle, meet today; Nina Petrova, a busy week; Elena Rossi, 1.4 kg over the 57 class; Marcus Doyle, bench at RPE 9.5 where Sam wrote 8. Right, Arjun Mehta’s page: total estimated max 651 kg, squat 223 kg, bench 150 kg, deadlift 278 kg.">
           </picture>
-        </div>
-        <!-- The camera's window: the same screen, live (laptops with motion only). -->
-        <div class="win-shadow" id="winShadow" aria-hidden="true"></div>
-        <div class="win" id="win" aria-hidden="true">
-          <div class="win-in" id="winIn">
-            <img class="win-base" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="/site-img/home/desk-live-2880.webp" data-avif="/site-img/home/desk-live-2880.avif" data-src1="/site-img/home/desk-live-1440.webp" data-avif1="/site-img/home/desk-live-1440.avif" width="1440" height="900" alt="">
-            <img class="was" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="/site-img/home/was-hero2.webp" style="left:925px;top:195.3px;width:462px;height:190.4px" alt="">
-            <img class="was" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="/site-img/home/was-sq2.webp" style="left:699px;top:497.7px;width:203.3px;height:44px" alt="">
-            <img class="was" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="/site-img/home/was-tr2.webp" style="left:699px;top:677.5px;width:326px;height:60px" alt="">
-            <img class="was" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="/site-img/home/was-pips2.webp" style="left:574px;top:659.7px;width:38px;height:9px" alt="">
-            <span class="ring" id="sqRing" style="left:684px;top:414.7px;width:233.3px;height:166.8px"></span>
-            <span class="ov ov-total" style="left:707px;top:231.3px"><span class="num" data-from="651" data-to="656">656</span></span>
-            <span class="ov ov-chip" style="left:707px;top:297.5px"><svg viewBox="0 0 24 24"><path d="m4 16 5-5 4 3 7-7"/><path d="M15 7h5v5"/></svg><span><span class="num" data-from="16" data-to="21" data-fmt="plus">+21</span> kg in 4 weeks</span></span>
-            <span class="ov ov-pr" style="left:870.5px;top:431.3px"><i></i>PR</span>
-            <span class="ov ov-sq" style="left:701px;top:461.7px"><span class="num" data-from="223" data-to="228">228</span></span>
-            <span class="ov ov-d" style="left:881.9px;top:467.7px"><span class="num" data-from="6" data-to="8" data-fmt="plus">+8</span></span>
-            <span class="ov ov-foot swap" style="left:701px;top:547.7px"><span>175 × 5 @7.5 · Wed, Oct 21</span><span>182.5 × 5 @8 · today</span></span>
-            <span class="ov ov-tr" style="left:701px;top:646.5px"><span class="num" data-from="10" data-to="11">11</span></span>
-            <span class="ov ov-trf swap" style="left:701px;top:743px"><span>2 of 3 in the last 7 days</span><span>3 of 3 in the last 7 days</span></span>
-            <span class="ov ov-row" style="left:565.8px;top:632.4px"><span class="num" data-from="16" data-to="21" data-fmt="plus">+21</span></span>
-            <!-- The order, explained on the real list: what put each lifter where they are (a ring and a number per group). -->
-            <span class="grp" data-mk="1" style="left:257px;top:225px;width:369px;height:132px"></span>
-            <span class="grp" data-mk="2" style="left:257px;top:357px;width:369px;height:66px"></span>
-            <span class="grp" data-mk="3" style="left:257px;top:423px;width:369px;height:66px"></span>
-            <span class="grp" data-mk="4" style="left:257px;top:489px;width:369px;height:66px"></span>
-            <span class="grp" data-mk="5" style="left:257px;top:555px;width:369px;height:66px"></span>
-            <span class="grp" data-mk="6" style="left:257px;top:621px;width:369px;height:132px"></span>
-            <span class="mk" data-mk="1" style="left:232px;top:280px">1</span>
-            <span class="mk" data-mk="2" style="left:232px;top:379px">2</span>
-            <span class="mk" data-mk="3" style="left:232px;top:445px">3</span>
-            <span class="mk" data-mk="4" style="left:232px;top:511px">4</span>
-            <span class="mk" data-mk="5" style="left:232px;top:577px">5</span>
-            <span class="mk" data-mk="6" style="left:232px;top:676px">6</span>
-          </div>
         </div>
       </div>
       <figcaption class="cap lt-cap" id="laptop-cap"><i class="hue hue-green" aria-hidden="true"></i><span><b>Sam’s laptop.</b> His lifters and Arjun’s&nbsp;page.</span></figcaption>
@@ -370,7 +332,6 @@
           <span class="sb" aria-hidden="true"><b>9:41</b><i class="sb-isl"></i><i class="sb-bat"></i></span>
           <i class="pin" style="--y: 233" aria-hidden="true">1</i><i class="pin" style="--y: 340" aria-hidden="true">2</i><i class="pin" style="--y: 435" aria-hidden="true">3</i>
           <span class="log" id="logBtn" aria-hidden="true"><span class="log-in"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Log set</span></span>
-          <i class="ph-dim" id="phDim" aria-hidden="true"></i>
         </div>
       </div>
       <figcaption class="labels" id="labels">
@@ -408,12 +369,18 @@
       <p class="max-from">From one set: 182.5&nbsp;kg × 5 at RPE&nbsp;8, right where his coach wrote&nbsp;it.</p>
     </div>
 
+    <!-- Today: the set lands on Sam's laptop, then the lifters who need him first. On a laptop with motion the two are
+         one row (the list's words beside one window onto Sam's screen, which zooms in to Arjun's page, takes the set,
+         then pans along the same screen to the list), and the landing's words sit beside Arjun's phone above it. -->
+    <div class="today-ch">
     <!-- Today, 1: the set lands on Sam's laptop. -->
     <div class="land t-desk" id="today">
-      <h2 class="h2" id="land-h">Every set lands on your&nbsp;screen.</h2>
-      <p class="sub">Load, reps and how it felt arrive next to what you wrote, as they’re logged. Arjun’s page moves with his&nbsp;set.</p>
-      <p class="cap land-cap"><i class="hue hue-green" aria-hidden="true"></i><span><b>The same set, on Sam’s laptop.</b> Arjun’s page at its real&nbsp;size.</span></p>
-      <!-- A true-size window onto Arjun's page (tablets, phones and the still). -->
+      <div class="land-copy">
+        <h2 class="h2" id="land-h">Every set lands on your&nbsp;screen.</h2>
+        <p class="sub">Load, reps and how it felt arrive next to what you wrote, as they’re logged. Arjun’s page moves with his&nbsp;set.</p>
+        <p class="cap land-cap"><i class="hue hue-green" aria-hidden="true"></i><span><b>The same set, on Sam’s laptop.</b> Arjun’s page at its real&nbsp;size.</span></p>
+      </div>
+      <!-- A true-size window onto Arjun's page. -->
       <figure class="fw fw-a" id="fwA">
         <div class="fw-port">
           <picture class="fw-still">
@@ -421,20 +388,42 @@
             <img src="/site-img/home/win-after-756.webp" srcset="/site-img/home/win-after-756.webp 756w, /site-img/home/win-after-1512.webp 1512w" sizes="(min-width: 760px) 756px, 92vw" width="756" height="576" loading="lazy" decoding="async"
               alt="The coach app on Sam’s laptop, Arjun Mehta’s page: total estimated max 656 kg, up 21 kg in 4 weeks. Squat 228 kg, a PR, from 182.5 kg for 5 at RPE 8 today. Bench 150 kg and deadlift 278 kg, both PRs.">
           </picture>
+          <!-- The live window: Sam's whole screen in desk px (the same capture with the changing numbers left out), held
+               on Arjun's page at its real size; with motion it zooms in from the whole screen as it rises. -->
           <div class="fw-live" id="fwLive" aria-hidden="true">
-            <picture>
-              <source type="image/avif" srcset="/site-img/home/win-live-756.avif 756w, /site-img/home/win-live-1512.avif 1512w" sizes="(min-width: 760px) 756px, 92vw">
-              <img class="fw-base" src="/site-img/home/win-live-756.webp" srcset="/site-img/home/win-live-756.webp 756w, /site-img/home/win-live-1512.webp 1512w" sizes="(min-width: 760px) 756px, 92vw" width="756" height="576" alt="" loading="lazy" decoding="async">
-            </picture>
-            <img class="was" src="/site-img/home/was-hero.webp" style="left:259px;top:181.3px;width:458px;height:186.4px" width="916" height="372" alt="" loading="lazy" decoding="async">
-            <img class="was" src="/site-img/home/was-sq.webp" style="left:33px;top:483.7px;width:199.3px;height:40px" width="399" height="80" alt="" loading="lazy" decoding="async">
-            <span class="ring" id="fwRing" style="left:16px;top:398.7px;width:233.3px;height:166.8px"></span>
-            <span class="ov ov-total" style="left:39px;top:215.3px"><span class="num" data-from="651" data-to="656">656</span></span>
-            <span class="ov ov-chip" style="left:39px;top:281.5px"><svg viewBox="0 0 24 24"><path d="m4 16 5-5 4 3 7-7"/><path d="M15 7h5v5"/></svg><span><span class="num" data-from="16" data-to="21" data-fmt="plus">+21</span> kg in 4 weeks</span></span>
-            <span class="ov ov-pr" style="left:202.5px;top:415.3px"><i></i>PR</span>
-            <span class="ov ov-sq" style="left:33px;top:445.7px"><span class="num" data-from="223" data-to="228">228</span></span>
-            <span class="ov ov-d" style="left:213.9px;top:451.7px"><span class="num" data-from="6" data-to="8" data-fmt="plus">+8</span></span>
-            <span class="ov ov-foot swap" style="left:33px;top:531.7px"><span>175 × 5 @7.5 · Wed, Oct 21</span><span>182.5 × 5 @8 · today</span></span>
+            <div class="fw-desk" id="fwDesk">
+              <picture>
+                <source type="image/avif" srcset="/site-img/home/desk-live-1440.avif 1440w, /site-img/home/desk-live-2880.avif 2880w" sizes="1440px">
+                <img class="fw-base" src="/site-img/home/desk-live-1440.webp" srcset="/site-img/home/desk-live-1440.webp 1440w, /site-img/home/desk-live-2880.webp 2880w" sizes="1440px" width="1440" height="900" alt="" loading="lazy" decoding="async">
+              </picture>
+              <img class="was" src="/site-img/home/was-hero2.webp" style="left:925px;top:195.3px;width:462px;height:190.4px" alt="" loading="lazy" decoding="async">
+              <img class="was" src="/site-img/home/was-sq2.webp" style="left:699px;top:497.7px;width:203.3px;height:44px" alt="" loading="lazy" decoding="async">
+              <img class="was" src="/site-img/home/was-tr2.webp" style="left:699px;top:677.5px;width:326px;height:60px" alt="" loading="lazy" decoding="async">
+              <img class="was" src="/site-img/home/was-pips2.webp" style="left:574px;top:659.7px;width:38px;height:9px" alt="" loading="lazy" decoding="async">
+              <svg class="ring" id="fwRing" style="left:684px;top:414.7px;width:233.3px;height:166.8px" viewBox="0 0 233.3 166.8" preserveAspectRatio="none"><rect x="1" y="1" width="231.3" height="164.8" rx="21" ry="21" pathLength="100"/></svg>
+              <span class="ov ov-total" style="left:707px;top:231.3px"><span class="num" data-from="651" data-to="656">656</span></span>
+              <span class="ov ov-chip" style="left:707px;top:297.5px"><svg viewBox="0 0 24 24"><path d="m4 16 5-5 4 3 7-7"/><path d="M15 7h5v5"/></svg><span><span class="num" data-from="16" data-to="21" data-fmt="plus">+21</span> kg in 4 weeks</span></span>
+              <span class="ov ov-pr" style="left:870.5px;top:431.3px"><i></i>PR</span>
+              <span class="ov ov-sq" style="left:701px;top:461.7px"><span class="num" data-from="223" data-to="228">228</span></span>
+              <span class="ov ov-d" style="left:881.9px;top:467.7px"><span class="num" data-from="6" data-to="8" data-fmt="plus">+8</span></span>
+              <span class="ov ov-foot swap" style="left:701px;top:547.7px"><span>175 × 5 @7.5 · Wed, Oct 21</span><span>182.5 × 5 @8 · today</span></span>
+              <span class="ov ov-tr" style="left:701px;top:646.5px"><span class="num" data-from="10" data-to="11">11</span></span>
+              <span class="ov ov-trf swap" style="left:701px;top:743px"><span>2 of 3 in the last 7 days</span><span>3 of 3 in the last 7 days</span></span>
+              <span class="ov ov-row" style="left:565.8px;top:632.4px"><span class="num" data-from="16" data-to="21" data-fmt="plus">+21</span></span>
+              <!-- The order, explained on the real list (a laptop with motion): a ring and a number per group. -->
+              <span class="grp" data-mk="1" style="left:257px;top:225px;width:369px;height:132px"></span>
+              <span class="grp" data-mk="2" style="left:257px;top:357px;width:369px;height:66px"></span>
+              <span class="grp" data-mk="3" style="left:257px;top:423px;width:369px;height:66px"></span>
+              <span class="grp" data-mk="4" style="left:257px;top:489px;width:369px;height:66px"></span>
+              <span class="grp" data-mk="5" style="left:257px;top:555px;width:369px;height:66px"></span>
+              <span class="grp" data-mk="6" style="left:257px;top:621px;width:369px;height:132px"></span>
+              <span class="mk" data-mk="1" style="left:232px;top:280px">1</span>
+              <span class="mk" data-mk="2" style="left:232px;top:379px">2</span>
+              <span class="mk" data-mk="3" style="left:232px;top:445px">3</span>
+              <span class="mk" data-mk="4" style="left:232px;top:511px">4</span>
+              <span class="mk" data-mk="5" style="left:232px;top:577px">5</span>
+              <span class="mk" data-mk="6" style="left:232px;top:676px">6</span>
+            </div>
           </div>
         </div>
       </figure>
@@ -477,6 +466,7 @@
         </div>
       </figure>
     </div>
+    </div>
   </div>
 </section>
 
@@ -486,12 +476,24 @@
 <section class="answers t-dark" id="answers" aria-labelledby="answers-h">
   <div class="wrap answers-in">
     <figure class="thread" id="thread" aria-labelledby="thread-cap">
+      <div class="th-crop">
       <div class="ph ph-true">
         <div class="ph-scr">
           <picture>
-            <source type="image/avif" srcset="/site-img/home/thread-786.avif 786w, /site-img/home/thread-1179.avif 1179w" sizes="(min-width: 760px) 393px, 74vw">
-            <img class="thread-img" src="/site-img/home/thread-786.webp" srcset="/site-img/home/thread-786.webp 786w, /site-img/home/thread-1179.webp 1179w" sizes="(min-width: 760px) 393px, 74vw" width="393" height="852" loading="lazy" decoding="async"
+            <source type="image/avif" srcset="/site-img/home/thread-786.avif 786w, /site-img/home/thread-1179.avif 1179w" sizes="(min-width: 760px) 360px, 74vw">
+            <img class="thread-img" src="/site-img/home/thread-786.webp" srcset="/site-img/home/thread-786.webp 786w, /site-img/home/thread-1179.webp 1179w" sizes="(min-width: 760px) 360px, 74vw" width="393" height="852" loading="lazy" decoding="async"
               alt="The lifter app on Arjun’s phone, his thread with his coach Sam. Sam’s note from 8:30: top set today is 182.5 for 5 at 8, film it. Arjun’s set, sent at 10:42 as a card: New PR, competition squat, 182.5 kg × 5 at RPE 8, e1RM 228 kg. Seen at 10:43. Sam’s reply at 10:44: PR by 5, and right on the 8 I wrote. Same weight next week, then we push.">
+          </picture>
+          <!-- Sam's note and Arjun's set as their own layers (only while motion plays the thread): the same capture, cut to
+               each message, over the thread's own ground; they arrive the way messages do. -->
+          <i class="tl-patch tl-p-note" aria-hidden="true"></i><i class="tl-patch tl-p-set" aria-hidden="true"></i>
+          <picture class="tl-bub tl-note" aria-hidden="true">
+            <source type="image/avif" srcset="/site-img/home/thread-786.avif 786w, /site-img/home/thread-1179.avif 1179w" sizes="(min-width: 760px) 360px, 74vw">
+            <img src="/site-img/home/thread-786.webp" srcset="/site-img/home/thread-786.webp 786w, /site-img/home/thread-1179.webp 1179w" sizes="(min-width: 760px) 360px, 74vw" width="393" height="852" alt="" loading="lazy" decoding="async">
+          </picture>
+          <picture class="tl-bub tl-set" aria-hidden="true">
+            <source type="image/avif" srcset="/site-img/home/thread-786.avif 786w, /site-img/home/thread-1179.avif 1179w" sizes="(min-width: 760px) 360px, 74vw">
+            <img src="/site-img/home/thread-786.webp" srcset="/site-img/home/thread-786.webp 786w, /site-img/home/thread-1179.webp 1179w" sizes="(min-width: 760px) 360px, 74vw" width="393" height="852" alt="" loading="lazy" decoding="async">
           </picture>
           <img class="tl tl-sent" src="/site-img/home/thread-sent.webp" width="300" height="78" alt="" loading="lazy" decoding="async">
           <img class="tl tl-seen" src="/site-img/home/thread-seen.webp" width="300" height="78" alt="" loading="lazy" decoding="async">
@@ -499,6 +501,7 @@
           <span class="sb" aria-hidden="true"><b>10:44</b><i class="sb-isl"></i><i class="sb-bat"></i></span>
         </div>
         <i class="ph-btn ph-btn-a" aria-hidden="true"></i><i class="ph-btn ph-btn-b" aria-hidden="true"></i><i class="ph-btn ph-btn-c" aria-hidden="true"></i><i class="ph-btn ph-btn-p" aria-hidden="true"></i>
+      </div>
       </div>
       <figcaption class="cap" id="thread-cap"><i class="hue hue-lift" aria-hidden="true"></i><span><b>Arjun’s phone.</b> His thread with Sam: the set, Seen, the&nbsp;reply.</span></figcaption>
     </figure>
@@ -528,7 +531,11 @@
             <img src="/site-img/home/week-after-1160.webp" srcset="/site-img/home/week-after-1160.webp 1160w, /site-img/home/week-after-2320.webp 2320w" sizes="(min-width: 1240px) 1160px, 94vw" width="1160" height="387" loading="lazy" decoding="async"
               alt="The coach app on Sam’s laptop: Marcus Doyle’s week 2 as he lifted it, against what Sam wrote, with week 3 beside it. Squat 212.5 for 3 at RPE 8 and 197.5 for 5 at 7, both as written, held for week 3. Bench 152.5 for 3 written at 8, lifted at 9.5, 1.5 over: Sam’s own rule takes week 3 to 145 for 3 at 8, taken. Bench back-offs 137.5 for 5 at 7, as written, held.">
           </picture>
-          <picture class="wk-before">
+          <picture class="wk-before wk-b1">
+            <source type="image/avif" srcset="/site-img/home/week-before-1160.avif 1160w, /site-img/home/week-before-2320.avif 2320w" sizes="(min-width: 1240px) 1160px, 94vw">
+            <img src="/site-img/home/week-before-1160.webp" srcset="/site-img/home/week-before-1160.webp 1160w, /site-img/home/week-before-2320.webp 2320w" sizes="(min-width: 1240px) 1160px, 94vw" width="1160" height="387" alt="" loading="lazy" decoding="async">
+          </picture>
+          <picture class="wk-before wk-b2" aria-hidden="true">
             <source type="image/avif" srcset="/site-img/home/week-before-1160.avif 1160w, /site-img/home/week-before-2320.avif 2320w" sizes="(min-width: 1240px) 1160px, 94vw">
             <img src="/site-img/home/week-before-1160.webp" srcset="/site-img/home/week-before-1160.webp 1160w, /site-img/home/week-before-2320.webp 2320w" sizes="(min-width: 1240px) 1160px, 94vw" width="1160" height="387" alt="" loading="lazy" decoding="async">
           </picture>
@@ -648,8 +655,8 @@
      ===================================================================================================== -->
 <section class="moving t-dark" id="moving" aria-labelledby="moving-h">
   <div class="wrap">
-    <h2 id="moving-h" class="h2 moving-h">Bring your lifters, their history and your&nbsp;programs.</h2>
     <div class="move">
+      <h2 id="moving-h" class="h2 moving-h">Bring your lifters, their history and your&nbsp;programs.</h2>
       <ol class="msteps" id="steps">
         <li class="step-i">
           <i class="sn" aria-hidden="true">1</i>
@@ -691,10 +698,12 @@
           <picture>
             <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/clients-ph-251.avif 251w, /site-img/home/clients-ph-502.avif 502w" sizes="251px">
             <source media="(max-width: 759px)" srcset="/site-img/home/clients-ph-251.webp 251w, /site-img/home/clients-ph-502.webp 502w" sizes="251px">
-            <source type="image/avif" srcset="/site-img/home/clients-992.avif 992w, /site-img/home/clients-1984.avif 1984w" sizes="(min-width: 1240px) 992px, 92vw">
-            <img src="/site-img/home/clients-992.webp" srcset="/site-img/home/clients-992.webp 992w, /site-img/home/clients-1984.webp 1984w" sizes="(min-width: 1240px) 992px, 92vw" width="992" height="358" loading="lazy" decoding="async"
+            <source type="image/avif" srcset="/site-img/home/clients-992.avif 992w, /site-img/home/clients-1984.avif 1984w" sizes="(min-width: 1240px) 860px, 92vw">
+            <img src="/site-img/home/clients-992.webp" srcset="/site-img/home/clients-992.webp 992w, /site-img/home/clients-1984.webp 1984w" sizes="(min-width: 1240px) 860px, 92vw" width="992" height="358" loading="lazy" decoding="async"
               alt="Clients on the coach’s laptop. This month, October: $2,650 of $3,240 in, 82%, $590 to come. Overdue: 2, $370, Tomas 12 days and Tom 5 days. Due this week: 2, $440. Recurring: $3,248 a month. Tomas Novak, online coaching at $150 a month, overdue 12 days, with Mark paid and Remind; Tom Boyle, meet prep at $220 a month, overdue 5 days.">
           </picture>
+          <div class="cl-live cl-live-d" aria-hidden="true"><i class="cl-patch cl-pn"></i><span class="cl-n"><span class="num" data-from="0" data-to="2650" data-fmt="usd">$2,650</span></span><i class="cl-patch cl-pb"></i><i class="cl-patch cl-pr"></i><span class="cl-n cl-n2"><span class="num" data-from="0" data-to="3248" data-fmt="usd">$3,248</span></span></div>
+          <div class="cl-live cl-live-p" aria-hidden="true"><i class="cl-patch cl-pn"></i><span class="cl-n"><span class="num" data-from="0" data-to="2650" data-fmt="usd">$2,650</span></span><i class="cl-patch cl-pb"></i></div>
         </div>
         <figcaption class="cap" id="cl-cap"><i class="hue hue-green" aria-hidden="true"></i><span><b>Clients, on Sam’s laptop.</b> Remind drafts the message; you send&nbsp;it.</span></figcaption>
       </figure>
@@ -781,10 +790,13 @@
       <h2 id="faq-h" class="h2">Questions coaches&nbsp;ask</h2>
       <p class="faq-demo">The quickest answer is the demo: twenty lifters on a laptop, no sign-up. <a class="quiet" href="/coach.html?demo=1">Open the coach demo<svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg></a></p>
     </div>
+    <div class="qs-cols">
     <div class="qs">
-      <details class="q"><summary>How do I move my lifters over?<i class="qi" aria-hidden="true"></i></summary><div class="qa"><p>Send each lifter a link. Their past training comes in from a CSV file or pasted rows, and you see every set it read before anything is saved; the same file twice adds nothing. Programs come in pasted, or from a photo or a&nbsp;PDF.</p></div></details>
+      <details class="q q-first" open><summary>How do I move my lifters over?<i class="qi" aria-hidden="true"></i></summary><div class="qa"><p>Send each lifter a link. Their past training comes in from a CSV file or pasted rows, and you see every set it read before anything is saved; the same file twice adds nothing. Programs come in pasted, or from a photo or a&nbsp;PDF.</p></div></details>
       <details class="q"><summary>What if my lifters don’t log?<i class="qi" aria-hidden="true"></i></summary><div class="qa"><p>Logging is one tap a set, and it works without signal: sets wait on the phone and sync later. Every set moves their max, PRs and charts, free. Anyone who goes five days without a session lands on your list, with a check-in message ready to&nbsp;send.</p></div></details>
       <details class="q"><summary>How does the price work per lifter?<i class="qi" aria-hidden="true"></i></summary><div class="qa"><p>You pay for a plan sized to your roster, not per head: free up to 3 lifters, Basic up to 10 at $24.99 a month, Pro up to 25 at $49.99, Premium beyond that at $99.99. Lifters use it&nbsp;free.</p></div></details>
+    </div>
+    <div class="qs">
       <details class="q"><summary>Who sees my lifters’ data, and can we take it with us?<i class="qi" aria-hidden="true"></i></summary><div class="qa"><p>Each lifter sees all of their own. You see their training, programs, check-ins and notes while they’re on your roster; if they leave, that stops and their history stays theirs. Your payment records are yours alone. Anyone can export everything as a zip of files on any plan, or delete their account. No ads, and no data&nbsp;sold.</p></div></details>
       <details class="q"><summary>Is it on iPhone, Android and the web?<i class="qi" aria-hidden="true"></i></summary><div class="qa"><p>One account works on all three. The iPhone app is for coaches and lifters. On a laptop, sign in at powalifta.com for the full coach desk. On Android it runs in the browser and can sit on the home screen like an&nbsp;app.</p></div></details>
       <details class="q"><summary>Does the app change programs on its own?<i class="qi" aria-hidden="true"></i></summary><div class="qa"><p>No. It suggests next week’s loads and drafts notes and replies. Nothing reaches a lifter until you apply, publish or send&nbsp;it.</p></div></details>
@@ -808,6 +820,7 @@
           <button type="button" class="mx-share" id="calcShare">Share your max<svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg></button>
         </div>
       </div></details>
+    </div>
     </div>
   </div>
 </section>
