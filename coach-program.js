@@ -1,13 +1,14 @@
-/* coach-program.js: the iPhone app's Programs (2026-10-28). The owner on the old phone builder: "the program
-   builder" was one of the four things wrong (chips in tiles in cards, every week's days in one scroll).
-   Now: whose program is the large title (tap it for the roster), the block is the screen's one lit card,
-   the weeks a segmented control, one day per page (swipe, or tap a day), each set in Train's words
-   ("180 kg × 3 @ 8"), and an exercise opens an editor sheet with steppers for sets, reps, load and effort.
-   A floating Add exercise is the screen's red; the block's ⋯ keeps every action (templates, Bring a program
-   in, Maxes for %, Start the next block, Build from goal, Set fields...), the week's ⋯ and a day's ⋯ theirs.
-   Every edit goes through coach.html's own builder functions (setBlockRx, setBlockCount, addBlock,
-   addRestDay...) and persistProgram, so the demo stays write-safe and saving stays one path. Every value
-   the coach (or a seller) wrote is escaped or read through Number(). The laptop keeps its own builder. */
+/* coach-program.js: the iPhone app's Programs (2026-10-28; rebuilt 31 Oct, coach-builder-v2). The owner on the builder:
+   "still very chopped". It now reads like the lifter's Train: whose program is the large title (tap it for the roster)
+   with one quiet line under it about the block, and one ⋯ beside Ask for the block and its weeks (Maxes for % among
+   them); the week a stepper ("‹ Week 1 of 3 · this week ›") over the days as segments that fit the phone; the day a
+   section (its name, what's in it, its ⋯) of exercise cards in Train's language (the lift's dot and name, the cue, a
+   row per block of sets in Train's numbers, what was lifted in the lift's colour); Add exercise at the end of the day,
+   inline, the screen's one red. An exercise opens an editor sheet with steppers for sets, reps, load and effort; what
+   they logged is said there once (written and lifted), with the way to the same exercise next week.
+   Every edit goes through coach.html's own builder functions (setBlockRx, setBlockCount, addBlock, addRestDay,
+   updateDayName...) and persistProgram, so the demo stays write-safe and saving stays one path. Every value the coach
+   (or a seller) wrote is escaped or read through Number(). The laptop keeps its own builder. */
 (function () {
   'use strict';
   var hasDom = typeof document !== 'undefined';
@@ -25,6 +26,8 @@
   var DOTS = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
   var CHEV_DOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
   var PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+  var CHEV_LEFT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
+  var CHEV_RIGHT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 
   /* ====================================================================================================
      PURE (tests.html "programs (coach-program.js)")
@@ -176,6 +179,96 @@
   // Never a later block with a load: back-offs are often written light on purpose (the owner's call, 28 Oct).
   function cpWantsHint(bi, blk) { return Number(bi) === 0 || !(Number(blk && blk.weight) > 0); }
 
+  /* The builder as Train reads (31 Oct, coach-builder-v2): one quiet line under the title, a week stepper, the
+     days as segments that fit, the day as a section of exercise cards, Add exercise at its end. */
+  // The quiet line under the lifter's name: "Strength Block · 9 sessions · 23% done". The week is the stepper's to
+  // say (with where they are), so it isn't said twice. o: { name, sessions, done, total }
+  function cpBlockLine(o) {
+    o = o || {};
+    var name = String(o.name == null ? '' : o.name).replace(/\s+/g, ' ').trim() || 'Program';
+    var out = [name], s = Number(o.sessions) || 0, t = Number(o.total) || 0;
+    if (s > 0) out.push(plural(s, 'session'));
+    if (t > 0) out.push(Math.round(Math.max(0, Math.min(t, Number(o.done) || 0)) / t * 100) + '% done');
+    return out.join(' · ');
+  }
+  // Where the week on show sits from the one they're in: 'this week', 'next week', 'in 2 weeks', 'last week',
+  // '2 weeks ago'; '' when nobody knows which week they're in.
+  function cpWeekWhen(view, now) {
+    if (now == null || now < 0 || view == null || !isFinite(Number(now)) || !isFinite(Number(view))) return '';
+    var d = Number(view) - Number(now);
+    if (d === 0) return 'this week';
+    if (d === 1) return 'next week';
+    if (d === -1) return 'last week';
+    return d > 0 ? 'in ' + d + ' weeks' : -d + ' weeks ago';
+  }
+  // A day's name for its segment: "Squat Day" is "Squat", "Day 2 - Bench" is "Bench" (the section under it says the
+  // whole name); "Day 1" stays "Day 1".
+  function cpDayShort(name) {
+    var n = String(name == null ? '' : name).replace(/\s+/g, ' ').trim();
+    var s = n.replace(/^day\b\s*\d*\s*[-:–·]?\s*/i, '').replace(/\s*[-:–·]?\s*\bday\s*\d*$/i, '').trim();
+    return s && !/^\d+$/.test(s) ? s : n;
+  }
+  // The days' segments must fit a 393 pt phone with + beside them: each day's short name while every name fits its
+  // segment (10 letters for three days or fewer, 8 for four, 6 for five), else "Day 1"…; a rest day says Rest either
+  // way. Past five days the row scrolls ("Day 6" and on). days: the week's days → one label per day.
+  function cpDayLabels(days) {
+    days = days || [];
+    var n = days.length, fit = n <= 3 ? 10 : n === 4 ? 8 : n === 5 ? 6 : 0;
+    var rest = function (d) { return cpIsRestDay(d); };
+    var short = days.map(function (d, i) { return rest(d) ? 'Rest' : (cpDayShort(d && d.name) || 'Day ' + (i + 1)); });
+    var ok = fit > 0 && short.every(function (t) { return t.length <= fit; });
+    return days.map(function (d, i) { return ok || rest(d) ? short[i] : 'Day ' + (i + 1); });
+  }
+  // What was written for the sets they logged, in the grid's shorthand (the Lifted line's): "180×3 @8, 3×155×5 @7".
+  // sets: the logged sets as written (planned load and reps); u: the unit; show: kg → the unit shown.
+  function cpWrittenText(sets, u, show) {
+    show = show || function (kg) { return n2(kg); };
+    var blocks = typeof groupSets === 'function' ? groupSets(sets || []) : (sets || []).map(function (s) { return Object.assign({ count: 1 }, s); });
+    return blocks.map(function (b) {
+      var L = cpSetLine(b, u, show), load = b.pct != null ? L.load : (Number(b.weight) > 0 ? String(show(Number(b.weight))) + (Number(b.weightHi) > Number(b.weight) ? '–' + show(Number(b.weightHi)) : '') : '');
+      var t = (L.count > 1 ? L.count + '×' : '') + (load ? load + '×' : '') + (L.reps || '') + (load ? '' : L.reps ? ' reps' : '');
+      return (t + (L.effort ? (L.rir ? ' · ' + L.effort : ' ' + L.effort.replace(/^@ /, '@')) : '')).trim();
+    }).filter(Boolean).join(', ');
+  }
+  // The same exercise in the next week (Change week 2 instead): the same lift, variant and name, on the same day
+  // if it's there, else the first day of that week that has it. weeks: the block's weeks. → { wi, di, ei } | null
+  function cpNextWeekMatch(weeks, wi, di, ex) {
+    var nw = (weeks || [])[Number(wi) + 1];
+    if (!nw || !ex) return null;
+    var key = function (e) { return [e.lift || '', e.variant || '', String(e.exerciseName || '').trim().toLowerCase()].join('|'); };
+    var k = key(ex), days = nw.days || [];
+    var order = [Number(di)].concat(days.map(function (d, i) { return i; }).filter(function (i) { return i !== Number(di); }));
+    for (var j = 0; j < order.length; j++) {
+      var d = days[order[j]];
+      if (!d) continue;
+      var ei = (d.exercises || []).findIndex(function (e) { return e && key(typeof exAsWritten === 'function' ? exAsWritten(e) : e) === k; });
+      if (ei >= 0) return { wi: Number(wi) + 1, di: order[j], ei: ei };
+    }
+    return null;
+  }
+  // The block's one ⋯, in the groups a coach reaches for: the block, its weeks, keep or share it, and Delete apart.
+  // acts: programMenuActions (the laptop's list, so an action added there still shows: it joins the block's group);
+  // more: { rename, weeks: [the week's actions], templates } → [{ title, items }], every action once.
+  function cpBlockMenu(acts, more) {
+    acts = (acts || []).filter(Boolean); more = more || {};
+    var used = [];
+    var take = function (re, patch) {
+      var a = acts.find(function (x) { return used.indexOf(x) < 0 && re.test(x.label); });
+      if (!a) return null;
+      used.push(a);
+      return patch ? Object.assign({}, a, patch) : a;
+    };
+    var P = more.patch || {};
+    var block = [take(/^Notify/, P.notify), more.rename || null, take(/^Start the next block/, P.next), take(/^Rebuild from goal/, P.goal), take(/imported program/, P.imported),
+      take(/^Maxes for %/, P.maxes), take(/^Update % loads/, P.update), take(/^Set fields/, P.fields)];
+    var addWeek = take(/^Add week/, P.addWeek);
+    var share = [take(/^Save as template/, P.save), more.templates || null, take(/^Export/, P.exported)];
+    var del = take(/^Delete program/, P.del);
+    block = block.concat(acts.filter(function (a) { return used.indexOf(a) < 0; }));
+    return [{ title: 'Block', items: block }, { title: 'Weeks', items: [addWeek].concat(more.weeks || []) }, { title: 'Share', items: share }, { title: '', items: [del] }]
+      .map(function (g) { return { title: g.title, items: g.items.filter(Boolean) }; }).filter(function (g) { return g.items.length; });
+  }
+
   /* ====================================================================================================
      STATE: whose program, which week, which day (per lifter and week)
      ==================================================================================================== */
@@ -236,21 +329,30 @@
     area.innerHTML = '';
     var root = el('div', { class: 'cp ca-root' });
     area.appendChild(root);
-    if (!aid) { root.appendChild(emptyNoLifters()); return true; }
+    if (!aid) { paintHeader(null); root.appendChild(emptyNoLifters()); return true; }
     noteRecent(aid);
     var prog = progOf(aid);
-    if (!prog) { S.aid = aid; root.appendChild(emptyNoBlock(aid)); return true; }
+    if (!prog) { S.aid = aid; paintHeader(null); root.appendChild(emptyNoBlock(aid)); return true; }
     prog.weeks.forEach(function (wk) { (wk.days || []).forEach(function (d) { (d.exercises || []).forEach(function (ex) { if (typeof ensureExerciseShape === 'function') ensureExerciseShape(ex); }); }); });
     enter(aid, prog);
     if (curWeek() >= prog.weeks.length) setWeek(Math.max(0, prog.weeks.length - 1));
     var wi = curWeek(), wk = prog.weeks[wi];
     var allSets = prog.weeks.reduce(function (a, w) { return a.concat((w.days || []).reduce(function (b, d) { return b.concat((d.exercises || []).reduce(function (c, e) { return c.concat(e.sets || []); }, [])); }, [])); }, []);
     var finished = allSets.length > 0 && allSets.every(function (x) { return x.completed; });
-    root.appendChild(heroEl(prog, aid, allSets, finished));
-    if (prog.weeks.length) root.appendChild(weeksEl(prog, aid));
+    paintHeader(aid, prog);
+    root.appendChild(blockLineEl(prog, allSets));
+    // Every set logged: what comes next is the screen's one red (Add exercise steps down to quiet).
+    if (finished) {
+      var dn = el('div', { class: 'cp-done ca-rise' });
+      dn.appendChild(el('p', { class: 'cp-done-t' }, 'Every set of this block is logged.'));
+      var nb = el('button', { type: 'button', class: 'ca-btn is-red' }, 'Start the next block');
+      nb.addEventListener('click', function () { if (typeof openNextBlockSheet === 'function') openNextBlockSheet(prog.id, aid); });
+      dn.appendChild(nb);
+      root.appendChild(dn);
+    }
     if (!wk) {
       // A block with every week taken out: say so, and the one way on.
-      var nw = el('div', { class: 'cp-daycard cp-addcard cp-noweeks' });
+      var nw = el('div', { class: 'cp-addcard cp-noweeks' });
       nw.appendChild(el('h3', { class: 'cp-add-t' }, 'No weeks yet'));
       nw.appendChild(el('p', { class: 'cp-add-s' }, 'Add the first week, then its days and exercises.'));
       var aw = el('button', { type: 'button', class: 'ca-btn is-red' });
@@ -262,40 +364,42 @@
     }
     var di = Math.min(S.days[dayKey(aid, wi)] || 0, Math.max(0, (wk.days || []).length));
     S.days[dayKey(aid, wi)] = di;
-    root.appendChild(dayChipsEl(wk, di));
+    root.appendChild(navEl(prog, aid, wk, wi, di));
     var pager = pagerEl(prog, aid, wk, wi, di);
     root.appendChild(pager);
-    var fab = el('button', { type: 'button', class: 'cp-fab' + (finished ? ' is-soft' : ''), 'aria-label': 'Add an exercise to this day' });
-    fab.innerHTML = PLUS + '<span>Add exercise</span>';
-    fab.addEventListener('click', function () {
+    // Add exercise ends the day on show, inline (it never floats over a set): the screen's one red.
+    var add = el('button', { type: 'button', class: 'ca-btn ' + (finished ? 'is-soft' : 'is-red') + ' cp-addex' });
+    add.innerHTML = PLUS + '<span>Add exercise</span>';
+    add.addEventListener('click', function () {
       var d = S.days[dayKey(aid, curWeek())] || 0;
       var day = wk.days[d];
       if (!day) return;
       if (typeof openAddExercise === 'function') { openAddExercise(curWeek(), d); dressAdd(aid, curWeek(), d); }
     });
-    root.appendChild(fab);
+    root.appendChild(add);
     // An exercise just added (Add exercise's Add to day) rises into its place on the day, so the coach sees
-    // where it went; then it is an ordinary row.
+    // where it went; then it is an ordinary card.
     var added = S.added;
     S.added = null;
     if (added && added.aid === aid && added.wi === wi) {
       var aday = (wk.days || [])[added.di];
       if (aday && (aday.exercises || []).length === added.n + 1) {
         di = added.di; S.days[dayKey(aid, wi)] = di;
-        var rows = pager.children[di] ? pager.children[di].querySelectorAll('.cp-exrow') : [];
-        var row = rows[rows.length - 1];
-        if (row) row.classList.add('is-new');
+        var cards = pager.children[di] ? pager.children[di].querySelectorAll('.cp-excard') : [];
+        var card = cards[cards.length - 1];
+        if (card) card.classList.add('is-new');
       }
     }
     // Land on the remembered day without an animation, then follow the swipe.
     requestAnimationFrame(function () {
       scrollToDay(pager, di, false); syncDay(root, pager, aid, wk, true);
-      // The new row in view above Add exercise and the tab bar (they float over the page's foot).
-      var nw = root.querySelector('.cp-exrow.is-new');
+      requestAnimationFrame(function () { pager.classList.add('is-live'); });   // its height follows the day from now on
+      // The new card and Add exercise under it in view above the tab bar (it floats over the page's foot).
+      var nw = root.querySelector('.cp-excard.is-new');
       if (nw) {
-        var r = nw.getBoundingClientRect(), f = root.querySelector('.cp-fab'), bar = document.querySelector('.bottom-tabs');
-        var floor = f && !f.classList.contains('is-hidden') ? f.getBoundingClientRect().top - 12 : bar ? bar.getBoundingClientRect().top - 12 : innerHeight;
-        var by = r.bottom - floor;
+        var a2 = root.querySelector('.cp-addex'), r = (a2 && !a2.hidden ? a2 : nw).getBoundingClientRect(), bar = document.querySelector('.bottom-tabs');
+        var floor = bar ? bar.getBoundingClientRect().top - 12 : innerHeight;
+        var by = Math.min(r.bottom - floor, nw.getBoundingClientRect().top - 120);
         if (by > 0) { try { window.scrollBy({ top: by, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); } catch (e) { window.scrollBy(0, by); } }
       }
     });
@@ -312,6 +416,25 @@
     if (!a) { h.textContent = 'Programs'; return; }
     h.innerHTML = '<button type="button" class="cp-title" aria-haspopup="dialog" aria-label="' + esc(a.name) + '. Choose a lifter"><span>' + esc(first(a.name)) + '</span>' + CHEV_DOWN + '</button>';
     h.querySelector('.cp-title').addEventListener('click', openPicker);
+  }
+  // Under the title, Train's way: one quiet line about the block ("Strength Block · 9 sessions · 23% done", the first
+  // line of the page, tucked under the title as Train's date line is), and at the top right, beside Ask and the bell,
+  // the block's one ⋯ (the block, its weeks, Maxes for %, keep or share it). No block (or no lifter): neither.
+  function paintHeader(aid, prog) {
+    var hd = hasDom && document.querySelector('section[data-pane="program"] > .dash-header');
+    if (!hd) return;
+    var right = hd.children[1], more = right && right.querySelector('.cp-more');
+    hd.classList.toggle('cp-head', !!prog);
+    if (!prog) { if (more) more.remove(); return; }
+    if (!more && right) {
+      more = el('button', { type: 'button', class: 'ca-hbtn cp-more', 'aria-haspopup': 'dialog', 'aria-label': 'Block and week options', html: DOTS });
+      more.addEventListener('click', function () { var p = progOf(S.aid); if (p) programMenu(p, S.aid); });
+      right.appendChild(more);
+    }
+  }
+  function blockLineEl(prog, allSets) {
+    var sessions = prog.weeks.reduce(function (n, w) { return n + (w.days || []).filter(function (d) { return (d.exercises || []).length; }).length; }, 0);
+    return el('p', { class: 'cp-sub' }, cpBlockLine({ name: prog.name, sessions: sessions, done: allSets.filter(function (x) { return x.completed; }).length, total: allSets.length }));
   }
   // Whose program: the ones you opened last, then who needs you (with why), then everyone by name. Past
   // six lifters a search keeps its place at the top (like Lifters); 60 lifters open and filter at once (the
@@ -384,112 +507,65 @@
     }, { cls: 'cp-picker' + (many ? ' is-many' : '') });
   }
 
-  // The block: the screen's one lit card.
-  function heroEl(prog, aid, allSets, finished) {
-    var h = el('div', { class: 'cp-hero ca-hero ca-rise' });
-    var top = el('div', { class: 'cp-hero-top' });
-    var name = el('input', { type: 'text', class: 'cp-name', value: prog.name || '', 'aria-label': 'Block name', autocomplete: 'off', spellcheck: 'false' });
-    name.value = prog.name || '';
-    name.addEventListener('input', function () {
-      Store.update(function (s) { var p = s.programs.find(function (x) { return x.id === prog.id; }); if (p) p.name = name.value; });
+  // A name, asked in the app's own sheet (the block's and a day's: their ⋯ › Rename): the field, then the one red.
+  // o: { title, label, value, go, onSave(name) }
+  function openNameSheet(o) {
+    if (typeof uiSheet !== 'function') return null;
+    return uiSheet(o.title, function (sheet, close) {
+      var lab = el('label', { class: 'cp-field' });
+      lab.appendChild(el('span', { class: 'cp-field-l' }, o.label || 'Name'));
+      var inp = el('input', { type: 'text', class: 'cp-field-in', maxlength: '80', autocomplete: 'off', spellcheck: 'false', 'aria-label': o.label || 'Name' });
+      inp.value = String(o.value == null ? '' : o.value);
+      lab.appendChild(inp);
+      sheet.appendChild(lab);
+      var go = el('button', { type: 'button', class: 'ca-btn is-red cp-sheet-go' }, o.go || 'Save');
+      var save = function () {
+        var name = inp.value.replace(/\s+/g, ' ').trim();
+        if (!name) { inp.focus(); return; }
+        close();
+        o.onSave(name);
+      };
+      go.addEventListener('click', save);
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+      sheet.appendChild(go);
+    }, { cls: 'cp-name-sheet' });
+  }
+  function renameBlock(prog) {
+    openNameSheet({ title: 'Rename the block', label: 'Block name', value: prog.name || '', onSave: function (name) {
+      Store.update(function (s) { var p = s.programs.find(function (x) { return x.id === prog.id; }); if (p) p.name = name; });
       if (typeof persistProgram === 'function') persistProgram(prog.id);
-    });
-    name.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); name.blur(); } });
-    top.appendChild(name);
-    var more = el('button', { type: 'button', class: 'cp-ibtn', 'aria-label': 'Program options', html: DOTS });
-    more.addEventListener('click', function () { programMenu(prog, aid); });
-    top.appendChild(more);
-    h.appendChild(top);
-    var done = allSets.filter(function (x) { return x.completed; }).length;
-    var sessions = prog.weeks.reduce(function (n, w) { return n + (w.days || []).filter(function (d) { return (d.exercises || []).length; }).length; }, 0);
-    // Where they are: this week of the block as it stands now (a week added or taken out counts at once; the
-    // roster's copy of the week can be a beat behind). No weeks: the card below says so, the line steps aside.
-    var r = rowOf(aid), wk = r && r.status && r.status.week, nW = prog.weeks.length;
-    if (nW) {
-      var meta = [wk && wk.idx != null && wk.idx < nW ? 'Week ' + (wk.idx + 1) + ' of ' + nW : plural(nW, 'week'), plural(sessions, 'session')];
-      if (allSets.length) meta.push(Math.round(done / allSets.length * 100) + '% done');
-      h.appendChild(el('p', { class: 'cp-blockmeta' }, meta.join(' · ')));
-    }
-    // The maxes % sets work from: shown when the block uses them.
-    if (allSets.some(function (x) { return x.pct != null; }) || (prog.maxes && Object.keys(prog.maxes).length)) {
-      // Each max carries its lift's dot (lift colours live on lift data).
-      // Each lift's max is one unit that never breaks ("S 210", the unit with the last); on a 375 pt phone the
-      // label says "Maxes" (it read "Maxes for / %" and "D 255 / kg" there). The button says it all out loud.
-      var said = [];
-      var bits = MAIN.map(function (L) { var v = typeof programMaxKg === 'function' ? programMaxKg(prog, aid, L) : 0; if (!(v > 0)) return null; said.push(LIFT_NAME[L] + ' ' + Math.round(disp(v))); return '<i class="lift-' + L + '" aria-hidden="true"></i>' + LIFT_NAME[L].charAt(0) + ' ' + Math.round(disp(v)); }).filter(Boolean);
-      if (bits.length) bits[bits.length - 1] += ' ' + esc(unit());
-      var mx = el('button', { type: 'button', class: 'cp-maxes', 'aria-label': 'Maxes for % work: ' + (said.length ? said.join(', ') + ' ' + unit() : 'not set') });
-      mx.innerHTML = '<span class="cp-mx-l">Maxes<span class="cp-mx-more"> for %</span></span><b>' + (bits.length ? bits.map(function (b) { return '<span class="cp-mx-lift">' + b + '</span>'; }).join(' · ') : 'not set') + '</b>' + ic('chev', 2.4);
-      mx.addEventListener('click', function () { if (typeof openMaxesSheet === 'function') openMaxesSheet(prog.id, aid); });
-      h.appendChild(mx);
-    }
-    if (finished) {
-      h.appendChild(el('p', { class: 'cp-done' }, 'Every set of this block is logged.'));
-      var nb = el('button', { type: 'button', class: 'ca-btn is-red' }, 'Start the next block');
-      nb.addEventListener('click', function () { if (typeof openNextBlockSheet === 'function') openNextBlockSheet(prog.id, aid); });
-      h.appendChild(nb);
-    }
-    return h;
+      if (typeof loadProgram === 'function') loadProgram();
+    } });
   }
-  // The block's ⋯: the same actions as the laptop's (programMenuActions), in the groups a coach reaches for
-  // them: tell them, what comes next, how it's written, keep or share it, and Delete apart at the end. Add
-  // week is the weeks' + already, so it isn't here twice; an action added there later still shows.
+  function renameDay(aid, wi, di) {
+    var p = progOf(aid), d = p && p.weeks[wi] && p.weeks[wi].days[di];
+    if (!d) return;
+    openNameSheet({ title: 'Rename the day', label: 'Day name', value: d.name || '', onSave: function (name) {
+      if (typeof updateDayName === 'function') updateDayName(wi, di, name);
+      if (typeof loadProgram === 'function') loadProgram();
+    } });
+  }
+  // The block's one ⋯ (the header's, beside Ask): the laptop's actions (programMenuActions) and the week's, in the
+  // groups a coach reaches for them (cpBlockMenu): the block, its weeks, keep or share it, Delete apart at the end.
   function programMenu(prog, aid) {
-    var acts = (typeof programMenuActions === 'function' ? programMenuActions(prog, aid) : []).filter(Boolean), used = [];
-    var take = function (re, patch) {
-      var a = acts.find(function (x) { return used.indexOf(x) < 0 && re.test(x.label); });
-      if (!a) return null;
-      used.push(a);
-      return patch ? Object.assign({}, a, patch) : a;
-    };
-    var tell = [take(/^Notify/, { icon: ic('msg') })];
-    var next = [take(/^Start the next block/, { icon: ic('steps') }), take(/^Rebuild from goal/, { icon: ic('trend') }), take(/imported program/, { icon: ic('clip') })];
-    var how = [take(/^Maxes for %/, { icon: ic('gauge') }), take(/^Update % loads/, { icon: ic('chart') }), take(/^Set fields/, { icon: ic('list') })];
-    var keep = [take(/^Save as template/, { icon: ic('copy'), onClick: function () { openSaveSheet(prog); } }),
-      { label: 'Your templates', icon: ic('note'), onClick: toTemplates },
-      take(/^Export/, { label: 'Export as a file', icon: ic('down') })];
-    take(/^Add week/);
-    var del = take(/^Delete program/);   // it asks in the app's own sheet on the phone (programMenuActions)
-    var rest = acts.filter(function (a) { return used.indexOf(a) < 0; });
-    menu(prog.name || 'Program', [tell, next, how.concat(rest), keep, [del]]);
-  }
-
-  // The weeks: an iOS segmented control (it scrolls when a block is long), + adds one, ⋯ the week's menu.
-  function weeksEl(prog, aid) {
-    var wrap = el('div', { class: 'cp-weeks-row' });
-    var seg = el('div', { class: 'cp-weeks', role: 'tablist', 'aria-label': 'Week' });
-    var r = rowOf(aid), now = r && r.status && r.status.week ? r.status.week.idx : -1;
-    var short = prog.weeks.length > 4;
-    prog.weeks.forEach(function (w, i) {
-      var on = i === curWeek();
-      var b = el('button', { type: 'button', class: 'cp-wk' + (on ? ' on' : '') + (i === now ? ' is-now' : ''), role: 'tab', 'aria-selected': on ? 'true' : 'false', 'aria-label': 'Week ' + (Number(w.number) || i + 1) + (i === now ? ', this week' : '') });
-      b.textContent = short ? String(Number(w.number) || i + 1) : 'Week ' + (Number(w.number) || i + 1);
-      b.addEventListener('click', function () {
-        if (on) return;
-        setWeek(i);
-        if (S.days[dayKey(aid, i)] == null) S.days[dayKey(aid, i)] = cpNextDay(prog.weeks[i]);
-        if (typeof loadProgram === 'function') loadProgram();
-      });
-      seg.appendChild(b);
+    var acts = typeof programMenuActions === 'function' ? programMenuActions(prog, aid) : [];
+    var wi = curWeek(), w = prog.weeks[wi], wn = w ? Number(w.number) || wi + 1 : 0;
+    var weeks = w ? [
+      { label: 'Duplicate week ' + wn, icon: ic('copy'), onClick: function () { duplicateWeekAction(prog.id, wi); } },
+      { label: 'Add a day to week ' + wn, icon: ic('plus'), onClick: function () { addDayAndGo(aid, wi, false); } },
+      // Critical fix #1: Add rest day stays (addRestDay names it "Rest", the isRestDay heuristic reads it).
+      { label: 'Add a rest day to week ' + wn, icon: ic('plus'), onClick: function () { addDayAndGo(aid, wi, true); } },
+      { label: 'Remove week ' + wn, icon: ICONS.trash, danger: true, onClick: function () { removeDayOrWeek(aid, wi, null); } }
+    ] : [];
+    var groups = cpBlockMenu(acts, {
+      rename: { label: 'Rename the block', icon: ic('pen'), onClick: function () { renameBlock(prog); } },
+      templates: { label: 'Your templates', icon: ic('note'), onClick: toTemplates },
+      weeks: weeks,
+      patch: { notify: { icon: ic('msg') }, next: { icon: ic('steps') }, goal: { icon: ic('trend') }, imported: { icon: ic('clip') }, maxes: { icon: ic('gauge') },
+        update: { icon: ic('chart') }, fields: { icon: ic('list') }, addWeek: { label: 'Add a week', icon: ic('plus') },
+        save: { icon: ic('copy'), onClick: function () { openSaveSheet(prog); } }, exported: { label: 'Export as a file', icon: ic('down') } }
     });
-    var add = el('button', { type: 'button', class: 'cp-wk cp-wk-add', 'aria-label': 'Add a week', html: PLUS });
-    add.addEventListener('click', function () { if (typeof addWeek === 'function') addWeek(); });
-    seg.appendChild(add);
-    wrap.appendChild(seg);
-    var more = el('button', { type: 'button', class: 'cp-ibtn', 'aria-label': 'Week ' + (curWeek() + 1) + ' options', html: DOTS });
-    more.addEventListener('click', function () {
-      var wi = curWeek(), w = prog.weeks[wi];
-      if (!w) return;
-      menu('Week ' + (Number(w.number) || wi + 1), [
-        [{ label: 'Duplicate week', icon: ic('copy'), onClick: function () { duplicateWeekAction(prog.id, wi); } },
-          { label: 'Add day', icon: ic('plus'), onClick: function () { addDayAndGo(aid, wi, false); } },
-          { label: 'Add rest day', icon: ic('plus'), onClick: function () { addDayAndGo(aid, wi, true); } }],
-        [{ label: 'Remove week', icon: ICONS.trash, danger: true, onClick: function () { removeDayOrWeek(aid, wi, null); } }]
-      ]);
-    });
-    wrap.appendChild(more);
-    requestAnimationFrame(function () { var on = seg.querySelector('.cp-wk.on'); if (on && seg.scrollWidth > seg.clientWidth) seg.scrollLeft = on.offsetLeft - seg.clientWidth / 2 + on.offsetWidth / 2; });
-    return wrap;
+    menu(prog.name || 'Program', groups, { cls: 'cp-menu-block' });
   }
   function addDayAndGo(aid, wi, rest) {
     var prog = progOf(aid), n = prog && prog.weeks[wi] ? prog.weeks[wi].days.length : 0;
@@ -498,20 +574,65 @@
     else if (typeof addDay === 'function') addDay(wi);
   }
 
-  // The days as chips: tap one to go to it; the pages under them swipe.
+  // The week and the day, one navigation: the week a stepper ("‹ Week 1 of 3 · this week ›", swipe it too), the days
+  // under it as segments that fit the phone (+ adds one), scrolling past five with a fade at the edge.
+  function goWeek(prog, aid, i) {
+    if (i < 0 || i >= prog.weeks.length || i === curWeek()) return;
+    setWeek(i);
+    if (S.days[dayKey(aid, i)] == null) S.days[dayKey(aid, i)] = cpNextDay(prog.weeks[i]);
+    if (typeof loadProgram === 'function') loadProgram();
+  }
+  function navEl(prog, aid, wk, wi, di) {
+    var nav = el('div', { class: 'cp-nav ca-rise' });
+    var r = rowOf(aid), now = r && r.status && r.status.week && r.status.week.idx != null && r.status.week.idx < prog.weeks.length ? r.status.week.idx : -1;
+    var n = prog.weeks.length, wn = Number(wk.number) || wi + 1, when = cpWeekWhen(wi, now);
+    var step = el('div', { class: 'cp-wkstep', role: 'group', 'aria-label': 'Week' });
+    var prev = el('button', { type: 'button', class: 'cp-wkbtn is-prev', 'aria-label': wi > 0 ? 'Week ' + (Number(prog.weeks[wi - 1].number) || wi) : 'Previous week', html: CHEV_LEFT });
+    var next = el('button', { type: 'button', class: 'cp-wkbtn is-next', 'aria-label': wi < n - 1 ? 'Week ' + (Number(prog.weeks[wi + 1].number) || wi + 2) : 'Next week', html: CHEV_RIGHT });
+    prev.disabled = wi <= 0; next.disabled = wi >= n - 1;
+    prev.addEventListener('click', function () { goWeek(prog, aid, wi - 1); });
+    next.addEventListener('click', function () { goWeek(prog, aid, wi + 1); });
+    var lab = el('div', { class: 'cp-wklabel', 'aria-live': 'polite' });
+    lab.innerHTML = '<b>Week ' + esc(String(wn)) + '</b><span class="cp-wkof"> of ' + n + '</span>' + (when ? '<span class="cp-wkwhen' + (when === 'this week' ? ' is-now' : '') + '"> · ' + esc(when) + '</span>' : '');
+    step.appendChild(prev); step.appendChild(lab); step.appendChild(next);
+    // A sideways swipe on the stepper turns the week, as the days below turn under a finger.
+    var x0 = null, y0 = 0;
+    step.addEventListener('touchstart', function (e) { var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
+    step.addEventListener('touchend', function (e) {
+      if (x0 == null) return;
+      var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+      x0 = null;
+      if (Math.abs(dx) > 44 && Math.abs(dx) > Math.abs(dy) * 1.5) goWeek(prog, aid, wi + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+    nav.appendChild(step);
+    nav.appendChild(dayChipsEl(wk, di));
+    return nav;
+  }
+  // The days as segments: tap one to go to it (the pages under them swipe); + adds a day.
   function dayChipsEl(wk, di) {
+    var days = wk.days || [], labels = cpDayLabels(days), many = days.length > 5;
+    var wrap = el('div', { class: 'cp-segwrap' + (many ? ' is-scroll' : '') });
     var row = el('div', { class: 'cp-days', role: 'tablist', 'aria-label': 'Day' });
-    (wk.days || []).forEach(function (d, i) {
-      var rest = cpIsRestDay(d);
-      var b = el('button', { type: 'button', class: 'cp-day' + (i === di ? ' on' : '') + (rest ? ' is-rest' : ''), role: 'tab', 'aria-selected': i === di ? 'true' : 'false', 'data-day': String(i) });
-      var lifts = MAIN.filter(function (L) { return (d.exercises || []).some(function (e) { return e.lift === L; }); });
-      b.innerHTML = (lifts.length ? '<span class="cp-dots" aria-hidden="true">' + lifts.map(function (L) { return '<i class="lift-' + L + '"></i>'; }).join('') + '</span>' : '') + '<span>' + esc(String(d.name || 'Day ' + (i + 1))) + '</span>';
+    days.forEach(function (d, i) {
+      var name = String(d.name || 'Day ' + (i + 1));
+      var b = el('button', { type: 'button', class: 'cp-day' + (i === di ? ' on' : '') + (cpIsRestDay(d) ? ' is-rest' : ''), role: 'tab', 'aria-selected': i === di ? 'true' : 'false', 'aria-label': name, 'data-day': String(i) });
+      b.appendChild(el('span', {}, labels[i]));
       row.appendChild(b);
     });
-    var add = el('button', { type: 'button', class: 'cp-day cp-day-add', 'data-day': String((wk.days || []).length), 'aria-label': 'Add a day' });
-    add.innerHTML = PLUS + '<span>Day</span>';
+    var add = el('button', { type: 'button', class: 'cp-day cp-day-add' + (di === days.length ? ' on' : ''), 'data-day': String(days.length), 'aria-label': 'Add a day', html: PLUS });
     row.appendChild(add);
-    return row;
+    wrap.appendChild(row);
+    // Past five days: the row scrolls, and the edge it can scroll towards fades (on the wrapper: WebKit ignores a mask
+    // on the scroller itself).
+    if (many) {
+      var edge = function () {
+        wrap.classList.toggle('is-more-r', row.scrollLeft + row.clientWidth < row.scrollWidth - 2);
+        wrap.classList.toggle('is-more-l', row.scrollLeft > 2);
+      };
+      row.addEventListener('scroll', edge, { passive: true });
+      requestAnimationFrame(edge);
+    }
+    return wrap;
   }
 
   // One day per page, side by side; the last page adds a day.
@@ -519,7 +640,7 @@
     var pager = el('div', { class: 'cp-pager' });
     (wk.days || []).forEach(function (d, i) { pager.appendChild(pageEl(prog, aid, wk, wi, d, i)); });
     var addPage = el('div', { class: 'cp-page is-add', 'data-day': String((wk.days || []).length) });
-    var card = el('div', { class: 'cp-daycard cp-addcard' });
+    var card = el('div', { class: 'cp-addcard' });
     card.appendChild(el('h3', { class: 'cp-add-t' }, 'Add a day to week ' + (Number(wk.number) || wi + 1)));
     card.appendChild(el('p', { class: 'cp-add-s' }, 'A training day gets its exercises from Add exercise. A rest day never breaks their streak.'));
     var b1 = el('button', { type: 'button', class: 'ca-btn is-soft' }); b1.innerHTML = PLUS + '<span>Add day</span>';
@@ -533,82 +654,95 @@
     pager.appendChild(addPage);
     return pager;
   }
+  // The day as a section, Train's "The session": its name (20) and what's in it, its ⋯, then a card per exercise.
   function pageEl(prog, aid, wk, wi, day, di) {
     var page = el('div', { class: 'cp-page', 'data-day': String(di) });
-    // The day is lit by its first main lift, as the lifter's Train lights the set they're on.
-    var lead = (day.exercises || []).filter(function (e) { return MAIN.indexOf(e.lift) >= 0; })[0];
-    var card = el('div', { class: 'cp-daycard' + (lead ? ' lift-' + lead.lift : '') });
     var head = el('div', { class: 'cp-dayhead' });
     var id = el('div', { class: 'cp-dayid' });
-    var nm = el('input', { type: 'text', class: 'cp-dayname', 'aria-label': 'Day name', autocomplete: 'off', spellcheck: 'false' });
-    nm.value = day.name || '';
-    nm.addEventListener('change', function () { if (typeof updateDayName === 'function') updateDayName(wi, di, nm.value); var c = document.querySelector('.cp-day[data-day="' + di + '"] span:last-child'); if (c) c.textContent = nm.value || 'Day ' + (di + 1); });
-    nm.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); nm.blur(); } });
-    id.appendChild(nm);
-    var meta = cpDayMeta(day);
-    if (meta) id.appendChild(el('span', { class: 'cp-daymeta' }, meta));
+    id.appendChild(el('h3', { class: 'cp-dayname' }, String(day.name || 'Day ' + (di + 1))));
+    var meta = cpDayMeta(day), rest = cpIsRestDay(day);
+    if (meta) id.appendChild(el('p', { class: 'cp-daymeta' }, meta));
+    else if (rest) id.appendChild(el('p', { class: 'cp-daymeta' }, 'It never breaks their streak.'));
     head.appendChild(id);
-    var more = el('button', { type: 'button', class: 'cp-ibtn', 'aria-label': (day.name || 'Day') + ' options', html: DOTS });
-    more.addEventListener('click', function () {
-      menu(day.name || 'Day', [
-        [di > 0 ? { label: 'Move earlier in the week', icon: ICONS.arrowUp, onClick: function () { reorderDay(prog.id, wi, di, -1); persistProgram(prog.id); S.days[dayKey(aid, wi)] = di - 1; loadProgram(); } } : null,
-          di < wk.days.length - 1 ? { label: 'Move later in the week', icon: ICONS.arrowDown, onClick: function () { reorderDay(prog.id, wi, di, 1); persistProgram(prog.id); S.days[dayKey(aid, wi)] = di + 1; loadProgram(); } } : null,
-          { label: 'Duplicate day', icon: ic('copy'), onClick: function () { duplicateDay(prog.id, wi, di); persistProgram(prog.id); S.days[dayKey(aid, wi)] = di + 1; loadProgram(); } }],
-        [{ label: 'Delete day', icon: ICONS.trash, danger: true, onClick: function () { removeDayOrWeek(aid, wi, di); } }]
-      ]);
-    });
+    var more = el('button', { type: 'button', class: 'cp-ibtn cp-daymore', 'aria-haspopup': 'dialog', 'aria-label': (day.name || 'Day') + ' options', html: DOTS });
+    more.addEventListener('click', function () { dayMenu(prog, aid, wi, di); });
     head.appendChild(more);
-    card.appendChild(head);
+    page.appendChild(head);
     var exs = day.exercises || [];
-    if (!exs.length) {
-      // One line each, never the name or the meta said again: a rest day's name is "Rest", an empty day's meta
-      // is "No exercises yet".
-      card.classList.add('is-empty');
-      if (REST_RX.test(day.name || '')) card.appendChild(el('p', { class: 'cp-rest' }, 'It never breaks their streak. Rename the day to train on it.'));
-      else card.appendChild(el('p', { class: 'cp-rest' }, 'Add the first with Add exercise below.'));
-    } else {
+    if (exs.length) {
       var list = el('div', { class: 'cp-exs' });
-      exs.forEach(function (ex, ei) { list.appendChild(exRowEl(prog, aid, wi, di, ex, ei)); });
-      card.appendChild(list);
+      exs.forEach(function (ex, ei) { list.appendChild(exCardEl(prog, aid, wi, di, ex, ei)); });
+      page.appendChild(list);
     }
-    page.appendChild(card);
     return page;
+  }
+  // A day's ⋯: rename it, move it, copy it, make an empty day a rest day (or a rest day a training day), delete it.
+  function dayMenu(prog, aid, wi, di) {
+    var p = progOf(aid) || prog, wk = p.weeks[wi], day = wk && wk.days[di];
+    if (!day) return;
+    var empty = !(day.exercises || []).length, rest = cpIsRestDay(day);
+    var go = function (to) { persistProgram(p.id); S.days[dayKey(aid, wi)] = to; loadProgram(); };
+    menu(day.name || 'Day', [
+      [{ label: 'Rename the day', icon: ic('pen'), onClick: function () { renameDay(aid, wi, di); } },
+        di > 0 ? { label: 'Move earlier in the week', icon: ICONS.arrowUp, onClick: function () { reorderDay(p.id, wi, di, -1); go(di - 1); } } : null,
+        di < wk.days.length - 1 ? { label: 'Move later in the week', icon: ICONS.arrowDown, onClick: function () { reorderDay(p.id, wi, di, 1); go(di + 1); } } : null,
+        { label: 'Duplicate day', icon: ic('copy'), onClick: function () { duplicateDay(p.id, wi, di); go(di + 1); } }],
+      // An empty day turns into a rest day by its name (the isRestDay heuristic reads "Rest"), and back.
+      [empty && !rest ? { label: 'Make it a rest day', icon: ic('cal'), onClick: function () { if (typeof updateDayName === 'function') updateDayName(wi, di, 'Rest'); loadProgram(); } } : null,
+        rest ? { label: 'Make it a training day', icon: ic('cal'), onClick: function () { if (typeof updateDayName === 'function') updateDayName(wi, di, 'Day ' + (di + 1)); loadProgram(); } } : null],
+      [{ label: 'Delete day', icon: ICONS.trash, danger: true, onClick: function () { removeDayOrWeek(aid, wi, di); } }]
+    ]);
   }
   function exTitle(ex) {
     if (MAIN.indexOf(ex.lift) >= 0) return (ex.variant ? ex.variant + ' ' : '') + LIFT_NAME[ex.lift];
     if (ex.lift === 'cardio') return ex.exerciseName || 'Cardio';
     return ex.exerciseName || 'Exercise';
   }
-  function tileOf(ex) { return typeof _pbTile === 'function' ? _pbTile(ex) : String(exTitle(ex)).charAt(0).toUpperCase(); }
-  // An exercise: its tile and name, then each block of sets as Train says it, the note, what was lifted.
-  function exRowEl(prog, aid, wi, di, ex, ei) {
+  // A block of sets in Train's number style: "190 kg × 4 @7" (numbers 20 bold, the unit small), the count as a quiet
+  // pill on the left; under it what a % comes to and the set fields. Coach-written values: escaped or Number().
+  function setRowHtml(blk) {
+    var L = cpSetLine(blk, unit(), disp), num = function (t) { return '<b>' + esc(t) + '</b>'; };
+    var load = '';
+    if (L.load) {
+      var m = /^(.*?)(\s*(?:kg|lb|lbs))$/.exec(L.load);
+      load = m ? num(m[1]) + '<small>' + esc(m[2].trim()) + '</small>' : num(L.load);
+    }
+    var head = load ? load + (L.reps ? '<i>×</i>' + num(L.reps) : '') : (L.reps ? num(L.reps) + '<small>' + (Number(L.reps) === 1 ? 'rep' : 'reps') + '</small>' : '');
+    var eff = L.effort ? '<em>' + esc(L.rir ? L.effort : L.effort.replace(/^@ /, '@')) + '</em>' : '';
+    var fx = typeof setFieldsShort === 'function' ? setFieldsShort(blk) : '';
+    var x = [L.pctLoad ? '= ' + L.pctLoad : '', fx].filter(Boolean).join(' · ');
+    return '<span class="cp-n">' + esc(plural(L.count, 'set')) + '</span><span class="cp-set-l">' + (head || '<span class="cp-set-none">No load or reps yet</span>') + eff + '</span>' +
+      (x ? '<span class="cp-set-x">' + esc(x) + '</span>' : '');
+  }
+  // An exercise, as Train's card: the lift's dot, its name and a chevron; the cue; a row per block of sets; what
+  // was lifted, in the lift's colour. The whole card opens the editor.
+  function exCardEl(prog, aid, wi, di, ex, ei) {
     // A lift the lifter swapped for a variant that day (app.js exSwap) reads as the coach wrote it, its name and its
     // sets (exAsWritten); what happened says the swap, once: "Lifted as close grip bench 105×4 @8, …", or before a
     // set is logged "Swapped for close grip bench".
     var sw = typeof exSwap === 'function' ? exSwap(ex) : null, swapped = !!(sw && sw.to !== sw.from);
     var wx = swapped && typeof exAsWritten === 'function' ? exAsWritten(ex) : ex;
-    var b = el('button', { type: 'button', class: 'cp-exrow' + (MAIN.indexOf(ex.lift) >= 0 ? ' lift-' + ex.lift : ' lift-acc'), 'aria-label': 'Edit ' + exTitle(wx) });
-    var html = '<span class="cp-tile" aria-hidden="true">' + esc(tileOf(wx)) + '</span><span class="cp-ex-main"><span class="cp-ex-t">' + esc(exTitle(wx)) + '</span>';
+    var main = MAIN.indexOf(ex.lift) >= 0;
+    var b = el('button', { type: 'button', class: 'cp-excard ' + (main ? 'lift-' + ex.lift : 'lift-acc'), 'aria-label': 'Edit ' + exTitle(wx) });
+    var html = '<span class="cp-xh"><i class="cp-xdot" aria-hidden="true"></i><span class="cp-xt">' + esc(exTitle(wx)) + '<span class="cp-xchev" aria-hidden="true">' + CHEV_RIGHT + '</span></span></span>';
+    if (ex.note) html += '<span class="cp-cue"><b>Coach</b> ' + esc(ex.note) + '</span>';
+    html += '<span class="cp-sets">';
     if (ex.lift === 'cardio') {
-      html += '<span class="cp-set"><span class="cp-set-l">' + esc(plural((ex.sets || []).length, 'bout')) + '</span></span>';
+      var bouts = ex.sets || [];
+      if (bouts.length) {
+        var bt = bouts[0], mins = Number(bt.weight) > 0 ? Number(bt.weight) : 0, km = Number(bt.reps) > 0 ? Number(bt.reps) : 0;
+        html += '<span class="cp-set"><span class="cp-n">' + esc(plural(bouts.length, 'bout')) + '</span><span class="cp-set-l">' + (mins ? '<b>' + esc(String(mins)) + '</b><small>min</small>' : '') + (km ? (mins ? '<i>·</i>' : '') + '<b>' + esc(String(km)) + '</b><small>km</small>' : '') + '</span></span>';
+      } else html += '<span class="cp-set is-none">No bouts yet</span>';
     } else {
       var plan = (wx.sets || []).map(function (s) { return Object.assign({}, s, { weight: typeof planWeight === 'function' ? planWeight(s) : s.weight, reps: s.plannedReps || s.reps }); });
       var blocks = typeof groupSets === 'function' ? groupSets(plan) : [];
       if (!blocks.length) html += '<span class="cp-set is-none">No sets yet</span>';
-      blocks.forEach(function (blk) {
-        var L = cpSetLine(blk, unit(), disp);
-        var head = L.load ? '<b>' + esc(L.load) + '</b>' + (L.reps ? ' × ' + esc(L.reps) : '') : (L.reps ? esc(plural(Number(L.reps), 'rep')) : '');
-        var fx = typeof setFieldsShort === 'function' ? setFieldsShort(blk) : '';
-        html += '<span class="cp-set"><span class="cp-set-l">' + head + (L.effort ? '<i>' + (L.rir ? ' · ' : ' ') + esc(L.effort) + '</i>' : '') + '</span>' +
-          '<span class="cp-set-n">' + esc(plural(L.count, 'set')) + '</span>' +
-          (L.pctLoad || fx ? '<span class="cp-set-x">' + esc([L.pctLoad ? '= ' + L.pctLoad : '', fx].filter(Boolean).join(' · ')) + '</span>' : '') + '</span>';
-      });
+      blocks.forEach(function (blk) { html += '<span class="cp-set">' + setRowHtml(blk) + '</span>'; });
     }
-    if (ex.note) html += '<span class="cp-note">' + esc(ex.note) + '</span>';
+    html += '</span>';
     var lifted = typeof _gridActualHtml === 'function' ? _gridActualHtml(ex) : '';   // escaped there (athlete-written numbers)
-    if (lifted) html += '<span class="cp-lifted' + (swapped ? ' cp-swapped' : '') + '"><span>' + (swapped ? 'Lifted as ' + esc(variantName(ex.lift, sw.to)) : 'Lifted') + '</span> ' + lifted + '</span>';
+    if (lifted) html += '<span class="cp-lifted' + (swapped ? ' cp-swapped' : '') + '"><span class="cp-lifted-k">' + (swapped ? 'Lifted as ' + esc(variantName(ex.lift, sw.to)) : 'Lifted') + '</span> ' + lifted + '</span>';
     else if (swapped) html += '<span class="cp-swapped">' + esc(swapLine(ex)) + '</span>';
-    html += '</span>' + ic('chev', 2.2);
     b.innerHTML = html;
     b.addEventListener('click', function () { openEditor(aid, wi, di, ei); });
     return b;
@@ -710,19 +844,26 @@
   /* ---------------------------------------------------------------- the ⋯ menus */
   // A ⋯ menu in groups, as iOS draws one (a gap between them); the row that takes something away comes last,
   // in ink with its bin glyph: red is the screen's one action, never a menu row (coach-app.css .cp-menu).
-  function menu(title, groups) {
-    var flat = [], firsts = [];
+  // A group is a list of actions, or { title, items } (the block's ⋯ names its groups: Block, Weeks, Share).
+  function menu(title, groups, o) {
+    var flat = [], firsts = [], titles = [];
     (groups || []).forEach(function (g) {
-      var items = (g || []).filter(Boolean);
+      var items = (Array.isArray(g) ? g : (g && g.items) || []).filter(Boolean);
       if (!items.length) return;
       if (flat.length) firsts.push(flat.length);
+      titles.push({ at: flat.length, t: Array.isArray(g) ? '' : String((g && g.title) || '') });
       flat = flat.concat(items);
     });
-    var close = uiActionSheet(title, flat, { veilCls: 'cp-menu' });
+    var close = uiActionSheet(title, flat, { veilCls: 'cp-menu' + (o && o.cls ? ' ' + o.cls : '') });
     var veil = document.body.lastElementChild;
     if (veil && veil.classList.contains('cp-menu')) {
       var btns = veil.querySelectorAll('.ui-sheet > button:not(.ui-sheet-cancel)');
       firsts.forEach(function (i) { if (btns[i]) btns[i].classList.add('cp-sep'); });
+      titles.forEach(function (g) {
+        if (!g.t || !btns[g.at]) return;
+        btns[g.at].insertAdjacentElement('beforebegin', el('p', { class: 'cp-menu-h' + (g.at ? ' cp-sep' : '') }, g.t));
+        btns[g.at].classList.remove('cp-sep');
+      });
     }
     return close;
   }
@@ -791,8 +932,12 @@
     S.days[dayKey(aid, curWeek())] = i;
     root.querySelectorAll('.cp-day').forEach(function (c) { var on = Number(c.getAttribute('data-day')) === i; c.classList.toggle('on', on); c.setAttribute('aria-selected', on ? 'true' : 'false'); if (on && !quiet) chipInView(c); });
     var day = (wk.days || [])[i];
-    var fab = root.querySelector('.cp-fab');
-    if (fab) fab.classList.toggle('is-hidden', !day || cpIsRestDay(day));
+    // Add exercise ends a training day; a rest day and the Add a day page have none.
+    var add = root.querySelector('.cp-addex');
+    if (add) {
+      add.hidden = !day || cpIsRestDay(day);
+      add.setAttribute('aria-label', day ? 'Add an exercise to ' + String(day.name || 'Day ' + (i + 1)) : 'Add an exercise');
+    }
     // The pager is as tall as the day on show (a short day has no tail of empty page under it).
     var page = pager.children[i];
     if (page) pager.style.height = page.offsetHeight + 'px';
@@ -875,8 +1020,11 @@
     var main = MAIN.indexOf(ex.lift) >= 0, u = unit();
     var sub = [day.name || 'Day ' + (di + 1), 'Week ' + (Number(wk.number) || wi + 1)];
     body.appendChild(el('p', { class: 'ui-sheet-sub cp-ed-sub' }, sub.join(' · ')));
-    var last = typeof getLastSetForExercise === 'function' ? getLastSetForExercise(aid, ex.lift, ex.variant, ex.exerciseName) : null;
+    var logged = (ex.sets || []).some(function (s) { return s.completed || s.missed; });
+    var last = !logged && typeof getLastSetForExercise === 'function' ? getLastSetForExercise(aid, ex.lift, ex.variant, ex.exerciseName) : null;
     if (last) body.appendChild(el('p', { class: 'cp-ed-last' }, 'Last time ' + disp(last.weight) + ' ' + u + ' × ' + n2(last.reps) + (last.rpe != null ? ' @ ' + n2(last.rpe) : '') + (typeof fmtDateShort === 'function' ? ' · ' + fmtDateShort(last.date) : '')));
+    // What they logged, said once: as written and as lifted, why those sets stay, and the way to next week's.
+    if (logged && ex.lift !== 'cardio') body.appendChild(loggedEl(prog, aid, wi, di, ex, close));
     if (ex.lift === 'cardio') {
       body.appendChild(el('p', { class: 'cp-ed-note' }, 'Cardio bouts are edited on the laptop for now.'));
     } else {
@@ -886,7 +1034,12 @@
       if (anyPct && main && !maxKg) body.appendChild(el('p', { class: 'cp-ed-note' }, 'No max yet: the % loads fill in once they log a ' + LIFT_NAME[ex.lift].toLowerCase() + ' set, or set one in Maxes for %.'));
       var blocks = typeof groupSets === 'function' ? groupSets(ex.sets) : [];
       var sfDef = typeof programSetFields === 'function' ? programSetFields(prog) : { on: [], cols: [] };
-      blocks.forEach(function (blk, bi) { body.appendChild(blockEl(body, aid, wi, di, ei, ex, blk, bi, blocks.length, main, maxKg, sfDef, close, blocks)); });
+      // A block with a set they logged is in the Written / Lifted card above; the blocks still to do are edited here.
+      blocks.forEach(function (blk, bi) {
+        var bs = (ex.sets || []).slice(blk.startIdx, blk.startIdx + blk.count);
+        if (bs.some(function (s) { return s.completed; })) return;
+        body.appendChild(blockEl(body, aid, wi, di, ei, ex, blk, bi, blocks.length, main, maxKg, sfDef, close, blocks));
+      });
       var addB = el('button', { type: 'button', class: 'ca-btn is-soft cp-ed-add' });
       addB.innerHTML = PLUS + '<span>Add sets</span>';
       addB.addEventListener('click', function () { addBlock(wi, di, ei); paintEditor(body, aid, wi, di, ei, close); });
@@ -907,6 +1060,34 @@
     var saved = el('p', { class: 'cp-ed-saved', role: 'status' });
     body.appendChild(saved);
     paintSaved(saved, aid);
+  }
+  // The sets they logged, once: "Written 180×3 @8 · Lifted 182.5×3 @8.5", then why they stay, and a quiet way to the
+  // same exercise next week (cpNextWeekMatch), where the change belongs.
+  function loggedEl(prog, aid, wi, di, ex, close) {
+    var sw = typeof exSwap === 'function' ? exSwap(ex) : null, swapped = !!(sw && sw.to !== sw.from);
+    var wx = swapped && typeof exAsWritten === 'function' ? exAsWritten(ex) : ex;
+    var idx = [];
+    (ex.sets || []).forEach(function (s, i) { if (s && (s.completed || s.missed)) idx.push(i); });
+    var plan = idx.map(function (i) { var s = (wx.sets || [])[i] || ex.sets[i]; return Object.assign({}, s, { weight: typeof planWeight === 'function' ? planWeight(s) : s.weight, reps: s.plannedReps || s.reps }); });
+    var box = el('div', { class: 'cp-logged' + (MAIN.indexOf(ex.lift) >= 0 ? ' lift-' + ex.lift : ' lift-acc') });
+    var row = function (k, html) { var p = el('p', { class: 'cp-lg-row' }); p.innerHTML = '<span class="cp-lg-k">' + esc(k) + '</span><span class="cp-lg-v">' + html + '</span>'; box.appendChild(p); };
+    var written = cpWrittenText(plan, unit(), disp);
+    if (written) row('Written', esc(written));
+    var lifted = typeof _gridActualHtml === 'function' ? _gridActualHtml(ex) : '';   // escaped there
+    if (lifted) row(swapped ? 'Lifted as ' + variantName(ex.lift, sw.to) : 'Lifted', lifted);
+    box.appendChild(el('p', { class: 'cp-lg-note' }, 'Logged sets stay as lifted.'));
+    var m = cpNextWeekMatch(prog.weeks, wi, di, wx);
+    if (m) {
+      var nwk = prog.weeks[m.wi], go = el('button', { type: 'button', class: 'ca-btn is-soft cp-lg-next' }, 'Change week ' + (Number(nwk.number) || m.wi + 1) + ' instead');
+      go.addEventListener('click', function () {
+        close();
+        setWeek(m.wi); S.days[dayKey(aid, m.wi)] = m.di;
+        if (typeof loadProgram === 'function') loadProgram();
+        setTimeout(function () { openEditor(aid, m.wi, m.di, m.ei); }, 260);   // after this sheet has gone
+      });
+      box.appendChild(go);
+    }
+    return box;
   }
   function paintSaved(p, aid) {
     var prog = progOf(aid), pending = false;
@@ -955,10 +1136,7 @@
     // No bar drawn here (29 Oct): its red and blue plates were plate paint, and loading the bar is the
     // lifter's job (Train draws it for them). The block's line and its numbers say the load.
     box.appendChild(head);
-    if (logged) {
-      box.appendChild(el('p', { class: 'cp-blk-logged' }, 'Logged. A set they lifted keeps what it was; edit the next week instead.'));
-      return box;
-    }
+    if (logged) return box;   // the Written / Lifted card says it (paintEditor draws only the blocks still to do)
     var grid = el('div', { class: 'cp-steps' });
     var u = unit(), pctMode = blk.pct != null;
     // Sets
@@ -1457,6 +1635,7 @@
     // pure, for tests
     cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep, cpExpectedLoad: cpExpectedLoad,
     openDeleteSheet: openDeleteSheet, deleteProgramSheet: deleteProgramSheet, deleteTemplateSheet: deleteTemplateSheet, cpDeleteProgramWords: cpDeleteProgramWords, cpDeleteTemplateWords: cpDeleteTemplateWords, cpNoBlockWords: cpNoBlockWords,
+    cpBlockLine: cpBlockLine, cpWeekWhen: cpWeekWhen, cpDayShort: cpDayShort, cpDayLabels: cpDayLabels, cpWrittenText: cpWrittenText, cpNextWeekMatch: cpNextWeekMatch, cpBlockMenu: cpBlockMenu,
     cpWantsHint: cpWantsHint, cpFitClass: cpFitClass, cpEveryChoices: cpEveryChoices, cpTplLine: cpTplLine, cpApplyLabel: cpApplyLabel, cpModePatch: cpModePatch, cpModePatches: cpModePatches, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm, cpSaveLine: cpSaveLine
   };
 })();

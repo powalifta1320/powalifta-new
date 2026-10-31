@@ -105,14 +105,14 @@ html:not(.desk) :is(.pf-live, .pf-up) { --pf: var(--ca-live); --pfl: #34d982; }
 html:not(.desk) .pf-msg, html:not(.desk) :is(.ca-focal, .ca-flag).tone-msg { --pf: var(--ca-msg); --pfl: #34e08c; }
 html:not(.desk) .pf-steel, html:not(.desk) :is(.ca-focal, .ca-flag):is(.tone-quiet, .tone-write) { --pf: var(--text-3); --pfl: #c9ced6; }
 html[data-theme="light"]:not(.desk) :is(.pf-steel, .ca-focal.tone-quiet, .ca-focal.tone-write, .ca-flag.tone-quiet, .ca-flag.tone-write) { --pfl: #9aa1ad; }
-/* a card lit by its lift: the day being written, the set being set, a lift's own tile */
-html:not(.desk) :is(.cp-daycard, .cp-blk.is-top)[class*="lift-"] { --pfl: var(--lc); }
+/* a card lit by its lift: the set being set (the editor's top block) */
+html:not(.desk) .cp-blk.is-top[class*="lift-"] { --pfl: var(--lc); }
 
 /* the three heights, as one recipe each */
 html:not(.desk) :is(.ca-list, .ca-tile, .ca-empty, .cp-hero, .ca-lead) {
   background: var(--ca-card); border: 1px solid var(--ca-edge); border-radius: 20px; box-shadow: var(--pl-lip);
 }
-html:not(.desk) :is(.ca-ov, .ca-focal, .cp-daycard) {
+html:not(.desk) :is(.ca-ov, .ca-focal) {
   background:
     radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--pfl) var(--pl-light), transparent) 0%, transparent 58%),
     var(--pl-obj);
@@ -120,8 +120,8 @@ html:not(.desk) :is(.ca-ov, .ca-focal, .cp-daycard) {
   border-radius: 20px; box-shadow: var(--pl-obj-shade);
 }
 /* routine (steel) and pain lights are quieter: a red-lit card beside the red action reads as an alarm */
-html:not(.desk) :is(.ca-ov, .ca-focal, .cp-daycard):is(.pf-steel, .tone-quiet, .tone-write, .pf-alert, .tone-pain) { --pl-light: 7%; }
-html[data-theme="light"]:not(.desk) :is(.ca-ov, .ca-focal, .cp-daycard):is(.pf-steel, .tone-quiet, .tone-write, .pf-alert, .tone-pain) { --pl-light: 5%; }
+html:not(.desk) :is(.ca-ov, .ca-focal):is(.pf-steel, .tone-quiet, .tone-write, .pf-alert, .tone-pain) { --pl-light: 7%; }
+html[data-theme="light"]:not(.desk) :is(.ca-ov, .ca-focal):is(.pf-steel, .tone-quiet, .tone-write, .pf-alert, .tone-pain) { --pl-light: 5%; }
 
 /* ---------------------------------------------------------------- shared pieces */
 html:not(.desk) .ca-root { display: flex; flex-direction: column; min-width: 0; }
@@ -1220,39 +1220,130 @@ html:not(.desk) .ca-sheet-btn { margin-top: 16px; }
 /* whose program it is: the large title, a button with a chevron (the old select and Notify step aside: Notify is in ⋯) */
 html:not(.desk) section[data-pane="program"] #progAthlete, html:not(.desk) section[data-pane="program"] #notifyAthleteBtn { display: none !important; }
 html:not(.desk) section[data-pane="program"] > .dash-header > div:first-child { flex: 1 1 auto; min-width: 0; }
-html:not(.desk) body.powa-app .cp-title { position: relative; display: inline-flex; flex-direction: row; align-items: center; gap: 6px; max-width: 100%; min-height: 0; padding: 0; border: 0; background: none; color: var(--text); font: inherit; letter-spacing: inherit; line-height: inherit; cursor: pointer; transition: opacity 140ms ease-out; }
-html:not(.desk) body.powa-app .cp-title::after { content: ''; position: absolute; inset: -6px -8px; }
+/* (31 Oct, coach-builder-v2) The builder reads like the lifter's Train: the header is Train's (the name, one quiet line,
+   the block's ⋯ beside Ask), then one navigation (the week stepper over the day segments), then the day as a section
+   of exercise cards, and Add exercise at its end. The system: 32 (the title, every tab's and Train's), 20 sections,
+   17 names, sets' numbers 20 bold, 15 meta; 16 pt gutters, 12 between cards, 44 pt for every control. */
+html:not(.desk) body.powa-app .cp-title { position: relative; display: inline-flex; flex-direction: row; align-items: center; gap: 6px; max-width: 100%; min-height: 44px; margin: -5px 0; padding: 0; border: 0; background: none; color: var(--text); font: inherit; letter-spacing: inherit; line-height: inherit; cursor: pointer; transition: opacity 140ms ease-out; }
+html:not(.desk) body.powa-app .cp-title::after { content: ''; position: absolute; inset: 0 -8px; }
 html:not(.desk) body.powa-app .cp-title span { min-width: 0; font: inherit; letter-spacing: inherit; white-space: nowrap; }
 html:not(.desk) body.powa-app .cp-title svg { flex: none; width: 22px; height: 22px; margin-top: 5px; color: var(--text-3); }
 html:not(.desk) .cp-title:active { opacity: 0.6; }
-html:not(.desk) .cp { padding-top: 4px; padding-bottom: 76px; }
+html:not(.desk) .cp { padding-top: 0; padding-bottom: 8px; }
+/* the quiet line under the name (Train's date line, on the coach's scale), and the block's ⋯ at the top right */
+html:not(.desk) section[data-pane="program"] > .dash-header { flex-wrap: nowrap; }
+html:not(.desk) section[data-pane="program"] > .dash-header > div:last-child { flex: none; }
+html:not(.desk) body.powa-app .cp-sub { margin: -16px 0 20px; padding: 0 2px 0 0; font-size: 15px; font-weight: 500; line-height: 1.35; color: var(--text-3); overflow-wrap: anywhere; }
+html.desk .cp-sub, html.desk .cp-more { display: none !important; }
 
-/* the block: a surface (the day below is the object) */
-html:not(.desk) .cp-hero { padding: 14px 12px 16px 16px; }
-html:not(.desk) .cp-hero-top { display: flex; align-items: center; gap: 8px; }
-html:not(.desk) body.powa-app .cp-name {
-  flex: 1; min-width: 0; height: 40px; margin: 0 0 0 -4px; padding: 0 4px; border: 0 !important; border-radius: 10px; background: none !important; box-shadow: none !important;
-  color: var(--text); font-family: var(--font-body); font-size: 20px !important; font-weight: 700; letter-spacing: -0.016em; outline: none; -webkit-appearance: none; appearance: none;
-}
-html:not(.desk) body.powa-app .cp-name:focus { background: var(--pl-inset) !important; }
-html:not(.desk) .cp-ibtn { position: relative; flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: var(--pl-inset); color: var(--text-2); cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out; }
-html:not(.desk) .cp-ibtn::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+/* The top bar's buttons, the header's own and every round ⋯ in Programs: 44 pt to the touch, drawn as before (the
+   disc is the padding box; a transparent border carries the target; a negative margin keeps the layout) */
+html:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, .ca-hbtn) { box-sizing: border-box; height: 44px; min-width: 44px; margin: -4px; border: 4px solid transparent !important; background-clip: padding-box !important; }
+html:not(.desk) body.powa-app :is(.sig-bell, .ca-hbtn) { width: 44px; }
+html:not(.desk) body.powa-app :is(.nav-ai, .ca-hbtn)::after { inset: 0; }
+
+/* the block's ⋯ answers to Every set logged: Start the next block, the screen's red then */
+html:not(.desk) .cp-done { margin: 0 0 20px; padding: 16px; border: 1px solid var(--ca-edge); border-radius: 20px; background: var(--ca-card); box-shadow: var(--pl-lip); }
+html:not(.desk) .cp-done-t { margin: 0 2px 12px; font-size: 15px; line-height: 1.4; color: var(--text-2); }
+
+/* round buttons (a day's ⋯, the editor's ⋯): a 36 pt disc in a 44 pt target */
+html:not(.desk) .cp-ibtn { position: relative; flex: none; display: inline-grid; place-items: center; box-sizing: border-box; width: 44px; height: 44px; padding: 0; border: 4px solid transparent; border-radius: 50%; background: var(--pl-inset); background-clip: padding-box; color: var(--text-2); cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 150ms ease-out; }
 html:not(.desk) .cp-ibtn svg { width: 18px; height: 18px; }
-html:not(.desk) .cp-ibtn:active { transform: scale(0.9); background: var(--pl-inset-2); transition-duration: 90ms; }
-html:not(.desk) .cp-blockmeta { margin: 2px 0 0; font-size: 15px; color: var(--text-2); }
-html:not(.desk) .cp-maxes { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 40px; margin-top: 12px; padding: 0 10px 0 12px; border: 0; border-radius: 12px; background: var(--pl-inset); color: var(--text-3); font-size: 13px !important; font-weight: 600; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring); }
-html:not(.desk) .cp-maxes b { color: var(--text); font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
-html:not(.desk) .cp-maxes b i { display: inline-block; width: 7px; height: 7px; margin: 0 5px 0 1px; border-radius: 50%; background: var(--lc); vertical-align: 1px; }
-html:not(.desk) .cp-maxes svg { width: 15px; height: 15px; }
-html:not(.desk) .cp-maxes :is(.cp-mx-l, .cp-mx-lift) { white-space: nowrap; }
-html:not(.desk) .cp-maxes svg { flex: none; }
-@media (max-width: 389px) { html:not(.desk) .cp-maxes .cp-mx-more { display: none; } }
-html:not(.desk) .cp-maxes:active { transform: scale(0.97); transition-duration: 90ms; }
-html:not(.desk) .cp-done { margin: 14px 0 0; font-size: 15px; color: var(--text-2); }
+html:not(.desk) .cp-ibtn:active { transform: scale(0.9); background-color: var(--pl-inset-2); transition-duration: 90ms; }
+
+/* ONE NAVIGATION: the week a stepper, the days under it as segments that fit the phone */
+html:not(.desk) .cp-nav { display: flex; flex-direction: column; gap: 10px; }
+html:not(.desk) .cp-wkstep { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; column-gap: 8px; min-height: 44px; }
+html:not(.desk) .cp-wkbtn { position: relative; display: grid; place-items: center; box-sizing: border-box; width: 44px; height: 44px; padding: 0; border: 4px solid transparent; border-radius: 50%; background: var(--pl-inset-2); background-clip: padding-box; color: var(--text); cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), opacity 160ms ease-out; }
+html:not(.desk) .cp-wkbtn svg { width: 18px; height: 18px; }
+html:not(.desk) .cp-wkbtn:disabled { opacity: 0.3; cursor: default; }
+html:not(.desk) .cp-wkbtn:active:not(:disabled) { transform: scale(0.9); transition-duration: 90ms; }
+html:not(.desk) .cp-wklabel { min-width: 0; text-align: center; font-size: 17px; font-weight: 500; line-height: 1.3; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+html:not(.desk) .cp-wklabel b { font-weight: 700; color: var(--text); }
+html:not(.desk) .cp-wkwhen { font-size: 15px; color: var(--text-3); }
+html:not(.desk) .cp-wkwhen.is-now { color: var(--acc); font-weight: 600; }
+html[data-theme="light"]:not(.desk) .cp-wkwhen.is-now { color: color-mix(in srgb, var(--acc) 58%, #000); }
+html:not(.desk) .cp-segwrap { position: relative; }
+html:not(.desk) .cp-days { display: flex; gap: 2px; padding: 2px; border-radius: 14px; background: var(--pl-inset); }
+html:not(.desk) .cp-day { position: relative; flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 6px; border: 0; border-radius: 12px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; letter-spacing: -0.005em; white-space: nowrap; cursor: pointer; transition: background-color 200ms ease-out, color 200ms ease-out, box-shadow 200ms ease-out; }
+html:not(.desk) .cp-day span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+html:not(.desk) .cp-day.on { background: var(--pl-raise); color: var(--text) !important; box-shadow: var(--pl-raise-shade); }
+html:not(.desk) .cp-day.is-rest:not(.on) { color: var(--text-3) !important; }
+html:not(.desk) .cp-day-add { flex: 0 0 44px; padding: 0; color: var(--text-3) !important; }
+html:not(.desk) .cp-day-add svg { width: 18px; height: 18px; }
+/* past five days the row scrolls; the edge it can scroll towards fades */
+html:not(.desk) .cp-segwrap.is-scroll .cp-days { overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; scroll-padding: 0 16px; }
+html:not(.desk) .cp-segwrap.is-scroll .cp-days::-webkit-scrollbar { display: none; }
+html:not(.desk) .cp-segwrap.is-scroll .cp-day { flex: 0 0 auto; min-width: 70px; padding: 0 12px; }
+html:not(.desk) .cp-segwrap.is-scroll .cp-day-add { flex: 0 0 44px; min-width: 44px; padding: 0; }
+html:not(.desk) .cp-segwrap.is-more-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); }
+html:not(.desk) .cp-segwrap.is-more-l { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent); }
+html:not(.desk) .cp-segwrap.is-more-l.is-more-r { -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent); }
+
+/* THE DAY: one page per day (swipe, or tap a segment), a section like Train's "The session", not a card */
+html:not(.desk) .cp-pager { display: flex; align-items: flex-start; margin: 14px -16px 0; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+html:not(.desk) .cp-pager::-webkit-scrollbar { display: none; }
+html:not(.desk) .cp-pager.is-live { transition: height var(--pl-d-state) var(--pl-spring); }
+html:not(.desk) .cp-page { flex: 0 0 100%; box-sizing: border-box; padding: 8px 16px 12px; scroll-snap-align: start; scroll-snap-stop: always; }
+html:not(.desk) .cp-dayhead { display: flex; align-items: flex-start; gap: 8px; padding: 0 0 12px; }
+html:not(.desk) .cp-dayid { flex: 1; min-width: 0; padding: 0 2px; }
+html:not(.desk) body.powa-app .cp-dayname { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; line-height: 1.25; color: var(--text); text-transform: none; overflow-wrap: anywhere; }
+html:not(.desk) .cp-daymeta { margin: 2px 0 0; font-size: 15px; line-height: 1.35; color: var(--text-3); }
+html:not(.desk) .cp-daymore { margin: -8px -4px 0 0; }
+html:not(.desk) .cp-exs { display: flex; flex-direction: column; gap: 12px; }
+
+/* an exercise: Train's card. The lift's dot and its name (17) with a chevron, the cue, a row per block of sets in
+   Train's numbers (20 bold, the unit small, the count a quiet pill on the left), what was lifted in the lift's colour */
+html:not(.desk) .cp-excard {
+  position: relative; display: flex; flex-direction: column; align-items: stretch; width: 100%; padding: 14px 16px 16px;
+  border: 1px solid var(--ca-edge); border-radius: 20px; background: var(--ca-card); box-shadow: var(--pl-lip); color: var(--text); text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: transform var(--pl-d-press) var(--pl-spring), background-color 140ms ease-out;
+}
+html:not(.desk) .cp-excard:active { transform: scale(0.985); background-color: color-mix(in srgb, var(--ca-card) 94%, var(--text)); transition-duration: 90ms; }
+html:not(.desk) .cp-excard.lift-acc { --lc: var(--lift-acc, #9a9aa6); }
+html:not(.desk) .cp-excard > span { display: block; }
+html:not(.desk) .cp-excard > .cp-xh { display: flex; align-items: center; gap: 10px; min-height: 26px; }
+html:not(.desk) .cp-xdot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--lc); }
+html:not(.desk) .cp-xt { min-width: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.012em; line-height: 1.3; color: var(--text); overflow-wrap: anywhere; }
+html:not(.desk) .cp-xchev { display: inline-flex; vertical-align: -2px; margin-left: 4px; color: var(--text-3); }
+html:not(.desk) .cp-xchev svg { width: 15px; height: 15px; }
+html:not(.desk) .cp-excard > .cp-cue { margin-top: 6px; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; overflow-wrap: anywhere; }
+html:not(.desk) .cp-cue b { margin-right: 3px; font-weight: 650; color: var(--text); }
+html:not(.desk) .cp-excard > .cp-sets { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 12px; row-gap: 8px; align-items: baseline; margin-top: 12px; }
+html:not(.desk) .cp-set { display: contents; }
+html:not(.desk) .cp-n { grid-column: 1; justify-self: stretch; display: inline-flex; align-items: center; justify-content: center; min-width: 52px; height: 24px; padding: 0 9px; border-radius: 999px; background: var(--pl-inset-2); color: var(--text-2); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+html:not(.desk) .cp-set-l { grid-column: 2; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 3px; font-family: var(--font-num); font-variant-numeric: tabular-nums; line-height: 1.25; }
+html:not(.desk) .cp-set-l b { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+html:not(.desk) .cp-set-l small { font-size: 13px; font-weight: 600; color: var(--text-3); }
+html:not(.desk) .cp-set-l i { margin: 0 3px; font-style: normal; font-size: 15px; color: var(--text-3); }
+html:not(.desk) .cp-set-l em { margin-left: 7px; font-style: normal; font-size: 17px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+html:not(.desk) .cp-set-none { font-family: var(--font-body); font-size: 15px; color: var(--text-3); }
+html:not(.desk) .cp-set-x { grid-column: 2; margin-top: -5px; font-size: 15px; line-height: 1.35; color: var(--text-3); overflow-wrap: anywhere; }
+html:not(.desk) .cp-set.is-none { display: block; grid-column: 1 / -1; font-size: 15px; color: var(--text-3); }
+html:not(.desk) .cp-excard > .cp-lifted, html:not(.desk) .cp-excard > .cp-swapped { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--ca-hair); font-size: 15px; line-height: 1.4; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+html:not(.desk) .cp-excard > .cp-swapped:not(.cp-lifted) { color: var(--text-2); }
+html:not(.desk) .cp-lifted-k { margin-right: 2px; font-weight: 650; color: var(--lc); }
+html[data-theme="light"]:not(.desk) .cp-lifted-k { color: color-mix(in srgb, var(--lc) 56%, #000); }
+html:not(.desk) :is(.cp-lifted, .cp-lg-v) .is-over { color: var(--text); font-weight: 650; }
+html:not(.desk) :is(.cp-lifted, .cp-lg-v) .is-over::before { content: ''; display: inline-block; width: 8px; height: 7px; margin: 0 4px 0 1px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
+html:not(.desk) :is(.cp-lifted, .cp-lg-v) s { color: var(--text-3); }
+html:not(.desk) :is(.cp-lifted, .cp-lg-v) i { font-style: normal; color: var(--text-3); }
+
+/* Add exercise ends the day, inline: the screen's one red (quiet once every set of the block is logged) */
+html:not(.desk) .cp-addex { margin-top: 0; }
+html:not(.desk) .cp-addex[hidden] { display: none; }
+/* a day with nothing in it yet says so in its line ("No exercises yet") and Add exercise follows */
+
+/* the last page: add a day (or a rest day) to the week */
+html:not(.desk) .cp-addcard { padding: 20px 16px 16px; border: 1px dashed color-mix(in srgb, var(--text) 16%, transparent); border-radius: 20px; background: var(--ca-card); }
+html:not(.desk) .cp-add-t { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; color: var(--text); }
+html:not(.desk) .cp-add-s { margin: 6px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-2); }
+html:not(.desk) .cp-add-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+html:not(.desk) .cp-add-acts .ca-btn { min-height: 48px; padding: 0 12px; font-size: 15px !important; }
+html:not(.desk) .cp-noweeks .ca-btn { margin-top: 16px; }
+/* the empty states keep the Programs card (coach-you.js programsWelcome, No block yet) */
+html:not(.desk) .cp-hero { padding: 14px 12px 16px 16px; }
 html:not(.desk) .cp-hero .ca-btn { margin-top: 12px; }
-/* the block: the app's own surface, lit from its top corner by the Programs cyan (the lifter app's hero light,
-   9%, its hairline tinted), the way every tab is lit by its own hue. No paint (the owner, 28 Oct: no plate
-   colours on the app). */
 html:not(.desk) section[data-pane="program"] .cp-hero {
   background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--acc) 9%, transparent) 0%, transparent 60%), var(--ca-card);
   border-color: color-mix(in srgb, var(--acc) 18%, var(--ca-edge));
@@ -1262,98 +1353,18 @@ html[data-theme="light"]:not(.desk) section[data-pane="program"] .cp-hero {
   border-color: color-mix(in srgb, var(--acc) 14%, var(--ca-edge));
 }
 
-/* the weeks: a segmented control (scrolls when a block is long), + and ⋯; the week on show sits raised */
-html:not(.desk) .cp-weeks-row { display: flex; align-items: center; gap: 8px; margin-top: 20px; }
-html:not(.desk) .cp-weeks { flex: 1; min-width: 0; display: flex; gap: 2px; padding: 3px; border-radius: 14px; background: var(--pl-inset); overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
-html:not(.desk) .cp-weeks::-webkit-scrollbar { display: none; }
-html:not(.desk) .cp-wk { position: relative; flex: 1 0 auto; min-width: 44px; height: 38px; padding: 0 12px; border: 0; border-radius: 11px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer; transition: background-color 200ms ease-out, color 200ms ease-out, box-shadow 200ms ease-out; }
-html:not(.desk) .cp-wk.on { background: var(--pl-raise); color: var(--text) !important; box-shadow: var(--pl-raise-shade); }
-html:not(.desk) .cp-wk.is-now::before { content: ''; position: absolute; top: 7px; right: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--acc); }
-html:not(.desk) .cp-wk-add { flex: 0 0 44px; padding: 0; color: var(--text-3) !important; display: inline-grid; place-items: center; }
-html:not(.desk) .cp-wk-add svg { width: 18px; height: 18px; }
-
-/* the days: chips over the pages, a dot per main lift in the day; the day on show sits raised */
-html:not(.desk) .cp-days { display: flex; gap: 8px; margin: 12px -16px 12px; padding: 0 16px 2px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
-html:not(.desk) .cp-days::-webkit-scrollbar { display: none; }
-html:not(.desk) .cp-day { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--pl-inset); color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 220ms ease-out, color 220ms ease-out, box-shadow 220ms ease-out, transform var(--pl-d-press) var(--pl-spring); }
-html:not(.desk) .cp-day.on { background: var(--pl-raise); color: var(--text) !important; box-shadow: var(--pl-raise-shade); }
-html:not(.desk) .cp-day.is-rest { color: var(--text-3) !important; }
-html:not(.desk) .cp-day.is-rest.on { color: var(--text) !important; }
-html:not(.desk) .cp-day:active { transform: scale(0.95); transition-duration: 90ms; }
-html:not(.desk) .cp-day-add { color: var(--text-3) !important; gap: 4px; padding: 0 14px 0 10px; }
-html:not(.desk) .cp-day-add svg { width: 16px; height: 16px; }
-html:not(.desk) .cp-dots { display: inline-flex; gap: 3px; }
-html:not(.desk) .cp-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--lc, var(--text-3)); }
-
-/* one day per page: swipe between them; the day is the object, lit by its main lift */
-html:not(.desk) .cp-pager { display: flex; align-items: flex-start; margin: 0 -16px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-html:not(.desk) .cp-pager::-webkit-scrollbar { display: none; }
-html:not(.desk) .cp-page { flex: 0 0 100%; box-sizing: border-box; padding: 0 16px 22px; scroll-snap-align: start; scroll-snap-stop: always; }
-html:not(.desk) .cp-daycard { overflow: hidden; }
-html:not(.desk) .cp-addcard { background: var(--ca-card); border: 1px dashed color-mix(in srgb, var(--text) 16%, transparent); box-shadow: none; }
-html:not(.desk) .cp-dayhead { display: flex; align-items: center; gap: 8px; padding: 14px 10px 8px 16px; }
-html:not(.desk) .cp-dayid { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-html:not(.desk) body.powa-app .cp-dayname { width: 100%; height: 34px; margin: 0 0 0 -4px; padding: 0 4px; border: 0 !important; border-radius: 10px; background: none !important; box-shadow: none !important; color: var(--text); font-family: var(--font-body); font-size: 20px !important; font-weight: 700; letter-spacing: -0.016em; outline: none; -webkit-appearance: none; appearance: none; }
-html:not(.desk) body.powa-app .cp-dayname:focus { background: var(--pl-inset) !important; }
-html:not(.desk) .cp-daymeta { font-size: 13px; color: var(--text-3); }
-html:not(.desk) .cp-exs { display: flex; flex-direction: column; }
-html:not(.desk) .cp-exrow { position: relative; display: flex; align-items: flex-start; gap: 14px; width: 100%; padding: 14px 14px 14px 16px; border: 0; background: none; text-align: left; cursor: pointer; transition: background-color 140ms ease-out; }
-html:not(.desk) .cp-exrow::before { content: ''; position: absolute; top: 0; left: 70px; right: 0; height: 1px; background: var(--ca-hair); }
-html:not(.desk) .cp-exrow:active { background: var(--ca-press); }
-html:not(.desk) .cp-exrow:active::before, html:not(.desk) .cp-exrow:active + .cp-exrow::before { opacity: 0; }
-html:not(.desk) .cp-tile { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: color-mix(in srgb, var(--lc, var(--text-3)) 15%, transparent); color: var(--lc, var(--text-2)); font-family: var(--font-num); font-size: 17px; font-weight: 800; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc, var(--text-3)) 20%, transparent); }
-html:not(.desk) .cp-exrow.lift-acc { --lc: var(--lift-acc, #9a9aa6); }
-html[data-theme="light"]:not(.desk) .cp-tile { color: color-mix(in srgb, var(--lc, var(--text-2)) 45%, #16161a); background: color-mix(in srgb, var(--lc, var(--text-3)) 20%, #fff); }
-html:not(.desk) .cp-ex-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding-top: 1px; }
-html:not(.desk) .cp-ex-t { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); overflow-wrap: anywhere; }
-html:not(.desk) .cp-set { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: baseline; }
-html:not(.desk) .cp-set-l { font-family: var(--font-num); font-size: 17px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-html:not(.desk) .cp-set-l b { font-weight: 750; font-stretch: 104%; }
-html:not(.desk) .cp-set-l i { font-style: normal; color: var(--text-2); }
-/* the top set drives the day: its load reads a step bigger than the back-offs that follow it */
-html:not(.desk) .cp-ex-t + .cp-set .cp-set-l { font-size: 20px; letter-spacing: -0.012em; }
-html:not(.desk) .cp-ex-t + .cp-set .cp-set-l b { font-weight: 800; }
-html:not(.desk) .cp-set-n { font-size: 13px; font-weight: 600; color: var(--text-3); white-space: nowrap; }
-html:not(.desk) .cp-set-x { grid-column: 1 / -1; margin-top: 2px; font-size: 13px; color: var(--text-3); }
-html:not(.desk) .cp-set.is-none { font-size: 15px; color: var(--text-3); }
-html:not(.desk) .cp-note { font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
-html:not(.desk) .cp-lifted { font-size: 13px; line-height: 1.4; color: var(--text); font-variant-numeric: tabular-nums; }
-html:not(.desk) .cp-lifted > span:first-child { color: var(--text-3); font-weight: 600; margin-right: 2px; }
-html:not(.desk) .cp-lifted .is-over { color: var(--text); font-weight: 650; }
-html:not(.desk) .cp-lifted .is-over::before { content: ''; display: inline-block; width: 8px; height: 7px; margin: 0 4px 0 1px; background: var(--ca-warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); vertical-align: 0; }
-html:not(.desk) .cp-lifted s { color: var(--text-3); }
-/* a swap on the day (a pin squat for the squat): the lifted line says it ("Lifted as close grip bench …", .cp-lifted),
-   or before a set is logged one quieter line ("Swapped for close grip bench") */
-html:not(.desk) .cp-swapped:not(.cp-lifted) { font-size: 13px; line-height: 1.4; color: var(--text-2); }
-html:not(.desk) .cp-lifted i { font-style: normal; color: var(--text-3); }
-html:not(.desk) .cp-exrow > svg { flex: none; width: 18px; height: 18px; margin-top: 11px; color: var(--text-3); }
-/* an empty day (a rest day, or one with nothing in it yet): one line under its name, never the name again */
-html:not(.desk) .cp-rest { margin: 0; padding: 2px 16px 20px; font-size: 15px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
-html:not(.desk) .cp-addcard { padding: 20px 16px 16px; }
-html:not(.desk) .cp-add-t { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; letter-spacing: -0.016em; color: var(--text); }
-html:not(.desk) .cp-add-s { margin: 6px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-2); }
-html:not(.desk) .cp-add-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
-html:not(.desk) .cp-add-acts .ca-btn { min-height: 48px; padding: 0 12px; font-size: 15px !important; }
-
-/* Add exercise: the screen's red, an object floating above the tab bar */
-html:not(.desk) .cp-fab {
-  position: fixed; z-index: 90; right: 16px; bottom: 16px; display: inline-flex; align-items: center; gap: 6px; height: 52px; padding: 0 20px 0 16px;
-  border: 0; border-radius: 999px; background: var(--pl-red); color: var(--pl-red-ink) !important; font-size: 17px !important; font-weight: 650; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 2px 4px rgba(0, 0, 0, 0.35), 0 14px 28px -12px rgba(0, 0, 0, 0.85);
-  transition: transform var(--pl-d-press) var(--pl-spring), opacity 200ms ease-out, filter 140ms ease-out;
-}
-html[data-theme="light"]:not(.desk) .cp-fab { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(120, 10, 20, 0.16), 0 14px 26px -12px rgba(120, 10, 20, 0.42); }
-html.native:not(.desk) .cp-fab { bottom: calc(max(10px, calc(env(safe-area-inset-bottom, 0px) - 12px)) + 76px); }
-html:not(.desk) .cp-fab svg { width: 20px; height: 20px; }
-html:not(.desk) .cp-fab:active { transform: scale(0.95); filter: brightness(0.92); transition-duration: 90ms; transition-timing-function: ease-out; }
-html:not(.desk) .cp-fab.is-soft { background: var(--pl-raise); color: var(--text) !important; }
-html:not(.desk) .cp-fab.is-hidden { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.96); pointer-events: none; }
-
 /* the ⋯ menus (coach-program.js menu): rows on the scale (17), the groups apart as iOS draws them, and the row
    that takes something away last, in ink beside its bin (red is the screen's one action, never a menu row) */
 html:not(.desk) body.powa-app .cp-menu .ui-sheet > button { font-size: 17px; }
 html:not(.desk) body.powa-app .cp-menu .ui-sheet > button.cp-sep { position: relative; margin-top: 9px; }
 html:not(.desk) body.powa-app .cp-menu .ui-sheet > button.cp-sep::before { content: ''; position: absolute; top: -5px; left: 12px; right: 12px; height: 1px; background: var(--ca-hair); pointer-events: none; }
+/* the block's one ⋯ is long (the block, its weeks, keep or share it): its groups are named, its rows a touch
+   shorter (still past 44 pt), and it scrolls inside the sheet when the phone is short */
+html:not(.desk) body.powa-app .cp-menu .ui-sheet { max-height: calc(100% - max(12px, env(safe-area-inset-top, 0px))); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+html:not(.desk) body.powa-app .cp-menu .ui-sheet > .cp-menu-h { position: relative; margin: 2px 12px 2px; padding: 8px 0 4px; font-size: 13px; font-weight: 600; line-height: 1.3; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+html:not(.desk) body.powa-app .cp-menu .ui-sheet > .cp-menu-h.cp-sep { margin-top: 12px; }
+html:not(.desk) body.powa-app .cp-menu .ui-sheet > .cp-menu-h.cp-sep::before { content: ''; position: absolute; top: -6px; left: 0; right: 0; height: 1px; background: var(--ca-hair); pointer-events: none; }
+html:not(.desk) body.powa-app .cp-menu-block .ui-sheet > button:not(.ui-sheet-cancel) { min-height: 50px; }
 html:not(.desk) body.powa-app .cp-menu .ui-sheet > button.danger { color: var(--text); }
 html:not(.desk) body.powa-app .cp-menu .ui-sheet > button.danger svg { color: var(--text-2); }
 
@@ -1405,7 +1416,17 @@ html:not(.desk) .cp-blkmore-body .cp-sf .sf-field { min-width: 0; min-height: 44
 html:not(.desk) body.powa-app .cp-blkmore-body .cp-sf .sf-edit input.sf-in, html:not(.desk) body.powa-app .cp-blkmore-body .cp-sf input.sf-in { flex: 1; width: 100%; min-width: 0; }
 html:not(.desk) body.powa-app .cp-blk-rm { display: inline-flex; align-items: center; min-height: 44px; margin: 10px 0 -6px; padding: 0 2px; border: 0; background: none; color: var(--text) !important; font: inherit; font-size: 15px !important; font-weight: 600; cursor: pointer; transition: opacity 140ms ease-out; }
 html:not(.desk) body.powa-app .cp-blk-rm:active { opacity: 0.6; }
-html:not(.desk) .cp-blk-logged { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-3); }
+/* what they logged, said once: as written, as lifted (in the lift's colour), why it stays, the way to next week */
+html:not(.desk) .cp-logged { margin-top: 16px; padding: 14px 16px 16px; border-radius: 16px; background: var(--pl-inset); }
+html:not(.desk) .cp-logged.lift-acc { --lc: var(--lift-acc, #9a9aa6); }
+html:not(.desk) .cp-lg-row { margin: 0; font-size: 15px; line-height: 1.45; color: var(--text); overflow-wrap: anywhere; }
+html:not(.desk) .cp-lg-row + .cp-lg-row { margin-top: 4px; }
+html:not(.desk) .cp-lg-k { margin-right: 6px; font-weight: 650; color: var(--text-3); }
+html:not(.desk) .cp-lg-row + .cp-lg-row .cp-lg-k { color: var(--lc); }
+html[data-theme="light"]:not(.desk) .cp-lg-row + .cp-lg-row .cp-lg-k { color: color-mix(in srgb, var(--lc) 56%, #000); }
+html:not(.desk) .cp-lg-v { font-family: var(--font-num); font-weight: 600; font-variant-numeric: tabular-nums; }
+html:not(.desk) .cp-lg-note { margin: 10px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-2); }
+html:not(.desk) .cp-logged .cp-lg-next { margin-top: 14px; min-height: 48px; }
 html:not(.desk) .cp-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; margin-top: 8px; }
 html:not(.desk) .cp-step { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 html:not(.desk) .cp-step-l { font-size: 13px; font-weight: 600; color: var(--text-3); }
@@ -1661,19 +1682,17 @@ html:not(.desk) body.powa-app .sf-sheet .sf-add input.sf-add-in { height: 44px; 
 html:not(.desk) body.powa-app .sf-sheet .pg-fill-btn { height: 44px; padding: 0 16px; background: var(--pl-inset-2); font-size: 15px; }
 html:not(.desk) body.powa-app .sf-sheet .sf-note { font-size: 13px; color: var(--text-2); }
 
-/* 44 pt to the touch everywhere in Programs, without moving what's drawn: the block and day names grow their
-   field (negative margins keep the line), the segments and chips reach into their container's padding, the
-   typed values fill their stepper's height, the small round buttons carry a hit area past their edge */
-html:not(.desk) body.powa-app .cp-name { height: 44px; margin-top: -2px; margin-bottom: -2px; }
-html:not(.desk) body.powa-app .cp-dayname { height: 44px; margin-top: -5px; margin-bottom: -5px; }
-html:not(.desk) .cp-maxes { min-height: 44px; }
-html:not(.desk) .cp-wk::after { content: ''; position: absolute; inset: -3px 0; }
-html:not(.desk) .cp-day { position: relative; }
-html:not(.desk) .cp-day::after { content: ''; position: absolute; inset: -3px -4px; }
+/* 44 pt to the touch everywhere in Programs, without moving what's drawn: the editor's ± are 40 pt discs in a 44 pt
+   box (a transparent border; a negative margin keeps their 40 pt column), the switches and Use are 44 tall, the
+   typed values fill their stepper's height */
 html:not(.desk) .cp-step .ui-stepper { min-height: 44px; align-items: center; }
+html:not(.desk) .cp-step .ui-stepper .st-btn { box-sizing: border-box; width: 44px; height: 44px; margin: -2px; border: 2px solid transparent !important; background-clip: padding-box !important; }
+html:not(.desk) .cp-step .ui-stepper .st-btn::after { inset: 0; }
 html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable { align-self: stretch; display: grid; place-items: center; min-height: 44px; }
 html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable.is-stack { place-content: center; }
-html:not(.desk) .cp-seg button { position: relative; }
+html:not(.desk) .cp-seg button { position: relative; min-height: 44px; }
+html:not(.desk) body.powa-app .cp-hint-use { box-sizing: border-box; min-height: 44px; margin: -5px 0; border: 5px solid transparent !important; background-clip: padding-box !important; }
+html:not(.desk) body.powa-app .cp-hint-use::after { inset: 0; }
 html:not(.desk) .cp-seg button::after { content: ''; position: absolute; inset: -4px 0; }
 html:not(.desk) body.powa-app .cp-blkmore-body .cp-sf .sf-field input.sf-in { align-self: stretch; height: auto; min-height: 44px; }
 html:not(.desk) body.powa-app :is(#addExerciseModal, #goalModal) .modal-close::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
@@ -1699,7 +1718,7 @@ html:not(.desk) body.powa-app .pp-sheet .pp-rm { width: 44px; height: 44px; marg
 /* an exercise just added rises into its place on the day (the job: where did it go?), once */
 @keyframes cpNewRow { from { opacity: 0.45; transform: translate3d(0, 12px, 0); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: no-preference) {
-  html:not(.desk) .cp-exrow.is-new { animation: cpNewRow var(--pl-d-state) var(--pl-spring) 120ms backwards; }
+  html:not(.desk) .cp-excard.is-new { animation: cpNewRow var(--pl-d-state) var(--pl-spring) 120ms backwards; }
 }
 
 /* =================================================================== THE TYPE SCALE ON SHARED PIECES
@@ -2381,8 +2400,6 @@ html:not(.desk) body.powa-app .vr .vr-tick::before { content: ''; position: abso
    doesn't jump between tabs). They fill it, as the lifter app's do: a 720 px cap left Pending invites, the
    header's search and Add exercise each on a different right edge. */
 @media (min-width: 700px) {
-  /* Add exercise sits on the column's right edge */
-  html:not(.desk) .cp-fab { right: calc(16px + max(0px, (100vw - 912px) / 2)); }
   /* Past 912 px the column stops short of the window: the header's own buttons (Home's search, Lifters' +)
      close up to the assistant and the bell, which stay at the window's edge */
   html.native:not(.desk) body.powa-app .dash-main > section[data-pane] > .dash-header:first-child { padding-right: max(0px, calc(var(--nav-actions-w, 96px) - max(0px, (100vw - 912px) / 2))); }
@@ -2436,8 +2453,8 @@ html:not(.desk) .is-carry { position: relative; z-index: 6; will-change: transfo
 html:not(.desk) #powa-conn-banner:not(.show) .pcb-dot { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   html:not(.desk) body.powa-app [data-pane] .ca-rise { animation: none !important; }
-  html:not(.desk) :is(.ca-btn, .ca-pill, .ca-tile, .ca-rowcard, .ca-fb, .ca-chip, .ca-act, .ca-ov, .ca-hbtn, .cp-day, .cp-fab, .st-btn, .cp-ibtn, .cp-hint-use, .ca-g):active { transform: none !important; }
-  html:not(.desk) .cp-fab.is-hidden { transform: none; }
+  html:not(.desk) :is(.ca-btn, .ca-pill, .ca-tile, .ca-rowcard, .ca-fb, .ca-chip, .ca-act, .ca-ov, .ca-hbtn, .cp-day, .cp-excard, .cp-wkbtn, .st-btn, .cp-ibtn, .cp-hint-use, .ca-g):active { transform: none !important; }
+  html:not(.desk) .cp-pager.is-live { transition: none; }
 }
 
 /* =================================================================== WEEKLY NOTES: THE DECK (30 Oct, weekly-note.js openDeck)
