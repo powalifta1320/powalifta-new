@@ -8414,6 +8414,17 @@ group('data scale (index, memos, snapshot)');
       eq(_saveSnapshot(u, huge, { storage: ls, budget: 100000, today: '2026-10-28' }), false, 'nothing fits');
       eq(ls.getItem(key), null, 'the old snapshot is gone (it would open a stale program offline)');
     });
+    // Night C review m14: after Esc on the in-place code prompt the dashboard stays at aal1, where every read is empty.
+    test('_saveSnapshot keeps the last good copy while a two-factor code is put off (Esc on the in-place prompt)', () => {
+      const m = new Map(), ls = { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), key: i => [...m.keys()][i] ?? null, get length() { return m.size; } };
+      const u = { id: '00000000-0000-4000-8000-0000000000ab', userType: 'athlete' }, key = _snapKey(u.id);
+      eq(_saveSnapshot(u, Object.assign(defaultStore(), { workoutLogs: [L('k1', 'a', 'squat', '2026-10-20', 100)] }), { storage: ls, budget: 5e6, today: '2026-10-28' }), true);
+      const good = ls.getItem(key);
+      window._mfaLater = true;
+      try { eq(_saveSnapshot(u, defaultStore(), { storage: ls, budget: 5e6, today: '2026-10-28' }), undefined, 'not saved'); }
+      finally { window._mfaLater = false; }
+      eq(ls.getItem(key), good, 'the training is still there');
+    });
     test('the per-user copies: a wipe takes this user\'s, the sweep takes other accounts\', nothing else', () => {
       const m = new Map(), ls = { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), key: i => [...m.keys()][i] ?? null, get length() { return m.size; } };
       const A = '00000000-0000-4000-8000-00000000000a', B = '00000000-0000-4000-8000-00000000000b';

@@ -4055,7 +4055,7 @@ function _saveSnapshot(user, store, opts) {
   opts = opts || {};
   // window._signingOut: a log-out, a deletion or a refused session is wiping this device. The pagehide /
   // visibilitychange save used to write the whole account back right after the wipe (sweep 2026-10-28 #4).
-  if (window._demoMode || window._signingOut || !user || !user.id || !store) return;
+  if (window._demoMode || window._signingOut || window._mfaLater || !user || !user.id || !store) return;
   const ls = opts.storage || localStorage, budget = opts.budget || _SNAP_BUDGET;
   const key = _snapKey(user.id), today = opts.today || todayISO();
   const full = _snapEstimate(store);
@@ -4936,10 +4936,14 @@ async function _mfaStepUp(opts) {
   window._mfaStepUpPending = false;
   const step = mfaStepOutcome(passed, !!opts.inPlace);
   if (step === 'in') {
+    window._mfaLater = false;
     setTimeout(() => { try { if (navigator.onLine) { flushPendingLogs(); flushOutbox(); } } catch (e) {} }, 1200);
     return 'in';
   }
-  if (step === 'later') return 'later';   // in place, put away (Esc): still signed in, what waits keeps waiting, asked again at the next refused write
+  // In place, put away (Esc): still signed in, what waits keeps waiting, asked again at the next refused write. At aal1
+  // every read comes back empty (row 60), so until the code is in, this device's snapshot keeps its last good copy
+  // (night C review m14): a read that came back empty can't be saved over the lifter's training.
+  if (step === 'later') { window._mfaLater = true; return 'later'; }
   if (opts.inPlace) window._signingOut = true;   // this sign-out is the caller's, not one for _watchSignOut to chase
   try { await DB.signOut('local'); } catch (e) {}
   _dropStoredSession();   // offline that call keeps the session, and the next load would ask for the code again
