@@ -1044,6 +1044,13 @@ html.desk .dash-main > section[data-pane="meets"] { padding: 0; height: 100vh; o
 @media (hover: hover) and (pointer: fine) {
   html.desk .md-screen .md-meets .md-meet-acts { opacity: 0; transition: opacity var(--t-base) ease; }
   html.desk .md-screen .md-meets .md-meet:is(:hover, :focus-within) .md-meet-acts { opacity: 1; }
+  /* The buttons take the countdown's place on hover, laid over the row's end: hidden, they kept their width, so
+     Add to calendar moved every row's countdown 120 px left (night C review m1). Hidden, they catch no click. */
+  html.desk .md-screen .md-meets .md-meet { position: relative; grid-template-columns: 52px minmax(0, 1fr) auto; }
+  html.desk .md-screen .md-meets .md-meet-acts { position: absolute; top: 50%; right: var(--s-4); flex-wrap: nowrap; padding-left: 40px; transform: translateY(-50%); background: linear-gradient(90deg, transparent, var(--md-surface) 40px); pointer-events: none; }
+  html.desk .md-screen .md-meets .md-meet:is(:hover, :focus-within) .md-meet-acts { pointer-events: auto; }
+  html.desk .md-screen .md-meets .md-meet-side { transition: opacity var(--t-base) ease; }
+  html.desk .md-screen .md-meets .md-meet:is(:hover, :focus-within) .md-meet-side { opacity: 0; }
 }
 .dk-meets { max-width: 980px; padding: var(--page-top) var(--gut) 72px; }
 .dk-page-head { display: flex; align-items: baseline; gap: var(--s-3); margin-bottom: var(--s-5); }

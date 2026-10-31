@@ -783,6 +783,7 @@
     var html = '<div class="ca-home ca-root' + (firstLook ? ' is-first' : '') + (short ? ' is-short' : '') + '">';
     if (!short) html += gridHtml(X, S);
     html += needsHtml(X);
+    html += newLiftersHtml();
     if (short) html += gridHtml(X, S);
     // ALLOW NOTIFICATIONS (notify.js): the calm ask for alerts goes after who needs you (the one red stays on top)
     // and after the team's grid on every phone (on a short one the grid comes after the job), never above either.
@@ -811,6 +812,34 @@
       var onShort = function () { if (H.host && !isDeskNow() && (window.innerHeight < SHORT_H) !== H.short && shown('home')) renderHome(H.host); };
       if (mqShort.addEventListener) mqShort.addEventListener('change', onShort); else if (mqShort.addListener) mqShort.addListener(onShort);
     } catch (e) {}
+  }
+  // New lifters waiting (coach.html's New lifters on Lifters: applications from the profile and join requests; night C
+  // review M5): one calm row under Needs you while anyone waits, the longest waiting first; a tap opens them on Lifters.
+  // No red: someone new isn't an alarm, and Home's one red stays the job above.
+  function newLiftersPeople() {
+    var apps = window.ClientsUI && ClientsUI.leads ? ClientsUI.leads() : [];
+    var reqs = (hasDom && window._joinReqs) || [];
+    var t = todayIso();
+    return apps.map(function (a) { return { name: a.name || 'Someone', at: a.createdAt || '', meet: a.nextMeet || null }; })
+      .concat(reqs.map(function (r) { return { name: r.athleteName || 'A lifter', at: typeof r.createdAt === 'number' && isFinite(r.createdAt) ? new Date(r.createdAt).toISOString() : String(r.createdAt || ''), meet: null }; }))
+      .sort(function (x, y) { return window.Clients && Clients.newLifterCmp ? Clients.newLifterCmp(x, y, t) : String(x.at).localeCompare(String(y.at)); });
+  }
+  function newLiftersHtml() {
+    var people = newLiftersPeople();
+    if (!people.length) return '';
+    var names = people.map(function (p) { return first(p.name); });
+    var who = names.length === 1 ? names[0] : names.length === 2 ? names[0] + ' and ' + names[1] : names[0] + ', ' + names[1] + ' and ' + (names.length - 2) + ' more';
+    var verb = people.length === 1 ? 'wants' : 'want';
+    return '<div class="ca-sec ca-newl ca-rise"><button type="button" class="ca-newl-row" data-newl aria-label="' + esc(who + ' ' + verb + ' to train with you. Open New lifters') + '">' +
+      '<span class="ca-stack' + (people.length === 1 ? ' is-one' : '') + '" aria-hidden="true">' + people.slice(0, 2).map(function (p) { return avHtml({ name: p.name }); }).join('') + '</span>' +
+      '<span class="ca-newl-tx"><b>' + esc(who) + '</b><span>' + verb + ' to train with you</span></span>' + ic('chev', 2.2) + '</button></div>';
+  }
+  function openNewLifters() {
+    tab('athletes');
+    setTimeout(function () {
+      var s = hasDom && document.getElementById('newLifters');
+      if (s && s.scrollIntoView) s.scrollIntoView({ block: 'start', behavior: (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) ? 'auto' : 'smooth' });
+    }, 160);
   }
   // Needs you's head: how many need you, and their words waiting (the unread count, one tap to Messages).
   function heroHtml(X) {
@@ -1271,6 +1300,7 @@
       // The summary's tiles open their sheets; a face on the PRs opens its lifter's progress.
       if ((b = t.closest('[data-sheet]'))) { e.preventDefault(); if (b.getAttribute('data-sheet') === 'movers') openMovers(area._X); else openHot(area._X); return; }
       if ((b = t.closest('[data-prof]'))) { e.preventDefault(); P.pending = 'progress'; P.id = b.getAttribute('data-prof'); openLifter(P.id, b); return; }
+      if ((b = t.closest('[data-newl]'))) { e.preventDefault(); openNewLifters(); return; }
       if ((b = t.closest('[data-go]'))) { e.preventDefault(); tab(b.getAttribute('data-go')); return; }
       if ((b = t.closest('[data-sc]'))) { e.preventDefault(); shortcut(b.getAttribute('data-sc'), b); return; }
       if ((b = t.closest('[data-step]'))) {
@@ -1361,18 +1391,25 @@
     L.q = '';
     tab('athletes');
   }
-  // The Messages tab's unread count, a small number on its icon (the lifter app's way).
+  // The Messages tab's unread count, a small number on its icon (the lifter app's way); the Lifters tab's: new lifters
+  // waiting (applications and join requests, night C review M5), in ink (the tab's own hue is the red).
   function paintBadges() {
     if (!hasDom) return;
     var n = 0, m = unreadMap();
     Object.keys(m).forEach(function (k) { n += Math.max(0, Number(m[k]) || 0); });
-    var bt = document.querySelector('.bottom-tab[data-src="messages"]');
+    paintTabBadge('messages', n, 'ca-tbadge', 'Messages', n ? 'Messages, ' + plural(n, 'unread') : null);
+    var nl = newLiftersPeople().length;
+    // Its own class: .ca-tbadge stays the one unread count on the bar (what reads it, and the flows, find one).
+    paintTabBadge('athletes', nl, 'ca-tbadge-nl', 'Lifters', nl ? 'Lifters, ' + nl + ' new ' + (nl === 1 ? 'lifter' : 'lifters') + ' waiting' : null);
+  }
+  function paintTabBadge(src, n, cls, label, aria) {
+    var bt = document.querySelector('.bottom-tab[data-src="' + src + '"]');
     if (!bt) return;
-    var b = bt.querySelector('.ca-tbadge');
-    if (!n) { if (b) b.remove(); return; }
-    if (!b) { b = document.createElement('span'); b.className = 'ca-tbadge'; b.setAttribute('aria-hidden', 'true'); bt.appendChild(b); }
+    var b = bt.querySelector('.' + cls);
+    if (!n) { if (b) b.remove(); if (bt.getAttribute('aria-label') !== label && bt.hasAttribute('data-ca-aria')) bt.setAttribute('aria-label', label); return; }
+    if (!b) { b = document.createElement('span'); b.className = cls; b.setAttribute('aria-hidden', 'true'); bt.appendChild(b); }
     b.textContent = n > 9 ? '9+' : String(n);
-    bt.setAttribute('aria-label', 'Messages, ' + plural(n, 'unread'));
+    bt.setAttribute('aria-label', aria); bt.setAttribute('data-ca-aria', '1');
   }
 
   /* ====================================================================================================
@@ -1922,6 +1959,12 @@
       if (st.none.length) {
         sheet.appendChild(el('h3', { class: 'ca-h3' }, 'Not enough logs yet'));
         sheet.appendChild(uiList(st.none.map(function (x) { return row(x, 'Needs a main lift logged in both 4-week windows', close); })));
+      }
+      // Results cards (night C): the block's gain and this week's PR wall as a card to post (coach-you.js).
+      if (window.CoachYou && CoachYou.openResults) {
+        var rc = el('button', { type: 'button', class: 'ca-btn is-soft ca-rc-open' }, 'Make a results card');
+        rc.addEventListener('click', function () { close(); setTimeout(function () { CoachYou.openResults(); }, 230); });
+        sheet.appendChild(rc);
       }
     }, { cls: 'ca-movers-sheet' });
   }

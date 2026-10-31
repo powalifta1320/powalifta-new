@@ -1973,5 +1973,62 @@ window.POWA_SUPPORT_KB = [
    "refresh the roster"
   ],
   "a": "On a phone, pull down from the top of **Club** or the coach's **Lifters** tab and let go once the ring fills: it spins while the app reads everything again, then the screen settles back. Offline, it says it couldn't refresh and what you had stays on screen. On a laptop there's nothing to pull: the coach's desk updates live."
+ },
+ {
+  "id": "meet-to-calendar",
+  "q": "How do I put a meet in my calendar?",
+  "t": [
+   "add meet to calendar",
+   "meet calendar",
+   "ics",
+   "calendar file",
+   "weigh-in reminder",
+   "apple calendar meet",
+   "google calendar meet"
+  ],
+  "a": "Open the meet and tap **Add to calendar**. A lifter has it in the Meet day sheet (from Train's meet strip) and on a planned meet in Progress › PRs; a coach has it on every meet in **Meets**, on the phone and the laptop. You get an .ics file: the meet as an all-day event, and the weigh-in as its own event with a reminder 30 minutes before when its time is set. On the web it downloads (open it to add it to Apple Calendar, Google Calendar or Outlook); in the iPhone app the share sheet opens. Saving the same meet again, even renamed or moved, updates it instead of adding a copy. When your lifters at one meet weigh in at different times, each time is its own event with their names."
+ },
+ {
+  "id": "stronger-than",
+  "q": "What does \"Stronger than 72% of 83 kg raw men\" mean?",
+  "t": [
+   "stronger than",
+   "percentile",
+   "how do i compare",
+   "where do i stand",
+   "openpowerlifting percentile",
+   "compared to other lifters",
+   "raw men",
+   "raw women"
+  ],
+  "a": "It ranks what you've lifted: your meet total (or, with no meet, your best singles added up) against the best meet total of everyone who lifted in your weight class at a full powerlifting meet since 2021, from OpenPowerlifting's public meet results. 72% means your number beats 72 out of every 100 of them. With nothing lifted yet it ranks your e1RM total from training and says so (\"e1RM total: stronger than…\"). Your class comes from your weigh-in (or the class you're cutting for). Tap the line on Progress for each lift (its best single, else its e1RM), your e1RM total on its own line, the number of lifters, and to compare with raw or equipped lifters. Men or women there is a view: your own category stays as set in Profile. Only a meet decides the real number."
+ },
+ {
+  "id": "coach-results-card",
+  "q": "How do I post my lifters' results on Instagram?",
+  "t": [
+   "results card",
+   "share results",
+   "instagram card",
+   "pr wall",
+   "my lifters gained",
+   "post results",
+   "block results"
+  ],
+  "a": "Open **You › Results cards** (or tap Strength on Home, then **Make a results card**). **This block** is the average change in your lifters' e1RM totals since their current block began (only lifters with all three lifts logged before and during it count, and the card says how many). **PR wall** is each lifter's best PR on each lift in the last 7 days. Pick one and tap **Share the card**: a story (9:16) or a post (4:5). Under the picker it says who the average counts and how many went up or down. Names show as first name and initial, and on Pro with branding on, your colour and team name are on the card."
+ },
+ {
+  "id": "coach-applications",
+  "q": "How do lifters apply to train with me?",
+  "t": [
+   "applications",
+   "apply to train",
+   "leads",
+   "new clients",
+   "profile form",
+   "someone applied",
+   "accept application"
+  ],
+  "a": "Your public coach profile has an **Apply** form for people who aren't on POWALIFTA yet: name, email, training age, best lifts, bodyweight, next meet, goals and a note. They get an email to confirm it, and you see nothing until they do, so nobody can apply in someone else's name. Then you get a push and an email, and the application waits on **Lifters** under **New lifters**, with the join requests from lifters already in the app (the tab shows how many, and Home has a row while anyone waits). The one with the soonest meet comes first, then whoever has waited longest. Tap one to read it, then **Send <name> an invite** (it emails them your invite link, with a code tied to their email, and takes a seat like any invite), **Decline** (nothing is sent, and you can undo it), or **Delete as spam**. Tap their email to write to them yourself. A signed-in lifter who opens your profile gets **Request to join** instead. Applications are deleted 90 days after you decide, or after 180 days unanswered."
  }
 ];

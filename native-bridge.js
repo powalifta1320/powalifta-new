@@ -39,7 +39,8 @@
       try {
         var H = plugins().Haptics;
         if (isNative && H) { H.impact({ style: style || 'MEDIUM' }); return; }
-        if (navigator.vibrate) navigator.vibrate(30);
+        // Only after the person has touched the page: a buzz before that is refused and logged (a sheet a link opens).
+        if (navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate(30);
       } catch (e) {}
     },
 
@@ -63,7 +64,7 @@
       try {
         var H = plugins().Haptics;
         if (isNative && H && H.notification) { H.notification({ type: t }); return; }
-        if (navigator.vibrate) {
+        if (navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) {
           navigator.vibrate(t === 'ERROR' ? [80, 60, 80] : t === 'WARNING' ? [40, 40, 40] : [30, 40, 120]);
         }
       } catch (e) {}

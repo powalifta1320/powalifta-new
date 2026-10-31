@@ -29,7 +29,9 @@ const defaultStore = () => ({
   clientPayments: [],
   intakes: [],
   // Busy weeks (busy-week.js): a lifter's own requests, or the coach's roster's (db.js hydrateAll).
-  scheduleRequests: []
+  scheduleRequests: [],
+  // Applications from the coach's public profile (night C; clients-ui.js's leads). Coach only.
+  coachApplications: []
 });
 
 // _v moves on every change the Store is told about (set, update, reset, a live burst, bump/touch);
@@ -360,7 +362,9 @@ async function logout() {
   if (!demo) await _forgetPushOnThisDevice();
   liveStop();
   _wipeLocalUserData({ uid, demo });
-  if (!demo) { try { await DB.signOut(); } catch (e) { console.warn(e); } }
+  // With no connection supabase-js keeps the stored session when its sign-out call fails: it goes anyway, or the next
+  // load routes straight back into the dashboard (night C). Never in the demo: a session stored here is a real account's.
+  if (!demo) { try { await DB.signOut(); } catch (e) { console.warn(e); } _dropStoredSession(); }
   try { await Promise.race([window._voiceWipe, new Promise(r => setTimeout(r, 800))]); } catch (e) {}
   window._user = null;
   Store.reset();
@@ -1167,6 +1171,16 @@ function _buildCoachDemoData() {
   // Coach challenges (challenges.js): a running one over the whole roster (the desk's twenty or the
   // phone's four) and last month's, finished. After the desk's lifters, so it counts every one.
   try { if (window.Challenges && Challenges.seedCoachDemo) Challenges.seedCoachDemo(demo.store, { coachId: DC, daysAgo }); } catch (e) { console.warn('seedChallengeDemo', e); }
+  // Applications from Sam's public profile (night C, clients-ui.js; Lifters › New lifters): two lifters who confirmed
+  // their email and wait for an answer, Jonas the longest (a meet in 54 days).
+  demo.store.coachApplications = [
+    { id: 'demo-app-1', coachId: DC, name: 'Mia Lane', email: 'mia.lane@example.com', trainingYears: 3, squat: 140, bench: 82.5, deadlift: 170, bodyweight: 64.2, nextMeet: null,
+      goals: 'My first meet in the spring, in the 63s', note: 'I train four days a week at a barbell club. My knee got cranky on high-bar last year; fine since I went low-bar.',
+      status: 'new', inviteCode: null, createdAt: new Date(Date.now() - 26 * 3600000).toISOString(), decidedAt: null },
+    { id: 'demo-app-2', coachId: DC, name: 'Jonas Berg', email: 'jonas.berg@example.com', trainingYears: 6, squat: 230, bench: 150, deadlift: 265, bodyweight: 92.6, nextMeet: _addDaysISO(todayISO(), 54),
+      goals: 'Qualify for nationals in the 93s', note: 'Self-coached for years and stuck at the same total for two meets.',
+      status: 'new', inviteCode: null, createdAt: new Date(Date.now() - 3 * 86400000 - 5 * 3600000).toISOString(), decidedAt: null }
+  ];
   return demo;
 }
 
@@ -3881,7 +3895,26 @@ function _queuePendingLog(log) {
   _writePendingLogs(q);
   _claimQueue();
 }
+// The sets queue once a send is over (night C, 30 Oct). `taken` is the queue as the send read it, `failed` what of
+// it didn't land, `now` the queue as it is when the send ends. A set queued meanwhile (the wifi blinked again while
+// the queue went up) stays: the send used to write back only its own leftovers over it, and the set was lost. A failed
+// set that left the queue meanwhile (deleted, or every queue dropped by a log-out) stays gone. Pure: tested.
+function pendingAfterFlush(taken, failed, now) {
+  const took = new Set((taken || []).map(l => l && l.id));
+  const there = new Set((now || []).map(l => l && l.id));
+  return (failed || []).filter(l => l && there.has(l.id)).concat((now || []).filter(l => l && !took.has(l.id)));
+}
+// The same for the other changes (outbox entries, one per row by key: a newer edit of a row replaces the older).
+// What was queued meanwhile stays, the newest edit of a row wins, and a failed one only stays while it's still the
+// row's queued edit (not replaced by a newer one, not dropped by a log-out). Pure: tested.
+function outboxAfterFlush(taken, failed, now) {
+  const same = (a, b) => !!a && !!b && a.key === b.key && a.ts === b.ts;
+  const added = (now || []).filter(x => x && !(taken || []).some(o => same(o, x)));
+  return (failed || []).filter(f => (now || []).some(x => same(x, f))).concat(added);
+}
 let _flushingLogs = false;
+let _logsInFlight = null;            // the ids a send is putting up right now
+const _deletedInFlight = new Set();  // ...and the ones deleted meanwhile: gone from the server too once their send lands
 async function flushPendingLogs() {
   if (window._demoMode) return;
   if (!_queueIsMine()) return;   // nobody signed in, or another account's sets: never sent as someone else
@@ -3889,18 +3922,20 @@ async function flushPendingLogs() {
   const q = _readPendingLogs();
   if (!q.length) return;
   _flushingLogs = true;
+  _logsInFlight = new Set(q.map(l => l.id));
   const attempts = _readLogAttempts();
   const failed = [];
+  const landed = [];
   let synced = 0;
   let dropped = 0;
   let codeOwed = null;   // asked once per flush, at the first refusal
   for (let i = 0; i < q.length; i++) {
     const log = q[i];
-    try { await DB.addLog(log); synced++; }
+    try { await DB.addLog(log); synced++; landed.push(log.id); }
     catch (e) {
       const msg = String((e && e.message) || '');
       // Duplicate key = it actually saved on a previous attempt → safe to drop.
-      if (/duplicate|unique|23505/i.test(msg)) { synced++; continue; }
+      if (/duplicate|unique|23505/i.test(msg)) { synced++; landed.push(log.id); continue; }
       // Refused at aal1 because the account turned two-factor on elsewhere (row 60): not these sets' fault. They
       // all wait, no try counted, while the code is asked for in place; then they go up at aal2.
       if (writeRefusedByPolicy(e) && (codeOwed === null ? (codeOwed = await _codeOwedPerAuth()) : codeOwed)) {
@@ -3920,15 +3955,24 @@ async function flushPendingLogs() {
       }
     }
   }
+  // What waits now: this send's leftovers, and whatever was queued while it ran (never written over).
+  const keep = pendingAfterFlush(q, failed, _readPendingLogs());
   // Forget attempt counters for anything no longer queued.
-  const stillQueued = new Set(failed.map(l => l.id));
+  const stillQueued = new Set(keep.map(l => l.id));
   for (const id of Object.keys(attempts)) { if (!stillQueued.has(id)) delete attempts[id]; }
-  _writePendingLogs(failed);
+  _writePendingLogs(keep);
   _writeLogAttempts(attempts);
   _releaseQueueIfEmpty();
+  // A set deleted while its send was on the way, and the send landed: it goes from the server too.
+  const undo = landed.filter(id => _deletedInFlight.has(id));
+  _deletedInFlight.clear();
+  _logsInFlight = null;
   _flushingLogs = false;
+  undo.forEach(id => { DB.deleteLog(id).catch(e => { console.error('deleteLog', e); _enqueueOutbox('deleteLog', { id }, 'dlog:' + id); }); });
   if (codeOwed) _mfaStepUpInPlace();
-  if (synced > 0 && !failed.length) _markSyncDrained();
+  if (synced > 0 && !keep.length) _markSyncDrained();
+  // Queued while this send ran, and this one got through: those go up now, not at the next reconnect.
+  if (synced > 0 && !failed.length && keep.length && !codeOwed) setTimeout(() => { if (navigator.onLine) flushPendingLogs(); }, 1200);
   if (synced > 0 && !failed.length) toast(synced + (synced === 1 ? ' set' : ' sets') + ' synced');
   if (dropped > 0) toast(dropped + (dropped === 1 ? ' set' : ' sets') + " couldn't be synced: please re-log");
   if (typeof _refreshConnBanner === 'function') _refreshConnBanner();
@@ -3952,7 +3996,10 @@ async function persistDeleteLog(id) {
   // If the set is still waiting in the offline queue, deleting it just means
   // removing it from the queue (it never reached the server).
   const q = _readPendingLogs();
-  if (q.some(l => l.id === id)) { _writePendingLogs(q.filter(l => l.id !== id)); _releaseQueueIfEmpty(); return; }
+  if (q.some(l => l.id === id)) {
+    if (_logsInFlight && _logsInFlight.has(id)) _deletedInFlight.add(id);   // on its way up right now: deleted there once it lands
+    _writePendingLogs(q.filter(l => l.id !== id)); _releaseQueueIfEmpty(); return;
+  }
   try { await DB.deleteLog(id); } catch (e) { console.error('deleteLog', e); }
 }
 async function persistAddInvite(inv)      { if (window._demoMode) return; try { await DB.addInvite(inv); } catch (e) { console.error('addInvite', e); toast('Could not save invite'); } }
@@ -4039,7 +4086,7 @@ function _saveSnapshot(user, store, opts) {
   opts = opts || {};
   // window._signingOut: a log-out, a deletion or a refused session is wiping this device. The pagehide /
   // visibilitychange save used to write the whole account back right after the wipe (sweep 2026-10-28 #4).
-  if (window._demoMode || window._signingOut || !user || !user.id || !store) return;
+  if (window._demoMode || window._signingOut || window._mfaLater || !user || !user.id || !store) return;
   const ls = opts.storage || localStorage, budget = opts.budget || _SNAP_BUDGET;
   const key = _snapKey(user.id), today = opts.today || todayISO();
   const full = _snapEstimate(store);
@@ -4169,6 +4216,7 @@ const _OUTBOX_DISPATCH = {
   pain:       (p) => sendPainReport(p),
   rest:       (p) => DB.upsertRest(p),
   deleteRest: (p) => DB.deleteRest(p.athleteId, p.date),
+  deleteLog:  (p) => DB.deleteLog(p.id),   // a set deleted while its own send was landing (flushPendingLogs)
 };
 function _readOutbox()  { try { return JSON.parse(localStorage.getItem(_OUTBOX_KEY) || '[]'); } catch (e) { return []; } }
 function _writeOutbox(q){ try { localStorage.setItem(_OUTBOX_KEY, JSON.stringify(q)); } catch (e) {} }
@@ -4214,9 +4262,9 @@ async function flushOutbox() {
       } else { attempts[e.key] = n; failed.push(e); }
     }
   }
-  // Anything queued while this flush ran (a replay that failed and re-queued) is kept, newest wins.
-  const added = _readOutbox().filter(x => !q.some(o => o.key === x.key && o.ts === x.ts));
-  const keep = failed.filter(f => !added.some(a => a.key === f.key)).concat(added);
+  // Anything queued while this flush ran (a replay that failed and re-queued) is kept, newest wins; a failed one that
+  // left the queue meanwhile (a newer edit of its row, or a log-out dropping every queue) stays gone (outboxAfterFlush).
+  const keep = outboxAfterFlush(q, failed, _readOutbox());
   const stillQueued = new Set(keep.map(e => e.key));
   for (const k of Object.keys(attempts)) { if (!stillQueued.has(k)) delete attempts[k]; }
   _writeOutbox(keep);
@@ -4224,7 +4272,7 @@ async function flushOutbox() {
   _releaseQueueIfEmpty();
   _flushingOutbox = false;
   if (codeOwed) _mfaStepUpInPlace();
-  if (synced > 0 && !failed.length && !_readPendingLogs().length) _markSyncDrained();
+  if (synced > 0 && !keep.length && !_readPendingLogs().length) _markSyncDrained();
   if (synced > 0 && !failed.length) toast('Changes synced');
   if (dropped > 0) toast("Some changes couldn't be synced. Please re-check");
   _refreshConnBanner();
@@ -4354,14 +4402,12 @@ function drawCardLogo(x, cx, y, size) {
   x.restore();
 }
 
-async function generateShareCard(opts) {
-  // opts: { tag, big, bigUnit, sub, lines: [{l, r}], footer, format: 'story' | 'post' (asked when left out) }
-  const format = opts.format || await pickCardFormat();
-  if (!format) return null;
+// The share card's canvas, shared by every card (the lifter's PR, strength and meet cards; the coach's results cards):
+// the background, a faint grid, one soft overhead light (neutral; opts.tint, a coach's brand colour, may warm it) and
+// the POWALIFTA lock-up with its top at logoY. Fonts first: canvas text is "800 …px Archivo". → { c, x, W, H, story }
+async function _shareCanvas(format, logoY, opts) {
+  opts = opts || {};
   const story = format === 'story';
-  // Story keeps everything clear of Instagram's name strip (top) and reply bar (bottom).
-  const Y = story ? { logo: 300, tag: 540, big: 1010, sub: 1130, lines: 1270, foot: 1920 - 330 }
-    : { logo: 104, tag: 250, big: 700, sub: 810, lines: 930, foot: 1350 - 70 };
   try {
     await Promise.all([
       document.fonts.load('800 100px Archivo'),
@@ -4385,38 +4431,49 @@ async function generateShareCard(opts) {
   for (let i = 0; i <= H; i += 90) { x.beginPath(); x.moveTo(0, i); x.lineTo(W, i); x.stroke(); }
   // One soft overhead light — neutral, like the app (red is spent on the mark only).
   const g = x.createRadialGradient(W / 2, -160, 0, W / 2, -160, 1050);
-  g.addColorStop(0, 'rgba(255,255,255,0.07)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  const tint = _cardTintRgb(opts.tint);
+  g.addColorStop(0, tint ? 'rgba(' + tint + ',0.16)' : 'rgba(255,255,255,0.07)'); g.addColorStop(1, tint ? 'rgba(' + tint + ',0)' : 'rgba(255,255,255,0)');
   x.fillStyle = g; x.fillRect(0, 0, W, H);
   if ('fontStretch' in x) x.fontStretch = 'expanded';   // Archivo's wide display cut where supported
 
   // Logo — the plate mark (the ONE red element) + an all-ink wordmark, centred.
   x.textBaseline = 'alphabetic';
-  drawCardLogo(x, W / 2, Y.logo);
-
-  // Tag pill — quiet ink, not red
+  drawCardLogo(x, W / 2, logoY);
+  return { c, x, W, H, story };
+}
+// A brand colour (#rrggbb) as "r,g,b" for the light, or null.
+function _cardTintRgb(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255);
+}
+// Tag pill — quiet ink, not red (a brand colour, when given, edges it).
+function _cardTag(x, W, y, text, tint) {
   x.textAlign = 'center';
   x.font = '700 32px Archivo, sans-serif';
-  const tagW = x.measureText(opts.tag).width + 80;
+  const tagW = x.measureText(text).width + 80;
+  const t = _cardTintRgb(tint);
   x.fillStyle = 'rgba(255,255,255,0.06)';
-  x.strokeStyle = 'rgba(255,255,255,0.22)';
+  x.strokeStyle = t ? 'rgba(' + t + ',0.7)' : 'rgba(255,255,255,0.22)';
   x.lineWidth = 2;
   if (x.roundRect) {
-    x.beginPath(); x.roundRect((W - tagW) / 2, Y.tag, tagW, 72, 36); x.fill(); x.stroke();
+    x.beginPath(); x.roundRect((W - tagW) / 2, y, tagW, 72, 36); x.fill(); x.stroke();
   } else {
-    x.fillRect((W - tagW) / 2, Y.tag, tagW, 72); x.strokeRect((W - tagW) / 2, Y.tag, tagW, 72);
+    x.fillRect((W - tagW) / 2, y, tagW, 72); x.strokeRect((W - tagW) / 2, y, tagW, 72);
   }
   x.fillStyle = '#f4f4f6';
-  x.fillText(opts.tag, W / 2, Y.tag + 47);
-
-  // Big number — solid ink, the loudest thing on the card
-  // Number + unit are centred as ONE group, and the group steps down in size
-  // until it fits the card — the wide display face makes "400.4 DOTS" long.
+  x.fillText(text, W / 2, y + 47);
+}
+// Big number — solid ink, the loudest thing on the card. Number + unit are centred as ONE group, and the group steps
+// down in size until it fits the card — the wide display face makes "400.4 DOTS" long. Leaves textAlign centre.
+function _cardBig(x, W, y, big, bigUnit) {
   let bigSize = 260, unitSize = 80, bigW = 0, unitW = 0;
   for (;;) {
     x.font = '800 ' + bigSize + 'px Archivo, \"Arial Black\", sans-serif';
-    bigW = x.measureText(opts.big).width;
+    bigW = x.measureText(big).width;
     x.font = '800 ' + unitSize + 'px Archivo, \"Arial Black\", sans-serif';
-    unitW = opts.bigUnit ? x.measureText(opts.bigUnit).width + 24 : 0;
+    unitW = bigUnit ? x.measureText(bigUnit).width + 24 : 0;
     if (bigW + unitW <= W - 160 || bigSize <= 140) break;
     bigSize -= 10; unitSize = Math.round(bigSize * 0.31);
   }
@@ -4424,22 +4481,17 @@ async function generateShareCard(opts) {
   x.textAlign = 'left';
   x.fillStyle = '#f4f4f6';
   x.font = '800 ' + bigSize + 'px Archivo, \"Arial Black\", sans-serif';
-  x.fillText(opts.big, gx, Y.big);
-  if (opts.bigUnit) {
+  x.fillText(big, gx, y);
+  if (bigUnit) {
     x.fillStyle = '#82828c';
     x.font = '800 ' + unitSize + 'px Archivo, \"Arial Black\", sans-serif';
-    x.fillText(opts.bigUnit, gx + bigW + 24, Y.big);
+    x.fillText(bigUnit, gx + bigW + 24, y);
   }
   x.textAlign = 'center';
-
-  // Sub line
-  x.fillStyle = '#f4f4f6';
-  x.font = '800 52px Archivo, \"Arial Black\", sans-serif';
-  x.fillText(opts.sub.toUpperCase(), W / 2, Y.sub);
-
-  // Detail lines (left/right pairs)
-  let y = Y.lines;
-  (opts.lines || []).forEach(ln => {
+}
+// Detail lines (left/right pairs), pitch px apart.
+function _cardLines(x, W, y, lines, pitch) {
+  (lines || []).forEach(ln => {
     x.strokeStyle = 'rgba(255,255,255,0.10)';
     x.beginPath(); x.moveTo(140, y - 44); x.lineTo(W - 140, y - 44); x.stroke();
     x.textAlign = 'left';
@@ -4451,14 +4503,111 @@ async function generateShareCard(opts) {
     x.fillStyle = '#f4f4f6';
     x.fillText(ln.r, W - 140, y);
     x.textAlign = 'center';
-    y += 92;
+    y += pitch || 92;
   });
-
-  // Footer
+}
+function _cardFooter(x, W, y, text) {
   x.font = '700 34px Archivo, sans-serif';
   x.fillStyle = '#808089';
-  x.fillText(opts.footer || 'powalifta.com', W / 2, Y.foot);
+  x.fillText(text, W / 2, y);
+}
 
+async function generateShareCard(opts) {
+  // opts: { tag, big, bigUnit, sub, lines: [{l, r}], footer, format: 'story' | 'post' (asked when left out) }
+  const format = opts.format || await pickCardFormat();
+  if (!format) return null;
+  const story = format === 'story';
+  // Story keeps everything clear of Instagram's name strip (top) and reply bar (bottom).
+  const Y = story ? { logo: 300, tag: 540, big: 1010, sub: 1130, lines: 1270, foot: 1920 - 330 }
+    : { logo: 104, tag: 250, big: 700, sub: 810, lines: 930, foot: 1350 - 70 };
+  const { c, x, W } = await _shareCanvas(format, Y.logo);
+
+  _cardTag(x, W, Y.tag, opts.tag);
+  _cardBig(x, W, Y.big, opts.big, opts.bigUnit);
+
+  // Sub line
+  x.fillStyle = '#f4f4f6';
+  x.font = '800 52px Archivo, \"Arial Black\", sans-serif';
+  x.fillText(opts.sub.toUpperCase(), W / 2, Y.sub);
+
+  _cardLines(x, W, Y.lines, opts.lines, 92);
+  _cardFooter(x, W, Y.foot, opts.footer || 'powalifta.com');
+  return c;
+}
+
+// The coach's results cards (night C, 30 Oct), drawn by the lifter's card engine above: the same canvas, lock-up, tag
+// pill, big number, lines and footer, type and the app's own shapes only (a lift's dot in its colour), never a picture.
+// kind 'block': model = teamBlockGain(...) ("My lifters gained 18.5 kg this block": the mean, the three who moved most);
+// kind 'prs': model = teamPrWall(...) rows (this week's PR wall: as many rows as fit, then "and 3 more").
+// opts: { format ('story' | 'post'; asked when left out), tint (the coach's brand colour, on the light and the pill),
+//         footer (their team's or their own name), fmt (kg → their unit's text), unit ('kg' | 'lb'), week ('Oct 24 – 30') }
+async function generateCoachCard(kind, model, opts) {
+  opts = opts || {};
+  const format = opts.format || await pickCardFormat();
+  if (!format || !model) return null;
+  const story = format === 'story';
+  const tint = /^#[0-9a-f]{6}$/i.test(String(opts.tint || '')) ? opts.tint : null;
+  const fmt = typeof opts.fmt === 'function' ? opts.fmt : (kg) => String(Math.round(kg * 10) / 10);
+  const unit = String(opts.unit || 'kg');
+  const footer = (opts.footer ? String(opts.footer).slice(0, 40) + ' · ' : '') + 'powalifta.com';
+  // A sub line steps down until it fits (the wide face runs long).
+  const sub = (x, W, y, text) => {
+    let size = 52;
+    for (;;) { x.font = '800 ' + size + 'px Archivo, "Arial Black", sans-serif'; if (x.measureText(text).width <= W - 160 || size <= 34) break; size -= 2; }
+    x.textAlign = 'center'; x.fillStyle = '#f4f4f6'; x.fillText(text, W / 2, y);
+  };
+  const small = (x, W, y, text) => { x.textAlign = 'center'; x.font = '400 30px Archivo, sans-serif'; x.fillStyle = '#82828c'; x.fillText(text, W / 2, y); };
+  if (kind === 'block') {
+    const Y = story ? { logo: 300, tag: 540, big: 1010, sub: 1130, lines: 1270, note: 1530, foot: 1920 - 330 }
+      : { logo: 104, tag: 250, big: 700, sub: 810, lines: 930, note: 1200, foot: 1350 - 70 };
+    const { c, x, W } = await _shareCanvas(format, Y.logo, { tint });
+    _cardTag(x, W, Y.tag, 'THIS BLOCK', tint);
+    const avg = Number(model.avg) || 0;
+    _cardBig(x, W, Y.big, (avg > 0 ? '+' : avg < 0 ? '−' : '') + fmt(Math.abs(avg)), unit.toUpperCase());
+    sub(x, W, Y.sub, avg >= 0 ? 'MY LIFTERS\u2019 AVERAGE GAIN' : 'MY LIFTERS\u2019 AVERAGE CHANGE');
+    const top = (model.rows || []).slice(0, 3).map(r => ({ l: cardName(r.name), r: (r.delta > 0 ? '+' : r.delta < 0 ? '−' : '') + fmt(Math.abs(r.delta)) + ' ' + unit }));
+    _cardLines(x, W, Y.lines, top, 80);
+    small(x, W, Y.note, 'e1RM totals of ' + model.n + (model.n === 1 ? ' lifter' : ' lifters') + ', since the block began');
+    _cardFooter(x, W, Y.foot, footer);
+    return c;
+  }
+  // The PR wall.
+  const rows = Array.isArray(model) ? model : [];
+  const Y = story ? { logo: 300, tag: 470, big: 790, sub: 890, rows: 1010, last: 1530, foot: 1920 - 330 }
+    : { logo: 104, tag: 214, big: 516, sub: 604, rows: 712, last: 1196, foot: 1350 - 70 };
+  const { c, x, W } = await _shareCanvas(format, Y.logo, { tint });
+  _cardTag(x, W, Y.tag, 'PR WALL', tint);
+  _cardBig(x, W, Y.big, String(rows.length), rows.length === 1 ? 'PR' : 'PRs');
+  sub(x, W, Y.sub, ('THIS WEEK' + (opts.week ? ' · ' + opts.week : '')).toUpperCase());
+  const pitch = 74, fit = Math.floor((Y.last - Y.rows) / pitch) + 1;
+  const shown = rows.length > fit ? rows.slice(0, fit - 1) : rows;
+  const colour = { squat: '#38c6ff', bench: '#a98bff', deadlift: '#ffbf3c' };
+  let y = Y.rows;
+  shown.forEach((p, i) => {
+    const right = prWallLift(p, fmt) + (p.reps > 1 ? '' : ' ' + unit);
+    const first = !i || shown[i - 1].id !== p.id;   // the lifter's name once, on their first row
+    x.strokeStyle = first ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)';
+    x.beginPath(); x.moveTo(first ? 140 : 380, y - 44); x.lineTo(W - 140, y - 44); x.stroke();
+    x.textAlign = 'left';
+    x.font = '700 34px Archivo, sans-serif';
+    x.fillStyle = '#82828c';
+    if (first) x.fillText(cardName(p.name).toUpperCase(), 140, y);
+    x.textAlign = 'right';
+    x.font = '700 38px Archivo, sans-serif';
+    x.fillStyle = '#f4f4f6';
+    x.fillText(right, W - 140, y);
+    const tw = x.measureText(right).width;
+    x.fillStyle = colour[p.lift] || '#f4f4f6';
+    x.beginPath(); x.arc(W - 140 - tw - 24, y - 13, 9, 0, Math.PI * 2); x.fill();
+    y += pitch;
+  });
+  if (shown.length < rows.length) {
+    x.strokeStyle = 'rgba(255,255,255,0.10)';
+    x.beginPath(); x.moveTo(140, y - 44); x.lineTo(W - 140, y - 44); x.stroke();
+    small(x, W, y, 'and ' + (rows.length - shown.length) + ' more');
+  }
+  x.textAlign = 'center';
+  _cardFooter(x, W, Y.foot, footer);
   return c;
 }
 
@@ -4704,8 +4853,10 @@ window.closeSettingsModal = closeSettingsModal;
 let _mfaPendingFactor = null;
 
 // The code prompt. Resolves true once the code verifies (the session is now aal2), false when
-// the person cancels: the second button, Esc, or anything else closing the modal (a tap on
-// the backdrop doesn't: data-sticky). opts.cancelLabel: 'Cancel' on the sign-in screens,
+// the person picks the second button, null when it's put away any other way: Esc, or anything
+// else closing the modal (a tap on the backdrop doesn't: data-sticky). Every sign-in screen
+// treats both as Cancel; an open dashboard's prompt (_mfaStepUp inPlace) keeps the session on
+// null (mfaStepOutcome). opts.cancelLabel: 'Cancel' on the sign-in screens,
 // 'Sign out' at boot, where cancelling is exactly that. opts.client: the supabase-js client whose
 // session owes the code (reset-password.html's link client; default db.js's). opts.lead: the line
 // under the title. One prompt at a time: asked again while one is open for the same session (bootstrap
@@ -4745,9 +4896,9 @@ function promptMfaChallenge(opts) {
     verifyBtn.disabled = false; verifyBtn.textContent = 'Verify';
     cancelBtn.textContent = opts.cancelLabel || 'Cancel';
     let settled = false;
-    // Esc (closeAllModals) or any other script taking .open away counts as Cancel, so the caller
-    // never waits on a prompt nobody can see.
-    const watch = new MutationObserver(() => { if (!modal.classList.contains('open')) cleanup(false); });
+    // Esc (closeAllModals) or any other script taking .open away answers it (null: put away, not the
+    // second button), so the caller never waits on a prompt nobody can see.
+    const watch = new MutationObserver(() => { if (!modal.classList.contains('open')) cleanup(null); });
     function cleanup(result) {
       if (settled) return;
       settled = true;
@@ -4795,6 +4946,15 @@ window.promptMfaChallenge = promptMfaChallenge;
 // opts.owed: Auth (GET /user) shows a verified factor that the stored session's copy of the user predates
 // (two-factor turned on from another device): the aal1 token alone says the code is owed. opts.lead: the
 // prompt's line. opts.inPlace: an open dashboard asks (_mfaStepUpInPlace), which signs out itself on 'out'.
+// Pure: what the code prompt's answer means for the session (night C, 30 Oct). The code verified: 'in'. The second
+// button ("Sign out"): 'out'. Put away any other way (Esc, a script closing every modal; promptMfaChallenge's null):
+// at load that is Sign out too, since nothing reads without the code, but on an open dashboard (in place) the session
+// stays: 'later'. What waits keeps waiting on this device, and the next refused write asks again.
+function mfaStepOutcome(answer, inPlace) {
+  if (answer === true) return 'in';
+  if (answer === null && inPlace) return 'later';
+  return 'out';
+}
 async function _mfaStepUp(opts) {
   opts = opts || {};
   let aal = null;
@@ -4805,10 +4965,16 @@ async function _mfaStepUp(opts) {
   let passed = false;
   try { passed = await promptMfaChallenge({ cancelLabel: 'Sign out', lead: opts.lead }); } catch (e) { passed = false; }
   window._mfaStepUpPending = false;
-  if (passed) {
+  const step = mfaStepOutcome(passed, !!opts.inPlace);
+  if (step === 'in') {
+    window._mfaLater = false;
     setTimeout(() => { try { if (navigator.onLine) { flushPendingLogs(); flushOutbox(); } } catch (e) {} }, 1200);
     return 'in';
   }
+  // In place, put away (Esc): still signed in, what waits keeps waiting, asked again at the next refused write. At aal1
+  // every read comes back empty (row 60), so until the code is in, this device's snapshot keeps its last good copy
+  // (night C review m14): a read that came back empty can't be saved over the lifter's training.
+  if (step === 'later') { window._mfaLater = true; return 'later'; }
   if (opts.inPlace) window._signingOut = true;   // this sign-out is the caller's, not one for _watchSignOut to chase
   try { await DB.signOut('local'); } catch (e) {}
   _dropStoredSession();   // offline that call keeps the session, and the next load would ask for the code again
@@ -4840,7 +5006,8 @@ async function _codeOwedPerAuth() {
 // The code, asked for in place on an open dashboard whose writes are refused at aal1 (the account turned two-factor
 // on elsewhere). One prompt however many writes were refused; meanwhile nothing replays (_mfaStepUpPending), so no
 // try is counted. Code entered: _mfaStepUp sends what waits, at aal2. "Sign out": this device only, and what waits
-// stays for this account, as on any sign-out it didn't choose; then the welcome. → 'in' | 'out' | 'none'.
+// stays for this account, as on any sign-out it didn't choose; then the welcome. Put away (Esc): still signed in, what
+// waits keeps waiting, the next refused write asks again. → 'in' | 'out' | 'later' | 'none'.
 const _MFA_IN_PLACE_LEAD = 'Two-factor is on for this account now. Enter the 6-digit code from your authenticator app to keep syncing. Until then, your changes wait on this device.';
 let _mfaInPlace = null;
 function _mfaStepUpInPlace() {
@@ -7506,6 +7673,134 @@ function liftersClass(bwKg, sex, targetClass) {
   if (t > 0) return t + ' kg';
   return weightClassFor(bwKg, sex);
 }
+
+// STRONGER THAN X% (night C, 30 Oct): where a lifter's e1RMs sit among everyone who lifted in their class at a meet.
+// opl-percentiles.json (shipped with the app, 29 KB) is computed from OpenPowerlifting's public-domain bulk CSV: the
+// best squat, bench, deadlift and total of every lifter, once per IPF open class (from the meet bodyweight), at a
+// sanctioned full-power meet since 2021, raw or single-ply, men and women; the 1st to 99th percentile of each, in
+// 0.5 kg steps written as the first value then the steps up. Its source, data date and rule ride in the file.
+// Nothing is shown when it can't be sourced: no file, no class, a group under 100 lifters.
+let _oplTableP = null;
+function loadOplTable() {
+  if (!_oplTableP) _oplTableP = fetch('opl-percentiles.json').then(r => (r.ok ? r.json() : null)).catch(() => null)
+    .then(t => { if (!t || !t.b) _oplTableP = null; return t && t.b ? t : null; });
+  return _oplTableP;
+}
+function getEquipPref() { try { return localStorage.getItem('powa-equip') === 'equipped' ? 'equipped' : 'raw'; } catch (e) { return 'raw'; } }
+function setEquipPref(v) { try { localStorage.setItem('powa-equip', v === 'equipped' ? 'equipped' : 'raw'); } catch (e) {} }
+// The table's key for a lifter: 'M|raw|83', 'F|eq|84+'. cls is the app's class name ("83 kg", "120 kg+"). Pure.
+function oplKey(sex, equip, cls) {
+  const m = /^(\d{2,3})\s*kg(\+)?$/.exec(String(cls || '').trim());
+  if (!m) return null;
+  return (sex === 'female' ? 'F' : 'M') + '|' + (equip === 'equipped' ? 'eq' : 'raw') + '|' + m[1] + (m[2] ? '+' : '');
+}
+// An IPF open class for this sex, as the app names it ("83 kg", the top one "120 kg+"). Pure.
+function oplClassValid(cls, sex) {
+  const m = /^(\d{2,3})\s*kg(\+)?$/.exec(String(cls || '').trim());
+  if (!m) return false;
+  const arr = IPF_CLASSES[sex === 'female' ? 'female' : 'male'];
+  return m[2] ? Number(m[1]) === arr[arr.length - 1] : arr.indexOf(Number(m[1])) >= 0;
+}
+// The 99 percentile values (kg) of one lift in one group, from the file's steps. Pure.
+function oplValues(steps) {
+  if (!Array.isArray(steps) || steps.length !== 99) return null;
+  const out = []; let v = 0;
+  for (let i = 0; i < steps.length; i++) { const s = Number(steps[i]); if (!isFinite(s) || s < 0) return null; v = i ? v + s : s; out.push(v / 2); }
+  return out;
+}
+// The share of the group a weight beats: the percentile rank, linear between the table's points, whole percent rounded
+// down (it never claims more than the table says). Below the 1st percentile → 0; past the 99th → 99. Pure: tested.
+function oplRank(vals, kg) {
+  const x = Number(kg);
+  if (!vals || !(x > 0)) return null;
+  if (x < vals[0]) return 0;
+  if (x >= vals[98]) return 99;
+  let i = 0;
+  while (i < 98 && vals[i + 1] < x) i++;   // vals[i] < x <= vals[i + 1] (or x === vals[0])
+  const lo = vals[i], hi = vals[i + 1];
+  const p = (i + 1) + (hi > lo ? (x - lo) / (hi - lo) : 0);
+  return Math.max(1, Math.min(99, Math.floor(p + 1e-9)));
+}
+// Everything a screen needs. o: { sex, equip, cls ("83 kg"), kg: { total, squat, bench, deadlift } (e1RMs),
+// lifted: { total, squat, bench, deadlift } (what was on the bar: the best singles, from a meet or training; optional),
+// liftedKind: 'meet' (all three from one meet, liftedMeet its name) | 'singles' }.
+// → { key, cls, group: 'raw men', n, since, data, lifts: { total|squat|bench|deadlift: { kg, pct } } (the e1RMs),
+//     lifted: { … } (the same for what was lifted; empty without), liftedKind, liftedMeet } | null. Pure: tested.
+function strongerThan(table, o) {
+  if (!table || !table.b || !o) return null;
+  const key = oplKey(o.sex, o.equip, o.cls);
+  const g = key && table.b[key];
+  if (!g || !(g.n >= 100)) return null;
+  const col = { total: 't', squat: 's', bench: 'b', deadlift: 'd' };
+  const rank = (src) => {
+    const out = {};
+    Object.keys(col).forEach(L => {
+      const kg = Number((src || {})[L]);
+      const pct = kg > 0 ? oplRank(oplValues(g[col[L]]), kg) : null;
+      if (pct != null) out[L] = { kg, pct };
+    });
+    return out;
+  };
+  const lifts = rank(o.kg), lifted = rank(o.lifted);
+  if (!Object.keys(lifts).length && !Object.keys(lifted).length) return null;
+  return { key, cls: String(o.cls).trim(), group: (o.equip === 'equipped' ? 'equipped ' : 'raw ') + (o.sex === 'female' ? 'women' : 'men'),
+    n: g.n, since: String(table.since || '').slice(0, 4), data: table.data || '', lifts, lifted,
+    liftedKind: lifted.total ? (o.liftedKind === 'meet' ? 'meet' : 'singles') : null, liftedMeet: lifted.total && o.liftedKind === 'meet' ? String(o.liftedMeet || '') : '' };
+}
+// What the line ranks (night C review M8): what was lifted when there is one (a meet total, else the best singles
+// added up), never the training estimate above a real total that ranks lower; with nothing lifted, the e1RM total.
+// → { kind: 'meet' | 'singles' | 'e1rm', kg, pct, meet } | null. Pure: tested.
+function strongerHeadline(r) {
+  if (!r) return null;
+  const x = r.lifted && r.lifted.total;
+  if (x) return { kind: r.liftedKind === 'meet' ? 'meet' : 'singles', kg: x.kg, pct: x.pct, meet: r.liftedMeet || '' };
+  const e = r.lifts && r.lifts.total;
+  return e ? { kind: 'e1rm', kg: e.kg, pct: e.pct, meet: '' } : null;
+}
+// The line, saying what it ranks: "Meet total: stronger than 47% of 83 kg raw men", "Best singles: …", "e1RM total: …";
+// a lift: "Best single: …" when one was lifted, else "e1RM: …". Null under the 1st percentile: there is nothing kind or
+// useful to say with a 0. Pure: tested.
+function strongerLine(r, lift) {
+  if (!r) return null;
+  let x, label;
+  if (!lift || lift === 'total') {
+    const h = strongerHeadline(r);
+    x = h; label = h && (h.kind === 'meet' ? 'Meet total' : h.kind === 'singles' ? 'Best singles' : 'e1RM total');
+  } else {
+    const one = r.lifted && r.lifted[lift];
+    x = one || (r.lifts && r.lifts[lift]); label = one ? 'Best single' : 'e1RM';
+  }
+  if (!x || !(x.pct >= 1)) return null;
+  return label + ': stronger than ' + x.pct + '% of ' + r.cls + ' ' + r.group;
+}
+// The lifter's own numbers, as the screens show them: the best competition-equivalent e1RMs (the total once all three
+// have one), what was lifted (bestSingle: the heaviest competition single from a meet or training; the total once all
+// three exist, a meet total when all three came from one meet, as Progress's line says it), their class (liftersClass:
+// the class they're cutting for wins) and the comparison asked for. opts.sex: another group to compare with, for a view
+// only (Where you stand's Men / Women; the lifter's own category, getSexPref, is never changed). → { … } | null
+function strongerInputs(athleteId, opts) {
+  opts = opts || {};
+  const bw = latestBodyweight(athleteId);
+  const sex = opts.sex === 'female' || opts.sex === 'male' ? opts.sex : getSexPref();
+  const target = typeof targetClassOf === 'function' ? targetClassOf(athleteId) : null;   // athlete.html: the class of a cut
+  let cls = bw || target ? liftersClass(bw, sex, target) : null;
+  if (!oplClassValid(cls, sex)) cls = bw ? weightClassFor(bw, sex) : null;   // a cut's class that isn't one for this sex (83 for a woman): the weigh-in's
+  if (!cls) return null;
+  const kg = { squat: bestE1RM(athleteId, 'squat'), bench: bestE1RM(athleteId, 'bench'), deadlift: bestE1RM(athleteId, 'deadlift') };
+  kg.total = kg.squat > 0 && kg.bench > 0 && kg.deadlift > 0 ? kg.squat + kg.bench + kg.deadlift : 0;
+  const lifted = {}, parts = {};
+  ['squat', 'bench', 'deadlift'].forEach(L => { const b = bestSingle(athleteId, L); if (b) { parts[L] = b; lifted[L] = b.kg; } });
+  let liftedKind = null, liftedMeet = '';
+  if (parts.squat && parts.bench && parts.deadlift) {
+    lifted.total = parts.squat.kg + parts.bench.kg + parts.deadlift.kg;
+    const meets = new Set(['squat', 'bench', 'deadlift'].map(L => parts[L].meet).filter(Boolean));
+    const allMeet = ['squat', 'bench', 'deadlift'].every(L => parts[L].source === 'meet');
+    liftedKind = allMeet && meets.size === 1 ? 'meet' : 'singles';
+    if (liftedKind === 'meet') liftedMeet = Array.from(meets)[0];
+  }
+  return { sex, equip: getEquipPref(), cls, kg, lifted, liftedKind, liftedMeet };
+}
+if (typeof window !== 'undefined') Object.assign(window, { loadOplTable, getEquipPref, setEquipPref, oplKey, oplClassValid, oplValues, oplRank, strongerThan, strongerHeadline, strongerLine, strongerInputs });
 
 // "Make weight" math: where the lifter sits inside their IPF class and what it
 // takes to move. All kg (classes are inherently kg; the view converts the gaps
@@ -10242,6 +10537,7 @@ const ICONS = {
   program: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>',
   chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>',
   today: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4"/></svg>',
   scale: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="M8 10a4.5 4.5 0 0 1 8 0"/><path d="M12 10.2l1.6-2.3"/></svg>',
   flame: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
   user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
@@ -17412,6 +17708,99 @@ function meetAttemptsSet(m) {
   if (!m.id) return false;
   try { const lp = JSON.parse(localStorage.getItem('powa-attempt-plans') || 'null'); return !!(lp && has(lp[m.id])); } catch (e) { return false; }
 }
+// MEETS TO CALENDAR (night C, 30 Oct): a meet as an .ics file (iCalendar, RFC 5545) for Apple Calendar, Google
+// Calendar or Outlook. meet: { id?, name, date 'YYYY-MM-DD', federation?, division?, weightClass?, weighIn '2h'|'24h'?,
+// weighInAt 'YYYY-MM-DDTHH:MM[:SS]' (the meet's local time, as the planner saves it; or with Z/an offset)?, location? }.
+// weighIns: [{ weighIn, weighInAt, who: ['Arjun'], key }] (a grouped meet's lifters by weigh-in time) in place of the one.
+// opts: { now (ms or Date: DTSTAMP), who: ['Arjun', 'Tom'] (the coach's lifters at it), uidKey (a stable id for a
+// grouped meet) }. One all-day event on the meet date, and the weigh-in as its own timed event when its time is set
+// (1 h 30 for a 2-hour weigh-in, the IPF's window; 1 h for a 24-hour one), with a reminder 30 minutes before. The
+// same meet exported twice has the same UIDs, so a calendar updates it instead of adding a copy. Every text is
+// escaped and folded, so a name can't add a line of its own. → { text, filename } | null (no valid date). Pure: tested.
+function meetIcs(meet, opts) {
+  opts = opts || {};
+  const date = _isoDay(meet && meet.date);
+  if (!date) return null;
+  const clean = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max || 200);
+  const esc = (v) => String(v).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n');
+  // Lines longer than 75 octets fold onto the next with a space (RFC 5545 3.1), never inside a character.
+  const fold = (line) => {
+    const enc = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;
+    const bytes = (s) => enc ? enc.encode(s).length : unescape(encodeURIComponent(s)).length;
+    if (bytes(line) <= 75) return line;
+    const out = []; let cur = '', limit = 75;
+    for (const ch of Array.from(line)) {
+      if (bytes(cur + ch) > limit) { out.push(cur); cur = ''; limit = 74; }
+      cur += ch;
+    }
+    if (cur) out.push(cur);
+    return out.join('\r\n ');
+  };
+  const name = clean(meet.name, 120) || 'Meet';
+  const d8 = (iso) => iso.replace(/-/g, '');
+  const next = _addDaysISO(date, 1);
+  const stampMs = opts.now instanceof Date ? opts.now.getTime() : (Number(opts.now) || Date.now());
+  const utc = (ms) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'meet';
+  const key = clean(opts.uidKey || meet.id || (slug(name) + '-' + date), 80).replace(/[^A-Za-z0-9._-]/g, '-');
+  const who = (opts.who || []).map(w => clean(w, 40)).filter(Boolean);
+  // One weigh-in: { weighIn, weighInAt } → its event's times and clock, or null without a readable time.
+  const weigh = (o) => {
+    const wi = o && (o.weighIn === '2h' || o.weighIn === '24h') ? o.weighIn : null;
+    const at = String((o && o.weighInAt) || '');
+    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(Z|[+-]\d{2}:?\d{2})?$/.exec(at);
+    let start = null, end = null;
+    if (m) {
+      const mins = wi === '24h' ? 60 : 90;
+      if (m[7]) {   // a zone was given: the moment in UTC
+        const t = Date.parse(at);
+        if (isFinite(t)) { start = utc(t); end = utc(t + mins * 60000); }
+      } else {      // the meet's local time, as calendars read a time with no zone (floating)
+        const t = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+        const f = (ms) => new Date(ms).toISOString().slice(0, 19).replace(/[-:]/g, '');
+        start = f(t); end = f(t + mins * 60000);
+      }
+    }
+    return { wi, start, clock: m ? m[4] + ':' + m[5] : '', end };
+  };
+  // A grouped meet whose lifters weigh in at different times (meet.weighIns: [{ weighIn, weighInAt, who, key }], night C
+  // review m2): one weigh-in event per time, each naming its lifters; one shared time stays one event for all.
+  const list = Array.isArray(meet.weighIns) && meet.weighIns.length
+    ? meet.weighIns.map(x => Object.assign(weigh(x), { who: (x.who || []).map(w => clean(w, 40)).filter(Boolean), key: clean(x.key || '', 40).replace(/[^A-Za-z0-9._-]/g, '-') }))
+    : [Object.assign(weigh(meet), { who: [], key: '' })];
+  const timed = list.filter(x => x.start);
+  const several = timed.length > 1;
+  const kind = (wi) => (wi === '2h' ? '2-hour weigh-in' : '24-hour weigh-in');
+  const wiLine = several ? 'Weigh-ins: ' + timed.map(x => (x.who.length ? x.who.join(' and ') + ' ' : '') + x.clock).join(', ')
+    : list[0].wi ? kind(list[0].wi) + (timed[0] ? ' at ' + timed[0].clock : '') : '';
+  const details = [[clean(meet.federation, 60), clean(meet.division, 60), meet.weightClass ? clean(String(meet.weightClass).replace(/\s*kg\s*$/i, ''), 12) + ' kg class' : ''].filter(Boolean).join(' · '),
+    wiLine, who.length ? 'Lifting: ' + who.join(', ') : ''].filter(Boolean);
+  const loc = clean(meet.location, 160);
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//POWALIFTA//Meets//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'BEGIN:VEVENT', 'UID:meet-' + key + '@powalifta.com', 'DTSTAMP:' + utc(stampMs),
+    'DTSTART;VALUE=DATE:' + d8(date), 'DTEND;VALUE=DATE:' + d8(next), 'SUMMARY:' + esc(name)];
+  if (details.length) lines.push('DESCRIPTION:' + esc(details.join('\n')));
+  if (loc) lines.push('LOCATION:' + esc(loc));
+  lines.push('TRANSP:TRANSPARENT', 'END:VEVENT');
+  timed.forEach((x) => {
+    lines.push('BEGIN:VEVENT', 'UID:weighin-' + key + (several && x.key ? '-' + x.key : '') + '@powalifta.com', 'DTSTAMP:' + utc(stampMs),
+      'DTSTART:' + x.start, 'DTEND:' + x.end, 'SUMMARY:' + esc('Weigh-in · ' + name + (several && x.who.length ? ' · ' + x.who.join(', ') : '')));
+    if (loc) lines.push('LOCATION:' + esc(loc));
+    lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc('Weigh-in in 30 minutes'), 'TRIGGER:-PT30M', 'END:VALARM', 'END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return { text: lines.map(fold).join('\r\n') + '\r\n', filename: slug(name) + '-' + date + '.ics' };
+}
+// Save a meet's .ics: a download on the web, the share sheet the exports use in the iPhone app (_downloadBlob). The
+// demo too: it's a file on this device, nothing is sent. → the _downloadBlob promise
+function saveMeetToCalendar(meet, opts) {
+  const ics = meetIcs(meet, opts);
+  if (!ics) { toast('This meet has no date yet'); return Promise.resolve(false); }
+  return _downloadBlob(ics.filename, 'text/calendar;charset=utf-8', ics.text).then(done => {
+    if (done === 'downloaded') toast('Open ' + ics.filename + ' to add it to your calendar');
+    return done;
+  });
+}
 function _wkBetween(fromMon, toMon) { return Math.round((Date.parse(toMon + 'T12:00:00Z') - Date.parse(fromMon + 'T12:00:00Z')) / (7 * 86400000)); }
 // "W-3" (three weeks out), "Meet week", "W+1" (the week after).
 function meetWeekLabel(weekStartIso, meetIso) {
@@ -17724,7 +18113,80 @@ function blockAchieved(prog, logs, athleteId, todayIso) {
   const tb = lifts.reduce((s, x) => s + x.before, 0), tn = lifts.reduce((s, x) => s + x.now, 0);
   return { start, lifts, total: both ? { before: Math.round(tb * 10) / 10, now: Math.round(tn * 10) / 10, delta: Math.round((tn - tb) * 10) / 10 } : null };
 }
-if (typeof window !== 'undefined') Object.assign(window, { rpePctOfMax, teamWeekLoads, teamPushPreview, teamStripOverrides, calendarBarMeet, calendarWarnings, calendarDragWeeks, moveBlockStart, blockAchieved });
+// RESULTS CARDS (night C, 30 Oct): the coach's "My lifters gained X kg this block" and this week's PR wall, from the
+// roster's own logs, never invented. Pure: tested.
+// The block's gain: each lifter whose block is running today (its first Monday on or before today, its last day on
+// or after), with blockAchieved's total change: each main lift's best e1RM since the block began against the 8 weeks
+// before it, all three needed or the lifter isn't counted. avg: their mean to 0.5 kg, rows most first.
+// → { avg, n (counted), running (blocks running), rows: [{ id, name, delta, before, now }] } | null (nobody counted)
+function teamBlockGain(athletes, programs, logs, todayIso) {
+  const t = _isoDay(todayIso) || todayISO();
+  const rows = [];
+  let running = 0;
+  (athletes || []).forEach(a => {
+    if (!a || !a.id) return;
+    const prog = (programs || []).find(p => p && p.athleteId === a.id);
+    const st = prog && programStartsOn(prog, t), en = prog && programEndsOn(prog, t);
+    if (!st || !en || st > t || en < t) return;
+    running++;
+    const ach = blockAchieved(prog, logs, a.id, t);
+    if (!ach || !ach.total) return;
+    rows.push({ id: a.id, name: a.name || '', delta: ach.total.delta, before: ach.total.before, now: ach.total.now });
+  });
+  if (!rows.length) return null;
+  rows.sort((x, y) => y.delta - x.delta || String(x.name).localeCompare(String(y.name)));
+  const avg = Math.round(rows.reduce((sum, r) => sum + r.delta, 0) / rows.length * 2) / 2;
+  return { avg, n: rows.length, running, rows };
+}
+// This week's PR wall: every lifter's e1RM PRs logged today and in the 6 days before, the best of each lift: what
+// was on the bar (weight × reps; the variant when it isn't the competition lift). A PR beats every earlier set of
+// that lift by more than 0.05 kg (isPRForLog's rule, same-day sets in id order); a lift's first set is never one.
+// → [{ id, name, lift, variant, weight, reps, e1rm, date }] by lifter (the one with the newest PR first, then by name),
+//   each lifter's in squat, bench, deadlift order
+function teamPrWall(athletes, logs, todayIso) {
+  const t = _isoDay(todayIso) || todayISO();
+  const since = _addDaysISO(t, -6);
+  const out = [];
+  const by = new Map();
+  (logs || []).forEach(l => {
+    if (!l || !l.athleteId || MAIN_LIFTS.indexOf(l.lift) < 0 || !(Number(l.e1rmComp) > 0) || !_isoDay(l.date)) return;
+    (by.get(l.athleteId) || by.set(l.athleteId, []).get(l.athleteId)).push(l);
+  });
+  (athletes || []).forEach(a => {
+    if (!a || !a.id) return;
+    const mine = (by.get(a.id) || []).slice().sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : String(x.id) < String(y.id) ? -1 : String(x.id) > String(y.id) ? 1 : 0));
+    const best = {}, prs = {};
+    mine.forEach(l => {
+      const v = Number(l.e1rmComp), d = _isoDay(l.date), prev = best[l.lift];
+      if (prev != null && v > prev + 0.05 && d >= since && d <= t && (!prs[l.lift] || v > Number(prs[l.lift].e1rmComp))) prs[l.lift] = l;
+      if (prev == null || v > prev) best[l.lift] = v;
+    });
+    MAIN_LIFTS.forEach(L => {
+      const l = prs[L];
+      if (l) out.push({ id: a.id, name: a.name || '', lift: L, variant: l.variant || 'Competition', weight: Number(l.weight) || 0, reps: Number(l.reps) || 0, e1rm: Number(l.e1rmComp), date: _isoDay(l.date) });
+    });
+  });
+  const newest = {};
+  out.forEach(p => { if (!newest[p.id] || p.date > newest[p.id]) newest[p.id] = p.date; });
+  return out.sort((x, y) => (x.id === y.id ? MAIN_LIFTS.indexOf(x.lift) - MAIN_LIFTS.indexOf(y.lift)
+    : newest[x.id] < newest[y.id] ? 1 : newest[x.id] > newest[y.id] ? -1 : String(x.name).localeCompare(String(y.name)) || (x.id < y.id ? -1 : 1)));
+}
+// A name on a public card: first name and the last name's initial ("Arjun M."). Pure.
+function cardName(name) {
+  const w = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!w.length) return 'Lifter';
+  return w.length > 1 ? w[0] + ' ' + w[w.length - 1].charAt(0).toUpperCase() + '.' : w[0];
+}
+// What a PR wall row says was lifted: "Squat 182.5 × 3", "Squat 205" for a single, the variant's name when it isn't
+// the competition lift ("Paused squat 170 × 3"). fmt: a kg → display text function (the coach's unit). Pure.
+function prWallLift(p, fmt) {
+  const show = typeof fmt === 'function' ? fmt : (kg) => String(Math.round(kg * 10) / 10);
+  const v = String(p.variant || 'Competition'), base = LIFT_LABELS[p.lift] || p.lift;
+  const VN = { 'Pin Press': 'Pin press', 'RDL': 'RDL', 'Close Grip': 'Close grip bench' };
+  const name = v === 'Competition' ? base : (VN[v] || v.charAt(0).toUpperCase() + v.slice(1).toLowerCase() + ' ' + String(base).toLowerCase());
+  return name + ' ' + show(p.weight) + (p.reps > 1 ? ' × ' + p.reps : '');
+}
+if (typeof window !== 'undefined') Object.assign(window, { rpePctOfMax, teamWeekLoads, teamPushPreview, teamStripOverrides, calendarBarMeet, calendarWarnings, calendarDragWeeks, moveBlockStart, blockAchieved, teamBlockGain, teamPrWall, cardName, prWallLift });
 
 // ----- Scoring per federation (brief §8: one number, the formula always named) -----
 // IPF and its member federations score in IPF GL points; everyone else knows DOTS. (SPF is the

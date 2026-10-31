@@ -533,6 +533,17 @@ function _coachReady() {
   const _fcReady = refreshFormChecks();
   // The Monday push opens coach.html?report=week: Last week's report, once the form checks are in.
   if (window.CoachReportUI) CoachReportUI.fromLink(_fcReady);
+  // A new application's push or email opens coach.html?lead=ID (apply-to-coach, night C): Lifters, then its sheet.
+  try {
+    const lid = new URLSearchParams(location.search).get('lead');
+    if (lid) {
+      history.replaceState(null, '', location.pathname + location.search.replace(/([?&])lead=[^&]*&?/, '$1').replace(/[?&]$/, '') + location.hash);
+      setTimeout(() => {
+        if (_desk()) _deskCall('deskGo', 'roster'); else { const t = document.getElementById('tab-athletes'); if (t) t.click(); }
+        if (window.ClientsUI && ClientsUI.openLead) ClientsUI.openLead(lid);
+      }, 450);
+    }
+  } catch (e) {}
 
   // A plan bought or changed anywhere (web checkout, the App Store, another device)
   // shows up here at once: app.js watches this coach's profile row (realtime, focus,
@@ -657,6 +668,7 @@ function renderCoachYou() {
         fresh ? { label: 'Get set up', value: setup.filter(x => x.done).length + ' of ' + setup.length, icon: svg('<path d="M3.5 6.5l1.5 1.5 3-3M3.5 12.5l1.5 1.5 3-3M3.5 18.5l1.5 1.5 3-3M11 7h9.5M11 13h9.5M11 19h9.5"/>'), tint: 'gold', onClick: () => (window.CoachYou ? CoachYou.openSetup() : go('athletes')()) } : null,
         // Monday review (weekly-note.js): everyone due a note this week, one card each.
         window.WeeklyNote && WeeklyNote.openDeck && roster.length ? _youWeeklyNotesRow(svg) : null,
+        // Clients: what's overdue. (Applications wait on Lifters, under New lifters: night C review M5.)
         window.ClientsUI && roster.length ? { label: 'Clients', value: overdue ? overdue + ' overdue' : '', warn: !!overdue, icon: ClientsUI.ICON, tint: 'green', onClick: go('clients') } : null,
         // How many more lifters fit your hours (capacity.js): room left, in lifters.
         window.CapacityUI ? { label: 'Capacity', value: CapacityUI.rowValue(), icon: CapacityUI.ICON, tint: 'iris', onClick: go('capacity') } : null,
@@ -665,6 +677,8 @@ function renderCoachYou() {
         // How next week moves (progression.js): a screen of its own, pushed from here.
         window.ProgressionUI && roster.length ? { label: 'Progression rules', value: ProgressionUI.summary(), icon: ProgressionUI.ICON, tint: 'teal', onClick: go('rules') } : null,
         brandRow(tier, showPlan),
+        // Results cards (night C): the block's gain and this week's PR wall as a card to post.
+        window.CoachYou && CoachYou.resultsRow && roster.length ? CoachYou.resultsRow() : null,
         { label: 'Templates', onClick: go('templates') },
         inShell ? null : { label: 'Marketplace listings', onClick: go('marketplace') },
         // A brand-new coach has the invite as the red above: the row would say it twice.
@@ -929,62 +943,77 @@ function buildAttentionPanel() {
   return wrap;
 }
 
-// ===== JOIN REQUESTS — athletes who found this coach in the directory and
-// asked to connect. Accept links them (accept_coach_request RPC); Decline is a
-// plain status UPDATE. Real-Supabase only; demo has no request loop.
-async function renderJoinRequests(host) {
-  if (!host || window._demoMode) return;
-  let reqs = [];
-  try { reqs = await DB.listCoachRequestsForCoach(user.id); } catch (e) { return; }
-  if (!reqs.length) return;
-  if (!_desk()) { host.appendChild(_joinRequestsPhone(reqs)); return; }
-
-  const card = el('div', { class: 'card', style: 'margin-bottom:16px; border-color:var(--line-red); box-shadow:0 0 0 1px var(--red-glow-2);' });
-  const head = el('div', { class: 'roster-sec-head' });
-  head.appendChild(el('h3', { class: 'prog-sec', style: 'margin:0;' }, 'Join requests'));
-  head.appendChild(el('span', { class: 'roster-sec-badge' }, reqs.length + ' waiting'));
-  card.appendChild(head);
-
-  reqs.forEach(req => {
-    const row = el('div', { style: 'display:flex; gap:12px; align-items:center; padding:10px 4px; border-top:1px solid var(--line);' });
-    const av = el('div', { class: 'av', 'data-name': req.athleteName || '', style: 'width:40px; height:40px; border-radius:50%; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center; flex:none;' }, initials(req.athleteName));
-    row.appendChild(av);
-    const info = el('div', { style: 'flex:1; min-width:0;' });
-    info.appendChild(el('div', { style: 'font-weight:700;' }, req.athleteName));
-    info.appendChild(el('p', { class: 'dim text-sm', style: 'margin:2px 0 0;' }, req.note ? req.note : 'Wants to train with you.'));
-    row.appendChild(info);
-    const acceptBtn = el('button', { class: 'btn btn-primary btn-sm', style: 'white-space:nowrap;' }, 'Accept');
-    const declineBtn = el('button', { class: 'btn btn-ghost btn-sm', style: 'white-space:nowrap;' }, 'Decline');
-    acceptBtn.onclick = () => acceptJoinRequest(req, row, acceptBtn, declineBtn);
-    declineBtn.onclick = () => declineJoinRequest(req, row);
-    const btns = el('div', { style: 'display:flex; gap:6px; flex:none;' });
-    btns.appendChild(declineBtn); btns.appendChild(acceptBtn);
-    row.appendChild(btns);
-    card.appendChild(row);
-  });
-  host.appendChild(card);
+// ===== NEW LIFTERS (night C, fixed after its review: one place for everyone who wants to train with this coach, M5).
+// Join requests (lifters already on POWALIFTA who found the coach in the directory: Accept links them through
+// accept_coach_request, Decline is a status update; real accounts only, the demo has none) and applications from the
+// coach's public profile (clients-ui.js: confirmed by the applicant's email, read in their sheet, Send an invite or
+// Decline). How soon first, as every coach list (an upcoming meet, the soonest first), then the longest waiting, then by
+// name (clients.js newLifterCmp). Calm rows on the phone and the laptop: no glow, no red (someone
+// new isn't an alarm, and each screen's one red stays where it was); Accept is graphite. The Lifters tab counts them
+// (coach-app.js paintBadges) and Home has a row while any wait. renderRoster calls this on every draw.
+function newLiftersCount() {
+  return (window._joinReqs || []).length + (window.ClientsUI && ClientsUI.leads ? ClientsUI.leads().length : 0);
 }
-
-// Join requests on the phone (the approved look): a section like every other, one calm row each (face, name, their
-// note in their words, whole), Decline quiet and Accept in graphite under it. No glow and no red: a request isn't an alarm, and the
-// screen's one red stays the invite. The same accept and decline as the desk's card.
-function _joinRequestsPhone(reqs) {
-  const sec = el('div', { class: 'jr-sec' });
+async function renderJoinRequests(host) {
+  if (!host) return;
+  if (!_desk()) fillNewLifters(host);   // what's known now (the demo's applications) draws at once
+  let reqs = [];
+  if (!window._demoMode) { try { reqs = await DB.listCoachRequestsForCoach(user.id); } catch (e) { reqs = []; } }
+  const had = (window._joinReqs || []).length;
+  window._joinReqs = reqs || [];
+  // The tab's count and Home's row follow what was just read; then the section with the join requests in it.
+  try { if (window.CoachApp && had !== window._joinReqs.length) CoachApp.paintHomeIfShown(); else if (window.CoachApp) CoachApp.paintBadges(); } catch (e) {}
+  if (!_desk()) fillNewLifters(host);
+  else document.querySelectorAll('#rosterArea .nl-slot').forEach(fillNewLifters);
+}
+// The section into a host: the phone's top of Lifters (.nl-host), the laptop's list column (coach-lifters.js .nl-slot).
+function fillNewLifters(host) {
+  if (!host) return;
+  host.innerHTML = '';
+  const apps = window.ClientsUI && ClientsUI.leads ? ClientsUI.leads() : [];
+  const reqs = window._joinReqs || [];
+  if (!reqs.length && !apps.length) return;
+  host.appendChild(_newLiftersSection(reqs, apps));
+}
+function _newLiftersSection(reqs, apps) {
+  const t = todayISO();
+  // A join request's time is a number (db.js mapDbCoachRequest), an application's an ISO string: one kind to sort by.
+  const isoOf = (v) => (typeof v === 'number' && isFinite(v) ? new Date(v).toISOString() : String(v || ''));
+  const items = reqs.map(r => ({ kind: 'req', at: isoOf(r.createdAt), name: r.athleteName || 'A lifter', meet: null, r }))
+    .concat(apps.map(a => ({ kind: 'app', at: a.createdAt || '', name: a.name || 'Someone', meet: a.nextMeet || null, a })))
+    .sort((x, y) => (window.Clients && Clients.newLifterCmp ? Clients.newLifterCmp(x, y, t) : String(x.at).localeCompare(String(y.at))));
+  const sec = el('div', { class: 'jr-sec nl-sec', id: 'newLifters', role: 'region', 'aria-label': 'New lifters' });
   const h = el('div', { class: 'ca-h' });
-  h.appendChild(el('h2', {}, 'Join requests'));
-  h.appendChild(el('span', { class: 'ca-h-meta' }, reqs.length + ' waiting'));
+  h.appendChild(el('h2', {}, 'New lifters'));
+  h.appendChild(el('span', { class: 'ca-h-meta' }, items.length + ' waiting'));
   sec.appendChild(h);
-  const list = el('div', { class: 'ca-list jr-list' });
-  reqs.forEach(req => {
-    const name = req.athleteName || 'A lifter';
-    const row = el('div', { class: 'jr-row' });
-    row.appendChild(el('span', { class: 'ui-av jr-av av-h' + avatarHue(name), 'data-name': name, 'aria-hidden': 'true' }, initials(name)));
-    const tx = el('div', { class: 'jr-tx' });
-    tx.appendChild(el('b', {}, name));
-    tx.appendChild(el('span', {}, req.note ? '\u201c' + String(req.note).trim() + '\u201d' : 'Wants to train with you'));
-    row.appendChild(tx);
-    const decline = el('button', { class: 'jr-no', type: 'button', 'aria-label': 'Decline ' + name }, 'Decline');
-    const accept = el('button', { class: 'ca-pill jr-yes', type: 'button', 'aria-label': 'Accept ' + name }, 'Accept');
+  const list = el('div', { class: 'ca-list jr-list nl-list' });
+  const waited = (iso) => {
+    const d = window.ClientsUI && ClientsUI.waited ? ClientsUI.waited(iso) : '';
+    return d;
+  };
+  items.forEach(it => {
+    const face = el('span', { class: 'ui-av jr-av av-h' + avatarHue(it.name), 'data-name': it.name, 'aria-hidden': 'true' }, initials(it.name));
+    if (it.kind === 'app') {
+      const a = it.a;
+      const when = window.ClientsUI && ClientsUI.ago ? ClientsUI.ago(a.createdAt) : '';
+      const row = el('button', { type: 'button', class: 'jr-row nl-row nl-lead', 'data-lid': a.id, 'aria-label': it.name + ', applied from your profile' + (when ? ' ' + when : '') + '. Read it' });
+      row.appendChild(face);
+      row.appendChild(el('span', { class: 'jr-tx' }, el('b', {}, it.name), el('span', {}, ClientsUI.leadLine(a) || a.email),
+        el('small', { class: 'nl-src' }, 'Applied from your profile' + (waited(a.createdAt) ? ' · ' + waited(a.createdAt) : ''))));
+      row.insertAdjacentHTML('beforeend', '<span class="nl-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>');
+      row.addEventListener('click', () => ClientsUI.openLead(a.id));
+      list.appendChild(row);
+      return;
+    }
+    const req = it.r;
+    const row = el('div', { class: 'jr-row nl-row nl-req' });
+    row.appendChild(face);
+    row.appendChild(el('div', { class: 'jr-tx' }, el('b', {}, it.name),
+      el('span', {}, req.note ? '“' + String(req.note).trim() + '”' : 'Wants to train with you'),
+      el('small', { class: 'nl-src' }, 'Asked in the app' + (waited(it.at) ? ' · ' + waited(it.at) : ''))));
+    const decline = el('button', { class: 'jr-no', type: 'button', 'aria-label': 'Decline ' + it.name }, 'Decline');
+    const accept = el('button', { class: 'ca-pill jr-yes', type: 'button', 'aria-label': 'Accept ' + it.name }, 'Accept');
     accept.onclick = () => acceptJoinRequest(req, row, accept, decline);
     decline.onclick = () => declineJoinRequest(req, row);
     row.appendChild(el('div', { class: 'jr-acts' }, decline, accept));
@@ -1013,6 +1042,8 @@ async function declineJoinRequest(req, rowEl) {
   try {
     await DB.declineCoachRequest(req.id);
     toast('Request declined');
+    window._joinReqs = (window._joinReqs || []).filter(r => r.id !== req.id);
+    try { if (window.CoachApp) CoachApp.paintBadges(); } catch (e) {}
     if (rowEl) rowEl.remove();
   } catch (e) {
     toast(e.message || 'Could not decline request');
@@ -1968,8 +1999,8 @@ function renderRoster() {
   // (The phone's empty tab carries the invite as its red in the first-run card, so the + stays quiet there too.)
   if (inviteBtn) inviteBtn.classList.toggle('is-quiet', overview.length > 0 || _liftersEmptyOwn());
 
-  // Join requests (coach discovery) stay pinned at the top, even with no roster.
-  const reqHost = el('div', {});
+  // New lifters (join requests and applications) stay pinned at the top, even with no roster.
+  const reqHost = el('div', { class: 'nl-host' });
   area.appendChild(reqHost);
   renderJoinRequests(reqHost);
 

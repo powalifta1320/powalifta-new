@@ -915,7 +915,7 @@ var MeetDay = (function () {
       var g = groups[key] || (groups[key] = { key: key, name: String(m.name || 'Meet').trim(), date: iso(m.date), daysOut: daysBetween(today, iso(m.date)),
         federation: m.federation || '', division: m.division || '', weighIn: m.weighIn || null, weighInAt: m.weighInAt || null, rows: [], planned: 0 });
       var has = !!(m.attemptPlan && LIFTS.some(function (l) { return Array.isArray(m.attemptPlan[l]); }));
-      g.rows.push({ meetId: m.id, athleteId: m.athleteId, name: names[m.athleteId], weightClass: m.weightClass || '', planned: has });
+      g.rows.push({ meetId: m.id, athleteId: m.athleteId, name: names[m.athleteId], weightClass: m.weightClass || '', planned: has, weighIn: m.weighIn || null, weighInAt: m.weighInAt || null });
       if (has) g.planned++;
     });
     return Object.keys(groups).map(function (k) { return groups[k]; })
@@ -952,7 +952,7 @@ var MeetDay = (function () {
     liftingOrder: liftingOrder, position: position, outFor: outFor, etas: etas, warmups: warmups, floorFor: floorFor, applyAction: applyAction,
     localWins: localWins, reconcileCell: reconcileCell, queue: queue, outgoing: outgoing, serverApply: serverApply, afterFlush: afterFlush, mergeIncoming: mergeIncoming,
     markDirty: markDirty, lifterPatch: lifterPatch, mergeLifter: mergeLifter, guestCells: guestCells, uuid: uuid,
-    finishResults: finishResults, groupMeets: groupMeets,
+    finishResults: finishResults, groupMeets: groupMeets, calendarMeet: calendarMeet, calendarKey: calendarKey,
     ODDS_K: ODDS_K, PLANS: PLANS, attemptOdds: attemptOdds, oddsBase: oddsBase, attemptPlans: attemptPlans, planMatch: planMatch, basisText: basisText,
     loadNum: loadNum, loadText: loadText, inputKg: inputKg,
     totalChance: totalChance, totalChanceLive: totalChanceLive, planForTotal: planForTotal, targetKg: targetKg, targetShown: targetShown,
@@ -2596,6 +2596,9 @@ var MeetDay = (function () {
         acts.appendChild(btn(g.planned ? 'Attempts' : 'Plan attempts', 'md-btn-quiet', function () { openAttemptPlanner(g.rows[0].meetId); }));
         if (g.daysOut <= 1 && !boards.some(function (b) { return b.date === g.date && String(b.name).trim().toLowerCase() === g.name.toLowerCase(); }))
           acts.appendChild(btn('Start meet day', 'md-btn-quiet', function () { startMeetDay(g); }));
+        // Meets to calendar (night C): the meet and its weigh-in as an .ics (a download; the share sheet in the app).
+        if (typeof root.saveMeetToCalendar === 'function')
+          acts.appendChild(btn('Add to calendar', 'md-btn-quiet md-cal', function () { root.saveMeetToCalendar(calendarMeet(g), { uidKey: calendarKey(g), who: g.rows.map(function (r) { return first(r.name); }) }); }, { 'aria-label': 'Add to calendar: ' + g.name }));
         li.appendChild(acts);
         ul.appendChild(li);
       });
@@ -2645,6 +2648,26 @@ var MeetDay = (function () {
       ul.appendChild(E('li', {}, E('span', {}, E('b', {}, b.name), E('small', {}, dayText(b.date) + ' · ' + (b.status === 'done' ? 'finished' : 'not finished'))), btn('Open', 'md-btn-quiet', function () { openMeetDayBoard(b.id); })));
     });
     if (ul.children.length) { ps.appendChild(ul); host.appendChild(ps); }
+  }
+  // A grouped meet as one calendar event: one lifter's class when only one lifts at it; its lifters' weigh-ins by time
+  // (one event per time, each naming its lifters: review m2). Pure: tested.
+  function calendarMeet(g) {
+    var byTime = {}, order = [];
+    (g.rows || []).forEach(function (r) {
+      var wi = r.weighIn || g.weighIn || null, at = r.weighInAt || (r.weighIn ? null : g.weighInAt) || null;
+      var k = (wi || '') + '|' + (at || '');
+      if (!byTime[k]) { byTime[k] = { weighIn: wi, weighInAt: at, who: [], ids: [] }; order.push(k); }
+      byTime[k].who.push(first(r.name)); byTime[k].ids.push(String(r.meetId || ''));
+    });
+    var weighIns = order.map(function (k) { var x = byTime[k]; return { weighIn: x.weighIn, weighInAt: x.weighInAt, who: x.who, key: x.ids.filter(Boolean).sort()[0] || k }; });
+    return { name: g.name, date: g.date, federation: g.federation, division: g.division, weighIn: g.weighIn, weighInAt: g.weighInAt,
+      weighIns: weighIns.length > 1 ? weighIns : null, weightClass: (g.rows || []).length === 1 ? g.rows[0].weightClass : '' };
+  }
+  // The calendar file's id for a grouped meet: its first meet's id (the smallest), so renaming or moving the meet
+  // updates the event instead of adding a copy (the name and date were the id: review m3). Pure: tested.
+  function calendarKey(g) {
+    var ids = (g.rows || []).map(function (r) { return String(r.meetId || ''); }).filter(Boolean).sort();
+    return ids.length ? 'm-' + ids[0] : g.key;
   }
   function pickLifterButton() {
     var b = btn('Plan a lifter\'s meet', 'md-btn-quiet', function () {

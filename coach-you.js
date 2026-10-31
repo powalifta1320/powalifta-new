@@ -250,7 +250,110 @@
     return wrap;
   }
 
-  var api = { planState: planState, planModel: planModel, planCard: planCard, openSetup: openSetup, liftersWelcome: liftersWelcome, messagesWelcome: messagesWelcome, programsWelcome: programsWelcome };
+  /* ---------------------------------------------------------------- Results cards (night C, 30 Oct) */
+  // "My lifters gained 18.5 kg this block" and this week's PR wall as a card for Instagram (app.js teamBlockGain /
+  // teamPrWall, drawn by generateCoachCard, the lifter's share-card engine). From You › Results cards and Home's
+  // Strength sheet. Real roster numbers only; names on a card are first name and initial; the coach's brand colour
+  // (Pro, branding) warms the light and the pill. The demo too: sharing is a file on this device, nothing is sent.
+  function resultsModel() {
+    var s = store(), t = typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10);
+    var ath = s.athletes || [];
+    return { block: typeof teamBlockGain === 'function' ? teamBlockGain(ath, s.programs || [], s.workoutLogs || [], t) : null,
+      prs: typeof teamPrWall === 'function' ? teamPrWall(ath, s.workoutLogs || [], t) : [], today: t };
+  }
+  function unitOf() { return typeof unitLabel === 'function' ? unitLabel() : 'kg'; }
+  function kgText(kg) {
+    var v = typeof kgToDisplay === 'function' ? kgToDisplay(kg) : kg;
+    return String(unitOf() === 'kg' ? Math.round(v * 2) / 2 : Math.round(v));
+  }
+  function signed(kg) { return (kg > 0 ? '+' : kg < 0 ? '\u2212' : '') + kgText(Math.abs(kg)) + ' ' + unitOf(); }
+  // "My lifters gained 5 kg this block", said truly when it went the other way (never "gained −2.5 kg").
+  function blockWords(b) {
+    if (!b) return '';
+    return b.avg > 0 ? 'My lifters gained ' + kgText(b.avg) + ' ' + unitOf() + ' this block'
+      : b.avg < 0 ? 'My lifters\u2019 e1RM totals are ' + kgText(-b.avg) + ' ' + unitOf() + ' down this block'
+      : 'My lifters held their e1RM totals this block';
+  }
+  // "Counted: 2 of 3 lifters with a block running (each needs all three lifts logged before the block and in it).
+  // 2 up, 0 down." Who's behind the average, and its spread. Pure: tested.
+  function blockSay(b) {
+    if (!b) return '';
+    var up = b.rows.filter(function (r) { return r.delta > 0; }).length, down = b.rows.filter(function (r) { return r.delta < 0; }).length;
+    var level = b.n - up - down, running = Math.max(b.running || 0, b.n);
+    return 'Counted: ' + (running > b.n ? b.n + ' of ' + running + ' lifters with a block running (each needs all three lifts logged before the block and in it).'
+      : (b.n === 1 ? 'the 1 lifter' : 'all ' + b.n + ' lifters') + ' with a block running.') + ' ' + up + ' up, ' + down + ' down' + (level ? ', ' + level + ' level' : '') + '.';
+  }
+  function weekText(today) {
+    var d = function (iso) { return new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
+    var from = typeof _addDaysISO === 'function' ? _addDaysISO(today, -6) : today;
+    return d(from) + ' \u2013 ' + d(today);
+  }
+  // You's row: what there is to share, in a word.
+  function resultsRow() {
+    var M = resultsModel();
+    var value = M.block ? signed(M.block.avg) + ' this block' : (M.prs.length ? plural(M.prs.length, 'PR') + ' this week' : '');
+    return { label: 'Results cards', value: value, icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M9.5 15l2-3 1.5 2 1.5-2.5"/></svg>',
+      tint: 'gold', onClick: function () { openResults(); } };
+  }
+  // The coach's brand on the card only on Pro and up, as Branding everywhere else (night C review m11).
+  function brandOn() {
+    try { return typeof TIER_RANK !== 'undefined' && typeof getCurrentTier === 'function' && (TIER_RANK[getCurrentTier()] || 0) >= TIER_RANK.pro; } catch (e) { return false; }
+  }
+  function cardOpts(M, format) {
+    var u = me() || {}, b = brandOn();
+    return { format: format, tint: (b && u.brandColor) || null, footer: (b && u.brandName) || u.name || '', unit: unitOf(), fmt: kgText, week: weekText(M.today) };
+  }
+  function openResults(start) {
+    if (typeof uiSheet !== 'function' || typeof generateCoachCard !== 'function') return;
+    var M = resultsModel();
+    var pick = start === 'prs' || start === 'block' ? start : (M.block ? 'block' : (M.prs.length ? 'prs' : 'block'));
+    uiSheet('Results cards', function (sheet) {
+      sheet.appendChild(node('<p class="ui-sheet-sub">Your lifters\u2019 own numbers as a card for Instagram, a story or a post. Names show as first name and initial.</p>'));
+      var seg = node('<div class="ui-seg cy-rc-seg" role="tablist" aria-label="Card"><button type="button" role="tab" data-rc="block">This block</button><button type="button" role="tab" data-rc="prs">PR wall</button></div>');
+      var say = node('<p class="cy-rc-say" aria-live="polite"></p>');
+      var frame = node('<div class="cy-rc-frame"></div>');
+      var go = node('<button type="button" class="btn btn-primary btn-lg btn-block cy-rc-go">Share the card</button>');
+      sheet.appendChild(seg); sheet.appendChild(say); sheet.appendChild(frame); sheet.appendChild(go);
+      var ver = 0;
+      var paint = function () {
+        [].forEach.call(seg.children, function (b) { var on = b.getAttribute('data-rc') === pick; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+        var model = pick === 'block' ? M.block : (M.prs.length ? M.prs : null);
+        // What the card doesn't say: who counts and who doesn't, and the spread under the average (night C review m13).
+        say.textContent = pick === 'block'
+          ? (M.block ? blockSay(M.block)
+            : 'Nobody has all three lifts logged both before and in a block running now, so there\u2019s no average to show yet.')
+          : (M.prs.length ? plural(M.prs.length, 'PR') + ' this week, ' + weekText(M.today) + '.' : 'No PRs this week yet. The wall fills as your lifters set them.');
+        go.disabled = !model;
+        frame.innerHTML = '';
+        frame.classList.toggle('is-empty', !model);
+        if (!model) return;
+        var mine = ++ver;
+        generateCoachCard(pick, model, cardOpts(M, 'post')).then(function (c) {
+          if (!c || mine !== ver) return;
+          var img = document.createElement('img');
+          img.className = 'cy-rc-img';
+          img.alt = say.textContent;
+          img.src = c.toDataURL('image/png');
+          frame.appendChild(img);
+        });
+      };
+      seg.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('[data-rc]'); if (!b || b.getAttribute('data-rc') === pick) return; pick = b.getAttribute('data-rc'); paint(); });
+      go.addEventListener('click', function () {
+        var model = pick === 'block' ? M.block : M.prs;
+        if (!model || (Array.isArray(model) && !model.length)) return;
+        generateCoachCard(pick, model, cardOpts(M, null)).then(function (c) {
+          if (!c) return;
+          var name = pick === 'block' ? 'powalifta-block-results.png' : 'powalifta-pr-wall.png';
+          var text = pick === 'block' ? blockWords(M.block) : plural(M.prs.length, 'PR') + ' this week';
+          if (typeof shareCardFromCanvas === 'function') shareCardFromCanvas(c, name, text + ' · powalifta.com');
+        });
+      });
+      paint();
+    }, { cls: 'cy-rc-sheet' });
+  }
+
+  var api = { planState: planState, planModel: planModel, planCard: planCard, openSetup: openSetup, liftersWelcome: liftersWelcome, messagesWelcome: messagesWelcome, programsWelcome: programsWelcome,
+    resultsModel: resultsModel, resultsRow: resultsRow, openResults: openResults, blockWords: blockWords, blockSay: blockSay, cardOpts: cardOpts };
   if (typeof window !== 'undefined') window.CoachYou = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

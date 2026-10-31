@@ -272,7 +272,45 @@
     return { text: s.due ? 'Next payment ' + f(s.due) : s.label };
   }
 
+  // Applications from the coach's public profile (night C): the waiting ones, the longest waiting first (then by name),
+  // and their line in the coach's words. lifts: (kg) → the coach's unit's number text, unit: 'kg' | 'lb'. Pure: tested.
+  // New lifters' order (Lifters › New lifters, Home's row; night C review): how soon, as every coach list goes (pain and
+  // a meet today can't apply to someone not coached yet): an upcoming meet first, the soonest first; then the longest
+  // waiting; then by name. x, y: { at (when it reached the coach), name, meet: 'YYYY-MM-DD' | null }. Pure: tested.
+  function newLifterCmp(x, y, today) {
+    var day = function (o) { var d = o && o.meet ? String(o.meet).slice(0, 10) : ''; return d && (!today || d >= today) ? d : ''; };
+    var mx = day(x), my = day(y);
+    if (mx !== my) return !mx ? 1 : !my ? -1 : mx.localeCompare(my);
+    return String((x && x.at) || '').localeCompare(String((y && y.at) || '')) || String((x && x.name) || '').localeCompare(String((y && y.name) || ''));
+  }
+  function leadsWaiting(list, today) {
+    return (list || []).filter(function (l) { return l && l.status === 'new'; })
+      .sort(function (x, y) { return newLifterCmp({ at: x.createdAt, name: x.name, meet: x.nextMeet }, { at: y.createdAt, name: y.name, meet: y.nextMeet }, today); });
+  }
+  function leadYears(y) {
+    if (y == null || y === '' || !isFinite(Number(y))) return '';
+    y = Number(y);
+    return y <= 0 ? 'Under a year training' : y >= 10 ? '10+ years training' : y >= 5 ? '5 to 9 years training' : y + (y === 1 ? ' year' : ' years') + ' training';
+  }
+  function leadLifts(l, lifts, unit) {
+    var f = typeof lifts === 'function' ? lifts : function (kg) { return String(Math.round(kg * 2) / 2); };
+    var v = function (kg) { return Number(kg) > 0 ? f(Number(kg)) : '\u2013'; };
+    if (!l || !(l.squat > 0 || l.bench > 0 || l.deadlift > 0)) return '';
+    return v(l.squat) + ' / ' + v(l.bench) + ' / ' + v(l.deadlift) + ' ' + (unit || 'kg');
+  }
+  // o: { bw: (kg) → the coach's unit's number text, date: ('YYYY-MM-DD') → a short date, today: 'YYYY-MM-DD' }: the
+  // bodyweight and the next meet join the line ("82.4 kg bodyweight", "meet 12 Dec"; a meet already past is left out),
+  // so the coach sees who it is and how soon (night C review m10).
+  function leadLine(l, lifts, unit, o) {
+    o = o || {};
+    var bw = l && Number(l.bodyweight) > 0 ? (typeof o.bw === 'function' ? o.bw(Number(l.bodyweight)) : String(Math.round(Number(l.bodyweight) * 10) / 10)) + ' ' + (unit || 'kg') + ' bodyweight' : '';
+    var day = l && l.nextMeet ? String(l.nextMeet).slice(0, 10) : '';
+    var meet = day && (!o.today || day >= o.today) ? 'meet ' + (typeof o.date === 'function' ? o.date(day) : day) : '';
+    return [leadYears(l && l.trainingYears), leadLifts(l, lifts, unit), bw, meet, l && l.goals].filter(Boolean).join(' \u00b7 ') || (l && l.email) || '';
+  }
+
   window.Clients = {
+    leadsWaiting: leadsWaiting, newLifterCmp: newLifterCmp, leadYears: leadYears, leadLifts: leadLifts, leadLine: leadLine,
     nextDueAfter: nextDueAfter, clientStatus: clientStatus, clientsSummary: clientsSummary,
     formatMoney: formatMoney, cadenceLabel: cadenceLabel, priceText: priceText, monthlyCents: monthlyCents, perText: perText, paceWords: paceWords,
     recordPayment: recordPayment, intakeMaxes: intakeMaxes, intakeLines: intakeLines,

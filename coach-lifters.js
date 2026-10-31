@@ -1090,8 +1090,11 @@
     wrap.innerHTML = '<div class="cl-side"><header class="cl-head"><h1 class="cl-h1">Lifters</h1><p class="cl-sub">' + subText(M) + '</p>' +
       '<div class="cl-tools"><label class="cl-search">' + ic('search') + '<input class="cl-q" type="search" placeholder="Find a lifter" aria-label="Find a lifter" autocomplete="off" spellcheck="false" value="' + esc(S.q) + '"><kbd>/</kbd></label>' +
       (typeof dkSetRMode === 'function' && typeof dsPaintCalendar === 'function' ? '<button type="button" class="cl-quiet" data-cal>' + ic('cal') + 'Calendar</button>' : '') + '</div>' + chip + legendHtml() + '</header>' +
+      // New lifters (coach.html fillNewLifters: applications and join requests, night C review M5) above the roster.
+      '<div class="nl-slot"></div>' +
       '<div class="cl-groups" role="listbox" aria-label="Lifters">' + groupsHtml(M, { sel: S.sel }) + '</div></div><div class="cl-page" id="clPage"></div>';
     area.appendChild(wrap);
+    if (typeof fillNewLifters === 'function') { try { fillNewLifters(wrap.querySelector('.nl-slot')); } catch (e) {} }
     wrap._clM = M;
     wire(wrap, { desk: true });
     paint(wrap);

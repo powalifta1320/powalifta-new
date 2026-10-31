@@ -49,9 +49,24 @@
     return d.toLocaleDateString(undefined, o);   // the device's format, like the rest of the app (fmtDateShort)
   }
   function monthYear(iso) { var d = new Date(String(iso).slice(0, 10) + 'T12:00:00'); return isNaN(d) ? '' : d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }); }
+  // The calendar day of a moment on this device (a timestamp's UTC date read "yesterday" for a coach east of UTC on a
+  // morning application: night C review m9); a date-only string is already a day.
+  function localDay(iso) {
+    var s = String(iso || '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    var t = new Date(s);
+    if (isNaN(t)) return s.slice(0, 10);
+    return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+  }
+  function daysSince(iso) { return Math.round((Date.parse(today() + 'T12:00:00') - Date.parse(localDay(iso) + 'T12:00:00')) / 86400000); }
   function ago(iso) {
-    var d = Math.round((Date.parse(today() + 'T12:00:00') - Date.parse(String(iso).slice(0, 10) + 'T12:00:00')) / 86400000);
-    return isNaN(d) ? '' : d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 14 ? d + ' days ago' : dateShort(iso);
+    var d = daysSince(iso);
+    return isNaN(d) ? '' : d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 14 ? d + ' days ago' : dateShort(localDay(iso));
+  }
+  // How long someone has waited, in a word ("today", "yesterday", "3 days", "12 Oct").
+  function waited(iso) {
+    var d = daysSince(iso);
+    return isNaN(d) ? '' : d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 14 ? d + ' days' : dateShort(localDay(iso));
   }
   function av(a, cls) {
     var name = a.name || '?';
@@ -454,6 +469,123 @@
     return html + '</div>';
   }
 
+  // ===================================================================== applications (night C, 30 Oct; fixed after its review)
+  // Applications from the coach's public profile (coach-profile.html → the apply-to-coach edge function; the coach reads
+  // only those the applicant confirmed by email). They wait on Lifters under New lifters with the join requests
+  // (coach.html _newLiftersSection: one place, review M5), the soonest meet first, then the longest waiting. A lead opens its sheet: what they
+  // sent (their email a mailto link, review M6), then the sheet's one crimson, Send <name> an invite (the app's own invite
+  // flow: an invite tied to their email, emailed by send-invite once the decision is saved, review m7), a quiet Decline
+  // with Undo, and Delete (spam). The demo changes its Store only, nothing is sent.
+  function leads() { return C().leadsWaiting(st().coachApplications, today()); }
+  function leadOf(id) { return (st().coachApplications || []).find(function (l) { return l && l.id === id; }) || null; }
+  function unitNow() { return typeof unitLabel === 'function' ? unitLabel() : 'kg'; }
+  function liftNum(kg) { var d = typeof kgToDisplay === 'function' ? kgToDisplay(kg) : kg; return String(unitNow() === 'kg' ? Math.round(d * 2) / 2 : Math.round(d)); }
+  function bwNum(kg) { var d = typeof kgToDisplay === 'function' ? kgToDisplay(kg) : kg; return String(Math.round(d * 10) / 10); }
+  function yearsText(y) { return C().leadYears(y); }
+  function liftsText(l) { return C().leadLifts(l, liftNum, unitNow()); }
+  function leadLine(l) { return C().leadLine(l, liftNum, unitNow(), { bw: bwNum, date: function (iso) { return dateShort(iso); }, today: today() }); }
+  // Lifters' New lifters, Home's row, the tab's count: they all follow a change here.
+  function leadsChanged() {
+    try { if (typeof renderRoster === 'function') renderRoster(); } catch (e) {}
+    try { if (window.CoachApp) CoachApp.paintHomeIfShown(); } catch (e) {}
+    afterChange();
+  }
+  function setLead(id, patch) {
+    Store.update(function (s) { s.coachApplications = (s.coachApplications || []).map(function (x) { return x.id === id ? Object.assign({}, x, patch) : x; }); });
+    leadsChanged();
+  }
+  function decide(l, status, code) {
+    var patch = { status: status, inviteCode: status === 'accepted' ? (code || null) : l.inviteCode, decidedAt: status === 'new' ? null : new Date().toISOString() };
+    setLead(l.id, patch);
+    if (window._demoMode || !window.DB || !DB.decideCoachApplication) return Promise.resolve(true);
+    return DB.decideCoachApplication(l.id, status, code).then(function (r) {
+      if (r && r.ok) { if (r.application) setLead(l.id, r.application); return true; }
+      setLead(l.id, { status: l.status, inviteCode: l.inviteCode, decidedAt: l.decidedAt });   // put back as it was
+      toast('Couldn’t save that. Check your connection.');
+      return false;
+    });
+  }
+  function acceptLead(l, close) {
+    var f = first(l.name);
+    if (typeof canAddAthlete === 'function' && !canAddAthlete(me())) { if (close) close(); if (typeof openUpgradeModal === 'function') openUpgradeModal('cap'); return; }
+    if (typeof _newInvite !== 'function') return;
+    var inv = _newInvite(l.email);   // coach.html: an invite tied to their email (a seat until it's used)
+    Promise.resolve(inv.saved).then(function () {
+      if (inv.failed) return;
+      if (close) close();
+      // The decision first; the email only once it's saved, so a failed save can't leave a sent invite on a lead that
+      // comes back as waiting (a second Accept would send a second one: review m7).
+      return decide(l, 'accepted', inv.code).then(function (saved) {
+        // Not saved: the lead waits again and the invite made for it goes back, as a cancelled share's does (an unused
+        // invite holds a seat on the plan; the next Accept makes a new one).
+        if (!saved) { if (typeof _dropInvite === 'function') _dropInvite(inv.code); return; }
+        if (window._demoMode) { toast('Demo: no email sent. ' + f + '’s code is ' + inv.code); return; }
+        return DB.sendInvite(l.email).then(function (r) {
+          toast(r && r.ok ? 'Invite sent to ' + l.email : 'Couldn’t email it (' + ((r && r.reason) || 'unknown error') + '). ' + f + '’s code is ' + inv.code + ': share the link from Invite a lifter.', 6000);
+        });
+      });
+    }).catch(function () {});
+  }
+  function declineLead(l, close) {
+    if (close) close();
+    decide(l, 'declined').then(function (ok) {
+      if (!ok) return;
+      var undo = function () { decide(Object.assign({}, l, { status: 'declined' }), 'new'); };
+      if (typeof toastAction === 'function') toastAction('Declined ' + first(l.name), 'Undo', undo); else toast('Declined ' + first(l.name));
+    });
+  }
+  // Spam, or someone they'll never answer: gone for good (the server keeps nothing).
+  function deleteLead(l, close) {
+    var f = first(l.name);
+    var go = function () {
+      if (close) close();
+      var put = (st().coachApplications || []).slice();
+      Store.update(function (s) { s.coachApplications = (s.coachApplications || []).filter(function (x) { return x.id !== l.id; }); });
+      leadsChanged();
+      if (window._demoMode || !window.DB || !DB.deleteCoachApplication) { toast('Deleted ' + f + '’s application'); return; }
+      DB.deleteCoachApplication(l.id).then(function (r) {
+        if (r && r.ok) { toast('Deleted ' + f + '’s application'); return; }
+        Store.update(function (s) { s.coachApplications = put; }); leadsChanged();
+        toast('Couldn’t delete that. Check your connection.');
+      });
+    };
+    if (typeof uiActionSheet === 'function') uiActionSheet('Delete ' + f + '’s application? It’s gone for good, and ' + f + ' isn’t told.', [{ label: 'Delete application', danger: true, onClick: go }]);
+    else go();
+  }
+  function openLead(id) {
+    var l = leadOf(id);
+    if (!l || typeof uiSheet !== 'function') return;
+    var f = first(l.name);
+    uiSheet(l.name, function (sheet, close) {
+      sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, 'Applied ' + ago(l.createdAt) + ' from your profile. They confirmed their email.'));
+      // Their email opens a reply in the coach's mail app (Decline sends nothing: a word from the coach is theirs to send).
+      var mail = el('a', { class: 'ui-row cs-lead-mail', href: 'mailto:' + String(l.email || '').replace(/[^A-Za-z0-9.!#$%&'*+\/=?^_`{|}~@-]/g, '') },
+        el('span', { class: 'ui-row-main' }, el('span', { class: 'ui-row-title' }, 'Email'), el('span', { class: 'ui-row-sub' }, l.email)));
+      mail.insertAdjacentHTML('beforeend', '<span class="ui-row-end">' + (typeof UI_CHEV !== 'undefined' ? UI_CHEV : ic('chev', 2.2)) + '</span>');
+      var rows = [mail,
+        l.trainingYears != null ? uiRow({ title: 'Training age', sub: yearsText(l.trainingYears).replace(/ training$/, '') }) : null,
+        liftsText(l) ? uiRow({ title: 'Best lifts', sub: 'Squat / bench / deadlift: ' + liftsText(l) }) : null,
+        l.bodyweight > 0 ? uiRow({ title: 'Bodyweight', sub: bwNum(l.bodyweight) + ' ' + unitNow() }) : null,
+        l.nextMeet ? uiRow({ title: 'Next meet', sub: dateShort(l.nextMeet) }) : null,
+        l.goals ? uiRow({ title: 'Goals', sub: l.goals }) : null
+      ].filter(Boolean);
+      sheet.appendChild(uiList(rows));
+      if (l.note) { sheet.appendChild(uiLabel('Their note')); sheet.appendChild(el('p', { class: 'cs-lead-note' }, l.note)); }
+      var acts = el('div', { class: 'cs-lead-acts' });
+      var no = el('button', { type: 'button', class: 'ui-text-btn cs-lead-no' }, 'Decline');
+      no.addEventListener('click', function () { declineLead(l, close); });
+      var go = el('button', { type: 'button', class: 'btn btn-primary btn-lg btn-block cs-lead-go' }, 'Send ' + f + ' an invite');
+      go.addEventListener('click', function () { go.disabled = true; acceptLead(l, close); setTimeout(function () { go.disabled = false; }, 1500); });
+      // The phone: the crimson full width, Decline quiet under it; the laptop: one footer row, quiet first, crimson last.
+      if (isDeskNow()) { acts.classList.add('is-desk'); acts.appendChild(no); acts.appendChild(go); } else { acts.appendChild(go); acts.appendChild(no); }
+      sheet.appendChild(acts);
+      sheet.appendChild(el('p', { class: 'cs-lead-fine' }, 'Send an invite emails ' + f + ' your invite link (their code is tied to this email). Decline sends nothing.'));
+      var del = el('button', { type: 'button', class: 'ui-text-btn cs-lead-del' }, 'Delete as spam');
+      del.addEventListener('click', function () { deleteLead(l, close); });
+      sheet.appendChild(el('div', { class: 'cs-lead-delrow' }, del));   // not a sheet's direct button: those are rows
+    }, { cls: 'cs-lead-sheet' });
+  }
+
   // ===================================================================== the Clients screen
   var view = { filter: 'all' };
   var ORDER = { overdue: 0, due: 1, soon: 2, ok: 3, paused: 4, ended: 5, none: 6 };
@@ -711,5 +843,6 @@
   });
 
   window.ClientsUI = { render: render, sectionHtml: sectionHtml, openClient: openClient, markPaid: markPaid, editPackage: editPackage, remind: remind, remindText: remindText,
+    leads: leads, openLead: openLead, leadLine: leadLine, waited: waited, ago: ago,
     todayBit: todayBit, dueLineHtml: dueLineHtml, overdueCount: overdueCount, refresh: afterChange, ICON: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + IC.wallet + '</svg>' };
 })();

@@ -565,3 +565,42 @@ html.native body.site :is(.reset-wrap, .unsub-wrap) { min-height: calc(100svh - 
   body.site :is(.btn, .quiet .arr, .bar-pill), body.site .qi::before, body.site .qi::after { transition: none !important; }
   body.site .btn:active { transform: none; }
 }
+
+/* ---------- Apply to train with a coach (coach-profile.html cpApplyForm, night C 30 Oct): the page's one crimson is Send */
+body.site .cp-apply { max-width: var(--col); margin-top: 40px; }
+body.site .cp-apply-form { padding: clamp(20px, 3vw, 32px); border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); }
+body.site .cp-apply-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 0 20px; }
+body.site .cp-apply-grid .is-wide { grid-column: 1 / -1; }
+body.site .cp-f label, body.site .cp-lbl { display: block; margin: 0 0 8px; font-size: 15px; font-weight: 650; color: var(--text); }
+body.site .cp-hint { display: block; margin-top: 6px; font-size: 13px; color: var(--text-3); }
+body.site .cp-lifts-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 8px; align-items: end; }
+/* Each lift box with its name above it (review m10), the unit switch level with the boxes. */
+/* .cp-liftbox, not .cp-lift: that one is the app's lift card (styles.css), which drew a box around each field. */
+body.site .cp-f label.cp-liftbox { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
+body.site .cp-liftbox input { width: 100%; }
+body.site .cp-bw-row { display: flex; align-items: center; gap: 10px; }
+body.site .cp-bw-row input { flex: 1; min-width: 0; }
+body.site .cp-u { flex: none; min-width: 20px; font-size: 15px; font-weight: 600; color: var(--text-2); }
+/* The honeypot: a field a bot fills and a person never sees or reaches (not display: none, which some bots skip). */
+body.site .cp-hp { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+body.site .cp-sent .cp-sent-next { margin-top: 10px; font-size: 15px; color: var(--text-3); }
+body.site .cp-req-box .cp-req-go { margin-top: 18px; }
+body.site .cp-req-box .cp-apply-status { margin-top: 10px; }
+body.site .cp-lifts-row input { padding: 0 10px; font-variant-numeric: tabular-nums; }
+body.site .cp-unit { display: inline-flex; height: 48px; padding: 2px; border-radius: 12px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--line-2); }
+body.site .cp-unit button { min-width: 44px; height: 44px; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--text-2); font: 650 15px/1 var(--font-body); cursor: pointer; }
+body.site .cp-unit button.on { background: var(--fill-3); color: var(--text); }
+body.site .cp-apply-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 8px; }
+body.site .cp-fine { margin: 0; font-size: 13px; color: var(--text-3); }
+body.site .cp-fine a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
+body.site .cp-apply-status { min-height: 20px; margin: 12px 0 0; font-size: 15px; color: var(--text-2); }
+body.site .cp-apply-status.is-bad { color: var(--text); }
+body.site .cp-apply-status.is-bad::before { content: ''; display: inline-block; width: 0; height: 0; margin-right: 8px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #ff9f43; vertical-align: 0; }
+html[data-theme="light"] body.site .cp-apply-status.is-bad::before { border-bottom-color: #e06414; }
+body.site .cp-sent { padding: clamp(20px, 3vw, 32px); border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); animation: cpSentIn 320ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+body.site .cp-sent h3 { margin: 0 0 8px; font-size: 22px; letter-spacing: -0.02em; }
+body.site .cp-sent p { margin: 0; max-width: 34em; font-size: 17px; line-height: 1.5; color: var(--text-2); }
+body.site .cp-apply-own { margin: 0; max-width: 34em; padding: 20px 24px; border-radius: 16px; background: var(--fill-1); font-size: 15px; line-height: 1.5; color: var(--text-2); }
+@keyframes cpSentIn { from { opacity: 0.45; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { body.site .cp-sent { animation: none; } }
+@media (max-width: 420px) { body.site .cp-lifts-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } body.site .cp-unit { grid-column: 1 / -1; justify-self: start; } }

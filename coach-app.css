@@ -678,12 +678,26 @@ html.native:not(.desk) .bottom-tab { position: relative; }
    styles.css should take the same two values for the lifter app */
 html.native:not(.desk) body.powa-app .bottom-tab:not(.active) { color: rgba(235, 235, 245, 0.64); }
 html.native[data-theme="light"]:not(.desk) body.powa-app .bottom-tab:not(.active) { color: rgba(60, 60, 67, 0.82); }
-html.native:not(.desk) .ca-tbadge {
+html.native:not(.desk) :is(.ca-tbadge, .ca-tbadge-nl) {
   position: absolute; top: 5px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
   background: #34e08c; color: #04140c; font: 700 11px/18px var(--font-num, inherit); text-align: center; font-variant-numeric: tabular-nums; z-index: 2; pointer-events: none;
   box-shadow: 0 0 0 2px rgba(12, 12, 15, 0.92);
 }
 html.native[data-theme="light"]:not(.desk) .ca-tbadge { background: #0c7a45; color: #fff; box-shadow: 0 0 0 2px #fff; }
+/* Lifters' count (new lifters waiting) is ink: the tab's own hue is the red, which stays the screen's one action's. */
+html.native:not(.desk) .ca-tbadge-nl { background: #f2f2f5; color: #0b0b0c; }
+html.native[data-theme="light"]:not(.desk) .ca-tbadge-nl { background: #1c1c1f; color: #fff; }
+/* Home: new lifters waiting, one calm row under Needs you (coach-app.js newLiftersHtml): the faces, who, a chevron. */
+html:not(.desk) .ca-newl { margin-top: 20px; }
+html:not(.desk) .ca-newl-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 72px; padding: 12px 16px; border: 1px solid var(--ca-edge); border-radius: 20px; background: var(--ca-card); box-shadow: var(--pl-lip); color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 140ms ease-out; }
+html:not(.desk) .ca-newl-row:active { opacity: 0.65; }
+html:not(.desk) .ca-newl-row > svg { flex: none; width: 18px; height: 18px; color: var(--text-3); }
+html:not(.desk) .ca-newl .ca-stack.is-one { width: 44px; height: 44px; }
+html:not(.desk) .ca-newl .ca-stack.is-one .ca-av { width: 44px; height: 44px; font-size: 15px; }
+html:not(.desk) .ca-newl-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+html:not(.desk) .ca-newl-tx b { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: var(--text); overflow-wrap: anywhere; }
+html:not(.desk) .ca-newl-tx span { font-size: 15px; line-height: 1.3; color: var(--text-2); }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) .ca-newl-row { transition: none; } }
 
 /* =================================================================== LIFTERS (the hub) */
 html:not(.desk) .ca-hub { padding-top: 4px; }
@@ -784,7 +798,7 @@ html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-row-sub { font-size: 1
 html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-icon-btn { position: relative; width: 44px; height: 44px; border-radius: 50%; color: var(--text-2); }
 html:not(.desk) body.powa-app #invitesList .inv-row-p .ui-icon-btn:active { background: var(--pl-inset-2); }
 
-/* join requests on the phone (coach.html _joinRequestsPhone): a section like the rest, a calm row each, Decline quiet
+/* join requests on the phone (coach.html _newLiftersSection, New lifters): a section like the rest, a calm row each, Decline quiet
    and Accept in graphite. No glow, no red. */
 html:not(.desk) .jr-sec { margin: 0 0 24px; }
 html:not(.desk) .jr-list { display: flex; flex-direction: column; }
@@ -799,6 +813,16 @@ html:not(.desk) .jr-acts { grid-column: 2; justify-self: end; display: flex; ali
 html:not(.desk) body.powa-app .jr-no { position: relative; min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--text-2) !important; font-family: inherit; font-size: 15px !important; font-weight: 600; cursor: pointer; transition: opacity 140ms ease-out; }
 html:not(.desk) .jr-no:active { opacity: 0.55; }
 html:not(.desk) .jr-yes::after { inset: -4px -4px; }
+/* New lifters (coach.html _newLiftersSection, night C review M5): the join requests' calm rows, and an application's
+   row as one button (its sheet holds the decision); under the name, what came in and how long it has waited. */
+html:not(.desk) .nl-sec { margin: 0 0 28px; scroll-margin-top: 72px; }
+html:not(.desk) button.jr-row.nl-lead { width: 100%; grid-template-columns: 44px minmax(0, 1fr) 20px; padding-bottom: 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 140ms ease-out; }
+html:not(.desk) button.jr-row.nl-lead:active { opacity: 0.6; }
+html:not(.desk) .nl-lead .jr-tx span { -webkit-line-clamp: 3; line-clamp: 3; }
+html:not(.desk) .nl-src { font-size: 13px; line-height: 1.35; color: var(--text-3); }
+html:not(.desk) .nl-chev { grid-column: 3; grid-row: 1 / span 2; align-self: center; display: grid; place-items: center; width: 20px; height: 20px; color: var(--text-3); }
+html:not(.desk) .nl-chev svg { width: 18px; height: 18px; }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) button.jr-row.nl-lead { transition: none; } }
 
 /* the Lifters tab with nobody yet (coach.html buildLiftersEmpty): the first run's lit welcome card every tab shares
    (coach-you.css .cy-fr: the answer, the invite as the one red), the import as the quiet row under it, then what a

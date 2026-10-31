@@ -279,7 +279,7 @@ await t('every paged read in db.js reads its own key (what tells its rows apart)
     D.listScheduleRequests(C), D.listTemplates(C), D.listLogsForAthlete(A), D.listLogsForAthletes(ids), D.listBwForAthlete(A), D.listBwForAthletes(ids),
     D.listMeetsForAthlete(A), D.listMeetsForAthletes(ids), D.listTeams(C), D.listNotesForAthlete(A), D.listNotesForAthletes(ids), D.listCheckins(A),
     D.listCheckinsForAthletes(ids), D.listCheckinAnswers('2026-01-01'), D.listGoalsForAthletes(ids), D.listRestForAthlete(A), D.listMyPublishedPrograms(C),
-    D.listMyPurchases(A), D.listMySales(C), D._myVoicePaths(C), D.listUnreadForUser(C), D.listChallengeEntries(['ch1'], C, C)
+    D.listMyPurchases(A), D.listMySales(C), D._myVoicePaths(C), D.listUnreadForUser(C), D.listChallengeEntries(['ch1'], C, C), D.listCoachApplications(C)
   ]);
   const missed = [...labels].filter(l => !seen[l]);
   eq(missed, [], 'every paged read exercised');

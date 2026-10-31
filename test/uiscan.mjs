@@ -2,7 +2,7 @@
 /*
  * Small-stuff scanner: the details a person notices and a unit test doesn't.
  *
- * Opens 239 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
+ * Opens 333 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
  * sheets (New challenge and a challenge's board among them, the import intake's steps, the two-factor code prompt, the coach's
  * Ask sheet, bell list, first-run tour and form-check review), the planner, the onboarding, every public page at desktop and phone width, dark and light) and
  * reports: sideways scroll, text overlapping text, controls overlapping controls, text cut off
@@ -100,7 +100,9 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-del-template' + suf, page: C, theme, eval: tab('templates') + ";setTimeout(() => CoachProgram.deleteTemplateSheet(Store.get().programTemplates[0]), 400)" },
     // Lifters past six (24, searched), with two join requests, a pending invite's menu; a paid-up client's sheet.
     { name: 'c-athletes-many' + suf, page: C, theme, eval: "Store.update(st => { for (let i = 0; i < 20; i++) st.athletes.push(Object.assign({}, st.athletes.find(a => a.id === 'demo-a2'), { id: 'demo-x' + i, name: ['Leo', 'Priya', 'Marcus', 'Elena', 'Mei', 'Dev', 'Sofia', 'Jonah', 'Aisha', 'Tom\u00e1s'][i % 10] + ' ' + ['Grant', 'Shah', 'Doyle', 'Rossi', 'Tanaka', 'Patel', 'Alvarez', 'Reed', 'Okafor', 'Silva'][(i * 3) % 10] + (i >= 10 ? ' Jr' : ''), email: 'x' + i + '@demo.com', avatarUrl: null })); });" + tab('athletes') + ";setTimeout(() => { const q = document.querySelector('.ca-search .ca-q'); q.value = 'pri'; q.dispatchEvent(new Event('input')); }, 400)" },
-    { name: 'c-athletes-join' + suf, page: C, theme, eval: tab('athletes') + ";setTimeout(() => { const h = document.createElement('div'); document.getElementById('rosterArea').prepend(h); h.appendChild(_joinRequestsPhone([{ id: 'r1', athleteName: 'Leo Grant', note: 'Meet in March, want a coach for the peak' }, { id: 'r2', athleteName: 'Priya Shah', note: '' }])); }, 400)" },
+    // New lifters (night C review M5): the demo's two applications with two join requests, as a real coach sees them
+    // (the join requests' pills are the approved look: 36 pt with a 44 pt hit area; an application's row is held to 44).
+    { name: 'c-athletes-join' + suf, page: C, theme, t44: '.nl-lead', eval: tab('athletes') + ";setTimeout(() => { window._joinReqs = [{ id: 'r1', athleteName: 'Leo Grant', note: 'Meet in March, want a coach for the peak', createdAt: Date.now() - 2 * 86400000 }, { id: 'r2', athleteName: 'Priya Shah', note: '', createdAt: Date.now() - 5 * 3600000 }]; fillNewLifters(document.querySelector('#rosterArea .nl-host')); CoachApp.paintBadges(); }, 400)" },
     { name: 'sh-invite-menu' + suf, page: C, theme, eval: tab('athletes') + ";setTimeout(() => document.querySelector('#invitesList .inv-row-p .ui-icon-btn').click(), 500)" },
     { name: 'sh-client-ok' + suf, page: C, theme, eval: tab('clients') + ";ClientsUI.openClient('demo-a4')" },
     { name: 'sh-athlete' + suf, page: C, theme, eval: "openAthleteSheet('demo-a1')" },
@@ -216,6 +218,34 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-2fa-login-m' + suf, page: 'index.html', mode: 'web', w: 390, h: 844, theme, eval: 'PowaApp.load().then(() => { openLoginModal(); promptMfaChallenge(); return true; })' },
   { name: 'w-2fa-desk' + suf, page: C, mode: 'web', theme, eval: "promptMfaChallenge({ cancelLabel: 'Sign out' }); true" });
 
+// Night C (30 Oct), dark and light: Stronger than X% (Progress's sheet, the lifter card), meets to calendar (the lifter's
+// Meet day sheet, the coach's Meets on the phone and the laptop), the coach's results cards (both cards, a brand-new
+// coach's, Home's Strength sheet with its way in), applications (a lead's sheet on the phone and the laptop, Clients on
+// the laptop) and the profile's Apply form at desktop and phone width (drawn over the offline profile: the coach list
+// needs Supabase, which the scan refuses).
+const APPLY = "(() => { const r = document.getElementById('cpRoot'); r.innerHTML = ''; const sec = el('div', { class: 'cp-section' }); const w = el('div', { class: 's-wrap' }); w.appendChild(cpApplyForm({ id: 'c1', name: 'Sam Ellis', instagram: 'samellis' })); sec.appendChild(w); r.appendChild(sec); return true; })()";
+// A signed-in lifter's Request to join (night C review M5), drawn the same way.
+const REQUEST = "(() => { const r = document.getElementById('cpRoot'); r.innerHTML = ''; const sec = el('div', { class: 'cp-section' }); const w = el('div', { class: 's-wrap' }); w.appendChild(cpRequestJoin({ id: 'c1', name: 'Sam Ellis' }, { id: 'l1', name: 'Lee Lifter', coachId: null })); sec.appendChild(w); r.appendChild(sec); return true; })()";
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
+  screens.push(
+    { name: 'sh-stronger' + suf, page: A, theme, t44: '.st-sheet', eval: tab('progress') + ";setTimeout(() => openStrongerSheet(), 300)" },
+    { name: 'a-lifter-card' + suf, page: A, theme, eval: 'openLifterCardView()' },
+    { name: 'sh-meet' + suf, page: A, theme, eval: 'openMeetSheet()' },
+    { name: 'c-meets' + suf, page: C, theme, t44: '.md-meet-acts', eval: 'MeetDay.openMeetsScreen()' },
+    { name: 'sh-results' + suf, page: C, theme, eval: "CoachYou.openResults('block')" },
+    { name: 'sh-results-prs' + suf, page: C, theme, eval: "CoachYou.openResults('prs')" },
+    { name: 'f-results' + suf, page: F, theme, eval: 'CoachYou.openResults()' },
+    { name: 'sh-movers' + suf, page: C, theme, eval: "document.querySelector('[data-sheet=movers]').click()" },
+    { name: 'sh-lead' + suf, page: C, theme, t44: '.cs-lead-sheet', eval: tab('athletes') + ";setTimeout(() => ClientsUI.openLead('demo-app-2'), 300)" },
+    { name: 'c-home-newl' + suf, page: C, theme, t44: '.ca-newl', eval: tab('home') + ";setTimeout(() => document.querySelector('.ca-newl').scrollIntoView({ block: 'center' }), 300)" },
+    { name: 'w-clients' + suf, page: C, mode: 'web', theme, eval: "deskGo('clients')" },
+    { name: 'w-newlifters' + suf, page: C, mode: 'web', theme, eval: "deskGo('roster')" },
+    { name: 'w-lead' + suf, page: C, mode: 'web', theme, eval: "deskGo('roster');setTimeout(() => ClientsUI.openLead('demo-app-2'), 300)" },
+    { name: 'w-meets' + suf, page: C, mode: 'web', theme, eval: "deskGo('meets')" },
+    { name: 'w-profile-apply' + suf, page: 'coach-profile.html?id=none', mode: 'web', theme, eval: APPLY },
+    { name: 'w-profile-apply-m' + suf, page: 'coach-profile.html?id=none', mode: 'web', w: 390, h: 844, theme, eval: APPLY },
+    { name: 'w-profile-request-m' + suf, page: 'coach-profile.html?id=none', mode: 'web', w: 390, h: 844, theme, eval: REQUEST });
+}
 // Never the live services: the screens are demos and public pages, but a public page still calls Supabase (the
 // coach list, the leaderboard, join.html's invite_preview, which counts toward a rate limit) and Plausible (a
 // pageview per screen). Both are refused before they leave this machine: by name in the browser (nothing resolves)
@@ -231,7 +261,7 @@ const EXE = process.env.CHROME_PATH || undefined;
 const browser = await chromium.launch(Object.assign(EXE ? { executablePath: EXE } : {},
   { args: ['--host-resolver-rules=' + LIVE_HOSTS.map((h) => `MAP ${h} ~NOTFOUND, MAP *.${h} ~NOTFOUND`).join(', ')] }));
 
-function scan(isApp) {
+function scan([isApp, t44]) {
   const vw = innerWidth;
   const out = [];
   const lab = (e) => {
@@ -353,11 +383,13 @@ function scan(isApp) {
     out.push({ type: 'escapes-screen', el: lab(e), detail: 'left ' + Math.round(b.left) + ', right ' + Math.round(b.right) + ' on ' + vw });
   });
 
-  // 6. tiny tap targets in the app
+  // 6. tiny tap targets in the app: under 28 pt anywhere; under 44 pt inside a screen's t44 parts (the newer screens
+  // are held to the finger's 44 pt: night C review M9 found two at 34 and 40 that 28 let through).
   if (isApp) ctrls.forEach(o => {
     const b = o.e.getBoundingClientRect();
     if (o.e.closest('p, li > span, .ui-row-sub')) return;   // inline text links
-    if ((b.width < 28 || b.height < 28) && b.width > 0) out.push({ type: 'small-target', el: lab(o.e), detail: Math.round(b.width) + '×' + Math.round(b.height) });
+    const min = t44 && o.e.closest(t44) ? 44 : 28;
+    if ((b.width < min || b.height < min) && b.width > 0) out.push({ type: 'small-target', el: lab(o.e), detail: Math.round(b.width) + '×' + Math.round(b.height) + (min === 44 ? ' (44 pt part)' : '') });
   });
 
   // 8. buttons side by side that don't match: different heights or tops in one row
@@ -440,7 +472,7 @@ for (const s of run) {
     if (s.eval) { await page.evaluate(s.eval); await page.waitForTimeout(1200); }
     await page.evaluate(async () => { const m = document.querySelector('.dash-main'); const sc = document.scrollingElement; for (let y = 0; y < 9000; y += 500) { sc.scrollTo(0, y); if (m) m.scrollTo(0, y); await new Promise(r => setTimeout(r, 40)); } sc.scrollTo(0, 0); if (m) m.scrollTo(0, 0); });
     await page.waitForTimeout(500);
-    const issues = await page.evaluate(scan, app);
+    const issues = await page.evaluate(scan, [app, s.t44 || null]);
     if (errs.length) issues.push({ type: 'page-error', detail: errs.join(' | ').slice(0, 300) });
     all[s.name] = issues;
     total += issues.length;

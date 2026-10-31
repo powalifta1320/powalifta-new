@@ -8617,6 +8617,17 @@ group('data scale (index, memos, snapshot)');
       eq(_saveSnapshot(u, huge, { storage: ls, budget: 100000, today: '2026-10-28' }), false, 'nothing fits');
       eq(ls.getItem(key), null, 'the old snapshot is gone (it would open a stale program offline)');
     });
+    // Night C review m14: after Esc on the in-place code prompt the dashboard stays at aal1, where every read is empty.
+    test('_saveSnapshot keeps the last good copy while a two-factor code is put off (Esc on the in-place prompt)', () => {
+      const m = new Map(), ls = { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), key: i => [...m.keys()][i] ?? null, get length() { return m.size; } };
+      const u = { id: '00000000-0000-4000-8000-0000000000ab', userType: 'athlete' }, key = _snapKey(u.id);
+      eq(_saveSnapshot(u, Object.assign(defaultStore(), { workoutLogs: [L('k1', 'a', 'squat', '2026-10-20', 100)] }), { storage: ls, budget: 5e6, today: '2026-10-28' }), true);
+      const good = ls.getItem(key);
+      window._mfaLater = true;
+      try { eq(_saveSnapshot(u, defaultStore(), { storage: ls, budget: 5e6, today: '2026-10-28' }), undefined, 'not saved'); }
+      finally { window._mfaLater = false; }
+      eq(ls.getItem(key), good, 'the training is still there');
+    });
     test('the per-user copies: a wipe takes this user\'s, the sweep takes other accounts\', nothing else', () => {
       const m = new Map(), ls = { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), key: i => [...m.keys()][i] ?? null, get length() { return m.size; } };
       const A = '00000000-0000-4000-8000-00000000000a', B = '00000000-0000-4000-8000-00000000000b';
@@ -8679,6 +8690,14 @@ group('you and the first run (coach-you.js)');
     eq(free.info, null); eq(free.when, ''); eq(free.label, 'Free');
   });
 })();
+
+// Night C review m13: the Results sheet repeated the card; it now says who's counted and the spread under the average.
+test('results: who the block\'s average counts, and how many went up and down', () => {
+  eq(CoachYou.blockSay({ n: 2, running: 3, rows: [{ delta: 7.5 }, { delta: 2.5 }] }), 'Counted: 2 of 3 lifters with a block running (each needs all three lifts logged before the block and in it). 2 up, 0 down.');
+  eq(CoachYou.blockSay({ n: 14, running: 14, rows: Array.from({ length: 14 }, (_, i) => ({ delta: i < 9 ? 5 : i < 13 ? -2.5 : 0 })) }), 'Counted: all 14 lifters with a block running. 9 up, 4 down, 1 level.');
+  eq(CoachYou.blockSay({ n: 1, running: 1, rows: [{ delta: -5 }] }), 'Counted: the 1 lifter with a block running. 0 up, 1 down.');
+  eq(CoachYou.blockSay(null), '');
+});
 
 /* ===========================================================
    The desk's who-wrote-last (2026-10-28): a digest is read fresh every time (DB.coachInbox keeps none),
@@ -9705,6 +9724,319 @@ group('pull to refresh (app.js uiPullRefresh)');
     eq(keepUnreadLists(fresh, null).length, 0, 'no copy on this device: nothing to keep');
   });
 })();
+
+/* ===========================================================
+   Night C (30 Oct): the lost set, Esc on the in-place code prompt, an offline Log out. The sends and the prompt are
+   async (browser flows C-sync-lost-set, C-mfa-esc, C-logout-offline drive them); these are the rules they follow.
+   =========================================================== */
+group('the lost set, Esc on the code prompt, an offline Log out (night C)');
+test('a set queued while the queue was being sent stays queued (it used to be written over)', () => {
+  const A = { id: 'a' }, B = { id: 'b' }, C = { id: 'c' };
+  eq(pendingAfterFlush([A], [], [A, B]).map(l => l.id).join(), 'b', 'A landed, B came in meanwhile');
+  eq(pendingAfterFlush([A, B], [B], [A, B, C]).map(l => l.id).join(), 'b,c', 'the leftover first, then the newcomer');
+  eq(pendingAfterFlush([A], [A], [A]).map(l => l.id).join(), 'a', 'a failed send keeps its set');
+});
+test('a set that left the queue during the send stays gone (deleted, or a log-out dropped every queue)', () => {
+  const A = { id: 'a' }, B = { id: 'b' };
+  eq(pendingAfterFlush([A, B], [A, B], [B]).map(l => l.id).join(), 'b', 'A deleted while it was on its way');
+  eq(pendingAfterFlush([A], [A], []).length, 0, 'every queue dropped: nothing comes back');
+  eq(pendingAfterFlush(null, null, null).length, 0, 'nothing at all');
+});
+test('the other changes: kept when queued meanwhile, the newest edit of a row wins, a dropped queue stays dropped', () => {
+  const e = (key, ts) => ({ key, ts, kind: 'bw', payload: {} });
+  const old = e('bw:1', 1), newer = e('bw:1', 5), other = e('bw:2', 6);
+  eq(outboxAfterFlush([old], [], [old, other]).map(x => x.key + '@' + x.ts).join(), 'bw:2@6', 'sent, and another row came in');
+  eq(outboxAfterFlush([old], [old], [newer]).map(x => x.key + '@' + x.ts).join(), 'bw:1@5', 'failed, but a newer edit of the row replaced it');
+  eq(outboxAfterFlush([old], [old], [old]).map(x => x.key + '@' + x.ts).join(), 'bw:1@1', 'failed and still the row\'s edit: kept');
+  eq(outboxAfterFlush([old], [old], []).length, 0, 'a log-out dropped the queue: it stays dropped');
+});
+test('the code prompt put away on an open dashboard keeps the session; Sign out signs out; at load both sign out', () => {
+  eq(mfaStepOutcome(true, true), 'in'); eq(mfaStepOutcome(true, false), 'in');
+  eq(mfaStepOutcome(null, true), 'later', 'Esc in place: still signed in, the changes wait');
+  eq(mfaStepOutcome(false, true), 'out', 'the Sign out button in place');
+  eq(mfaStepOutcome(null, false), 'out', 'Esc at load: nothing reads without the code');
+  eq(mfaStepOutcome(false, false), 'out');
+  eq(mfaStepOutcome(undefined, true), 'out', 'anything else is not a "not now"');
+});
+test('a set deleted while its own send lands is deleted on the server through the other queue', () => {
+  assert(typeof _OUTBOX_DISPATCH.deleteLog === 'function', 'the outbox knows how to delete a set');
+});
+
+/* ===========================================================
+   Meets to calendar (night C, 30 Oct): app.js meetIcs, the .ics a lifter's meet card and the coach's Meets save.
+   =========================================================== */
+group('meets to calendar (meetIcs)');
+(() => {
+  const NOW = Date.UTC(2026, 9, 30, 12, 0, 0);
+  const unfold = (t) => t.replace(/\r\n /g, '');
+  const lines = (t) => unfold(t).split('\r\n');
+  const meet = { id: 'm-1', name: 'Fall Nationals', date: '2026-12-22', federation: 'Powerlifting America', division: 'Open', weightClass: '74 kg', weighIn: '2h', weighInAt: '2026-12-22T07:00:00' };
+  test('one all-day event on the meet date, and the weigh-in as its own timed event with a reminder', () => {
+    const r = meetIcs(meet, { now: NOW });
+    const L = lines(r.text);
+    eq(L[0], 'BEGIN:VCALENDAR'); eq(L[L.length - 2], 'END:VCALENDAR'); eq(L[L.length - 1], '', 'ends with CRLF');
+    assert(/\r\n/.test(r.text) && !/[^\r]\n/.test(r.text), 'every line ends in CRLF');
+    eq(L.filter(x => x === 'BEGIN:VEVENT').length, 2); eq(L.filter(x => x === 'END:VEVENT').length, 2);
+    assert(L.includes('DTSTART;VALUE=DATE:20261222') && L.includes('DTEND;VALUE=DATE:20261223'), 'all day, the end is the next day');
+    assert(L.includes('SUMMARY:Fall Nationals'), 'the meet');
+    assert(L.includes('DTSTART:20261222T070000') && L.includes('DTEND:20261222T083000'), 'the 2-hour weigh-in: 07:00 to 08:30, the meet\'s own time (no zone)');
+    assert(L.includes('SUMMARY:Weigh-in · Fall Nationals') && L.includes('TRIGGER:-PT30M'), 'its reminder 30 minutes before');
+    assert(L.includes('DESCRIPTION:Powerlifting America · Open · 74 kg class\\n2-hour weigh-in at 07:00'), 'federation, division, class and the weigh-in in plain words');
+    assert(L.includes('DTSTAMP:20261030T120000Z'), 'the stamp in UTC');
+    eq(r.filename, 'fall-nationals-2026-12-22.ics');
+  });
+  test('the same meet saved twice keeps its ids, so a calendar updates it instead of adding a copy', () => {
+    const a = lines(meetIcs(meet, { now: NOW }).text).filter(x => /^UID:/.test(x));
+    const b = lines(meetIcs(Object.assign({}, meet, { name: 'Fall Nationals (moved)' }), { now: NOW + 86400000 }).text).filter(x => /^UID:/.test(x));
+    eq(a.join(), 'UID:meet-m-1@powalifta.com,UID:weighin-m-1@powalifta.com'); eq(b.join(), a.join());
+    const g = lines(meetIcs({ name: 'City Classic', date: '2026-12-01' }, { now: NOW, uidKey: 'city classic|2026-12-01', who: ['Priya', 'Sarah'] }).text);
+    assert(g.includes('UID:meet-city-classic-2026-12-01@powalifta.com'), 'a grouped meet: its key, made safe');
+    assert(g.includes('DESCRIPTION:Lifting: Priya\\, Sarah'), 'the coach\'s lifters at it');
+  });
+  test('a 24-hour weigh-in the evening before; a time with a zone stays that moment in UTC; no time, no second event', () => {
+    let L = lines(meetIcs(Object.assign({}, meet, { weighIn: '24h', weighInAt: '2026-12-21T17:00' }), { now: NOW }).text);
+    assert(L.includes('DTSTART:20261221T170000') && L.includes('DTEND:20261221T180000'), '24 h: one hour from 17:00 the day before');
+    L = lines(meetIcs(Object.assign({}, meet, { weighInAt: '2026-12-22T07:00:00+01:00' }), { now: NOW }).text);
+    assert(L.includes('DTSTART:20261222T060000Z') && L.includes('DTEND:20261222T073000Z'), 'with an offset: UTC');
+    L = lines(meetIcs(Object.assign({}, meet, { weighInAt: null }), { now: NOW }).text);
+    eq(L.filter(x => x === 'BEGIN:VEVENT').length, 1, 'no time: the meet only');
+    assert(L.includes('DESCRIPTION:Powerlifting America · Open · 74 kg class\\n2-hour weigh-in'), 'the kind of weigh-in still said');
+    L = lines(meetIcs(Object.assign({}, meet, { weighInAt: 'tomorrow morning' }), { now: NOW }).text);
+    eq(L.filter(x => x === 'BEGIN:VEVENT').length, 1, 'a time that isn\'t one: no weigh-in event');
+  });
+  test('a name can\'t add a line of its own; commas and semicolons are escaped; a location only when known', () => {
+    const r = meetIcs({ id: 'x', name: 'Nationals, Day 1; Open\r\nATTENDEE:mailto:evil@example.com', date: '2026-12-22', location: 'Hall 3, Leeds' }, { now: NOW });
+    const L = lines(r.text);
+    assert(!L.some(x => /^ATTENDEE/.test(x)), 'no property smuggled in');
+    eq(L.find(x => /^SUMMARY:/.test(x)), 'SUMMARY:Nationals\\, Day 1\\; Open ATTENDEE:mailto:evil@example.com', 'kept as text');
+    assert(L.includes('LOCATION:Hall 3\\, Leeds'));
+    assert(!lines(meetIcs(meet, { now: NOW }).text).some(x => /^LOCATION/.test(x)), 'no location field when none is known');
+  });
+  test('long lines fold at 75 octets and never inside a character', () => {
+    const r = meetIcs({ id: 'y', name: 'Championnats de France de Force Athlétique — Élite Ü20 · ' + 'Ünïcödé '.repeat(12), date: '2026-12-22', federation: 'FFForce' }, { now: NOW });
+    const raw = r.text.split('\r\n');
+    const enc = new TextEncoder();
+    assert(raw.every(x => enc.encode(x).length <= 75), 'no line over 75 octets');
+    assert(raw.some(x => /^ /.test(x)), 'it did fold');
+    assert(lines(r.text).some(x => x.indexOf('SUMMARY:Championnats de France de Force Athlétique — Élite Ü20 · Ünïcödé') === 0), 'and unfolds to the name');
+    assert(!/�/.test(new TextDecoder().decode(enc.encode(r.text))), 'every piece is whole UTF-8');
+  });
+  test('no date, no file', () => {
+    eq(meetIcs({ name: 'Meet' }), null); eq(meetIcs(null), null); eq(meetIcs({ name: 'Meet', date: 'soon' }), null);
+  });
+  // Night C review m2, m3: a grouped meet gave everyone the first lifter's weigh-in, and its id was its name and date.
+  test('a grouped meet: one weigh-in event per time, each naming its lifters; one shared time stays one event', () => {
+    const MD = window.MeetDay && MeetDay.pure;
+    const g = { key: 'fall nationals|2026-12-12', name: 'Fall Nationals', date: '2026-12-12', federation: 'USAPL', division: 'Open', weighIn: '2h', weighInAt: '2026-12-12T07:00',
+      rows: [{ meetId: 'm-b', name: 'Arjun Mehta', weighIn: '2h', weighInAt: '2026-12-12T07:00' }, { meetId: 'm-a', name: 'Sarah Kim', weighIn: '2h', weighInAt: '2026-12-12T13:00' }] };
+    const cm = MD.calendarMeet(g);
+    eq(JSON.stringify(cm.weighIns.map(w => [w.weighInAt, w.who.join()])), JSON.stringify([['2026-12-12T07:00', 'Arjun'], ['2026-12-12T13:00', 'Sarah']]));
+    const L = lines(meetIcs(cm, { now: NOW, uidKey: MD.calendarKey(g), who: ['Arjun', 'Sarah'] }).text);
+    const sums = L.filter(x => /^SUMMARY:Weigh-in/.test(x));
+    eq(JSON.stringify(sums), JSON.stringify(['SUMMARY:Weigh-in · Fall Nationals · Arjun', 'SUMMARY:Weigh-in · Fall Nationals · Sarah']));
+    eq(JSON.stringify(L.filter(x => /^DTSTART:/.test(x))), JSON.stringify(['DTSTART:20261212T070000', 'DTSTART:20261212T130000']), 'each at its own time');
+    assert(L.some(x => /^DESCRIPTION:.*Weigh-ins: Arjun 07:00\\, Sarah 13:00/.test(x)), 'the meet says both');
+    const uids = L.filter(x => /^UID:weighin-/.test(x));
+    eq(uids.length, 2); assert(uids[0] !== uids[1], 'two ids');
+    const same = MD.calendarMeet(Object.assign({}, g, { rows: g.rows.map(r => Object.assign({}, r, { weighInAt: '2026-12-12T07:00' })) }));
+    eq(same.weighIns, null, 'one time: the meet\'s own weigh-in');
+    const L2 = lines(meetIcs(same, { now: NOW, uidKey: 'k' }).text);
+    eq(L2.filter(x => /^SUMMARY:Weigh-in/.test(x)).join(), 'SUMMARY:Weigh-in · Fall Nationals');
+  });
+  test('the coach\'s calendar id is the meet\'s, not its name and date: renamed or moved, it updates', () => {
+    const MD = window.MeetDay && MeetDay.pure;
+    const g = { key: 'fall nationals|2026-12-12', rows: [{ meetId: 'm-b' }, { meetId: 'm-a' }] };
+    eq(MD.calendarKey(g), 'm-m-a');
+    eq(MD.calendarKey(Object.assign({}, g, { key: 'fall nationals (moved)|2026-12-19' })), 'm-m-a', 'the same after a rename or a move');
+    eq(MD.calendarKey({ key: 'x|2026-12-01', rows: [] }), 'x|2026-12-01', 'no ids: as before');
+  });
+})();
+
+/* ===========================================================
+   Stronger than X% (night C, 30 Oct): app.js oplKey / oplValues / oplRank / strongerThan / strongerLine over a small
+   made-up table (the shipped opl-percentiles.json is checked by a browser flow and the build script).
+   =========================================================== */
+group('stronger than X% (OpenPowerlifting percentiles)');
+(() => {
+  // A group whose 1st..99th percentiles run 100.0, 101.0 … 198.0 kg: 200 half-kg units, then +2 each step.
+  const steps = [200].concat(Array.from({ length: 98 }, () => 2));
+  const T = { since: '2021-01-01', data: '2026-10-24', b: {
+    'M|raw|83': { n: 48088, t: steps, s: steps, b: steps, d: steps },
+    'F|eq|84+': { n: 2227, t: steps, s: steps, b: steps, d: steps },
+    'M|raw|59': { n: 99, t: steps, s: steps, b: steps, d: steps } } };
+  test('the key: sex, raw or equipped, the IPF class as the app names it', () => {
+    eq(oplKey('male', 'raw', '83 kg'), 'M|raw|83'); eq(oplKey('female', 'equipped', '84 kg+'), 'F|eq|84+');
+    eq(oplKey('male', 'raw', '120 kg+'), 'M|raw|120+'); eq(oplKey('male', 'raw', null), null); eq(oplKey('male', 'raw', 'heavy'), null);
+    eq(oplClassValid('83 kg', 'male'), true); eq(oplClassValid('83 kg', 'female'), false, 'a cut\'s 83 is no class for a woman');
+    eq(oplClassValid('84 kg+', 'female'), true); eq(oplClassValid('105 kg+', 'male'), false); eq(oplClassValid(null, 'male'), false);
+  });
+  test('the steps decode to the 99 percentile values in kg; a broken list is no list', () => {
+    const v = oplValues(steps);
+    eq(v.length, 99); eq(v[0], 100); eq(v[49], 149); eq(v[98], 198);
+    eq(oplValues([1, 2, 3]), null); eq(oplValues(steps.slice(0, 98).concat([-1])), null); eq(oplValues(null), null);
+  });
+  test('the rank: the share of the group a weight beats, rounded down, 0 under the 1st, 99 past the 99th', () => {
+    const v = oplValues(steps);
+    eq(oplRank(v, 149), 50, 'the 50th percentile value'); eq(oplRank(v, 149.9), 50, 'never rounded up');
+    eq(oplRank(v, 170.5), 71); eq(oplRank(v, 99.5), 0); eq(oplRank(v, 100), 1); eq(oplRank(v, 250), 99);
+    eq(oplRank(v, 0), null); eq(oplRank(null, 150), null);
+    const flat = oplValues([200].concat(Array.from({ length: 98 }, (_, i) => (i >= 39 && i < 45 ? 0 : 2))));   // a run of equal values (p40..p46)
+    eq(oplRank(flat, flat[40]), 40, 'on a run of equal values: only the ones below it count');
+  });
+  test('stronger than: the group, the count, the total and each lift; nothing for an unknown or small group', () => {
+    const r = strongerThan(T, { sex: 'male', equip: 'raw', cls: '83 kg', kg: { total: 170.5, squat: 149, bench: 99, deadlift: 0 } });
+    eq(r.key, 'M|raw|83'); eq(r.group, 'raw men'); eq(r.n, 48088); eq(r.since, '2021');
+    eq(r.lifts.total.pct, 71); eq(r.lifts.squat.pct, 50); eq(r.lifts.bench.pct, 0, 'under the 1st: kept as 0'); eq(r.lifts.deadlift, undefined, 'no number, no line');
+    eq(strongerLine(r), 'e1RM total: stronger than 71% of 83 kg raw men', 'nothing lifted: the e1RM total, named as one');
+    eq(strongerLine(r, 'squat'), 'e1RM: stronger than 50% of 83 kg raw men');
+    eq(strongerLine(r, 'bench'), null, 'never "stronger than 0%"');
+    eq(strongerThan(T, { sex: 'female', equip: 'equipped', cls: '84 kg+', kg: { total: 300 } }).group, 'equipped women');
+    eq(strongerThan(T, { sex: 'male', equip: 'raw', cls: '59 kg', kg: { total: 150 } }), null, 'a group under 100 lifters says nothing');
+    eq(strongerThan(T, { sex: 'male', equip: 'raw', cls: '93 kg', kg: { total: 150 } }), null, 'a group the file doesn\'t have');
+    eq(strongerThan(null, { sex: 'male', equip: 'raw', cls: '83 kg', kg: { total: 150 } }), null, 'no file, no number');
+    eq(strongerThan(T, { sex: 'male', equip: 'raw', cls: '83 kg', kg: {} }), null, 'nothing logged');
+  });
+  // Night C review M8: a training estimate ranked above a real meet total that ranks lower flattered the lifter.
+  test('what was lifted comes first: a meet total (or the best singles) is the headline, the e1RM total its own line', () => {
+    const o = { sex: 'male', equip: 'raw', cls: '83 kg', kg: { total: 190, squat: 160, bench: 120, deadlift: 175 },
+      lifted: { total: 160.5, squat: 149, bench: 101, deadlift: 160 }, liftedKind: 'meet', liftedMeet: 'Spring Classic' };
+    const r = strongerThan(T, o);
+    eq(r.lifts.total.pct, 91, 'the e1RM total still ranked'); eq(r.lifted.total.pct, 61, 'and the meet total');
+    eq(r.liftedKind, 'meet'); eq(r.liftedMeet, 'Spring Classic');
+    eq(JSON.stringify(strongerHeadline(r)), JSON.stringify({ kind: 'meet', kg: 160.5, pct: 61, meet: 'Spring Classic' }), 'the meet total leads');
+    eq(strongerLine(r), 'Meet total: stronger than 61% of 83 kg raw men');
+    eq(strongerLine(r, 'squat'), 'Best single: stronger than 50% of 83 kg raw men', 'a lift: its best single');
+    const sg = strongerThan(T, Object.assign({}, o, { liftedKind: 'singles', liftedMeet: '' }));
+    eq(strongerHeadline(sg).kind, 'singles'); eq(strongerLine(sg), 'Best singles: stronger than 61% of 83 kg raw men');
+    eq(sg.liftedMeet, '', 'no meet name for singles');
+  });
+  test('two singles of three: no lifted total, so the e1RM total leads, and each lift says what it ranks', () => {
+    const r = strongerThan(T, { sex: 'male', equip: 'raw', cls: '83 kg', kg: { total: 190, squat: 160, bench: 120, deadlift: 175 }, lifted: { squat: 149, bench: 101 }, liftedKind: null });
+    eq(strongerHeadline(r).kind, 'e1rm'); eq(r.liftedKind, null);
+    eq(strongerLine(r), 'e1RM total: stronger than 91% of 83 kg raw men');
+    eq(strongerLine(r, 'squat'), 'Best single: stronger than 50% of 83 kg raw men');
+    eq(strongerLine(r, 'deadlift'), 'e1RM: stronger than 76% of 83 kg raw men', 'no single: its e1RM, said so');
+  });
+  test('a meet total under the 1st percentile says nothing (the e1RM total never stands in for it)', () => {
+    const r = strongerThan(T, { sex: 'male', equip: 'raw', cls: '83 kg', kg: { total: 190 }, lifted: { total: 90 }, liftedKind: 'meet', liftedMeet: 'First Meet' });
+    eq(strongerHeadline(r).pct, 0); eq(strongerLine(r), null);
+    eq(strongerHeadline(null), null); eq(strongerLine(null), null);
+  });
+  test('only lifted numbers still rank (no e1RMs)', () => {
+    const r = strongerThan(T, { sex: 'female', equip: 'equipped', cls: '84 kg+', kg: {}, lifted: { total: 170.5 }, liftedKind: 'singles' });
+    eq(JSON.stringify(strongerHeadline(r)), JSON.stringify({ kind: 'singles', kg: 170.5, pct: 71, meet: '' }));
+  });
+})();
+
+/* ===========================================================
+   Results cards (night C, 30 Oct): app.js teamBlockGain / teamPrWall / cardName / prWallLift, the numbers behind the
+   coach's "My lifters gained X kg this block" and this week's PR wall.
+   =========================================================== */
+group('results cards (teamBlockGain, teamPrWall)');
+(() => {
+  const T = '2026-10-30';   // a Friday
+  const wk = (n) => Array.from({ length: n }, () => ({ days: [] }));
+  const L = (id, a, lift, date, e1, w, r, variant) => ({ id, athleteId: a, lift, date, e1rmComp: e1, weight: w || e1, reps: r || 1, variant: variant || 'Competition' });
+  test('the block\'s gain: lifters with a block running today and all three lifts before and in it; their mean to 0.5 kg', () => {
+    const athletes = [{ id: 'a', name: 'Arjun Mehta' }, { id: 'b', name: 'Bea Old' }, { id: 'c', name: 'Cal NoBench' }, { id: 'd', name: 'Dee Lane' }, { id: 'e', name: 'Eve NoProgram' }];
+    const programs = [{ id: 'pa', athleteId: 'a', startsOn: '2026-10-12', weeks: wk(4) }, { id: 'pb', athleteId: 'b', startsOn: '2026-09-07', weeks: wk(3) },
+      { id: 'pc', athleteId: 'c', startsOn: '2026-10-19', weeks: wk(4) }, { id: 'pd', athleteId: 'd', startsOn: '2026-10-05', weeks: wk(6) }];
+    const logs = [L('1', 'a', 'squat', '2026-09-20', 200), L('2', 'a', 'bench', '2026-09-20', 130), L('3', 'a', 'deadlift', '2026-09-21', 240),
+      L('4', 'a', 'squat', '2026-10-20', 210), L('5', 'a', 'bench', '2026-10-21', 132.5), L('6', 'a', 'deadlift', '2026-10-22', 250),
+      L('7', 'b', 'squat', '2026-09-08', 150), L('8', 'b', 'bench', '2026-09-08', 90), L('9', 'b', 'deadlift', '2026-09-08', 180),
+      L('10', 'c', 'squat', '2026-10-01', 160), L('11', 'c', 'deadlift', '2026-10-01', 190), L('12', 'c', 'squat', '2026-10-20', 165), L('13', 'c', 'bench', '2026-10-20', 100), L('14', 'c', 'deadlift', '2026-10-20', 195),
+      L('15', 'd', 'squat', '2026-09-20', 180), L('16', 'd', 'bench', '2026-09-20', 100), L('17', 'd', 'deadlift', '2026-09-20', 200),
+      L('18', 'd', 'squat', '2026-10-10', 185), L('19', 'd', 'bench', '2026-10-10', 100), L('20', 'd', 'deadlift', '2026-10-10', 205)];
+    const g = teamBlockGain(athletes, programs, logs, T);
+    eq(g.running, 3, 'a, c and d have a block running; b\'s ended, e has none');
+    eq(g.n, 2, 'c had no bench before the block: not counted');
+    eq(g.rows.map(r => r.id + ':' + r.delta).join(), 'a:22.5,d:10', 'most first');
+    eq(g.avg, 16.5, '(22.5 + 10) / 2 = 16.25, to 0.5 kg');
+    eq(teamBlockGain(athletes, programs, [], T), null, 'nothing logged: nothing to say');
+    eq(teamBlockGain([], programs, logs, T), null);
+  });
+  test('a block that went down says so: the mean is never made positive', () => {
+    const g = teamBlockGain([{ id: 'a', name: 'A' }], [{ id: 'pa', athleteId: 'a', startsOn: '2026-10-26', weeks: wk(4) }],
+      [L('1', 'a', 'squat', '2026-10-01', 200), L('2', 'a', 'bench', '2026-10-01', 130), L('3', 'a', 'deadlift', '2026-10-01', 240),
+       L('4', 'a', 'squat', '2026-10-27', 180), L('5', 'a', 'bench', '2026-10-27', 120), L('6', 'a', 'deadlift', '2026-10-28', 220)], T);
+    eq(g.avg, -50); eq(g.rows[0].delta, -50);
+  });
+  test('the PR wall: this week\'s best PR of each lift per lifter, what was on the bar; a first set is never a PR', () => {
+    const athletes = [{ id: 'a', name: 'Arjun Mehta' }, { id: 'b', name: 'Bea' }];
+    const logs = [L('a1', 'a', 'squat', '2026-10-01', 200, 180, 3), L('a2', 'a', 'squat', '2026-10-28', 205, 182.5, 3), L('a3', 'a', 'squat', '2026-10-29', 207, 207, 1),
+      L('a4', 'a', 'bench', '2026-10-29', 140, 125, 3),   // the first bench ever: not a PR
+      L('a5', 'a', 'deadlift', '2026-10-20', 250), L('a6', 'a', 'deadlift', '2026-10-30', 249.5),   // under the best: not a PR
+      L('b1', 'b', 'squat', '2026-10-01', 140), L('b2', 'b', 'squat', '2026-10-23', 145, 135, 2),   // 7 days back: last week's
+      L('b3', 'b', 'squat', '2026-10-24', 150, 140, 2, 'Paused'),
+      L('b4', 'b', 'bench', '2026-10-01', 90), L('b5', 'b', 'bench', '2026-10-25', 90.04),   // 0.04 over: not a PR
+      L('x1', 'b', 'deadlift', '2026-10-01', 180), L('x2', 'b', 'deadlift', '2026-10-26', 190, 170, 3), L('x3', 'b', 'deadlift', '2026-10-26', 195, 175, 3),
+      L('z1', 'z', 'squat', '2026-10-29', 300)];   // not on the roster
+    const w = teamPrWall(athletes, logs, T);
+    eq(w.map(p => p.id + ':' + p.lift + ':' + p.e1rm).join(), 'a:squat:207,b:squat:150,b:deadlift:195', 'by lifter, the newest PR\'s lifter first, lifts in order; the best of the week per lift; same-day sets in order');
+    eq(w[0].reps, 1); eq(w[1].variant, 'Paused');
+    eq(teamPrWall(athletes, [], T).length, 0);
+  });
+  test('the block in words: gained, held, or down (never "gained −2.5 kg")', () => {
+    const was = getUnit(); setUnit('kg');
+    try {
+      eq(CoachYou.blockWords({ avg: 5 }), 'My lifters gained 5 kg this block');
+      eq(CoachYou.blockWords({ avg: 0 }), 'My lifters held their e1RM totals this block');
+      eq(CoachYou.blockWords({ avg: -2.5 }), 'My lifters\u2019 e1RM totals are 2.5 kg down this block');
+      eq(CoachYou.blockWords(null), '');
+    } finally { setUnit(was); }
+  });
+  test('a name on a public card is first name and initial; the lift says what was on the bar', () => {
+    eq(cardName('Arjun Mehta'), 'Arjun M.'); eq(cardName('Mary Jane Watson'), 'Mary W.'); eq(cardName('Cher'), 'Cher'); eq(cardName('  '), 'Lifter');
+    eq(prWallLift({ lift: 'squat', variant: 'Paused', weight: 170, reps: 3 }), 'Paused squat 170 × 3');
+    eq(prWallLift({ lift: 'squat', variant: 'Competition', weight: 205, reps: 1 }), 'Squat 205');
+    eq(prWallLift({ lift: 'bench', variant: 'Close Grip', weight: 120, reps: 2 }), 'Close grip bench 120 × 2');
+    eq(prWallLift({ lift: 'deadlift', variant: 'RDL', weight: 200, reps: 5 }, (kg) => Math.round(kg * 2.20462) + ' lb'), 'RDL 441 lb × 5');
+  });
+})();
+
+/* ===========================================================
+   Applications from a coach's profile (night C, 30 Oct): clients.js leadsWaiting / leadYears / leadLifts / leadLine,
+   the lead rows in Clients.
+   =========================================================== */
+group('applications (clients.js leads)');
+test('the waiting ones, the longest waiting first; decided ones aren\'t leads', () => {
+  const L = Clients.leadsWaiting([
+    { id: 'm', name: 'Mia', status: 'new', createdAt: '2026-10-29T10:00:00Z' },
+    { id: 'j', name: 'Jonas', status: 'new', createdAt: '2026-10-27T05:00:00Z' },
+    { id: 'a', name: 'Ana', status: 'accepted', createdAt: '2026-10-20T05:00:00Z' },
+    { id: 'd', name: 'Dee', status: 'declined', createdAt: '2026-10-21T05:00:00Z' },
+    { id: 'b', name: 'Bo', status: 'new', createdAt: '2026-10-29T10:00:00Z' }, null]);
+  eq(L.map(l => l.id).join(), 'j,b,m', 'Jonas waited longest; Bo and Mia at the same moment go by name');
+  eq(Clients.leadsWaiting(null).length, 0);
+});
+test('new lifters: how soon first (an upcoming meet, the soonest first), then the longest waiting, then by name', () => {
+  const T = '2026-10-30';
+  const L = Clients.leadsWaiting([
+    { id: 'old', name: 'Olu', status: 'new', createdAt: '2026-10-01T10:00:00Z' },
+    { id: 'far', name: 'Fay', status: 'new', createdAt: '2026-10-29T10:00:00Z', nextMeet: '2027-03-01' },
+    { id: 'soon', name: 'Sol', status: 'new', createdAt: '2026-10-29T11:00:00Z', nextMeet: '2026-11-20' },
+    { id: 'past', name: 'Pat', status: 'new', createdAt: '2026-10-02T10:00:00Z', nextMeet: '2026-10-10' }], T);
+  eq(L.map(l => l.id).join(), 'soon,far,old,past', 'meets ahead by date; a meet already past counts as none');
+  eq(Clients.newLifterCmp({ at: '2026-10-01', name: 'A', meet: null }, { at: '2026-10-01', name: 'B', meet: null }, T) < 0, true, 'a tie goes by name');
+});
+test('a lead\'s line: training age, best lifts in the coach\'s unit, the goal; the email when that\'s all there is', () => {
+  eq(Clients.leadYears(0), 'Under a year training'); eq(Clients.leadYears(1), '1 year training'); eq(Clients.leadYears(3), '3 years training');
+  eq(Clients.leadYears(5), '5 to 9 years training'); eq(Clients.leadYears(10), '10+ years training'); eq(Clients.leadYears(null), '');
+  const mia = { name: 'Mia', email: 'mia@example.com', trainingYears: 3, squat: 140, bench: 82.5, deadlift: 170, goals: 'A first meet' };
+  eq(Clients.leadLine(mia), '3 years training · 140 / 82.5 / 170 kg · A first meet');
+  eq(Clients.leadLine(mia, (kg) => String(Math.round(kg * 2.20462)), 'lb'), '3 years training · 309 / 182 / 375 lb · A first meet');
+  eq(Clients.leadLifts({ squat: 140, bench: null, deadlift: 170 }), '140 / – / 170 kg', 'a lift left out is a dash');
+  eq(Clients.leadLine({ email: 'x@example.com' }), 'x@example.com');
+});
+// Night C review m10: the coach couldn't tell who the lifter is (no bodyweight) or how soon (no meet).
+test('a lead\'s line also says the bodyweight and the next meet; a meet already past is left out', () => {
+  const mia = { name: 'Mia', email: 'mia@example.com', trainingYears: 3, squat: 140, bench: 82.5, deadlift: 170, bodyweight: 82.44, nextMeet: '2026-12-12', goals: 'A first meet' };
+  eq(Clients.leadLine(mia), '3 years training · 140 / 82.5 / 170 kg · 82.4 kg bodyweight · meet 2026-12-12 · A first meet');
+  eq(Clients.leadLine(mia, (kg) => String(Math.round(kg * 2.20462)), 'lb', { bw: (kg) => String(Math.round(kg * 2.20462 * 10) / 10), date: () => '12 Dec', today: '2026-10-30' }),
+    '3 years training · 309 / 182 / 375 lb · 181.7 lb bodyweight · meet 12 Dec · A first meet', 'in the coach\'s unit and date');
+  eq(Clients.leadLine(Object.assign({}, mia, { nextMeet: '2026-10-01' }), null, 'kg', { today: '2026-10-30' }), '3 years training · 140 / 82.5 / 170 kg · 82.4 kg bodyweight · A first meet');
+  eq(Clients.leadLine({ email: 'x@example.com', bodyweight: 0 }), 'x@example.com');
+});
 
 function render() {
   const sum = document.getElementById('summary');

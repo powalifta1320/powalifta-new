@@ -43,6 +43,17 @@ node test/coach-jobs.test.mjs
 node test/send-weekly-digest.test.mjs
 ```
 
+## Applications to a coach (no dependencies)
+
+The apply-to-coach edge function end to end under Node, the supabase client, web-push and fetch faked: the gate the
+profile's form waits for, the limits (per IP, per email silently, everyone), the honeypot, the confirm link and its
+hash, the database's own words, a failed email, the confirm with the coach's push and email (never the note).
+The SQL itself is tested in PGlite (scratchpad/pgtest/coach-applications-test.mjs).
+
+```bash
+node test/apply-to-coach.test.mjs
+```
+
 ## Two-factor in the edge functions (no dependencies)
 
 The eight functions that act for a signed-in user, run for real under Node with the supabase client,

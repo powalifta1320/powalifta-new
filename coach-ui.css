@@ -2209,3 +2209,42 @@ html.desk button.mr-row:active { background: var(--dk-fill-2, var(--ch-fill-2));
 .settings-sheet .np-example:active { background: var(--bg-3); }
 @media (hover: hover) and (pointer: fine) { .settings-sheet .np-example:hover { background: var(--bg-3); } }
 @media (prefers-reduced-motion: reduce) { .mr-box, .dk-veil.mr-veil { animation: none; } .mr-meter i { animation: none; } .mr-veil.is-leaving .mr-box { transform: none; } }
+
+/* Applications (night C, 30 Oct; fixed after its review): they wait on Lifters under New lifters with the join requests
+   (coach.html _newLiftersSection; the phone's look is coach-app.css's .jr rows). The laptop: the same section in the
+   list column above the roster (coach-lifters.js .nl-slot), its own rows (review m8: no phone rows on a desk), calm, no
+   colour; Accept in graphite. A lead's sheet keeps its one crimson, Send <name> an invite, a quiet Decline beside it on
+   the laptop (under it on the phone), and Delete as spam. */
+html.desk .nl-slot:empty { display: none; }
+html.desk .cl-side .nl-slot { padding: 4px 24px 8px; }
+html.desk .nl-sec { margin: 0 0 var(--s-4); padding: var(--s-3) var(--s-3) var(--s-2); border-radius: var(--r-3); background-color: var(--dk-card); background-image: var(--dk-card-sheen); border: 1px solid var(--dk-card-edge); box-shadow: var(--dk-card-lit); }
+html.desk .nl-sec > .ca-h { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); margin: 0 var(--s-1) var(--s-2); }
+html.desk .nl-sec > .ca-h h2 { margin: 0; font-size: var(--fs-4, 17px); font-weight: 700; letter-spacing: -0.01em; }
+html.desk .nl-sec > .ca-h .ca-h-meta { font-size: var(--fs-1, 13px); color: var(--text-3); font-variant-numeric: tabular-nums; }
+html.desk .nl-list { display: flex; flex-direction: column; }
+html.desk .nl-row { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: var(--s-3); row-gap: 6px; align-items: start; width: 100%; padding: var(--s-2) var(--s-1); border: 0; border-radius: var(--r-2); background: none; color: inherit; font: inherit; text-align: left; }
+html.desk .nl-row + .nl-row::before { content: ''; position: absolute; top: 0; left: 48px; right: 4px; height: 1px; background: var(--line); }
+html.desk button.nl-row { cursor: pointer; }
+@media (hover: hover) and (pointer: fine) { html.desk button.nl-row:hover { background: var(--dk-hover); } }
+html.desk .nl-row .jr-av { grid-column: 1; grid-row: 1 / span 2; width: 36px; height: 36px; font-size: 13px; font-weight: 800; }
+html.desk .nl-row .jr-tx { grid-column: 2; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+html.desk .nl-row .jr-tx b { font-size: var(--fs-2, 15px); font-weight: 650; overflow-wrap: anywhere; }
+html.desk .nl-row .jr-tx span { font-size: var(--fs-1, 13px); line-height: 1.4; color: var(--text-2); overflow-wrap: anywhere; }
+html.desk .nl-row .nl-src { font-size: var(--fs-1, 13px); color: var(--text-3); }
+html.desk .nl-row .nl-chev { grid-column: 3; grid-row: 1 / span 2; align-self: center; width: 16px; height: 16px; color: var(--text-3); }
+html.desk .nl-row .nl-chev svg { width: 16px; height: 16px; }
+html.desk .nl-row .jr-acts { grid-column: 2 / -1; justify-self: end; display: flex; gap: var(--s-2); }
+html.desk .nl-row .jr-acts button { height: 32px; padding: 0 var(--s-3); border: 0; border-radius: 999px; font: inherit; font-size: var(--fs-1, 13px); font-weight: 650; cursor: pointer; }
+html.desk .nl-row .jr-no { background: none; color: var(--text-2); }
+html.desk .nl-row .jr-yes { background: var(--fill-3, rgba(255, 255, 255, 0.08)); color: var(--text); }
+@media (hover: hover) and (pointer: fine) { html.desk .nl-row .jr-no:hover { color: var(--text); } html.desk .nl-row .jr-yes:hover { background: var(--fill-4, rgba(255, 255, 255, 0.14)); } }
+.cs-lead-note { margin: 0 0 16px; padding: 14px 16px; border-radius: 14px; background: var(--ch-fill-1, var(--fill-1)); font-size: 15px; line-height: 1.5; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.cs-lead-acts { display: flex; flex-direction: column; align-items: stretch; gap: 4px; margin-top: 20px; }
+.cs-lead-acts.is-desk { flex-direction: row; align-items: center; justify-content: flex-end; gap: 12px; }
+.cs-lead-acts.is-desk .btn-block, html.desk body.powa-app .ui-sheet .cs-lead-acts.is-desk .btn-block { width: auto; margin: 0; }
+.cs-lead-no { align-self: center; min-height: 44px; padding: 0 18px; font-size: 15px; font-weight: 600; color: var(--text-2); }
+.cs-lead-fine { margin: 8px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-3); text-align: center; }
+.cs-lead-acts.is-desk + .cs-lead-fine { text-align: right; }
+.cs-lead-delrow { display: flex; justify-content: center; margin-top: 4px; }
+.cs-lead-sheet .cs-lead-del { min-height: 44px; padding: 0 18px; font-size: 15px; font-weight: 600; color: var(--text-3); }
+a.ui-row.cs-lead-mail { color: inherit; text-decoration: none; }
