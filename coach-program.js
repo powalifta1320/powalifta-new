@@ -619,9 +619,15 @@
       b.appendChild(el('span', {}, labels[i]));
       row.appendChild(b);
     });
-    var add = el('button', { type: 'button', class: 'cp-day cp-day-add' + (di === days.length ? ' on' : ''), 'data-day': String(days.length), 'aria-label': 'Add a day', html: PLUS });
+    var add = el('button', { type: 'button', class: 'cp-day cp-day-add' + (di === days.length ? ' on' : ''), role: 'tab', 'aria-selected': di === days.length ? 'true' : 'false', 'data-day': String(days.length), 'aria-label': 'Add a day', html: PLUS });
     row.appendChild(add);
     wrap.appendChild(row);
+    // Never a cut-off name: if one doesn't fit its segment after all (a wide font, a narrow phone), every day is numbered.
+    if (!many) requestAnimationFrame(function () {
+      var spans = row.querySelectorAll('.cp-day:not(.cp-day-add) > span');
+      if (!Array.prototype.some.call(spans, function (s) { return s.scrollWidth > s.clientWidth + 1; })) return;
+      Array.prototype.forEach.call(spans, function (s, i) { s.textContent = cpIsRestDay(days[i]) ? 'Rest' : 'Day ' + (i + 1); });
+    });
     // Past five days: the row scrolls, and the edge it can scroll towards fades (on the wrapper: WebKit ignores a mask
     // on the scroller itself).
     if (many) {

@@ -41,6 +41,10 @@ const SWAP_INJ = "(() => { const s = Store.get(), p = s.programs.find(x => x.ath
 const MEET_BEHIND = "Store.update(s => { s.meets.push({ id: 'uiscan-meet', athleteId: 'demo-athlete', name: 'Winter Classic', date: _addDaysISO(todayISO(), 14), weightClass: '83 kg', status: 'planned' }); const wk = _addDaysISO(todayISO(), -7); s.bodyweight.filter(x => x.athleteId === 'demo-athlete' && x.date >= wk).forEach(x => { x.weight = 87.2; }); })";
 const MEET_PACE_LB = "localStorage.setItem('powa-unit', 'lbs'); Store.update(s => { s.meets.push({ id: 'uiscan-meet2', athleteId: 'demo-athlete', name: 'Winter Classic', date: _addDaysISO(todayISO(), 23), weightClass: '83 kg', status: 'planned' }); const d = (i) => _addDaysISO(todayISO(), -i); s.bodyweight = s.bodyweight.filter(x => !(x.athleteId === 'demo-athlete' && x.date >= d(14))); for (let i = 0; i <= 14; i++) s.bodyweight.push({ id: 'us' + i, athleteId: 'demo-athlete', date: d(i), weight: 84.6 }); })";
 const PULL_HOLD = "(async () => { await new Promise(r => setTimeout(r, 900)); const p = [...document.querySelectorAll('section[data-pane]')].find(x => !x.classList.contains('hidden') && x.offsetParent); const T = (y) => new Touch({ identifier: 7, target: p, clientX: 196, clientY: y }); p.dispatchEvent(new TouchEvent('touchstart', { touches: [T(420)], changedTouches: [T(420)], bubbles: true, cancelable: true })); for (let i = 1; i <= 12; i++) { p.dispatchEvent(new TouchEvent('touchmove', { touches: [T(420 + i * 18)], changedTouches: [T(420 + i * 18)], bubbles: true, cancelable: true })); await new Promise(r => setTimeout(r, 20)); } return true; })()";
+// Programs (coach-builder-v2): the builder's parts held to 44 pt (the header's ⋯ and the top bar's buttons with them), and
+// Arjun's week 1 grown by n days before the rest day (five days: numbered segments; seven: the row scrolls).
+const T44P = '.cp, section[data-pane="program"] > .dash-header, .nav-actions';
+const CP_DAYS = (n) => "Store.update(s => { const w = s.programs.find(p => p.athleteId === 'demo-a1').weeks[0]; ['Upper Day', 'Lower Day', 'Arms'].slice(0, " + n + ").forEach((nm, k) => { const d = newDay(nm), e = newExercise('push', '', 'Overhead Press'); for (let i = 0; i < 3; i++) e.sets.push(newSet(60, 8, 7)); d.exercises.push(e); w.days.splice(3 + k, 0, d); }); });";
 const screens = [];
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
   for (const t of ['today', 'progress', 'club', 'coach', 'you', 'bodyweight', 'library', 'career']) screens.push({ name: 'a-' + t + suf, page: A, theme, eval: t === 'today' ? null : tab(t) });
@@ -49,7 +53,7 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-career' + suf, page: C, theme, eval: "Career.openSheet('demo-a1')" });
   if (theme === 'dark') for (const t of ['today', 'program', 'progress', 'coach', 'library', 'you', 'career']) screens.push({ name: 's-' + t, page: SO, eval: t === 'today' ? null : tab(t) });
   // The coach app lands on Home (coach-app.js, 28 Oct); Lifters, Programs and the rest are a tab away.
-  for (const t of ['home', 'athletes', 'program', 'messages', 'club', 'challenges', 'you', 'templates', 'progress']) screens.push({ name: 'c-' + t + suf, page: C, theme, eval: t === 'home' ? null : tab(t) });
+  for (const t of ['home', 'athletes', 'program', 'messages', 'club', 'challenges', 'you', 'templates', 'progress']) screens.push(Object.assign({ name: 'c-' + t + suf, page: C, theme, eval: t === 'home' ? null : tab(t) }, t === 'program' ? { t44: T44P } : {}));
   for (const t of ['home', 'athletes', 'program', 'messages', 'you', 'templates']) screens.push({ name: 'f-' + t + suf, page: F, theme, eval: t === 'home' ? null : tab(t) });
   // A lifter's card and the views its rows push in; Programs' editor sheet and lifter picker; Home's sheets.
   screens.push(
@@ -57,13 +61,23 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'c-lifter-progress' + suf, page: C, theme, eval: "CoachLifters.open('demo-a1');setTimeout(() => document.querySelector('[data-act=progress]').click(), 300)" },
     { name: 'c-lifter-notes' + suf, page: C, theme, eval: "CoachLifters.open('demo-a1');setTimeout(() => document.querySelector('[data-row=notes]').click(), 300)" },
     { name: 'c-lifter-client' + suf, page: C, theme, eval: "CoachLifters.open('demo-a1');setTimeout(() => document.querySelector('[data-act=client]').click(), 300)" },
-    { name: 'sh-program-editor' + suf, page: C, theme, eval: tab('program') + ";setTimeout(() => document.querySelector('.cp-page[data-day=\"2\"] .cp-exrow').click(), 400)" },
-    { name: 'sh-program-editor-w2' + suf, page: C, theme, eval: tab('program') + ";setTimeout(() => { document.querySelectorAll('.cp-wk')[1].click(); setTimeout(() => document.querySelector('.cp-page[data-day=\"0\"] .cp-exrow').click(), 400); }, 400)" },
+    { name: 'sh-program-editor' + suf, page: C, theme, t44: '.cp-sheet', eval: tab('program') + ";setTimeout(() => document.querySelector('.cp-page[data-day=\"2\"] .cp-excard').click(), 400)" },
+    { name: 'sh-program-editor-w2' + suf, page: C, theme, t44: '.cp-sheet', eval: tab('program') + ";setTimeout(() => { document.querySelector('.cp-wkbtn.is-next').click(); setTimeout(() => document.querySelector('.cp-page[data-day=\"0\"] .cp-excard').click(), 400); }, 400)" },
     { name: 'sh-program-pick' + suf, page: C, theme, eval: tab('program') + ";setTimeout(() => document.querySelector('.cp-title').click(), 400)" },
     // The editor with a block's More open (its load and effort switches, the set fields, Remove these sets),
     // the picker past six lifters (its search and groups), Home before the roster is in and when it couldn't load.
-    { name: 'sh-program-editor-more' + suf, page: C, theme, eval: tab('program') + ";setTimeout(() => { document.querySelectorAll('.cp-wk')[1].click(); setTimeout(() => { document.querySelector('.cp-page[data-day=\"0\"] .cp-exrow').click(); setTimeout(() => { const m = document.querySelectorAll('.cp-sheet .cp-blkmore')[1]; m.click(); m.scrollIntoView({ block: 'center' }); }, 500); }, 400); }, 400)" },
+    { name: 'sh-program-editor-more' + suf, page: C, theme, t44: '.cp-sheet', eval: tab('program') + ";setTimeout(() => { document.querySelector('.cp-wkbtn.is-next').click(); setTimeout(() => { document.querySelector('.cp-page[data-day=\"0\"] .cp-excard').click(); setTimeout(() => { const m = document.querySelectorAll('.cp-sheet .cp-blkmore')[1]; m.click(); m.scrollIntoView({ block: 'center' }); }, 500); }, 400); }, 400)" },
     { name: 'sh-program-pick-many' + suf, page: C, theme, eval: "Store.update(st => { ['Leo Grant', 'Priya Shah', 'Marcus Doyle', 'Elena Rossi'].forEach((n, i) => st.athletes.push(Object.assign({}, st.athletes.find(a => a.id === 'demo-a2'), { id: 'demo-x' + i, name: n, email: 'x' + i + '@demo.com', avatarUrl: null }))); });" + tab('program') + ";setTimeout(() => document.querySelector('.cp-title').click(), 400)" },
+    // The builder as Train reads (31 Oct, coach-builder-v2), held to 44 pt: a five-day week (numbered segments), seven
+    // (the row scrolls with a fade), the rest day, the block's one ⋯ and a day's, the editor on a logged exercise (written
+    // and lifted once), a block with every set logged (Start the next block is the red).
+    { name: 'c-program-five' + suf, page: C, theme, t44: T44P, eval: CP_DAYS(1) + tab('program') },
+    { name: 'c-program-seven' + suf, page: C, theme, t44: T44P, eval: CP_DAYS(3) + tab('program') },
+    { name: 'c-program-rest' + suf, page: C, theme, t44: T44P, eval: tab('program') + ";setTimeout(() => document.querySelector('.cp-day[data-day=\"3\"]').click(), 400)" },
+    { name: 'sh-program-menu' + suf, page: C, theme, t44: '.cp-menu', eval: tab('program') + ";setTimeout(() => document.querySelector('.cp-more').click(), 400)" },
+    { name: 'sh-program-daymenu' + suf, page: C, theme, t44: '.cp-menu', eval: tab('program') + ";setTimeout(() => document.querySelector('.cp-page[data-day=\"2\"] .cp-daymore').click(), 400)" },
+    { name: 'sh-program-editor-logged' + suf, page: C, theme, t44: '.cp-sheet', eval: tab('program') + ";setTimeout(() => { document.querySelector('.cp-day[data-day=\"0\"]').click(); setTimeout(() => document.querySelector('.cp-page[data-day=\"0\"] .cp-excard').click(), 600); }, 400)" },
+    { name: 'c-program-done' + suf, page: C, theme, t44: T44P, eval: "Store.update(s => { s.programs.find(p => p.athleteId === 'demo-a1').weeks.forEach(w => w.days.forEach(d => d.exercises.forEach(e => e.sets.forEach(x => { x.completed = true; })))); });" + tab('program') },
     { name: 'c-home-loading' + suf, page: C, theme, eval: "window._coachBoot = 'loading'; CoachApp.renderHome()" },
     { name: 'c-home-failed' + suf, page: C, theme, eval: "window._coachBoot = 'failed'; CoachApp.renderHome()" },
     { name: 'sh-home-search' + suf, page: C, theme, eval: 'CoachApp.openSearch()' },

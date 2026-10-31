@@ -1242,7 +1242,7 @@ html:not(.desk) body.powa-app :is(.nav-ai, .sig-bell, .ca-hbtn) { box-sizing: bo
 html:not(.desk) body.powa-app :is(.sig-bell, .ca-hbtn) { width: 44px; }
 html:not(.desk) body.powa-app :is(.nav-ai, .ca-hbtn)::after { inset: 0; }
 
-/* the block's ⋯ answers to Every set logged: Start the next block, the screen's red then */
+/* every set of the block logged: Start the next block is the screen's red (Add exercise steps down to quiet) */
 html:not(.desk) .cp-done { margin: 0 0 20px; padding: 16px; border: 1px solid var(--ca-edge); border-radius: 20px; background: var(--ca-card); box-shadow: var(--pl-lip); }
 html:not(.desk) .cp-done-t { margin: 0 2px 12px; font-size: 15px; line-height: 1.4; color: var(--text-2); }
 
@@ -1784,6 +1784,15 @@ html:not(.desk) .ca-sk-card { height: 220px; margin-top: 20px; border-radius: 20
 html:not(.desk) .ca-sk-hero.is-short { padding: 18px 16px 20px; }
 html:not(.desk) .ca-sk-weeks { height: 44px; margin-top: 20px; border-radius: 14px; }
 html:not(.desk) .ca-sk-chips { display: flex; gap: 8px; margin-top: 12px; }
+/* Programs (the builder's shape): the block's line under the title, the stepper, the segments, the day, its cards */
+html:not(.desk) .ca-skel.is-program > .ca-skel-in > .ca-sk-line.is-sub { margin-top: -12px; height: 14px; }
+html:not(.desk) .ca-sk-step { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; align-items: center; justify-items: center; gap: 12px; height: 44px; margin: 24px 4px 0; }
+html:not(.desk) .ca-sk-disc { width: 36px; height: 36px; border-radius: 50%; }
+html:not(.desk) .ca-sk-weeks.is-seg { height: 48px; margin-top: 10px; }
+html:not(.desk) .ca-sk-day { margin-top: 30px; }
+html:not(.desk) .ca-sk-day > .ca-sk-t { height: 20px; }
+html:not(.desk) .ca-sk-card.is-ex { height: 156px; margin-top: 12px; }
+html:not(.desk) .ca-sk-day + .ca-sk-card.is-ex { margin-top: 16px; }
 html:not(.desk) .ca-sk-chip { width: 104px; height: 38px; border-radius: 999px; }
 /* Home's skeleton in its shape: the grid's four tiles, who needs you */
 html:not(.desk) .ca-sk-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
