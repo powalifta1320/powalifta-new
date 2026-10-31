@@ -472,7 +472,7 @@
   // ===================================================================== applications (night C, 30 Oct; fixed after its review)
   // Applications from the coach's public profile (coach-profile.html → the apply-to-coach edge function; the coach reads
   // only those the applicant confirmed by email). They wait on Lifters under New lifters with the join requests
-  // (coach.html _newLiftersSection: one place, review M5), the longest waiting first. A lead opens its sheet: what they
+  // (coach.html _newLiftersSection: one place, review M5), the soonest meet first, then the longest waiting. A lead opens its sheet: what they
   // sent (their email a mailto link, review M6), then the sheet's one crimson, Send <name> an invite (the app's own invite
   // flow: an invite tied to their email, emailed by send-invite once the decision is saved, review m7), a quiet Decline
   // with Undo, and Delete (spam). The demo changes its Store only, nothing is sent.
@@ -841,6 +841,6 @@
   });
 
   window.ClientsUI = { render: render, sectionHtml: sectionHtml, openClient: openClient, markPaid: markPaid, editPackage: editPackage, remind: remind, remindText: remindText,
-    leads: leads, openLead: openLead, leadLine: leadLine, waited: waited,
+    leads: leads, openLead: openLead, leadLine: leadLine, waited: waited, ago: ago,
     todayBit: todayBit, dueLineHtml: dueLineHtml, overdueCount: overdueCount, refresh: afterChange, ICON: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + IC.wallet + '</svg>' };
 })();

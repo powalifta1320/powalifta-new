@@ -931,7 +931,8 @@ function buildAttentionPanel() {
 // Join requests (lifters already on POWALIFTA who found the coach in the directory: Accept links them through
 // accept_coach_request, Decline is a status update; real accounts only, the demo has none) and applications from the
 // coach's public profile (clients-ui.js: confirmed by the applicant's email, read in their sheet, Send an invite or
-// Decline). The longest waiting first, then by name. Calm rows on the phone and the laptop: no glow, no red (someone
+// Decline). How soon first, as every coach list (an upcoming meet, the soonest first), then the longest waiting, then by
+// name (clients.js newLifterCmp). Calm rows on the phone and the laptop: no glow, no red (someone
 // new isn't an alarm, and each screen's one red stays where it was); Accept is graphite. The Lifters tab counts them
 // (coach-app.js paintBadges) and Home has a row while any wait. renderRoster calls this on every draw.
 function newLiftersCount() {
@@ -979,7 +980,8 @@ function _newLiftersSection(reqs, apps) {
     const face = el('span', { class: 'ui-av jr-av av-h' + avatarHue(it.name), 'data-name': it.name, 'aria-hidden': 'true' }, initials(it.name));
     if (it.kind === 'app') {
       const a = it.a;
-      const row = el('button', { type: 'button', class: 'jr-row nl-row nl-lead', 'data-lid': a.id, 'aria-label': it.name + ', applied from your profile ' + waited(a.createdAt) + '. Read it' });
+      const when = window.ClientsUI && ClientsUI.ago ? ClientsUI.ago(a.createdAt) : '';
+      const row = el('button', { type: 'button', class: 'jr-row nl-row nl-lead', 'data-lid': a.id, 'aria-label': it.name + ', applied from your profile' + (when ? ' ' + when : '') + '. Read it' });
       row.appendChild(face);
       row.appendChild(el('span', { class: 'jr-tx' }, el('b', {}, it.name), el('span', {}, ClientsUI.leadLine(a) || a.email),
         el('small', { class: 'nl-src' }, 'Applied from your profile' + (waited(a.createdAt) ? ' · ' + waited(a.createdAt) : ''))));

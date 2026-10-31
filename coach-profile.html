@@ -218,8 +218,9 @@ function cpConfirmBox(coach, token) {
   DB.confirmApplication(token).then((r) => {
     box.innerHTML = '';
     if (r && r.ok) {
-      box.appendChild(el('h3', {}, r.state === 'already' ? 'Already sent to ' + first + '.' : 'Sent to ' + first + '.'));
-      box.appendChild(el('p', {}, first + ' has your application. If it’s a fit, ' + first + ' emails you an invite link.'));
+      const who = (r.coach && r.coach !== 'the coach' ? r.coach : '') || first;   // the coach the link was for (the page's, unless the link was edited)
+      box.appendChild(el('h3', {}, r.state === 'already' ? 'Already sent to ' + who + '.' : 'Sent to ' + who + '.'));
+      box.appendChild(el('p', {}, who + ' has your application. If it’s a fit, ' + who + ' emails you an invite link.'));
     } else if (r && r.offline) {
       box.appendChild(el('h3', {}, 'No connection.'));
       box.appendChild(el('p', {}, 'Open the link in your email again once you’re back online.'));
