@@ -516,7 +516,9 @@
       // The decision first; the email only once it's saved, so a failed save can't leave a sent invite on a lead that
       // comes back as waiting (a second Accept would send a second one: review m7).
       return decide(l, 'accepted', inv.code).then(function (saved) {
-        if (!saved) return;
+        // Not saved: the lead waits again and the invite made for it goes back, as a cancelled share's does (an unused
+        // invite holds a seat on the plan; the next Accept makes a new one).
+        if (!saved) { if (typeof _dropInvite === 'function') _dropInvite(inv.code); return; }
         if (window._demoMode) { toast('Demo: no email sent. ' + f + '’s code is ' + inv.code); return; }
         return DB.sendInvite(l.email).then(function (r) {
           toast(r && r.ok ? 'Invite sent to ' + l.email : 'Couldn’t email it (' + ((r && r.reason) || 'unknown error') + '). ' + f + '’s code is ' + inv.code + ': share the link from Invite a lifter.', 6000);
