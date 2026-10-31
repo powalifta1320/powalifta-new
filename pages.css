@@ -575,9 +575,9 @@ body.site .cp-f label, body.site .cp-lbl { display: block; margin: 0 0 8px; font
 body.site .cp-hint { display: block; margin-top: 6px; font-size: 13px; color: var(--text-3); }
 body.site .cp-lifts-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 8px; align-items: end; }
 /* Each lift box with its name above it (review m10), the unit switch level with the boxes. */
-body.site .cp-lift { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; }
-body.site .cp-lift > span { font-size: 13px; font-weight: 600; color: var(--text-2); }
-body.site .cp-lift input { width: 100%; }
+/* .cp-liftbox, not .cp-lift: that one is the app's lift card (styles.css), which drew a box around each field. */
+body.site .cp-f label.cp-liftbox { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
+body.site .cp-liftbox input { width: 100%; }
 body.site .cp-bw-row { display: flex; align-items: center; gap: 10px; }
 body.site .cp-bw-row input { flex: 1; min-width: 0; }
 body.site .cp-u { flex: none; min-width: 20px; font-size: 15px; font-weight: 600; color: var(--text-2); }

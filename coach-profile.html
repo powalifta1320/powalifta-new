@@ -131,7 +131,7 @@ function cpApplyForm(coach) {
   const goals = el('input', { type: 'text', name: 'goals', maxlength: '280', placeholder: 'A first meet, a total, a weight class' });
   const note = el('textarea', { name: 'note', maxlength: '1000', rows: '4', placeholder: 'Your schedule, what you’ve tried, anything that hurts. Anything ' + first + ' should know.' });
   // Each lift box wears its name above it (a placeholder goes once you type: review m10).
-  const liftBox = (label, input) => el('label', { class: 'cp-lift' }, el('span', {}, label), input);
+  const liftBox = (label, input) => el('label', { class: 'cp-liftbox' }, el('span', {}, label), input);
   const lifts = el('div', { class: 'form-group cp-f cp-lifts is-wide' }, el('span', { class: 'cp-lbl', id: 'cpa-lifts' }, 'Best lifts'),
     el('div', { class: 'cp-lifts-row', role: 'group', 'aria-labelledby': 'cpa-lifts' }, liftBox('Squat', sq), liftBox('Bench', be), liftBox('Deadlift', de), unitSeg));
   // A bot fills every field; a person never sees this one.
