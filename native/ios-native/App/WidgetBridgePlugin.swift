@@ -5,7 +5,9 @@
 //  JS name: "PowaWidget". The web app calls, feature-detected, after every logged set:
 //      window.Capacitor.Plugins.PowaWidget.update({ json })
 //  `json` is one snapshot of display-ready strings (total, the three lifts, today's
-//  session, the meet countdown); an empty string clears it (sign-out, account deletion),
+//  session, the meet countdown, the latest PR: role "lifter", athlete.html syncHomeWidget;
+//  a coach's app writes role "coach" and its Need you / meets / money / week block,
+//  coach-widget.js); an empty string clears it (sign-out, account deletion),
 //  so the widget never shows a lifter who has left. It lands in the App Group's UserDefaults
 //  (group.com.powalifta.app — both targets carry the entitlement, see
 //  native/scripts/inject-home-screen.rb) and WidgetKit is asked to redraw. The widget

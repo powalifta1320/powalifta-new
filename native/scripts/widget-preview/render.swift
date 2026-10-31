@@ -64,7 +64,7 @@ struct Sheet: View {
                 .font(.system(size: 13, weight: .bold)).foregroundColor(live == nil ? .red : .white)
             if let live {
                 HStack(alignment: .top, spacing: 20) {
-                    Tile(w: MW, h: S, hue: Hue.fire, label: "Total · medium") { TotalView(snap: live, family: .systemMedium) }
+                    Tile(w: MW, h: S, hue: Hue.steel, label: "Total · medium") { TotalView(snap: live, family: .systemMedium) }
                     Tile(w: S, h: S, hue: Hue.ok, label: "This week") { WeekView(snap: live, family: .systemSmall) }
                     Tile(w: S, h: S, hue: Hue.bw, label: "Weigh-in · logged") { WeighView(entry: weigh(live), family: .systemSmall) }
                 }
@@ -81,18 +81,18 @@ struct Sheet: View {
                 HStack(alignment: .top, spacing: 20) {
                     Tile(w: MW, h: S, hue: SessionView.hue(live), label: "Today's session") { SessionView(snap: live) }
                     Tile(w: S, h: S, hue: nil, label: "Meet day · none set") { MeetView(snap: live, family: .systemSmall) }
-                    Tile(w: S, h: S, hue: Hue.fire, label: "Total") { TotalView(snap: live, family: .systemSmall) }
+                    Tile(w: S, h: S, hue: Hue.steel, label: "Total") { TotalView(snap: live, family: .systemSmall) }
                 }
             }
             Text("Gallery (the sample)").font(.system(size: 13, weight: .bold)).foregroundColor(.white)
             HStack(alignment: .top, spacing: 20) {
-                Tile(w: S, h: S, hue: Hue.fire, label: "Total") { TotalView(snap: .sample, family: .systemSmall) }
+                Tile(w: S, h: S, hue: Hue.steel, label: "Total") { TotalView(snap: .sample, family: .systemSmall) }
                 Tile(w: S, h: S, hue: Hue.bw, label: "Weigh-in") { WeighView(entry: weigh(.sample), family: .systemSmall) }
                 Tile(w: S, h: S, hue: Hue.ok, label: "This week") { WeekView(snap: .sample, family: .systemSmall) }
                 Tile(w: S, h: S, hue: nil, label: "Meet day") { MeetView(snap: .sample, family: .systemSmall) }
             }
             HStack(alignment: .top, spacing: 20) {
-                Tile(w: MW, h: S, hue: Hue.fire, label: "Total · medium") { TotalView(snap: .sample, family: .systemMedium) }
+                Tile(w: MW, h: S, hue: Hue.steel, label: "Total · medium") { TotalView(snap: .sample, family: .systemMedium) }
                 Tile(w: MW, h: S, hue: Hue.bw, label: "Weigh-in · medium") { WeighView(entry: weigh(.sample), family: .systemMedium) }
             }
             HStack(alignment: .top, spacing: 20) {
@@ -106,19 +106,19 @@ struct Sheet: View {
                 Tile(w: S, h: S, hue: nil, label: "Meet · 3 then, 2 now") { MeetView(snap: countedOn, family: .systemSmall) }
             }
             HStack(alignment: .top, spacing: 20) {
-                Tile(w: MW, h: S, hue: Hue.fire, label: "Total · medium, yesterday's done") { TotalView(snap: staleDone, family: .systemMedium) }
-                Tile(w: MW, h: S, hue: Hue.fire, label: "Total · medium, no total yet") { TotalView(snap: noTotal, family: .systemMedium) }
+                Tile(w: MW, h: S, hue: Hue.steel, label: "Total · medium, yesterday's done") { TotalView(snap: staleDone, family: .systemMedium) }
+                Tile(w: MW, h: S, hue: Hue.steel, label: "Total · medium, no total yet") { TotalView(snap: noTotal, family: .systemMedium) }
             }
             Text("States").font(.system(size: 13, weight: .bold)).foregroundColor(.white)
             HStack(alignment: .top, spacing: 20) {
-                Tile(w: S, h: S, hue: Hue.fire, label: "Total · lbs, down") { TotalView(snap: lbs, family: .systemSmall) }
+                Tile(w: S, h: S, hue: Hue.steel, label: "Total · lbs, down") { TotalView(snap: lbs, family: .systemSmall) }
                 Tile(w: S, h: S, hue: Hue.bw, label: "Weigh-in · logged") { WeighView(entry: weigh(logged), family: .systemSmall) }
                 Tile(w: S, h: S, hue: Hue.ok, label: "Week · goal hit") { WeekView(snap: weekMet, family: .systemSmall) }
                 Tile(w: S, h: S, hue: Hue.ok, label: "Week · Monday") { WeekView(snap: weekFresh, family: .systemSmall) }
             }
             HStack(alignment: .top, spacing: 20) {
                 Tile(w: S, h: S, hue: nil, label: "Meet · the day") { MeetView(snap: meetDay, family: .systemSmall) }
-                Tile(w: S, h: S, hue: Hue.fire, label: "Total · empty") { TotalView(snap: nil, family: .systemSmall) }
+                Tile(w: S, h: S, hue: Hue.steel, label: "Total · empty") { TotalView(snap: nil, family: .systemSmall) }
                 Tile(w: S, h: S, hue: Hue.bw, label: "Weigh-in · empty") { WeighView(entry: weigh(nil), family: .systemSmall) }
                 Tile(w: S, h: S, hue: nil, label: "Meet · no date") { MeetView(snap: variant { $0.meetDays = nil }, family: .systemSmall) }
             }
@@ -127,7 +127,7 @@ struct Sheet: View {
                 Tile(w: MW, h: S, hue: SessionView.hue(rest), label: "Session · rest day") { SessionView(snap: rest) }
             }
             HStack(alignment: .top, spacing: 20) {
-                Tile(w: MW, h: S, hue: Hue.fire, label: "Total · medium, rest day") { TotalView(snap: rest, family: .systemMedium) }
+                Tile(w: MW, h: S, hue: Hue.steel, label: "Total · medium, rest day") { TotalView(snap: rest, family: .systemMedium) }
                 Tile(w: MW, h: S, hue: Hue.bw, label: "Weigh-in · medium, logged") { WeighView(entry: weigh(logged), family: .systemMedium) }
             }
             ForEach(Phone.all, id: \.tag) { ph in

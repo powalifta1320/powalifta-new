@@ -14209,7 +14209,33 @@ function widgetCut(series, goal, meetIso, todayIso) {
   if (trend.some(v => v != null)) out.trend = trend;
   return out;
 }
-window.widgetReadiness = widgetReadiness; window.widgetCut = widgetCut;
+// The lifter's latest PR, for the PR widget, as the PR moment shows it (athlete.html showPRToast): the
+// competition-equivalent e1RM rounded in the unit shown, the jump over the best before it (whole numbers, as
+// the moment counts them; under one, to a tenth), the lift and its day. A lift's first sets beat nothing, so
+// they are never one (isPRForLog; Progress lists them as "First"), and a set dated after today doesn't count.
+// Of two PRs on one day, the later set. Pure over the logs given: tested.
+//   → null | { lift, value, delta, unit, date }
+function widgetLastPR(logs, athleteId, todayIso) {
+  const today = todayIso || todayISO();
+  let pr = null;
+  MAIN_LIFTS.forEach(lift => {
+    const mine = (logs || []).filter(l => l && l.athleteId === athleteId && l.lift === lift && Number(l.e1rmComp) > 0 && String(l.date).slice(0, 10) <= today)
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.id).localeCompare(String(b.id)));
+    let best = 0;
+    mine.forEach(l => {
+      const e = Number(l.e1rmComp);
+      if (!(e > best + 0.05)) return;
+      const date = String(l.date).slice(0, 10), id = String(l.id);
+      if (best > 0 && (!pr || date > pr.date || (date === pr.date && id > pr.id))) pr = { lift, e1rm: e, prev: best, date, id };
+      best = e;
+    });
+  });
+  if (!pr) return null;
+  const now = Math.round(kgToDisplay(pr.e1rm)), was = Math.round(kgToDisplay(pr.prev));
+  const delta = now - was >= 1 ? '+' + (now - was) : '+' + Math.max(0.1, Math.round(kgToDisplay(pr.e1rm - pr.prev) * 10) / 10);
+  return { lift: pr.lift, value: String(now), delta, unit: unitLabel(), date: pr.date };
+}
+window.widgetReadiness = widgetReadiness; window.widgetCut = widgetCut; window.widgetLastPR = widgetLastPR;
 window.readinessFrom = readinessFrom; window.restSuggestion = restSuggestion; window.cutPlan = cutPlan; window.nutritionWeek = nutritionWeek;
 function recoveryRows(rec) {
   const rows = [];

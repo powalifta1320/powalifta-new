@@ -8,10 +8,17 @@
 //  gets `PowaSnapshot.sample`, a full set of believable numbers, so no widget ever
 //  previews as an empty state.
 //
-//  The look ("light, not paint"): graphite lit by one soft light in the widget's own hue,
-//  a hairline edge, the brand mark instead of a wordmark, wide heavy numerals (the app's
-//  display face is wide and heavy), and colour only where it means something: the lift
-//  colours, the green of a goal hit, the one red action.
+//  The look (2026-10-30, the app's own): graphite lit by one soft light in the widget's hue, a
+//  hairline edge, the brand mark instead of a wordmark, wide heavy numerals with a plain label, and
+//  colour only where it means something: the lift colours, green for done / up / their words /
+//  money in, gold for a PR, a meet or a streak, an orange triangle for a warning (never red), and
+//  the app's crimson for the one action (white label). Dark first; light follows the phone (white
+//  graphite, deeper inks), and on a tinted or clear Home Screen and the Lock Screen (one tint,
+//  opacity only) every level is ink at an opacity, with the number that matters accentable.
+//
+//  One snapshot, two people: the lifter's app writes role "lifter" (athlete.html syncHomeWidget),
+//  the coach's writes role "coach" and its `coach` block (coach-widget.js). A widget for the other
+//  one says so in one line, never someone else's numbers.
 //
 import SwiftUI
 import WidgetKit
@@ -55,6 +62,10 @@ struct PowaSnapshot: Codable {
     var healthOn: Bool?         // Apple Health switched on in the app (You → Apple Health)
     var health: Health?         // last night against the usual; nil = nothing from last night
     var cut: Cut?               // the weigh-ins against the class line; nil = no class picked
+    // 2026-10-30 (the PR widget, the coach's widgets). All optional, as ever.
+    var role: String?           // "lifter" | "coach"; nil = a build from before (always a lifter)
+    var lastPR: PR?             // the lifter's latest PR, as the PR moment shows it; nil = none yet
+    var coach: Coach?           // the coach's block (role "coach"); nil on a lifter's phone
 
     /// One Health number against the lifter's own usual ("7 h 20" against "7 h 05").
     struct Metric: Codable {
@@ -97,6 +108,51 @@ struct PowaSnapshot: Codable {
         var rpe: String?
         var key: String?        // set id the app logs it by; nil = log it in the app
     }
+    /// The latest PR (app.js widgetLastPR): the competition-equivalent e1RM, rounded in the unit shown,
+    /// the jump over the best before it, the lift and the day it was lifted.
+    struct PR: Codable {
+        var lift: String?       // squat | bench | deadlift
+        var value: String?      // "212"
+        var delta: String?      // "+5"
+        var unit: String?       // kg | lbs
+        var date: String?       // "YYYY-MM-DD"
+    }
+    /// The coach's widgets (coach-widget.js CoachWidget.build), over the app's own model.
+    struct Coach: Codable {
+        var need: Int?          // how many need you this week (Home's "4 need you")
+        var jobs: [Job]?        // the top three, Home's order: pain first, then a meet today, then how soon
+        var meets: [Meet]?      // the next meets, nearest first, one per meet
+        var money: Money?       // this month's money; nil = Clients not set up on this build
+        var week: TeamWeek?     // the team's sessions this week
+        var lifters: Int?       // how many are on the roster (0: a brand-new coach)
+    }
+    struct Job: Codable {
+        var id: String?         // the lifter (opens their page); nil for a meet day with several
+        var name: String?       // "Sarah"; a meet day with several lifters: the meet ("Autumn Open")
+        var flag: String?       // "Low back 6/10"; for that meet: "Today · Tom, Priya, Callum"
+        var verb: String?       // the fix, one word or two: Message | Meet day | Approve | Reply…
+        var tone: String?       // pain | watch | meet | msg | plan
+    }
+    struct Meet: Codable {
+        var name: String?       // "Autumn Open"
+        var date: String?       // "YYYY-MM-DD"
+        var who: [String]?      // first names
+    }
+    struct Money: Codable {
+        var any: Bool?          // false: no packages yet
+        var got: String?        // "$590": received this calendar month
+        var of: String?         // "$810": received + still owed by the month's end
+        var pct: Double?        // 0…1, the meter
+        var month: String?      // "YYYY-MM" these belong to
+        var due: [String]?      // each active package's next due date ("YYYY-MM-DD"): overdue is counted here, today
+    }
+    struct TeamWeek: Codable {
+        var done: Int?          // sessions lifted this week so far (Home's ring)
+        var planned: Int?       // sessions written this week
+        var behind: Int?        // lifters behind (Lifters › Behind)
+        var behindName: String? // the first of them
+        var weekStart: String?  // "YYYY-MM-DD", the Monday
+    }
 
     /// The set the session widget shows now: the first one in `queue` not yet logged from the
     /// widget (a set without a key stops the line: it has to be logged in the app).
@@ -115,27 +171,45 @@ struct PowaSnapshot: Codable {
         return try? JSONDecoder().decode(PowaSnapshot.self, from: data)
     }
 
-    /// The gallery's lifter: mid-block, mid-session, three weeks into a streak, 23 days out.
-    static let sample = PowaSnapshot(
-        total: "593", unit: "kg", squat: "207", bench: "134", deadlift: "252",
-        session: "Squat day", sets: "4 of 12 sets", meet: "23 days out", at: nil,
-        setsDone: 4, setsTotal: 12, weekDone: 2, weekGoal: 4, streak: 3, meetDays: 23,
-        openers: Openers(squat: "190", bench: "125", deadlift: "230"),
-        lastWeight: "83.1", weighedToday: false,
-        totalDelta: "+12",
-        next: Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8", key: "sample|4"),
-        weekStart: nil, weekDays: [1, 0, 1, 0, 0, 0, 0], todayIdx: 3,
-        weighTrend: [83.9, 83.7, 83.8, 83.5, 83.6, 83.4, 83.3, 83.4, 83.2, 83.1], weighDelta: "−0.4",
-        queue: [Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8", key: "sample|4"),
-                Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8", key: "sample|5")],
-        healthOn: true,
-        health: Health(day: nil, word: "Fresh", level: 1,
-                       sleep: Metric(value: "7 h 40", usual: "7 h 05", off: false),
-                       rhr: Metric(value: "52", usual: "54", off: false),
-                       hrv: Metric(value: "68", usual: "61", off: false),
-                       line: "Slept 7 h 40 · HR 52"),
-        cut: Cut(cls: "83 kg class", classLine: 83, unit: "kg", cur: "83.3", status: "0.3 kg to go", tone: "good",
-                 pace: "−0.4 a week", need: "−0.1", by: "Nov 14", trend: [83.6, 83.4, 83.3, 83.4, 83.2, nil, 83.1]))
+    /// The gallery's lifter (mid-block, mid-session, three weeks into a streak, 23 days out, a squat
+    /// PR two days ago) and the gallery's coach (six need you, a meet today, a month two-thirds paid).
+    /// No role: the gallery shows every widget with its own half of it.
+    static let sample: PowaSnapshot = {
+        let today = PowaStore.todayISO()
+        let day = { (n: Int) -> String in PowaStore.iso(PowaStore.day.date(byAdding: .day, value: n, to: Date()) ?? Date()) }
+        return PowaSnapshot(
+            total: "593", unit: "kg", squat: "207", bench: "134", deadlift: "252",
+            session: "Squat day", sets: "4 of 12 sets", meet: "23 days out", at: nil,
+            setsDone: 4, setsTotal: 12, weekDone: 2, weekGoal: 4, streak: 3, meetDays: 23,
+            openers: Openers(squat: "190", bench: "125", deadlift: "230"),
+            lastWeight: "83.1", weighedToday: false,
+            totalDelta: "+12",
+            next: Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8", key: "sample|4"),
+            weekStart: nil, weekDays: [1, 0, 1, 0, 0, 0, 0], todayIdx: 3,
+            weighTrend: [83.9, 83.7, 83.8, 83.5, 83.6, 83.4, 83.3, 83.4, 83.2, 83.1], weighDelta: "−0.4",
+            queue: [Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8", key: "sample|4"),
+                    Next(lift: "squat", name: "Comp squat", load: "185", reps: "3", rpe: "8", key: "sample|5")],
+            healthOn: true,
+            health: Health(day: nil, word: "Fresh", level: 1,
+                           sleep: Metric(value: "7 h 40", usual: "7 h 05", off: false),
+                           rhr: Metric(value: "52", usual: "54", off: false),
+                           hrv: Metric(value: "68", usual: "61", off: false),
+                           line: "Slept 7 h 40 · HR 52"),
+            cut: Cut(cls: "83 kg class", classLine: 83, unit: "kg", cur: "83.3", status: "0.3 kg to go", tone: "good",
+                     pace: "−0.4 a week", need: "−0.1", by: "Nov 14", trend: [83.6, 83.4, 83.3, 83.4, 83.2, nil, 83.1]),
+            role: nil,
+            lastPR: PR(lift: "squat", value: "212", delta: "+5", unit: "kg", date: day(-2)),
+            coach: Coach(
+                need: 6,
+                jobs: [Job(id: "sample-sarah", name: "Sarah", flag: "Low back 6/10", verb: "Message", tone: "pain"),
+                       Job(id: nil, name: "Autumn Open", flag: "Today · Tom, Priya, Callum", verb: "Meet day", tone: "meet"),
+                       Job(id: "sample-nina", name: "Nina", flag: "Busy week · 2 days", verb: "Approve", tone: "watch")],
+                meets: [Meet(name: "Autumn Open", date: today, who: ["Tom", "Priya", "Callum"]),
+                        Meet(name: "City Classic", date: day(33), who: ["Sarah"])],
+                money: Money(any: true, got: "$590", of: "$810", pct: 0.73, month: String(today.prefix(7)), due: [day(-3), day(4), day(12)]),
+                week: TeamWeek(done: 18, planned: 24, behind: 2, behindName: "Ines", weekStart: nil),
+                lifters: 9))
+    }()
 
     /// The app writes `at` (ms) with every snapshot. Facts tied to a date (weighed today, a rest
     /// day, a finished session) only hold on the day it was written: the lifter's own calendar
@@ -143,6 +217,22 @@ struct PowaSnapshot: Codable {
     var writtenToday: Bool {
         guard let at else { return true }
         return PowaStore.day.isDate(Date(timeIntervalSince1970: at / 1000), inSameDayAs: Date())
+    }
+
+    /// Written on an earlier day: when, in a word ("Yesterday", "Tue", "Oct 12"), for the coach's
+    /// widgets to say beside their title; nil when it's today's (or the sample).
+    var writtenWhen: String? {
+        guard let at, !writtenToday else { return nil }
+        let d = Date(timeIntervalSince1970: at / 1000)
+        let n = PowaStore.days(from: d, to: Date())
+        if n == 1 { return "Yesterday" }
+        return PowaFormat.shortDay(d, within: n < 7)
+    }
+    /// The same in the fewest letters, for a title with no room ("Wed" for yesterday).
+    var writtenWhenShort: String? {
+        guard let at, !writtenToday else { return nil }
+        let d = Date(timeIntervalSince1970: at / 1000)
+        return PowaFormat.shortDay(d, within: PowaStore.days(from: d, to: Date()) < 7)
     }
 
     /// The meet countdown, counted on from when the app wrote it (daysUntil counts local days),
@@ -197,6 +287,11 @@ struct PowaSnapshot: Codable {
         let lastMet = (weekDone ?? 0) >= max(1, weekGoal ?? 3)
         return ([0, 0, 0, 0, 0, 0, 0], idx, 0, weeksOn == 1 && lastMet ? (streak ?? 0) : 0)
     }
+
+    /// A coach's widget on this phone: the coach block, unless the app says this is a lifter.
+    var coachNow: Coach? { role == "lifter" ? nil : coach }
+    /// A lifter's widget on a coach's phone shows one line instead (never a coach's empty numbers).
+    var isCoach: Bool { role == "coach" }
 }
 
 /// The App Group keys the widgets and WidgetBridgePlugin share (keep the plugin in sync).
@@ -225,6 +320,23 @@ enum PowaStore {
     static func iso(_ date: Date) -> String { formatter().string(from: date) }
     static func date(_ iso: String) -> Date? { formatter().date(from: iso) }
     static func todayISO() -> String { iso(Date()) }
+    /// Whole calendar days from one date to another (local midnights, so an hour either side of
+    /// midnight is still a day).
+    static func days(from a: Date, to b: Date) -> Int {
+        let c = day
+        return c.dateComponents([.day], from: c.startOfDay(for: a), to: c.startOfDay(for: b)).day ?? 0
+    }
+    /// Days from today to a 'YYYY-MM-DD' (negative once it has passed); nil for a bad date.
+    static func daysUntil(_ iso: String?) -> Int? {
+        guard let iso, let d = date(iso) else { return nil }
+        return days(from: Date(), to: d)
+    }
+    /// The Monday of this week, as the app writes weekStart.
+    static func mondayISO() -> String {
+        let c = day, now = Date()
+        let idx = (c.component(.weekday, from: now) + 5) % 7
+        return iso(c.date(byAdding: .day, value: -idx, to: now) ?? now)
+    }
     /// The next redraw: local midnight (the app's day: the week, weighed today, a finished
     /// session, the meet countdown).
     static func nextMidnight() -> Date {
@@ -271,11 +383,19 @@ struct PowaProvider: TimelineProvider {
 
 // MARK: - The look
 
+extension Color {
+    /// 0xRRGGBB, as the app's CSS writes it.
+    init(hex: UInt32, opacity: Double = 1) {
+        self.init(.sRGB, red: Double((hex >> 16) & 0xff) / 255, green: Double((hex >> 8) & 0xff) / 255,
+                  blue: Double(hex & 0xff) / 255, opacity: opacity)
+    }
+}
+
 /// The lift identity colours the app uses everywhere (styles.css --lift-*).
 enum Lift {
-    static let squat = Color(red: 0.220, green: 0.776, blue: 1.0)      // #38c6ff
-    static let bench = Color(red: 0.663, green: 0.545, blue: 1.0)      // #a98bff
-    static let deadlift = Color(red: 1.0, green: 0.749, blue: 0.235)   // #ffbf3c
+    static let squat = Color(hex: 0x38c6ff)
+    static let bench = Color(hex: 0xa98bff)
+    static let deadlift = Color(hex: 0xffbf3c)
     static func color(_ key: String?) -> Color {
         switch key {
         case "squat": return squat
@@ -284,59 +404,127 @@ enum Lift {
         default: return Color(white: 0.8)
         }
     }
+    static func name(_ key: String?) -> String {
+        switch key {
+        case "squat": return "Squat"
+        case "bench": return "Bench"
+        case "deadlift": return "Deadlift"
+        default: return "Lift"
+        }
+    }
 }
 
-/// The light each widget is lit by, the status colours, and ink levels that hold 4.5:1 on graphite.
+/// Every colour, by what it means (the app's tokens: styles.css, coach-app.css). The light each
+/// widget is lit by comes from here; what draws on top comes from the palette (`Pal`).
 enum Hue {
-    static let fire = Color(red: 1.0, green: 0.231, blue: 0.290)     // #ff3b4a, the one action
-    static let fire2 = Color(red: 1.0, green: 0.416, blue: 0.239)    // #ff6a3d
-    static let ok = Color(red: 0.204, green: 0.851, blue: 0.510)     // #34d982, goal hit / done
-    static let bw = Color(red: 0.353, green: 0.784, blue: 0.980)     // #5ac8fa, bodyweight
-    static let flame = Color(red: 1.0, green: 0.624, blue: 0.263)    // #ff9f43, the streak
-    static let slab = Color(red: 0.898, green: 0.149, blue: 0.184)   // #e5262f, referee red (meet day)
-    /// The one red action's fill: the fire gradient in full colour; on a tinted or clear Home
+    static let crimson1 = Color(hex: 0xdc2637)   // the one action, lit from above (--crimson)
+    static let crimson2 = Color(hex: 0xc41a2c)
+    static let logo = Color(hex: 0xff2d3f)       // the 25 kg plate in the brand mark (BRAND_MARK)
+    static let steel = Color(hex: 0xc9ced6)      // the light of a widget with no colour of its own
+    static let ok = Color(hex: 0x34e08c)         // done, up, their words, money in
+    static let gold = Color(hex: 0xffc23d)       // a PR, a meet, a streak, the class line
+    static let warn = Color(hex: 0xff9f45)       // the triangle: a warning (never red)
+    static let bw = Color(hex: 0x5ac8fa)         // bodyweight
+    static let rest = Color(hex: 0x7f8cff)       // a normal morning (Readiness)
+    /// The one action's fill: the crimson, lit from above, in full colour; on a tinted or clear Home
     /// Screen (one tint, opacity only) a light fill, so its white label still reads.
     static func action(_ mode: WidgetRenderingMode) -> AnyShapeStyle {
         mode == .fullColor
-            ? AnyShapeStyle(LinearGradient(colors: [fire, fire2], startPoint: .topLeading, endPoint: .bottomTrailing))
+            ? AnyShapeStyle(LinearGradient(colors: [crimson1, crimson2], startPoint: .top, endPoint: .bottom))
             : AnyShapeStyle(Color.white.opacity(0.22))
     }
-    static let ink2 = Color.white.opacity(0.64)
-    static let ink3 = Color.white.opacity(0.5)
-    static let track = Color.white.opacity(0.13)
 }
 
-/// Graphite, one soft light from the top left in the widget's hue (18%), a hairline edge.
-/// `hue: nil` is the meet-day slab: black and white, no light.
+/// What a widget draws with: ink levels that hold 4.5:1 on its graphite, and the meaning colours,
+/// deepened in light so they read on white. `mono`: a tinted or clear Home Screen, StandBy at night
+/// and the Lock Screen, where iOS keeps only opacity, so every level is ink at an opacity.
+struct Pal {
+    var dark = true
+    var mono = false
+    private var light: Bool { !dark && !mono }
+    var ink: Color { light ? Color(hex: 0x16161a) : Color(white: 0.97) }
+    var ink2: Color { light ? Color(hex: 0x45454d) : Color.white.opacity(0.66) }
+    var ink3: Color { light ? Color(hex: 0x5d5d67) : Color.white.opacity(0.5) }
+    var track: Color { light ? Color(hex: 0x0f0f19, opacity: 0.09) : Color.white.opacity(0.13) }
+    var rule: Color { light ? Color(hex: 0x0f0f19, opacity: 0.09) : Color.white.opacity(0.09) }
+    var quiet: Color { light ? Color(hex: 0x0f0f19, opacity: 0.065) : Color.white.opacity(0.12) }
+    /// A lift's fill (a capsule, a dot) and its words.
+    func lift(_ key: String?) -> Color {
+        if mono { return ink }
+        if dark { return Lift.color(key) }
+        switch key {
+        case "squat": return Color(hex: 0x2d9ecc)
+        case "bench": return Color(hex: 0x876fcc)
+        case "deadlift": return Color(hex: 0xcc9930)
+        default: return ink3
+        }
+    }
+    func liftInk(_ key: String?) -> Color {
+        if mono || dark { return lift(key) }
+        switch key {
+        case "squat": return Color(hex: 0x1f6f8f)
+        case "bench": return Color(hex: 0x5f4e8f)
+        case "deadlift": return Color(hex: 0x8f6b22)
+        default: return ink2
+        }
+    }
+    var ok: Color { mono ? ink : dark ? Hue.ok : Color(hex: 0x2ab370) }
+    var okInk: Color { mono ? ink : dark ? Hue.ok : Color(hex: 0x0c7a45) }
+    var gold: Color { mono ? ink : dark ? Hue.gold : Color(hex: 0xcc9b31) }
+    var goldInk: Color { mono ? ink : dark ? Hue.gold : Color(hex: 0x8a5d00) }
+    var warn: Color { mono ? ink : dark ? Hue.warn : Color(hex: 0xe06414) }
+    var bw: Color { mono ? ink : dark ? Hue.bw : Color(hex: 0x48a0c8) }
+    var bwInk: Color { mono ? ink : dark ? Hue.bw : Color(hex: 0x32708c) }
+    var rest: Color { mono ? ink : dark ? Hue.rest : Color(hex: 0x6670cc) }
+    var restInk: Color { mono ? ink : dark ? Hue.rest : Color(hex: 0x474e8f) }
+}
+
+private struct PalKey: EnvironmentKey { static let defaultValue = Pal() }
+extension EnvironmentValues {
+    var powaPal: Pal {
+        get { self[PalKey.self] }
+        set { self[PalKey.self] = newValue }
+    }
+}
+
+/// Graphite, one soft light from the top left in the widget's hue, a hairline edge. In light: white
+/// graphite, the light fainter, the edge in ink. `hue: nil`: no light (the meet-day slab).
 struct PowaBG: View {
     var hue: Color?
+    @Environment(\.colorScheme) private var scheme
     var body: some View {
+        let dark = scheme != .light
         ZStack {
-            LinearGradient(colors: [Color(red: 0.094, green: 0.094, blue: 0.110), Color(red: 0.043, green: 0.043, blue: 0.047)],
+            LinearGradient(colors: dark ? [Color(hex: 0x18181c), Color(hex: 0x0b0b0c)] : [Color(hex: 0xffffff), Color(hex: 0xf1f1f4)],
                            startPoint: .top, endPoint: .bottom)
             if let hue {
-                RadialGradient(colors: [hue.opacity(0.18), hue.opacity(0)],
+                RadialGradient(colors: [hue.opacity(dark ? 0.16 : 0.11), hue.opacity(0)],
                                center: UnitPoint(x: 0.12, y: -0.08), startRadius: 0, endRadius: 210)
             }
             ContainerRelativeShape()
-                .strokeBorder(LinearGradient(colors: [Color.white.opacity(0.12), Color.white.opacity(0.03)],
+                .strokeBorder(LinearGradient(colors: dark ? [Color.white.opacity(0.12), Color.white.opacity(0.03)]
+                                                          : [Color(hex: 0x0f0f19, opacity: 0.10), Color(hex: 0x0f0f19, opacity: 0.04)],
                                              startPoint: .top, endPoint: .bottom), lineWidth: 1)
         }
     }
 }
 
 /// iOS 17 draws the widget's background itself (and pads the content); iOS 16 needs both from
-/// us, except on the Lock Screen, where widgets have neither.
+/// us, except on the Lock Screen, where widgets have neither. Every widget's palette is set here,
+/// from the appearance and the way iOS renders it.
 private struct PowaWidgetBackground: ViewModifier {
     let hue: Color?
     @Environment(\.widgetFamily) private var family
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.widgetRenderingMode) private var mode
     @ViewBuilder func body(content: Content) -> some View {
+        let inner = content.environment(\.powaPal, Pal(dark: scheme != .light, mono: mode != .fullColor))
         if #available(iOS 17.0, macOS 14.0, *) {
-            content.containerBackground(for: .widget) { PowaBG(hue: hue) }
+            inner.containerBackground(for: .widget) { PowaBG(hue: hue) }
         } else if family == .systemSmall || family == .systemMedium || family == .systemLarge || family == .systemExtraLarge {
-            content.padding(16).background(PowaBG(hue: hue))
+            inner.padding(16).background(PowaBG(hue: hue))
         } else {
-            content
+            inner
         }
     }
 }
@@ -354,19 +542,21 @@ struct FamilyReader<Content: View>: View {
 }
 
 /// The brand mark: one sleeve of a loaded bar, side-on (app.js BRAND_MARK, on its 32-unit grid).
+/// The 25 kg plate is the logo's red; the bar and the small plates are ink.
 struct BrandMark: View {
     var size: CGFloat = 14
+    @Environment(\.powaPal) private var p
     var body: some View {
         let k = size / 32
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 1.4 * k, style: .continuous).fill(Color.white)
+            RoundedRectangle(cornerRadius: 1.4 * k, style: .continuous).fill(p.ink)
                 .frame(width: 29 * k, height: 2.8 * k).offset(x: 1.5 * k, y: 14.6 * k)
-            RoundedRectangle(cornerRadius: 2.2 * k, style: .continuous).fill(Powa.red)
+            RoundedRectangle(cornerRadius: 2.2 * k, style: .continuous).fill(p.mono ? p.ink : Hue.logo)
                 .frame(width: 7.5 * k, height: 26 * k).offset(x: 8 * k, y: 3 * k)
                 .widgetAccentable()
-            RoundedRectangle(cornerRadius: 1.6 * k, style: .continuous).fill(Color.white)
+            RoundedRectangle(cornerRadius: 1.6 * k, style: .continuous).fill(p.ink)
                 .frame(width: 4 * k, height: 17 * k).offset(x: 17 * k, y: 7.5 * k)
-            RoundedRectangle(cornerRadius: 1.1 * k, style: .continuous).fill(Color.white)
+            RoundedRectangle(cornerRadius: 1.1 * k, style: .continuous).fill(p.ink)
                 .frame(width: 2.6 * k, height: 8 * k).offset(x: 22.5 * k, y: 12 * k)
         }
         .frame(width: size, height: size, alignment: .topLeading)
@@ -374,16 +564,44 @@ struct BrandMark: View {
     }
 }
 
-/// The quiet header every widget opens with: the mark, and what the widget is.
+/// The quiet header every widget opens with: the mark, and what the widget is; on the right, when
+/// the numbers are from an earlier day, when ("Yesterday", or "Wed" where that doesn't fit).
 struct WidgetTitle: View {
     let text: String
+    var stamp: String? = nil
+    var stampShort: String? = nil
+    @Environment(\.powaPal) private var p
     var body: some View {
-        HStack(spacing: 6) {
-            BrandMark(size: 14)
-            Text(text)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(Hue.ink2)
-                .lineLimit(1)
+        if let stamp {
+            ViewThatFits(in: .horizontal) {
+                row(stamp, whole: true)
+                row(stampShort ?? stamp, whole: true)
+                row(stampShort ?? stamp, whole: false)
+            }
+        } else {
+            row(nil, whole: false)
+        }
+    }
+
+    private func row(_ s: String?, whole: Bool) -> some View {
+        HStack(spacing: 0) {
+            HStack(spacing: 6) {
+                BrandMark(size: 14)
+                Text(text)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(p.ink2)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: whole, vertical: false)
+            }
+            if let s {
+                Spacer(minLength: 6)
+                Text(s)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(p.ink3)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .accessibilityLabel("As of \(s.lowercased())")
+            }
         }
     }
 }
@@ -393,25 +611,76 @@ struct HeroNumber: View {
     let value: String
     var unit: String? = nil
     var size: CGFloat = 40
-    var color: Color = .white
+    var color: Color? = nil
+    @Environment(\.powaPal) private var p
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: size * 0.08) {
             Text(value)
                 .font(.system(size: size, weight: .heavy).width(.expanded))
                 .monospacedDigit()
                 .tracking(-0.02 * size)
-                .foregroundColor(color)
+                .foregroundColor(color ?? p.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .contentTransition(.numericText())
+                .widgetAccentable()
             if let unit {
                 Text(unit)
                     .font(.system(size: max(12, size * 0.34), weight: .semibold))
-                    .foregroundColor(Hue.ink3)
+                    .foregroundColor(p.ink3)
                     .lineLimit(1)
                     .fixedSize()
             }
         }
+    }
+}
+
+/// The warning, the app's one status shape: an orange triangle beside ink words (never red).
+struct WarnMark: View {
+    var size: CGFloat = 11
+    @Environment(\.powaPal) private var p
+    var body: some View {
+        Image(systemName: "exclamationmark.triangle.fill")
+            .font(.system(size: size, weight: .bold))
+            .foregroundColor(p.warn)
+            .accessibilityHidden(true)
+    }
+}
+
+/// The one action, as a capsule (display only, or inside a Button(intent:)): crimson, white label.
+struct ActionCapsule: View {
+    let text: String
+    var symbol: String? = nil
+    var size: CGFloat = 13
+    var expand = false
+    @Environment(\.widgetRenderingMode) private var mode
+    var body: some View {
+        HStack(spacing: 5) {
+            if let symbol { Image(systemName: symbol).font(.system(size: size - 2, weight: .heavy)) }
+            Text(text).font(.system(size: size, weight: .bold)).lineLimit(1).minimumScaleFactor(0.8)
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, expand ? 0 : 12)
+        .frame(maxWidth: expand ? .infinity : nil, minHeight: size + 17)
+        .background(Capsule().fill(Hue.action(mode)))
+    }
+}
+
+/// A calm capsule: graphite in dark, a faint ink wash in light; never the action's crimson.
+struct QuietCapsule: View {
+    let text: String
+    var symbol: String? = nil
+    var size: CGFloat = 12
+    @Environment(\.powaPal) private var p
+    var body: some View {
+        HStack(spacing: 4) {
+            if let symbol { Image(systemName: symbol).font(.system(size: size - 1, weight: .bold)) }
+            Text(text).font(.system(size: size, weight: .bold)).lineLimit(1).minimumScaleFactor(0.75)
+        }
+        .foregroundColor(p.ink)
+        .padding(.horizontal, 10)
+        .frame(minHeight: size + 15)
+        .background(Capsule().fill(p.quiet))
     }
 }
 
@@ -420,6 +689,7 @@ struct LiftBar: View {
     let squat: String?
     let bench: String?
     let deadlift: String?
+    @Environment(\.powaPal) private var p
     var body: some View {
         let labels = [squat, bench, deadlift].map { v -> String in
             guard let v, !v.isEmpty else { return "–" }
@@ -431,7 +701,7 @@ struct LiftBar: View {
         // Every lift keeps room for its number (20% of the bar at least); unknown lifts share evenly.
         let shares: [Double] = known ? vals.map { max($0 / sum, 0.2) } : [1, 1, 1]
         let norm = shares.reduce(0, +)
-        let colors = [Lift.squat, Lift.bench, Lift.deadlift]
+        let keys = ["squat", "bench", "deadlift"]
         GeometryReader { g in
             let gap: CGFloat = 3
             let w = max(0, g.size.width - gap * 2)
@@ -442,12 +712,12 @@ struct LiftBar: View {
                     // whatever the split, and each number still sits inside its own lift.
                     let align: Alignment = i == 0 ? .leading : i == 1 ? .center : .trailing
                     VStack(spacing: 6) {
-                        Capsule().fill(colors[i].opacity(vals[i] > 0 ? 1 : 0.3))
+                        Capsule().fill(vals[i] > 0 ? p.lift(keys[i]) : p.track)
                             .frame(width: segW, height: 6)
                         Text(labels[i])
                             .font(.system(size: 13, weight: .bold))
                             .monospacedDigit()
-                            .foregroundColor(vals[i] > 0 ? .white : Hue.ink3)
+                            .foregroundColor(vals[i] > 0 ? p.ink : p.ink3)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                             .frame(width: segW, alignment: align)
@@ -465,22 +735,28 @@ struct LiftBar: View {
 struct Segments: View {
     let done: Int
     let total: Int
-    var color: Color = .white
+    var color: Color? = nil
     var maxSegments = 24
+    @Environment(\.powaPal) private var p
     var body: some View {
         let n = max(1, total)
+        let fill = color ?? p.ink
         if n <= maxSegments {
             HStack(spacing: 3) {
                 ForEach(0..<n, id: \.self) { i in
-                    Capsule().fill(i < done ? color : Hue.track).frame(height: 6)
+                    if i < done {
+                        Capsule().fill(fill).frame(height: 6).widgetAccentable()
+                    } else {
+                        Capsule().fill(p.track).frame(height: 6)
+                    }
                 }
             }
             .frame(height: 6)
         } else {
             GeometryReader { g in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Hue.track)
-                    Capsule().fill(color).frame(width: g.size.width * CGFloat(min(done, n)) / CGFloat(n))
+                    Capsule().fill(p.track)
+                    Capsule().fill(fill).frame(width: g.size.width * CGFloat(min(done, n)) / CGFloat(n)).widgetAccentable()
                 }
             }
             .frame(height: 6)
@@ -491,19 +767,42 @@ struct Segments: View {
 struct SetProgress: View {
     let done: Int
     let total: Int
-    var color: Color = .white
+    var color: Color? = nil
     var maxSegments = 24
+    @Environment(\.powaPal) private var p
     var body: some View {
         HStack(spacing: 8) {
             Segments(done: done, total: total, color: color, maxSegments: maxSegments)
             Text("\(done)/\(total)")
                 .font(.system(size: 11, weight: .bold))
                 .monospacedDigit()
-                .foregroundColor(Hue.ink2)
+                .foregroundColor(p.ink2)
                 .fixedSize()
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(done) of \(total) sets done")
+    }
+}
+
+/// A thin meter: a share of one thing (this month's money in), the rest a track.
+struct Meter: View {
+    let fraction: Double
+    var color: Color? = nil
+    var height: CGFloat = 5
+    @Environment(\.powaPal) private var p
+    var body: some View {
+        GeometryReader { g in
+            ZStack(alignment: .leading) {
+                Capsule().fill(p.track)
+                if fraction > 0 {
+                    Capsule().fill(color ?? p.ink)
+                        .frame(width: max(height, g.size.width * CGFloat(min(1, fraction))))
+                        .widgetAccentable()
+                }
+            }
+        }
+        .frame(height: height)
+        .accessibilityHidden(true)
     }
 }
 
@@ -516,24 +815,42 @@ enum PowaFormat {
         if let e = n.rpe, !e.isEmpty { parts.append("@\(e)") }
         return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
+    /// A day as a short word: the weekday within the week ("Tue"), else the month and day ("Oct 12"),
+    /// in the phone's own order.
+    static func shortDay(_ d: Date, within week: Bool) -> String {
+        let f = DateFormatter()
+        f.calendar = PowaStore.day; f.timeZone = .current
+        f.setLocalizedDateFormatFromTemplate(week ? "EEE" : "MMMd")
+        return f.string(from: d)
+    }
+    /// When a 'YYYY-MM-DD' was, from today: "today", "yesterday", "2 days ago" (to 13), then the date.
+    static func ago(_ iso: String?) -> String? {
+        guard let iso, let d = PowaStore.date(iso) else { return nil }
+        let n = PowaStore.days(from: d, to: Date())
+        if n <= 0 { return "today" }
+        if n == 1 { return "yesterday" }
+        if n < 14 { return "\(n) days ago" }
+        return shortDay(d, within: false)
+    }
 }
 
 /// The next set in two short lines: the lift (its colour, its name), then the prescription.
 struct NextLines: View {
     let next: PowaSnapshot.Next
     let unit: String
+    @Environment(\.powaPal) private var p
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 5) {
-                Circle().fill(Lift.color(next.lift)).frame(width: 6, height: 6)
-                Text(next.name ?? "Next set").foregroundColor(Hue.ink2).lineLimit(1)
+                Circle().fill(p.lift(next.lift)).frame(width: 6, height: 6)
+                Text(next.name ?? "Next set").foregroundColor(p.ink2).lineLimit(1)
             }
             .font(.system(size: 12, weight: .semibold))
-            if let p = PowaFormat.prescription(next, unit: unit) {
-                Text(p)
+            if let pr = PowaFormat.prescription(next, unit: unit) {
+                Text(pr)
                     .font(.system(size: 13, weight: .bold))
                     .monospacedDigit()
-                    .foregroundColor(.white)
+                    .foregroundColor(p.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
@@ -547,15 +864,74 @@ struct NextLines: View {
 struct EmptyState: View {
     let title: String
     let line: String
+    @Environment(\.powaPal) private var p
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             WidgetTitle(text: title)
             Spacer(minLength: 4)
             Text(line)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(p.ink)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
+        }
+    }
+}
+
+/// A widget for the other person (a lifter's widget on a coach's phone, a coach's on a lifter's):
+/// one line, in every family it comes in.
+struct RoleLine: View {
+    let title: String
+    let line: String
+    let family: WidgetFamily
+    var body: some View {
+        switch family {
+        case .accessoryCircular:
+            ZStack { AccessoryWidgetBackground(); BrandMark(size: 22) }
+                .accessibilityLabel(line)
+        case .accessoryRectangular:
+            RoleRect(title: title, line: line)
+        case .accessoryInline:
+            Text(line)
+        default:
+            EmptyState(title: title, line: line)
+        }
+    }
+}
+
+/// RoleLine on the Lock Screen: the mark and the widget's name, then the line.
+struct RoleRect: View {
+    let title: String
+    let line: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 5) {
+                BrandMark(size: 12)
+                Text(title).font(.system(size: 13, weight: .semibold))
+            }
+            .widgetAccentable()
+            Text(line).font(.system(size: 13, weight: .medium)).lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+enum PowaRole {
+    static let lifterLine = "Open POWALIFTA as a lifter"
+    static let coachLine = "Open POWALIFTA as a coach"
+}
+
+/// A lifter's widget: the lifter's view, unless the app on this phone is a coach's.
+struct LifterOnly<Content: View>: View {
+    let snap: PowaSnapshot?
+    let title: String
+    let family: WidgetFamily
+    @ViewBuilder let content: () -> Content
+    var body: some View {
+        if snap?.isCoach == true {
+            RoleLine(title: title, line: PowaRole.lifterLine, family: family)
+        } else {
+            content()
         }
     }
 }
@@ -565,6 +941,7 @@ struct EmptyState: View {
 struct TotalView: View {
     let snap: PowaSnapshot?
     let family: WidgetFamily
+    @Environment(\.powaPal) private var p
     var body: some View {
         let total = snap?.total.flatMap { $0 == "–" || $0.isEmpty ? nil : $0 }
         if let s = snap, family == .systemMedium {
@@ -574,7 +951,7 @@ struct TotalView: View {
                     if let total { TotalColumn(s: s, total: total) } else { EmptyState(title: "Total", line: "Your first set starts it.") }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1).padding(.horizontal, 16)
+                Rectangle().fill(p.rule).frame(width: 1).padding(.horizontal, 16)
                 TodayColumn(s: s).frame(maxWidth: .infinity, alignment: .leading)
             }
         } else if let s = snap, let total {
@@ -604,6 +981,7 @@ private struct TotalColumn: View {
 private struct DeltaLine: View {
     let delta: String?
     let unit: String
+    @Environment(\.powaPal) private var p
     var body: some View {
         if let d = delta, d.hasPrefix("+") {
             HStack(spacing: 3) {
@@ -611,13 +989,13 @@ private struct DeltaLine: View {
                 Text("\(String(d.dropFirst())) \(unit) in 4 weeks")
             }
             .font(.system(size: 12, weight: .semibold))
-            .foregroundColor(Hue.ok)
+            .foregroundColor(p.okInk)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
         } else {
             Text("From your best sets")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundColor(Hue.ink3)
+                .foregroundColor(p.ink3)
                 .lineLimit(1)
         }
     }
@@ -626,6 +1004,7 @@ private struct DeltaLine: View {
 /// Medium Total's right half: today's session, the next set, how far you are.
 private struct TodayColumn: View {
     let s: PowaSnapshot
+    @Environment(\.powaPal) private var p
     var body: some View {
         let rest = s.session == "Rest day"
         let total = s.setsTotal ?? 0
@@ -633,24 +1012,24 @@ private struct TodayColumn: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Today")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(Hue.ink2)
+                .foregroundColor(p.ink2)
             Spacer(minLength: 4)
             if s.sessionStale {
                 Text("Open the app for today's session.")
-                    .font(.system(size: 13, weight: .medium)).foregroundColor(Hue.ink2)
+                    .font(.system(size: 13, weight: .medium)).foregroundColor(p.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text(s.session ?? "Nothing planned")
                     .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(p.ink)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
                 if rest {
                     Text("Recovery is part of the plan.")
-                        .font(.system(size: 12, weight: .medium)).foregroundColor(Hue.ink2).padding(.top, 3)
+                        .font(.system(size: 12, weight: .medium)).foregroundColor(p.ink2).padding(.top, 3)
                 } else if total > 0 && done >= total {
                     Text("Session done")
-                        .font(.system(size: 12, weight: .semibold)).foregroundColor(Hue.ok).padding(.top, 3)
+                        .font(.system(size: 12, weight: .semibold)).foregroundColor(p.okInk).padding(.top, 3)
                 } else if let n = s.next {
                     NextLines(next: n, unit: s.unit ?? "kg").padding(.top, 4)
                 }
@@ -658,7 +1037,7 @@ private struct TodayColumn: View {
             Spacer(minLength: 8)
             if total > 0 && !rest && !s.sessionStale {
                 // A narrow column draws one bar, not a row of dots.
-                SetProgress(done: done, total: total, color: done >= total ? Hue.ok : .white, maxSegments: 8)
+                SetProgress(done: done, total: total, color: done >= total ? p.ok : nil, maxSegments: 8)
             }
         }
     }
@@ -669,9 +1048,11 @@ struct PowaHomeWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: PowaProvider()) { entry in
-            FamilyReader { family in TotalView(snap: entry.snap, family: family) }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .powaWidgetBackground(Hue.fire)
+            FamilyReader { family in
+                LifterOnly(snap: entry.snap, title: "Total", family: family) { TotalView(snap: entry.snap, family: family) }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .powaWidgetBackground(Hue.steel)
         }
         .configurationDisplayName("Total")
         .description("Your total, the three lifts behind it and today's session.")

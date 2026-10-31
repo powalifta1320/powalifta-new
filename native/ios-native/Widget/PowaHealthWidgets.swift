@@ -5,12 +5,14 @@
 //
 //  Same snapshot as every other widget (PowaHomeWidget.swift: PowaSnapshot.health / .cut /
 //  .healthOn), built by syncHomeWidget in athlete.html from app.js widgetReadiness / widgetCut:
-//  display strings, no maths here. Same look: graphite, one soft light in the widget's hue, the
-//  brand mark, wide heavy numerals, colour only where it means something.
+//  display strings, no maths here. Same look: graphite (white in light), one soft light in the
+//  widget's hue, the brand mark, wide heavy numerals, colour only where it means something: a
+//  number off the lifter's usual and a cut off pace wear the orange of a warning (with the
+//  triangle when it's a status), never red.
 //
 //    Readiness      last night's sleep, resting heart rate (and HRV with a Watch) against the
 //                   lifter's own usual, one word for the morning, today's session. Lit green when
-//                   fresh, indigo when normal, amber when rough. Without Health data: a calm
+//                   fresh, indigo when normal, orange when rough. Without Health data: a calm
 //                   "Connect Apple Health" that opens You → Apple Health (powalifta://health).
 //    Weight class   the 7-day average against the class line, the last 7 days of weigh-ins
 //                   (POWALIFTA's and Health's are one list in the app), the pace and the meet.
@@ -22,18 +24,13 @@ import WidgetKit
 
 // MARK: - Shared bits
 
-extension Hue {
-    static let rest = Color(red: 0.498, green: 0.549, blue: 1.0)     // #7f8cff, a normal morning
-    static let gold = Color(red: 1.0, green: 0.710, blue: 0.278)     // #ffb547, the class line (--gold)
-}
-
 enum Readiness {
-    /// The word's colour: green when fresh, amber when rough, plain ink when normal.
-    static func ink(_ word: String?) -> Color {
+    /// The word's colour: green when fresh, the warning's orange when rough, plain ink when normal.
+    static func ink(_ word: String?, _ p: Pal) -> Color {
         switch word {
-        case "Fresh": return Hue.ok
-        case "Rough": return Hue.flame
-        default: return .white
+        case "Fresh": return p.okInk
+        case "Rough": return p.warn
+        default: return p.ink
         }
     }
     /// The widget's light.
@@ -41,7 +38,7 @@ enum Readiness {
         guard let h = snap?.healthNow else { return Hue.rest }
         switch h.word {
         case "Fresh": return Hue.ok
-        case "Rough": return Hue.flame
+        case "Rough": return Hue.warn
         default: return Hue.rest
         }
     }
@@ -65,13 +62,14 @@ private func sessionLine(_ s: PowaSnapshot?) -> (text: String, lift: String?)? {
 private struct SessionTag: View {
     let text: String
     let lift: String?
+    @Environment(\.powaPal) private var p
     var body: some View {
         HStack(spacing: 5) {
-            if let lift, lift != "other" { Circle().fill(Lift.color(lift)).frame(width: 6, height: 6) }
+            if let lift, lift != "other" { Circle().fill(p.lift(lift)).frame(width: 6, height: 6) }
             Text(text).lineLimit(1).minimumScaleFactor(0.8)
         }
         .font(.system(size: 12, weight: .semibold))
-        .foregroundColor(Hue.ink2)
+        .foregroundColor(p.ink2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Today: \(text)")
     }
@@ -81,11 +79,13 @@ private struct SessionTag: View {
 private struct ReadyWord: View {
     let word: String
     var size: CGFloat = 30
+    @Environment(\.powaPal) private var p
     var body: some View {
         Text(word)
             .font(.system(size: size, weight: .heavy).width(.expanded))
             .tracking(-0.02 * size)
-            .foregroundColor(Readiness.ink(word))
+            .foregroundColor(Readiness.ink(word, p))
+            .widgetAccentable()
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             .contentTransition(.interpolate)
@@ -94,7 +94,7 @@ private struct ReadyWord: View {
 }
 
 /// One Health number: its symbol and the value; in medium also its (short) name above the value
-/// and the usual it's measured against on the right. Only the number turns amber when it's off.
+/// and the usual it's measured against on the right. Only the number turns orange when it's off.
 /// Sized for the narrowest medium widget (iPhone SE: 289pt of content, about 144 for this column).
 private struct MetricRow: View {
     let symbol: String
@@ -103,28 +103,29 @@ private struct MetricRow: View {
     let metric: PowaSnapshot.Metric
     var unit: String? = nil
     var showUsual = true
+    @Environment(\.powaPal) private var p
     var body: some View {
         let off = metric.off == true
         // The name has the whole row to itself (above the number), so it never fights the usual
         // for width; the number never shrinks, the usual may a little.
         VStack(alignment: .leading, spacing: 0) {
             if showUsual {
-                Text(label).font(.system(size: 11, weight: .medium)).foregroundColor(Hue.ink3)
+                Text(label).font(.system(size: 11, weight: .medium)).foregroundColor(p.ink3)
                     .lineLimit(1).minimumScaleFactor(0.85)
                     .padding(.leading, 22)
             }
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: symbol)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Hue.ink3)
+                    .foregroundColor(p.ink3)
                     .frame(width: 14)
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text(metric.value ?? "–")
                         .font(.system(size: 15, weight: .bold))
                         .monospacedDigit()
-                        .foregroundColor(off ? Hue.flame : .white)
+                        .foregroundColor(off ? p.warn : p.ink)
                     if let unit {
-                        Text(unit).font(.system(size: 11, weight: .semibold)).foregroundColor(Hue.ink3)
+                        Text(unit).font(.system(size: 11, weight: .semibold)).foregroundColor(p.ink3)
                     }
                 }
                 .lineLimit(1)
@@ -135,7 +136,7 @@ private struct MetricRow: View {
                     Text(metric.usual.map { "usual \($0)" } ?? "")
                         .font(.system(size: 11, weight: .medium))
                         .monospacedDigit()
-                        .foregroundColor(Hue.ink3)
+                        .foregroundColor(p.ink3)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                         .privacySensitive()
@@ -148,20 +149,12 @@ private struct MetricRow: View {
     }
 }
 
-/// A calm capsule (not the red action: nothing urgent about connecting).
+/// A calm capsule (not the crimson action: nothing urgent about connecting).
 private struct QuietPill: View {
     let symbol: String
     let text: String
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: symbol).font(.system(size: 11, weight: .bold))
-            Text(text).font(.system(size: 12, weight: .bold)).lineLimit(1).minimumScaleFactor(0.75)
-        }
-        .foregroundColor(.white)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Capsule().fill(Color.white.opacity(0.13)))
-        .accessibilityHidden(true)
+        QuietCapsule(text: text, symbol: symbol).accessibilityHidden(true)
     }
 }
 
@@ -170,6 +163,7 @@ private struct QuietPill: View {
 struct ReadinessView: View {
     let snap: PowaSnapshot?
     let family: WidgetFamily
+    @Environment(\.powaPal) private var p
 
     var body: some View {
         if let h = snap?.healthNow {
@@ -205,12 +199,12 @@ struct ReadinessView: View {
                 Spacer(minLength: 4)
                 ReadyWord(word: h.word ?? "Normal", size: 32)
                 Text("Against your usual")
-                    .font(.system(size: 12, weight: .medium)).foregroundColor(Hue.ink3).padding(.top, 1)
+                    .font(.system(size: 12, weight: .medium)).foregroundColor(p.ink3).padding(.top, 1)
                 Spacer(minLength: 8)
                 if let t = sessionLine(snap) { SessionTag(text: t.text, lift: t.lift) }
             }
             .frame(width: 116, alignment: .leading)
-            Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1).padding(.horizontal, 14)
+            Rectangle().fill(p.rule).frame(width: 1).padding(.horizontal, 14)
             VStack(alignment: .leading, spacing: 0) {
                 Spacer(minLength: 0)
                 VStack(alignment: .leading, spacing: 9) {
@@ -229,7 +223,7 @@ struct ReadinessView: View {
             WidgetTitle(text: "Readiness")
             Spacer(minLength: 4)
             Text(line)
-                .font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
+                .font(.system(size: 15, weight: .semibold)).foregroundColor(p.ink)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
             if let t = sessionLine(snap) { SessionTag(text: t.text, lift: t.lift) }
@@ -237,7 +231,7 @@ struct ReadinessView: View {
         if family == .systemMedium {
             HStack(spacing: 0) {
                 left.frame(maxWidth: .infinity, alignment: .leading)
-                Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1).padding(.horizontal, 14)
+                Rectangle().fill(p.rule).frame(width: 1).padding(.horizontal, 14)
                 GhostRows().frame(width: GhostRows.width).frame(maxHeight: .infinity)
             }
         } else {
@@ -253,7 +247,7 @@ struct ReadinessView: View {
                     WidgetTitle(text: "Readiness")
                     Spacer(minLength: 4)
                     Text("Fresh, normal or rough, from last night.")
-                        .font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
+                        .font(.system(size: 15, weight: .semibold)).foregroundColor(p.ink)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
                     // The full name where it fits (Plus / Pro Max), the short one on smaller phones.
@@ -263,7 +257,7 @@ struct ReadinessView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1).padding(.horizontal, 14)
+                Rectangle().fill(p.rule).frame(width: 1).padding(.horizontal, 14)
                 GhostRows().frame(width: GhostRows.width).frame(maxHeight: .infinity)
             }
         } else {
@@ -271,7 +265,7 @@ struct ReadinessView: View {
                 WidgetTitle(text: "Readiness")
                 Spacer(minLength: 4)
                 Text("Sleep and heart rate, against your usual.")
-                    .font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
+                    .font(.system(size: 15, weight: .semibold)).foregroundColor(p.ink)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
                 QuietPill(symbol: "heart.fill", text: "Connect Health")
@@ -297,14 +291,15 @@ private struct GhostRows: View {
 private struct GhostRow: View {
     let symbol: String
     let label: String
+    @Environment(\.powaPal) private var p
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).frame(width: 14)
             Text(label).font(.system(size: 12, weight: .medium)).lineLimit(1).minimumScaleFactor(0.85).layoutPriority(1)
             Spacer(minLength: 4)
-            Capsule().fill(Hue.track).frame(width: 20, height: 6)
+            Capsule().fill(p.track).frame(width: 20, height: 6)
         }
-        .foregroundColor(Hue.ink3)
+        .foregroundColor(p.ink3)
         .accessibilityHidden(true)
     }
 }
@@ -313,10 +308,12 @@ struct PowaReadinessWidget: Widget {
     let kind = "PowaReadinessWidget"
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: SnapProvider()) { entry in
-            FamilyReader { family in ReadinessView(snap: entry.snap, family: family) }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .powaWidgetBackground(Readiness.hue(entry.snap))
-                .widgetURL(Readiness.url(entry.snap))
+            FamilyReader { family in
+                LifterOnly(snap: entry.snap, title: "Readiness", family: family) { ReadinessView(snap: entry.snap, family: family) }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .powaWidgetBackground(entry.snap?.isCoach == true ? Hue.steel : Readiness.hue(entry.snap))
+            .widgetURL(Readiness.url(entry.snap))
         }
         .configurationDisplayName("Readiness")
         .description("Last night's sleep and resting heart rate against your usual, in one word, with today's session.")
@@ -332,6 +329,7 @@ struct ClassChart: View {
     let trend: [Double?]
     let classLine: Double
     var showLabel = false
+    @Environment(\.powaPal) private var p
     var body: some View {
         GeometryReader { g in
             let vals = trend.compactMap { $0 }
@@ -345,11 +343,11 @@ struct ClassChart: View {
             let cy = y(classLine)
             ZStack(alignment: .topLeading) {
                 Path { p in p.move(to: CGPoint(x: 0, y: cy)); p.addLine(to: CGPoint(x: g.size.width, y: cy)) }
-                    .stroke(Hue.gold.opacity(0.85), style: StrokeStyle(lineWidth: 1.2, lineCap: .round, dash: [3, 3]))
+                    .stroke(p.gold.opacity(0.9), style: StrokeStyle(lineWidth: 1.2, lineCap: .round, dash: [3, 3]))
                 if showLabel {
                     Text(Self.num(classLine))
                         .font(.system(size: 9, weight: .bold)).monospacedDigit()
-                        .foregroundColor(Hue.gold)
+                        .foregroundColor(p.goldInk)
                         .position(x: g.size.width - 10, y: cy + (pts.last.map { $0.y < cy + 1 } ?? true ? 7 : -7))
                 }
                 if vals.isEmpty {
@@ -357,18 +355,19 @@ struct ClassChart: View {
                     // widget reads as "this is where your week goes", not as broken.
                     let ghost = [0.9, 0.75, 0.8, 0.6, 0.55, 0.4, 0.3].enumerated().map { i, f in CGPoint(x: x(i), y: y(classLine + span * 0.45 * f)) }
                     Sparkline.curve(ghost, closeTo: nil)
-                        .stroke(Color.white.opacity(0.14), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [0.5, 5]))
+                        .stroke(p.track, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [0.5, 5]))
                 }
                 if pts.count > 1 {
                     Sparkline.curve(pts, closeTo: nil)
-                        .stroke(Hue.bw, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                        .stroke(p.bw, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                        .widgetAccentable()
                 }
                 ForEach(0..<max(0, pts.count - 1), id: \.self) { i in
-                    Circle().fill(Hue.bw.opacity(0.55)).frame(width: 3.5, height: 3.5).position(pts[i])
+                    Circle().fill(p.bw.opacity(0.55)).frame(width: 3.5, height: 3.5).position(pts[i])
                 }
                 if let last = pts.last {
-                    Circle().fill(Hue.bw.opacity(0.25)).frame(width: 12, height: 12).position(last)
-                    Circle().fill(Hue.bw).frame(width: 6, height: 6).position(last)
+                    Circle().fill(p.bw.opacity(0.22)).frame(width: 12, height: 12).position(last)
+                    Circle().fill(p.bw).frame(width: 6, height: 6).position(last)
                 }
             }
         }
@@ -380,15 +379,14 @@ struct ClassChart: View {
 struct CutView: View {
     let snap: PowaSnapshot?
     let family: WidgetFamily
+    @Environment(\.powaPal) private var p
 
-    static func statusInk(_ tone: String?) -> Color {
-        switch tone {
-        case "made": return Hue.ok
-        case "amber": return Hue.flame
-        case "off": return Hue.fire
-        default: return .white
-        }
+    /// The status in words: green with a check when made; off pace or creeping back up is a
+    /// warning (the orange triangle beside ink words, never red); otherwise plain ink.
+    static func statusInk(_ tone: String?, _ p: Pal) -> Color {
+        tone == "made" ? p.okInk : p.ink
     }
+    static func warns(_ tone: String?) -> Bool { tone == "off" || tone == "amber" }
     static func url(_ snap: PowaSnapshot?) -> URL? {
         URL(string: snap?.cut == nil ? "powalifta://cut" : "powalifta://bodyweight")
     }
@@ -408,10 +406,11 @@ struct CutView: View {
     private func status(_ c: PowaSnapshot.Cut) -> some View {
         HStack(spacing: 4) {
             if c.tone == "made" { Image(systemName: "checkmark.circle.fill").font(.system(size: 11, weight: .bold)) }
+            if CutView.warns(c.tone) { WarnMark(size: 11) }
             Text(c.status ?? "")
         }
         .font(.system(size: 13, weight: .semibold))
-        .foregroundColor(CutView.statusInk(c.tone))
+        .foregroundColor(CutView.statusInk(c.tone, p))
         .lineLimit(1)
         .minimumScaleFactor(0.8)
     }
@@ -437,7 +436,7 @@ struct CutView: View {
                 Spacer(minLength: 4)
                 HeroNumber(value: cur, unit: c.unit ?? "kg", size: 36).privacySensitive()
                 Text("7-day average")
-                    .font(.system(size: 11, weight: .medium)).foregroundColor(Hue.ink3)
+                    .font(.system(size: 11, weight: .medium)).foregroundColor(p.ink3)
                 Spacer(minLength: 8)
                 status(c).privacySensitive()
                 if let by = c.by {
@@ -445,21 +444,21 @@ struct CutView: View {
                         Image(systemName: "flag.checkered").font(.system(size: 10, weight: .bold))
                         Text("Meet \(by)")
                     }
-                    .font(.system(size: 12, weight: .medium)).foregroundColor(Hue.ink2).padding(.top, 3)
+                    .font(.system(size: 12, weight: .medium)).foregroundColor(p.ink2).padding(.top, 3)
                 }
             }
             .frame(width: 140, alignment: .leading)
-            Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1).padding(.horizontal, 14)
+            Rectangle().fill(p.rule).frame(width: 1).padding(.horizontal, 14)
             VStack(alignment: .leading, spacing: 6) {
                 if let t = snap?.cutTrendNow, let line = c.classLine {
                     ClassChart(trend: t, classLine: line, showLabel: true).privacySensitive()
                 } else {
                     Spacer(minLength: 0)
                 }
-                if let p = paceLine(c) {
-                    Text(p)
+                if let pace = paceLine(c) {
+                    Text(pace)
                         .font(.system(size: 11, weight: .medium)).monospacedDigit()
-                        .foregroundColor(Hue.ink3).lineLimit(1).minimumScaleFactor(0.8)
+                        .foregroundColor(p.ink3).lineLimit(1).minimumScaleFactor(0.8)
                         .privacySensitive()
                 }
             }
@@ -483,7 +482,7 @@ struct CutView: View {
             WidgetTitle(text: title)
             Spacer(minLength: 4)
             Text(line)
-                .font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
+                .font(.system(size: 15, weight: .semibold)).foregroundColor(p.ink)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
             if pill { QuietPill(symbol: "scalemass.fill", text: "Set a class") }
@@ -491,7 +490,7 @@ struct CutView: View {
         if family == .systemMedium {
             HStack(spacing: 0) {
                 left.frame(width: 168, alignment: .leading)
-                Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1).padding(.horizontal, 14)
+                Rectangle().fill(p.rule).frame(width: 1).padding(.horizontal, 14)
                 // The line the weigh-ins will be drawn against (a quiet one before a class).
                 ClassChart(trend: Array(repeating: nil, count: 7), classLine: classLine ?? 83, showLabel: classLine != nil)
                     .opacity(classLine == nil ? 0.4 : 1)
@@ -506,10 +505,12 @@ struct PowaCutWidget: Widget {
     let kind = "PowaCutWidget"
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: SnapProvider()) { entry in
-            FamilyReader { family in CutView(snap: entry.snap, family: family) }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .powaWidgetBackground(Hue.bw)
-                .widgetURL(CutView.url(entry.snap))
+            FamilyReader { family in
+                LifterOnly(snap: entry.snap, title: "Weight class", family: family) { CutView(snap: entry.snap, family: family) }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .powaWidgetBackground(Hue.bw)
+            .widgetURL(CutView.url(entry.snap))
         }
         .configurationDisplayName("Weight class")
         .description("Your 7-day bodyweight against the class you're making, and the pace to the meet.")
@@ -563,9 +564,9 @@ struct RecoveryLine: View {
     var body: some View {
         let h = snap?.healthNow
         VStack(alignment: .leading, spacing: 1) {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 Image(systemName: "heart.fill").font(.system(size: 12, weight: .bold))
-                Text(h?.word ?? "Recovery").font(.system(size: 15, weight: .bold))
+                Text(h?.word ?? "Recovery").font(.system(size: 15, weight: .heavy).width(.expanded))
             }
             .widgetAccentable()
             if let h {
@@ -590,9 +591,11 @@ struct PowaRecoveryLockWidget: Widget {
     let kind = "PowaRecoveryLockWidget"
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: SnapProvider()) { entry in
-            FamilyReader { family in RecoveryLockView(snap: entry.snap, family: family) }
-                .powaWidgetBackground(nil)
-                .widgetURL(Readiness.url(entry.snap))
+            FamilyReader { family in
+                LifterOnly(snap: entry.snap, title: "Recovery", family: family) { RecoveryLockView(snap: entry.snap, family: family) }
+            }
+            .powaWidgetBackground(nil)
+            .widgetURL(Readiness.url(entry.snap))
         }
         .configurationDisplayName("Recovery")
         .description("This morning's readiness from Apple Health, on your Lock Screen.")
