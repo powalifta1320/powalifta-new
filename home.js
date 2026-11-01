@@ -98,7 +98,7 @@
 
   /* --- The nav and the contents marker: which chapter of the coach's week is at 40% of the screen, and whether a page
      action is on screen (then the nav's ink pill steps back). The bar is the app's dark glass over every chapter. --- */
-  var S = { acts: new Set(), decRed: false };
+  var S = { acts: new Set(), decRed: false, setY: Infinity };   // setY: where the set's moment starts (the score sets it)
   var toc = $('#toc'), tocBar = $('#tocBar'), tocLinks = $$('#toc a'), tocOn = -1;
   var chapters = [];
   function measurePage() {
@@ -133,11 +133,13 @@
     }
   }
 
-  /* --- One crimson per screen. The real screens keep their own action's colour (Log set on Arjun's phone, Publish on
-     Sam's week, Declare on his board while it is crimson): while one is on screen, the page's Start buttons step back to
-     ink. Two of a kind on one screen: the one nearer the middle keeps the crimson. --- */
+  /* --- One crimson per screen. The real screens keep their own action's colour (Log set on Arjun's phone once his set's
+     moment has begun, Publish on Sam's week, Declare on his board while it is crimson): while one is on screen, the
+     page's Start buttons step back to ink. Before its moment, Log set steps back to the page's Start free (the opening
+     keeps its crimson on a phone, where his phone already shows under it). Two of a kind on one screen: the one nearer
+     the middle keeps the crimson. --- */
   var reds = [
-    { el: $('#heroCta .act-btn'), app: false }, { el: $('#logBtn'), app: true }, { el: $('#pub'), app: true },
+    { el: $('#heroCta .act-btn'), app: false }, { el: $('#logBtn'), app: true, wait: function () { return window.scrollY < S.setY; } }, { el: $('#pub'), app: true },
     { el: $('#decBtn'), app: true, on: function () { return S.decRed; } },
     { el: $('#plansCta .act-btn'), app: false }, { el: $('#closeCta .act-btn'), app: false }
   ].filter(function (r) { return r.el; });
@@ -147,10 +149,11 @@
     reds.forEach(function (r) {
       if (!redsIn.has(r.el) || (r.on && !r.on())) return;
       var b = r.el.getBoundingClientRect();
-      if (b.bottom > 64 && b.top < vh) live.push({ r: r, d: Math.abs((b.top + b.bottom) / 2 - mid) });
+      /* Rank: a screen's own action (once its moment has begun), then the page's, then a screen's still waiting. */
+      if (b.bottom > 64 && b.top < vh) live.push({ r: r, d: Math.abs((b.top + b.bottom) / 2 - mid), k: r.app ? (r.wait && r.wait() ? 0 : 2) : 1 });
     });
-    var apps = live.filter(function (o) { return o.r.app; }), pick1 = function (list) { return list.sort(function (a, b) { return a.d - b.d; })[0]; };
-    var keep = apps.length ? pick1(apps) : (live.length ? pick1(live) : null);
+    var top = live.reduce(function (m, o) { return Math.max(m, o.k); }, -1);
+    var keep = live.filter(function (o) { return o.k === top; }).sort(function (a, b) { return a.d - b.d; })[0] || null;
     reds.forEach(function (r) { r.el.classList.toggle('is-quiet', !!keep && r !== keep.r && live.some(function (o) { return o.r === r; })); });
   }
   var tick = false;
@@ -300,7 +303,7 @@
      Sam's laptop; the window zooms from Sam's whole screen to Arjun's page; his total ticks up.
      ===================================================================== */
   var phone = $('#phone'), logB = $('#logBtn'), next = $('.ph-next', phone), laptop = $('#laptop');
-  var max = $('#max'), maxTags = $('.max-tags', max), maxFrom = $('.max-from', max), strip = $('.odo-strip', max);
+  var max = $('#max'), maxTags = $('.max-tags', max), strip = $('.odo-strip', max);
   var clipR = $('#maxClipR'), maxEnd = $('#maxEnd'), maxChart = $('.max-chart', max);
   var fly = $('#fly'), ring = $('#fwRing'), ringRect = $('#fwRing rect');
   /* The phone a moment later is only ever seen with motion: fetched once the score starts (decoded off the main thread). */
@@ -320,13 +323,15 @@
     return function () { depth.scrollTrigger.kill(); depth.kill(); gsap.set([laptop, phone], { clearProps: 'transform' }); };
   });
 
-  /* Log set (a state change as the button reaches the middle of the screen): it presses and releases; the phone moves on
-     as the app does (set 2 up, the rest timer docked). Beside it on a laptop (below it on a phone) the 228 panel has
-     risen; the max rolls 223 to 228 as the line climbs to the new point, then +5 kg and New PR land, then the set it
-     came from. */
+  /* The set, read and logged (a state change once the whole set card is on screen; nothing labels it): a light ring
+     travels down the card, from the load and reps to how hard it felt to Log set, which presses and releases; the phone
+     moves on as the app does (set 2 up, the rest timer docked). Beside it on a laptop (below it on a phone) the 228
+     panel has risen; the max rolls 223 to 228 as the line climbs to the new point, then +5 kg and New PR land. */
   var digitH = function () { return strip.firstElementChild.offsetHeight; };
+  var hls = $$('.hl', phone), PRESS = 1.2;   // PRESS: when Log set presses, in the moment's own time
   gsap.set(next, { autoAlpha: 0 });
-  gsap.set([maxTags, maxFrom], { autoAlpha: 0, y: 8 });
+  gsap.set(hls, { autoAlpha: 0 });
+  gsap.set(maxTags, { autoAlpha: 0, y: 8 });
   gsap.set(strip, { y: 0 });
   gsap.set(clipR, { attr: { width: 93.6 } });
   var endFrom = function () { return { x: -(98 - 91.6) / 100 * maxChart.offsetWidth, y: (29.73 - 17.55) / 100 * maxChart.offsetHeight }; };
@@ -337,27 +342,40 @@
       .to(logB, { scale: 1, duration: 0.28, ease: OUT }, 0.12)
       .to(next, { autoAlpha: 1, duration: 0.26, ease: OUT }, 0.16);
   }
+  /* The ring: in on the load and reps, then down to how hard it felt, then onto Log set (each leaves downward as the next
+     arrives from just above it, so one highlight seems to travel); it rides into the press and lets go. */
+  function anatomyTl() {
+    var tl = gsap.timeline();
+    hls.forEach(function (h, i) {
+      var at = i * 0.44, last = i === hls.length - 1;
+      tl.fromTo(h, { autoAlpha: 0, y: i ? -10 : 0, scale: i ? 1 : 1.03 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.36, ease: ENTER, immediateRender: false }, at);
+      if (last) tl.to(h, { scale: 0.97, duration: 0.11, ease: OUT }, PRESS).to(h, { scale: 1, autoAlpha: 0, duration: 0.42, ease: OUT }, PRESS + 0.12);
+      else tl.to(h, { autoAlpha: 0, y: 10, duration: 0.3, ease: INOUT }, at + 0.42);
+    });
+    return tl;
+  }
+  function setTl() { return gsap.timeline().add(anatomyTl(), 0).add(logTl(), PRESS); }
   function maxTl() {
     return gsap.timeline()
       .to(strip, { y: function () { return -5 * digitH(); }, duration: 0.9, ease: OUT }, 0)
       .to(clipR, { attr: { width: 104 }, duration: 0.7, ease: INOUT }, 0)
       .to(maxEnd, { x: 0, y: 0, duration: 0.7, ease: INOUT }, 0)
-      .to(maxTags, { autoAlpha: 1, y: 0, duration: 0.34, ease: ENTER }, 0.5)
-      .to(maxFrom, { autoAlpha: 1, y: 0, duration: 0.34, ease: ENTER }, 0.62);
+      .to(maxTags, { autoAlpha: 1, y: 0, duration: 0.34, ease: ENTER }, 0.5);
   }
   var logStart = function () { return Math.max(40, layoutTop(logB) + logB.offsetHeight / 2 - vhOf() * (small() ? 0.62 : 0.5)); };
+  /* The ring starts once the whole card is in view, so the press lands about where Log set reaches the middle. */
+  var setStart = function () { return Math.max(24, logStart() - vhOf() * (wide() ? 0.45 : 0.24)); };
   /* The 228 panel rises as it arrives (24 px), showing last week's 223 until the set is logged. */
   rise([max], { y: 24, start: 'top 92%', dur: 0.7 });
   mm.add({ side: '(min-width: 1100px)', stack: '(max-width: 1099px)' }, function (ctx) {
     if (ctx.conditions.side) {
-      /* Side by side: one beat, the press, then the max a moment later. (The labels drew on with the arrival.) */
-      onState(gsap.timeline({ paused: true }).add(logTl(), 0).add(maxTl(), 0.3), { start: logStart, end: 'max' });
+      /* Side by side: one beat, the set read and pressed, then the max a moment later. */
+      onState(gsap.timeline({ paused: true }).add(setTl(), 0).add(maxTl(), PRESS + 0.3), { start: setStart, end: 'max' });
       return;
     }
-    /* Stacked: the press as the button reaches the screen, the max as it does; the legend rises with the phone. */
-    onState(logTl().pause(), { start: logStart, end: 'max' });
+    /* Stacked: the set read and pressed as the card comes up, the max as it reaches the screen. */
+    onState(setTl().pause(), { start: setStart, end: 'max' });
     onState(maxTl().pause(), { trigger: '.max-num', start: 'top 72%' });
-    rise($$('.lab-cap, .lab', phone), { trigger: phone, start: 'top 92%', stagger: 0.06 });
   });
 
   /* --- The set's flight (scrubbed): it lifts off Arjun's set card and is carried to his squat card on Sam's laptop. Its
@@ -379,7 +397,7 @@
      then, as the list's words come level (on a laptop) or come up under it (stacked), it pans along the same screen to
      the list. */
   var winTop = function () { return layoutTop(fwPort); };
-  var crossStart = function () { return logStart() + (small() ? 140 : 160); };
+  var crossStart = function () { return logStart() + (small() ? 140 : wide() ? 200 : 160); };
   var landAt = function () { return Math.max(crossStart() + 320, winTop() - vhOf() * (wide() ? 0.4 : 0.34)); };
   gsap.timeline({ defaults: { ease: 'none' }, scrollTrigger: { start: crossStart, end: landAt, scrub: 0.5, invalidateOnRefresh: true } })
     .fromTo(F, { p: 0 }, { p: 1, duration: 1, onUpdate: placeFly }, 0)
@@ -682,7 +700,7 @@
 
   /* Every trigger refreshes in page order; the page map is re-read after each refresh. The boot ends two frames after
      the first refresh: from then on every moment plays as its block arrives. */
-  ST.addEventListener('refresh', function () { measurePage(); paintNav(); paintReds(); });
+  ST.addEventListener('refresh', function () { S.setY = setStart(); measurePage(); paintNav(); paintReds(); });
   ST.sort(); ST.refresh();
   requestAnimationFrame(function () { requestAnimationFrame(function () { booting = false; window.__fxReady = true; }); });
   function refresh() { fitFw(); ST.sort(); ST.refresh(); }

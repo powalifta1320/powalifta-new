@@ -288,10 +288,7 @@
 
     <div class="open-copy" id="openCopy">
       <h1 id="open-h" class="h1"><span class="w" style="--i:0">The</span> <span class="w" style="--i:1">powerlifting</span> <span class="w" style="--i:2">app</span> <span class="w" style="--i:3">for</span> <span class="w" style="--i:4">coaches</span> <span class="w" style="--i:5">and</span> <span class="w" style="--i:6">their&nbsp;lifters.</span></h1>
-      <ul class="lede">
-        <li class="who-line"><i class="hue hue-green" aria-hidden="true"></i><span><b>Coaches</b> see every set as it’s logged, know who needs them today, and run meet&nbsp;day.</span></li>
-        <li class="who-line"><i class="hue hue-lift" aria-hidden="true"></i><span><b>Lifters</b> log every set and how hard it felt. The app works out their&nbsp;max.</span></li>
-      </ul>
+      <p class="lede"><b>Lifters</b> log every set. <b>Coaches</b> see it land and know who needs them&nbsp;today.</p>
       <div class="cta" id="heroCta">
         <a class="act-btn" href="/index.html#signup" data-intent>Start free</a>
         <a class="quiet" href="/coach.html?demo=1">Open the coach demo<svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg></a>
@@ -300,7 +297,7 @@
     </div>
 
     <!-- Sam's laptop: the real coach app (his lifters, worst first, and Arjun's page), a device with a lid and a base. -->
-    <figure class="laptop" id="laptop" aria-labelledby="laptop-cap">
+    <figure class="laptop" id="laptop">
       <div class="lt-shadow" aria-hidden="true"></div>
       <div class="lt-cam" id="ltCam">
         <div class="lt-body" id="ltBody">
@@ -314,11 +311,10 @@
           </picture>
         </div>
       </div>
-      <figcaption class="cap lt-cap" id="laptop-cap"><i class="hue hue-green" aria-hidden="true"></i><span><b>Sam’s laptop.</b> His lifters and Arjun’s&nbsp;page.</span></figcaption>
     </figure>
 
     <!-- Arjun's phone: the real lifter app (iPhone app layout), Train, mid-session. -->
-    <figure class="hphone" id="phone" aria-labelledby="phone-cap">
+    <figure class="hphone" id="phone">
       <div class="ph-shadow" aria-hidden="true"></div>
       <div class="ph-body" id="phBody">
         <div class="ph-scr">
@@ -329,17 +325,14 @@
           </picture>
           <!-- A moment later: set 2 up and the rest timer docked (only while motion plays the story). -->
           <img class="ph-next" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-srcset="/site-img/home/lifter-logged-590.avif 590w, /site-img/home/lifter-logged-786.avif 786w, /site-img/home/lifter-logged-1179.avif 1179w" data-fallback="/site-img/home/lifter-logged-590.webp 590w, /site-img/home/lifter-logged-786.webp 786w, /site-img/home/lifter-logged-1179.webp 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" width="393" height="852" alt="" decoding="async">
-          <span class="sb" aria-hidden="true"><b>9:41</b><i class="sb-isl"></i><i class="sb-bat"></i></span>
-          <i class="pin" style="--y: 233" aria-hidden="true">1</i><i class="pin" style="--y: 340" aria-hidden="true">2</i><i class="pin" style="--y: 435" aria-hidden="true">3</i>
+          <span class="sb" aria-hidden="true"><b data-t="9:41"></b><i class="sb-isl"></i><i class="sb-bat"></i></span>
           <span class="log" id="logBtn" aria-hidden="true"><span class="log-in"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Log set</span></span>
+          <!-- The set card's three parts, in the screen's points: the load and reps, how hard it felt, Log set. -->
+          <i class="hl" style="--x: 26; --y: 205; --w: 196; --h: 52; --r: 14" aria-hidden="true"></i>
+          <i class="hl" style="--x: 27; --y: 305; --w: 339; --h: 92; --r: 20" aria-hidden="true"></i>
+          <i class="hl" style="--x: 30; --y: 404; --w: 333; --h: 62; --r: 31" aria-hidden="true"></i>
         </div>
       </div>
-      <figcaption class="labels" id="labels">
-        <span class="lab-cap" id="phone-cap"><i class="hue hue-lift" aria-hidden="true"></i><span><b>Arjun’s phone.</b> Mid-session, his top&nbsp;set.</span></span>
-        <span class="lab" style="--y: 233"><i class="lab-n" aria-hidden="true">1</i><i class="lab-l" aria-hidden="true"></i><span class="lab-t">Load × reps</span></span>
-        <span class="lab" style="--y: 340"><i class="lab-n" aria-hidden="true">2</i><i class="lab-l" aria-hidden="true"></i><span class="lab-t">How hard it felt (RPE)</span></span>
-        <span class="lab" style="--y: 435"><i class="lab-n" aria-hidden="true">3</i><i class="lab-l" aria-hidden="true"></i><span class="lab-t">One tap logs the set</span></span>
-      </figcaption>
     </figure>
     <!-- The two hero pictures load at once on the website (the head preloads them too). They are lazy in the HTML only so the
          browser's look-ahead never fetches them inside the iPhone app, where this markup is inert (a <template>). -->
@@ -347,8 +340,8 @@
 
     <!-- What the app worked out from that one set: one big number, its plain label, the line it moved. -->
     <div class="max" id="max">
-      <p class="max-k"><i class="dot dot-sq" aria-hidden="true"></i>Arjun’s squat max, worked out from his sets <span class="max-k2">(e1RM)</span></p>
-      <p class="max-num"><span class="sr">228 kg</span><span class="odo" aria-hidden="true" data-scan-skip><span class="odo-d">2</span><span class="odo-d">2</span><span class="odo-d odo-roll"><span class="odo-strip"><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span></span></span></span><small aria-hidden="true">kg</small></p>
+      <p class="max-k"><i class="dot dot-sq" aria-hidden="true"></i>Arjun’s squat max <span class="max-k2">(e1RM)</span></p>
+      <p class="max-num"><span class="sr">228 kg</span><span class="odo" aria-hidden="true" data-scan-skip><span class="odo-d" data-d="2"></span><span class="odo-d" data-d="2"></span><span class="odo-d odo-roll"><span class="odo-strip"><span data-d="3"></span><span data-d="4"></span><span data-d="5"></span><span data-d="6"></span><span data-d="7"></span><span data-d="8"></span></span></span></span><small aria-hidden="true">kg</small></p>
       <p class="max-tags"><span class="up-tag">+5&nbsp;kg</span><span class="pr-tag">New PR</span></p>
       <figure class="max-chart" aria-label="Arjun’s squat max over the last 16 weeks: from about 205 kg in July to 228 kg this week, with PRs in July, September and October.">
         <svg class="max-svg" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
@@ -366,7 +359,6 @@
         <span class="max-end" id="maxEnd" style="left:98%;top:17.55%"></span>
         <span class="max-x" aria-hidden="true"><span>July</span><span>This week</span></span>
       </figure>
-      <p class="max-from">From one set: 182.5&nbsp;kg × 5 at RPE&nbsp;8, right where his coach wrote&nbsp;it.</p>
     </div>
 
     <!-- Today: the set lands on Sam's laptop, then the lifters who need him first. On a laptop with motion the two are
