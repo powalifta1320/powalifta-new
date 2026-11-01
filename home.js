@@ -540,11 +540,12 @@
   /* =====================================================================
      MEET DAY: a chapter like the others. As the platform arrives the three lights come on one by one: good lift. Tom's
      phone wakes with his next attempt and Declare turns crimson; the platform's minute runs, smoothly, 1:00 to 0:41;
-     the call: Declare presses and becomes Declared 215, the board's 2nd fills, and on Tom's phone he is one out.
+     the call: Declare presses and becomes Declared 215, the board's 2nd fills, and Tom's phone has it (its card rings
+     green, "not declared yet" clears, he is one out). No captions say so: the stage does.
      ===================================================================== */
   words($('#meet-h'));
   var scene = $('#scene'), judgesBox = $('#judges'), judges = $$('#judges i');
-  var cell1 = $('#cell1'), cell2 = $('#cell2'), dec = $('#decBtn'), beats = $$('#beats .beat');
+  var cell1 = $('#cell1'), cell2 = $('#cell2'), dec = $('#decBtn');
   var clockN = $('#clockN'), clockBar = $('#clockBar'), mpOn = $('#mpOn');
   judges.forEach(function (i) { i.classList.add('is-off'); });
   judgesBox.setAttribute('aria-label', 'The three lights, not on yet');
@@ -552,19 +553,16 @@
   [$('#slabOut'), $('#slabDec'), cell1, cell2, $('.swap', dec)].forEach(swapStart);
   var red = document.createElement('span'); red.className = 'dec-red'; red.setAttribute('aria-hidden', 'true'); dec.insertBefore(red, dec.firstChild);
   gsap.set(red, { opacity: 0 });
-  gsap.set('#meetCap', { autoAlpha: 0, y: 8 });
   gsap.set(mpOn, { autoAlpha: 0 });
   function clockText(s) { s = Math.max(0, Math.ceil(s - 1e-6)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
   function setClock(s) { var t = clockText(s); if (clockN.textContent !== t) clockN.textContent = t; }
   var minute = { s: 60 };
   setClock(60);
   gsap.set(clockBar, { scaleX: 1 });
-  function beatTo(n) { beats.forEach(function (b, i) { b.classList.toggle('is-on', i <= n); }); }
-  beatTo(0);
   var meetTl = gsap.timeline({ paused: true });
   /* The lights, one by one (a callback each way, so scrolling back turns them off in turn). */
   judges.forEach(function (j, i) {
-    meetTl.add(function () { var on = !meetTl.reversed(); j.classList.toggle('is-off', !on); if (i === 2) { judgesBox.setAttribute('aria-label', on ? 'Three white lights: a good lift' : 'The three lights, not on yet'); beatTo(on ? 1 : 0); } }, 0.001 + i * 0.24)
+    meetTl.add(function () { var on = !meetTl.reversed(); j.classList.toggle('is-off', !on); if (i === 2) judgesBox.setAttribute('aria-label', on ? 'Three white lights: a good lift' : 'The three lights, not on yet'); }, 0.001 + i * 0.24)
       .fromTo(j, { scale: 0.9 }, { scale: 1, duration: 0.4, ease: ENTER, immediateRender: false }, 0.001 + i * 0.24);
   });
   meetTl.to('#verdict', { autoAlpha: 1, y: 0, duration: 0.4, ease: ENTER }, 0.66)
@@ -578,21 +576,19 @@
     .fromTo(clockBar, { scaleX: 1 }, { scaleX: 41 / 60, duration: RUN, ease: 'none', immediateRender: false }, T0);
   /* The call at 0:41. */
   var C = T0 + RUN + 0.15;
-  meetTl.add(function () { var on = !meetTl.reversed(); lock(on); beatTo(on ? 2 : 1); }, C)
+  meetTl.add(function () { lock(!meetTl.reversed()); }, C)
     .to(dec, { scale: 0.97, duration: 0.11, ease: OUT }, C)
     .to(dec, { scale: 1, duration: 0.28, ease: OUT }, C + 0.12)
     .to(red, { opacity: 0, duration: 0.24, ease: OUT }, C + 0.08)
     .add(function () { S.decRed = meetTl.reversed(); paintReds(); }, C + 0.2)
     .fromTo('#slab', { boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.07)' }, { boxShadow: '0 0 0 2px rgba(52, 217, 130, 0.85)', duration: 0.3, ease: OUT, immediateRender: false }, C + 0.3)
-    .to('#slab', { boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.07)', duration: 0.8, ease: INOUT }, C + 1.1)
-    .to('#meetCap', { autoAlpha: 1, y: 0, duration: 0.36, ease: ENTER }, C + 0.5);
+    .to('#slab', { boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.07)', duration: 0.8, ease: INOUT }, C + 1.1);
   swapIn(meetTl, $('.swap', dec), C + 0.08);
   swapIn(meetTl, cell2, C + 0.16);
   swapIn(meetTl, $('#slabDec'), C + 0.3);
   swapIn(meetTl, $('#slabOut'), C + 0.36);
   onState(meetTl, { trigger: scene, start: function () { return small() ? 'top 74%' : 'top 66%'; } });
   rise($$('#meet .side > .cap'), { trigger: scene, start: 'top 90%', stagger: 0.1 });
-  rise(beats.concat([$('.meet-after')]), { trigger: $('#beats'), start: 'top 96%', stagger: 0.08 });
 
   /* =====================================================================
      MOVING OVER: the three steps tick in, one after another (the number, its words, the arrow to what it becomes);

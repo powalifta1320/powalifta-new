@@ -387,8 +387,9 @@ html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 10
 .meet-stage { display: flex; flex-direction: column; width: min(100% - 2 * var(--gut), var(--wrap)); margin: 0 auto; padding: var(--sec) 0; }
 .meet-h { margin-bottom: clamp(18px, 2.4vw, 30px); max-width: none; }
 .scene-clip { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin: -18px -18px 0; padding: 18px 18px 0; overflow: clip; }
+/* The stage ends on a rule; Tom's phone runs on below it (its crop takes the row's height). */
 .scene { display: grid; grid-template-columns: minmax(0, clamp(240px, 21vw, 300px)) minmax(0, 1fr) minmax(0, clamp(380px, 30.5vw, 440px)); grid-template-areas: "phone mid board";
-  column-gap: clamp(24px, 3.4vw, 64px); align-items: start; flex: 1 1 auto; min-height: 0; }
+  column-gap: clamp(24px, 3.4vw, 64px); align-items: start; flex: 1 1 auto; min-height: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
 .mid { grid-area: mid; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 2px 0 clamp(20px, 3.2vh, 32px); }
 .stage-meta { font-size: 14px; font-weight: 600; color: #8c8c96; }
 .judges { display: flex; gap: clamp(16px, 1.9vw, 28px); margin-top: 18px; }
@@ -404,7 +405,6 @@ html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 10
 .side { position: relative; min-width: 0; }
 /* The room's light going down: a black scrim over each part of the stage but the platform (the words keep their colour). */
 .mdim { position: absolute; z-index: 5; inset: -24px; background: var(--black); opacity: 0; pointer-events: none; }
-.meet-low { position: relative; }
 .side > .cap { margin-bottom: 14px; }
 .side-phone { grid-area: phone; align-self: stretch; display: flex; flex-direction: column; --pw: clamp(220px, 19vw, 272px); }
 .side-board { grid-area: board; padding-bottom: clamp(20px, 3.2vh, 32px); }
@@ -489,16 +489,6 @@ html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 10
 .dec-btn svg { width: 18px; height: 18px; fill: none; stroke: var(--up); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 /* Before the call the button is the board's one crimson action; the script lays this layer over the ink ground. */
 .dec-red { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2); }
-/* Plan, Board, Call: what each step of the stage is, lit as the stage reaches it. */
-.beats { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: var(--cg); padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.14); background: var(--black); }
-.beat { position: relative; font-size: 14px; line-height: 1.48; color: #8c8c96; text-wrap: pretty; transition: color 300ms ease; }
-.beat b { color: #f4f4f6; font-weight: 700; }
-.beat::before { content: ''; position: absolute; left: 0; top: -17px; width: 100%; height: 1px; background: #f4f4f6; transform-origin: 0 50%; transform: scaleX(var(--on, 1)); transition: transform 500ms var(--ease-out); }
-html.m .beat { --on: 0; }
-html.m .beat.is-on { --on: 1; color: #b8b8c0; }
-.meet-foot { margin-top: clamp(10px, 2vh, 18px); display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 32px; }
-.meet-cap { font-size: 17px; font-weight: 650; line-height: 1.45; color: #f4f4f6; }
-.meet-after { font-size: 14px; color: #8c8c96; }
 
 /* =====================================================================
    MOVING OVER, AND THE MONEY (dark).
@@ -723,8 +713,6 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .next-head .lead { margin-top: 16px; }
   .scene { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "mid mid" "phone board"; row-gap: 32px; }
   .side-phone { --pw: min(272px, 34vw); }
-  .beats { grid-template-columns: minmax(0, 1fr); row-gap: 12px; margin-top: 24px; }
-  .beat::before { display: none; }
   .bands { grid-template-columns: 3fr 7fr; row-gap: 32px; }
   .brand-ph { grid-column: 1; justify-self: start; margin-top: 8px; }
   .brand-ph .cap { right: auto; left: calc(100% + 32px); bottom: 24px; }
@@ -786,13 +774,11 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .judges { gap: 14px; }
   .judges i { width: 64px; }
   .clock-n { font-size: 84px; }
-  .beats { grid-template-columns: minmax(0, 1fr); row-gap: 8px; margin-top: 18px; }
-  .beat::before { display: none; }
+  .scene { border-bottom: 0; }
   .side-phone { --pw: min(220px, 56vw); }
   .mp-crop { flex: none; height: calc(var(--pw) * 0.9); min-height: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
   .mp { margin: 0 auto; }
   .side-board { padding-bottom: 0; }
-  .meet-foot { margin-top: 14px; }
   .step-i { grid-template-columns: 34px minmax(0, 1fr); column-gap: 14px; padding: 14px 0 16px; }
   .sn { width: 28px; height: 28px; font-size: 13px; }
   .st p { font-size: 16px; }
