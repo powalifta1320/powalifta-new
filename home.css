@@ -496,24 +496,21 @@ html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 10
 .s-home .moving { position: relative; padding: var(--sec) 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
 .moving-h { grid-column: 1 / span 6; grid-row: 1; max-width: 15em; }
 .move { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; }
-.msteps { grid-column: 1 / span 6; grid-row: 2; margin-top: 26px; }
-.step-i { display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 18px; padding: 15px 0 17px; border-top: 1px solid var(--hair); }
+.msteps { grid-column: 1 / span 6; grid-row: 2; margin-top: var(--s4); max-width: 30em; }
+.step-i { display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: var(--s2); align-items: center; padding: var(--s2) 0; border-top: 1px solid var(--hair); }
 .step-i:last-child { border-bottom: 1px solid var(--hair); }
 .sn { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 14px/1 var(--font-num); font-style: normal; }
-.st p { font-size: 17px; line-height: 1.55; color: var(--text-2); text-wrap: pretty; }
+.sn::before { content: attr(data-n); }
+.st p { font-size: 18px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
 .st b { color: var(--text); font-weight: 700; }
-.st .becomes { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-weight: 650; color: var(--text); }
-.becomes svg { flex: none; width: 24px; height: 12px; fill: none; stroke: var(--c-green); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 32; stroke-dashoffset: 0; }
-.imp { grid-column: 8 / span 5; grid-row: 1 / span 2; align-self: center; justify-self: end; width: min(100%, 496px); }
+.imp { grid-column: 7 / span 6; grid-row: 1 / span 2; align-self: center; justify-self: end; width: min(100%, 592px); }
 .sheet-crop { overflow: hidden; border-radius: 18px; background: #141418; box-shadow: var(--pane); }   /* the import sheet's own ground */
 .sheet-crop img { width: 100%; }
-.imp .cap, .cl .cap { margin-top: 14px; }
-.move-foot { margin-top: 20px; max-width: 44em; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; font-size: 16px; color: var(--text-2); }
+.move-foot { margin-top: var(--s3); max-width: 44em; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; font-size: 16px; color: var(--text-2); }
 .move-foot .quiet { font-size: 16px; }
 .money { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); row-gap: 28px; align-items: center; margin-top: clamp(32px, 2.8vw, 40px); padding-top: clamp(32px, 2.8vw, 40px); border-top: 1px solid var(--hair); }
 .money-copy { grid-column: 1 / span 4; }
-.money-copy p { margin-top: 16px; max-width: 34em; font-size: 17px; line-height: 1.55; color: var(--text-2); text-wrap: pretty; }
-.money-copy .money-2 { margin-top: 12px; font-size: 16px; color: var(--text-3); }
+.money-copy p { margin-top: var(--s2); max-width: 34em; font-size: 17px; line-height: 1.55; color: var(--text-2); text-wrap: pretty; }
 .cl { grid-column: 5 / span 8; width: 100%; }
 .sheet-desk { position: relative; background: var(--screen); }
 /* The month's total and its paid bar, live over the capture while motion plays (patches of the card's own ground). */
@@ -781,10 +778,9 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .side-board { padding-bottom: 0; }
   .step-i { grid-template-columns: 34px minmax(0, 1fr); column-gap: 14px; padding: 14px 0 16px; }
   .sn { width: 28px; height: 28px; font-size: 13px; }
-  .st p { font-size: 16px; }
+  .st p { font-size: 17px; }
   .imp { margin-inline: -16px; width: auto; }
   .imp .sheet-crop { border-radius: 0; }
-  .imp .cap { margin-inline: 16px; }
   .money { margin-top: 30px; padding-top: 30px; }
   .money-copy p { font-size: 16px; }
   .cl .sheet-crop { width: 251px; border-radius: 14px; }

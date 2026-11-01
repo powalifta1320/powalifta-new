@@ -591,30 +591,26 @@
   rise($$('#meet .side > .cap'), { trigger: scene, start: 'top 90%', stagger: 0.1 });
 
   /* =====================================================================
-     MOVING OVER: the three steps tick in, one after another (the number, its words, the arrow to what it becomes);
-     the import's preview rises beside them, unrolling.
+     MOVING OVER: the three steps tick in, one after another (the number, then its line); the import's preview rises
+     beside them, unrolling to show what one old log becomes.
      ===================================================================== */
   words($('#moving-h'));
   var stepsTl = gsap.timeline({ paused: true });
   $$('#steps .step-i').forEach(function (s, i) {
-    var at = i * 0.24, paths = $$('.becomes svg path', s);
-    gsap.set(paths, { strokeDasharray: 32, strokeDashoffset: 32 });
+    var at = i * 0.2;
     stepsTl.fromTo($('.sn', s), { autoAlpha: 0, scale: 0.7 }, { autoAlpha: 1, scale: 1, duration: 0.42, ease: ENTER }, at)
-      .fromTo($('.st p', s), { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 0.55, ease: ENTER }, at + 0.05)
-      .fromTo($('.becomes', s), { autoAlpha: 0, x: -8 }, { autoAlpha: 1, x: 0, duration: 0.5, ease: ENTER }, at + 0.16)
-      .to(paths, { strokeDashoffset: 0, duration: 0.5, ease: OUT }, at + 0.2);
+      .fromTo($('.st p', s), { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 0.55, ease: ENTER }, at + 0.05);
   });
   onState(stepsTl, { trigger: '#steps', start: 'top 84%' });
   var impTl = gsap.timeline({ paused: true })
     .fromTo('#imp', { autoAlpha: 0, y: 32 }, { autoAlpha: 1, y: 0, duration: 0.8, ease: ENTER }, 0)
-    .fromTo('#imp .sheet-crop', { clipPath: 'inset(0% 0% 100% 0% round 18px)' }, { clipPath: 'inset(0% 0% 0% 0% round 18px)', duration: 0.9, ease: INOUT }, 0.08)
-    .fromTo('#imp-cap', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: ENTER }, 0.6);
+    .fromTo('#imp .sheet-crop', { clipPath: 'inset(0% 0% 100% 0% round 18px)' }, { clipPath: 'inset(0% 0% 0% 0% round 18px)', duration: 0.9, ease: INOUT }, 0.08);
   onState(impTl, { trigger: '#imp', start: 'top 88%' });
   rise([$('.move-foot')], { start: 'top 96%' });
 
   /* KNOW WHO HAS PAID: the month's paid total counts up to $2,650 as its bar fills to 82%; Recurring to $3,248 (on a
      laptop); then the live numbers hand over to the capture's own (they match it). */
-  rise([$('#money-h'), $('.money-copy p:not(.money-2)'), $('.money-2')], { trigger: $('#money-h'), start: 'top 90%' });
+  rise([$('#money-h'), $('.money-copy p')], { trigger: $('#money-h'), start: 'top 90%' });
   rise([$('.cl')], { y: 30, start: 'top 94%', dur: 0.8 });
   var clTl = gsap.timeline({ paused: true });
   $$('.cl-live').forEach(function (live) {
