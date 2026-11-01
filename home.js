@@ -87,9 +87,9 @@
   function fk() { return (!fwPort || small()) ? 1 : Math.min(1, fwPort.clientWidth / 756); }
   function fitFw() { if (fwDesk) fwDesk.style.setProperty('--fk', String(fk())); }
 
-  /* --- Questions and the order's rules: native details; with motion the answer arrives (opacity and 6 px). --- */
-  $$('details.q, details.rules').forEach(function (d) {
-    var body = $('.qa, .rules-body', d);
+  /* --- Questions: native details; with motion the answer arrives (opacity and 6 px). --- */
+  $$('details.q').forEach(function (d) {
+    var body = $('.qa', d);
     d.addEventListener('toggle', function () {
       if (!d.open || !motionOK() || !body || !body.animate || d.dataset.held) return;
       body.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
@@ -453,24 +453,26 @@
 
   /* The landing's words, and the window rising into the page. */
   words($('#land-h'), { start: 'top 94%' });
-  rise([$('.land .sub'), $('.land-cap')], { trigger: $('.land .sub'), start: 'top 94%' });
+  rise([$('.land .sub')], { trigger: $('.land .sub'), start: 'top 94%' });
   rise([$('#fwA')], { y: 36, start: 'top 96%', dur: 0.8 });
 
   /* =====================================================================
      TODAY: the lifters who need Sam first, in the app's order, pain first (Priya and Sarah, then Tom's meet, Nina's busy
      week, Elena over her class, Marcus over plan, the two who wrote). The window has panned to Sam's list: each group is
-     ringed and numbered in turn and its reason lights in the chain beside it (below it on a phone). The list's own
-     figure is the still's.
+     ringed and numbered in turn, and its reason lights in the chain beside it (below it on a phone) as its lifters'
+     faces arrive. No sentences: the order is the explanation. The list's own figure is the still's.
      ===================================================================== */
   words($('#who-h'), { start: 'top 94%' });
-  rise([$('.who .sub'), $('#rules')], { trigger: $('.who .sub'), start: 'top 94%' });
+  rise([$('.who .sub')], { trigger: $('.who .sub'), start: 'top 94%' });
   var chainLis = $$('#chain li'), grps = $$('.grp', desk), mks = $$('.mk', desk);
   gsap.set(chainLis, { opacity: 0.34 });
+  gsap.set($$('#chain .av'), { autoAlpha: 0, scale: 0.8 });
   gsap.set(mks, { autoAlpha: 0, scale: 0.6 });
   var listTl = gsap.timeline({ paused: true });
   for (var g = 1; g <= 6; g++) {
-    var gat = (g - 1) * 0.16;
+    var gat = (g - 1) * 0.2;
     listTl.to(chainLis[g - 1], { opacity: 1, duration: 0.3, ease: OUT }, gat)
+      .to($$('.av', chainLis[g - 1]), { autoAlpha: 1, scale: 1, duration: 0.34, stagger: 0.06, ease: ENTER }, gat + 0.04)
       .to(mks[g - 1], { autoAlpha: 1, scale: 1, duration: 0.32, ease: ENTER }, gat)
       .fromTo(grps[g - 1], { opacity: 0 }, { opacity: 1, duration: 0.3, ease: OUT, immediateRender: false }, gat)
       .to(grps[g - 1], { opacity: 0.14, duration: 0.5, ease: INOUT }, gat + 0.5);

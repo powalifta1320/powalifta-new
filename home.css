@@ -227,14 +227,12 @@ html.m .hl { display: block; position: absolute; z-index: 2; left: calc(var(--x)
 .land { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "copy fw"; column-gap: clamp(40px, 4vw, 64px); align-content: center; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
   background-image: radial-gradient(52% 70% at 18% 0%, rgba(236, 240, 255, 0.05), transparent 72%); }   /* the screen's cool light over the words */
 .land-copy { grid-area: copy; align-self: center; }
-.land .sub { margin-top: 20px; max-width: 26em; }
-.land-cap { margin-top: 24px; }
+.land .sub { margin-top: var(--s2); max-width: 26em; }
 .land .fw { grid-area: fw; }
-.who { display: grid; grid-template-columns: auto minmax(0, 34em); grid-template-areas: "fw h" "fw s" "fw l" "fw r"; column-gap: clamp(48px, 8vw, 128px); align-content: center; box-shadow: inset 0 1px 0 var(--hair), inset 0 -1px 0 rgba(0, 0, 0, 0.45); }
+.who { display: grid; grid-template-columns: auto minmax(0, 34em); grid-template-areas: "fw h" "fw s" "fw l"; column-gap: clamp(48px, 8vw, 128px); align-content: center; box-shadow: inset 0 1px 0 var(--hair), inset 0 -1px 0 rgba(0, 0, 0, 0.45); }
 .who .h2 { grid-area: h; }
-.who .sub { grid-area: s; margin-top: 18px; max-width: 28em; }
+.who .sub { grid-area: s; margin-top: var(--s2); max-width: 28em; }
 .who .chain { grid-area: l; }
-.who .rules { grid-area: r; }
 .who .fw { grid-area: fw; align-self: center; }
 .who .h2 { align-self: end; }
 
@@ -245,8 +243,8 @@ html.m .hl { display: block; position: absolute; z-index: 2; left: calc(var(--x)
 .fw-port { position: relative; overflow: hidden; width: min(756px, 54vw); aspect-ratio: 756 / 576; border-radius: 16px; background: var(--screen); box-shadow: var(--pane); }
 .fw-still img { width: 100%; aspect-ratio: 756 / 576; }
 .fw-live { display: none; position: absolute; inset: 0; overflow: hidden; background: var(--screen); }
-html.js .fw-a .fw-still { display: none; }
-html.js .fw-a .fw-live { display: block; }
+html.m .fw-a .fw-still { display: none; }
+html.m .fw-a .fw-live { display: block; }
 .fw-desk { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; transform: translate(calc(-668px * var(--fk, 1)), calc(-16px * var(--fk, 1))) scale(var(--fk, 1)); }
 .fw-desk picture, .fw-base { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; max-width: none; }
 /* The list, with the chain's numbers beside its rows (a margin keeps them clear of the screen's own edge). Cut under
@@ -256,6 +254,7 @@ html.js .fw-a .fw-live { display: block; }
 .fw-port-list img { width: 100%; }
 /* The pins beside the list's rows: light discs with ink numbers, as the phone's (the rows' own geometry, out of 572). */
 .fpin { position: absolute; left: 0; top: calc(var(--y) / 572 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); }
+.fpin::before { content: attr(data-n); }
 .fw-b .cap { margin-top: 14px; padding-left: 34px; }
 .was { position: absolute; max-width: none; opacity: 0; pointer-events: none; }
 .grp, .mk { display: none; }
@@ -281,32 +280,18 @@ html.js .fw-a .fw-live { display: block; }
 .swap > * { grid-area: 1 / 1; }
 .swap > :not(:last-child) { visibility: hidden; }
 
-/* The chain: why each lifter is where they are, in the app's own order (a real sequence, so it is numbered), and the
-   fix the app hands the coach for each, as the desk labels it. */
-.chain { margin-top: 30px; display: grid; gap: 2px; counter-reset: ch; max-width: 31em; }
-.chain li { position: relative; display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; column-gap: 14px; align-items: center; padding: 7px 0; counter-increment: ch; }
+/* The chain: who comes first, in the app's own order (a real sequence, so it is numbered): each reason in a few words,
+   its lifters as the list draws them. With motion it lights a group at a time as Sam's list does (home.js). */
+.chain { margin-top: var(--s4); display: grid; counter-reset: ch; max-width: 26em; }
+.chain li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; column-gap: var(--s2); align-items: center; min-height: 48px; border-top: 1px solid var(--hair); counter-increment: ch; }
+.chain li:last-child { border-bottom: 1px solid var(--hair); }
 .chain li::before { content: counter(ch); display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); }
-.ch-t { display: flex; flex-direction: column; min-width: 0; }
-.ch-t b { font-size: 17px; font-weight: 700; letter-spacing: -0.012em; line-height: 1.3; }
-.ch-t span { font-size: 15px; line-height: 1.4; color: var(--text-2); }
-/* The fix: the desk's quiet button (its dark fill, light words); the one the coach's own rule wrote carries the load the
-   lifter will see, its arrow in the desk's green, still quiet beside the page's one crimson. */
-.fix { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 13px; border-radius: 999px; background: rgba(255, 255, 255, 0.075); font-size: 13px; font-weight: 650; color: #e6e6ea; white-space: nowrap; }
-.fix svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.fix-apply { background: rgba(52, 217, 130, 0.12); color: #f4f4f6; box-shadow: inset 0 0 0 1px rgba(52, 217, 130, 0.32); }
-.fix-apply svg { stroke: var(--up); }
-/* How the order works: one disclosure, closed until opened. */
-.rules { margin-top: 18px; max-width: 31em; }
-.rules summary { display: inline-flex; align-items: center; gap: 10px; padding: 6px 0; list-style: none; cursor: pointer; font-size: 16px; font-weight: 650; color: var(--text); }
-.rules summary::-webkit-details-marker { display: none; }
-.rules .qi { width: 22px; height: 22px; }
-.rules .qi::before, .rules .qi::after { width: 9px; margin-left: -4.5px; }
-.rules-body { margin-top: 10px; padding: 16px 18px 14px; border-radius: 16px; background: var(--bg-1); box-shadow: var(--lit); }
-.tiers { display: grid; gap: 10px; }
-.tiers div { display: grid; grid-template-columns: 76px minmax(0, 1fr); column-gap: 12px; }
-.tiers dt { font-size: 14px; font-weight: 700; color: var(--text); }
-.tiers dd { font-size: 14px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
-.tiers-foot { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hair); font-size: 13px; color: var(--text-3); }
+.chain b { font-size: 17px; font-weight: 650; letter-spacing: -0.012em; line-height: 1.3; }
+.ch-av { display: flex; }
+.ch-av .av + .av { margin-left: -6px; }
+/* An avatar as the app draws it (avatarHue: a muted ground, a light ink); the initials are drawn, the names are its label. */
+.av { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; box-shadow: 0 0 0 2px var(--bg); font: 750 10.5px/1 var(--font-body); letter-spacing: -0.01em; }
+.av::before { content: attr(data-i); }
 
 /* Today on a laptop with motion: one row. The landing's words sit beside Arjun's phone (the column under its labels),
    right above the window they introduce; the list's words beside the window, which zooms in to Arjun's page, takes the
@@ -319,17 +304,18 @@ html.js .fw-a .fw-live { display: block; }
   html.m .today-ch > .land, html.m .today-ch > .who { padding: 0; background: none; box-shadow: none; }
   html.m .land { position: static; display: block; grid-column: 2; grid-row: 1; }
   html.m .who { grid-column: 1; grid-row: 1; display: block; }
-  html.m .who .chain { margin-top: 24px; }
-  html.m .land-copy { position: absolute; z-index: 4; left: calc(var(--pl) + var(--pw) * 1.0305 + 30px); top: calc(var(--fold) - var(--ph) * var(--pin) + var(--ph) * 470 / 852);
+  html.m .who .chain { margin-top: var(--s3); }
+  /* Level with what the set worked out on the other side of the phone (one line across the three columns). */
+  html.m .land-copy { position: absolute; z-index: 4; left: calc(var(--pl) + var(--pw) * 1.0305 + 30px); top: calc(var(--fold) + 40px);
     width: calc(var(--fx) + var(--fw) - var(--gut) - var(--pl) - var(--pw) * 1.0305 - 30px); }
   html.m .land-copy .h2 { font-size: clamp(30px, 2.5vw, 38px); }
-  html.m .land-copy .sub { margin-top: 14px; font-size: 16px; }
-  html.m .land-copy .land-cap { margin-top: 16px; }
+  html.m .land-copy .sub { margin-top: var(--s2); font-size: 17px; }
 }
 /* With motion (every width) the window pans to the list, so the list's own figure is the still's. */
 html.m .who .fw { display: none; }
 html.m .grp { display: block; position: absolute; border-radius: 14px; box-shadow: inset 0 0 0 1.5px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
 html.m .mk { display: grid; place-items: center; position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); opacity: 0; }
+.mk::before { content: attr(data-mk); }
 
 /* =====================================================================
    ANSWERS (dark): the lifter's phone, the reply arriving; their words next to what they lifted.
@@ -642,8 +628,8 @@ details[open] > summary .qi::after { transform: rotate(0deg); }
    ride up on translate, which moves nothing in the page's layout). */
 .q.is-shut > summary .qi::after { transform: rotate(90deg); }
 .qs .q { translate: 0 var(--qy, 0px); }
-details.q:not([open]) > .qa, details.rules:not([open]) > .rules-body { display: none; }   /* closed: not laid out either */
-@media (hover: hover) and (pointer: fine) { .q summary:hover .qi, .rules summary:hover .qi { background: rgba(255, 255, 255, 0.13); } }
+details.q:not([open]) > .qa { display: none; }   /* closed: not laid out either */
+@media (hover: hover) and (pointer: fine) { .q summary:hover .qi { background: rgba(255, 255, 255, 0.13); } }
 .qa p { max-width: 40em; padding: 0 0 20px; font-size: 16px; line-height: 1.6; color: var(--text-2); text-wrap: pretty; }
 
 /* =====================================================================
@@ -701,7 +687,7 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .foot .foot-cols a { transition: color var(--t-state) ease, translate var(--t-state) var(--ease-out); }
   .foot .foot-cols a:hover { translate: 2px 0; }
 }
-.q summary:active .qi, .rules summary:active .qi { transform: scale(0.9); }
+.q summary:active .qi { transform: scale(0.9); }
 .qi { transition: background-color var(--t-state) ease, transform var(--t-press) var(--ease-out); }
 .dec-opts button:active:not([aria-disabled="true"]), .mx .mx-unit button:active, .mx .mx-share:active { transform: scale(0.97); }
 .dec-opts button, .mx .mx-unit button, .mx .mx-share { transition: background-color var(--t-state) ease, color var(--t-state) ease, transform var(--t-press) var(--ease-out); }
@@ -728,8 +714,8 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .land, .who { margin: 0 calc(-1 * var(--gut)); padding-inline: var(--gut); }
   .land, .who { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
   .land { grid-template-areas: "copy" "fw"; }
-  .who { grid-template-areas: "h" "s" "l" "r" "fw"; }
-  .land .fw, .who .fw { margin-top: 32px; }
+  .who { grid-template-areas: "h" "s" "l" "fw"; }
+  .land .fw, .who .fw { margin-top: var(--s4); }
   .fw-port { width: 100%; }
   .answers-in, .move, .money, .faq-in, .plans-top { grid-template-columns: minmax(0, 1fr); row-gap: 32px; }
   .thread, .answers-copy, .moving-h, .msteps, .imp, .money-copy, .cl, .faq-side, .qs-cols, .plans-head { grid-column: 1; grid-row: auto; }
@@ -773,22 +759,17 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .max-chart { height: 96px; }
   .land, .who { margin: 0 -16px; padding: var(--sec) 16px; grid-template-columns: minmax(0, 1fr); }
   .land { grid-template-areas: "copy" "fw"; }
-  .who { grid-template-areas: "h" "s" "l" "r" "fw"; }
-  .land .sub, .who .sub { margin-top: 14px; }
-  .land-cap { margin-top: 16px; }
-  .land .fw, .who .fw { margin-top: 24px; }
+  .who { grid-template-areas: "h" "s" "l" "fw"; }
+  .land .sub, .who .sub { margin-top: var(--s2); }
+  .land .fw, .who .fw { margin-top: var(--s3); }
   /* A true-size window onto the laptop: Arjun's name, his total and his squat, as they read on the desk. */
   .fw-port { width: 100%; aspect-ratio: auto; height: 576px; }
   .fw-still { display: block; width: 756px; }
   .fw-still img { width: 756px; max-width: none; }
   .fw-port-list { width: 100%; height: auto; padding-left: 32px; }
-  .chain { margin-top: 22px; }
-  .chain li { grid-template-columns: 26px minmax(0, 1fr) auto; column-gap: 12px; padding: 6px 0; }
-  .chain .fix { height: 28px; padding: 0 10px; font-size: 12.5px; }
-  .chain .fix-apply { grid-column: 2 / -1; justify-self: start; margin-top: 6px; }
-  .ch-t b { font-size: 16px; }
-  .ch-t span { font-size: 14px; }
-  .tiers div { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
+  .chain { margin-top: var(--s3); }
+  .chain li { column-gap: 12px; min-height: 44px; }
+  .chain b { font-size: 16px; }
   .answers-in, .move, .money, .faq-in, .plans-top { grid-template-columns: minmax(0, 1fr); row-gap: 28px; }
   .thread, .answers-copy, .moving-h, .msteps, .imp, .money-copy, .cl, .faq-side, .qs-cols, .plans-head { grid-column: 1; grid-row: auto; }
   .msteps { margin-top: 0; }
