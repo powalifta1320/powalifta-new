@@ -589,8 +589,8 @@ html.m .b-pro:not(.is-on) .band-k b, html.m .b-pro:not(.is-on) .price b { color:
 .s-home .faq { padding: 0 0 var(--sec); box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.45); }
 .faq-in { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; padding-top: var(--sec); border-top: 1px solid var(--hair); }
 .faq-side { grid-column: 1 / span 3; }
-.faq-demo { margin-top: 20px; max-width: 22em; font-size: 16px; line-height: 1.55; color: var(--text-2); }
-.faq-demo .quiet { display: flex; width: max-content; margin-top: 12px; font-size: 16px; }
+.faq-demo { margin-top: var(--s3); }
+.faq-demo .quiet { font-size: 16px; }
 /* Two columns of questions, each its own list (opening one moves only its column). */
 .qs-cols { grid-column: 4 / span 9; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; }
 .qs { min-width: 0; }
@@ -603,10 +603,6 @@ html.m .b-pro:not(.is-on) .band-k b, html.m .b-pro:not(.is-on) .price b { color:
 .qi::before, .qi::after { content: ''; position: absolute; left: 50%; top: 50%; width: 12px; height: 1.8px; margin: -0.9px 0 0 -6px; border-radius: 1px; background: currentColor; transition: transform 260ms var(--ease-out); }
 .qi::after { transform: rotate(90deg); }
 details[open] > summary .qi::after { transform: rotate(0deg); }
-/* The first question, held shut by the score until it opens in view (its answer's place is kept: the questions under it
-   ride up on translate, which moves nothing in the page's layout). */
-.q.is-shut > summary .qi::after { transform: rotate(90deg); }
-.qs .q { translate: 0 var(--qy, 0px); }
 details.q:not([open]) > .qa { display: none; }   /* closed: not laid out either */
 @media (hover: hover) and (pointer: fine) { .q summary:hover .qi { background: rgba(255, 255, 255, 0.13); } }
 .qa p { max-width: 40em; padding: 0 0 20px; font-size: 16px; line-height: 1.6; color: var(--text-2); text-wrap: pretty; }

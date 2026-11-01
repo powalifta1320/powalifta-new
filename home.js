@@ -660,34 +660,11 @@
   rise([$('.scale-cap')], { trigger: $('.scale-cap'), start: 'top 97%' });
 
   /* =====================================================================
-     QUESTIONS: they arrive in turn; the first opens to its answer (its place was kept, so the questions under it slide
-     down as it opens and nothing else on the page moves). A reader who opens or closes it first simply has it.
+     QUESTIONS: they arrive in turn, all closed (each opens only for the reader, its answer arriving: the page layer).
      ===================================================================== */
   words($('#faq-h'));
   rise([$('.faq-demo')], { start: 'top 94%' });
   rise($$('.qs .q > summary'), { trigger: '.qs-cols', start: 'top 90%', stagger: 0.045 });
-  var q1 = $('.q-first'), qa1 = q1 && $('.qa', q1);
-  if (q1 && qa1 && q1.open) {
-    var below = [], n1 = q1.nextElementSibling;
-    while (n1) { below.push(n1); n1 = n1.nextElementSibling; }
-    var lift = function () { return -qa1.offsetHeight + 'px'; };
-    q1.dataset.held = '1'; q1.classList.add('is-shut');
-    gsap.set(qa1, { autoAlpha: 0, clipPath: 'inset(0% 0% 100% 0%)' });
-    gsap.set(below, { '--qy': lift });
-    var openTl = gsap.timeline({ paused: true, onComplete: function () { delete q1.dataset.held; }, onReverseComplete: function () { q1.dataset.held = '1'; } })
-      .add(function () { q1.classList.toggle('is-shut', openTl.reversed()); }, 0.001)
-      .to(below, { '--qy': '0px', duration: 0.6, ease: INOUT }, 0)
-      .to(qa1, { autoAlpha: 1, clipPath: 'inset(0% 0% 0% 0%)', duration: 0.6, ease: INOUT }, 0)
-      .fromTo($('p', qa1), { y: -8 }, { y: 0, duration: 0.6, ease: ENTER }, 0.12);
-    var openST = onState(openTl, { trigger: q1, start: 'top 74%' });
-    /* The reader's own click wins: the question is theirs from then on. */
-    $('summary', q1).addEventListener('click', function () {
-      if (!openST) return;
-      openST.kill(); openST = null; openTl.progress(1).kill();
-      gsap.set(below, { clearProps: '--qy' }); gsap.set(qa1, { clearProps: 'all' });
-      q1.classList.remove('is-shut'); delete q1.dataset.held;
-    });
-  }
 
   /* =====================================================================
      THE LAST CALL: the line rises, then Start coaching free settles; the footer comes to rest under it.
