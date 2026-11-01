@@ -116,7 +116,7 @@ body.home::before, body.home::after { content: none; display: none; }   /* the a
 .quiet { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 600; color: var(--text); text-decoration: none; }
 .quiet .arr { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--t-state) var(--ease-out); }
 @media (hover: hover) and (pointer: fine) { .quiet:hover .arr { transform: translateX(3px); } }
-.cta { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 28px; }
+.cta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2) var(--s4); }
 .cta-note { font-size: 14px; font-weight: 550; color: var(--text-3); }
 
 /* ---------- The bar (site.css) on the homepage: with JavaScript, transparent over the top of the opening, then the app's
@@ -210,10 +210,10 @@ html.m .hl { display: block; position: absolute; z-index: 2; left: calc(var(--x)
 .odo-strip { display: block; transform: translateY(-5em); }
 .odo-strip > span { display: block; height: 1em; line-height: 1; }
 .odo-d[data-d]::before, .odo-strip > span::before { content: attr(data-d); }
-.max-tags { margin-top: 18px; display: flex; align-items: center; gap: 14px; }
+.max-tags { margin-top: var(--s2); display: flex; align-items: center; gap: var(--s2); }
 .up-tag { padding: 5px 12px; border-radius: 999px; background: rgba(52, 217, 130, 0.14); color: var(--up); font-family: var(--font-num); font-size: 15px; font-weight: 750; }
 .pr-tag { font-size: 15px; font-weight: 750; color: var(--c-gold); }
-.max-chart { position: relative; height: 112px; margin-top: 22px; }
+.max-chart { position: relative; height: 112px; margin-top: var(--s3); }
 .max-svg { width: 100%; height: 100%; overflow: visible; }
 .max-area { fill: url(#maxGrad); }
 .max-line { fill: none; stroke: var(--sq); stroke-width: 2.5px; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
@@ -224,12 +224,12 @@ html.m .hl { display: block; position: absolute; z-index: 2; left: calc(var(--x)
 /* Today: two graphite panels below the opening (the landing, then the list), the desk's lit rim along the top of the
    first and its shadowed rim under the second. The sides alternate: words then screen, screen then words. */
 .land, .who { position: relative; padding: var(--sec) calc(var(--fx) + var(--gut)); }
-.land { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "copy fw"; column-gap: clamp(40px, 4vw, 64px); align-content: center; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+.land { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "copy fw"; column-gap: clamp(40px, 4.45vw, 64px); align-content: center; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
   background-image: radial-gradient(52% 70% at 18% 0%, rgba(236, 240, 255, 0.05), transparent 72%); }   /* the screen's cool light over the words */
 .land-copy { grid-area: copy; align-self: center; }
 .land .sub { margin-top: var(--s2); max-width: 26em; }
 .land .fw { grid-area: fw; }
-.who { display: grid; grid-template-columns: auto minmax(0, 34em); grid-template-areas: "fw h" "fw s" "fw l"; column-gap: clamp(48px, 8vw, 128px); align-content: center; box-shadow: inset 0 1px 0 var(--hair), inset 0 -1px 0 rgba(0, 0, 0, 0.45); }
+.who { display: grid; grid-template-columns: auto minmax(0, 34em); grid-template-areas: "fw h" "fw s" "fw l"; column-gap: clamp(48px, 8.89vw, 128px); align-content: center; box-shadow: inset 0 1px 0 var(--hair), inset 0 -1px 0 rgba(0, 0, 0, 0.45); }
 .who .h2 { grid-area: h; }
 .who .sub { grid-area: s; margin-top: var(--s2); max-width: 28em; }
 .who .chain { grid-area: l; }
@@ -298,7 +298,7 @@ html.m .fw-a .fw-live { display: block; }
    set, then pans along Sam's same screen to his list, ringed group by group in its order (home.js). (Stacked, the same
    window does the same above the list's words. The still keeps the two panels and the list's own figure.) */
 @media (min-width: 1100px) {
-  html.m .today-ch { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: clamp(40px, 4.4vw, 64px); align-items: center;
+  html.m .today-ch { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: clamp(40px, 4.45vw, 64px); align-items: center;
     padding: var(--sec) calc(var(--fx) + var(--gut)); background: radial-gradient(52% 70% at 80% 0%, rgba(236, 240, 255, 0.05), transparent 72%), var(--desk);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -1px 0 rgba(0, 0, 0, 0.45); }
   html.m .today-ch > .land, html.m .today-ch > .who { padding: 0; background: none; box-shadow: none; }
@@ -385,7 +385,7 @@ html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 10
 .s-home .meet { padding: 0; }
 .meet { position: relative; background: var(--black); color: #f4f4f6; --bg: var(--black); --text: #f4f4f6; --text-2: #b8b8c0; --text-3: #8c8c96; --hair: rgba(255, 255, 255, 0.1); color-scheme: dark; }
 .meet-stage { display: flex; flex-direction: column; width: min(100% - 2 * var(--gut), var(--wrap)); margin: 0 auto; padding: var(--sec) 0; }
-.meet-h { margin-bottom: clamp(18px, 2.4vw, 30px); max-width: none; }
+.meet-h { margin-bottom: clamp(24px, 2.23vw, 32px); max-width: none; }
 .scene-clip { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin: -18px -18px 0; padding: 18px 18px 0; overflow: clip; }
 /* The stage ends on a rule; Tom's phone runs on below it (its crop takes the row's height). */
 .scene { display: grid; grid-template-columns: minmax(0, clamp(240px, 21vw, 300px)) minmax(0, 1fr) minmax(0, clamp(380px, 30.5vw, 440px)); grid-template-areas: "phone mid board";
@@ -405,7 +405,7 @@ html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 10
 .side { position: relative; min-width: 0; }
 /* The room's light going down: a black scrim over each part of the stage but the platform (the words keep their colour). */
 .mdim { position: absolute; z-index: 5; inset: -24px; background: var(--black); opacity: 0; pointer-events: none; }
-.side > .cap { margin-bottom: 14px; }
+.side > .cap { margin-bottom: var(--s2); }
 .side-phone { grid-area: phone; align-self: stretch; display: flex; flex-direction: column; --pw: clamp(220px, 19vw, 272px); }
 .side-board { grid-area: board; padding-bottom: clamp(20px, 3.2vh, 32px); }
 /* Tom's phone: the lifter app's meet-day screen (meet mode, styles.css .mm-*; the next-attempt card, meetday.css
@@ -508,7 +508,7 @@ html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 10
 .sheet-crop img { width: 100%; }
 .move-foot { margin-top: var(--s3); max-width: 44em; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; font-size: 16px; color: var(--text-2); }
 .move-foot .quiet { font-size: 16px; }
-.money { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); row-gap: 28px; align-items: center; margin-top: clamp(32px, 2.8vw, 40px); padding-top: clamp(32px, 2.8vw, 40px); border-top: 1px solid var(--hair); }
+.money { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); row-gap: var(--s4); align-items: center; margin-top: var(--s5); padding-top: var(--s5); border-top: 1px solid var(--hair); }
 .money-copy { grid-column: 1 / span 4; }
 .money-copy p { margin-top: var(--s2); max-width: 34em; font-size: 17px; line-height: 1.55; color: var(--text-2); text-wrap: pretty; }
 .cl { grid-column: 5 / span 8; width: 100%; }
@@ -545,7 +545,7 @@ html.m .cl-live-d { display: block; }
 .brand-ph .ph-scr img { width: 100%; aspect-ratio: 393 / 520; }
 /* What branding changes is shown, not labelled: the set card's ring (the act's), in this capture's points (393 x 520). */
 html.m .brand-ph .hl { top: calc(var(--y) / 520 * 100%); height: calc(var(--h) / 520 * 100%); }
-.scale { margin-top: 8px; padding-top: clamp(28px, 2.6vw, 36px); border-top: 1px solid var(--hair); }
+.scale { margin-top: var(--s1); padding-top: var(--s4); border-top: 1px solid var(--hair); }
 .bands { display: grid; grid-template-columns: 3fr 7fr 15fr 5fr; }
 .band { min-width: 0; padding-right: clamp(8px, 1vw, 14px); }
 .band:last-child { padding-right: 0; }
@@ -561,10 +561,10 @@ html.m .brand-ph .hl { top: calc(var(--y) / 520 * 100%); height: calc(var(--h) /
 .f.is-open::before { content: none; }
 .f-more { font-size: 18px; font-weight: 500; color: var(--text-3); line-height: 1; }
 .f-more::before { content: '+'; }
-.band-k { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-top: 16px; padding-top: 14px; border-top: 2px solid rgba(255, 255, 255, 0.12); font-size: 14px; color: var(--text-3); transition: border-color var(--t-state) ease, color var(--t-state) ease; }
+.band-k { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-top: var(--s2); padding-top: var(--s2); border-top: 2px solid rgba(255, 255, 255, 0.12); font-size: 14px; color: var(--text-3); transition: border-color var(--t-state) ease, color var(--t-state) ease; }
 .band-k b { flex-basis: 100%; font-size: 19px; font-weight: 750; letter-spacing: -0.012em; color: var(--text-2); transition: color var(--t-state) ease; }
 .band-k em { font-style: normal; font-size: 13px; font-weight: 650; color: var(--up); }
-.price { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 7px; }
+.price { margin-top: var(--s2); display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 7px; }
 .price b { font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: clamp(26px, 0.9rem + 1.6vw, 40px); font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: var(--text-2); font-variant-numeric: tabular-nums; transition: color var(--t-state) ease; }
 .price small { font-size: 14px; color: var(--text-3); }
 .band.is-on .band-k { border-top-color: #f4f4f6; }
@@ -574,14 +574,13 @@ html.m .brand-ph .hl { top: calc(var(--y) / 520 * 100%); height: calc(var(--h) /
 .b-pro .band-k b, .b-pro .price b { color: var(--text); }
 html.m .b-pro:not(.is-on) .band-k { border-top-color: rgba(255, 255, 255, 0.12); }
 html.m .b-pro:not(.is-on) .band-k b, html.m .b-pro:not(.is-on) .price b { color: var(--text-2); }
-.scale-cap { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 32px; margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--hair); }
+.scale-cap { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s1) var(--s4); margin-top: var(--s3); padding-top: var(--s2); border-top: 1px solid var(--hair); }
 .sc-state { display: flex; align-items: baseline; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); font-weight: 650; color: var(--text); }
 .sc-n b { font-family: var(--font-num); font-stretch: var(--num-stretch); font-weight: 800; font-variant-numeric: tabular-nums; }
 .sc-sep { padding: 0 0.45em; color: var(--text-3); }
 .sc-sep::before { content: '·'; }
 #scPlan > :not(:last-child) { visibility: hidden; }
 .fine { font-size: 15px; line-height: 1.55; color: var(--text-3); }
-.plans-cta { gap: 12px 20px; }
 
 /* =====================================================================
    QUESTIONS (the coach's graphite): closed until opened.
@@ -596,7 +595,7 @@ html.m .b-pro:not(.is-on) .band-k b, html.m .b-pro:not(.is-on) .price b { color:
 .qs { min-width: 0; }
 .q { border-top: 1px solid var(--hair); }
 .qs .q:last-child { border-bottom: 1px solid var(--hair); }
-.q summary { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 0; list-style: none; cursor: pointer; font-size: 18px; font-weight: 650; letter-spacing: -0.012em; line-height: 1.35; transition: color var(--t-state) ease; }
+.q summary { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 0; list-style: none; cursor: pointer; font-size: 18px; font-weight: 650; letter-spacing: -0.012em; line-height: 1.35; transition: color var(--t-state) ease; }
 .q summary::-webkit-details-marker { display: none; }
 .q summary:focus-visible { outline-offset: 6px; }
 .qi { position: relative; flex: none; width: 28px; height: 28px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); transition: background-color var(--t-state) ease; }
@@ -610,11 +609,11 @@ details.q:not([open]) > .qa { display: none; }   /* closed: not laid out either 
 /* =====================================================================
    CLOSE (dark): one line, one action.
    ===================================================================== */
-.s-home .close { position: relative; padding: clamp(56px, 5vw, 76px) 0; isolation: isolate; overflow: hidden; }
+.s-home .close { position: relative; padding: clamp(56px, 5.56vw, 80px) 0; isolation: isolate; overflow: hidden; }
 .glow-close { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(38% 60% at 30% -10%, rgba(255, 59, 74, 0.12), transparent 70%); }
 .close-in { position: relative; z-index: 1; }
 .close-h { font-size: clamp(40px, 1rem + 3.4vw, 66px); line-height: 0.99; letter-spacing: -0.036em; max-width: 11em; }
-.close .lead { margin-top: 20px; }
+.close .lead { margin-top: var(--s3); }
 .close .cta { margin-top: 32px; }
 
 /* ---------- The set in flight (only while motion plays the story): fixed to the screen, placed every frame. Lifted,
@@ -719,8 +718,8 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .h1 { font-size: clamp(31px, 8.6vw, 38px); line-height: 1.04; }
   .h2 { font-size: clamp(28px, 7.6vw, 32px); }
   .lede { margin-top: var(--s2); font-size: 16px; line-height: 1.45; }
-  .open-copy .cta { margin-top: 22px; gap: 12px 20px; }
-  .open-copy .cta-note { margin-top: 12px; }
+  .open-copy .cta { margin-top: var(--s3); gap: var(--s2) var(--s3); }
+  .open-copy .cta-note { margin-top: var(--s2); }
   .act-btn { height: 50px; padding: 0 24px; }
   .lead, .sub { font-size: 16px; }
   /* The coach's laptop is too small to read here: the coach's side opens below, at its real size. */
@@ -742,7 +741,7 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .chain { margin-top: var(--s3); }
   .chain li { column-gap: 12px; min-height: 44px; }
   .chain b { font-size: 16px; }
-  .answers-in, .move, .money, .faq-in, .plans-top { grid-template-columns: minmax(0, 1fr); row-gap: 28px; }
+  .answers-in, .move, .money, .faq-in, .plans-top { grid-template-columns: minmax(0, 1fr); row-gap: var(--s4); }
   .thread, .answers-copy, .moving-h, .msteps, .imp, .money-copy, .cl, .faq-side, .qs-cols, .plans-head { grid-column: 1; grid-row: auto; }
   .msteps { margin-top: 0; }
   .thread { --pw: min(300px, 76vw); justify-self: center; }
@@ -755,7 +754,7 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .wk-in { width: calc(1160px * 0.78); }
   html.m .wk-port { overflow: hidden; }
   .wk-foot { justify-content: flex-start; margin-top: var(--s2); }
-  .meet-h { margin-bottom: 18px; }
+  .meet-h { margin-bottom: var(--s3); }
   .scene { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "phone" "board"; row-gap: 22px; }
   .mid { padding-bottom: 0; }
   .judges { gap: 14px; }
