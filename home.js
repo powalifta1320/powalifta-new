@@ -623,30 +623,31 @@
   onState(clTl, { trigger: '.cl', start: 'top 92%' });
 
   /* =====================================================================
-     PRICING: the offer settles (its words, Start coaching free, the branded phone rising with its labels); the plans
-     arrive left to right, and Sam's roster fills from 11 to 20 lifters on Pro, a seat at a time.
+     PRICING: the offer settles (its words, Start coaching free, the branded phone rising; a ring visits what branding
+     changes: the team's name and logo, then Log set in its colour); the plans arrive left to right, and Sam's roster
+     fills from 11 to 20 lifters on Pro, a seat at a time.
      ===================================================================== */
   words($('#plans-h'));
   rise([$('.plans-head .lead')], { start: 'top 92%' });
   var plansTl = gsap.timeline({ paused: true })
-    .fromTo('#plansCta .act-btn', { autoAlpha: 0, y: 8, scale: 0.96 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, ease: ENTER }, 0)
-    .fromTo('#plansCta .cta-note', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: ENTER }, 0.1);
+    .fromTo('#plansCta .act-btn', { autoAlpha: 0, y: 8, scale: 0.96 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, ease: ENTER }, 0);
   onState(plansTl, { trigger: '#plansCta', start: 'top 94%' });
+  var bpHls = $$('.brand-ph .hl');
+  gsap.set(bpHls, { autoAlpha: 0 });
   var bpTl = gsap.timeline({ paused: true }).fromTo('.brand-ph .bp-crop', { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.8, ease: ENTER }, 0);
-  $$('.bp-lab').forEach(function (l, i) {
-    bpTl.fromTo($('.bp-l', l), { scaleX: 0, transformOrigin: '100% 50%' }, { scaleX: 1, duration: 0.4, ease: ENTER }, 0.45 + i * 0.12)
-      .fromTo($('.bp-t', l), { autoAlpha: 0, x: 6 }, { autoAlpha: 1, x: 0, duration: 0.4, ease: ENTER }, 0.55 + i * 0.12);
+  bpHls.forEach(function (h, i) {
+    var at = 0.62 + i * 0.62;
+    bpTl.fromTo(h, { autoAlpha: 0, y: i ? -10 : 0, scale: i ? 1 : 1.03 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.36, ease: ENTER, immediateRender: false }, at)
+      .to(h, i ? { autoAlpha: 0, duration: 0.5, ease: OUT } : { autoAlpha: 0, y: 10, duration: 0.32, ease: INOUT }, at + (i ? 1.0 : 0.6));
   });
-  bpTl.fromTo('#brand-cap', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: ENTER }, 0.3);
-  onState(bpTl, { trigger: '.brand-ph', start: 'top 90%' });
+  onState(bpTl, { trigger: '.brand-ph', start: 'top 82%' });
   rise($$('#scale .band'), { trigger: '#scale', start: 'top 92%', stagger: 0.08, y: 14 });
   var seats = $$('#scale .f:not(.f-open)'), bands = $$('#scale .band'), scN = $('#scN'), plan = $('#scPlan');
   var planKids = plan ? Array.prototype.slice.call(plan.children) : [];
   var shown = -1;
-  seats.forEach(function (f) { f.dataset.i = f.textContent; });   // an open seat is empty: its initials come back as it fills
   function paintRoster(n) {
     if (n === shown) return; shown = n;
-    seats.forEach(function (f, i) { var open = i >= n; f.classList.toggle('is-open', open); f.textContent = open ? '' : f.dataset.i; });
+    seats.forEach(function (f, i) { f.classList.toggle('is-open', i >= n); });   // an open seat is empty; its initials come back as it fills
     var t = n <= 3 ? 0 : n <= 10 ? 1 : 2;
     bands.forEach(function (el, i) { el.classList.toggle('is-on', i === t); });
     scN.textContent = String(n);
@@ -656,7 +657,7 @@
   var R = { n: 11 };
   var rosterTl = gsap.timeline({ paused: true }).fromTo(R, { n: 11 }, { n: 20, duration: 1.35, ease: 'power1.inOut', onUpdate: function () { paintRoster(Math.round(R.n)); } }, 0.1);
   onState(rosterTl, { trigger: '#scale', start: function () { return small() ? 'top 70%' : 'top 76%'; } });
-  rise([$('.scale-cap'), $('.plans-foot')], { trigger: $('.scale-cap'), start: 'top 97%' });
+  rise([$('.scale-cap')], { trigger: $('.scale-cap'), start: 'top 97%' });
 
   /* =====================================================================
      QUESTIONS: they arrive in turn; the first opens to its answer (its place was kept, so the questions under it slide

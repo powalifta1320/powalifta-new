@@ -536,22 +536,15 @@ html.m .cl-live-d { display: block; }
   background-image: radial-gradient(40% 520px at 16% 0%, rgba(255, 226, 190, 0.05), transparent 72%); }   /* a warm lamp over the offer */
 .plans-top { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; }
 .plans-head { grid-column: 1 / span 7; }
-.plans-head .lead { margin-top: 22px; }
-.plans-head .plans-cta { margin-top: 28px; }
-.brand-ph { position: relative; grid-column: 9 / span 4; justify-self: end; margin: 0 calc(var(--pw) * 0.0305 + 3px) 0 0; --pw: clamp(220px, 16vw, 236px); width: var(--pw); }
-/* The crop ends just under Log set (480 of the screen's 852 pt), on the scale's rule. */
-.bp-crop { height: calc(var(--pw) * 480 / 393 + var(--pw) * 0.0305 + 2px); overflow: hidden; padding: calc(var(--pw) * 0.0305 + 2px) calc(var(--pw) * 0.0305 + 5px) 0; margin: 0 calc((var(--pw) * 0.0305 + 5px) * -1); }
+.plans-head .lead { margin-top: var(--s3); }
+.plans-head .plans-cta { margin-top: var(--s4); }
+.brand-ph { position: relative; grid-column: 9 / span 4; justify-self: end; margin: 0 calc(var(--pw) * 0.0305 + 3px) 0 0; --pw: clamp(240px, 18.5vw, 268px); width: var(--pw); }
+/* The crop ends just under Log set (500 of the capture's 520 pt), on the scale's rule. */
+.bp-crop { height: calc(var(--pw) * 500 / 393 + var(--pw) * 0.0305 + 2px); overflow: hidden; padding: calc(var(--pw) * 0.0305 + 2px) calc(var(--pw) * 0.0305 + 5px) 0; margin: 0 calc((var(--pw) * 0.0305 + 5px) * -1); }
 .brand-ph .ph-scr { font-size: calc(var(--pw) / 393 * 16); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 .brand-ph .ph-scr img { width: 100%; aspect-ratio: 393 / 520; }
-/* On a laptop the screen is labelled where branding shows (the team's name and logo, its colour on Log set), the way the
-   act labels the set card; the caption carries the same words on smaller screens. */
-.brand-ph .cap { position: absolute; right: calc(100% + 32px); bottom: 20px; width: 15.5em; }
-.bp-lab { position: absolute; right: calc(100% - 14px); top: calc(var(--pw) * 0.0305 + 2px + var(--pw) * var(--y) / 393); display: flex; align-items: center; gap: 10px; transform: translateY(-50%); white-space: nowrap; pointer-events: none; }
-.bp-t { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; color: var(--text); }
-.bp-l { position: relative; display: block; width: calc(44px + var(--pw) * 0.0305); height: 1px; background: rgba(244, 244, 246, 0.42); }
-.bp-l::after { content: ''; position: absolute; right: -3px; top: -2.5px; width: 6px; height: 6px; border-radius: 50%; background: #f4f4f6; }
-@media (min-width: 1100px) { .brand-ph .cap { display: none; } }
-@media (max-width: 1099px) { .bp-lab { display: none; } }
+/* What branding changes is shown, not labelled: the set card's ring (the act's), in this capture's points (393 x 520). */
+html.m .brand-ph .hl { top: calc(var(--y) / 520 * 100%); height: calc(var(--h) / 520 * 100%); }
 .scale { margin-top: 8px; padding-top: clamp(28px, 2.6vw, 36px); border-top: 1px solid var(--hair); }
 .bands { display: grid; grid-template-columns: 3fr 7fr 15fr 5fr; }
 .band { min-width: 0; padding-right: clamp(8px, 1vw, 14px); }
@@ -564,7 +557,10 @@ html.m .cl-live-d { display: block; }
 .av-h4 { background: #132e2d; color: #86ddd2; } .av-h5 { background: #16273b; color: #93c6ff; } .av-h6 { background: #231d3a; color: #bcaeff; } .av-h7 { background: #331a37; color: #f0a8e8; }
 .f-open, .f.is-open { background: transparent !important; color: transparent !important; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.16); }
 .f.is-open { transform: scale(0.92); }
+.f[data-i]::before { content: attr(data-i); }   /* a seated face's initials, drawn (an open seat shows none) */
+.f.is-open::before { content: none; }
 .f-more { font-size: 18px; font-weight: 500; color: var(--text-3); line-height: 1; }
+.f-more::before { content: '+'; }
 .band-k { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-top: 16px; padding-top: 14px; border-top: 2px solid rgba(255, 255, 255, 0.12); font-size: 14px; color: var(--text-3); transition: border-color var(--t-state) ease, color var(--t-state) ease; }
 .band-k b { flex-basis: 100%; font-size: 19px; font-weight: 750; letter-spacing: -0.012em; color: var(--text-2); transition: color var(--t-state) ease; }
 .band-k em { font-style: normal; font-size: 13px; font-weight: 650; color: var(--up); }
@@ -582,10 +578,9 @@ html.m .b-pro:not(.is-on) .band-k b, html.m .b-pro:not(.is-on) .price b { color:
 .sc-state { display: flex; align-items: baseline; font-size: clamp(17px, 0.9rem + 0.32vw, 19px); font-weight: 650; color: var(--text); }
 .sc-n b { font-family: var(--font-num); font-stretch: var(--num-stretch); font-weight: 800; font-variant-numeric: tabular-nums; }
 .sc-sep { padding: 0 0.45em; color: var(--text-3); }
+.sc-sep::before { content: '·'; }
 #scPlan > :not(:last-child) { visibility: hidden; }
-.sc-each { font-size: 15px; color: var(--text-3); }
-.plans-foot { margin-top: 18px; }
-.fine { max-width: 40em; font-size: 15px; line-height: 1.55; color: var(--text-2); }
+.fine { font-size: 15px; line-height: 1.55; color: var(--text-3); }
 .plans-cta { gap: 12px 20px; }
 
 /* =====================================================================
@@ -712,7 +707,6 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .side-phone { --pw: min(272px, 34vw); }
   .bands { grid-template-columns: 3fr 7fr; row-gap: 32px; }
   .brand-ph { grid-column: 1; justify-self: start; margin-top: 8px; }
-  .brand-ph .cap { right: auto; left: calc(100% + 32px); bottom: 24px; }
   .qs-cols { grid-template-columns: minmax(0, 1fr); }
   .qs:first-child .q:last-child { border-bottom: 0; }
 }
@@ -798,9 +792,7 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .qa p { padding-right: 0; font-size: 16px; }
   .plans-top { display: block; }
   .plans-head .plans-cta { margin-top: 22px; }
-  .brand-ph { display: flex; flex-direction: column-reverse; margin: 24px auto 0; --pw: min(200px, 52vw); }
-  .brand-ph .cap { position: static; width: auto; margin: 0 0 14px; }
-  .bp-crop { align-self: center; }
+  .brand-ph { margin: var(--s4) auto 0; --pw: min(220px, 56vw); }
   .scale { margin-top: 0; }
   .qs-cols { grid-template-columns: minmax(0, 1fr); }
   .qs:first-child .q:last-child { border-bottom: 0; }
