@@ -635,12 +635,15 @@
   var bpHls = $$('.brand-ph .hl');
   gsap.set(bpHls, { autoAlpha: 0 });
   var bpTl = gsap.timeline({ paused: true }).fromTo('.brand-ph .bp-crop', { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.8, ease: ENTER }, 0);
+  onState(bpTl, { trigger: '.brand-ph', start: 'top 90%' });
+  /* The ring plays once the whole screen is in view (its second stop, Log set, is at the crop's foot). */
+  var bpRings = gsap.timeline({ paused: true });
   bpHls.forEach(function (h, i) {
-    var at = 0.62 + i * 0.62;
-    bpTl.fromTo(h, { autoAlpha: 0, y: i ? -10 : 0, scale: i ? 1 : 1.03 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.36, ease: ENTER, immediateRender: false }, at)
+    var at = 0.1 + i * 0.62;
+    bpRings.fromTo(h, { autoAlpha: 0, y: i ? -10 : 0, scale: i ? 1 : 1.03 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.36, ease: ENTER, immediateRender: false }, at)
       .to(h, i ? { autoAlpha: 0, duration: 0.5, ease: OUT } : { autoAlpha: 0, y: 10, duration: 0.32, ease: INOUT }, at + (i ? 1.0 : 0.6));
   });
-  onState(bpTl, { trigger: '.brand-ph', start: 'top 82%' });
+  onState(bpRings, { trigger: '.brand-ph', start: 'bottom 92%' });
   rise($$('#scale .band'), { trigger: '#scale', start: 'top 92%', stagger: 0.08, y: 14 });
   var seats = $$('#scale .f:not(.f-open)'), bands = $$('#scale .band'), scN = $('#scN'), plan = $('#scPlan');
   var planKids = plan ? Array.prototype.slice.call(plan.children) : [];
