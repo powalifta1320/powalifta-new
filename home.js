@@ -506,28 +506,35 @@
   words($('#next-h'));
   rise([$('.next-head .lead')], { start: 'top 92%' });
   rise($$('.wk-cols span'), { trigger: $('#wk'), start: 'top 88%', stagger: 0.09 });
-  var wkPort = $('#wkPort'), wkIn = $('#wkIn'), wkTap = $('#wkTap'), wkB1 = $('.wk-b1'), wkB2 = $('.wk-b2'), pub = $('#pub'), pubT = $('.wk-pub-t');
+  var wkPort = $('#wkPort'), wkIn = $('#wkIn'), wkTap = $('#wkTap'), wkWhy = $('#wkWhy'), wkB1 = $('.wk-b1'), wkB2 = $('.wk-b2'), pub = $('#pub');
   rise([wkPort], { y: 30, start: 'top 94%', dur: 0.8 });
-  rise([$('#wk-cap'), $('.next-also')], { trigger: $('#wk-cap'), start: 'top 96%' });
-  gsap.set([pub, pubT], { autoAlpha: 0 });
-  gsap.set(pub, { scale: 0.94, transformOrigin: '0% 50%' });
+  gsap.set(pub, { autoAlpha: 0, scale: 0.94, transformOrigin: '50% 50%' });
   var b1From = 'inset(73.902% 0.345% 13.437% 66.897%)', b1To = 'inset(73.902% 0.345% 13.437% 99.655%)';
-  var takeTl = gsap.timeline({ paused: true })
-    .fromTo(wkTap, { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.2, ease: OUT }, 0)
-    .fromTo(wkB1, { clipPath: b1From }, { clipPath: b1To, duration: 0.6, ease: INOUT, immediateRender: false }, 0.22)
-    .to(wkTap, { opacity: 0, duration: 0.4, ease: OUT }, 0.5)
-    .fromTo(wkB2, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.4, ease: OUT, immediateRender: false }, 0.9)
-    .to(pub, { autoAlpha: 1, scale: 1, duration: 0.36, ease: ENTER }, 1.2)
-    .fromTo(pubT, { y: 8 }, { autoAlpha: 1, y: 0, duration: 0.34, ease: ENTER }, 1.32);
+  /* Why, then the take (what the caption used to say): a ring on Marcus's bench as he lifted it, 1.5 over what Sam wrote;
+     then Sam taps Take on the load his own rule wrote, the row turns to "Took 145", the week's header to "Suggestions
+     taken", and Publish week 3 arrives. */
+  function takeTl(why) {
+    var T = why ? 0.62 : 0, tl = gsap.timeline({ paused: true });
+    if (why) tl.fromTo(wkWhy, { autoAlpha: 0, scale: 1.05 }, { autoAlpha: 1, scale: 1, duration: 0.34, ease: ENTER, immediateRender: false }, 0)
+      .to(wkWhy, { autoAlpha: 0, duration: 0.4, ease: OUT }, T + 0.5);
+    return tl.fromTo(wkTap, { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.2, ease: OUT }, T)
+      .fromTo(wkB1, { clipPath: b1From }, { clipPath: b1To, duration: 0.6, ease: INOUT, immediateRender: false }, T + 0.22)
+      .to(wkTap, { opacity: 0, duration: 0.4, ease: OUT }, T + 0.5)
+      .fromTo(wkB2, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.4, ease: OUT, immediateRender: false }, T + 0.9)
+      .to(pub, { autoAlpha: 1, scale: 1, duration: 0.36, ease: ENTER }, T + 1.2);
+  }
   mm.add({ phoneW: '(max-width: 759px)', wideW: '(min-width: 760px)' }, function (ctx) {
     if (ctx.conditions.phoneW) {
+      /* On a phone the why ring rides the pan: it lights as Marcus's bench, as lifted, passes the middle of the strip. */
       var pan = gsap.timeline({ scrollTrigger: { trigger: wkPort, start: 'top 82%', end: 'top 30%', scrub: 0.5, invalidateOnRefresh: true } })
-        .fromTo(wkIn, { x: 0 }, { x: function () { var cs = getComputedStyle(wkPort); return -(wkIn.offsetWidth - (wkPort.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight))); }, ease: 'none', duration: 1 });
-      var a = onState(takeTl, { trigger: wkPort, start: 'top 30%' });
-      return function () { a.kill(); pan.scrollTrigger.kill(); pan.kill(); gsap.set(wkIn, { clearProps: 'transform' }); };
+        .fromTo(wkIn, { x: 0 }, { x: function () { var cs = getComputedStyle(wkPort); return -(wkIn.offsetWidth - (wkPort.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight))); }, ease: 'none', duration: 1 })
+        .fromTo(wkWhy, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.12, ease: 'none', immediateRender: false }, 0.28)
+        .to(wkWhy, { autoAlpha: 0, duration: 0.12, ease: 'none' }, 0.74);
+      var tp = takeTl(false), a = onState(tp, { trigger: wkPort, start: 'top 30%' });
+      return function () { a.kill(); tp.kill(); pan.scrollTrigger.kill(); pan.kill(); gsap.set(wkIn, { clearProps: 'transform' }); };
     }
-    var b = onState(takeTl, { trigger: wkPort, start: 'bottom 88%' });
-    return function () { b.kill(); };
+    var tw = takeTl(true), b = onState(tw, { trigger: wkPort, start: 'bottom 88%' });
+    return function () { b.kill(); tw.kill(); };
   });
 
   /* =====================================================================
