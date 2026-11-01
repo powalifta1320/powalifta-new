@@ -484,8 +484,8 @@
      Seen; Sam's reply lands under it.
      ===================================================================== */
   words($('#answers-h'));
-  rise([$('.answers-copy .lead'), $('.also')], { trigger: $('.answers-copy .lead'), start: 'top 92%' });
-  rise([$('#thread .th-crop'), $('#thread-cap')], { trigger: $('#thread'), y: 40, start: 'top 94%', dur: 0.8 });
+  rise([$('.answers-copy .lead')], { trigger: $('.answers-copy .lead'), start: 'top 92%' });
+  rise([$('#thread .th-crop')], { trigger: $('#thread'), y: 40, start: 'top 94%', dur: 0.8 });
   gsap.fromTo('#thread', { y: 26 }, { y: -26, ease: 'none', scrollTrigger: { trigger: '#answers', start: 'top bottom', end: 'bottom top', scrub: 0.4 } });
   var sent = $('.tl-sent'), seen = $('.tl-seen'), reply = $('#reply'), tlNote = $('.tl-note'), tlSet = $('.tl-set');
   gsap.set(seen, { autoAlpha: 0 });

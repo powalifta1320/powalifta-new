@@ -323,8 +323,7 @@ html.m .mk { display: grid; place-items: center; position: absolute; width: 22px
 .s-home .answers { position: relative; padding: var(--sec) 0; isolation: isolate; }
 .answers::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(40% 48% at 26% -10%, rgba(255, 59, 74, 0.08), transparent 70%); }
 .answers-in { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: center; }
-.thread { grid-column: 8 / span 4; grid-row: 1; justify-self: center; --pw: min(336px, 23.4vw); width: var(--pw); }
-.thread .cap { margin-top: 18px; justify-content: center; }
+.thread { grid-column: 8 / span 4; grid-row: 1; justify-self: center; --pw: min(372px, 25.8vw); width: var(--pw); }
 /* The crop ends under Sam's reply (626 of the screen's 852 pt), on a hairline. */
 .th-crop { height: calc(var(--pw) * 626 / 393 + var(--pw) * 0.0305 + 2px); overflow: hidden; padding: calc(var(--pw) * 0.0305 + 2px) calc(var(--pw) * 0.0305 + 5px) 0; margin: 0 calc((var(--pw) * 0.0305 + 5px) * -1); box-shadow: inset 0 -1px 0 var(--hair); }
 .thread .ph-scr { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
@@ -335,8 +334,7 @@ html.m .mk { display: grid; place-items: center; position: absolute; width: 22px
 .tl-sent { display: none; }
 html.m .tl-sent { display: block; }
 .answers-copy { grid-column: 1 / span 6; grid-row: 1; }
-.answers-copy .lead { margin-top: 24px; }
-.also { margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--hair); max-width: 34em; font-size: 17px; line-height: 1.6; color: var(--text-2); text-wrap: pretty; }
+.answers-copy .lead { margin-top: var(--s3); max-width: 27em; }
 /* The thread's messages as their own layers while motion plays it: each is the capture cut to its bubble, over a patch
    of the thread's own ground (#050505), so at rest they are the capture exactly. */
 .tl-patch, .tl-bub { display: none; }
@@ -348,7 +346,6 @@ html.m .tl-bub img { width: 100%; aspect-ratio: 393 / 852; }
 .tl-note { clip-path: inset(calc(176 / 852 * 100%) calc(68.3 / 393 * 100%) calc(570.7 / 852 * 100%) calc(18 / 393 * 100%) round calc(var(--pw) * 12 / 393)); }
 .tl-set { clip-path: inset(calc(296 / 852 * 100%) calc(18.3 / 393 * 100%) calc(387.3 / 852 * 100%) calc(131 / 393 * 100%) round calc(var(--pw) * 12 / 393)); }
 .tl { z-index: 3; }
-.also b { color: var(--text); font-weight: 700; }
 
 /* =====================================================================
    NEXT WEEK (the coach's graphite): one lifter's week at its real size, written against lifted; the suggestion taken;
@@ -773,8 +770,8 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .answers-in, .move, .money, .faq-in, .plans-top { grid-template-columns: minmax(0, 1fr); row-gap: 28px; }
   .thread, .answers-copy, .moving-h, .msteps, .imp, .money-copy, .cl, .faq-side, .qs-cols, .plans-head { grid-column: 1; grid-row: auto; }
   .msteps { margin-top: 0; }
-  .thread { --pw: min(280px, 72vw); }
-  .also { margin-top: 20px; padding-top: 16px; font-size: 16px; }
+  .thread { --pw: min(300px, 76vw); justify-self: center; }
+  .answers-copy .lead { margin-top: var(--s2); }
   .next-head .h2, .next-head .lead { grid-column: 1 / -1; }
   .next-head .lead { margin-top: 14px; }
   /* The week: a true-size strip the reader's scroll pans across (without motion it scrolls sideways). */
