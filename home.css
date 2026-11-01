@@ -782,7 +782,7 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .f { width: 28px; font-size: 10px; }
   .band-k { margin-top: 0; }
   .price b { font-size: 26px; }
-  .scale-cap { flex-direction: column; align-items: flex-start; margin-top: 22px; }
+  .scale-cap { flex-direction: column; align-items: flex-start; margin-top: var(--s3); }
   .q summary { font-size: 17px; padding: 16px 0; }
   .qa p { padding-right: 0; font-size: 16px; }
   .plans-top { display: block; }
