@@ -263,6 +263,7 @@
       <a class="bar-link" href="#answers" data-ch="answers">Answers</a>
       <a class="bar-link" href="#program" data-ch="program">Next week</a>
       <a class="bar-link" href="#meet" data-ch="meet">Meet day</a>
+      <a class="bar-link" href="#lifters" data-ch="lifters">Lifters</a>
       <a class="bar-link" href="#pricing" data-ch="pricing">Pricing</a>
       <i class="bar-mk" id="tocBar" aria-hidden="true"></i>
     </div>
@@ -608,6 +609,68 @@
         </div>
       </figure>
     </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================================================
+     FOR LIFTERS (dark, the lifter's side): Arjun's own app after that set, with his own numbers (Sam's desk shows the
+     same): the PR moment, then Progress. With motion the PR moment plays as the app plays it (the plate rolls in and
+     lands, the number counts up from his old best, the jump shows), then Progress draws its line up to the new total.
+     ===================================================================================================== -->
+<section class="lifter t-dark" id="lifters" aria-labelledby="lifter-h">
+  <div class="wrap lifter-in">
+    <div class="lf-phones">
+      <figure class="lf" id="lfPr">
+        <div class="lf-crop">
+          <div class="ph">
+            <div class="ph-scr">
+              <picture class="lf-still">
+                <source type="image/avif" srcset="/site-img/home/lifter-pr-640.avif 640w, /site-img/home/lifter-pr-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <img src="/site-img/home/lifter-pr-640.webp" srcset="/site-img/home/lifter-pr-640.webp 640w, /site-img/home/lifter-pr-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw" width="393" height="740" loading="lazy" decoding="async"
+                  alt="The lifter app on Arjun’s phone as he logs that set: a gold PR plate, New PR, 228 kg, up 5 kg, his squat’s estimated max, from 182.5 kg for 5 at RPE 8. Under it: Share to Story, Share with Iron Temple Barbell, Send to coach and Done.">
+              </picture>
+              <!-- With motion: the same screen without the plate, the number and the jump, which arrive on top as the app's do. -->
+              <picture class="lf-base" aria-hidden="true">
+                <source type="image/avif" srcset="/site-img/home/lifter-pr-base-640.avif 640w, /site-img/home/lifter-pr-base-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <img src="/site-img/home/lifter-pr-base-640.webp" srcset="/site-img/home/lifter-pr-base-640.webp 640w, /site-img/home/lifter-pr-base-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw" width="393" height="740" alt="" loading="lazy" decoding="async">
+              </picture>
+              <!-- The app's own PR plate (athlete.html showPRToast), the number and the jump, in the screen's points (cap-lifter.mjs). -->
+              <span class="lf-l lf-plate" style="--x: 132.8; --y: 122.4" aria-hidden="true"><svg viewBox="0 0 120 120"><defs><radialGradient id="lfGold" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#ffe9a8"/><stop offset="0.55" stop-color="#f2c25b"/><stop offset="1" stop-color="#a87a24"/></radialGradient></defs><circle cx="60" cy="60" r="58" fill="url(#lfGold)"/><circle cx="60" cy="60" r="45" fill="none" stroke="rgba(60,40,0,0.22)" stroke-width="2"/><circle cx="60" cy="60" r="19" fill="#dcdfe5"/><circle cx="60" cy="60" r="19" fill="none" stroke="rgba(0,0,0,0.18)" stroke-width="1.5"/><circle cx="60" cy="60" r="8" fill="#0b0b0c"/><text x="60" y="33" text-anchor="middle" font-family="Archivo, sans-serif" font-size="13" font-weight="800" fill="rgba(60,40,0,0.5)">PR</text></svg></span>
+              <span class="lf-l lf-n" style="--x: 98; --y: 299.9" aria-hidden="true">228</span>
+              <span class="lf-l lf-d" style="--x: 164.8; --y: 400.1" aria-hidden="true">+5 kg</span>
+              <span class="sb" aria-hidden="true"><b data-t="10:42"></b><i class="sb-isl"></i><i class="sb-bat"></i></span>
+            </div>
+            <i class="ph-btn ph-btn-a" aria-hidden="true"></i><i class="ph-btn ph-btn-b" aria-hidden="true"></i><i class="ph-btn ph-btn-c" aria-hidden="true"></i><i class="ph-btn ph-btn-p" aria-hidden="true"></i>
+          </div>
+        </div>
+      </figure>
+      <figure class="lf" id="lfProg">
+        <div class="lf-crop">
+          <div class="ph">
+            <div class="ph-scr">
+              <picture class="lf-still">
+                <source type="image/avif" srcset="/site-img/home/lifter-prog-640.avif 640w, /site-img/home/lifter-prog-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <img src="/site-img/home/lifter-prog-640.webp" srcset="/site-img/home/lifter-prog-640.webp 640w, /site-img/home/lifter-prog-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw" width="393" height="740" loading="lazy" decoding="async"
+                  alt="Arjun’s Progress a moment later: e1RM total 656 kg, up 21 kg in 4 weeks; 580 kg in best singles, 416.8 DOTS; stronger than 88% of 74 kg raw men. His strength chart climbs from July 13 to 656 kg.">
+              </picture>
+              <!-- With motion: the same screen without the line, which draws up to his new total on top. -->
+              <picture class="lf-base" aria-hidden="true">
+                <source type="image/avif" srcset="/site-img/home/lifter-prog-base-640.avif 640w, /site-img/home/lifter-prog-base-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <img src="/site-img/home/lifter-prog-base-640.webp" srcset="/site-img/home/lifter-prog-base-640.webp 640w, /site-img/home/lifter-prog-base-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw" width="393" height="740" alt="" loading="lazy" decoding="async">
+              </picture>
+              <img class="lf-l lf-line" style="--x: 27.3; --y: 520.7; --w: 339; --h: 161.8" src="/site-img/home/lifter-line.webp" width="1017" height="485" alt="" loading="lazy" decoding="async">
+              <span class="sb" aria-hidden="true"><b data-t="10:43"></b><i class="sb-isl"></i><i class="sb-bat"></i></span>
+            </div>
+            <i class="ph-btn ph-btn-a" aria-hidden="true"></i><i class="ph-btn ph-btn-b" aria-hidden="true"></i><i class="ph-btn ph-btn-c" aria-hidden="true"></i><i class="ph-btn ph-btn-p" aria-hidden="true"></i>
+          </div>
+        </div>
+      </figure>
+    </div>
+    <div class="lifter-copy">
+      <h2 id="lifter-h" class="h2">Lifters watch their max&nbsp;climb.</h2>
+      <p class="lead">Each PR lands as it’s logged, and Progress shows where they rank in their&nbsp;class.</p>
+      <p class="lf-try"><a class="quiet" href="/athlete.html?demo=1">Try it as a lifter<svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg></a></p>
     </div>
   </div>
 </section>

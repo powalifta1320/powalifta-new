@@ -1,6 +1,6 @@
 # Cuts the captures (test/site-capture/cap-*.mjs) into the homepage's pictures: AVIF + WebP at the widths index.html
 # asks for, into site-img/home/. Run the capture first, then: python3 test/site-capture/mkimg.py [desk phone thread
-# brand week clients import] (all by default). CAP as for the captures; OUT defaults to <repo>/site-img/home/.
+# brand week clients import lifter] (all by default). CAP as for the captures; OUT defaults to <repo>/site-img/home/.
 # After a desk re-take, desk-values.json says where index.html's live numbers, rings and pins go (mkimg prints them).
 import json, os, sys
 from PIL import Image
@@ -23,7 +23,7 @@ def one(im, name, q=88):   # a small layer: WebP only, at the capture's own 2x o
 def crop2(im, x, y, w, h):   # desk px (1440 x 900) to the 2x capture
     return im.crop((round(x * 2), round(y * 2), round((x + w) * 2), round((y + h) * 2)))
 
-what = sys.argv[1:] or ['desk', 'phone', 'thread', 'brand', 'week', 'clients', 'import']
+what = sys.argv[1:] or ['desk', 'phone', 'thread', 'brand', 'week', 'clients', 'import', 'lifter']
 
 # --- Sam's laptop (cap-desk.mjs): the opening's screen, the camera's window, the list, what the window showed before.
 if 'desk' in what:
@@ -97,3 +97,20 @@ if 'clients' in what:
 # --- The history import's preview (cap-import.mjs, Nina's old log pasted in).
 if 'import' in what:
     save(crop2(Image.open(CAP + 'import.png'), 472, 506, 496, 270), 'import', [496, 992], q_webp=86, q_avif=62)
+
+# --- The chapter for lifters (cap-lifter.mjs, 3x): Arjun's PR moment and his Progress, the top 740 pt of each (the moment
+# down to Done, Progress down to its strength chart), as they are (the still) and without what the page moves (motion);
+# Progress's line, its plot cut out, as a layer of its own. lifter-geo.json says where the page draws the plate, the
+# number and the jump (mkimg prints them in the screen's points, out of 393 x 852).
+if 'lifter' in what:
+    k, H = 3, 740
+    for src, nm in (('lifter-pr', 'lifter-pr'), ('lifter-pr-base', 'lifter-pr-base'), ('lifter-progress', 'lifter-prog'), ('lifter-progress-base', 'lifter-prog-base')):
+        save(Image.open(CAP + src + '.png').crop((0, 0, 393 * k, H * k)), nm, [640, 960])
+    g = json.load(open(CAP + 'lifter-geo.json'))
+    x, y, w, h = g['prog']['plot']
+    one(Image.open(CAP + 'lifter-progress.png').crop((round(x * k), round(y * k), round((x + w) * k), round((y + h) * k))), 'lifter-line', q=90)
+    print('   index.html .lf-line: --x %g; --y %g; --w %g; --h %g' % (x, y, w, h))
+    for key in ('plate', 'unit', 'tag', 'sub', 'set', 'acts', 'done'):
+        print('   PR %-6s' % key, g['pr'][key])
+    print('   PR number', g['pr']['num']['box'], g['pr']['num']['type'])
+    print('   PR jump  ', g['pr']['delta']['box'], g['pr']['delta']['type'])

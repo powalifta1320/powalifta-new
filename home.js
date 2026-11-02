@@ -106,6 +106,7 @@
     var r = function (el) { var b = el.getBoundingClientRect(); return [b.top + y0, b.bottom + y0]; };
     chapters = tocLinks.map(function (l) {
       var id = l.dataset.ch;
+      if (!l.offsetParent) return null;   // not in the bar at this width (Lifters on a tablet)
       /* Today starts at its first words (on a laptop with motion they sit beside Arjun's phone, above the row). */
       if (id === 'today') { var t = r($('#today')), c = r($('.land-copy')), w = r($('#who')); return [Math.min(t[0], c[0]), w[1]]; }
       return r(document.getElementById(id));
@@ -310,7 +311,7 @@
   avif(function (ok) { next.srcset = ok ? next.dataset.srcset : next.dataset.fallback; if (next.decode) next.decode().catch(function () {}); });
   /* The next chapters' pictures, decoded ahead so no frame waits on one mid-scroll. On a laptop they are fetched now; on a
      phone (often a slow line, and data) the browser's own lazy loading fetches each as the reader nears it. */
-  function warm() { var eager = !small(); $$('#thread img, #wk img, #imp img, .cl img, .brand-ph img, #fwA img, .fw-b img').forEach(function (i) { if (eager && i.loading === 'lazy') i.loading = 'eager'; if (i.complete && i.decode) i.decode().catch(function () {}); }); }
+  function warm() { var eager = !small(); $$('#thread img, #wk img, #imp img, .cl img, .brand-ph img, #fwA img, .fw-b img, #lifters .lf-base img, #lifters .lf-line').forEach(function (i) { if (eager && i.loading === 'lazy') i.loading = 'eager'; if (i.complete && i.decode) i.decode().catch(function () {}); }); }
   if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 1500 }); else setTimeout(warm, 600);
 
   /* Depth (laptops): the laptop behind lags the reader's scroll, the phone in front leads it; scrubbed over the
@@ -590,6 +591,41 @@
   swapIn(meetTl, $('#slabOut'), C + 0.36);
   onState(meetTl, { trigger: scene, start: function () { return small() ? 'top 74%' : 'top 66%'; } });
   rise($$('#meet .side > .cap'), { trigger: scene, start: 'top 90%', stagger: 0.1 });
+
+  /* =====================================================================
+     FOR LIFTERS: Arjun's own app after that set. The words rise; the two phones rise into place; the PR moment plays as
+     the app plays it (styles.css .pr-moment: the plate rolls in from the screen's left edge and lands with a squash, the
+     number counts up from his old best, 223 to 228, then the jump shows); then Progress draws its line up to his new
+     total. Side by side (760 and up) one beat, the moment then the line; stacked, each as its phone comes up.
+     ===================================================================== */
+  words($('#lifter-h'));
+  rise([$('.lifter-copy .lead'), $('.lf-try')], { trigger: $('.lifter-copy .lead'), start: 'top 92%', stagger: 0.08 });
+  var lfPr = $('#lfPr'), lfProg = $('#lfProg'), lfPlate = $('.lf-plate', lfPr), lfN = $('.lf-n', lfPr), lfD = $('.lf-d', lfPr), lfLine = $('.lf-line', lfProg);
+  rise([$('.lf-crop', lfPr), $('.lf-crop', lfProg)], { trigger: '.lf-phones', y: 40, start: 'top 94%', dur: 0.8, stagger: 0.12 });
+  lfN.dataset.from = '223'; lfN.dataset.to = '228';
+  gsap.set(lfPlate, { xPercent: -221, rotation: -250, transformOrigin: '50% 50%' });   // the app's -72vw: 283 of its 393 pt, 2.21 plates
+  gsap.set(lfD, { autoAlpha: 0, yPercent: 18 });
+  gsap.set(lfLine, { clipPath: 'inset(0% 100% 0% 0%)' });
+  function prMoment() {
+    var tl = gsap.timeline({ paused: true })
+      .to(lfPlate, { xPercent: 0, rotation: 0, duration: 0.86, ease: ENTER }, 0)
+      .to(lfPlate, { scaleX: 1.04, scaleY: 0.95, yPercent: 1.6, duration: 0.1, ease: 'power1.out' }, 0.82)
+      .to(lfPlate, { scaleX: 1, scaleY: 1, yPercent: 0, duration: 0.2, ease: 'power1.out' }, 0.92)
+      .to(lfD, { autoAlpha: 1, yPercent: 0, duration: 0.24, ease: OUT }, 1.15);
+    count(tl, lfN, 0.25, 0.9, 'power2.out');   // the app's own count: 900 ms, a cubic ease-out, from 250 ms
+    return tl;
+  }
+  function lineDraw() { return gsap.timeline({ paused: true }).to(lfLine, { clipPath: 'inset(0% 0% 0% 0%)', duration: 1.15, ease: INOUT }, 0); }
+  mm.add({ pair: '(min-width: 760px)', stack: '(max-width: 759px)' }, function (ctx) {
+    if (ctx.conditions.pair) {
+      var both = gsap.timeline({ paused: true }).add(prMoment().play(), 0).add(lineDraw().play(), 0.7);
+      var a = onState(both, { trigger: '.lf-phones', start: 'center 62%' });
+      return function () { a.kill(); both.kill(); };
+    }
+    var p1 = prMoment(), p2 = lineDraw();
+    var b1 = onState(p1, { trigger: lfPr, start: 'center 62%' }), b2 = onState(p2, { trigger: lfProg, start: 'bottom 92%' });
+    return function () { b1.kill(); b2.kill(); p1.kill(); p2.kill(); };
+  });
 
   /* =====================================================================
      MOVING OVER: the three steps tick in, one after another (the number, then its line); the import's preview rises

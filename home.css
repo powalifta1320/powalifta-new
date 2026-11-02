@@ -131,6 +131,8 @@ body.home::before, body.home::after { content: none; display: none; }   /* the a
 html.js .bar:not(.is-on) { background-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 html.js .bar:not(.is-on) .bar-mk { opacity: 0; }
 html.js .bar:not(.has-pill) .bar-pill { opacity: 0; transform: translateY(-4px); visibility: hidden; pointer-events: none; transition: opacity var(--t-state) var(--ease-out), transform var(--t-state) var(--ease-out), visibility 0s linear var(--t-state); }
+/* The lifters' chapter in the contents on a laptop; on a tablet the bar keeps its five (they only just fit). */
+@media (max-width: 1099px) { .bar-toc .bar-link[data-ch="lifters"] { display: none; } }
 
 /* ---------- The iPhone: the screen at its true size inside a black-titanium frame drawn round it (rings, so the
    screen keeps its own geometry), side buttons, the status bar drawn live. --pw is the screen's width. */
@@ -498,6 +500,37 @@ html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 10
 .dec-red { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2); }
 
 /* =====================================================================
+   FOR LIFTERS (dark, the lifter's side): Arjun's own app after that set, two phones beside the words (the PR moment,
+   then Progress), each the top 740 pt of its screen, ending on the chapter's hairline. One light at the top: the PR's
+   gold, low. With motion the PR moment plays as the app plays it and Progress draws its line (home.js); the still is
+   each screen as captured.
+   ===================================================================== */
+.s-home .lifter { position: relative; padding: var(--sec) 0; isolation: isolate; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.lifter::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(34% 46% at 78% -8%, rgba(242, 194, 91, 0.07), transparent 70%); }   /* over the words, never behind a phone */
+.lifter-in { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: center; }
+.lf-phones { grid-column: 1 / span 7; display: flex; gap: clamp(28px, 3.34vw, 48px); --pw: clamp(260px, 21vw, 300px); }
+.lifter-copy { grid-column: 8 / span 5; padding-left: clamp(0px, 2.2vw, 32px); }
+.lifter-copy .lead { margin-top: var(--s3); max-width: 26em; }
+.lf-try { margin-top: var(--s4); }
+/* --u: one of the screen's points (out of 393 x 852), in px. */
+.lf { position: relative; margin: 0; width: var(--pw); flex: none; --u: calc(var(--pw) / 393); }
+/* The crop ends 740 pt down the screen (under Done; under Progress's chart), on a hairline. */
+.lf-crop { height: calc(var(--pw) * 740 / 393 + var(--pw) * 0.0305 + 2px); overflow: hidden; padding: calc(var(--pw) * 0.0305 + 2px) calc(var(--pw) * 0.0305 + 5px) 0; margin: 0 calc((var(--pw) * 0.0305 + 5px) * -1); box-shadow: inset 0 -1px 0 var(--hair); }
+.lf .ph-scr { font-size: calc(16 * var(--u)); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.lf .ph-scr > picture img { aspect-ratio: 393 / 740; }
+/* With motion the base screen is drawn and what moves sits on it, placed in the screen's points. */
+.lf-base, .lf-l { display: none; }
+html.m .lf-still { display: none; }
+html.m .lf-base { display: block; }
+html.m .lf-l { display: block; position: absolute; z-index: 2; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); pointer-events: none; }
+.lf-plate { width: calc(128 * var(--u)); height: calc(128 * var(--u)); filter: drop-shadow(0 calc(18 * var(--u)) calc(30 * var(--u)) rgba(242, 194, 91, 0.25)); will-change: transform; }
+.lf-plate svg { width: 100%; height: 100%; }
+/* The number and the jump in the app's own type (styles.css .prm-num, .prm-delta). */
+.lf-n { font-family: var(--font-num); font-size: calc(88 * var(--u)); font-weight: 800; font-stretch: 104%; line-height: 1; letter-spacing: -0.04em; color: #f4f4f6; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lf-d { padding: 0.3333em 0.8em; border-radius: 999px; background: rgba(52, 217, 130, 0.14); color: #34d982; font-family: var(--font-body); font-size: calc(15 * var(--u)); font-weight: 750; line-height: 1.6; letter-spacing: -0.005em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lf-line { width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u)); max-width: none; }
+
+/* =====================================================================
    MOVING OVER, AND THE MONEY (dark).
    ===================================================================== */
 .s-home .moving { position: relative; padding: var(--sec) 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
@@ -711,6 +744,11 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .next-head .lead { margin-top: 16px; }
   .scene { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "mid mid" "phone board"; row-gap: 32px; }
   .side-phone { --pw: min(272px, 34vw); }
+  /* For lifters: the words, then the two phones side by side under them. */
+  .lifter-in { grid-template-columns: minmax(0, 1fr); row-gap: var(--s5); }
+  .lifter-copy, .lf-phones { grid-column: 1; }
+  .lifter-copy { grid-row: 1; padding-left: 0; }
+  .lf-phones { grid-row: 2; --pw: min(280px, 36vw); }
   /* The four plans as a 2 x 2, each reading as one block (its rule and name, its price, then the lifters it seats). */
   .bands { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--s4); row-gap: var(--s4); }
   .band { padding-right: 0; display: flex; flex-direction: column; }
@@ -779,6 +817,13 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .scene { border-bottom: 0; }
   .side-phone { --pw: min(220px, 56vw); }
   .mp-crop { flex: none; height: calc(var(--pw) * 0.9); min-height: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
+  /* For lifters: the words, then the PR moment and Progress, one under the other. */
+  .lifter-in { grid-template-columns: minmax(0, 1fr); row-gap: var(--s4); }
+  .lifter-copy, .lf-phones { grid-column: 1; }
+  .lifter-copy { grid-row: 1; padding-left: 0; }
+  .lifter-copy .lead { margin-top: var(--s2); }
+  .lf-try { margin-top: var(--s3); }
+  .lf-phones { grid-row: 2; flex-direction: column; align-items: center; gap: var(--s5); --pw: min(250px, 64vw); }
   .mp { margin: 0 auto; }
   .side-board { padding-bottom: 0; }
   .step-i { grid-template-columns: 34px minmax(0, 1fr); column-gap: 14px; padding: 14px 0 16px; }
