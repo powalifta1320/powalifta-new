@@ -44,16 +44,25 @@ export function pick<T>(index: Map<string, T[]>, ids: string[]): T[] {
   return out
 }
 
-// Programs as the report needs them: the sessions planned this week (worked out by the database when
-// the row says so, programs_planned; else from the block's JSON, dropped as soon as it's read: it is
-// the heaviest thing the job touches).
-export function leanPrograms(rows: Row[]): { athlete_id: unknown; coach_id: unknown; updated_at: unknown; planned: number }[] {
-  return (rows || []).map((r) => ({
-    athlete_id: r.athlete_id,
-    coach_id: r.coach_id ?? null,
-    updated_at: r.updated_at ?? null,
-    planned: r.weeks === undefined && r.planned != null && isFinite(Number(r.planned)) ? Math.max(0, Math.round(Number(r.planned))) : CR.plannedPerWeek(r.weeks),
-  }))
+// Programs as the report needs them: which one (its id, for the effort read), the sessions planned this week
+// and, for the Monday report, the weeks left in the block (worked out by the database when the row says so,
+// programs_planned and programs_weeks_left; else from the block's JSON, dropped as soon as it's read: it is the
+// heaviest thing the job touches). weeks_left is only there when it was asked for or the JSON was read.
+type Lean = { id: unknown; athlete_id: unknown; coach_id: unknown; updated_at: unknown; planned: number; weeks_left?: number | null }
+export function leanPrograms(rows: Row[]): Lean[] {
+  return (rows || []).map((r) => {
+    const json = r.weeks !== undefined
+    const out: Lean = {
+      id: r.id ?? null,
+      athlete_id: r.athlete_id,
+      coach_id: r.coach_id ?? null,
+      updated_at: r.updated_at ?? null,
+      planned: !json && r.planned != null && isFinite(Number(r.planned)) ? Math.max(0, Math.round(Number(r.planned))) : CR.plannedPerWeek(r.weeks),
+    }
+    if (json) out.weeks_left = CR.weeksLeft(r.weeks)
+    else if (r.weeks_left !== undefined) out.weeks_left = r.weeks_left == null || !isFinite(Number(r.weeks_left)) ? null : Math.max(0, Math.round(Number(r.weeks_left)))
+    return out
+  })
 }
 
 // The coach's one-click unsubscribe: their own token, and r=coach so the page names the Monday report.

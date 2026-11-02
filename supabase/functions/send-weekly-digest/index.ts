@@ -16,10 +16,13 @@
 // backfill in migration-email-preferences.sql pre-seeds everyone so the
 // unsub_token is ready). Every email carries a one-click unsubscribe link.
 //
-// COACH REPORT (Mondays): for every coach with at least one lifter, last Monday–Sunday: who trained,
-// who needs them (pain reported, behind, form checks waiting, check-ins missing), PRs, meets in the
-// next 4 weeks, payments overdue. A team with nothing at all (nobody trained, nothing waiting) gets
-// nothing. The push (category alerts, so push_alerts mutes it) opens /coach.html?report=week; the email
+// COACH REPORT (Mondays): for every coach with at least one lifter, last Monday–Sunday: who trained and
+// the sessions against what was written (and against the week before), who needs them (pain reported,
+// behind, their words waiting, ran hot, form checks, check-ins missing, no lift up in 4 weeks), strength
+// over 4 weeks, last week's top sets against the RPE written, PRs, meets in the next 8 weeks with each
+// lifter's weigh-in against the class, the blocks to write next, money overdue and due this week,
+// applications waiting and seats, every lifter on one line (v2, 2 Nov). A team with nothing at all
+// (nobody trained, nothing waiting) gets nothing. The push (category alerts, so push_alerts mutes it) opens /coach.html?report=week; the email
 // goes unless weekly_digest is explicitly false (no row = opted in). A coach with no preferences row
 // gets one made at send time (defaults only: weekly email on, product emails off, pushes on) so the
 // email's one-click unsubscribe has a token; the link carries r=coach so the page says "Monday report".
@@ -29,6 +32,12 @@
 // in the database (public.coach_week_stats, sql/migration-coach-alerts-2026-10-28.sql), programs are
 // read lean: the planned sessions worked out in the database (programs_planned,
 // sql/migration-data-scale-2026-10-28.sql), or the JSON 25 lifters at a time and dropped before it.
+// The report's v2 parts come from sql/migration-coach-report-v2-2026-11-02.sql the same way, never as raw
+// sets or messages: strength (coach_week_stats' recent / prior), effort (coach_week_effort: each block's
+// logged RPE sets of the week, the top sets picked in coach-report.js), their words (coach_threads_last:
+// who sent each thread's last message and when, never the words), the weeks left (programs_weeks_left;
+// before it runs, the Monday report reads the blocks' JSON as before row 56). Each is optional: without
+// it that part is left out and the rest goes, as with a table an older project doesn't have.
 // At a few thousand lifters, move the emails to Resend's batch endpoint.
 //
 // AUTH MODEL: "Verify JWT" is OFF (a cron scheduler has no user session),
@@ -52,7 +61,8 @@
 //          sql/cron-coach-alerts-2026-10-28.sql moves it to '0 14 * * 1,4' (Mondays and Thursdays).
 //
 // Needs sql/migration-coach-alerts-2026-10-28.sql for the coach jobs (they say so if it's missing;
-// the lifters' digest doesn't need it).
+// the lifters' digest doesn't need it). sql/migration-coach-report-v2-2026-11-02.sql adds the report's v2
+// parts (optional, as above).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import '../_shared/coach-report.js';
@@ -367,9 +377,10 @@ function indexBy(rows: Row[], key: string): Map<string, Row[]> {
   return m;
 }
 
-// The coaches, their lifters, programs (lean) and the week's stats: what both coach jobs need.
+// The coaches, their lifters, programs (lean) and the week's stats: what both coach jobs need. weeksLeft: the
+// Monday report also reads each block's weeks left (programs_weeks_left); Thursday's read is as it was.
 // deno-lint-ignore no-explicit-any
-async function loadTeams(admin: any, from: string, to: string) {
+async function loadTeams(admin: any, from: string, to: string, opts: { weeksLeft?: boolean } = {}) {
   const profiles = await readAll((f, t) => admin.from('profiles').select('id, name, coach_id').not('coach_id', 'is', null).order('id').range(f, t));
   const roster = rosterByCoach(profiles);
   const coachIds = [...roster.keys()];
@@ -391,8 +402,9 @@ async function loadTeams(admin: any, from: string, to: string) {
   // database works the sessions out (programs_planned, sql/migration-data-scale-2026-10-28.sql); before
   // that runs, the block's JSON is read 25 lifters at a time and dropped as each page is read.
   let programs: Row[];
+  const lean = 'id, athlete_id, coach_id, updated_at, planned:programs_planned' + (opts.weeksLeft ? ', weeks_left:programs_weeks_left' : '');
   try {
-    programs = await byIds(athleteIds, async (c) => leanPrograms(await readAll((f, t) => admin.from('programs').select('id, athlete_id, coach_id, updated_at, planned:programs_planned').in('athlete_id', c).order('id').range(f, t))));
+    programs = await byIds(athleteIds, async (c) => leanPrograms(await readAll((f, t) => admin.from('programs').select(lean).in('athlete_id', c).order('id').range(f, t))));
   } catch (e) {
     if (!isMissing(e)) throw e;
     programs = await byIds(athleteIds, async (c) => leanPrograms(await readAll((f, t) => admin.from('programs').select('id, athlete_id, coach_id, weeks, updated_at').in('athlete_id', c).order('id').range(f, t))), PROG_IDS);
@@ -434,22 +446,51 @@ async function sendEmail(apiKey: string, msg: Record<string, unknown>): Promise<
   return false;
 }
 
+// An RPC's rows (a set-returning function answers 1000 rows at most, like a read: each call takes 100 lifters
+// and answers a row or so per lifter). Its error is thrown, for optional() to leave that part out.
+// deno-lint-ignore no-explicit-any
+async function rpcRows(admin: any, name: string, args: Record<string, unknown>): Promise<Row[]> {
+  const { data, error } = await admin.rpc(name, args);
+  if (error) throw new Error(name + ': ' + errMsg(error));
+  return (data || []) as Row[];
+}
+
 // Mondays: last week's report to every coach with a lifter.
 // deno-lint-ignore no-explicit-any
 async function runCoachReport(admin: any, apiKey: string, today: string, dryRun: boolean): Promise<Record<string, unknown>> {
   const started = Date.now();
+  const now = Date.now();
   const W = CR.lastWeek(today);
-  const T = await loadTeams(admin, W.from, W.to);
+  const T = await loadTeams(admin, W.from, W.to, { weeksLeft: true });
   const ids = T.athleteIds;
   const ciFrom = CR.addDays(W.from, -28);
   const pains = await optional('pain_reports', () => byIds(ids, (c) => readAll((f, t) => admin.from('pain_reports').select('id, athlete_id, day, resolved_at').in('athlete_id', c).gte('day', W.from).lte('day', W.to).order('id').range(f, t))));
   const checkins = await optional('checkins', () => byIds(ids, (c) => readAll((f, t) => admin.from('checkins').select('id, athlete_id, created_at, week_start').in('athlete_id', c).gte('created_at', ciFrom).order('id').range(f, t))));
   const answers = await optional('checkin_answers', () => byIds(ids, (c) => readAll((f, t) => admin.from('checkin_answers').select('id, athlete_id, period').in('athlete_id', c).gte('period', ciFrom).lte('period', W.to).order('id').range(f, t))));
-  const meets = await optional('meets', () => byIds(ids, (c) => readAll((f, t) => admin.from('meets').select('id, athlete_id, name, meet_date').in('athlete_id', c).gte('meet_date', today).lte('meet_date', CR.addDays(today, 28)).order('id').range(f, t))));
+  const meets = await optional('meets', () => byIds(ids, (c) => readAll((f, t) => admin.from('meets').select('id, athlete_id, name, meet_date, weight_class').in('athlete_id', c).gte('meet_date', today).lte('meet_date', CR.addDays(today, 56)).order('id').range(f, t))));
   const formChecks = await optional('form_checks', () => byIds(T.coachIds, (c) => readAll((f, t) => admin.from('form_checks').select('id, athlete_id, coach_id, coach_reply').in('coach_id', c).is('coach_reply', null).order('id').range(f, t))));
-  const billing = await optional('client_billing', () => byIds(T.coachIds, (c) => readAll((f, t) => admin.from('client_billing').select('id, athlete_id, coach_id, amount_cents, currency, next_due, status').in('coach_id', c).eq('status', 'active').lt('next_due', today).order('id').range(f, t))));
+  // Money: overdue, and due in the next 7 days.
+  const billing = await optional('client_billing', () => byIds(T.coachIds, (c) => readAll((f, t) => admin.from('client_billing').select('id, athlete_id, coach_id, amount_cents, currency, next_due, status').in('coach_id', c).eq('status', 'active').lte('next_due', CR.addDays(today, 7)).order('id').range(f, t))));
+  // v2. The week before (one more coach_week_stats call): without it, no "than the week before".
+  let before: Row[] | null = null;
+  try { before = await byIds(ids, (c) => rpcRows(admin, 'coach_week_stats', { p_athletes: c, p_from: CR.addDays(W.from, -7), p_to: CR.addDays(W.to, -7) })); }
+  catch (e) { console.warn('coach jobs: the week before left out: ' + errMsg(e)); }
+  // Last week's logged RPE sets per block, and who sent each thread's last message (never the words).
+  const effort = await optional('coach_week_effort', () => byIds(ids, (c) => rpcRows(admin, 'coach_week_effort', { p_athletes: c, p_from: W.from, p_to: W.to })));
+  const threads = await optional('coach_threads_last', () => byIds(ids, (c) => rpcRows(admin, 'coach_threads_last', { p_athletes: c })));
+  // Session notes waiting on a reply, the last 4 weeks (the note is read only to see it has words in it).
+  const notes = await optional('session_notes', () => byIds(ids, (c) => readAll((f, t) => admin.from('session_notes').select('id, athlete_id, date, note').in('athlete_id', c).is('coach_comment', null).gte('date', CR.addDays(today, -28)).order('id').range(f, t))));
+  // The latest weigh-ins of the lifters with a meet coming, the last 2 weeks.
+  const meetIds = [...new Set(meets.map((m) => String(m.athlete_id)))];
+  const bodyweight = await optional('bodyweight', () => byIds(meetIds, (c) => readAll((f, t) => admin.from('bodyweight').select('id, athlete_id, date, weight').in('athlete_id', c).gte('date', CR.addDays(today, -14)).lte('date', today).order('id').range(f, t))));
+  // Applications waiting (confirmed, not decided), the unused invites holding a seat, and the plan in force.
+  const apps = await optional('coach_applications', () => byIds(T.coachIds, (c) => readAll((f, t) => admin.from('coach_applications').select('id, coach_id').in('coach_id', c).eq('status', 'new').not('confirmed_at', 'is', null).order('id').range(f, t))));
+  const invites = await optional('invites', () => byIds(T.coachIds, (c) => readAll((f, t) => admin.from('invites').select('code, coach_id, used, created_at').in('coach_id', c).gte('created_at', new Date(now - 60 * 86400000).toISOString()).order('code').range(f, t), 'code')));
+  const plans = await optional('plans', () => byIds(T.coachIds, (c) => readAll((f, t) => admin.from('profiles').select('id, subscription_tier, subscription_period_end').in('id', c).order('id').range(f, t))));
   const painBy = indexByAthlete(pains), ciBy = indexByAthlete(checkins), ansBy = indexByAthlete(answers), meetBy = indexByAthlete(meets);
   const fcBy = indexBy(formChecks, 'coach_id'), billBy = indexBy(billing, 'coach_id');
+  const beforeBy = before ? indexByAthlete(before) : null, effBy = indexByAthlete(effort), thrBy = indexByAthlete(threads), noteBy = indexByAthlete(notes), bwBy = indexByAthlete(bodyweight);
+  const appBy = indexBy(apps, 'coach_id'), invBy = indexBy(invites, 'coach_id'), planBy = new Map(plans.map((p) => [String(p.id), p]));
 
   const out = { coaches: T.coachIds.length, emails: 0, pushes: 0, quiet: 0, emailOff: 0, failed: 0, left: 0, preview: [] as Row[] };
   for (const coachId of T.coachIds) {
@@ -457,18 +498,20 @@ async function runCoachReport(admin: any, apiKey: string, today: string, dryRun:
     try {
       const lifters = T.roster.get(coachId) || [];
       const lid = lifters.map((a) => a.id);
+      const coach: Row = T.coachBy.get(coachId) || {};
+      const unit = coach.unit === 'lb' || coach.unit === 'lbs' ? 'lbs' : 'kg';
       const team = CR.teamWeek(CR.fromRows({
         athletes: lifters, programs: pick(T.programs, lid), stats: pick(T.stats, lid), busy: pick(T.busy, lid),
         pains: pick(painBy, lid), checkins: pick(ciBy, lid), checkinAnswers: pick(ansBy, lid), meets: pick(meetBy, lid),
         formChecks: fcBy.get(coachId) || [], billing: billBy.get(coachId) || [],
-      }, { coachId, today }), W);
+        statsBefore: beforeBy ? pick(beforeBy, lid) : null, effort: pick(effBy, lid), threads: pick(thrBy, lid), notes: pick(noteBy, lid),
+        bodyweight: pick(bwBy, lid), applications: appBy.get(coachId) || [], invites: invBy.get(coachId) || [], plan: planBy.get(coachId) || null,
+      }, { coachId, today, now }), { from: W.from, to: W.to, today: W.today, now, unit });
       if (!CR.worthSending(team)) { out.quiet++; continue; }
-      const coach: Row = T.coachBy.get(coachId) || {};
       const pref = T.prefBy.get(coachId);
       const push = CR.reportPush(team);
       const email = String(coach.email || '');
       const emailOn = !(pref && pref.weekly_digest === false) && email.includes('@') && !!apiKey;
-      const unit = coach.unit === 'lb' || coach.unit === 'lbs' ? 'lbs' : 'kg';
       if (dryRun) {
         const m = CR.reportEmail(team, { coachName: coach.name, unsubUrl: emailOn ? unsubLink(UNSUB_BASE, 'token-made-at-send') : '', appUrl: APP_URL, unit });
         out.preview.push({ coach: coachId, to: emailOn ? maskEmail(email) : null, subject: m.subject, text: m.text, push, pushMuted: !!(pref && pref.push_alerts === false) });
