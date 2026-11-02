@@ -7617,9 +7617,11 @@ test('over by a little; one lifter; so far over nobody gets the full time; every
   eq(z.minPerLifter, 0); eq(z.capacity, null); eq(z.more, null); eq(z.rows.length, 0); eq(z.tasks.length, 0);
   eq(Capacity.lineText(z), 'Every task is at 0 min. Change minutes to set how long each one takes you.');
 });
-test('durations the way a coach says them: minutes under an hour, then hours and minutes to the 5; how often in words', () => {
+test('durations the way a coach says them: exact hours and minutes, an estimate to the 5 from an hour up; how often in words', () => {
   const d = Capacity.durText;
-  eq(d(40), '40 min'); eq(d(0), '0 min'); eq(d(60), '1 h'); eq(d(800), '13 h 20 min'); eq(d(149), '2 h 30 min'); eq(d(147), '2 h 25 min'); eq(d(59.6), '1 h'); eq(d(-5), '0 min');
+  eq(d(40), '40 min'); eq(d(0), '0 min'); eq(d(60), '1 h'); eq(d(800), '13 h 20 min'); eq(d(59.6), '1 h'); eq(d(-5), '0 min');
+  eq(d(164), '2 h 44 min', 'the roster\'s hours are an exact sum: 4 lifters at 41 min');
+  eq(d(149, true), '2 h 30 min', 'about: to the nearest 5'); eq(d(147, true), '2 h 25 min'); eq(d(38, true), '38 min', 'under an hour: the minute');
   eq(Capacity.oftenText(3), '3 a week'); eq(Capacity.oftenText(1), '1 a week'); eq(Capacity.oftenText(0.5), '1 every 2 weeks');
   eq(Capacity.oftenText(0.2), '1 a month'); eq(Capacity.oftenText(0.05), 'Now and then');
 });

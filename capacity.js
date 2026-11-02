@@ -217,11 +217,12 @@
   }
 
   /* ---------------------------------------------------------------- the words (pure) */
-  // A duration the way a coach says it: "40 min", "2 h", "13 h 20 min" (an hour or more to the nearest 5 min).
-  function durText(m) {
+  // A duration the way a coach says it: "40 min", "2 h", "13 h 20 min". The roster's hours are exact sums; about:
+  // an estimate (what a time-saver gives back, what you gave), an hour or more to the nearest 5 min.
+  function durText(m, about) {
     m = Math.max(0, Math.round(Number(m) || 0));
     if (m < 60) return m + ' min';
-    m = Math.round(m / 5) * 5;
+    if (about) m = Math.round(m / 5) * 5;
     var h = Math.floor(m / 60), r = m % 60;
     return h + ' h' + (r ? ' ' + r + ' min' : '');
   }
@@ -429,14 +430,14 @@
     }).join('') + '</div>';
   }
   // What you actually gave: one quiet line, from a real account's own last 4 weeks.
-  function wasHtml(M) { return M.gave ? '<p class="cap-was">Last 4 weeks you gave each lifter about ' + esc(nbsp(durText(M.gave))) + ' a week.</p>' : ''; }
+  function wasHtml(M) { return M.gave ? '<p class="cap-was">Last 4 weeks you gave each lifter about ' + esc(nbsp(durText(M.gave, true))) + ' a week.</p>' : ''; }
   function savesHtml(M) {
     var list = M.est.saves.filter(function (s) { return opener(s.feature); });
     if (!list.length) return '';
     return '<h2 class="cl-gh cap-gh">Save time</h2><div class="cl-list cap-list cap-saves" role="list">' + list.map(function (s) {
       var sv = SAVER[s.feature] || { label: s.feature, icon: 'chev', verb: 'give' };
       return '<button type="button" class="cap-srow" role="listitem" data-cp="save" data-k="' + esc(s.feature) + '"><span class="cap-sic">' + ic(sv.icon) + '</span>' +
-        '<span class="cap-stx"><span class="cap-st">' + esc(sv.label) + '</span> <span class="cap-sv">' + esc(nbsp(sv.verb + ' back') + ' about ' + nbsp(durText(s.minutes)) + ' a week') + '</span></span><span class="cap-chev">' + ic('chev') + '</span></button>';
+        '<span class="cap-stx"><span class="cap-st">' + esc(sv.label) + '</span> <span class="cap-sv">' + esc(nbsp(sv.verb + ' back') + ' about ' + nbsp(durText(s.minutes, true)) + ' a week') + '</span></span><span class="cap-chev">' + ic('chev') + '</span></button>';
     }).join('') + '</div>';
   }
   function planHtml(M) {
