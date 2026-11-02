@@ -3,7 +3,8 @@
 // prior exactly as the app's own windows (fromStore); program_planned_per_week skips drafts and otherwise answers
 // as before; program_weeks_left = weeksLeft, program_effort_sets = effortSets on generated blocks and every awkward
 // value; coach_week_effort and coach_threads_last answer per program and per thread, and the effort the report
-// builds from them equals the app's; only service_role runs any of it; STATUS-check row 63 says false before and
+// builds from them equals the app's; coach_week_effort works each block's sets out once (its plan); only service_role
+// runs any of it; STATUS-check row 63 says false before and
 // true after (rows 53 and 56 stay true).
 // Needs PGlite (not a repo dependency): PGLITE=/path/to/@electric-sql/pglite/dist/index.js node test/coach-report-sql.test.mjs
 // (or with @electric-sql/pglite resolvable from here). Without it, it says so and skips (exit 0).
@@ -229,6 +230,14 @@ const srvTeam = CR.teamWeek(CR.fromRows({ athletes: athletes.map(a => ({ id: a.i
   { coachId: COACH, today: '2026-10-26' }), Wk);
 console.log('the report\'s effort, app = server: ' + appTeam.effort.total + ' top sets, ' + appTeam.effort.hot.length + ' ran hot');
 ok(appTeam.effort.total > 20 && J(appTeam.effort) === J(srvTeam.effort), 'the report\'s effort is the same from the app and the server (' + appTeam.effort.total + ' top sets, ' + appTeam.effort.hot.length + ' ran hot)');
+// Each block's sets are worked out once: the plan of coach_week_effort's own query calls program_effort_sets once
+// (offset 0 keeps the subquery; pulled up, the filter would call it a second time per program).
+const effBody = (await db.query(`select prosrc from pg_proc where proname = 'coach_week_effort'`)).rows[0].prosrc;
+const planOf = async (q) => (await db.query('explain (verbose, costs off) ' + q.replace(/p_athletes/g, '$1::uuid[]').replace(/p_from/g, '$2::date').replace(/p_to/g, '$3::date').replace(/;\s*$/, ''), [ids, W1[0], W1[1]])).rows.map(r => r['QUERY PLAN']).join('\n');
+const calls = (plan) => (plan.match(/program_effort_sets\(/g) || []).length;
+const effPlan = await planOf(effBody), pulledUp = await planOf(effBody.replace(/\n\s*offset 0[^\n]*/, ''));
+ok(/offset 0/.test(effBody) && calls(effPlan) === 1, 'coach_week_effort: program_effort_sets once in its plan (' + calls(effPlan) + ')');
+ok(calls(pulledUp) === 2, 'and the check sees the difference: twice without offset 0 (' + calls(pulledUp) + ')');
 
 // ---------------------------------------------------------------- 5. coach_threads_last: the last message of each thread, never its words
 const msgs = [];

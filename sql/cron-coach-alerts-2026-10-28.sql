@@ -8,9 +8,25 @@
 -- Run it AFTER deploying send-weekly-digest with the coach jobs (a Thursday call to the old function
 -- would send the lifters' digest a second time). Safe to run twice. It changes only the schedule:
 -- the job's command (which holds the CRON_SECRET) is never read, selected or rewritten here.
-select cron.alter_job(jobid, schedule := '0 14 * * 1,4')
-from cron.job
-where jobname = 'powa-weekly-digest';
+-- Superseded (2026-11-02): the job runs hourly now (sql/cron-coach-report-hourly-2026-11-02.sql), and the function
+-- picks the Monday and Thursday jobs itself. Run again after that, this file leaves the hourly schedule as it is and
+-- says so: putting Mondays and Thursdays back would stop every coach's report whose day and hour fall elsewhere.
+do $$
+declare
+  v_id bigint;
+  v_schedule text;
+begin
+  select j.jobid, j.schedule into v_id, v_schedule from cron.job j where j.jobname = 'powa-weekly-digest';
+  if v_id is null then
+    raise exception 'No cron job named powa-weekly-digest: schedule it with sql/cron-weekly-digest.sql. Nothing was changed.';
+  end if;
+  if v_schedule = '0 * * * *' then
+    raise notice 'powa-weekly-digest runs hourly (sql/cron-coach-report-hourly-2026-11-02.sql): left as it is.';
+    return;
+  end if;
+  perform cron.alter_job(v_id, schedule := '0 14 * * 1,4');
+  raise notice 'powa-weekly-digest now runs at "0 14 * * 1,4" (Mondays and Thursdays, 14:00 UTC).';
+end $$;
 
 -- Check (never select the command column: it holds the secret):
 --   select jobname, schedule, active from cron.job where jobname = 'powa-weekly-digest';
