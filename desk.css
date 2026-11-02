@@ -1634,6 +1634,237 @@ html.desk body.powa-app .dk-sf input.sf-in { width: 100%; height: 28px; font-siz
 html.desk body.powa-app .imp-file { display: inline-block; margin: var(--s-2) 0 0; padding: var(--s-1) 0; border: 0; background: none; cursor: pointer; color: var(--text-2); font: var(--fw-2) var(--fs-2) var(--font-body); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
 @media (hover: hover) and (pointer: fine) { html.desk body.powa-app .imp-file:hover { color: var(--text); } }
 
+/* ---------- the program editor (desk-program.js, 2 Nov): the week as a program ----------
+   Four sizes on the screen: 28 the lifter's name, 17 day and exercise names and the cells' values, 15 body and the
+   secondary cells, 13 captions. One card per training day (radius 20, padding 24); its sets are rows 44 px tall on
+   inset hairlines, every column aligned across the week; a cell reads as text until it's hovered (a quiet fill) or
+   focused (a clear ring). Red is the logo and the one crimson. Motion: 140–200 ms on the desk's ease, no bounce, none
+   on keyboard moves between cells. */
+html.desk section[data-pane="program"].dp-on { --list-w: 360px; }
+@media (max-width: 1360px) { html.desk section[data-pane="program"].dp-on { --list-w: 300px; } }
+@media (max-width: 1180px) { html.desk section[data-pane="program"].dp-on { --list-w: 264px; } }
+html.desk body.powa-app {
+  --dp-17: 17px;
+  --c-name: 160px; --c-role: 56px; --c-sr: 68px; --c-load: 124px; --c-eff: 60px; --c-lift: 128px; --c-more: 24px; --c-gap: 6px;
+}
+/* the list: Lifters · Teams · Templates, then who's to write first */
+.dp-list .dk-list-head { padding-bottom: var(--s-3); }
+.dp-tabs { display: flex; gap: 2px; padding: 3px; margin-bottom: var(--s-3); border-radius: 12px; background: var(--dk-fill); }
+.dp-tab { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 10px; border: 0; border-radius: 9px; background: none; cursor: pointer;
+  color: var(--text-2); font: var(--fw-2) var(--fs-3)/1 var(--font-body); white-space: nowrap; transition: background-color 0.14s var(--dk-ease), color 0.14s var(--dk-ease); }
+.dp-tab-n { font-size: var(--fs-1); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.dp-tab.on { background: var(--dk-seg-on); color: var(--text); font-weight: var(--fw-3); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); }
+@media (hover: hover) and (pointer: fine) { .dp-tab:not(.on):hover { color: var(--text); } }
+.dp-tab:active { transform: scale(0.98); }
+.dp-tab:focus-visible, .dp-lrow:focus-visible, .dp-wk:focus-visible, .dp-wk-add:focus-visible, .dp-wk-gap:focus-visible, .dp-meet:focus-visible, .dp-navb:focus-visible, .dp-tool:focus-visible, .dp-mem:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
+.dp-search { flex: none !important; width: 100%; }
+.dp-lgrp { display: flex; align-items: baseline; gap: 6px; padding: var(--s-4) var(--s-3) var(--s-1); font: var(--fw-3) var(--fs-1)/1.2 var(--font-body); color: var(--text-3); }
+.dp-lgrp span { font-weight: var(--fw-2); color: var(--text-4); font-variant-numeric: tabular-nums; }
+.dp-lgrp:first-child { padding-top: var(--s-1); }
+.dp-lrow { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: var(--s-3); width: 100%; min-height: 56px; padding: var(--s-2) var(--s-3); box-sizing: border-box;
+  border: 0; border-radius: 12px; background: none; cursor: pointer; text-align: left; color: inherit; font: inherit; transition: background-color 0.14s var(--dk-ease); }
+@media (hover: hover) and (pointer: fine) { .dp-lrow:hover { background: var(--dk-hover); } }
+.dp-lrow.is-sel { background: var(--dk-sel); }
+.dp-lrow:active { transform: scale(0.985); }
+.dp-lrow .dk-av, .dp-mem .dk-av { width: 32px; height: 32px; font-size: var(--fs-1); }
+.dp-lmain { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dp-lname { font: var(--fw-3) var(--fs-3)/1.25 var(--font-body); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-lline { font: var(--fw-1) var(--fs-1)/1.3 var(--font-body); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.dp-lstat { max-width: 128px; font: var(--fw-2) var(--fs-1)/1.3 var(--font-body); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.dp-lstat.is-write { color: var(--text); }
+/* the head: who, the block, the tools; then the weeks and the one crimson (sticky) */
+.dp-head { padding-top: var(--page-top); }
+.dp-head-a { display: flex; align-items: flex-start; gap: var(--s-3); min-width: 0; }
+.dp-nav { display: flex; gap: 2px; flex: none; margin-top: 1px; }
+.dp-navb { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 10px; background: none; color: var(--text-3); cursor: pointer; transition: background-color 0.14s var(--dk-ease), color 0.14s var(--dk-ease); }
+.dp-navb svg { width: 18px; height: 18px; }
+@media (hover: hover) and (pointer: fine) { .dp-navb:hover { background: var(--dk-hover); color: var(--text); } }
+.dp-navb:active { transform: scale(0.97); }
+.dp-who { flex: 1 1 auto; min-width: 0; }
+html.desk body.powa-app .dp-name { margin: 0; font: var(--fw-4) var(--fs-7)/34px var(--font-body); font-weight: 800; letter-spacing: -0.02em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-stretch: 100%; text-transform: none; }
+.dp-sub { margin: 2px 0 0; font: var(--fw-1) var(--fs-3)/1.4 var(--font-body); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.dp-tools { display: flex; align-items: center; gap: 2px; flex: none; }
+.dp-tool, html.desk body.powa-app .dk-btn.dp-tool { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 0; border-radius: 10px; background: none; cursor: pointer;
+  color: var(--text-2); font: var(--fw-2) var(--fs-3)/1 var(--font-body); white-space: nowrap; transition: background-color 0.14s var(--dk-ease), color 0.14s var(--dk-ease), transform 0.16s var(--dk-ease); }
+.dp-tool svg { width: 16px; height: 16px; flex: none; color: var(--text-3); }
+@media (hover: hover) and (pointer: fine) { .dp-tool:not(:disabled):hover { background: var(--dk-hover); color: var(--text); } .dp-tool:not(:disabled):hover svg { color: var(--text-2); } }
+.dp-tool:not(:disabled):active { transform: scale(0.97); }
+.dp-tool:disabled { opacity: 0.4; cursor: default; }
+.dp-undo, .dp-head .dp-more { width: 32px; padding: 0; justify-content: center; }
+.dp-head-b { position: sticky; top: 0; z-index: 6; display: flex; align-items: center; gap: var(--s-3); margin: 0 calc(-1 * var(--s-5)); padding: var(--s-4) var(--s-5) var(--s-3); background: var(--bg); }
+.dp-weeks { display: flex; align-items: center; gap: 2px; min-width: 0; flex: 0 1 auto; padding: 3px; border-radius: 12px; background: var(--dk-fill); overflow-x: auto; scrollbar-width: none; }
+.dp-weeks::-webkit-scrollbar { display: none; }
+.dp-wk { display: inline-flex; align-items: baseline; gap: 6px; flex: none; height: 32px; padding: 0 12px; box-sizing: border-box; border: 0; border-radius: 9px; background: none; cursor: pointer;
+  color: var(--text-2); font: var(--fw-2) var(--fs-3)/32px var(--font-body); white-space: nowrap; font-variant-numeric: tabular-nums; transition: background-color 0.14s var(--dk-ease), color 0.14s var(--dk-ease); }
+.dp-wk.is-sel { background: var(--dk-seg-on); color: var(--text); font-weight: var(--fw-3); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); }
+@media (hover: hover) and (pointer: fine) { .dp-wk:not(.is-sel):hover { color: var(--text); background: var(--dk-hover); } }
+.dp-wk-m { font-size: var(--fs-1); font-weight: var(--fw-2); color: var(--text-3); }
+.dp-wk.is-now .dp-wk-m { color: var(--text); }
+.dp-wk-ok { display: inline-grid; place-items: center; align-self: center; color: var(--dk-ok); }
+.dp-wk-ok svg { width: 14px; height: 14px; }
+.dp-wk-add { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 9px; background: none; color: var(--text-3); cursor: pointer; transition: background-color 0.14s var(--dk-ease), color 0.14s var(--dk-ease); }
+.dp-wk-add svg { width: 16px; height: 16px; }
+@media (hover: hover) and (pointer: fine) { .dp-wk-add:hover, .dp-wk-gap:hover { background: var(--dk-hover); color: var(--text); } }
+.dp-wk-gap { flex: none; height: 32px; padding: 0 12px; border: 0; border-radius: 9px; background: none; cursor: pointer; color: var(--text-3); font: var(--fw-2) var(--fs-3)/1 var(--font-body); white-space: nowrap;
+  box-shadow: inset 0 0 0 1px var(--line-2); transition: background-color 0.14s var(--dk-ease), color 0.14s var(--dk-ease); }
+.dp-meet { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 32px; padding: 0 10px 0 8px; color: var(--dk-gold); font: var(--fw-3) var(--fs-3)/1 var(--font-body); white-space: nowrap; border-radius: 9px; max-width: 220px; }
+.dp-meet svg { width: 16px; height: 16px; flex: none; }
+.dp-meet-n { overflow: hidden; text-overflow: ellipsis; }
+.dp-act { display: inline-flex; flex: none; margin-left: auto; }
+html.desk body.powa-app .dk-btn.dp-cta { height: 36px; padding: 0 16px; font-size: var(--fs-3); border-radius: 10px; }
+/* the week: one card per training day */
+.dp { container: dpw / inline-size; padding-bottom: var(--s-6); }
+.dp-week { display: flex; flex-direction: column; gap: var(--s-4); padding-top: var(--s-1); }
+.dp-days { display: flex; flex-direction: column; gap: var(--s-4); }
+.dp-day { padding: var(--s-4) var(--s-5) var(--s-3); border-radius: var(--r-3); background: var(--dk-card); box-shadow: var(--dk-card-lit), 0 0 0 1px var(--dk-card-edge); }
+.dp-day.is-rest { padding-bottom: var(--s-4); background: none; box-shadow: inset 0 0 0 1px var(--line); }
+.dp-day.is-live { box-shadow: var(--dk-card-lit), 0 0 0 1px color-mix(in srgb, var(--dk-ok) 45%, transparent); }
+.dp-day-head { display: flex; align-items: center; gap: var(--s-3); min-height: 36px; margin-bottom: var(--s-1); }
+html.desk body.powa-app input.dp-day-name, .dp-day-title {
+  flex: 0 1 auto; field-sizing: content; min-width: 80px; max-width: 100%; width: 260px; height: 32px !important; min-height: 0 !important; margin: 0 0 0 -8px; padding: 0 8px !important;
+  border: 0 !important; border-radius: 10px; background: none !important; box-shadow: none !important; outline: none;
+  color: var(--text); font: var(--fw-3) var(--dp-17)/32px var(--font-body); letter-spacing: -0.01em; transition: background-color 0.14s var(--dk-ease), box-shadow 0.14s var(--dk-ease);
+}
+.dp-day-title { width: auto; margin: 0; padding: 0 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@supports (field-sizing: content) { html.desk body.powa-app input.dp-day-name { width: auto; } }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app input.dp-day-name:hover { background: var(--dk-hover) !important; } }
+html.desk body.powa-app input.dp-day-name:focus { background: var(--bg) !important; box-shadow: 0 0 0 2px var(--dk-focus) !important; }
+.dp-day-meta { margin-left: auto; font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dp-day-meta.is-live { color: var(--dk-ok); }
+.dp-day-more, .dp-more { display: grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--text-4); cursor: pointer; transition: background-color 0.14s var(--dk-ease), color 0.14s var(--dk-ease); }
+.dp-day-name + .dp-day-more { margin-left: auto; }
+.dp-day-more svg, .dp-more svg { width: 16px; height: 16px; }
+@media (hover: hover) and (pointer: fine) { .dp-day-more:hover, .dp-more:hover { background: var(--dk-hover); color: var(--text); } }
+.dp-rest { margin: 0; font: var(--fw-1) var(--fs-3)/1.4 var(--font-body); color: var(--text-3); }
+/* an exercise: its lines of sets in aligned cells */
+.dp-ex { position: relative; }
+.dp-ex + .dp-ex { border-top: 1px solid var(--line); }
+.dp-row, .dp-noterow { position: relative; display: grid; align-items: center; column-gap: var(--c-gap); min-height: 44px;
+  grid-template-columns: var(--c-name) var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-lift) var(--c-more); }
+.dp-row + .dp-row::before { content: ''; position: absolute; top: 0; right: 0; left: calc(var(--c-name) + var(--c-gap)); border-top: 1px solid var(--line); }
+/* a week with nothing lifted yet has no lifted column: its set fields take the room */
+.dp-week:not(.has-lifted) .dp-row { --c-lift: 0px; }
+.dp-week:not(.has-lifted) .dp-c-lift { display: none; }
+.dp-week:not(.has-lifted) .dp-row, .dp-week:not(.has-lifted) .dp-noterow { grid-template-columns: var(--c-name) var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-more); }
+.dp-week:not(.has-lifted) .dp-c-note { grid-column: 2 / 8; }
+.dp-week:not(.has-lifted) .dp-c-write { grid-column: 2 / 7; }
+/* a line's ⋯ shows on the line under the pointer, or the line being typed in (ContextMenu or ⇧F10 open it from a cell) */
+@media (hover: hover) and (pointer: fine) { .dp-row .dp-more { opacity: 0; transition: opacity 0.14s var(--dk-ease), background-color 0.14s var(--dk-ease); } .dp-row:hover .dp-more, .dp-row:focus-within .dp-more, .dp-more[aria-expanded="true"] { opacity: 1; } }
+.dp-noterow { min-height: 36px; padding-bottom: var(--s-1); }
+.dp-c-name { display: flex; align-items: center; flex-wrap: wrap; gap: 0 8px; min-width: 0; align-self: start; padding-top: 11px; }
+.dp-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--text-4); }
+.dp-ex.lift-squat .dp-dot, .dp-dot.lift-squat { background: var(--dk-sq); }
+.dp-ex.lift-bench .dp-dot, .dp-dot.lift-bench { background: var(--dk-bp); }
+.dp-ex.lift-deadlift .dp-dot, .dp-dot.lift-deadlift { background: var(--dk-dl); }
+.dp-exn { flex: 1 1 0; min-width: 0; font: var(--fw-3) var(--dp-17)/22px var(--font-body); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-ex.is-edited .dp-exn::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--text-3); vertical-align: 3px; }
+.dp-swap { flex-basis: 100%; padding-left: 16px; font: var(--fw-1) var(--fs-1)/1.3 var(--font-body); color: var(--text-3); }
+.dp-c-role { font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-c-sr { display: flex; align-items: center; min-width: 0; }
+.dp-x { flex: none; padding: 0 1px; color: var(--text-4); font: var(--fw-1) var(--fs-3)/1 var(--font-num); }
+.dp-c-load, .dp-c-eff, .dp-c-f, .dp-c-write, .dp-c-note { min-width: 0; }
+.dp-c-write { grid-column: 2 / 8; }
+.dp-c-note { grid-column: 2 / 9; display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
+.dp-c-lift { display: flex; align-items: center; min-width: 0; font: var(--fw-1) var(--fs-3)/1.2 var(--font-num); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dp-lifted { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dp-gap { width: 8px; height: 8px; flex: none; border-radius: 50%; }
+.dp-gap.t-warn { background: var(--dk-warn); }
+.dp-gap.t-alert { background: var(--dk-alert); }
+.dp-gap.t-cool { background: var(--dk-cool); }
+.dp-extra { color: var(--text-3); }
+/* the cells: real inputs that read as text at rest */
+html.desk body.powa-app input.dp-cell, html.desk body.powa-app input.dp-note, html.desk body.powa-app input.dp-addin, html.desk body.powa-app input.dp-mem-in {
+  width: 100%; height: 32px !important; min-height: 0 !important; margin: 0; padding: 0 6px !important; box-sizing: border-box;
+  border: 0 !important; border-radius: 8px; background: transparent !important; box-shadow: none !important; outline: none;
+  color: var(--text); caret-color: var(--text); font: var(--fw-1) var(--dp-17)/32px var(--font-num); font-variant-numeric: tabular-nums; text-overflow: ellipsis;
+  transition: background-color 0.14s var(--dk-ease), box-shadow 0.14s var(--dk-ease);
+}
+html.desk body.powa-app input.dp-cell.dp-n { text-align: right; }
+html.desk body.powa-app input.dp-cell.dp-n, html.desk body.powa-app input.dp-cell.dp-r { width: 30px; padding: 0 3px !important; }
+html.desk body.powa-app input.dp-cell.dp-l { font-weight: var(--fw-3); }
+html.desk body.powa-app input.dp-cell.dp-l.is-pct { font-weight: var(--fw-3); }
+html.desk body.powa-app input.dp-cell.dp-e { color: var(--text-2); }
+html.desk body.powa-app input.dp-cell.dp-f, html.desk body.powa-app input.dp-note { font: var(--fw-1) var(--fs-3)/32px var(--font-body); color: var(--text-3); }
+html.desk body.powa-app input.dp-cell.dp-wline { font-family: var(--font-body); }
+html.desk body.powa-app :is(input.dp-cell, input.dp-note, input.dp-addin)::placeholder { color: var(--text-4); opacity: 1; }
+html.desk body.powa-app input.dp-cell.dp-f::placeholder, html.desk body.powa-app input.dp-note::placeholder { color: transparent; }
+@media (hover: hover) and (pointer: fine) {
+  html.desk body.powa-app :is(input.dp-cell:not([readonly]), input.dp-note, input.dp-addin):hover { background: var(--dk-hover) !important; }
+  html.desk body.powa-app .dp-row:hover input.dp-cell.dp-f:not([readonly])::placeholder { color: var(--text-4); }
+}
+html.desk body.powa-app :is(input.dp-cell:not([readonly]), input.dp-note, input.dp-addin, input.dp-mem-in):focus { background: var(--bg) !important; box-shadow: 0 0 0 2px var(--dk-focus) !important; color: var(--text); }
+html.desk[data-theme="light"] body.powa-app :is(input.dp-cell:not([readonly]), input.dp-note, input.dp-addin, input.dp-mem-in):focus { background: #fff !important; }
+html.desk body.powa-app input.dp-cell.is-bad { box-shadow: 0 0 0 2px var(--dk-alert) !important; }
+html.desk body.powa-app input.dp-cell[readonly] { cursor: default; color: var(--text-2); }
+html.desk body.powa-app input.dp-cell.dp-l[readonly] { color: var(--text); }
+html.desk body.powa-app input.dp-cell[readonly]:focus { box-shadow: inset 0 0 0 1px var(--line-2) !important; }
+.dp-an { flex: none; max-width: 50%; font: var(--fw-1) var(--fs-3)/1.3 var(--font-body); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* add an exercise, a day; the notes in between */
+.dp-add { display: grid; grid-template-columns: var(--c-name) minmax(0, 1fr); align-items: center; column-gap: var(--c-gap); min-height: 44px; border-top: 1px solid var(--line); color: var(--text-3); }
+.dp-add > svg { display: none; }
+html.desk body.powa-app input.dp-addin { grid-column: 1 / -1; margin-left: -6px; width: calc(100% + 6px); font: var(--fw-2) var(--fs-3)/32px var(--font-body); color: var(--text-2); }
+html.desk body.powa-app input.dp-addin::placeholder { color: var(--text-3); }
+.dp-adddays { display: flex; gap: 2px; margin-left: -10px; }
+.dp-note-line { margin: 0; font: var(--fw-1) var(--fs-3)/1.45 var(--font-body); color: var(--text-3); text-wrap: pretty; }
+.dp-empty { padding: var(--s-6) 0; }
+.dp-empty p { margin: 0 0 var(--s-3); font: var(--fw-1) var(--fs-3)/1.45 var(--font-body); color: var(--text-3); }
+.dp-none { max-width: 620px; padding-top: var(--page-top); }
+.dp-none .dp-sub { white-space: normal; margin-top: var(--s-2); }
+.dp-none-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin-top: var(--s-5); }
+/* suggestions from how the week before was lifted, after Write week N */
+.dp-sug { padding: var(--s-3) var(--s-5); border-radius: var(--r-3); box-shadow: inset 0 0 0 1px var(--line-2); }
+.dp-sug-head { display: flex; align-items: center; gap: var(--s-3); min-height: 36px; font: var(--fw-3) var(--fs-3)/1.3 var(--font-body); color: var(--text); }
+.dp-sug-head > span { flex: 1 1 auto; }
+.dp-sug-row { display: flex; align-items: center; gap: var(--s-2); min-height: 40px; border-top: 1px solid var(--line); font: var(--fw-1) var(--fs-3)/1.3 var(--font-body); color: var(--text-2); }
+.dp-sug-row b { font-weight: var(--fw-3); color: var(--text); }
+.dp-sug-row > span { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+/* a team's week: written once; under each main lift, every lifter's own load */
+.dp-team { margin-top: var(--s-5); }
+.dp-team-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s-3); align-items: center; margin-bottom: var(--s-3); }
+html.desk body.powa-app .dp-team-t { grid-column: 1; margin: 0; font: var(--fw-3) var(--dp-17)/1.3 var(--font-body); color: var(--text); text-transform: none; font-stretch: 100%; }
+.dp-team-head .dp-sub { grid-column: 1; white-space: normal; }
+.dp-team-head .dp-tools { grid-column: 2; grid-row: 1 / span 2; }
+.dp-mems { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 4px var(--c-gap); padding: 2px 0 var(--s-3) calc(var(--c-name) + var(--c-gap)); }
+.dp-mem { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: var(--s-2); min-height: 44px; padding: 4px 8px 4px 4px; box-sizing: border-box; border: 0; border-radius: 12px; background: none; cursor: pointer; text-align: left; color: inherit;
+  transition: background-color 0.14s var(--dk-ease); }
+@media (hover: hover) and (pointer: fine) { .dp-mem:not(.is-nomax):hover { background: var(--dk-hover); } }
+.dp-mem:active { transform: scale(0.985); }
+.dp-mem.is-nomax { cursor: default; }
+.dp-mem-n { font: var(--fw-1) var(--fs-3)/1.2 var(--font-body); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-mem-v { font: var(--fw-3) var(--fs-3)/1.2 var(--font-num); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dp-mem.is-nomax .dp-mem-v { font-weight: var(--fw-1); color: var(--text-3); }
+.dp-mem.is-over .dp-mem-v { color: var(--dk-warn); }
+.dp-mem-own { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--text); margin-left: -8px; }
+.dp-mem { position: relative; }
+.dp-mem-lifted { grid-column: 2 / -1; font: var(--fw-1) var(--fs-1)/1 var(--font-body); color: var(--text-3); }
+html.desk body.powa-app input.dp-mem-in { width: 88px; font-size: var(--fs-3); font-weight: var(--fw-3); }
+/* narrow centres: fields, then what they lifted, step under the cells */
+@container dpw (max-width: 760px) {
+  .dp-row { --c-name: 132px; --c-load: 120px; --c-lift: 128px; }
+  .dp-row { grid-template-columns: var(--c-name) var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) var(--c-lift) var(--c-more); }
+  .dp-row .dp-c-f { grid-row: 2; grid-column: 2 / 7; }
+  .dp-row .dp-c-f:has(input:placeholder-shown) { display: none; }
+  .dp-row .dp-c-lift { grid-row: 1; grid-column: 6; }
+  .dp-row .dp-more { grid-row: 1; grid-column: 7; }
+  .dp-c-write { grid-column: 2 / 7; }
+}
+@container dpw (max-width: 600px) {
+  .dp-row { --c-name: 112px; --c-role: 56px; --c-sr: 70px; --c-load: 112px; --c-eff: 56px; }
+  .dp-row { grid-template-columns: var(--c-name) var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-more); }
+  .dp-row .dp-c-lift { grid-row: 2; grid-column: 2 / 7; padding-bottom: 6px; }
+  .dp-row .dp-c-lift:empty { display: none; }
+  .dp-row .dp-c-f { grid-row: 3; }
+  .dp-row .dp-more { grid-column: 7; }
+}
+/* the tools' words: whole on a wide centre, short ("Copy", "Progress") on the owner's 1440 with the rail out, icons below that */
+.dp-tool-s { display: none; }
+@container dkpb (max-width: 1000px) { #programArea .dp-head .dp-tool-l { display: none; } #programArea .dp-head .dp-tool-s { display: inline; } }
+@container dkpb (max-width: 700px) { #programArea .dp-head .dp-tool-s { display: none; } #programArea .dp-head .dp-tools .dp-tool { padding: 0; width: 32px; justify-content: center; } }
+@media (prefers-reduced-motion: reduce) {
+  :is(.dp-tab, .dp-lrow, .dp-navb, .dp-tool, .dp-wk, .dp-wk-add, .dp-wk-gap, .dp-mem, .dp-day-more, .dp-more) { transition: none; }
+  :is(.dp-tab, .dp-lrow, .dp-navb, .dp-tool, .dp-mem):active { transform: none; }
+}
+
 /* ---------- Messages ---------- */
 html.desk section[data-pane="messages"] > .dash-header { display: none; }
 html.desk #messagesArea.dk-msgs { display: grid; grid-template-columns: var(--list-w) minmax(0, 1fr); height: 100vh; }
