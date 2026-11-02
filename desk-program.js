@@ -615,6 +615,12 @@
     top.appendChild(toolsEl(prog, aid, wi));
     h.appendChild(top);
     var row = E('div', { class: 'dp-head-b' });
+    // The soft edge under the sticky weeks shows once the week has scrolled under them.
+    var sc = document.getElementById('programArea');
+    if (sc && !sc._dpEdge) {
+      sc._dpEdge = true;
+      sc.addEventListener('scroll', function () { var b = sc.querySelector('.dp-head-b'), a = sc.querySelector('.dp-head-a'); if (b && a) b.classList.toggle('is-stuck', sc.scrollTop > a.offsetHeight + 8); }, { passive: true });
+    }
     row.appendChild(weeksEl(prog, aid, wi));
     var act = E('span', { class: 'dp-act' });
     if (S.view !== 'progress') {
@@ -653,13 +659,14 @@
       var starts = (typeof dkPbStarts === 'function' ? dkPbStarts(prog) : [])[w.idx];
       b.setAttribute('aria-label', 'Week ' + w.n + ({ done: ', done', now: ', this week', write: ', nothing written', past: '', next: '' }[w.state] || '') + (w.draft ? ', a draft' : '') + (starts ? ', from ' + fmtDateShort(starts) : ''));
       if (starts) tip(b, 'From ' + fmtDateShort(starts) + (w.draft ? ' · a draft: ' + first((athleteOf(aid) || {}).name) + ' doesn’t see it yet' : ''), short ? String(w.idx + 1) : null);
-      b.addEventListener('click', function () { if (!on) pickWeek(w.idx, true); });
+      b.addEventListener('click', function (e) { if (on) return; S.keyPick = e.detail === 0; pickWeek(w.idx, true); });
       strip.appendChild(b);
     });
     strip.addEventListener('keydown', function (e) {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
       e.preventDefault();
       var n = prog.weeks.length;
+      S.keyPick = true;
       pickWeek(e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : wi + (e.key === 'ArrowRight' ? 1 : -1), true);
     });
     var add = E('button', { type: 'button', class: 'dp-wk-add', 'aria-label': 'Add a week', html: IC.plus });
@@ -784,7 +791,7 @@
     var root = E('div', { class: 'dp dk-bxv' });
     // The old editor's hooks still find it: ⌘Z, ← → 1–9 V, dkPbLive, dkPbAfterBulk, dkBxStep (desk.js dkBxFill, dkBxPick).
     root._o = { aid: aid, view: S.view, ro: false };
-    root._fill = function () { fill(root); };
+    root._fill = function () { fill(root); repaintHead(); };   // the desk's ← → 1–9 (dkBxPick) move the week: its tab too
     root._wp = { refresh: function () { fill(root); }, focusExercise: focusExercise };
     S.root = root;
     fill(root);
@@ -918,9 +925,11 @@
       lc.appendChild(cellEl('l', ln.load.text, ln, x, wi, aid, d, { label: 'load', ph: ln.load.ph, edit: ln.load.edit, cls: ln.load.kind === 'pct' ? ' is-pct' : '' }));
       if (ln.load.noMax) tip(lc, 'No ' + String(x.lift) + ' max yet: set one in ⋯ › Maxes for % sets');
       else if (ln.load.est) tip(lc, 'About ' + showKg(ln.load.est) + ' ' + env.unit + ' from their max for ' + ln.reps + ' ' + ln.effort.text + '. Type a load to write one');
+      else if (!ln.lock) tip(lc, 'Type a load: 160, a range 140-145, or a % like 75%');
       row.appendChild(lc);
       var ec = E('div', { class: 'dp-c-eff' });
       ec.appendChild(cellEl('e', ln.effort.text, ln, x, wi, aid, d, { label: 'effort', edit: ln.effort.edit, ph: '' }));
+      if (!ln.lock) tip(ec, 'RPE like @8 or @7-8, or reps in reserve: 2 RIR. ↑ ↓ move it by half a step');
       row.appendChild(ec);
       var fc = E('div', { class: 'dp-c-f' });
       if (!ln.fields.text) fc.classList.add('is-empty');
@@ -955,6 +964,8 @@
       if (L.gap) t.appendChild(E('i', { class: 'dp-gap t-' + L.gap, 'aria-hidden': 'true' }));
       t.appendChild(document.createTextNode(L.text));
       var g = L.gapN;
+      // The colour's meaning in words, for a screen reader (the dot alone says nothing to one).
+      if (L.gap) t.appendChild(E('span', { class: 'dk-nil' }, ', ' + (g > 0 ? n2(g) + ' RPE over' : n2(Math.abs(g)) + ' RPE under') + ' what you wrote'));
       tip(c, L.gap ? 'Their top set ' + (g > 0 ? '+' + g + ' RPE over' : '−' + Math.abs(g) + ' RPE under') + ' what you wrote' + (L.gap === 'alert' ? ' (1 or more over)' : '') : 'Lifted as written');
       c.appendChild(t);
     }
@@ -1327,8 +1338,10 @@
     if (S.root) fill(S.root);
     repaintHead();
     if (focusTab && S.head) { var t = S.head.querySelector('.dp-wk.is-sel'); if (t) t.focus({ preventScroll: true }); }
-    // A short fade on the week that came in; never on cell moves, and not with reduced motion.
-    if (!reduced() && S.root && S.root.animate) S.root.animate([{ opacity: 0.45 }, { opacity: 1 }], { duration: 160, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+    // A short fade on a week picked with the pointer; none from the keys (← → 1–9 Home End: a move made over and over),
+    // none with reduced motion.
+    if (!S.keyPick && !reduced() && S.root && S.root.animate) S.root.animate([{ opacity: 0.45 }, { opacity: 1 }], { duration: 160, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+    S.keyPick = false;
   }
   function focusExercise(wi, di, ei) {
     var prog = progOf(S.aid);
