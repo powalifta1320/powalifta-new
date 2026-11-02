@@ -821,7 +821,10 @@ window.maybeStartAthleteTour = maybeStartAthleteTour;
 window.replayAthleteTour = () => { resetTour('athlete'); maybeStartAthleteTour(); };
 
 // ===== TODAY =====
-function getProgram() { return Store.get().programs.find(p => p.athleteId === user.id); }
+// The weeks they can see: a week the coach hasn't published yet (a draft, always at the end) stays out of Train, the day
+// picker, Progress, the export and every "week i of n" (app.js liftProgram). Every save still goes by id from the Store
+// (persistProgram, persistProgramSet), so the coach's draft stays in the program a lifter's save writes.
+function getProgram() { return liftProgram(Store.get().programs.find(p => p.athleteId === user.id)); }
 
 // Compose the dropdown option value for a given week + day.
 // String()-cast both sides because program payloads sometimes store IDs as

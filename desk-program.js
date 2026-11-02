@@ -787,8 +787,8 @@
     try {
       root.innerHTML = '';
       if (!prog || !(prog.weeks || []).length) { root.appendChild(noWeeks(root._o.aid)); return; }
-      var wi = curWeek(prog);
-      S.adopted = { prog: prog.id, awi: wi };
+      // The week on show, and activeWeekIdx kept in step with it (anything that moves activeWeekIdx later is adopted).
+      var wi = setWeek(prog, curWeek(prog));
       S.wi = wi;
       if (S.view === 'progress' && typeof dkPgView === 'function') {
         var starts = dkPbStarts(prog), now = dkPbNow(prog, starts);
@@ -1104,7 +1104,16 @@
     inp._edit = o.edit != null ? o.edit : (text || '');
     if (ln.lock) { inp.readOnly = true; inp.setAttribute('aria-readonly', 'true'); }
     wireLine(inp, aid, wi, d, x, ln);
+    selectOnFocus(inp);
     return inp;
+  }
+  // A cell takes focus with its value selected, so typing replaces it (one keystroke for a load); the click that focused
+  // it doesn't drop the selection, a second click places the caret.
+  function selectOnFocus(inp) {
+    var fresh = false;
+    inp.addEventListener('focus', function () { fresh = true; try { inp.select(); } catch (e) {} });
+    inp.addEventListener('mouseup', function (e) { if (fresh) { e.preventDefault(); fresh = false; } });
+    inp.addEventListener('blur', function () { fresh = false; });
   }
   function bad(inp, why) { inp.classList.add('is-bad'); inp.setAttribute('aria-invalid', 'true'); tip(inp.parentNode, why); say(why); }
   // Focus: the key of the cell the coach is in (or about to land in), kept across every repaint.
@@ -1624,6 +1633,7 @@
         var i = E('input', { type: 'text', class: 'dp-cell dp-' + c[0], inputmode: 'numeric', 'aria-label': x.title + ', ' + c[2] + ', the team’s week ' + d.weekN, 'data-k': 't' + wi + ':' + x.key + ':' + ln.sid + ':' + c[0], 'data-col': c[0], 'data-ex': x.key, 'data-gi': String(ln.idx) });
         i.value = c[1]; i._rest = c[1]; i._edit = c[1];
         wireTeam(i, T, W, wi, d, x, ln);
+        selectOnFocus(i);
         sr.appendChild(i);
       });
       row.appendChild(sr);
@@ -1634,6 +1644,7 @@
         if (c[0] === 'l' && c[1].ph) i.placeholder = c[1].ph;
         if (c[0] === 'l' && c[1].kind === 'rpe') i.placeholder = 'by RPE';
         wireTeam(i, T, W, wi, d, x, ln);
+        selectOnFocus(i);
         cc.appendChild(i);
         row.appendChild(cc);
       });
