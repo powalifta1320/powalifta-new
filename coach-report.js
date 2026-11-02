@@ -94,13 +94,15 @@
   // Sessions a week from a block: the days with work in its current week, the first with a set still
   // to do (app.js programWeekState + sessionsPerWeek). A finished block plans nothing: the app never
   // calls a lifter with every set done "missed" (coachAthleteStatus), they need a next block instead.
+  function isObj(x) { return !!x && typeof x === 'object' && !Array.isArray(x); }
+  // A week the coach hasn't published (app.js weekIsDraft): never the lifter's, so never planned.
+  function isDraft(w) { return isObj(w) && w.draft === true; }
   function plannedPerWeek(weeks) {
     if (typeof weeks === 'string') { try { weeks = JSON.parse(weeks); } catch (e) { weeks = null; } }
     if (!Array.isArray(weeks)) return 0;
     for (var i = 0; i < weeks.length; i++) {
       // A week the coach hasn't published (draft: true, always at the end) plans nothing: the lifter can't see it.
-      // (Only while drafts are on in the app, app.js DRAFTS_ON; the server has no switch and always respects one.)
-      if (weeks[i] && weeks[i].draft === true && (typeof DRAFTS_ON === 'undefined' || DRAFTS_ON)) return 0;
+      if (isDraft(weeks[i])) return 0;
       var days = workDays(weeks[i]);
       var open = days.some(function (d) { return d.exercises.some(function (e) { return (e.sets || []).some(setOpen); }); });
       if (open) return days.length;

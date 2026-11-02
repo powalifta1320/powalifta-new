@@ -3160,7 +3160,7 @@ function persistProgram(programId) { if (typeof window.deskOnPersist === 'functi
     delete _persistTimers['prog_' + programId];   // no longer waiting (the live merge reads this)
     const prog = Store.get().programs.find(p => p.id === programId);
     if (!prog) return;
-    if (DRAFTS_ON) keepWeeksDraftsTrailing(prog.weeks);   // drafts stay trailing, whichever path wrote the weeks
+    keepWeeksDraftsTrailing(prog.weeks);   // drafts stay last, whichever path wrote the weeks (switch or not)
     _progSaving[programId] = (_progSaving[programId] || 0) + 1;   // the live merge reads this too
     try { await DB.upsertProgram(prog); }
     catch (e) {
@@ -5598,7 +5598,7 @@ function buildExportPayload() {
   };
   if (u.userType === 'coach') {
     payload.roster = (s.athletes || []).filter(a => a.coachId === u.id).map(a => ({ id: a.id, name: a.name, email: a.email, countryCode: a.countryCode || null }));
-    payload.programs = (s.programs || []).filter(p => p.coachId === u.id);
+    payload.programs = (s.programs || []).filter(p => p.coachId === u.id).map(p => Object.assign({}, p, { weeks: weeksWithoutDrafts(p.weeks) }));   // an export carries no draft flag
     payload.templates = (s.programTemplates || []).filter(t => t.coachId === u.id);
     payload.sessionNotes = (s.sessionNotes || []).filter(n => n.coachId === u.id);
   } else {
@@ -8215,18 +8215,22 @@ function getProgramForAthlete(athleteId) {
   return Store.get().programs.find(p => p.athleteId === athleteId);
 }
 // ===== DRAFT WEEKS (2 Nov 2026, the desk's program editor; the owner's poll: "When I press Publish") =====
-// DRAFTS_ON: off until the iPhone app build that carries liftProgram / liftWeeks is live in the App Store (the
-// shipped app reads every week, so it would show a coach's draft). While off nothing makes a draft (Write week, +
-// and Copy write live weeks, as before), the crimson never offers Publish, and a stray draft flag is ignored
-// everywhere (weekIsDraft is false): the hiding, the merge, the counts and both builders' draft UI are inert.
-// Turning drafts on is this one constant. (tests.html covers both states.)
+// Reading and making are split, so the lifter's side can ride in an iPhone build now and work later unchanged:
+// - Reading never waits on a switch: a week with draft === true is always hidden from the lifter and never counted as
+//   planned (liftWeeks / liftProgram, busy weeks, challenges, Ask, the coach's planned counts, the Monday report).
+// - Making waits on DRAFTS_ON, off until the iPhone build that carries liftProgram / liftWeeks is live in the App
+//   Store (an older app reads every week and would show a draft): Write week, + and Copy, the builders' Draft UI,
+//   Publish week N and the "isn't published" job. While off nothing makes a draft: those write live weeks.
+// - No stray flags: every copy of weeks into something else drops it (weeksWithoutDrafts; templates and the next
+//   block build their weeks field by field), and every save keeps drafts last (keepWeeksDraftsTrailing), so a flag
+//   can never hide a week in the middle of a block. Turning drafts on is this one constant. (tests.html covers both.)
 var DRAFTS_ON = false;
 // A week the coach wrote but hasn't published carries draft: true inside programs.weeks. Old weeks carry no
 // flag: published, so nothing needs a migration. Only trailing weeks can be drafts (publishing week N
 // publishes every draft before it), so hiding them never shifts an earlier week's index: set logging patches
 // by id, and the lifter's screens count weeks by index. Hidden by the app, not the database (a lifter can read
 // their own program row), which is fine: a draft is the coach's working copy, not a secret.
-function weekIsDraft(w) { return !!(DRAFTS_ON && w && w.draft === true); }
+function weekIsDraft(w) { return !!(w && w.draft === true); }   // reading: never behind the switch
 // The weeks the lifter sees: the program's weeks without its trailing drafts (the same array when there are none).
 function liftWeeks(prog) {
   const weeks = (prog && prog.weeks) || [];
@@ -8263,6 +8267,11 @@ function draftWeekFrom(weeks, wi) {
   for (let i = wi; i < weeks.length; i++) weeks[i].draft = true;
   return true;
 }
+// A copy of a block's weeks for somewhere else (another lifter, a past block, an export): never with a draft flag.
+// → a new array; a week that had the flag is a shallow copy without it.
+function weeksWithoutDrafts(weeks) {
+  return (weeks || []).map(w => { if (!w || typeof w !== 'object' || !('draft' in w)) return w; const c = Object.assign({}, w); delete c.draft; return c; });
+}
 // One way to add a week at the end of a block, for every path that adds, duplicates or copies one (the desk's +,
 // Write week, Write them; the phone's Add a week and Duplicate week; the previous editor's +): after a draft the new
 // week is a draft too, so drafts stay trailing; opts.draft asks for one. Published otherwise. → the week
@@ -8276,9 +8285,15 @@ function appendBlockWeek(weeks, week, opts) {
 // week with sets is published (the lifter already sees it: liftWeeks only hides trailing drafts), an empty week
 // after a draft is a draft. Mutates weeks; → how many weeks changed.
 function keepWeeksDraftsTrailing(weeks) {
-  if (!DRAFTS_ON) return 0;
   const ws = weeks || [];
   let lastLive = -1, firstDraft = -1, n = 0;
+  if (!DRAFTS_ON) {
+    // Drafts off: never make one. A flag the lifter wouldn't have hidden anyway (not one of the last weeks) goes.
+    let end = ws.length;
+    while (end > 0 && weekIsDraft(ws[end - 1])) end--;
+    for (let i = 0; i < end; i++) if (weekIsDraft(ws[i])) { delete ws[i].draft; n++; }
+    return n;
+  }
   ws.forEach((w, i) => { if (!weekIsDraft(w) && _weekHasSets(w)) lastLive = i; });
   ws.forEach((w, i) => {
     if (i <= lastLive) { if (weekIsDraft(w)) { delete w.draft; n++; } return; }   // before a live week: it was live already
@@ -8290,6 +8305,7 @@ function keepWeeksDraftsTrailing(weeks) {
 // The coach's week that's written and not published, and when it starts:
 // { idx, number, start ('YYYY-MM-DD' | null), days (until it starts; negative once it has) | null } or null.
 function programUnpublished(prog, todayIso) {
+  if (!DRAFTS_ON) return null;   // the job is part of making drafts: it waits on the switch
   const weeks = (prog && prog.weeks) || [];
   const idx = weeks.findIndex(w => weekIsDraft(w) && _weekHasSets(w));
   if (idx < 0) return null;
@@ -13833,7 +13849,7 @@ function blockFromProgram(prog) {
   (prog.weeks || []).forEach(w => (w.days || []).forEach(d => (d.exercises || []).forEach(e => (e.sets || []).forEach(s => { if (s.completed && s.completedAt) dates.push(String(s.completedAt).slice(0, 10)); }))));
   dates.sort();
   return { id: uid('blk'), athleteId: prog.athleteId, coachId: prog.coachId && prog.coachId !== prog.athleteId ? prog.coachId : null,
-    name: prog.name || 'Block', weeks: JSON.parse(JSON.stringify(prog.weeks || [])), maxes: prog.maxes || null, stats: blockStats(prog.weeks),
+    name: prog.name || 'Block', weeks: weeksWithoutDrafts(JSON.parse(JSON.stringify(prog.weeks || []))), maxes: prog.maxes || null, stats: blockStats(prog.weeks),
     startedOn: dates[0] || null, endedOn: dates[dates.length - 1] || null, createdAt: new Date().toISOString() };
 }
 // opts.anyLogged: a skipped or missed set counts too (a team push replacing the program keeps

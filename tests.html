@@ -8879,27 +8879,65 @@ test('the demo’s accessories: after the main lift, logged with it, nothing els
   eq(JSON.stringify(S0.programs[1]) + JSON.stringify(S0.programs[2]), before, 'Marcus and the phone’s four as they were');
 });
 
-test('drafts off (until the iPhone build is live): nothing makes a draft, a stray flag is ignored', () => {
+test('drafts off (until the iPhone build is live): a flagged last week still hides from the lifter; nothing makes one', () => {
   const was = DRAFTS_ON; DRAFTS_ON = false;
   try {
     const w = (n, o, has) => dpWeek(n, [dpDay('A', has === false ? [] : [dpEx('squat', [dpSet({ weight: 100, completed: !!(o && o.done) })])])], o);
-    const stray = { id: 'S', startsOn: '2026-10-26', weeks: [w(1), w(2, { draft: true })] };
-    eq(weekIsDraft(stray.weeks[1]), false, 'a stray flag is no draft');
-    eq(liftWeeks(stray).length, 2, 'the lifter sees every week');
-    eq(programUnpublished(stray, '2026-11-04'), null, 'no "isn’t published" job');
-    eq(programWeekState({ weeks: [w(1, { done: true }), w(2, { draft: true })] }).sessionsPerWeek, 1, 'planned as usual');
-    if (window.CoachReport && CoachReport.plannedPerWeek) eq(CoachReport.plannedPerWeek([w(1, { done: true }), w(2, { draft: true })]), 1, 'the report plans it too');
+    const flagged = { id: 'S', startsOn: '2026-10-26', weeks: [w(1), w(2, { draft: true })] };
+    eq(weekIsDraft(flagged.weeks[1]), true, 'reading never waits on the switch');
+    eq(liftWeeks(flagged).length, 1, 'the lifter doesn’t see a flagged last week (an iPhone build with this code stays right later)');
+    eq(programWeekState({ weeks: [w(1, { done: true }), w(2, { draft: true })] }).sessionsPerWeek, 0, 'never planned');
+    if (window.CoachReport && CoachReport.plannedPerWeek) eq(CoachReport.plannedPerWeek([w(1, { done: true }), w(2, { draft: true })]), 0, 'nor in the report');
+    eq(programUnpublished(flagged, '2026-11-04'), null, 'the "isn’t published" job waits on the switch');
     const W = [w(1), w(2), w(3, {}, false)];
     const r = DPg.writeWeek(W, 2);
     assert(r.ok && !r.draft && W[2].draft !== true, 'Write week writes a live week');
     const A = [w(1)]; DPg.appendWeeks(A, 2);
     assert(A[1].draft !== true && A[2].draft !== true, '+ and Write them add live weeks');
     const B = [w(1), w(2, { draft: true })]; appendBlockWeek(B, w(3));
-    assert(B[2].draft !== true, 'no draft inherited');
-    eq(draftWeekFrom([w(1), w(2)], 1), false); eq(keepWeeksDraftsTrailing([w(1, { draft: true }), w(2)]), 0);
-    assert(DPg.crimson({ id: 'X', weeks: stray.weeks }, 'nobody', 1, { sug: null, gap: 0 }).k !== 'publish', 'the crimson never offers Publish');
-    eq(DPg.listStatus({ prog: { name: 'P', weeks: stray.weeks }, week: { idx: 0, number: 1, total: 2 } }).text, '', 'the list never says draft');
+    assert(B[2].draft !== true, 'nothing inherits a draft');
+    eq(draftWeekFrom([w(1), w(2)], 1), false, 'Copy makes no draft');
+    assert(DPg.crimson({ id: 'X', weeks: flagged.weeks }, 'nobody', 1, { sug: null, gap: 0 }).k !== 'publish', 'no Publish');
+    eq(DPg.model(flagged.weeks, 1, dpEnv()).weeks[1].draft, false, 'no Draft mark in the editor');
+    eq(DPg.listStatus({ prog: { name: 'P', weeks: flagged.weeks }, week: { idx: 0, number: 1, total: 2 } }).text, '', 'the list says no draft');
+    const mid = [w(1, { draft: true }), w(2)];
+    eq(keepWeeksDraftsTrailing(mid), 1); assert(mid[0].draft !== true, 'on save, a flag in the middle goes (it can never hide a middle week)');
+    const last = [w(1), w(2, { draft: true }), dpWeek(3, [dpDay('A')])];
+    keepWeeksDraftsTrailing(last);
+    assert(last[1].draft !== true && last[2].draft !== true, 'switch off: a flag before a week is dropped, none is made');
+    const tail = [w(1), w(2, { draft: true })];
+    eq(keepWeeksDraftsTrailing(tail), 0); eq(tail[1].draft, true, 'a flagged last week stays as it is (hidden)');
   } finally { DRAFTS_ON = was; }
+});
+test('no copy of a block carries a draft flag (templates, reuse, a past block, the next block, export, insert)', () => {
+  const was = DRAFTS_ON;
+  try {
+    [false, true].forEach((on) => {
+      DRAFTS_ON = on;
+      const tag = on ? ' (drafts on)' : ' (drafts off)';
+      const w = (n, o) => dpWeek(n, [dpDay('A', [dpEx('squat', [dpSet({ weight: 100, reps: 5, rpe: 8 })])])], o);
+      const prog = { id: 'PC', athleteId: 'AC', coachId: 'CC', name: 'Block', weeks: [w(1), w(2), w(3, { draft: true })] };
+      const none = (weeks) => (weeks || []).every((x) => !x || x.draft !== true);
+      resetState();
+      seed({ programs: [JSON.parse(JSON.stringify(prog))], programTemplates: [] });
+      saveProgramAsTemplate('PC', 'T');
+      const tpl = Store.get().programTemplates[0];
+      assert(none(tpl.payload.weeks), 'save as template' + tag);
+      applyTemplate(tpl.id, 'AD', 'CC');
+      assert(none(Store.get().programs.find((x) => x.athleteId === 'AD').weeks), 'apply a template' + tag);
+      assert(none(reuseBlockWeeks(prog.weeks, { srcMaxes: { squat: 200 }, dstMaxes: { squat: 180 }, unit: 'kg' }).weeks), 'reuse a block (Block DNA’s too)' + tag);
+      assert(none(teamMasterFromProgram(prog, { squat: 200 }).weeks), 'a team from the block' + tag);
+      assert(none(blockFromProgram(prog).weeks), 'kept as a past block' + tag);
+      assert(none(nextBlockWeeks(prog, 2.5)), 'the next block' + tag);
+      assert(none(weeksWithoutDrafts(JSON.parse(JSON.stringify(prog.weeks)))) && prog.weeks[2].draft === true, 'a copy for another lifter (insert), the original untouched' + tag);
+      if (window.SwitchKit && SwitchKit.planBlock) { try { const pb = SwitchKit.planBlock(prog, {}, {}); assert(none(pb.weeks || (pb.block && pb.block.weeks)), 'an imported past block' + tag); } catch (e) { if (/assert|copy/.test(String(e))) throw e; } }
+      assert(!/draft/i.test(buildProgramCsv(prog)), 'the CSV export' + tag);
+      window._user = { id: 'CC', name: 'Coach', userType: 'coach' };
+      seed({ athletes: [{ id: 'AC', name: 'A', coachId: 'CC' }], programs: [JSON.parse(JSON.stringify(prog))] });
+      const ex = buildExportPayload();
+      assert(ex && ex.programs && ex.programs.length && ex.programs.every((p) => none(p.weeks)), 'the JSON export' + tag);
+    });
+  } finally { DRAFTS_ON = was; resetState(); }
 });
 test('one way to add a week: after a draft, a draft; the trailing rule kept on save', () => {
   const w = (n, o) => dpWeek(n, [dpDay('A', [dpEx('squat', [dpSet({ weight: 100 })])])], o);
@@ -8939,7 +8977,7 @@ test('the lifter’s other screens never read a draft: busy week, challenges', (
   if (window.BusyWeek && BusyWeek.sessionsLeft) {
     eq(BusyWeek.sessionsLeft(prog).sessions.length, 0, 'busy week: the draft’s sessions aren’t theirs to plan');
     const was = DRAFTS_ON; DRAFTS_ON = false;
-    try { eq(BusyWeek.sessionsLeft(prog).sessions.length, 3, 'drafts off: a stray flag is ignored'); } finally { DRAFTS_ON = was; }
+    try { eq(BusyWeek.sessionsLeft(prog).sessions.length, 0, 'drafts off too: reading never waits on the switch'); } finally { DRAFTS_ON = was; }
   }
   if (window.Challenges && Challenges.sessionsPerWeek) eq(Challenges.sessionsPerWeek(prog), 2, 'challenges: the week they can see');
 });

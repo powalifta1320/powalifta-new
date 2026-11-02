@@ -5092,7 +5092,7 @@ window.__applyAIProgram = function (program, opts) {
       const go = async () => {
         await archiveProgramIfTrained(existing);   // their logged training stays as a past block
         const prog = Object.assign({}, program, { id: existing ? existing.id : (program.id || uid('prog')), athleteId: a.id, coachId: user.id,
-          weeks: JSON.parse(JSON.stringify(program.weeks)), maxes: existing ? existing.maxes || null : null });
+          weeks: weeksWithoutDrafts(JSON.parse(JSON.stringify(program.weeks))), maxes: existing ? existing.maxes || null : null });   // a copy never carries a draft flag
         Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== a.id); s.programs.push(prog); });
         if (!window._demoMode) { try { await DB.upsertProgram(prog); } catch (e) { console.error(e); toast('Saved on this device: sync failed'); } }
         toast('Program inserted for ' + firstOf(a));

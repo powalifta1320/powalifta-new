@@ -643,6 +643,7 @@ var SwitchKit = (function () {
   function planBlock(prog, src, opts) {
     opts = opts || {};
     var weeks = JSON.parse(JSON.stringify(prog.weeks));
+    weeks.forEach(function (w) { if (w) delete w.draft; });   // a past block is history: no week of it is a draft
     var nW = weeks.length || 1;
     var end = opts.blockEnd || addDays(opts.today || (typeof todayISO === 'function' ? todayISO() : new Date().toISOString().slice(0, 10)), -1);
     var start = opts.blockStart || addDays(end, -(nW * 7 - 1));
