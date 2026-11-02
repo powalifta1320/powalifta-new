@@ -229,6 +229,16 @@ html.desk .dk-views[hidden] { display: none; }
 .dk-sub { padding: 0 var(--s-2) var(--s-2); font-size: var(--fs-1); font-weight: var(--fw-2); color: var(--text-4); }
 .dk-view { padding-left: var(--s-2); }
 .dk-view.is-zero .dk-item-label, .dk-view.is-zero .dk-count { color: var(--text-4); }
+/* A view's mark: a dot in its colour, centred in the icons' column, so the views read as a set and line up with the nav.
+   Meets and wins gold, pain coral, quiet grey, new green (light: each one step deeper, 3:1 on the rail). */
+.dk-vmark { display: grid; place-items: center; flex: none; width: var(--ic-2); height: var(--ic-2); --vm: var(--text-4); }
+.dk-vmark::before { content: ''; width: 8px; height: 8px; border-radius: var(--r-round); background: var(--vm); }
+.dk-vmark.is-meet, .dk-vmark.is-wins { --vm: var(--dk-gold); }
+.dk-vmark.is-pain { --vm: #ff8f80; }
+.dk-vmark.is-new { --vm: var(--dk-ok); }
+html.desk[data-theme="light"] .dk-vmark.is-pain { --vm: #d9442f; }
+html.desk[data-theme="light"] .dk-vmark.is-meet, html.desk[data-theme="light"] .dk-vmark.is-wins { --vm: #c08400; }
+.dk-view.is-zero .dk-vmark::before { opacity: 0.55; }
 .dk-rail-foot { margin-top: auto; padding-top: var(--s-4); }
 /* Shorter still: the footer (Settings, the account) stays pinned and the views scroll under it. */
 html.desk .dk-rail-foot { position: sticky; bottom: 0; z-index: 1; background: var(--dk-rail); box-shadow: 0 var(--s-3) 0 var(--dk-rail); }   /* the shadow paints the rail's bottom padding under it */
@@ -2145,10 +2155,7 @@ html.desk body.powa-app .dk-btn.is-quiet.dk-dens[aria-pressed="true"] { backgrou
    steps, three radii, raised surfaces, lift hues only on lift data, the
    one red action, status as a dot and ink words.
    ===================================================================== */
-/* The rail: Teams sits under Programs, its label on the labels' edge (an icon when folded). */
-html.desk .dk-rail .dk-item-sub { padding-left: calc(var(--s-2) + var(--ic-2) + var(--s-3)); }
-html.desk:not(.rail-min) .dk-rail .dk-item-sub > svg { display: none; }
-html.desk.rail-min .dk-rail .dk-item-sub { padding: 0; }
+/* The rail: Teams is a screen of its own after Programs (desk-season.js deskProgramsSubnav), with its own icon. */
 
 /* ---------- a page: Teams (and Meets when it's ours) ---------- */
 html.desk .dash-main > section[data-pane="teams"] { padding: 0; height: 100vh; overflow-y: auto; }

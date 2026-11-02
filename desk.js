@@ -664,8 +664,8 @@ function dkBuildRail() {
   nav.appendChild(dkRailItem('today', 'Today', DK_IC.today, function () { deskGo('today'); }, { go: true, count: true }));
   nav.appendChild(dkRailItem('roster', 'Lifters', DK_IC.roster, function () { deskGo('roster'); }, { go: true, count: true }));
   nav.appendChild(dkRailItem('programs', 'Programs', DK_IC.programs, function () { deskGo('programs'); }, { go: true }));
-  // Room for Programs' sub-entries (Teams, from the team-programs track): it draws into this slot
-  // through window.deskProgramsSubnav(slot) when it lands. Nothing shows until then.
+  // Teams, right after Programs: desk-season.js draws it into this slot through window.deskProgramsSubnav(slot)
+  // (a top-level item with its own icon and count). Nothing shows until it lands.
   var sub = el('div', { class: 'dk-nav-sub', 'data-slot': 'programs' });
   nav.appendChild(sub);
   nav.appendChild(dkRailItem('meets', 'Meets', DK_IC.meets, function () { deskGo('meets'); }, { go: true, count: true }));
@@ -676,9 +676,11 @@ function dkBuildRail() {
 
   var views = el('div', { class: 'dk-views', role: 'group', 'aria-label': 'Saved views' });
   views.appendChild(el('div', { class: 'dk-sub' }, 'Views'));
-  // Need you is Today's count and Lifters' first tab: not a second time here.
+  // Need you is Today's count and Lifters' first tab: not a second time here. Each view wears a mark in its colour
+  // in the icons' column (meet and wins gold, pain coral, quiet grey, new green), so its label sits on the labels' edge.
   DESK_VIEWS.filter(function (v) { return v.key !== 'need'; }).forEach(function (v) {
     var b = el('button', { class: 'dk-item dk-view', type: 'button', 'data-view': v.key });
+    b.appendChild(el('i', { class: 'dk-vmark is-' + v.key, 'aria-hidden': 'true' }));
     b.appendChild(el('span', { class: 'dk-item-label' }, v.label));
     b.appendChild(el('span', { class: 'dk-count', 'data-vcount': v.key }));
     b.addEventListener('click', function () { deskGo('roster', { view: _dk.screen === 'roster' && _dk.view === v.key ? null : v.key }); });
@@ -773,7 +775,8 @@ function dkPaintRail() {
     var n = deskViewCount(rows, c.dataset.vcount, now);
     c.textContent = String(n);
     c.closest('.dk-view').classList.toggle('is-zero', !n);
-    c.classList.toggle('t-alert', c.dataset.vcount === 'pain' && n > 0);
+    // Pain's coral is its mark now: its count is ink (it needs the coach), not a second dot.
+    c.classList.toggle('is-hot', c.dataset.vcount === 'pain' && n > 0);
   });
   var light = document.documentElement.getAttribute('data-theme') === 'light';
   var th = rail.querySelector('.dk-theme');
@@ -2148,8 +2151,9 @@ function dkCommands() {
       run: function () { openAthletePage(r.athlete.id); } });
   });
   var onPage = !!document.querySelector('[data-pane="athlete"]:not(.hidden)');
-  [['today', 'Today'], ['roster', 'Lifters'], ['programs', 'Programs'], ['meets', 'Meets'], ['messages', 'Messages'], ['clients', 'Clients'], ['club', 'Club'], ['settings', 'Settings']].forEach(function (x) {
+  [['today', 'Today'], ['roster', 'Lifters'], ['programs', 'Programs'], ['teams', 'Teams'], ['meets', 'Meets'], ['messages', 'Messages'], ['clients', 'Clients'], ['club', 'Club'], ['settings', 'Settings']].forEach(function (x) {
     if (x[0] === 'meets' && !dkPlannedMeets().length) return;
+    if (x[0] === 'teams' && typeof dsRenderTeams !== 'function') return;
     if (x[0] === 'clients' && !window.ClientsUI) return;
     if (x[0] === _dk.screen && !onPage) return;   // already here
     cmds.push({ group: 'Go to', label: x[1], run: function () { deskGo(x[0]); } });

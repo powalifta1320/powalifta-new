@@ -85,11 +85,12 @@ function _dsLifters(n) { return n + (n === 1 ? ' lifter' : ' lifters'); }
 // A load in the lifter's own unit, as a number and its unit (the cell draws them apart).
 function _dsLoad(kg, unit) { var t = teamLoadText(kg, unit); var m = /^(\S+)\s(\S+)$/.exec(t); return m ? { n: m[1], u: m[2] } : null; }
 
-// ---------- the rail: Teams under Programs (desk.js's slot) ----------
+// ---------- the rail: Teams after Programs (desk.js's slot), a screen of its own with its own icon ----------
 window.deskProgramsSubnav = function (slot) {
   var n = dsTeams().length;
-  var b = dkRailItem('teams', 'Teams', DS_IC.team, function () { deskGo('teams'); }, { go: true, cls: 'dk-item-sub' });
+  var b = dkRailItem('teams', 'Teams', DS_IC.team, function () { deskGo('teams'); }, { go: true });
   if (n) b.appendChild(el('span', { class: 'dk-count' }, String(n)));
+  b.dataset.tip = 'Teams' + (n ? ' · ' + n : '');
   slot.appendChild(b);
 };
 function dsBuildPanes() {
