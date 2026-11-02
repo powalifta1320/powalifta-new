@@ -83,7 +83,7 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-home-search' + suf, page: C, theme, eval: 'CoachApp.openSearch()' },
     { name: 'sh-home-checkins' + suf, page: C, theme, eval: 'CoachApp.openCheckins()' },
     { name: 'sh-home-wins' + suf, page: C, theme, eval: 'CoachApp.openWins()' });
-  // Capacity (You › Capacity) for the demo coach and a brand-new one; a lifter's busy-week sheet.
+  // Your coaching week (You › Your coaching week, capacity.js) for the demo coach and a brand-new one; a lifter's busy-week sheet.
   screens.push({ name: 'c-capacity' + suf, page: C, theme, eval: tab('capacity') }, { name: 'f-capacity' + suf, page: F, theme, eval: tab('capacity') },
     { name: 'sh-busy' + suf, page: A, theme, eval: 'BusyWeekUI.open()' });
   if (theme === 'dark') screens.push({ name: 'sh-busy-solo', page: SO, eval: 'BusyWeekUI.open()' }, { name: 'c-lifter-busy', page: C, eval: "CoachLifters.open('demo-a4')" });
@@ -201,7 +201,7 @@ for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   for (const p of MORE_PUBLIC) screens.push({ name: pubName(p) + suf, page: p, mode: 'web', w, h });
   for (const p of ALL_PUBLIC) screens.push({ name: pubName(p) + suf + '-l', page: p, mode: 'web', w, h, theme: 'light' });
 }
-// The desk's Settings › Plan & seats with Capacity, dark and light.
+// The desk's Settings › Plan & seats with Your coaching week (capacity.js), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-capacity' + suf, page: C, mode: 'web', theme, eval: "localStorage.setItem('powa-desk-set', 'plan'); deskGo('settings')" });
 // The desk's Career panel (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-career-panel' + suf, page: C, mode: 'web', theme, eval: "Career.openPanel('demo-a1');document.querySelectorAll('.cv-modal .cv-more').forEach(b => b.click())" });

@@ -5729,7 +5729,7 @@ function dkSetPlan(p) {
     dkSetRow('Pending invites', String((Store.get().invites || []).filter(function (i) { return i.coachId === u.id && !i.used; }).length) + ' (an unused invite holds a seat)', null),
     dkSetRow('Refer a coach', 'A month free for each one who subscribes', dkBtn('Get your link', { cls: 'dk-btn-sm is-quiet', onClick: function () { openReferralSheet(); } }))
   ]));
-  // How many more lifters fit your hours (capacity.js), under the seats.
+  // Your coaching week (capacity.js): the hours the roster needs against yours, under the seats.
   if (window.CapacityUI) { try { CapacityUI.renderDesk(p); } catch (e) { console.warn('capacity', e); } }
 }
 function dkSetCheckins(p, redraw) {

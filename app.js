@@ -15834,8 +15834,10 @@ function _sheetDrag(veil, sheet, close) {
     const ttl = head && head.querySelector('h1, h2');
     const tr = ttl ? ttl.getBoundingClientRect() : null;
     const barTop = navBottom - 44, barMid = navBottom - 22;
-    const show = !!(h && h.textContent.trim() && (tr ? tr.top + tr.height / 2 < barTop + 8 : h.getBoundingClientRect().bottom < navBottom + 2));
-    if (show) mini.textContent = h.textContent.trim();
+    // A title too long to sit between the back link and the icons names a shorter one for the bar (data-nav-title).
+    const label = h ? (h.getAttribute('data-nav-title') || h.textContent).trim() : '';
+    const show = !!(label && (tr ? tr.top + tr.height / 2 < barTop + 8 : h.getBoundingClientRect().bottom < navBottom + 2));
+    if (show) mini.textContent = label;
     mini.classList.toggle('on', show);
     // The AI + bell icons ride on the big title's row, then dock in the bar.
     const actions = nav.querySelector('.nav-actions');
