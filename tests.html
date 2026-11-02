@@ -8033,7 +8033,7 @@ test('the in-app report: escaped, in triage order, one red that opens the first 
   assert(!/<b>Shah|<i>Open/.test(h), 'raw HTML in a name');
   assert(h.indexOf('Priya &lt;b&gt;Shah&lt;/b&gt;') > 0, 'escaped name');
   const at = (s) => h.indexOf(s);
-  assert(at('Needs you') < at('Wins') && at('Wins') < at('Coming up') && at('Coming up') < at('Money'), 'section order');
+  assert(at('Needs you') < at('Wins') && at('Wins') < at('>Meets') && at('>Meets') < at('Money and roster') && at('Money and roster') < at('Every lifter'), 'section order');
   eq((h.match(/mr-go red/g) || []).length, 1, 'one red');
   assert(/data-mr-lifter="p"[^>]*>Start with Priya/.test(h), 'the red opens Priya');
 });
@@ -8047,12 +8047,44 @@ test('the in-app report and the email never name the body part', () => {
   const all = [CoachReportUI.html(team, {}), mail.subject, mail.html, mail.text, JSON.stringify(CoachReport.reportPush(team))].join(' ');
   PAIN_PARTS.forEach(part => assert(!new RegExp('\\b' + part.label + '\\b', 'i').test(all), 'mentions ' + part.label));
 });
+test('the in-app report v2: the week before, strength, effort, meets with the class, the blocks, money and seats, every lifter', () => {
+  const W = { from: '2026-10-26', to: '2026-11-01', today: '2026-11-02', now: Date.parse('2026-11-02T09:00:00Z'), unit: 'kg' };
+  const team = CoachReport.teamWeek({
+    athletes: [{ id: 'm', name: 'Marcus Doyle' }, { id: 'e', name: 'Elena <i>Rossi</i>' }, { id: 'c', name: 'Callum Ward' }],
+    programs: [{ athleteId: 'm', planned: 4, weeksLeft: 3 }, { athleteId: 'e', planned: 3, weeksLeft: 1 }, { athleteId: 'c', planned: 0, weeksLeft: 0 }],
+    sessions: { m: 4, e: 3, c: 2 }, sessionsBefore: { m: 3, e: 3, c: 3 },
+    momentum: [{ athleteId: 'm', lifts: { squat: { recent: 212.5, prior: 210 }, bench: { recent: 150, prior: 150 } } }, { athleteId: 'e', lifts: { squat: { recent: 110, prior: 105 } } }],
+    effort: [{ athleteId: 'm', sets: [{ d: '2026-10-28', l: 'bench', v: 'Competition', n: '', w: 120, r: 8, h: null, f: 9.5 }] }],
+    threads: [{ athleteId: 'e', lastAt: '2026-10-31T09:00:00Z', lastSenderId: 'e' }],
+    meets: [{ athleteId: 'e', name: 'State Championships', date: '2026-11-14', weightClass: '57 kg' }], bodyweight: [{ athleteId: 'e', date: '2026-10-31', weight: 58.4 }],
+    due: [{ athleteId: 'm', amountCents: 22000, currency: 'USD', nextDue: '2026-11-04' }], applications: 2, invites: 1, plan: { tier: 'basic' }
+  }, W);
+  const h = CoachReportUI.html(team, { unit: 'kg' }), at = (s) => h.indexOf(s);
+  ['Needs you', '>Strength', '>Effort', '>Meets', 'Next week to write', 'Money and roster', 'Every lifter'].forEach((sec, i, a) => assert(at(sec) > 0 && (i === 0 || at(a[i - 1]) < at(sec)), 'order at ' + sec));
+  assert(h.includes('1 more session than the week before') && h.includes('the same as the week before'), 'the week before: ' + h.slice(h.indexOf('mr-vs'), h.indexOf('mr-vs') + 80));
+  assert(h.includes('Bench @9.5, you wrote 8') && h.includes('Squat +4 kg median'), 'effort and strength');
+  assert(/58\.4 kg for the 57 kg, 1\.4 over/.test(h) && /class="mr-over"/.test(h), 'the class, amber when over');
+  assert(h.includes('Block finished') && h.includes('Block ends this week') && h.includes('4 of 10 used (3 lifters, 1 open invite)') && h.includes('2 applications waiting'), 'the blocks and the roster');
+  assert(!/<i>Rossi/.test(h) && h.includes('Elena &lt;i&gt;Rossi&lt;/i&gt;'), 'escaped');
+  eq((h.match(/mr-go red/g) || []).length, 1, 'still one red');
+});
+test('the in-app report never quotes their words', () => {
+  const W = { from: '2026-10-19', to: '2026-10-25', today: '2026-10-27' };
+  const S = { athletes: [{ id: 'k', name: 'Kofi Mensah', coachId: 'c' }], workoutLogs: [{ athleteId: 'k', date: '2026-10-20', lift: 'squat', e1rmComp: 100 }],
+    messages: [{ coachId: 'c', athleteId: 'k', senderId: 'k', body: 'Can we move Friday to Saturday?', createdAt: '2026-10-25T09:00:00Z' }],
+    sessionNotes: [{ athleteId: 'k', date: '2026-10-24', note: 'Left knee felt tight', coachComment: null }] };
+  const team = CoachReport.teamWeek(CoachReport.fromStore(S, 'c', Object.assign({ now: Date.parse('2026-10-27T09:00:00Z') }, W)), Object.assign({ now: Date.parse('2026-10-27T09:00:00Z') }, W));
+  eq(team.words.length, 1);
+  const h = CoachReportUI.html(team, {});
+  assert(h.includes('Wrote you, a message and a note') && !h.includes('Friday') && !h.includes('knee'), 'who and when, never what');
+});
 test('the example from Settings, with nobody yet: an inert, labelled sample', () => {
   const team = CoachReportUI.sampleTeam('2026-10-27');
   assert(team.of >= 5 && team.prs.length >= 1 && team.behind.length >= 1 && team.meets.length >= 1, 'a sample worth reading');
+  assert(team.strength.n >= 5 && team.effort.total >= 5 && team.toWrite.length >= 1 && team.seats && team.everyone.length === team.of, 'the v2 parts in the sample too');
   const h = CoachReportUI.html(team, { sample: true });
   assert(/A sample/.test(h), 'says it is a sample');
-  assert(!/data-mr-lifter|data-mr-money/.test(h), 'nothing in it opens anything');
+  assert(!/data-mr-lifter|data-mr-money|data-mr-due/.test(h), 'nothing in it opens anything');
   eq((h.match(/mr-go red/g) || []).length, 0, 'no red in a sample');
 });
 test('the in-app report: an empty roster says how it starts', () => {
@@ -8060,6 +8092,61 @@ test('the in-app report: an empty roster says how it starts', () => {
   assert(/No lifters yet/.test(h), 'empty state');
   eq((h.match(/mr-go red/g) || []).length, 0, 'no red with nobody to open');
 });
+
+// When the weekly report comes (the owner's poll, 2 Nov: "Their pick, Sunday 6 pm default"): Settings › Notifications.
+(() => {
+  const fakeDb = (row) => {
+    const calls = { get: 0, update: [] };
+    return { calls, getEmailPrefs: async () => { calls.get++; return row; }, updateEmailPrefs: async (id, patch) => { calls.update.push([id, patch]); return row; } };
+  };
+  const coach = { id: 'c1', userType: 'coach' };
+  test('the time zone: read for a coach only, never in the demo; saved when theirs is none or another and the browser knows it; never before the migration; once a load', () => {
+    eq([CoachReportUI.shouldSync(coach, false), CoachReportUI.shouldSync(coach, true), CoachReportUI.shouldSync({ id: 'a1', userType: 'athlete' }, false), CoachReportUI.shouldSync(null, false)].join(), 'true,false,false,false');
+    eq(JSON.stringify(CoachReportUI.tzToSave({ tz: null, scheduleReady: true }, 'Europe/London')), JSON.stringify({ tz: 'Europe/London' }), 'none yet');
+    eq(JSON.stringify(CoachReportUI.tzToSave({ tz: 'Europe/London', scheduleReady: null }, 'America/New_York')), JSON.stringify({ tz: 'America/New_York' }), 'travelling; no row yet');
+    eq(CoachReportUI.tzToSave({ tz: 'Europe/London', scheduleReady: true }, 'Europe/London'), null, 'the same zone');
+    eq(CoachReportUI.tzToSave({ tz: null, scheduleReady: false }, 'Europe/London'), null, 'before the migration');
+    eq(CoachReportUI.tzToSave({ tz: null, scheduleReady: true }, 'Not/AZone'), null, 'a zone the browser doesn\'t know');
+    eq(CoachReportUI.tzToSave({ tz: null, scheduleReady: true }, ''), null, 'no zone');
+    const a = fakeDb({ tz: null, scheduleReady: true });
+    const p1 = CoachReportUI.syncSchedule({ user: coach, db: a, tz: 'Europe/London', demo: false, force: true }), p2 = CoachReportUI.syncSchedule({ user: coach, db: a, tz: 'Europe/London', demo: false });
+    assert(p1 === p2 && a.calls.get === 1, 'one read a load');
+    const d = fakeDb({ tz: null, scheduleReady: true });
+    CoachReportUI.syncSchedule({ user: coach, db: d, tz: 'Europe/London', demo: true, force: true });
+    eq(d.calls.get, 0, 'the demo reads nothing');
+  });
+  test('the Weekly report row: Sunday evening or Monday morning, the hour (5 am to 10 pm), where; available soon before the migration', () => {
+    const h = CoachReportUI.scheduleHtml({ reportDay: 'mon', reportHour: 7, scheduleReady: true }, { tz: 'America/New_York' });
+    assert(/aria-checked="true" class="on" data-rs-day="mon">Monday morning/.test(h) && /aria-checked="false" data-rs-day="sun">Sunday evening/.test(h), 'the pick is on');
+    eq((h.match(/<option /g) || []).length, 18, '5 am to 10 pm');
+    assert(/<option value="7" selected>/.test(h), 'the hour selected');
+    assert(h.includes('In America/New York, from this device'), 'where');
+    assert(CoachReportUI.scheduleHtml({ reportDay: 'sun', reportHour: 23, scheduleReady: true }).includes('<option value="23" selected>'), 'a saved hour outside the list still shows');
+    const off = CoachReportUI.scheduleHtml({ scheduleReady: false });
+    assert(off.includes('rs-box is-off') && (off.match(/ disabled/g) || []).length === 3 && off.includes('Available soon'), 'before the migration');
+    eq(CoachReportUI.scheduleSub({ reportDay: 'sun', reportHour: 18 }).indexOf('Your team’s week, Sundays at '), 0);
+  });
+  test('the pick: switching the day moves the default hours with it (Sunday 6 pm, Monday 7 am); a save sends this device\'s zone', () => {
+    eq(JSON.stringify(CoachReportUI.pickNext({ day: 'sun', hour: 18 }, { day: 'mon' })), JSON.stringify({ day: 'mon', hour: 7 }));
+    eq(JSON.stringify(CoachReportUI.pickNext({ day: 'mon', hour: 7 }, { day: 'sun' })), JSON.stringify({ day: 'sun', hour: 18 }));
+    eq(JSON.stringify(CoachReportUI.pickNext({ day: 'mon', hour: 9 }, { day: 'sun' })), JSON.stringify({ day: 'sun', hour: 9 }), 'a chosen hour stays');
+    eq(JSON.stringify(CoachReportUI.pickNext({ day: 'sun', hour: 18 }, { hour: 20 })), JSON.stringify({ day: 'sun', hour: 20 }));
+    eq(JSON.stringify(CoachReportUI.schedulePatch({ day: 'mon', hour: 7 }, 'Asia/Kolkata')), JSON.stringify({ reportDay: 'mon', reportHour: 7, tz: 'Asia/Kolkata' }));
+    eq(JSON.stringify(CoachReportUI.schedulePatch({ day: 'sun', hour: 18 }, 'Mars/Base')), JSON.stringify({ reportDay: 'sun', reportHour: 18 }), 'no unknown zone');
+  });
+  test('the report in the app follows the pick: a Sunday pick shows this week on Sundays; the push\'s link opens the week it covers', () => {
+    CoachReportUI.setSchedule({ reportDay: 'sun', reportHour: 18 });
+    eq(JSON.stringify(CoachReportUI.windowNow('2026-11-01')), JSON.stringify({ from: '2026-10-26', to: '2026-11-01', today: '2026-11-01' }));
+    eq(CoachReportUI.windowNow('2026-11-03').from, '2026-10-26', 'later in the week: the week it reported');
+    CoachReportUI.setSchedule({ reportDay: 'mon', reportHour: 7 });
+    eq(CoachReportUI.windowNow('2026-11-01').from, '2026-10-19', 'a Monday pick on a Sunday: the week before');
+    eq(JSON.stringify(CoachReportUI.linkWindow('?report=week&w=2026-10-26', '2026-11-01')), JSON.stringify({ from: '2026-10-26', to: '2026-11-01', today: '2026-11-01' }));
+    eq(CoachReportUI.linkWindow('?report=week&w=2026-10-27', '2026-11-01'), null, 'not a Monday');
+    eq(CoachReportUI.linkWindow('?report=week&w=2026-11-09', '2026-11-01'), null, 'a week to come');
+    eq(CoachReportUI.linkWindow('?report=week', '2026-11-01'), null, 'an older push: the pick\'s week');
+    CoachReportUI.setSchedule({});
+  });
+})();
 
 test('report: an approved busy week counts its agreed sessions (the table keeps days as a list)', () => {
   const rows = CoachReport.busyRows([

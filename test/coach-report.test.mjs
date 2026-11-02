@@ -4,6 +4,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
+import { world, storeFor, rowsFor as worldRows } from './coach-report-fixture.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 let pass = 0, fail = 0;
@@ -74,10 +76,15 @@ const store = {
 };
 // The same fixture as the edge function reads it (snake_case + coach_week_stats rows).
 function statsFor(from, to) {
+  const rFrom = CR.addDays(to, -27), pFrom = CR.addDays(to, -55);
   return A.map(a => {
     const mine = LOGS.filter(l => l[0] === a.id && l[1] <= to);
     const lifts = {};
-    mine.forEach(([, d, L, e]) => { const x = lifts[L] || (lifts[L] = { during: null, before: null }); if (d >= from) x.during = Math.max(x.during || 0, e); else x.before = Math.max(x.before || 0, e); });
+    mine.forEach(([, d, L, e]) => {
+      const x = lifts[L] || (lifts[L] = { during: null, before: null, recent: null, prior: null });
+      if (d >= from) x.during = Math.max(x.during || 0, e); else x.before = Math.max(x.before || 0, e);
+      if (d >= rFrom) x.recent = Math.max(x.recent || 0, e); else if (d >= pFrom) x.prior = Math.max(x.prior || 0, e);
+    });
     return { athlete_id: a.id, sessions: new Set(mine.filter(l => l[1] >= from).map(l => l[1])).size, lifts };
   });
 }
@@ -86,6 +93,7 @@ const rowsFor = (from, to) => ({
   programs: Object.keys(PROGRAMS).map(id => ({ athlete_id: id, coach_id: 'c1', weeks: JSON.stringify(PROGRAMS[id]), updated_at: '2026-10-01T00:00:00Z' }))
     .concat([{ athlete_id: 'a1', coach_id: 'c9', weeks: [], updated_at: '2026-10-25T00:00:00Z' }]),   // someone else's program: the coach's own wins
   stats: statsFor(from, to),
+  statsBefore: statsFor(CR.addDays(from, -7), CR.addDays(to, -7)),
   pains: PAINS.map(p => ({ athlete_id: p.athleteId, day: p.day, body_part: p.bodyPart, resolved_at: p.resolvedAt || null })),
   checkins: CHECKINS.map(c => ({ athlete_id: c.athleteId, created_at: c.createdAt })),
   checkinAnswers: ANSWERS.map(a => ({ athlete_id: a.athleteId, period: a.period })),
@@ -151,8 +159,8 @@ t('pain: who and how often in the week, open reports only', () => eq(team.pain.m
 t('PRs: the week\'s best against the best before it', () => eq(team.prs.map(p => [p.id, p.lift, p.e1rm]), [['a1', 'squat', 205.2]]));
 t('form checks waiting, roster only', () => { eq(team.formChecks, 2); eq(team.formCheckWho, [{ id: 'a3', name: 'Leo Park', n: 2 }]); });
 t('check-ins missing: checked in during the month before, not last week', () => eq(team.checkinsMissing.map(c => c.id), ['a5']));
-t('meets in the next 4 weeks, one entry per meet', () => {
-  eq(team.meets.map(m => [m.name, m.date, m.days, m.lifters.map(l => l.id)]), [['Autumn Open', '2026-11-07', 12, ['a1', 'a2']]]);
+t('meets in the next 8 weeks, one entry per meet', () => {
+  eq(team.meets.map(m => [m.name, m.date, m.days, m.lifters.map(l => l.id)]), [['Autumn Open', '2026-11-07', 12, ['a1', 'a2']], ['Winter Classic', '2026-12-20', 55, ['a4']]]);
 });
 t('money: overdue on the coach\'s record, totalled in the most common currency', () => {
   eq([team.overdue.n, team.overdue.total, team.overdue.currency, team.overdue.mixed], [2, 22000, 'USD', true]);
@@ -164,7 +172,7 @@ t('the app and the server build the same week from the same data', () => {
 });
 t('the server may hand over planned sessions instead of the block (it drops the JSON as it reads)', () => {
   const rows = rowsFor(W.from, W.to);
-  rows.programs = rows.programs.map(p => ({ athlete_id: p.athlete_id, coach_id: p.coach_id, updated_at: p.updated_at, planned: CR.plannedPerWeek(p.weeks) }));
+  rows.programs = rows.programs.map(p => ({ athlete_id: p.athlete_id, coach_id: p.coach_id, updated_at: p.updated_at, planned: CR.plannedPerWeek(p.weeks), weeks_left: CR.weeksLeft(p.weeks) }));
   eq(CR.teamWeek(CR.fromRows(rows, { coachId: 'c1', today: TODAY }), W), team);
   const S = CR.weekSoFar('2026-10-29');
   const lean = Object.assign(CR.fromRows(rows, { coachId: 'c1', today: '2026-10-29' }), { sessions: { a1: 2, a3: 1, a6: 1 } });
@@ -215,7 +223,7 @@ const mail = CR.reportEmail(team, { coachName: 'Mia Coach', unsubUrl: 'https://p
 t('email: subject is the push, sections in the coach\'s triage order', () => {
   eq(mail.subject, 'Your team’s week: 5 of 8 trained · 1 PR · 3 behind');
   const at = (s) => mail.html.indexOf(s);
-  ok(at('Needs you') > 0 && at('Needs you') < at('Wins') && at('Wins') < at('Coming up') && at('Coming up') < at('Money'), 'order');
+  ok(at('Needs you') > 0 && at('Needs you') < at('Wins') && at('Wins') < at('>Meets') && at('>Meets') < at('Next week to write') && at('Next week to write') < at('Money and roster') && at('Money and roster') < at('Every lifter'), 'order');
   ok(at('Pain reported') < at('Behind') && at('Behind') < at('form checks to review') && at('form checks to review') < at('No check-in last week'), 'needs-you order');
 });
 t('email: one red button, Open Today, to the app', () => {
@@ -229,13 +237,14 @@ t('email: the numbers a coach decides on', () => {
   ok(mail.text.includes('Wins (e1RM PRs)\n- Arjun Mehta: squat 205 kg'), 'the PR in the text');
   ok(mail.text.includes('Behind: Leo Park 0 of 3, Tom Kowalski 0 of 3, Tom Becker 1 of 4'), 'behind in the text');
   ok(mail.text.includes('2 payments overdue: $220 (plus other currencies)'), 'money');
-  ok(mail.text.includes('Autumn Open, Sat 7 Nov (in 12 days): Arjun Mehta, Tom Becker'), 'the meet');
+  ok(mail.text.includes('- Autumn Open, Sat 7 Nov (in 12 days)\n  Arjun Mehta\n  Tom Becker\n'), 'the meet');
   ok(mail.preheader === '5 lifters need you this week, starting with Sarah Kim.', mail.preheader);
 });
 t('email: one row per lifter in Wins, each PR with its lift', () => {
   const two = CR.teamWeek({ athletes: [{ id: 'k', name: 'Kenji Sato' }], sessions: { k: 4 }, prs: [{ athleteId: 'k', lift: 'deadlift', e1rm: 245 }, { athleteId: 'k', lift: 'bench', e1rm: 150 }] }, W);
   const m = CR.reportEmail(two, {});
-  eq((m.html.match(/>Kenji Sato</g) || []).length, 1, 'the name once');
+  const wins = m.html.slice(m.html.indexOf('>Wins'), m.html.indexOf('>Every lifter'));
+  eq((wins.match(/>Kenji Sato</g) || []).length, 1, 'the name once in Wins');
   ok(m.html.indexOf('Bench <span') < m.html.indexOf('Deadlift <span'), 'lifts in squat, bench, deadlift order');
   ok(m.text.includes('- Kenji Sato: bench 150 kg, deadlift 245 kg'), m.text);
 });
@@ -265,7 +274,8 @@ t('email: every name and link is escaped', () => {
 t('email: empty sections are left out; a calm week says so', () => {
   const calm = CR.teamWeek({ athletes: [{ id: 'z', name: 'Zoe' }], sessions: { z: 3 }, programs: [{ athleteId: 'z', weeks: block(3, 0) }] }, W);
   const m = CR.reportEmail(calm, {});
-  ok(!m.html.includes('Wins') && !m.html.includes('Coming up') && !m.html.includes('Money'), 'empty sections shown');
+  ['Wins', 'Meets', 'Money and roster', 'Strength', 'Effort', 'Next week to write'].forEach(sec => ok(!m.html.includes('>' + sec), 'empty section shown: ' + sec));
+  ok(m.html.includes('>Every lifter'), 'every lifter, always');
   ok(m.html.includes('Everyone trained as planned.'), 'calm line');
   eq(m.preheader, 'Nobody needs you this week.');
 });
@@ -280,20 +290,364 @@ t('email in lbs', () => {
   ok(m.html.includes('452 lbs'), 'e1RM 205.2 kg = 452 lbs');
 });
 
+// ================================================================ v2 (2 Nov): more of what a coach decides on
+// The world of test/coach-report-fixture.mjs: Sam Ellis and the demo team (20), Mia (3, the free plan full, lbs), Big
+// Barbell (60), Dan (5, no billing, no meets), a dormant coach. Monday 2 Nov: the report covers 26 Oct to 1 Nov.
+const WD = world(), W2 = CR.lastWeek(WD.today);
+const UNIT = { 'c-mia': 'lbs' };
+const optOf = (c) => Object.assign({ now: WD.now, unit: UNIT[c] || 'kg' }, W2);
+const appTeamOf = (c) => { const s = storeFor(WD.tables, c); return CR.teamWeek(CR.fromStore(s.store, c, Object.assign({ formChecks: s.formChecks, plan: s.plan, now: WD.now }, W2)), optOf(c)); };
+const srvTeamOf = (c) => CR.teamWeek(CR.fromRows(worldRows(CR, WD.tables, c, W2), { coachId: c, today: WD.today, now: WD.now }), optOf(c));
+const COACHES = ['c-sam', 'c-mia', 'c-big', 'c-dan', 'c-quiet'];
+const TEAMS = {};
+COACHES.forEach(c => { TEAMS[c] = appTeamOf(c); });
+const sam = TEAMS['c-sam'];
+const mailOf = (c) => CR.reportEmail(TEAMS[c], { coachName: 'Coach', unit: UNIT[c] || 'kg', unsubUrl: 'https://powalifta.com/unsubscribe.html?token=t&r=coach', appUrl: 'https://www.powalifta.com/coach.html' });
+
+t('v2: the app and the server build the same week for every coach (20, 3, 60 lifters, no billing or meets, dormant)', () => {
+  COACHES.forEach(c => eq(srvTeamOf(c), TEAMS[c], c));
+  eq(COACHES.map(c => TEAMS[c].of), [20, 3, 60, 5, 2]);
+});
+t('a dormant team gets no report; every other coach does', () => {
+  eq(COACHES.map(c => CR.worthSending(TEAMS[c])), [true, true, true, true, false]);
+  // A meet more than 4 weeks out doesn't wake a quiet team up (v1's window), but shows in Meets.
+  const far = CR.teamWeek({ athletes: [{ id: 'z', name: 'Zoe' }], meets: [{ athleteId: 'z', name: 'Far Open', date: CR.addDays(W2.today, 40) }] }, optOf('x'));
+  eq([far.meets.length, CR.worthSending(far)], [1, false]);
+  const near = CR.teamWeek({ athletes: [{ id: 'z', name: 'Zoe' }], meets: [{ athleteId: 'z', name: 'Near Open', date: CR.addDays(W2.today, 20) }] }, optOf('x'));
+  eq(CR.worthSending(near), true);
+  const wrote = CR.teamWeek({ athletes: [{ id: 'z', name: 'Zoe' }], threads: [{ athleteId: 'z', lastAt: new Date(WD.now - 30 * 3600000).toISOString(), lastSenderId: 'z' }] }, optOf('x'));
+  eq(CR.worthSending(wrote), true, 'their words waiting are worth a Monday');
+});
+
+// ---------------------------------------------------------------- 1. week over week
+t('week over week: trained and sessions against the week before, counted the same way', () => {
+  eq([sam.trained, sam.of, sam.sessionsDone, sam.sessionsPlanned], [18, 20, 54, 64]);
+  eq(sam.prev, { trained: 19, sessionsDone: 49, sessionsPlanned: 64 });
+  eq([CR.vsText(54, 49), CR.vsText(18, 19), CR.vsText(3, 3)], ['5 more than the week before', '1 fewer than the week before', 'the same as the week before']);
+  const one = (o) => CR.teamWeek(Object.assign({ athletes: [{ id: 'x', name: 'X' }], programs: [{ athleteId: 'x', planned: 4 }], sessions: { x: 4 } }, o), W2);
+  eq(one({ sessionsBefore: { x: 6 } }).prev, { trained: 1, sessionsDone: 4, sessionsPlanned: 4 }, 'capped at the plan, like the week');
+  eq(one({ sessionsBefore: { x: 2 }, busy: [{ athleteId: 'x', weekStart: CR.addDays(W2.from, -7), days: 2 }] }).prev, { trained: 1, sessionsDone: 2, sessionsPlanned: 2 }, 'the week before\'s own agreed busy week');
+  eq(one({}).prev, null, 'no week before given (the server couldn\'t read it): no comparison');
+  const m = mailOf('c-sam');
+  ok(m.text.includes('18 of 20 trained (1 fewer than the week before) · 54 of 64 sessions (5 more than the week before) · 3 PRs'), 'the text');
+  ok(m.html.includes('lifters trained, 1 fewer than the week before') && /5 more sessions than the week before<\/span> · <span[^>]*>3 PRs<\/span> · <span[^>]*>3 behind/.test(m.html) && m.html.includes('The week before'), 'the card');
+  eq([CR.vsText(4, 4, 'sessions'), CR.vsText(2, 5, 'sessions'), CR.vsText(6, 5, 'sessions')], ['as many sessions as the week before', '3 fewer sessions than the week before', '1 more session than the week before']);
+});
+
+// ---------------------------------------------------------------- 2. strength over 4 weeks, stalling
+t('strength: who got stronger over 4 weeks, each lift\'s median and share up, the biggest movers, who stalled', () => {
+  const st = sam.strength;
+  eq([st.n, st.up, st.down], [17, 15, 2]);
+  eq(['squat', 'bench', 'deadlift'].map(L => [st.lifts[L].n, st.lifts[L].up, CR.deltaText(st.lifts[L].median, 'kg')]), [[17, 14, '+3 kg'], [17, 10, '+3 kg'], [17, 12, '+3 kg']]);
+  eq(st.movers.map(m => [m.name, CR.deltaText(m.kg, 'kg')]), [['Kofi Mensah', '+20 kg'], ['Leo Grant', '+15 kg'], ['Callum Ward', '+13 kg']]);
+  eq(st.stalled.map(s => s.name), ['Jonah Reed', 'Tom Boyle']);
+  ok(!sam.everyone.find(x => x.name === 'Nina Petrova').change && sam.everyone.find(x => x.name === 'Nina Petrova').change === null, 'a lifter with no 4 weeks before has no change (not 0)');
+});
+t('strength: both windows or nothing; a whole unit decides up in the coach\'s unit; stalling is the app\'s 0.05 kg rule', () => {
+  const M = (lifts) => ({ athleteId: 'x', lifts });
+  const T1 = (lifts, unit) => CR.teamWeek({ athletes: [{ id: 'x', name: 'X' }], momentum: [M(lifts)] }, Object.assign({}, W2, { unit })).strength;
+  eq(T1({ squat: { recent: 200, prior: null }, bench: { recent: 0, prior: 120 } }).n, 0, 'one window only: not compared');
+  const half = T1({ squat: { recent: 200.4, prior: 200 } });
+  eq([half.up, half.stalled.length], [0, 0], '+0.4 kg: not stronger in kg, not stalled either');
+  eq(T1({ squat: { recent: 200.4, prior: 200 } }, 'lbs').up, 1, '+0.9 lb rounds to 1 lb: stronger in lbs');
+  eq(T1({ squat: { recent: 200.04, prior: 200 }, bench: { recent: 120, prior: 121 } }).stalled.length, 1, 'nothing up by more than 0.05 kg: stalled');
+  eq(CR.deltaText(-2.5, 'kg') + ' ' + CR.deltaText(2.5, 'kg') + ' ' + CR.deltaText(0.2, 'kg') + ' ' + CR.deltaText(10, 'lbs'), '−3 kg +3 kg 0 kg +22 lbs');
+  const med = CR.teamWeek({ athletes: ['a', 'b', 'c', 'd'].map(id => ({ id, name: id })), momentum: [[10], [2], [4], [-6]].map((d, i) => M({ squat: { recent: 100 + d[0], prior: 100 } })).map((m, i) => Object.assign(m, { athleteId: 'abcd'[i] })) }, W2).strength;
+  eq([med.lifts.squat.median, med.lifts.squat.up, med.lifts.squat.down], [3, 3, 1], 'the median of an even count is the middle two\'s mean');
+});
+
+// ---------------------------------------------------------------- 3. effort: the app's own definition
+// The app's functions, lifted out of its files as they are and run here: app.js programLoggedSets and _exShortTitle,
+// coach-lifters.js clEffort (the top set), coach-app.js caEffortOf / caEffortSplit / caEffortBins.
+function extractFn(src, head) {
+  const at = src.indexOf(head);
+  if (at < 0) throw new Error('not found: ' + head);
+  let i = src.indexOf('{', at), depth = 0;
+  for (; i < src.length; i++) { if (src[i] === '{') depth++; else if (src[i] === '}' && --depth === 0) break; }
+  return src.slice(at, i + 1);
+}
+const APP = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8'), LIFTERS = fs.readFileSync(path.join(ROOT, 'coach-lifters.js'), 'utf8'), HOME = fs.readFileSync(path.join(ROOT, 'coach-app.js'), 'utf8');
+const appCtx = vm.createContext({ Math, Number, String, Object, Array, isFinite, Date, JSON });
+vm.runInContext([
+  "const MAIN_LIFTS = ['squat', 'bench', 'deadlift']; const LIFT_LABELS = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift', push: 'Push', pull: 'Pull', legs: 'Legs', cardio: 'Cardio', other: 'Other' };",
+  "function addDays(iso, n) { var d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }",
+  "function todayIso() { return '2099-01-01'; }",
+  extractFn(APP, 'function programLoggedSets('), extractFn(APP, 'function _exShortTitle('),
+  extractFn(LIFTERS, 'function clEffort('),
+  HOME.slice(HOME.indexOf('var HALF = '), HOME.indexOf(';', HOME.indexOf('var HALF = ')) + 1),
+  extractFn(HOME, 'function caEffortOf('), extractFn(HOME, 'function caEffortSplit('), extractFn(HOME, 'function caEffortBins('),
+  'this.app = { programLoggedSets, clEffort, caEffortOf, caEffortSplit, caEffortBins };'].join('\n'), appCtx);
+const APPFN = appCtx.app;
+// Well-formed blocks the app reads without throwing: top sets and back-offs by RPE, ranges, attempts, RIR, ties.
+let sd = 11;
+const rnd = () => { sd ^= sd << 13; sd >>>= 0; sd ^= sd >>> 17; sd ^= sd << 5; sd >>>= 0; return sd / 4294967296; };
+const pickR = (a) => a[Math.floor(rnd() * a.length)];
+function genProgram(to) {
+  return Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => ({ days: Array.from({ length: 1 + Math.floor(rnd() * 4) }, () => ({ exercises: Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => {
+    const lift = pickR(['squat', 'bench', 'deadlift', 'squat', null, 'other', 'push']), ex = { lift, variant: pickR(['Competition', 'Paused', '']), exerciseName: lift && lift !== 'push' ? '' : pickR(['Row', 'Dips', '']), sets: [] };
+    const date = CR.addDays(to, -Math.floor(rnd() * 9));
+    for (let k = 0; k < 1 + Math.floor(rnd() * 4); k++) {
+      const rpe = pickR([7, 7.5, 8, 8.5, 9, '8', '']), done = rnd() < 0.85;
+      const s = { weight: pickR([100, 102.5, 105, 105, '110']), reps: 3, rpe, completed: done, completedAt: done ? date + (rnd() < 0.3 ? 'T18:00:00Z' : '') : null, actualRpe: done ? pickR([7, 7.5, 8, 8.5, 9, 9.5, 10, '9', null]) : null };
+      if (rnd() < 0.2) s.rpeHi = pickR([8, 9, '9', '']);
+      if (rnd() < 0.05) s.attempt = 1;
+      if (rnd() < 0.08) s.rir = true;
+      ex.sets.push(s);
+    }
+    return ex;
+  }) })) }));
+}
+t('effort: the top sets are the app\'s (clEffort: the heaviest of each lift each day, the first of equals)', () => {
+  let n = 0;
+  for (let k = 0; k < 300; k++) {
+    const weeks = genProgram(W2.to);
+    const app = APPFN.clEffort({ weeks }, W2.to, 1e9).filter(x => x.date >= W2.from).map(x => [x.date, x.w, x.felt, x.wrote]).sort();
+    const mine = CR.topSets(CR.effortSets(weeks, W2.from, W2.to), W2.from, W2.to).map(x => [x.d, Number(x.w) || 0, Number(x.f), CR.effortOf({ rpe: x.r, rpeHi: x.h, actualRpe: x.f }) ? CR.effortOf({ rpe: x.r, rpeHi: x.h, actualRpe: x.f }).wrote : NaN])
+      .filter(x => isFinite(x[2]) && isFinite(x[3])).sort();
+    eq(JSON.stringify(mine), JSON.stringify(app), 'block ' + k);
+    n += app.length;
+  }
+  ok(n > 300, 'compared ' + n + ' top sets');
+});
+t('effort: placed and split as the app\'s Effort tile does (caEffortOf, caEffortBins, caEffortSplit\'s who ran hot)', () => {
+  for (let k = 0; k < 200; k++) {
+    const people = ['a', 'b', 'c', 'd'].map(id => ({ id, name: 'Lifter ' + id, weeks: genProgram(W2.to) }));
+    const team = CR.teamWeek({ athletes: people, effort: people.map(p => ({ athleteId: p.id, sets: CR.effortSets(p.weeks, W2.from, W2.to) })) }, W2);
+    const sets = [];
+    people.forEach(p => CR.topSets(CR.effortSets(p.weeks, W2.from, W2.to), W2.from, W2.to).forEach(x => sets.push({ id: p.id, name: p.name, set: { rpe: x.r, rpeHi: x.h, actualRpe: x.f }, title: CR.exTitle(x), date: x.d })));
+    const bins = APPFN.caEffortBins(sets), split = APPFN.caEffortSplit(sets);
+    eq(team.effort.bins, Array.from(bins), 'bins ' + k);
+    eq([team.effort.total, team.effort.over], [split.total, split.harder], 'total and harder ' + k);
+    eq(JSON.stringify(team.effort.hot.map(h => [h.id, h.why, h.avg, h.count, h.n, h.worst.over, h.worst.title])), JSON.stringify(split.hot.map(h => [h.id, h.why, h.avg, h.count, h.n, h.worst.over, h.worst.title])), 'who ran hot ' + k);
+  }
+});
+t('effort: last week\'s top sets for Sam\'s team, at or under, at +0.5, at +1 or more, who ran hot', () => {
+  const E = sam.effort;
+  eq([E.total, E.atOrUnder, E.half, E.over, E.pct], [57, 48, 6, 3, 84]);
+  eq(E.hot.map(h => [h.name, CR.hotText(h)]), [['Marcus Doyle', 'Bench @9.5, you wrote 8'], ['Leo Grant', 'Squat @9, you wrote 8'], ['Ines Duarte', '3 top sets, +0.5 on average']]);
+  const m = mailOf('c-sam');
+  ok(m.html.includes('84%</span>') && m.html.includes('at or under what you wrote') && m.text.includes('- 84% at or under: 48 at or under, 6 at +0.5, 3 at +1 or more'), 'in the email');
+  ok(m.text.includes('- Marcus Doyle: Bench @9.5, you wrote 8'), 'the worst line');
+  eq([CR.effortParts({ atOrUnder: 4, half: 0, over: 0 }), CR.effortParts({ atOrUnder: 4, half: 0, over: 2 })].map(p => p.map(x => x[1]).join(', ')),
+    ['4 at or under, nobody over', '4 at or under, 2 at +1 or more'], 'zero parts drop out');
+  eq(CR.effortSets([{ draft: true, days: [{ exercises: [{ lift: 'squat', sets: [{ completed: true, completedAt: W2.from, rpe: 8, actualRpe: 9 }] }] }] }], W2.from, W2.to), [], 'a draft week has no sets');
+});
+
+// ---------------------------------------------------------------- 4. their words waiting
+t('their words: their last message (12 hours old or more) or a note with no reply, from the last 4 weeks, longest first', () => {
+  eq(sam.words.map(w => [w.name, w.message, w.notes, w.days]), [['Arjun Mehta', true, 0, 2], ['Mei Tanaka', false, 1, 2], ['Kofi Mensah', true, 0, 1]]);
+  const T1 = (threads, notes) => CR.teamWeek({ athletes: [{ id: 'x', name: 'X' }], threads, notes }, Object.assign({}, W2, { now: WD.now })).words;
+  const h = (n) => new Date(WD.now - n * 3600000).toISOString();
+  eq(T1([{ athleteId: 'x', lastAt: h(11), lastSenderId: 'x' }]).length, 0, '11 hours: not waiting yet');
+  eq(T1([{ athleteId: 'x', lastAt: h(29 * 24), lastSenderId: 'x' }]).length, 0, 'older than 4 weeks: the app has it');
+  eq(T1([{ athleteId: 'x', lastAt: h(40), lastSenderId: 'x' }, { athleteId: 'x', lastAt: h(20), lastSenderId: 'coach' }]).length, 0, 'the coach answered after');
+  eq(T1([], [{ athleteId: 'x', date: CR.addDays(WD.today, -3) }, { athleteId: 'x', date: CR.addDays(WD.today, -40) }]).map(w => [w.notes, w.days]), [[1, 3]]);
+  eq([CR.wordsWhat({ message: true, notes: 2 }), CR.wordsWhat({ message: false, notes: 1 }), CR.wordsText({ days: 0 })], ['a message and 2 notes', 'a note', 'today']);
+  // The server's threads: only this coach's (a lifter's old thread with another coach isn't theirs to answer).
+  const rows = { athletes: [{ id: 'x', name: 'X' }], threads: [{ coach_id: 'other', athlete_id: 'x', last_at: h(40), last_sender_id: 'x' }] };
+  eq(CR.teamWeek(CR.fromRows(rows, { coachId: 'me', today: WD.today, now: WD.now }), Object.assign({}, W2, { now: WD.now })).words.length, 0);
+});
+
+// ---------------------------------------------------------------- 5. meets, 8 weeks, bodyweight against the class
+t('meets: the next 8 weeks, each lifter\'s latest weigh-in (2 weeks) against the class', () => {
+  eq(sam.meets.map(m => [m.name, m.days, m.lifters.map(l => [l.name, CR.meetLifterText(l, 'kg').text, CR.meetLifterText(l, 'kg').over])]), [
+    ['Autumn Open', 5, [['Priya Shah', '62.4 kg for the 63 kg, 0.6 under', false], ['Tom Boyle', '92.1 kg for the 93 kg, 0.9 under', false]]],
+    ['State Championships', 12, [['Elena Rossi', '58.4 kg for the 57 kg, 1.4 over', true]]],
+    ['Autumn Classic', 33, [['Sofia Alvarez', '75.1 kg for the 76 kg, 0.9 under', false]]],
+    ['Nationals Qualifier', 47, [['Amara Okafor', '84 kg class, no weigh-in in 2 weeks', false]]]]);
+  eq([CR.classLimit('57'), CR.classLimit('57 kg'), CR.classLimit('57,5'), CR.classLimit('120+'), CR.classLimit(''), CR.classLimit('-57')], [57, 57, 57.5, null, null, null]);
+  eq(CR.meetLifterText({ cls: '57 kg', limit: 57, bw: 58.4, over: 1.4 }, 'lbs').text, '128.7 lbs for the 57 kg, 3.1 over', 'in the coach\'s unit');
+  eq(CR.meetLifterText({ cls: '120+', limit: null, bw: 125, over: null }, 'kg').text, '', 'no ceiling: nothing to say');
+  const m = mailOf('c-sam');
+  ok(/Elena Rossi<\/span> · <span style="color:#ffb35c;">58\.4 kg for the 57 kg, 1\.4 over/.test(m.html), 'amber when over');
+  ok(/Sofia Alvarez<\/span> · <span style="color:#b8b8c0;">75\.1 kg for the 76 kg/.test(m.html), 'plain when under');
+  ok(!m.html.includes('Winter Open'), 'a meet 10 weeks out isn\'t listed');
+});
+
+// ---------------------------------------------------------------- 6. next week to write, weeks left, drafts
+t('weeks left: from the current week to the end; 0 finished; null without weeks; drafts left out', () => {
+  eq([CR.weeksLeft(block(4, 1)), CR.weeksLeft(block(4, 3)), CR.weeksLeft(block(4, 4)), CR.weeksLeft([]), CR.weeksLeft(null), CR.weeksLeft(JSON.stringify(block(3, 0)))], [3, 1, 0, null, null, 4]);
+  const d = (w) => Object.assign({}, w, { draft: true });
+  const b = block(4, 3);
+  eq(CR.weeksLeft(b.concat([d(block(1, 0)[0])])), 1, 'a draft fifth week: the block still ends this week');
+  eq(CR.weeksLeft([d(b[0])]), null, 'only a draft');
+  eq(CR.plannedPerWeek([b[0], d(block(5, 0)[0]), block(3, 0)[0]]), 3, 'a draft week with sets to do plans nothing: the next live week does');
+  eq(CR.plannedPerWeek([Object.assign({}, block(5, 0)[0], { draft: 'true' })]), 5, 'only "draft": true is a draft');
+  eq(sam.toWrite.map(x => [x.name, x.why]), [['Callum Ward', 'finished'], ['Hannah Berg', 'none'], ['Elena Rossi', 'ends'], ['Priya Shah', 'ends']]);
+  const m = mailOf('c-sam');
+  ok(m.text.includes('Next week to write\n- Block finished: Callum Ward\n- No block yet: Hannah Berg\n- Block ends this week: Elena Rossi, Priya Shah'), 'the text');
+  // A block known only by its planned sessions (an older lean read): nothing said about its end.
+  eq(CR.teamWeek({ athletes: [{ id: 'x', name: 'X' }], programs: [{ athleteId: 'x', planned: 3 }] }, W2).toWrite, []);
+});
+
+// ---------------------------------------------------------------- 7. money and roster
+t('money: overdue and due in the next 7 days; applications waiting; seats from the plan in force', () => {
+  eq([sam.overdue.n, sam.overdue.total, sam.overdue.who.map(w => [w.name, w.daysLate])], [2, 40000, [['Tomas Novak', 12], ['Tom Boyle', 5]]]);
+  eq([sam.due.n, sam.due.total, sam.due.who.map(w => [w.name, w.inDays])], [2, 42000, [['Sarah Kim', 2], ['Elena Rossi', 6]]]);
+  eq([sam.applications, sam.seats], [2, { tier: 'pro', limit: 25, lifters: 20, invites: 2, used: 22 }]);
+  eq([CR.seatsText(sam.seats), CR.seatsText(TEAMS['c-mia'].seats), CR.seatsText(TEAMS['c-big'].seats), CR.seatsText(TEAMS['c-dan'].seats)],
+    ['22 of 25 used (20 lifters, 2 open invites)', '3 of 3 used: full', '60 lifters, no limit on your plan', '5 of 10 used']);
+  const now = WD.now, day = 864e5;
+  eq([CR.effectiveTier('pro', new Date(now - 4 * day).toISOString(), now), CR.effectiveTier('pro', new Date(now - 2 * day).toISOString(), now), CR.effectiveTier('gold', null, now), CR.effectiveTier(undefined, null, now)],
+    ['free', 'pro', 'free', 'free'], 'a lapsed plan is free after 3 days (powa_effective_tier)');
+  const m = mailOf('c-sam');
+  ok(m.text.includes('- 2 payments overdue: $400 (Tomas Novak 12 days, Tom Boyle 5 days)\n- 2 due this week: $420 (Sarah Kim Wed, Elena Rossi Sun)\n- 2 applications waiting, from your profile\n- Seats: 22 of 25 used (20 lifters, 2 open invites)'), 'the text');
+  ok(/>Seats<\/div>/.test(mailOf('c-mia').html) && mailOf('c-mia').html.includes('3 of 3 used: full'), 'a full plan in amber');
+});
+
+// ---------------------------------------------------------------- 8. every lifter
+t('every lifter: one line each, in the triage order, their word on the right', () => {
+  eq(sam.everyone.map(x => x.name + ':' + x.flag.word), ['Priya Shah:Pain', 'Sarah Kim:Pain', 'Elena Rossi:Meet in 12 days', 'Tom Boyle:Meet in 5 days', 'Jonah Reed:Behind', 'Nina Petrova:Behind', 'Tomas Novak:Behind',
+    'Dev Patel:PR', 'Leo Grant:PR', 'Sofia Alvarez:PR', 'Amara Okafor:On plan', 'Arjun Mehta:On plan', 'Grace Liu:On plan', 'Ines Duarte:On plan', 'Kofi Mensah:On plan', 'Marcus Doyle:On plan', 'Mei Tanaka:On plan',
+    'Ryan O’Neill:On plan', 'Callum Ward:Block done', 'Hannah Berg:No block']);
+  const x = sam.everyone[0];
+  eq(CR.everyText(x, 'kg'), '3 of 3 sessions · +5 kg in 4 weeks');
+  eq(CR.everyText(sam.everyone.find(y => y.name === 'Hannah Berg'), 'kg'), 'no sessions');
+  ok(mailOf('c-sam').text.includes('- Callum Ward: 3 sessions · +13 kg in 4 weeks · Block done'), 'the text');
+});
+
+// ---------------------------------------------------------------- the email: order, caps, empty sections, email-safe
+t('the v2 email: sections in order, one red, email-safe (tables and inline styles, no pictures, no classes)', () => {
+  const m = mailOf('c-sam'), at = (s) => m.html.indexOf(s);
+  const order = ['>Needs you', '>Strength', '>Effort', '>Wins', '>Meets', '>Next week to write', '>Money and roster', '>Every lifter', '>Open Today<'];
+  order.forEach((s, i) => ok(at(s) > 0 && (i === 0 || at(order[i - 1]) < at(s)), 'order at ' + s));
+  eq((m.html.match(/background:#ff3b4a/g) || []).length, 1, 'one red');
+  ok(!/<img|<svg|class=|<style/i.test(m.html), 'no pictures, classes or style blocks');
+  ok(/<td width="\d+%" style="height:6px;line-height:6px;font-size:0;background:#34d982;">&nbsp;<\/td>/.test(m.html), 'bars are table cells');
+  ok(m.html.indexOf('#38c6ff') > at('>Strength') && m.html.indexOf('#38c6ff') < at('>Effort'), 'lift colours only on the lifts');
+  const tx = m.text, tOrder = ['Needs you', 'Strength (', 'Effort (', 'Wins (', 'Meets (', 'Next week to write', 'Money and roster', 'Every lifter', 'Open Today:'];
+  tOrder.forEach((s, i) => ok(tx.indexOf(s) > 0 && (i === 0 || tx.indexOf(tOrder[i - 1]) < tx.indexOf(s)), 'text order at ' + s));
+});
+t('a 60-lifter team stays readable: 8 names a line, 5 who ran hot, 6 meets, 25 lifters, then how many more', () => {
+  const big = TEAMS['c-big'], m = mailOf('c-big');
+  ok(big.behind.length > 8 && /Behind<\/div><div[^>]*>(?:(?!<\/div>).)*and \d+ more/.test(m.html), 'behind: 8 names, then and N more');
+  ok(big.effort.hot.length > 5 && m.html.includes((big.effort.hot.length - 5) + ' more ran hot'), 'hot: ' + big.effort.hot.length);
+  ok(big.meets.length > 6 && m.html.includes((big.meets.length - 6) + ' more meets'), 'meets: ' + big.meets.length);
+  ok(m.html.includes('and 35 more in the app') && m.text.includes('- and 35 more in the app'), 'every lifter: 25 of 60');
+  const evRows = m.html.slice(m.html.indexOf('>Every lifter')).match(/<td style="font-family:[^"]*font-weight:600;color:#f4f4f6;">/g) || [];
+  eq(evRows.length, 25, 'twenty-five lifter rows');
+  ok(m.html.length < 102400, 'under Gmail\'s 102 KB clip: ' + m.html.length);
+});
+t('empty sections stay out: no billing, no meets, no PRs', () => {
+  const m = mailOf('c-dan'), dan = TEAMS['c-dan'];
+  eq([dan.meets.length, dan.overdue.n, dan.due.n, dan.prs.length], [0, 0, 0, 0]);
+  ok(!m.html.includes('>Meets') && !m.html.includes('>Wins') && !m.text.includes('Meets (') && !m.text.includes('Wins ('), 'no meets, no wins');
+  ok(m.html.includes('>Money and roster') && !m.html.includes('overdue') && !m.html.includes('due this week'), 'money and roster: the seats only');
+});
+t('the lbs coach: PRs, changes and loads in lbs', () => {
+  const m = mailOf('c-mia');
+  ok(/Deadlift <span[^>]*>\d+ lbs<\/span>/.test(m.html) && /\+\d+ lbs/.test(m.text) && !/\d kg/.test(m.text), 'all lbs');
+  ok(m.html.includes('Cy &lt;script&gt;Park&lt;/script&gt;') && !m.html.includes('<script>'), 'names escaped');
+});
+t('privacy: never a body part, never their words, in the subject, push, preheader, email or text', () => {
+  const words = ['Can we move Friday', 'Is the deadlift single', 'Weigh-in is at 8', 'Quick question', 'Left knee felt tight', 'Back felt better', 'Hips shooting', 'sore'];
+  const parts = ['neck', 'shoulder', 'chest', 'upper back', 'elbow', 'wrist', 'low back', 'low_back', 'hip', 'knee', 'ankle'];
+  COACHES.forEach(c => {
+    const m = mailOf(c), all = [m.subject, m.preheader, m.html, m.text, JSON.stringify(CR.reportPush(TEAMS[c])), JSON.stringify(TEAMS[c])].join(' ');
+    words.forEach(w => ok(!all.includes(w), c + ' quotes "' + w + '"'));
+    parts.forEach(p => ok(!new RegExp('\\b' + p + '\\b', 'i').test(all), c + ' names ' + p));
+  });
+});
+
 // ---------------------------------------------------------------- the server's jobs
-t('jobs by UTC weekday: Monday digest + report, Thursday midweek, else nothing', () => {
-  eq(CR.jobPlan({}, '2026-10-26T14:00:00Z'), { jobs: ['digest', 'coach-report'], today: '2026-10-26', dryRun: false, error: null });
-  eq(CR.jobPlan({}, '2026-10-29T14:00:00Z').jobs, ['midweek']);
-  eq(CR.jobPlan(null, '2026-10-27T14:00:00Z').jobs, []);
-  eq(CR.jobPlan({}, '2026-11-01T14:00:00Z').jobs, []);
+t('jobs by the hour (the cron runs hourly): the digest Mondays at 14:00 UTC, the missed-sessions push Thursdays at 14:00 UTC, the coaches\' report every hour, for those it is due for', () => {
+  eq(CR.jobPlan({}, '2026-10-26T14:00:00Z'), { jobs: ['digest', 'coach-report'], today: '2026-10-26', now: '2026-10-26T14:00:00.000Z', dryRun: false, dueOnly: true, error: null });
+  eq([CR.jobPlan({}, '2026-10-26T13:00:00Z').jobs, CR.jobPlan({}, '2026-10-26T15:00:00Z').jobs], [['coach-report'], ['coach-report']]);
+  eq(CR.jobPlan({}, '2026-10-29T14:00:00Z').jobs, ['midweek', 'coach-report']);
+  eq(CR.jobPlan({}, '2026-10-29T14:07:00Z').jobs, ['midweek', 'coach-report'], 'the call lands a few minutes late');
+  eq([CR.jobPlan(null, '2026-10-27T14:00:00Z').jobs, CR.jobPlan({}, '2026-11-01T23:00:00Z').jobs], [['coach-report'], ['coach-report']]);
+  let d = 0, m = 0, c = 0;
+  for (let h = 0; h < 168; h++) {
+    const p = CR.jobPlan({}, new Date(Date.parse('2026-10-26T00:00:00Z') + h * 3600000).toISOString());
+    if (p.jobs.includes('digest')) d++; if (p.jobs.includes('midweek')) m++; if (p.jobs.includes('coach-report') && p.dueOnly) c++;
+  }
+  eq([d, m, c], [1, 1, 168], 'a week of hourly runs: the digest once, the midweek push once, the report check every hour');
 });
 t('jobs: an explicit job and day (the cron secret already checked), dry runs only on true', () => {
-  eq(CR.jobPlan({ job: 'midweek', today: '2026-10-26', dryRun: true }, '2026-10-30'), { jobs: ['midweek'], today: '2026-10-26', dryRun: true, error: null });
+  eq(CR.jobPlan({ job: 'midweek', today: '2026-10-26', dryRun: true }, '2026-10-30'), { jobs: ['midweek'], today: '2026-10-26', now: '2026-10-30T00:00:00.000Z', dryRun: true, dueOnly: false, error: null });
+  eq([CR.jobPlan({ job: 'coach-report' }, '2026-11-01T23:00:00Z').dueOnly, CR.jobPlan({ job: 'coach-report', dueOnly: true }, '2026-11-01T23:00:00Z').dueOnly], [false, true], 'by name: every coach, unless dueOnly');
+  eq([CR.jobPlan({ today: '2026-10-26' }, '2026-10-30T09:00:00Z').jobs, CR.jobPlan({ today: '2026-10-29' }, '2026-10-30T09:00:00Z').jobs, CR.jobPlan({ today: '2026-10-27' }, '2026-10-30T09:00:00Z').jobs],
+    [['digest', 'coach-report'], ['midweek'], []], 'a day by hand: what that weekday did before');
+  eq(CR.jobPlan({ today: '2026-10-26' }, '2026-10-30T09:00:00Z').dueOnly, false);
+  eq(CR.jobPlan({ now: '2026-11-01T23:00:00Z', dryRun: true }, '2026-10-30T09:00:00Z'), { jobs: ['coach-report'], today: '2026-11-01', now: '2026-11-01T23:00:00.000Z', dryRun: true, dueOnly: true, error: null }, 'a pretend hour');
+  ok(CR.jobPlan({ now: 'soon' }, '2026-10-30').error, 'a bad now');
   eq(CR.jobPlan({ dryRun: 'yes' }, '2026-10-26').dryRun, false);
   ok(CR.jobPlan({ job: 'everything' }, '2026-10-26').error, 'unknown job accepted');
   ok(CR.jobPlan({ today: '2026-02-30' }, '2026-10-26').error, 'impossible date accepted');
   ok(CR.jobPlan({ today: "2026-10-26'; drop" }, '2026-10-26').error === null, 'today is cut to its date part');
 });
+// ---------------------------------------------------------------- when the report comes (the owner, 2 Nov: "Their pick, Sunday 6 pm default")
+t('the pick: Sunday 18:00 unless said; hour 0 is midnight; a time zone the engine doesn\'t know is UTC', () => {
+  eq(CR.scheduleOf(null), { day: 'sun', hour: 18, tz: 'UTC' });
+  eq(CR.scheduleOf({ report_day: 'mon', report_hour: 7, tz: 'Australia/Sydney' }), { day: 'mon', hour: 7, tz: 'Australia/Sydney' });
+  eq(CR.scheduleOf({ reportDay: 'mon', reportHour: 6, tz: 'Europe/London' }), { day: 'mon', hour: 6, tz: 'Europe/London' }, 'the app\'s camelCase');
+  eq(CR.scheduleOf({ report_day: 'tue', report_hour: 0 }), { day: 'sun', hour: 0, tz: 'UTC' });
+  eq([CR.scheduleOf({ report_hour: 24 }).hour, CR.scheduleOf({ report_hour: '7' }).hour, CR.scheduleOf({ report_hour: null }).hour, CR.scheduleOf({ report_hour: 6.5 }).hour], [18, 7, 18, 18]);
+  ['Mars/Base', '', 'UTC+5', 'Europe/London; drop', null, 42, 'Europe/' + 'x'.repeat(70), '../etc'].forEach(tz => eq(CR.validTz(tz), 'UTC', String(tz)));
+  ['Europe/London', 'America/New_York', 'Asia/Kolkata', 'Australia/Sydney', 'UTC'].forEach(tz => eq(CR.validTz(tz), tz));
+  eq([0, 7, 12, 18, 23].map(CR.hourText), ['12 am', '7 am', '12 pm', '6 pm', '11 pm']);
+  eq([CR.scheduleText({ day: 'sun', hour: 18 }), CR.scheduleText({ day: 'mon', hour: 7 }), CR.scheduleText({ day: 'mon', hour: null })], ['Sundays at 6 pm', 'Mondays at 7 am', 'Mondays']);
+});
+t('the window: Sunday\'s report is this week, Monday\'s the week that ended yesterday', () => {
+  eq(CR.reportWindow('sun', '2026-11-01'), { from: '2026-10-26', to: '2026-11-01', today: '2026-11-01' });
+  eq(CR.reportWindow('mon', '2026-11-02'), { from: '2026-10-26', to: '2026-11-01', today: '2026-11-02' });
+  eq(CR.reportWindow('sun', '2026-11-02'), CR.lastWeek('2026-11-02'), 'a Sunday coach on a Monday: last week, now complete');
+  eq(CR.reportWindow('mon', '2026-11-01'), { from: '2026-10-19', to: '2026-10-25', today: '2026-11-01' }, 'a Monday coach on a Sunday: the week before this one');
+  eq([CR.reportWindow('sun', '2027-01-03').from, CR.reportWindow('mon', '2027-01-04').from], ['2026-12-28', '2026-12-28'], 'across the new year');
+});
+const dueAt = (pref, iso) => CR.reportDue(pref, Date.parse(iso));
+t('due: the day, from the hour, in the coach\'s time zone, across daylight saving', () => {
+  const ny = { tz: 'America/New_York' };   // Sunday 18:00; clocks go back on Sunday 1 Nov 2026
+  eq([dueAt(ny, '2026-11-01T22:00:00Z').due, dueAt(ny, '2026-11-01T23:00:00Z').due], [false, true], 'the change\'s Sunday (EST): 23:00 UTC');
+  eq([dueAt(ny, '2026-10-25T21:00:00Z').due, dueAt(ny, '2026-10-25T22:00:00Z').due], [false, true], 'the Sunday before (EDT): 22:00 UTC');
+  eq(dueAt(ny, '2026-11-01T23:00:00Z').window, { from: '2026-10-26', to: '2026-11-01', today: '2026-11-01' });
+  const ist = { tz: 'Asia/Kolkata' };      // +5:30: the 13:00 UTC run is 18:30 there
+  eq([dueAt(ist, '2026-11-01T12:00:00Z').due, dueAt(ist, '2026-11-01T13:00:00Z').due, dueAt(ist, '2026-11-01T18:00:00Z').due, dueAt(ist, '2026-11-01T19:00:00Z').due], [false, true, true, false], 'until Monday there');
+  const syd = { report_day: 'mon', report_hour: 7, tz: 'Australia/Sydney' };   // +11 in their summer: Monday 07:00 is Sunday 20:00 UTC
+  eq([dueAt(syd, '2026-11-01T19:00:00Z').due, dueAt(syd, '2026-11-01T20:00:00Z').due], [false, true]);
+  eq(dueAt(syd, '2026-11-01T20:00:00Z').window, { from: '2026-10-26', to: '2026-11-01', today: '2026-11-02' }, 'the week that ended there yesterday');
+  eq([dueAt({ tz: 'Australia/Sydney' }, '2026-10-04T06:00:00Z').due, dueAt({ tz: 'Australia/Sydney' }, '2026-10-04T07:00:00Z').due], [false, true], 'Sydney\'s own change (4 Oct): Sunday 18:00 is 07:00 UTC');
+  eq([dueAt({ tz: 'Europe/London' }, '2026-10-25T17:00:00Z').due, dueAt({ tz: 'Europe/London' }, '2026-10-25T18:00:00Z').due], [false, true], 'London\'s change (25 Oct, GMT again): 18:00 UTC');
+});
+t('due: a missed hour catches up later that day; never twice; a new week is due again; no row is Sunday 18:00 UTC', () => {
+  const ldn = { tz: 'Europe/London' };
+  eq([dueAt(ldn, '2026-11-01T21:00:00Z').due, dueAt(ldn, '2026-11-01T23:59:00Z').due], [true, true], 'hours late: still due that evening');
+  const sent = dueAt(Object.assign({ report_sent_week: '2026-10-26' }, ldn), '2026-11-01T21:00:00Z');
+  eq([sent.due, sent.why], [false, 'sent']);
+  eq(dueAt(Object.assign({ reportSentWeek: '2026-10-26' }, ldn), '2026-11-01T22:00:00Z').due, false, 'the app\'s camelCase');
+  eq(dueAt(Object.assign({ report_sent_week: '2026-10-19' }, ldn), '2026-11-01T21:00:00Z').due, true, 'last week\'s mark: this week is still to send');
+  eq(dueAt(ldn, '2026-11-02T00:30:00Z').why, 'another day', 'Monday: the Sunday report\'s day has gone');
+  eq(dueAt({ report_day: 'mon', report_hour: 7, report_sent_week: '2026-10-26', tz: 'Europe/London' }, '2026-11-02T09:00:00Z').due, false, 'a switch from Sunday to Monday never repeats the week');
+  eq([dueAt(null, '2026-11-01T17:00:00Z').due, dueAt(null, '2026-11-01T18:00:00Z').due], [false, true], 'no preferences row');
+  eq(dueAt({ tz: 'Mars/Base' }, '2026-11-01T18:00:00Z').due, true, 'an unknown zone is UTC');
+  eq(dueAt({ report_hour: 0 }, '2026-11-01T00:00:00Z').due, true, 'midnight');
+  // Every hour of a week for a coach in each zone (from Monday noon UTC, Monday or later everywhere): due on their
+  // Sunday from 18:00 only, and once marked, never again.
+  ['Europe/London', 'America/New_York', 'Asia/Kolkata', 'Australia/Sydney', 'Pacific/Auckland', 'America/Los_Angeles'].forEach(tz => {
+    const pref = { tz }; let first = null, after = 0;
+    for (let h = 0; h < 168; h++) {
+      const iso = new Date(Date.parse('2026-10-26T12:00:00Z') + h * 3600000).toISOString(), d = CR.reportDue(pref, Date.parse(iso));
+      if (d.due && !first) { first = { iso, local: d.local, from: d.window.from }; pref.report_sent_week = d.window.from; }
+      else if (d.due) after++;
+    }
+    ok(first && first.local.weekday === 6 && first.local.hour === 18, tz + ': first due ' + JSON.stringify(first));
+    eq(after, 0, tz + ': due again after it was sent');
+  });
+});
+t('the Sunday email says this week; every email says when it comes and where to change it', () => {
+  const Wsun = CR.reportWindow('sun', '2026-11-01'), now = WD.now - 864e5;
+  const s = storeFor(WD.tables, 'c-sam');
+  const team = CR.teamWeek(CR.fromStore(s.store, 'c-sam', Object.assign({ formChecks: s.formChecks, plan: s.plan, now }, Wsun)), Object.assign({ now, unit: 'kg' }, Wsun));
+  eq([team.kind, sam.kind], ['this', 'last']);
+  const m = CR.reportEmail(team, { coachName: 'Sam Ellis', schedule: { day: 'sun', hour: 18 } });
+  ok(m.html.includes('This week, 26 Oct – 1 Nov') && m.text.startsWith('Your team’s week · This week, 26 Oct – 1 Nov'), 'the range');
+  ok(m.text.includes('No check-in this week: Leo Grant') && m.text.includes('Effort (this week’s top sets') && m.html.includes('No check-in this week'), 'this week\'s words');
+  ok(m.html.includes('Sent to Sam on Sundays at 6 pm. Change it in Settings › Notifications.') && m.text.includes('Sent to Sam on Sundays at 6 pm. Change it in Settings, Notifications.'), 'the footer');
+  const mon = CR.reportEmail(sam, { coachName: 'Sam Ellis', schedule: { day: 'mon', hour: 7 } });
+  ok(mon.html.includes('>26 Oct – 1 Nov<') && !mon.html.includes('This week,') && mon.text.includes('No check-in last week') && mon.html.includes('Sent to Sam on Mondays at 7 am.'), 'Monday\'s: last week');
+  ok(CR.reportEmail(sam, {}).text.includes('Sent on Mondays. Change it'), 'no pick given (before the migration): the day the week says');
+});
+
 t('busy weeks: approved only, snapped to their Monday, either shape', () => {
   eq(CR.busyRows([{ athlete_id: 'a', week_start: '2026-10-21', days: '2', status: 'APPROVED' }, { athleteId: 'b', weekStart: '2026-10-19', agreedDays: 1 },
     { athleteId: 'c', weekStart: '2026-10-19', days: 2, status: 'declined' }, { athleteId: 'd', weekStart: 'soon', days: 2 }, null, 'x']),
