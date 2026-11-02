@@ -729,6 +729,9 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
 /* One crimson per screen: when two page actions share the screen, the one further from the middle steps back to ink. */
 .act-btn.is-quiet, .pub.is-quiet { background: #f4f4f6; color: #0b0b0d; box-shadow: none; }
 .log.is-quiet { background: #f4f4f6; color: #0b0b0d; box-shadow: 0 0 0 1px #f4f4f6, 0 1px 2px rgba(0, 0, 0, 0.45); }   /* the spread covers the app's own Log set's edge under it */
+/* Without JavaScript on a phone, Arjun's phone sits under Start free on the first screen: Log set steps back, as the page
+   layer would have it. */
+@media (max-width: 759px) { html:not(.js) .log { background: #f4f4f6; color: #0b0b0d; box-shadow: 0 0 0 1px #f4f4f6, 0 1px 2px rgba(0, 0, 0, 0.45); } }
 .dec-btn.is-quiet .dec-red { visibility: hidden; }
 
 /* =====================================================================
