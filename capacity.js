@@ -236,20 +236,20 @@
     return 'Now and then';
   }
   // On screen a duration never breaks inside itself ("8 / min"): non-breaking spaces.
-  function nbsp(s) { return String(s).replace(/ /g, ' '); }
+  function nbsp(s) { return String(s).replace(/ /g, '\u00a0'); }
   // The hero's one plain line: past your hours, room for more, or a full week. html: the numbers in <b>, and
   // each duration kept on one line.
   function lineText(e, html) {
     e = e || {};
     var dur = function (m) { return html ? nbsp(durText(m)) : durText(m); };
     var b = function (s) { return html ? '<b>' + esc(s) + '</b>' : s; };
-    var std = e.minPerLifter, have = dur(e.minutesHave), full = dur(std);
+    var std = e.minPerLifter, have = dur(e.minutesHave), full = dur(std), sp = html ? '\u00a0' : ' ';
     if (!std) return 'Every task is at 0 min. Change minutes to set how long each one takes you.';
-    if (!e.lifters) return e.capacity ? 'Room for ' + b(plural(e.capacity, 'lifter')) + ' in your ' + have + '.' : 'One lifter needs ' + full + ', more than your ' + have + '.';
-    if (e.overMinutes > 0) return 'That’s ' + b(dur(e.overMinutes)) + ' more than you set. At ' + have + ', ' +
+    if (!e.lifters) return e.capacity ? 'Room for ' + b(plural(e.capacity, 'lifter')) + ' in your' + sp + have + '.' : 'One lifter needs ' + full + ', more than your' + sp + have + '.';
+    if (e.overMinutes > 0) return 'That’s ' + b(dur(e.overMinutes)) + ' more than you set. At' + sp + have + ', ' +
       (e.capacity ? b(plural(e.capacity, 'lifter')) + (e.capacity === 1 ? ' gets' : ' get') : 'no lifter gets') + ' the full ' + full + '.';
     if (e.more > 0) return 'Room for ' + b(e.more + ' more ' + (e.more === 1 ? 'lifter' : 'lifters')) + ' at ' + full + (e.more === 1 ? '.' : ' each.');
-    return 'That fills your ' + have + '.';
+    return 'That fills your' + sp + have + '.';
   }
 
   var Capacity = { capacityEstimate: capacityEstimate, capacitySignals: capacitySignals, measuredMinutes: measuredMinutes, settingsOf: settingsOf,

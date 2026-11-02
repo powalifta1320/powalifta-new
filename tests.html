@@ -7592,7 +7592,7 @@ test('20 lifters at 40 min with 10 h: 13 h 20 min a week, 3 h 20 min over, 15 ge
   eq(r.capacity, 15); eq(r.more, -5);
   eq(Capacity.durText(r.weekMinutes), '13 h 20 min');
   eq(Capacity.lineText(r), 'That’s 3 h 20 min more than you set. At 10 h, 15 lifters get the full 40 min.');
-  eq(Capacity.lineText(r, true), 'That’s <b>3 h 20 min</b> more than you set. At 10 h, <b>15 lifters</b> get the full 40 min.', 'on screen: the numbers bold, no duration split over two lines');
+  eq(Capacity.lineText(r, true), 'That’s <b>3\u00a0h\u00a020\u00a0min</b> more than you set. At\u00a010\u00a0h, <b>15 lifters</b> get the full 40\u00a0min.', 'on screen: the numbers bold, no duration split over two lines, nor “At” from its hours');
   eq(r.seats.limit, 25); eq(r.seats.left, 5);
 });
 test('room: whole lifters only (15 h: 22, room for 2), one more, exactly full, nobody yet', () => {
