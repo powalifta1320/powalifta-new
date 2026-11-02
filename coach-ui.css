@@ -2546,3 +2546,12 @@ html.desk .cl-ylmore { margin: 8px -2px 0; }
 /* Today's sections: 40 between them (the first title of a block keeps its own top) */
 html.desk .cl-today > :is(.cl-team, .cl-yl) { margin-top: 40px; }
 html.desk .cl-today > .pn-slot + .cl-team { margin-top: 32px; }
+/* ---- the laptop's Lifters and Today on the scale (a census of the sizes on screen found 11, 16 and 22 here) ---- */
+html.desk .cl-page .cl-ph .ui-av.lg { font-size: 15px; }
+html.desk .cl-page .cl-flag .cl-ftx > b, html.desk .cl-page .cl-pc-t > b { font-size: 17px; line-height: 22px; }
+html.desk .cl-page .cl-hnum span { font-size: 17px; }
+html.desk .cl-page .cl-big3 { font-size: 28px; line-height: 1; letter-spacing: -0.03em; }
+html.desk .cl-root .cl-svgt { font-size: 13px; }
+html.desk .cl-page .cl-wq { font-size: 15px; }
+html.desk .cl-biz-sep { font-size: 15px; }
+html.desk .cl-page .cl-empty b { font-size: 17px; line-height: 22px; }
