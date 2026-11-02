@@ -518,7 +518,7 @@
   var heroDesk = null, ltCam = $('#ltCam');
   if (desk && $('#ltBody')) {
     heroDesk = desk.cloneNode(true);
-    heroDesk.removeAttribute('id'); heroDesk.removeAttribute('style'); heroDesk.className = 'lt-live';
+    heroDesk.removeAttribute('id'); heroDesk.removeAttribute('style'); heroDesk.className = 'lt-live'; heroDesk.setAttribute('aria-hidden', 'true');   // the laptop's picture says it
     $$('[id]', heroDesk).forEach(function (e) { e.removeAttribute('id'); });
     $$('.grp, .mk', heroDesk).forEach(function (e) { e.parentNode.removeChild(e); });
     $('#ltBody').appendChild(heroDesk);
@@ -541,7 +541,7 @@
   function heroLand(now) {
     if (!HL || small()) return;
     var b = HL.ring.getBoundingClientRect(), mid = (b.top + b.bottom) / 2;
-    gsap.set(heroDesk, { autoAlpha: 1 });   // the same screen, live: at rest exactly the laptop's picture
+    gsap.set(heroDesk, { opacity: 1 });   // the same screen, live: at rest exactly the laptop's picture (drawn ahead)
     if (now || mid < 64 || mid > vhOf()) { HL.a.progress(1); HL.b.progress(1); return; }   // out of view: simply there
     tapRun = gsap.timeline()
       .fromTo(T, { p: 0 }, { p: 1, duration: 1.0, ease: 'none', onUpdate: placeTap, immediateRender: false }, 0.3)
@@ -559,7 +559,7 @@
     gsap.to(next, { autoAlpha: 0, duration: d, ease: OUT });
     gsap.to(logB, { scale: 1, duration: d, ease: OUT });
     LG.max.pause(); gsap.to(LG.max, { progress: 0, duration: d, ease: OUT });
-    if (heroDesk) gsap.to(heroDesk, { autoAlpha: 0, duration: d, ease: OUT, onComplete: function () { HL.a.pause(0); HL.b.pause(0); } });
+    if (heroDesk) gsap.to(heroDesk, { opacity: 0, duration: d, ease: OUT, onComplete: function () { HL.a.pause(0); HL.b.pause(0); } });
     gsap.delayedCall(d + 0.08, done);
   }
   var resetting = false;
