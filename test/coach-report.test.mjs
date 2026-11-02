@@ -330,7 +330,8 @@ t('week over week: trained and sessions against the week before, counted the sam
   eq(one({}).prev, null, 'no week before given (the server couldn\'t read it): no comparison');
   const m = mailOf('c-sam');
   ok(m.text.includes('18 of 20 trained (1 fewer than the week before) · 54 of 64 sessions (5 more than the week before) · 3 PRs'), 'the text');
-  ok(m.html.includes('lifters trained, 1 fewer than the week before') && m.html.includes('Sessions, 5 more than the week before') && m.html.includes('The week before'), 'the card');
+  ok(m.html.includes('lifters trained, 1 fewer than the week before') && /5 more sessions than the week before<\/span> · <span[^>]*>3 PRs<\/span> · <span[^>]*>3 behind/.test(m.html) && m.html.includes('The week before'), 'the card');
+  eq([CR.vsText(4, 4, 'sessions'), CR.vsText(2, 5, 'sessions')], ['as many sessions as the week before', '3 fewer sessions than the week before']);
 });
 
 // ---------------------------------------------------------------- 2. strength over 4 weeks, stalling

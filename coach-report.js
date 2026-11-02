@@ -108,10 +108,11 @@
     return out;
   }
   function byName(a, b) { return String(a.name).localeCompare(String(b.name)); }
-  // "6 more than the week before", "2 fewer than the week before", "the same as the week before".
-  function vsText(now, before) {
-    var d = now - before;
-    return d > 0 ? d + ' more than the week before' : d < 0 ? -d + ' fewer than the week before' : 'the same as the week before';
+  // "6 more than the week before", "2 fewer than the week before", "the same as the week before"; with a noun:
+  // "6 more sessions than the week before", "as many sessions as the week before".
+  function vsText(now, before, noun) {
+    var d = now - before, n = noun ? ' ' + noun : '';
+    return d > 0 ? d + ' more' + n + ' than the week before' : d < 0 ? -d + ' fewer' + n + ' than the week before' : noun ? 'as many' + n + ' as the week before' : 'the same as the week before';
   }
   function daysAgoText(n) { return n <= 0 ? 'today' : plural(n, 'day'); }
 
@@ -787,9 +788,10 @@
         '<div style="font-size:15px;line-height:1.35;font-weight:600;color:' + C.text + ';">' + dotOf(tone) + label + '</div>' +
         (value ? '<div style="margin-top:4px;font-size:15px;line-height:1.45;color:' + C.text2 + ';">' + value + '</div>' : '') + '</td></tr>';
     };
+    // Names in a line, each with its detail kept on one line ("Tom Boyle 5 days" never breaks in two on a phone).
     var names = function (list, fmt, max) {
       max = max || EMAIL_NAMES;
-      var out = list.slice(0, max).map(function (x) { return esc(x.name) + (fmt ? fmt(x) : ''); }).join(', ');
+      var out = list.slice(0, max).map(function (x) { return '<span style="white-space:nowrap;">' + esc(x.name) + (fmt ? fmt(x) : '') + '</span>'; }).join(', ');
       return list.length > max ? out + ' <span style="color:' + C.text3 + ';">and ' + (list.length - max) + ' more</span>' : out;
     };
     var soft = function (s) { return ' <span style="color:' + C.text3 + ';">' + s + '</span>'; };
@@ -823,13 +825,17 @@
         '<span style="font-size:17px;font-weight:600;color:' + C.text3 + ';"> of ' + st.n + '</span>' +
         '<span style="font-size:15px;font-weight:600;color:' + C.text2 + ';"> stronger</span>' +
         '<div style="margin-top:6px;font-size:13px;line-height:1.4;color:' + C.text3 + ';">Their best e1RM in the last 4 weeks against the 4 before.</div></td></tr>');
+      // Each lift: its median change, how many of the lifters compared moved it up, and that share as a bar.
       LIFTS.forEach(function (L) {
         var g = st.lifts[L];
         if (!g || !g.n) return;
-        sRows.push(row(dotOf(LIFT_COLOR[L], 8) + esc(LIFT[L]) + ' <span style="font-weight:600;color:' + C.text + ';">' + esc(deltaText(g.median, U)) + '</span>' + soft('median'),
-          g.up + ' of ' + g.n + ' up' + bar([{ n: g.up, color: LIFT_COLOR[L] }, { n: g.n - g.up, color: C.line }], 8), '', sRows.length));
+        sRows.push('<tr><td style="padding:14px 0;border-top:1px solid ' + C.line + ';font-family:' + FONT + ';">' +
+          '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>' +
+          '<td style="font-family:' + FONT + ';font-size:15px;line-height:1.35;font-weight:600;color:' + C.text + ';">' + dotOf(LIFT_COLOR[L], 8) + esc(LIFT[L]) + ' ' + esc(deltaText(g.median, U)) + soft('median') + '</td>' +
+          '<td align="right" style="font-family:' + FONT + ';font-size:15px;line-height:1.35;color:' + C.text2 + ';white-space:nowrap;padding-left:12px;">' + g.up + ' of ' + g.n + ' up</td></tr></table>' +
+          bar([{ n: g.up, color: LIFT_COLOR[L] }, { n: g.n - g.up, color: C.line }], 10) + '</td></tr>');
       });
-      if (st.movers.length) sRows.push(row('Biggest movers', st.movers.map(function (m) { return esc(m.name) + ' <span style="color:' + C.text + ';font-weight:600;">' + esc(deltaText(m.kg, U)) + '</span>'; }).join(' · '), '', sRows.length));
+      if (st.movers.length) sRows.push(row('Biggest movers', st.movers.map(function (m) { return '<span style="white-space:nowrap;">' + esc(m.name) + ' <span style="color:' + C.text + ';font-weight:600;">' + esc(deltaText(m.kg, U)) + '</span></span>'; }).join(' · '), '', sRows.length));
     }
     // Effort: the share at or under what was written, the split as a bar, who ran hot and their worst top set.
     var eRows = [];
@@ -837,8 +843,8 @@
       eRows.push('<tr><td style="padding:16px 0 14px;font-family:' + FONT + ';"><span style="font-size:28px;line-height:1;font-weight:800;color:' + C.text + ';">' + ef.pct + '%</span>' +
         '<span style="font-size:15px;font-weight:600;color:' + C.text2 + ';"> at or under what you wrote</span>' +
         bar([{ n: ef.atOrUnder, color: C.ok }, { n: ef.half, color: C.half }, { n: ef.over, color: C.warn }], 12) +
-        '<div style="margin-top:8px;font-size:13px;line-height:1.5;color:' + C.text2 + ';">' + dotOf(C.ok, 6) + ef.atOrUnder + ' at or under&nbsp;&nbsp; ' +
-        dotOf(C.half, 6) + ef.half + ' half a point over&nbsp;&nbsp; ' + dotOf(C.warn, 6) + ef.over + ' a point or more over</div></td></tr>');
+        '<div style="margin-top:8px;font-size:13px;line-height:1.6;color:' + C.text2 + ';">' + [[C.ok, ef.atOrUnder + ' at or under'], [C.half, ef.half + ' half a point over'], [C.warn, ef.over + ' a point or more over']]
+          .map(function (x) { return '<span style="white-space:nowrap;">' + dotOf(x[0], 6) + x[1] + '</span>'; }).join('&nbsp;&nbsp; ') + '</div></td></tr>');
       ef.hot.slice(0, EMAIL_HOT).forEach(function (x) { eRows.push(row(esc(x.name), esc(hotText(x)), C.warn, eRows.length)); });
       if (ef.hot.length > EMAIL_HOT) eRows.push(row('<span style="color:' + C.text2 + ';">' + (ef.hot.length - EMAIL_HOT) + ' more ran hot</span>', 'In the app, on Last week’s report.', '', eRows.length));
     }
@@ -884,6 +890,7 @@
     var big = '<span style="font-size:44px;line-height:1;font-weight:800;letter-spacing:-0.02em;color:' + C.text + ';">' + team.trained + '</span>' +
       '<span style="font-size:22px;font-weight:600;color:' + C.text3 + ';"> of ' + team.of + '</span>';
     var facts = [];
+    if (prev && prev.sessionsPlanned && team.sessionsPlanned) facts.push(vsText(team.sessionsDone, prev.sessionsDone, 'sessions'));
     if (team.prs.length) facts.push(plural(team.prs.length, 'PR'));
     if (team.behind.length) facts.push(team.behind.length + ' behind');
     var sessLine = function (label, done, plannedN, color, dim) {
@@ -892,7 +899,7 @@
         '<td align="right" style="font-family:' + FONT + ';font-size:13px;line-height:1.3;font-weight:600;color:' + (dim ? C.text2 : C.text) + ';">' + done + ' of ' + plannedN + '</td></tr></table>' +
         bar([{ n: Math.min(done, plannedN), color: color }, { n: Math.max(0, plannedN - done), color: C.line }], 6);
     };
-    var sess = team.sessionsPlanned ? sessLine('Sessions' + (prev && prev.sessionsPlanned ? ', ' + esc(vsText(team.sessionsDone, prev.sessionsDone)) : ''), team.sessionsDone, team.sessionsPlanned, C.ok, false) +
+    var sess = team.sessionsPlanned ? sessLine('Sessions', team.sessionsDone, team.sessionsPlanned, C.ok, false) +
       (prev && prev.sessionsPlanned ? sessLine('The week before', prev.sessionsDone, prev.sessionsPlanned, C.was, true) : '') : '';
     h.push('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">',
       '<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"><title>' + esc(subject) + '</title></head>',
@@ -906,7 +913,7 @@
       '<tr><td style="padding:24px 0 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:' + C.card + ';border:1px solid ' + C.line + ';border-radius:20px;">',
       '<tr><td style="padding:22px 20px 20px;font-family:' + FONT + ';">' + big + '<div style="margin-top:8px;font-size:15px;color:' + C.text2 + ';">lifters trained' +
         (prev ? ', ' + esc(vsText(team.trained, prev.trained)) : '') + '</div>' + sess +
-        (facts.length ? '<div style="margin-top:14px;font-size:15px;color:' + C.text2 + ';">' + esc(facts.join(' · ')) + '</div>' : '') + '</td></tr></table></td></tr>');
+        (facts.length ? '<div style="margin-top:14px;font-size:15px;line-height:1.45;color:' + C.text2 + ';">' + facts.map(function (f) { return '<span style="white-space:nowrap;">' + esc(f) + '</span>'; }).join(' · ') + '</div>' : '') + '</td></tr></table></td></tr>');
     h.push(sec('Needs you', nRows, true));
     if (sRows.length) h.push(sec('Strength', sRows, false, '4 weeks'));
     if (eRows.length) h.push(sec('Effort', eRows, false, plural(ef.total, 'top set')));
