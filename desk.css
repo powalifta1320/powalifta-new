@@ -1672,6 +1672,17 @@ html.desk body.powa-app {
 .dp-lline { font: var(--fw-1) var(--fs-1)/1.3 var(--font-body); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .dp-lstat { max-width: 128px; font: var(--fw-2) var(--fs-1)/1.3 var(--font-body); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .dp-lstat.is-write { color: var(--text); }
+/* a narrow list (a narrow window): the status takes the second line, the counts fold away */
+.dp-list { container: dplist / inline-size; }
+@container dplist (max-width: 320px) {
+  .dp-lrow { grid-template-columns: 32px minmax(0, 1fr); row-gap: 2px; }
+  .dp-lrow .dk-av { grid-row: 1 / span 2; }
+  .dp-lrow .dp-lmain { grid-column: 2; grid-row: 1; }
+  .dp-lrow .dp-lstat { grid-column: 2; grid-row: 2; max-width: none; }
+  .dp-lrow.has-stat .dp-lline { display: none; }
+  .dp-tab-n { display: none; }
+  .dp-tab { padding: 0 6px; }
+}
 /* the head: who, the block, the tools; then the weeks and the one crimson (sticky) */
 .dp-head { padding-top: var(--page-top); }
 .dp-head-a { display: flex; align-items: flex-start; gap: var(--s-3); min-width: 0; }
@@ -1692,8 +1703,12 @@ html.desk body.powa-app .dp-name { margin: 0; font: var(--fw-4) var(--fs-7)/34px
 .dp-tool:disabled { opacity: 0.4; cursor: default; }
 .dp-undo, .dp-head .dp-more { width: 32px; padding: 0; justify-content: center; }
 .dp-head-b { position: sticky; top: 0; z-index: 6; display: flex; align-items: center; gap: var(--s-3); margin: 0 calc(-1 * var(--s-5)); padding: var(--s-4) var(--s-5) var(--s-3); background: var(--bg); }
-.dp-weeks { display: flex; align-items: center; gap: 2px; min-width: 0; flex: 0 1 auto; padding: 3px; border-radius: 12px; background: var(--dk-fill); overflow-x: auto; scrollbar-width: none; }
-.dp-weeks::-webkit-scrollbar { display: none; }
+.dp-weeks { display: flex; align-items: center; gap: 2px; min-width: 0; flex: 0 1 auto; padding: 3px; border-radius: 12px; background: var(--dk-fill); }
+/* the tabs scroll in a long block; +, the weeks to the meet and the meet stay at the end, always in view */
+.dp-wks { display: flex; align-items: center; gap: 2px; min-width: 0; flex: 0 1 auto; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.dp-wks::-webkit-scrollbar { display: none; }
+.dp-wk-ws { display: none; }
+@container dkpb (max-width: 900px) { .dp-weeks.is-long .dp-wk-w { display: none; } .dp-weeks.is-long .dp-wk-ws { display: inline; } }
 .dp-wk { display: inline-flex; align-items: baseline; gap: 6px; flex: none; height: 32px; padding: 0 12px; box-sizing: border-box; border: 0; border-radius: 9px; background: none; cursor: pointer;
   color: var(--text-2); font: var(--fw-2) var(--fs-3)/32px var(--font-body); white-space: nowrap; font-variant-numeric: tabular-nums; transition: background-color 0.14s var(--dk-ease), color 0.14s var(--dk-ease); }
 .dp-wk.is-sel { background: var(--dk-seg-on); color: var(--text); font-weight: var(--fw-3); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); }
@@ -1757,6 +1772,7 @@ html.desk body.powa-app input.dp-day-name:focus { background: var(--bg) !importa
 .dp-ex.lift-bench .dp-dot, .dp-dot.lift-bench { background: var(--dk-bp); }
 .dp-ex.lift-deadlift .dp-dot, .dp-dot.lift-deadlift { background: var(--dk-dl); }
 .dp-exn { flex: 1 1 0; min-width: 0; font: var(--fw-3) var(--dp-17)/22px var(--font-body); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-week.is-draft .dp-ex.is-edited .dp-exn::after { display: none; }   /* a draft: nothing has been sent, so nothing is "edited since" */
 .dp-ex.is-edited .dp-exn::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--text-3); vertical-align: 3px; }
 .dp-swap { flex-basis: 100%; padding-left: 16px; font: var(--fw-1) var(--fs-1)/1.3 var(--font-body); color: var(--text-3); }
 .dp-c-role { font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1834,16 +1850,16 @@ html.desk body.powa-app .dp-team-t { grid-column: 1; margin: 0; font: var(--fw-3
 .dp-mem-v { font: var(--fw-3) var(--fs-3)/1.2 var(--font-num); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dp-mem.is-nomax .dp-mem-v { font-weight: var(--fw-1); color: var(--text-3); }
 .dp-mem.is-over .dp-mem-v { color: var(--dk-warn); }
-.dp-mem-own { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--text); margin-left: -8px; }
-.dp-mem { position: relative; }
-.dp-mem-lifted { grid-column: 2 / -1; font: var(--fw-1) var(--fs-1)/1 var(--font-body); color: var(--text-3); }
+.dp-mem-own { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--text-2); vertical-align: 2px; }
+.dp-mem-lifted { font: var(--fw-1) var(--fs-1)/1 var(--font-body); color: var(--text-3); }
 html.desk body.powa-app input.dp-mem-in { width: 88px; font-size: var(--fs-3); font-weight: var(--fw-3); }
 /* narrow centres: fields, then what they lifted, step under the cells */
 @container dpw (max-width: 760px) {
   .dp-row { --c-name: 132px; --c-load: 120px; --c-lift: 128px; }
   .dp-row { grid-template-columns: var(--c-name) var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) var(--c-lift) var(--c-more); }
   .dp-row .dp-c-f { grid-row: 2; grid-column: 2 / 7; }
-  .dp-row .dp-c-f:has(input:placeholder-shown) { display: none; }
+  .dp-row .dp-c-f.is-empty { display: none; }
+  .dp-row.show-f .dp-c-f.is-empty { display: block; }
   .dp-row .dp-c-lift { grid-row: 1; grid-column: 6; }
   .dp-row .dp-more { grid-row: 1; grid-column: 7; }
   .dp-c-write { grid-column: 2 / 7; }

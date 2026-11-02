@@ -608,7 +608,9 @@
     top.appendChild(nav);
     var who = E('div', { class: 'dp-who' });
     who.appendChild(E('h1', { class: 'dp-name' }, a.name || 'Lifter'));
-    who.appendChild(E('p', { class: 'dp-sub' }, blockLine(prog, aid)));
+    var line = blockLine(prog, aid), sub = E('p', { class: 'dp-sub' }, line);
+    if (line.length > 44) tip(sub, line);
+    who.appendChild(sub);
     top.appendChild(who);
     top.appendChild(toolsEl(prog, aid, wi));
     h.appendChild(top);
@@ -634,12 +636,18 @@
   function weeksEl(prog, aid, wi) {
     var m = model(prog.weeks, wi, envFor(prog, aid));
     var short = prog.weeks.length > 4;
-    var strip = E('div', { class: 'dp-weeks', role: 'tablist', 'aria-label': 'Weeks of ' + (prog.name || 'the block') });
+    var bar = E('div', { class: 'dp-weeks' + (prog.weeks.length > 3 ? ' is-long' : '') });
+    var strip = E('div', { class: 'dp-wks', role: 'tablist', 'aria-label': 'Weeks of ' + (prog.name || 'the block') });
+    bar.appendChild(strip);
+    var firstEmpty = m.weeks.findIndex(function (w) { return w.state === 'write'; });
     m.weeks.forEach(function (w) {
       var on = w.idx === wi;
       var b = E('button', { type: 'button', class: 'dp-wk' + (on ? ' is-sel' : '') + ' is-' + w.state + (w.draft ? ' is-draft' : ''), role: 'tab', 'aria-selected': String(on), tabindex: on ? '0' : '-1', 'data-wi': String(w.idx) });
-      b.appendChild(E('span', { class: 'dp-wk-n' }, (short ? 'W' : 'Week ') + w.n));
-      var mark = w.draft ? (w.state === 'write' ? 'To write' : 'Draft') : w.state === 'now' ? 'Now' : w.state === 'write' ? 'To write' : '';
+      // "Week 1", or "W1" in a long block (and on a narrow centre, the CSS folds "Week " to "W").
+      b.appendChild(E('span', { class: 'dp-wk-n' }, short ? 'W' : E('span', { class: 'dp-wk-w' }, 'Week '), short ? null : E('span', { class: 'dp-wk-ws', 'aria-hidden': 'true' }, 'W'), String(w.n)));
+      // "To write" once, on the first week with nothing in it; the ones after it read as quiet tabs.
+      var toWrite = w.state === 'write' && w.idx === firstEmpty;
+      var mark = w.state === 'write' ? (toWrite ? 'To write' : '') : w.draft ? 'Draft' : w.state === 'now' ? 'Now' : '';
       if (w.state === 'done' && !w.draft) b.insertAdjacentHTML('beforeend', '<span class="dp-wk-ok" aria-hidden="true">' + IC.check + '</span>');
       else if (mark) b.appendChild(E('span', { class: 'dp-wk-m' }, mark));
       var starts = (typeof dkPbStarts === 'function' ? dkPbStarts(prog) : [])[w.idx];
@@ -657,7 +665,7 @@
     var add = E('button', { type: 'button', class: 'dp-wk-add', 'aria-label': 'Add a week', html: IC.plus });
     tip(add, 'Add week ' + ((prog.weeks.length ? wn(prog, prog.weeks.length - 1) : 0) + 1) + ' as a draft');
     add.addEventListener('click', function () { addWeek(aid, false); });
-    strip.appendChild(add);
+    bar.appendChild(add);
     // The meet at the end, in gold; the weeks between the block's end and it, one click to write.
     var meet = typeof dkPbMeet === 'function' ? dkPbMeet(prog, aid) : null;
     if (meet) {
@@ -669,16 +677,18 @@
         var g = E('button', { type: 'button', class: 'dp-wk-gap' }, gap === 1 ? 'Week ' + (lastN + 1) + ' to write' : 'Weeks ' + (lastN + 1) + '–' + (lastN + gap) + ' to write');
         tip(g, 'The weeks between the block’s end and ' + meet.name + '. Adds them to this block as drafts and writes the first');
         g.addEventListener('click', function () { writeThem(aid, gap); });
-        strip.appendChild(g);
+        bar.appendChild(g);
       }
       var f = E('span', { class: 'dp-meet', tabindex: '0' });
       f.insertAdjacentHTML('beforeend', IC.flag);
       f.appendChild(E('span', { class: 'dp-meet-n' }, fmtDateShort(meet.date)));
       f.setAttribute('aria-label', meet.name + ', ' + fmtDateShort(meet.date));
       tip(f, meet.name + ', ' + fmtDateShort(meet.date));
-      strip.appendChild(f);
+      bar.appendChild(f);
     }
-    return strip;
+    // The week on show stays in view in a long block.
+    requestAnimationFrame(function () { var sel = strip.querySelector('.dp-wk.is-sel'); if (sel && strip.scrollWidth > strip.clientWidth) strip.scrollLeft = Math.max(0, sel.offsetLeft - strip.clientWidth / 2 + sel.offsetWidth / 2); });
+    return bar;
   }
   function toolsEl(prog, aid, wi) {
     var bar = E('div', { class: 'dp-tools', role: 'toolbar', 'aria-label': 'Week tools' });
@@ -694,9 +704,10 @@
       return b;
     };
     var W = prog.weeks[wi], logged = weekSets(W).some(isLogged);
-    var cp = mk('Copy last week', IC.copy, wi > 0 ? 'Week ' + wn(prog, wi - 1) + ' into week ' + wn(prog, wi) + ' as a draft' : 'Week ' + wn(prog, wi) + ' is the first week', function () { copyLastWeek(aid, wi); }, false, 'Copy');
+    var why = wi === 0 ? 'Week ' + wn(prog, wi) + ' is the first week' : logged ? 'Week ' + wn(prog, wi) + ' has logged sets: what they lifted stays' : '';
+    var cp = mk('Copy last week', IC.copy, why || 'Week ' + wn(prog, wi - 1) + ' into week ' + wn(prog, wi) + ' as a draft', function () { copyLastWeek(aid, wi); }, false, 'Copy');
     if (wi === 0 || logged) cp.disabled = true;
-    var pg = mk('Progress the week', IC.up, wi > 0 ? 'Week ' + wn(prog, wi - 1) + ' moved on a step into week ' + wn(prog, wi) : 'Nothing before week ' + wn(prog, wi) + ' to progress from', function (b) {
+    var pg = mk('Progress the week', IC.up, why || 'Week ' + wn(prog, wi - 1) + ' moved on a step into week ' + wn(prog, wi), function (b) {
       var items = [{ node: E('div', { class: 'dk-menu-title', role: 'presentation' }, 'Week ' + wn(prog, wi - 1) + ' a step on, into week ' + wn(prog, wi)) }].concat((typeof dkPbKinds === 'function' ? dkPbKinds() : []).map(function (k) {
         return { label: k[1], hint: k[2], run: function () { progressWeek(aid, wi, k[0]); } };
       }));
@@ -814,7 +825,7 @@
   function weekEl(prog, aid, wi) {
     var env = envFor(prog, aid), m = model(prog.weeks, wi, env);
     var lifted = weekSets(prog.weeks[wi]).some(isLogged);
-    var wrap = E('div', { class: 'dp-week' + (lifted ? ' has-lifted' : ''), 'data-wi': String(wi) });
+    var wrap = E('div', { class: 'dp-week' + (lifted ? ' has-lifted' : '') + (prog.weeks[wi] && prog.weeks[wi].draft === true ? ' is-draft' : ''), 'data-wi': String(wi) });
     if (m.week && m.week.empty) {
       var src = writeSource(prog.weeks, wi);
       wrap.appendChild(E('p', { class: 'dp-note-line' }, src >= 0 ? 'Nothing written for week ' + m.week.n + ' yet. Write week ' + m.week.n + ' starts from week ' + wn(prog, src) + ' as a draft, or write the days below.' : 'Nothing written for week ' + m.week.n + ' yet. Write the days below, or start from a template.'));
@@ -912,6 +923,7 @@
       ec.appendChild(cellEl('e', ln.effort.text, ln, x, wi, aid, d, { label: 'effort', edit: ln.effort.edit, ph: '' }));
       row.appendChild(ec);
       var fc = E('div', { class: 'dp-c-f' });
+      if (!ln.fields.text) fc.classList.add('is-empty');
       fc.appendChild(cellEl('f', ln.fields.text, ln, x, wi, aid, d, { label: 'set fields', edit: ln.fields.edit, ph: li === 0 ? 'Tempo, pause, bands' : '' }));
       if (ln.fields.text && ln.fields.text.length > 12) tip(fc, ln.fields.text);
       row.appendChild(fc);
@@ -930,7 +942,7 @@
     var c = E('div', { class: 'dp-c-name' });
     c.appendChild(E('i', { class: 'dp-dot', 'aria-hidden': 'true' }));
     var t = E('span', { class: 'dp-exn' }, x.title);
-    if (x.full && x.full !== x.title) tip(t, x.full);
+    if ((x.full && x.full !== x.title) || String(x.title).length > 14) tip(t, x.full || x.title);
     c.appendChild(t);
     if (x.swap) c.appendChild(E('span', { class: 'dp-swap' }, x.swap));
     return c;
@@ -1001,6 +1013,11 @@
         }), { alignRight: true });
       }, 0);
     } });
+    if (ln && !ln.lock) items.push({ label: 'Set fields…', hint: 'Tempo, pause, bands', run: function () {
+      var row = S.root && S.root.querySelector('.dp-row[data-line="' + cssEsc(ln.key) + '"]'), c = row && row.querySelector('.dp-cell.dp-f');
+      if (row) row.classList.add('show-f');
+      if (c) c.focus();
+    } });
     items.push({ label: X.note ? 'Edit the note' : 'Add a note', run: function () { editNote(aid, wi, di, ei); } });
     if (typeof dkBxFocus === 'function') items.push({ label: 'Details', hint: ']', run: function () { _dk.pbInsp = true; document.documentElement.classList.remove('ctx-off'); dkBxFocus({ athleteId: aid, wi: wi, di: di, ei: ei, label: X.full || X.title }); } });
     items.push('-');
@@ -1057,7 +1074,7 @@
     return row;
   }
   function suggestionsEl(prog, aid, wi) {
-    if (!S.sug || S.sug.prog !== prog.id || S.sug.wi !== wi || typeof deskWeekReview !== 'function') return null;
+    if (typeof deskWeekReview !== 'function' || (S.sugOff && S.sugOff[prog.id + ':' + wi])) return null;
     var rev = deskWeekReview(prog);
     if (rev.nextIdx !== wi) return null;
     var rows = rev.rows.filter(function (x) { return typeof deskSuggestActionable === 'function' ? deskSuggestActionable(x) : !!(x.suggest && x.suggest.delta); });
@@ -1066,13 +1083,20 @@
     var hd = E('div', { class: 'dp-sug-head' });
     hd.appendChild(E('span', {}, 'From how week ' + wn(prog, rev.lastIdx) + ' was lifted'));
     var all = dkBtn(rows.length === 1 ? 'Take it' : 'Take all ' + rows.length, { cls: 'is-quiet dp-tool', onClick: function () { takeSuggestions(aid, wi, rows); } });
+    var off = dkBtn('Not now', { cls: 'is-quiet dp-tool', onClick: function () { S.sugOff = S.sugOff || {}; S.sugOff[prog.id + ':' + wi] = 1; if (S.root) fill(S.root); } });
+    hd.appendChild(off);
     hd.appendChild(all);
     box.appendChild(hd);
     rows.forEach(function (x) {
       var r = E('div', { class: 'dp-sug-row' });
       r.appendChild(E('i', { class: 'dp-dot lift-' + (isMain(x.lift) ? x.lift : 'acc'), 'aria-hidden': 'true' }));
       r.appendChild(E('b', {}, x.title || ''));
-      r.appendChild(E('span', {}, (typeof dkSugText === 'function' ? dkSugText(x.suggest, x) : '') + (x.suggest && x.suggest.why ? ' · ' + x.suggest.why : '')));
+      // What to write and why, in the coach's words: "Load 182.5 kg · lifted 180 × 3 @8, you wrote @8.5".
+      var lg = x.logged, said = typeof dkSugText === 'function' ? dkSugText(x.suggest, x) : '';
+      if (/\d$/.test(said)) said += ' ' + unitTag();
+      var ev = lg ? 'lifted ' + (lg.weight > 0 ? showKg(lg.weight) + ' × ' : '') + lg.reps + (lg.rpe != null ? ' @' + n2(lg.rpe) : '') : '';
+      if (ev && x.delta != null && Math.abs(x.delta) >= 0.25) ev += ', ' + (x.delta > 0 ? '+' : '−') + n2(Math.abs(x.delta)) + ' over what you wrote'.replace('over', x.delta > 0 ? 'over' : 'under');
+      r.appendChild(E('span', {}, said + (ev ? ' · ' + ev : '')));
       r.appendChild(dkBtn('Take', { cls: 'is-quiet dp-tool', onClick: function () { takeSuggestions(aid, wi, [x]); } }));
       box.appendChild(r);
     });
@@ -1520,7 +1544,7 @@
       box.appendChild(E('div', { class: 'dp-lgrp', role: 'presentation' }, title, E('span', {}, String(items.length))));
       items.forEach(function (x) {
         var on = x.a.id === cur;
-        var row = E('button', { type: 'button', class: 'dp-lrow' + (on ? ' is-sel' : ''), 'aria-current': on ? 'true' : 'false' });
+        var row = E('button', { type: 'button', class: 'dp-lrow' + (on ? ' is-sel' : '') + (x.s.text ? ' has-stat' : ''), 'aria-current': on ? 'true' : 'false' });
         row.appendChild(dkAv(x.a, 'is-sm'));
         var main = E('span', { class: 'dp-lmain' });
         main.appendChild(E('span', { class: 'dp-lname' }, x.a.name));
@@ -1673,7 +1697,8 @@
       var c = row.cells[ci], mb = (members || []).find(function (m) { return m.athleteId === row.athleteId; }) || {};
       var b = E('button', { type: 'button', class: 'dp-mem' + (c.ovr ? ' is-own' : '') + (c.over ? ' is-over' : '') + (c.noMax ? ' is-nomax' : ''), role: 'listitem' });
       b.appendChild(dkAv({ name: row.name, avatarUrl: (athleteOf(row.athleteId) || {}).avatarUrl }, 'is-sm'));
-      b.appendChild(E('span', { class: 'dp-mem-n' }, first(row.name)));
+      // Their first name, "lifted" beside it once they have; their load, a dot before it when you adjusted it for them.
+      b.appendChild(E('span', { class: 'dp-mem-n' }, first(row.name), c.logged ? E('span', { class: 'dp-mem-lifted' }, ' · lifted') : null));
       var v = E('span', { class: 'dp-mem-v' });
       if (c.noMax) v.textContent = 'No max';
       else {
@@ -1685,8 +1710,7 @@
         : c.over ? 'The same load for everyone: above ' + first(row.name) + '’s max of ' + showKg(c.max) + '. Click to adjust it for them'
         : c.ovr ? 'Adjusted by you for ' + first(row.name) + '. A push asks before changing it'
         : c.approx ? col.rx + ' from their max of ' + showKg(c.max) + ' (RPE chart)' : col.pct != null ? col.pct + '% of ' + showKg(c.max) : 'As written';
-      if (c.ovr) b.appendChild(E('i', { class: 'dp-mem-own', 'aria-hidden': 'true' }));
-      if (c.logged) b.appendChild(E('span', { class: 'dp-mem-lifted' }, 'lifted'));
+      if (c.ovr) v.insertBefore(E('i', { class: 'dp-mem-own', 'aria-hidden': 'true' }), v.firstChild);
       b.setAttribute('aria-label', row.name + ', ' + col.label + ': ' + v.textContent + '. ' + why);
       tip(b, why + (c.logged ? ' · lifted' : c.noMax ? '' : ' · click to adjust'));
       if (!c.noMax) b.addEventListener('click', function () { editMember(T, mb, W, wi, col, c, b); });
