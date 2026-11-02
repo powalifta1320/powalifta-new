@@ -24,7 +24,8 @@ create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
 -- Re-scheduling under the same name first unschedules any prior copy, so this
--- whole file is safe to run more than once.
+-- whole file is safe to run more than once. It schedules the job hourly, whatever ran before, so running it again
+-- never puts an old weekly schedule back.
 select cron.unschedule('powa-weekly-digest')
 where exists (select 1 from cron.job where jobname = 'powa-weekly-digest');
 

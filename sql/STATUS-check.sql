@@ -230,6 +230,7 @@ with checks(n, migration, applied) as (values
           and column_name in ('report_day', 'report_hour', 'tz', 'report_sent_week')) = 4
         and exists (select 1 from pg_constraint where conname = 'email_preferences_report_day_check')
         and exists (select 1 from pg_constraint where conname = 'email_preferences_report_hour_check')
-        and exists (select 1 from pg_constraint where conname = 'email_preferences_tz_check'))
+        and exists (select 1 from pg_constraint where conname = 'email_preferences_tz_check')
+        and exists (select 1 from pg_trigger where tgname = 'trg_guard_email_prefs_report_week'))
 )
 select n, migration, applied from checks order by n;

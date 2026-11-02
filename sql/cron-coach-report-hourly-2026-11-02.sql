@@ -14,10 +14,25 @@
 -- !! every hour on Mondays. Order: the two migrations (rows 63 and 64), the deploy, then this file.
 --
 -- It changes only the schedule: the job's command (which holds the CRON_SECRET) is never read, selected or rewritten
--- here. Safe to run twice.
-select cron.alter_job(jobid, schedule := '0 * * * *')
-from cron.job
-where jobname = 'powa-weekly-digest';
+-- here. Safe to run twice. With no job of that name it stops with an error and changes nothing (schedule the job with
+-- sql/cron-weekly-digest.sql first); it ends by showing the schedule it set.
+do $$
+declare
+  v_id bigint;
+  v_schedule text;
+begin
+  select j.jobid into v_id from cron.job j where j.jobname = 'powa-weekly-digest';
+  if v_id is null then
+    raise exception 'No cron job named powa-weekly-digest: schedule it with sql/cron-weekly-digest.sql (it runs hourly). Nothing was changed.';
+  end if;
+  perform cron.alter_job(v_id, schedule := '0 * * * *');
+  select j.schedule into v_schedule from cron.job j where j.jobid = v_id;
+  if v_schedule is distinct from '0 * * * *' then
+    raise exception 'powa-weekly-digest still runs at "%", not hourly.', v_schedule;
+  end if;
+  raise notice 'powa-weekly-digest now runs at "%" (every hour).', v_schedule;
+end $$;
+select jobname, schedule, active from cron.job where jobname = 'powa-weekly-digest';
 
 -- Check (never select the command column: it holds the secret):
 --   select jobname, schedule, active from cron.job where jobname = 'powa-weekly-digest';
