@@ -98,6 +98,8 @@
     if (typeof weeks === 'string') { try { weeks = JSON.parse(weeks); } catch (e) { weeks = null; } }
     if (!Array.isArray(weeks)) return 0;
     for (var i = 0; i < weeks.length; i++) {
+      // A week the coach hasn't published (draft: true, always at the end) plans nothing: the lifter can't see it.
+      if (weeks[i] && weeks[i].draft === true) return 0;
       var days = workDays(weeks[i]);
       var open = days.some(function (d) { return d.exercises.some(function (e) { return (e.sets || []).some(setOpen); }); });
       if (open) return days.length;

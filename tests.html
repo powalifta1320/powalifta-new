@@ -116,6 +116,7 @@
 <script src="coach-report-ui.js"></script>
 <script src="coach-app.js"></script>
 <script src="coach-program.js"></script>
+<script src="desk-program.js"></script>
 <script src="notify.js"></script>
 <script src="coach-you.js"></script>
 <script src="coach-widget.js"></script>
@@ -8604,6 +8605,274 @@ test('Delete program and Delete template ask in the app’s own words: the name,
   eq(nb.hi + ' · ' + nb.title, 'No block running · Write Arjun’s next block', 'past blocks kept: his next block');
   const fb = CPg.cpNoBlockWords('Nina Petrova', false);
   eq(fb.hi + ' · ' + fb.title, 'No block yet · Write Nina’s first block', 'never had one: her first');
+});
+
+/* ===========================================================
+   The desk's program editor (desk-program.js, 2 Nov 2026): the week as a program, one edit path, drafts.
+   =========================================================== */
+group('desk program (desk-program.js)');
+const DPg = typeof DeskProgram !== 'undefined' ? DeskProgram : (window.DeskProgram || null);
+const dpSet = (o) => Object.assign({ id: 's' + Math.random().toString(36).slice(2, 8), weight: 0, reps: 5, rpe: null, tempo: '', completed: false, actualRpe: null, completedAt: null, note: '' }, o);
+const dpEnv = (o) => Object.assign({ unit: 'kg', show: (kg) => Math.round(kg * 100) / 100, toKg: (v) => v, maxKg: () => 200, estKg: () => 0, nowIdx: 0 }, o || {});
+const dpEx = (lift, sets, o) => Object.assign({ id: 'e' + Math.random().toString(36).slice(2, 8), lift, variant: '', exerciseName: '', note: '', sets }, o || {});
+const dpWeek = (n, days, o) => Object.assign({ id: 'w' + n, number: n, days }, o || {});
+const dpDay = (name, exs) => ({ id: 'd' + Math.random().toString(36).slice(2, 8), name, exercises: exs || [] });
+test('a week as the editor draws it: roles, the load kinds, effort, set fields', () => {
+  assert(DPg && DPg.model, 'DeskProgram is loaded');
+  const sq = dpEx('squat', [dpSet({ id: 'a', weight: 185, reps: 3, rpe: 8.5 }), dpSet({ id: 'b', weight: 160, reps: 5, rpe: 7.5 }), dpSet({ id: 'c', weight: 160, reps: 5, rpe: 7.5 }), dpSet({ id: 'd', weight: 160, reps: 5, rpe: 7.5 })]);
+  const ps = dpEx('squat', [1, 2, 3].map(i => dpSet({ id: 'p' + i, pct: 72.5, weight: 0, reps: 4, rpe: 7, pause: 2 })), { variant: 'Paused' });
+  const lp = dpEx('legs', [1, 2].map(i => dpSet({ id: 'l' + i, reps: 10 })), { exerciseName: 'Leg Press' });
+  const rp = dpEx('bench', [dpSet({ id: 'r1', reps: 3, rpe: 8 }), dpSet({ id: 'r2', reps: 5, rpe: 7, rir: true })]);
+  const m = DPg.model([dpWeek(1, [dpDay('Squat Day', [sq, ps, lp]), dpDay('Bench Day', [rp]), dpDay('Rest')])], 0, dpEnv({ estKg: (ex, g) => g.reps === 3 ? 102.5 : 0 }));
+  const L = m.days[0].exercises[0].lines;
+  eq(L.length, 2); eq(L[0].role, 'top set'); eq(L[1].role, 'back-off'); eq(L[1].sets, '3'); eq(L[1].reps, '5');
+  eq(L[0].load.text, '185 kg'); eq(L[0].load.edit, '185'); eq(L[0].effort.text, '@8.5');
+  const P = m.days[0].exercises[1].lines[0];
+  eq(P.role, '', 'one line says nothing'); eq(P.load.text, '72.5% · 145', '% with what it comes to from the max (200 × 72.5%)'); eq(P.load.edit, '72.5%');
+  eq(P.fields.text, '2s pause'); assert(/paused 2s/.test(P.fields.edit), 'set fields edit in the grid’s words');
+  eq(m.days[0].exercises[2].lines[0].load.ph, 'by feel', 'nothing written: by feel');
+  const R = m.days[1].exercises[0].lines;
+  eq(R[0].load.text, ''); eq(R[0].load.ph, '≈102.5 kg', 'RPE only: about what their max points to');
+  eq(R[1].effort.text, '3 RIR', 'reps in reserve');
+  eq(R[0].role, 'top set'); eq(R[1].role, 'back-off', 'easier than the first');
+  assert(m.days[2].rest && !m.days[2].exercises.length, 'a rest day (the isRestDay heuristic)');
+  eq(DPg.roleOf([{ g: { reps: 1, weight: 200 }, count: 1 }, { g: { reps: 3, weight: 180 }, count: 3 }], 0), 'single');
+  eq(DPg.roleOf([{ g: { reps: 5, weight: 150 }, count: 3 }, { g: { reps: 3, weight: 170 }, count: 2 }], 1), '', 'heavier later: no role');
+});
+test('loads in lb, ranges, a % with no max, the team’s % only', () => {
+  const lb = (kg) => Math.round(kg / 0.45359237 * 10) / 10;
+  const ex = dpEx('bench', [dpSet({ weight: 100, weightHi: 102.5, reps: 5 })]);
+  eq(DPg.loadCell(ex.sets[0], ex, dpEnv({ unit: 'lb', show: lb })).text, '220.5–226 lb');
+  eq(DPg.loadCell(ex.sets[0], ex, dpEnv({ unit: 'lb', show: lb })).edit, '220.5-226');
+  const pe = dpEx('squat', [dpSet({ pct: 70, pctHi: 75, weight: 0, reps: 5 })]);
+  const c = DPg.loadCell(pe.sets[0], pe, dpEnv({ maxKg: () => 0 }));
+  eq(c.text, '70–75%'); assert(c.noMax, 'a % with no max says so');
+  eq(DPg.loadCell(pe.sets[0], pe, dpEnv({ team: true })).text, '70–75%', 'the team: the % only');
+});
+test('what they lifted on each line, its gap colour, extras, a swap, the locks', () => {
+  const t = '2026-10-30T10:00:00Z';
+  const ex = dpEx('squat', [dpSet({ id: 'a', weight: 185, reps: 3, rpe: 8.5, completed: true, actualRpe: 9, completedAt: t }),
+    dpSet({ id: 'b', weight: 160, reps: 5, rpe: 7.5, completed: true, actualRpe: 7.5, completedAt: t }), dpSet({ id: 'c', weight: 160, reps: 5, rpe: 7.5, completed: true, actualRpe: 7.5, completedAt: t }), dpSet({ id: 'd', weight: 160, reps: 5, rpe: 7.5 }),
+    dpSet({ id: 'x', weight: 140, reps: 8, completed: true, extra: true, completedAt: t })]);
+  const X = DPg.model([dpWeek(1, [dpDay('Squat Day', [ex])])], 0, dpEnv()).days[0].exercises[0];
+  eq(X.lines.length, 2, 'the set they added is never a written line');
+  eq(X.lines[0].lifted.text, '185 × 3 @9'); eq(X.lines[0].lifted.gap, 'warn', '+0.5 over: amber');
+  eq(X.lines[1].lifted.text, '2 of 3 × 5 @7.5'); eq(X.lines[1].lifted.gap, '', 'on target: plain');
+  eq(X.extras, 1, '+1 extra');
+  assert(X.lines[0].lock && X.lines[1].lock && X.lock, 'a block with a lifted set is locked');
+  eq(DPg.gapCls(1), 'alert'); eq(DPg.gapCls(-0.5), 'cool'); eq(DPg.gapCls(0.25), '');
+  const heavy = dpEx('bench', [1, 2, 3].map(i => dpSet({ weight: 100, reps: 5, rpe: 8, completed: true, actualRpe: 8, completedAt: t })).concat([]));
+  heavy.sets.forEach(s => { s.weight = 102.5; s.plannedWeight = 100; });
+  eq(DPg.model([dpWeek(1, [dpDay('B', [heavy])])], 0, dpEnv()).days[0].exercises[0].lines[0].lifted.text, '3 × 5 @8 · 102.5', 'the kg when it wasn’t what was written');
+  const sk = dpEx('deadlift', [dpSet({ weight: 200, reps: 3, skipped: true })]);
+  eq(DPg.model([dpWeek(1, [dpDay('D', [sk])])], 0, dpEnv()).days[0].exercises[0].lines[0].lifted.text, 'Skipped');
+  const open = dpEx('deadlift', [dpSet({ weight: 200, reps: 3, rpe: 8 }), dpSet({ weight: 180, reps: 5 })]);
+  const O = DPg.model([dpWeek(1, [dpDay('D', [open])])], 0, dpEnv()).days[0].exercises[0];
+  assert(!O.lock && !O.lines[0].lock && O.lines[0].lifted === null, 'nothing logged: open, nothing lifted');
+});
+test('week states, the draft flag, markup stays text', () => {
+  const done = dpWeek(1, [dpDay('A', [dpEx('squat', [dpSet({ weight: 100, completed: true })])])]);
+  const now = dpWeek(2, [dpDay('A', [dpEx('squat', [dpSet({ weight: 100 })])])]);
+  const draft = dpWeek(3, [dpDay('A', [dpEx('squat', [dpSet({ weight: 100 })])])], { draft: true });
+  const empty = dpWeek(4, [dpDay('A')], { draft: true });
+  const m = DPg.model([done, now, draft, empty], 1, dpEnv({ nowIdx: 1 }));
+  eq(m.weeks.map(w => w.state).join(','), 'done,now,next,write');
+  eq(m.weeks.map(w => w.draft).join(','), 'false,false,true,true');
+  const evil = dpEx('legs', [dpSet({ reps: 5 })], { exerciseName: '<img src=x onerror=alert(1)>' });
+  const t = DPg.model([dpWeek(1, [dpDay('<b>day</b>', [evil])])], 0, dpEnv()).days[0];
+  eq(t.name, '<b>day</b>', 'plain strings: the DOM layer draws them as text');
+  eq(t.exercises[0].title, '<img src=x onerror=alert(1)>');
+});
+test('a cell typed: each input maps to its change', () => {
+  const ln = { count: 3, g: { weight: 160, reps: 5, rpe: 7.5, rpeHi: null, rir: false, pct: null } };
+  const ctx = { unit: 'kg', toKg: (v) => v, maxKg: 200, main: true };
+  eq(JSON.stringify(DPg.planCell(ln, 'n', '4', ctx)), JSON.stringify({ t: 'resize', to: 4 }));
+  assert(DPg.planCell(ln, 'n', '3', ctx).none, 'the same count: nothing');
+  assert(DPg.planCell(ln, 'n', '0', ctx).error && DPg.planCell(ln, 'n', '51', ctx).error, 'sets 1 to 50');
+  eq(DPg.planCell(ln, 'r', '6', ctx).patch.reps, 6);
+  let p = DPg.planCell(ln, 'l', '165', ctx).patch;
+  eq(p.weight, 165); eq(p.pct, null, 'kg clears the %');
+  p = DPg.planCell(ln, 'l', '140-145', ctx).patch; eq(p.weight, 140); eq(p.weightHi, 145);
+  p = DPg.planCell(ln, 'l', '75%', ctx).patch; eq(p.pct, 75); eq(p.weight, 150, '% of the max, on their plates');
+  p = DPg.planCell(ln, 'l', '70-75%', Object.assign({}, ctx, { team: true })).patch; eq(p.weight, 0, 'the team’s main lift: no kg'); eq(p.pctHi, 75);
+  p = DPg.planCell(ln, 'l', '', ctx).patch; eq(p.weight, 0); eq(p.pct, null, 'empty: by feel');
+  assert(DPg.planCell(ln, 'l', 'heavy', ctx).error, 'a load that doesn’t read');
+  p = DPg.planCell(ln, 'e', '@8', ctx).patch; eq(p.rpe, 8); eq(p.rpeHi, null); eq(p.rir, null);
+  p = DPg.planCell(ln, 'e', '7-8', ctx).patch; eq(p.rpe, 7); eq(p.rpeHi, 8);
+  p = DPg.planCell(ln, 'e', '2 RIR', ctx).patch; eq(p.rpe, 8); eq(p.rir, true);
+  p = DPg.planCell({ count: 1, g: { rpe: 8, rir: true } }, 'e', '3', ctx).patch; eq(p.rpe, 7, 'a bare number on an RIR line is RIR'); eq(p.rir, true);
+  p = DPg.planCell(ln, 'e', '', ctx).patch; eq(p.rpe, null, 'empty: no RPE');
+  assert(DPg.planCell(ln, 'e', '@11', ctx).error && DPg.planCell(ln, 'e', '@4', ctx).error, 'RPE 5 to 10');
+});
+test('set fields typed: the patch clears what the text dropped', () => {
+  const g = { tempo: '3-1-0', pause: 2, pauseAt: 'chest', cx: { Bar: 'SSB', Belt: 'no' } };
+  const p = DPg.fieldsPatch(g, 'tempo 2-0-1 · Bar: Cambered', { unit: 'kg', cols: ['Bar', 'Belt'] });
+  eq(p.tempo, '2-0-1'); eq(p.pause, null); eq(p.pauseAt, null); eq(p['cx:Bar'], 'Cambered'); eq(p['cx:Belt'], null);
+  const st = { id: 'z', weight: 100, reps: 5, tempo: '3-1-0', pause: 2, pauseAt: 'chest', cx: { Bar: 'SSB', Belt: 'no' } };
+  applySetFieldPatch(st, p);
+  eq(st.tempo, '2-0-1'); assert(st.pause == null && st.pauseAt == null, 'the pause went'); eq(JSON.stringify(st.cx), JSON.stringify({ Bar: 'Cambered' }));
+  eq(DPg.fieldsPatch(g, 'slow and controlled', { cols: [] }), null, 'words that aren’t fields don’t read');
+  const clear = DPg.fieldsPatch(g, '', {}); eq(clear.tempo, ''); eq(clear['cx:Bar'], null);
+});
+test('↑ / ↓ steps and their limits', () => {
+  eq(DPg.stepCell('n', '3', 1), '4'); eq(DPg.stepCell('n', '1', -1), '1', 'never under one set'); eq(DPg.stepCell('r', '5', -1), '4');
+  eq(DPg.stepCell('l', '160', 1, { unit: 'kg' }), '162.5'); eq(DPg.stepCell('l', '160', 1, { unit: 'lb' }), '165', 'lb: 5');
+  eq(DPg.stepCell('l', '72.5%', 1), '75%'); eq(DPg.stepCell('l', '140-145', -1), '137.5-142.5');
+  eq(DPg.stepCell('e', '@8', 1), '@8.5'); eq(DPg.stepCell('e', '@10', 1), '@10', 'kept at 10'); eq(DPg.stepCell('e', '@5', -1), '@5', 'kept at 5');
+  eq(DPg.stepCell('e', '2 RIR', 1, { rir: true }), '2.5 RIR');
+  eq(DPg.stepCell('f', 'tempo 3-1-0', 1), null, 'set fields don’t step');
+  eq(DPg.stepCell('l', '', 1, { est: 102.5, show: (x) => x }), '102.5', 'RPE only: steps from what their max points to');
+});
+test('one edit path: mutate keeps ids, carries rxOf, refuses what it must', () => {
+  const mk = () => [dpWeek(1, [dpDay('Squat Day', [dpEx('squat', [dpSet({ id: 'a', weight: 185, reps: 3, rpe: 8.5, tempo: '3-1-0', pause: 2 }), dpSet({ id: 'b', weight: 160, reps: 5, rpe: 7.5, rpeHi: 8 }), dpSet({ id: 'c', weight: 160, reps: 5, rpe: 7.5, rpeHi: 8 })], { id: 'EX' })])])];
+  let W = mk();
+  assert(DPg.mutate(W, { t: 'patch', wi: 0, di: 0, ei: 0, exId: 'EX', start: 1, sid: 'b', patch: { weight: 162.5 } }));
+  eq(W[0].days[0].exercises[0].sets[1].id, 'b', 'ids survive'); eq(W[0].days[0].exercises[0].sets[2].weight, 162.5, 'the whole block');
+  W = mk();
+  assert(DPg.mutate(W, { t: 'resize', wi: 0, di: 0, ei: 0, exId: 'EX', start: 1, sid: 'b', to: 4 }));
+  const s = W[0].days[0].exercises[0].sets;
+  eq(s.length, 5); eq(s[3].rpeHi, 8, 'a new set carries the block’s range (rxOf)'); assert(s[3].id !== 'b', 'with its own id');
+  W = mk();
+  assert(DPg.mutate(W, { t: 'addGroup', wi: 0, di: 0, ei: 0, exId: 'EX' }));
+  eq(W[0].days[0].exercises[0].sets.length, 4); eq(W[0].days[0].exercises[0].sets[3].rpe, null, 'a back-off with no RPE (blockAppend)');
+  W = mk();
+  assert(DPg.mutate(W, { t: 'removeGroup', wi: 0, di: 0, ei: 0, exId: 'EX', start: 0, sid: 'a' }));
+  eq(W[0].days[0].exercises[0].sets.length, 2);
+  eq(DPg.refuse(W, { t: 'removeGroup', wi: 0, di: 0, ei: 0, exId: 'EX', start: 0, sid: 'b' }), 'only', 'the last block stays');
+  eq(DPg.refuse(mk(), { t: 'patch', wi: 0, di: 0, ei: 0, exId: 'nope', start: 0, sid: 'a', patch: {} }), 'stale', 'another exercise now');
+  eq(DPg.refuse(mk(), { t: 'patch', wi: 0, di: 0, ei: 0, exId: 'EX', start: 1, sid: 'zz', patch: {} }), 'stale', 'another block now');
+  W = mk(); W[0].days[0].exercises[0].sets[0].completed = true;
+  eq(DPg.refuse(W, { t: 'patch', wi: 0, di: 0, ei: 0, exId: 'EX', start: 0, sid: 'a', patch: { weight: 1 } }), 'logged');
+  eq(DPg.refuse(W, { t: 'patch', wi: 0, di: 0, ei: 0, exId: 'EX', start: 1, sid: 'b', patch: { weight: 1 } }), '', 'the back-offs of a lifted top set stay open');
+  assert(!DPg.mutate(W, { t: 'patch', wi: 0, di: 0, ei: 0, exId: 'EX', start: 0, sid: 'a', patch: { weight: 1 } }) && W[0].days[0].exercises[0].sets[0].weight === 185, 'refused: nothing changed');
+  W = mk(); W[0].days[0].exercises[0].srcId = 'T1';
+  DPg.mutate(W, { t: 'patch', wi: 0, di: 0, ei: 0, exId: 'EX', start: 0, sid: 'a', patch: { reps: 2 }, claim: true });
+  eq(W[0].days[0].exercises[0].ovr, true, 'a team program’s exercise changed for one lifter is theirs');
+  W = mk(); W[0].days[0].exercises[0].sets[0].completed = true;
+  assert(DPg.mutate(W, { t: 'patch', wi: 0, di: 0, ei: 0, exId: 'EX', start: 0, sid: 'a', patch: { weight: 1 } }, { team: true }), 'the team’s master has no locks');
+});
+test('a typed line keeps every prescription field (ranges were dropped before)', () => {
+  const old = [dpSet({ id: 'k1', weight: 140, weightHi: 145, reps: 5, rpe: 7, rpeHi: 8, srcId: 'S1' }), dpSet({ id: 'k2', pct: 70, pctHi: 75, weight: 140, reps: 5 })];
+  const parsed = [dpSet({ weight: 140, weightHi: 150, reps: 5, rpe: 7, rpeHi: 9 }), dpSet({ pct: 70, pctHi: 80, weight: 140, reps: 5 })];
+  const out = DPg.typedLineSets(old, parsed);
+  eq(out[0].id, 'k1'); eq(out[0].weightHi, 150, '140-145 → 140-150'); eq(out[0].rpeHi, 9, '@7-8 → @7-9'); eq(out[0].srcId, 'S1', 'its team link stays');
+  eq(out[1].pctHi, 80, '70-75% → 70-80%');
+  const one = DPg.typedLineSets([dpSet({ id: 'q', weight: 100, weightHi: 105, reps: 3, rir: true, rpe: 8 })], [dpSet({ weight: 100, reps: 3, rpe: 8 })]);
+  assert(one[0].weightHi == null && !one[0].rir, 'a field the text dropped goes');
+  const lg = DPg.typedLineSets([dpSet({ id: 'L', weight: 100, completed: true })], [dpSet({ weight: 120 })]);
+  assert(lg[0].id !== 'L' && lg[0].weight === 120, 'a lifted set is never rewritten in place');
+});
+test('Write week N: its source, a draft, refusals, appended weeks numbered on', () => {
+  const wk = (n, has, o) => dpWeek(n, [dpDay('Squat Day', has ? [dpEx('squat', [dpSet({ weight: 150 + n, reps: 5, rpe: 8, rpeHi: 9 })])] : [])], o);
+  const W = [wk(1, true), wk(2, true), wk(3, false), wk(4, false)];
+  eq(DPg.writeSource(W, 2), 1); eq(DPg.writeSource(W, 0), -1);
+  const r = DPg.writeWeek(W, 2);
+  assert(r.ok && r.from === 1 && r.draft, 'week 3 from week 2, as a draft');
+  eq(W[2].days[0].exercises[0].sets[0].rpeHi, 9, 'the copy carries rxOf'); assert(W[2].days[0].exercises[0].sets[0].id !== W[1].days[0].exercises[0].sets[0].id, 'fresh ids');
+  eq(W[3].draft, true, 'the empty week after it is a draft too (drafts stay trailing)');
+  eq(DPg.writeWeek(W, 0).why, 'nothing', 'nothing before week 1');
+  const L = [wk(1, true), wk(2, true), wk(3, false), wk(4, true)];
+  const r2 = DPg.writeWeek(L, 2);
+  assert(r2.ok && !r2.draft && L[2].draft !== true, 'a published week with sets after it: live, not a draft');
+  const lg = [wk(1, true), wk(2, true)]; lg[1].days[0].exercises[0].sets[0].completed = true;
+  eq(DPg.writeWeek(lg, 1).why, 'logged');
+  const A = [wk(1, true), wk(2, true)];
+  eq(DPg.appendWeeks(A, 2), 2);
+  eq(A.map(w => w.number).join(','), '1,2,3,4'); assert(A[2].draft && A[3].draft, 'appended as drafts');
+  eq(A[2].days[0].name, 'Squat Day', 'the same day names'); eq(A[2].days[0].exercises.length, 0);
+  const T = [wk(1, true, { draft: true }), wk(2, true)];
+  eq(DPg.keepDraftsTrailing(T), 1); assert(!T[0].draft, 'a draft before a published week is published');
+});
+test('drafts: the lifter’s weeks, publish, the trailing rule, a merge keeps the flag, a lifter save keeps the draft', () => {
+  const w = (n, o) => dpWeek(n, [dpDay('A', [dpEx('squat', [dpSet({ id: 'w' + n + 's', weight: 100, reps: 5 })])])], o);
+  const prog = { id: 'P1', athleteId: 'L1', name: 'Strength', weeks: [w(1), w(2), w(3, { draft: true })] };
+  eq(liftWeeks(prog).length, 2); assert(liftWeeks({ weeks: [w(1)] }).length === 1 && liftProgram({ weeks: [w(1)] }).weeks.length === 1);
+  const plain = { id: 'P0', weeks: [w(1)] }; assert(liftProgram(plain) === plain, 'no drafts: the same object');
+  const v = liftProgram(prog); eq(v.weeks.length, 2); assert(v.weeks[0] === prog.weeks[0], 'the weeks are shared'); eq(prog.weeks.length, 3, 'the program keeps its draft');
+  eq(liftWeeks({ weeks: [w(1, { draft: true }), w(2)] }).length, 2, 'a draft that isn’t trailing shows (never shifts an index)');
+  assert(canDraftWeek(prog.weeks, 2) && canDraftWeek(prog.weeks, 1), 'week 2 can be a draft: only a draft comes after it');
+  assert(!canDraftWeek([w(1), w(2), w(3)], 1), 'a published week with sets after it keeps it live');
+  const P = JSON.parse(JSON.stringify(prog.weeks)); P.push(w(4, { draft: true }));
+  eq(publishDraftWeeks(P, 2), 1); assert(!P[2].draft && P[3].draft, 'publish week 3: week 4 stays a draft');
+  // A lifter logs a set in week 1 while the coach writes week 3 as a draft: the merge keeps both.
+  const base = { name: 'Strength', weeks: JSON.parse(JSON.stringify(prog.weeks.slice(0, 2))), maxes: null };
+  const mine = { name: 'Strength', weeks: JSON.parse(JSON.stringify(prog.weeks)), maxes: null };
+  const theirs = { name: 'Strength', weeks: JSON.parse(JSON.stringify(prog.weeks.slice(0, 2))), maxes: null };
+  theirs.weeks[0].days[0].exercises[0].sets[0].completed = true;
+  const merged = mergeProgramVersions(base, mine, theirs);
+  eq(merged.weeks.length, 3); eq(merged.weeks[2].draft, true, 'the merge keeps the flag'); eq(merged.weeks[0].days[0].exercises[0].sets[0].completed, true, 'and what they logged');
+  const pub = JSON.parse(JSON.stringify(mine)); delete pub.weeks[2].draft;
+  eq(mergeProgramVersions(mine, pub, mine).weeks[2].draft, undefined, 'a publish merges as a publish');
+  // The lifter's own save goes by id from the Store: the coach's draft stays in the row it writes.
+  resetState();
+  seed({ programs: [JSON.parse(JSON.stringify(prog))] });
+  const view = liftProgram(Store.get().programs[0]);
+  eq(view.weeks.length, 2);
+  Store.update(s => { const p = s.programs.find(x => x.id === view.id); p.weeks[0].days[0].exercises[0].sets[0].completed = true; p.weeks[1].days[0].scheduledDate = '2026-11-03'; });
+  const saved = Store.get().programs.find(x => x.id === 'P1');
+  eq(saved.weeks.length, 3); eq(saved.weeks[2].draft, true, 'a lifter’s save keeps the coach’s draft');
+  resetState();
+});
+test('planned sessions skip a draft week; the "isn’t published" job and its tier', () => {
+  const w = (n, o, done) => dpWeek(n, [dpDay('A', [dpEx('squat', [dpSet({ weight: 100, reps: 5, completed: !!done })])]), dpDay('B', [dpEx('bench', [dpSet({ weight: 80, reps: 5, completed: !!done })])])], o);
+  const st = programWeekState({ weeks: [w(1, {}, true), w(2, { draft: true })] });
+  eq(st.idx, 1); eq(st.sessionsPerWeek, 0, 'their next week is a draft: nothing planned for them');
+  eq(programWeekState({ weeks: [w(1, {}, true), w(2)] }).sessionsPerWeek, 2);
+  if (window.CoachReport && CoachReport.plannedPerWeek) eq(CoachReport.plannedPerWeek([w(1, {}, true), w(2, { draft: true })]), 0, 'the Monday report too');
+  const today = '2026-11-04';
+  const prog = { id: 'P2', athleteId: 'L2', name: 'Strength', startsOn: '2026-10-26', weeks: [w(1, {}, true), w(2), w(3, { draft: true })] };
+  const up = programUnpublished(prog, today);
+  eq(up.idx, 2); eq(up.number, 3); eq(up.start, '2026-11-09'); eq(up.days, 5);
+  eq(programUnpublished({ weeks: [w(1), w(2, { draft: true })].map((x, i) => i ? Object.assign(x, { days: [dpDay('A')] }) : x) }, today), null, 'an empty draft isn’t a week to publish');
+  const CL = window.CoachLifters;
+  assert(CL && CL.clTier, 'CoachLifters is loaded');
+  const r = { athlete: { id: 'L2', name: 'Arjun Mehta' }, status: { program: prog, week: programWeekState(prog) }, reasons: [{ type: 'blockend', text: 'Last week of the block' }] };
+  eq(CL.clTier(r, { type: 'unpub', days: 1 }), 0); eq(CL.clTier(r, { type: 'unpub', days: 3 }), 1); eq(CL.clTier(r, { type: 'unpub', days: 6 }), 2); eq(CL.clTier(r, { type: 'unpub', days: -2 }), 0, 'started already: today');
+  const jobs = CL.clJobs([r], { today: today });
+  const j = jobs.find(x => x.type === 'unpub');
+  assert(j && j.week === 3 && j.tier === 2, 'Arjun’s week 3 starts Monday and isn’t published');
+  assert(!jobs.some(x => x.type === 'blockend'), 'the lifter’s write job is the publish');
+  eq(CL.jobText(j).title, 'Week 3 isn’t published');
+  const pain = { athlete: { id: 'L3', name: 'Priya' }, status: { program: null }, reasons: [{ type: 'pain', text: 'Pain · Knee · 6/10' }] };
+  eq(CL.clJobs([r, pain], { today: '2026-11-08' })[0].type, 'pain', 'pain still comes first');
+  eq(CL.clJobs([Object.assign({}, r, { reasons: [] })], { today: '2026-10-27' }).filter(x => x.type === 'unpub').length, 0, 'more than a week away: not a job yet');
+});
+test('the app.js block loops behave as the phone’s helpers always did', () => {
+  const sets = [dpSet({ id: 'a', weight: 100, reps: 5, rpe: 8, pct: 70, rir: true }), dpSet({ id: 'b', weight: 100, reps: 5, rpe: 8, pct: 70, rir: true })];
+  blockPatch(sets, 0, 2, { pct: null, rir: null, rpe: 7 });
+  assert(!('pct' in sets[0]) && !('rir' in sets[1]) && sets[1].rpe === 7, 'null clears an optional field');
+  blockResize(sets, 0, 2, 3); eq(sets.length, 3); blockResize(sets, 0, 3, 99); eq(sets.length, 50, 'never past 50'); blockResize(sets, 0, 50, 1); eq(sets.length, 1);
+  blockRemove(sets, 0, 1); eq(sets.length, 1, 'an exercise keeps one set'); eq(sets[0].reps, 5);
+  const t = [dpSet({ weight: 150, reps: 3, rpe: 8, pct: 72.5, tempo: '3-1-0', cx: { Bar: 'SSB' } })];
+  blockAppend(t); eq(t[1].rpe, null); eq(t[1].pct, 72.5); eq(t[1].tempo, '3-1-0'); eq(t[1].cx.Bar, 'SSB'); assert(t[1].cx !== t[0].cx, 'a fresh copy of the columns');
+});
+test('the Programs list: what’s to write, in the coach’s words', () => {
+  const w = (n, o, has) => dpWeek(n, [dpDay('A', has === false ? [] : [dpEx('squat', [dpSet({ weight: 100 })])])], o);
+  eq(DPg.listStatus({ prog: null }).text, 'No block yet');
+  const p1 = { name: 'Strength Block', weeks: [w(1), w(2), w(3, {}, false)] };
+  const s1 = DPg.listStatus({ prog: p1, week: { idx: 1, number: 2, total: 3 } });
+  eq(s1.line, 'Strength · week 2 of 3'); eq(s1.text, 'Week 3 to write'); assert(s1.write);
+  eq(DPg.listStatus({ prog: { name: 'Peak', weeks: [w(1), w(2, { draft: true })] }, week: { idx: 0, number: 1, total: 2 } }).text, 'Week 2 draft');
+  eq(DPg.listStatus({ prog: { name: 'Peak', weeks: [w(1)] }, week: { idx: 0, number: 1, total: 1 }, reasons: [{ type: 'blockend' }], endDay: 'Sun' }).text, 'Block ends Sun');
+  const quiet = DPg.listStatus({ prog: { name: 'Volume', weeks: [w(1), w(2)] }, week: { idx: 0, number: 1, total: 2 } });
+  assert(!quiet.write && quiet.text === '', 'on plan: nothing to say');
+});
+test('the demo’s accessories: after the main lift, logged with it, nothing else moves', () => {
+  const day = (lift, w, done) => ({ id: 'd' + lift, name: lift + ' day', exercises: [{ id: 'm' + lift, lift, variant: 'Competition', exerciseName: '', note: '', sets: [3, 5, 5].map((r, i) => dpSet({ weight: w - i * 15, reps: r, rpe: 8, completed: !!done, completedAt: done ? '2026-10-30' : null, actualRpe: done ? 8 : null })) }] });
+  const S0 = { programs: [
+    { id: 'p1', athleteId: 'demo-d1', weeks: [{ id: 'w1', number: 1, days: [day('squat', 180, true), day('bench', 120, false), day('deadlift', 220, false), { id: 'r', name: 'Rest', exercises: [] }] }] },
+    { id: 'p3', athleteId: 'demo-d3', weeks: [{ id: 'w1', number: 1, days: [day('squat', 200, false)] }] },
+    { id: 'pa', athleteId: 'demo-a1', weeks: [{ id: 'w1', number: 1, days: [day('squat', 200, false)] }] }] };
+  const before = JSON.stringify(S0.programs[1]) + JSON.stringify(S0.programs[2]);
+  DPg.seedAccessories(S0, { skip: ['demo-d3'] });
+  const d = S0.programs[0].weeks[0].days;
+  eq(d[0].exercises[0].lift, 'squat', 'the main lift stays first'); eq(d[0].exercises.length, 4);
+  eq(d[0].exercises[1].variant, 'Paused'); eq(d[0].exercises[1].sets[0].pct, 70);
+  assert(d[0].exercises.slice(1).every(e => e.sets.every(s => s.completed && s.actualRpe == null && s.completedAt === '2026-10-30')), 'logged with the main lift, felt not asked');
+  assert(d[1].exercises.slice(1).every(e => e.sets.every(s => !s.completed)), 'not yet lifted: open');
+  eq(d[2].exercises[1].variant, 'RDL'); eq(d[2].exercises[1].sets[0].tempo, '3-1-0');
+  eq(d[3].exercises.length, 0, 'the rest day rests');
+  eq(JSON.stringify(S0.programs[1]) + JSON.stringify(S0.programs[2]), before, 'Marcus and the phone’s four as they were');
 });
 
 /* ===========================================================
