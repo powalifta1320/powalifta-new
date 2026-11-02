@@ -33,8 +33,9 @@ if 'desk' in what:
     save(before, 'desk-before', [960, 1440, 1920])
     # The camera's window (laptops): the same screen with the numbers that change left out (the page draws them live).
     save(blank, 'desk-live', [1440, 2880], q_avif=60)
-    # What the window showed a moment ago, under the new marks: the total's chart, the squat line, the training bars, Arjun's row's marks.
-    for key, nm in (('heroViz', 'was-hero2'), ('sqViz', 'was-sq2'), ('trViz', 'was-tr2'), ('rowPips', 'was-pips2')):
+    # What the window showed a moment ago, under the new marks: the total's chart, the squat line, the training bars.
+    # (Arjun's row's session marks, was-pips2, went with the desk v3 Lifters list, 2 Nov: the crop stays until the re-take.)
+    for key, nm in (('heroViz', 'was-hero2'), ('sqViz', 'was-sq2'), ('trViz', 'was-tr2')):
         x, y, w, h = d['before']['regions'][key]['rect']; pad = 2
         one(crop2(before, x - pad, y - pad, w + 2 * pad, h + 2 * pad), nm, q=90)
         print('   index.html #win .was:', 'left:%gpx;top:%gpx;width:%gpx;height:%gpx' % (round(x - pad, 1), round(y - pad, 1), round(w + 2 * pad, 1), round(h + 2 * pad, 1)))

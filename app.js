@@ -13178,24 +13178,28 @@ function deskQueue(rows, opts) {
     progress: done.length + snoozedRows.length + handled.length + cleared.length };
 }
 // The saved views in the rail. Counts are live: deskViewCount(rows, key).
-// 'check' is Lifters' Check on tab (coach-lifters.js clGroupKey 'need'): it has an address (#roster?view=check)
-// but no rail item, like 'needs' (Today's count).
+// 'need' is Lifters' Need you tab, exactly the Need you lane (coach-lifters.js clLaneKey, the one grouping on Lifters and
+// Today): it has an address (#roster?view=need) but no rail item. Old links and names land on it (DESK_VIEW_ALIAS).
 const DESK_VIEWS = [
-  { key: 'needs', label: 'Needs me' },
-  { key: 'check', label: 'Check on' },
+  { key: 'need', label: 'Need you' },
   { key: 'meet', label: 'Meet ≤ 8 wk' },
   { key: 'pain', label: 'Pain' },
   { key: 'quiet', label: 'Quiet 7d+' },
   { key: 'new', label: 'New this month' },
   { key: 'wins', label: 'Wins' }
 ];
-// The reasons that put a lifter under Check on (one list for app.js and coach-lifters.js).
+// #roster?view=check (the tab's first name) and ⌘K's Needs me land on Need you.
+const DESK_VIEW_ALIAS = { check: 'need', needs: 'need' };
+function deskViewKey(key) { return key ? (DESK_VIEW_ALIAS[key] || key) : null; }
+// The reasons a coach checks on (coach-lifters.js cuts the lanes from them: Need you, and Quiet when going quiet is all).
 const DESK_CHECK_RE = /^(pain|weight|offpace|overshoot|drift|note|message|formcheck|checkin|nocheckin|readiness|quiet|never|missed|stalling)$/;
 function deskViewMatch(key, row, nowMs) {
   const now = nowMs || Date.now();
   switch (key) {
-    case 'needs': return row.reasons.some(r => r.group <= 8);
-    case 'check': return row.reasons.some(r => DESK_CHECK_RE.test(r.type));
+    case 'needs': return row.reasons.some(r => r.group <= 8);   // the old board's grouping (?oldroster=1)
+    case 'need': case 'check':
+      if (typeof window !== 'undefined' && window.CoachLifters && CoachLifters.clLaneKey) return CoachLifters.clLaneKey(row) === 'need';
+      return row.reasons.some(r => r.group <= 8);
     case 'meet': return !!row.meet && row.meet.days <= 56;
     case 'pain': return row.reasons.some(r => r.type === 'pain');
     case 'quiet': return row.status.ago == null ? !!row.status.program : row.status.ago >= 7;

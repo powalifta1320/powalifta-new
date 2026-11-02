@@ -5663,7 +5663,9 @@ const clRow = (o) => {
   Object.keys(o || {}).forEach(k => { r[k] = k === 'athlete' || k === 'status' ? Object.assign({}, r[k], o[k]) : o[k]; });
   return r;
 };
-test('groups: the worst group wins and every lifter lands once', () => {
+// 2 Nov (the lead's call): the four lanes are the one grouping, on Lifters' All tab and Today's Roster alike, so every
+// count agrees: Need you · Peaking · On plan · Quiet replace Check on · Next block due · Meet soon · On plan.
+test('groups: the four lanes, the worst wins and every lifter lands once', () => {
   assert(CL, 'CoachLifters is loaded');
   const rows = [
     clRow({ athlete: { id: 'p', name: 'Pat' }, reasons: [{ type: 'pain', group: 1, text: 'Pain' }], meet: { days: 10, meet: { name: 'Open' } } }),
@@ -5674,11 +5676,11 @@ test('groups: the worst group wins and every lifter lands once', () => {
     clRow({ athlete: { id: 'a', name: 'Al' }, status: { program: { name: 'Block' }, week: { idx: 0, total: 4 }, sessions: { done: 0, planned: 3 } } })
   ];
   const g = CL.clGroups(rows, { order: { p: 0, b: 1, m: 2 } });
-  eq(g.map(x => x.key).join(','), 'need,block,meet,plan');
-  eq(g[0].title, 'Check on');
-  eq(g[0].rows.map(r => r.athlete.id).join(','), 'p', 'pain beats a meet');
-  eq(g[2].rows.map(r => r.athlete.id).join(','), 'm,q', 'nearest meet first');
-  eq(g[3].rows.map(r => r.athlete.id).join(','), 'a,z', 'on plan by name');
+  eq(g.map(x => x.key).join(','), 'need,meet,plan', 'the lanes with someone in them, in order');
+  eq(g.map(x => x.title).join(' | '), 'Need you | Peaking | On plan');
+  eq(g[0].rows.map(r => r.athlete.id).join(','), 'p,b', 'pain beats a meet; a block to write is Need you too');
+  eq(g[1].rows.map(r => r.athlete.id).join(','), 'm,q', 'Peaking: the nearest meet first');
+  eq(g[2].rows.map(r => r.athlete.id).join(','), 'a,z', 'on plan by name');
   eq(g.reduce((n, x) => n + x.rows.length, 0), rows.length, 'nobody twice, nobody lost');
   eq(CL.clGroupKey(clRow({ reasons: [{ type: 'meet' }, { type: 'blockend' }], meet: { days: 0, meet: {} } })), 'meet', 'a meet this fortnight beats the block to write');
 });
@@ -5742,7 +5744,8 @@ test('the Lifters list keeps Home’s order: pain, then a meet today, then how s
   eq(J[1].tier, 0);
   assert(J.findIndex(j => j.type === 'message') < J.findIndex(j => j.type === 'drift'), 'a lifter waiting a day on a reply before a week drifting half a point');
   const order = {}; J.forEach((it, i) => (it.r ? [it.r] : it.rows).forEach(r => { if (order[r.athlete.id] == null) order[r.athlete.id] = i; }));
-  eq(CL.clGroups(rows, { order })[0].rows.map(r => r.athlete.id).join(','), 'p,e,k,i,q', 'Check on reads the same order');
+  eq(CL.clGroups(rows, { order })[0].rows.map(r => r.athlete.id).join(','), 'p,e,k,i', 'Need you reads the same order');
+  eq(CL.clGroups(rows, { order }).find(g => g.key === 'quiet').rows.map(r => r.athlete.id).join(','), 'q', 'quiet 9 days and nothing else: the Quiet lane');
 });
 test('jobs: a reply closes what a message can, not the week still to write', () => {
   const T = '2026-10-26';
@@ -5874,11 +5877,12 @@ const clDesk = () => [
   clRow({ athlete: { id: 's', name: 'Sofia Alvarez' }, status: { ago: 1, program: { name: 'B' } }, meet: { days: 34, meet: { name: 'Autumn Classic', date: '2026-12-06', attemptPlan: { v: 1, squat: [150, 157.5, 162.5] } } }, bw: { over: -0.9, cls: 76 } }),
   clRow({ athlete: { id: 'r', name: 'Ryan O’Neill' }, status: { ago: 0, program: { name: 'B' } } })
 ];
-test('Lifters’ tabs: each count from the same rows, Check on is exactly the Check on group', () => {
+test('Lifters’ tabs: each count from the same rows, Need you is exactly the Need you lane', () => {
   const rows = clDesk(), C = CL.clTabCounts(rows);
   eq(C.all, 9);
-  eq(C.check, rows.filter(r => CL.clGroupKey(r) === 'need').length, 'Check on = the All view’s first group');
-  eq(C.check, 5, 'pain, a message, two quiet, a quiet one with a message (no block to write: that’s the next group)');
+  eq(C.need, CL.clGroups(rows)[0].rows.length, 'Need you = the All view’s first group = Today’s first lane');
+  eq(C.need, 4, 'pain, a message, a quiet one with a message, a block to write (quiet and nothing else is Quiet)');
+  eq(CL.clTabCounts(rows).check, undefined, 'one name: Need you');
   eq(C.meet, 3, 'a meet in 8 weeks, whatever else is going on'); eq(C.pain, 1); eq(C.quiet, 3, '7 days or more, or nothing logged with a block running'); eq(C.wins, 1);
 });
 test('a view’s line answers the view; the usual line everywhere else', () => {
@@ -5888,7 +5892,7 @@ test('a view’s line answers the view; the usual line everywhere else', () => {
   eq(CL.clViewLine(by('p'), 'meet'), 'City Classic', 'no openers is said only inside 3 weeks (Home’s rule)');
   eq(CL.clMeetNumber(by('e')).text + ' ' + CL.clMeetNumber(by('e')).unit, '12 days', 'the countdown is the Meet view’s number');
   eq(CL.clMeetNumber(clRow({ meet: { days: 0, meet: { name: 'Open' } } })).text, 'Today');
-  eq(CL.clViewLine(by('p'), 'pain'), 'Low back · twice this week · deadlift', 'where and the pattern, then the lift (the score is the row’s number)');
+  eq(CL.clViewLine(by('p'), 'pain'), 'Low back · deadlift · twice', 'where, the lift, how often this week (the score is the row’s number; whole at 400 px)');
   eq(CL.clViewNumber(by('p'), 'pain').text + CL.clViewNumber(by('p'), 'pain').unit, '6/10');
   eq(CL.clViewLine(by('j'), 'quiet'), 'Last trained 12 days ago', 'no date on record: the days');
   eq(CL.clViewNumber(by('j'), 'quiet').text + ' ' + CL.clViewNumber(by('j'), 'quiet').unit, '12 days'); eq(CL.clViewNumber(by('n'), 'quiet').text, 'Never');
@@ -5902,18 +5906,19 @@ test('Today’s lanes: every lifter in exactly one, worst first, each opening th
   const rows = clDesk(), L = CL.clLanes(rows, { order: { p: 0, k: 1, t: 2, h: 3 } });
   eq(L.map(l => l.key).join(','), 'need,meet,plan,quiet');
   eq(L.map(l => l.title).join(' | '), 'Need you | Peaking | On plan | Quiet', 'Peaking: a meet and nothing for the coach (the Meets card counts every meet)');
-  eq(L.map(l => l.tab === null ? 'all' : l.tab).join(','), 'check,meet,all,quiet');
+  eq(L.map(l => l.tab === null ? 'all' : l.tab).join(','), 'need,meet,all,quiet');
   const ids = (k) => L.find(l => l.key === k).rows.map(r => r.athlete.id).join(',');
   eq(ids('need'), 'p,k,t,h', 'pain first (the jobs’ order); quiet and a message is Need you; a block to write too');
   eq(ids('quiet'), 'n,j', 'nothing but quiet: the longest first, never logged as the longest');
   eq(ids('meet'), 'e,s', 'a meet and nothing else: the soonest first');
   eq(ids('plan'), 'r');
   eq(L.reduce((n, l) => n + l.rows.length, 0), rows.length, 'nobody twice, nobody lost');
-  const tabFor = { need: 'check', quiet: 'quiet', meet: 'meet' };
-  Object.keys(tabFor).forEach(k => L.find(l => l.key === k).rows.forEach(r => {
-    if (r.athlete.id === 'h') return;   // a block to write is Need you, but no tab but All holds it (the report says so)
-    assert(tabFor[k] === 'check' ? CL.clGroupKey(r) === 'need' : deskViewMatch(tabFor[k], r), r.athlete.name + ' is on the tab ' + k + ' opens');
-  }));
+  // Every face is on the tab its lane opens: Need you is the lane itself; Meet soon and Quiet hold more (they're filters).
+  const tabFor = { need: 'need', quiet: 'quiet', meet: 'meet' };
+  Object.keys(tabFor).forEach(k => L.find(l => l.key === k).rows.forEach(r => assert(deskViewMatch(tabFor[k], r), r.athlete.name + ' is on the tab ' + k + ' opens')));
+  eq(rows.filter(r => deskViewMatch('need', r)).map(r => r.athlete.id).join(','), L[0].rows.map(r => r.athlete.id).sort((x, y) => rows.findIndex(q => q.athlete.id === x) - rows.findIndex(q => q.athlete.id === y)).join(','), 'the Need you tab is the lane, one to one');
+  eq(deskViewKey('check'), 'need'); eq(deskViewKey('needs'), 'need', 'old links and ⌘K’s Needs me land on Need you');
+  eq(L.map(l => l.key).join(','), CL.clGroups(rows).map(g => g.key).join(','), 'Today’s lanes are the All tab’s groups');
   // A ring says pain or gone quiet, nothing else.
   eq(CL.clRingOf(rows[0]), 'pain'); eq(CL.clRingOf(rows[1]), ''); eq(CL.clRingOf(rows[2]), 'quiet'); eq(CL.clRingOf(rows[4]), 'quiet', 'quiet 9 days in Need you: still the quiet ring');
   eq(CL.clRingOf(rows[6]), '', 'a meet: no ring'); eq(CL.clRingOf(rows[8]), '');
@@ -5941,12 +5946,19 @@ test('Where everyone is: the block on the shared weeks, today’s line, the meet
   eq(S.lines[1].week, 'Starts next week');
   eq(S.lines[2].week, 'No block'); eq(S.lines[2].meet, null);
   eq(S.lines[3].week, 'Block done');
+  // A lifter's own week (programWeekState, as their page reads it) names the week and lights it; a program with no
+  // dates yet is Not scheduled.
+  const own = [clRow({ athlete: { id: 'e', name: 'Eve' }, status: { program: { id: 'pe', name: 'Strength' }, week: { idx: 0, total: 3, finished: false } } }),
+    clRow({ athlete: { id: 'n', name: 'Nia' }, status: { program: { id: 'pn', name: 'Foundation' }, week: { idx: 0, total: 3, finished: false } } })];
+  const S2 = CL.clSeason(own, { today: T, programs: [{ id: 'pe', athleteId: 'e', name: 'Strength', startsOn: '2026-10-26', weeks: wk(3) }], meets: [], blocks: [] });
+  const E = S2.lines.find(l => l.id === 'e'), N = S2.lines.find(l => l.id === 'n');
+  eq(E.week, 'Week 1 of 3', 'the program’s week, though its dates say week 2'); eq(E.bar.cur, 0, 'week 1 lit (a week behind its dates)'); eq(E.bar.from, 3);
+  eq(N.week, 'Not scheduled'); eq(N.bar, null);
 });
-test('the business line: money a month, overdue, who is waiting, seats left; a part with nothing to say is left out', () => {
+test('the business line: money a month, overdue, who is waiting, seats; a part with nothing to say is left out', () => {
   const money = (c) => '$' + (c / 100).toLocaleString('en-US');
   const sm = { currency: 'USD', mrr: 324750, overdue: { n: 2, cents: 37000, who: ['x', 'y'] } };
-  eq(CL.clBusiness({ summary: sm, money, apps: 2, joins: 0, seats: { used: 21, limit: 25 } }).map(p => p.text).join(' · '), '$3,248 a month · 2 overdue · 2 applications waiting · 4 seats left', 'an unused invite holds a seat: 21 of 25 taken');
-  eq(CL.clBusiness({ seats: { used: 24, limit: 25 } })[0].text, '1 seat left'); eq(CL.clBusiness({ seats: { used: 26, limit: 25 } })[0].text, 'No seats left');
+  eq(CL.clBusiness({ summary: sm, money, apps: 2, joins: 0, seats: { used: 21, limit: 25 } }).map(p => p.text).join(' · '), '$3,248 a month · 2 overdue · 2 applications waiting · 21 of 25 seats', 'seats taken: lifters and unused invites, the rail’s count too');
   eq(CL.clBusiness({ summary: sm, money, apps: 2, joins: 0 }).map(p => p.key).join(','), 'money,overdue,apps', 'an unlimited plan: no seats');
   eq(CL.clBusiness({ summary: { currency: 'USD', mrr: 0, overdue: { n: 0 } }, money, apps: 0, joins: 1, seats: null }).map(p => p.text).join(' · '), '1 join request', 'no packages yet: no money, no overdue');
   eq(CL.clBusiness({ apps: 1, joins: 2 })[0].text, '3 new lifters waiting');

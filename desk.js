@@ -418,9 +418,10 @@ function deskRoute(first) {
   var screen = m ? m[1] : 'today';
   var q = {};
   if (m && m[2]) m[2].split('&').forEach(function (kv) { var p = kv.split('='); q[p[0]] = p[1] || ''; });
-  var view = q.view && DESK_VIEWS.some(function (v) { return v.key === q.view; }) ? q.view : null;
+  var qv = deskViewKey(q.view);
+  var view = qv && DESK_VIEWS.some(function (v) { return v.key === qv; }) ? qv : null;
   if (q.mode === 'sheet') q.mode = 'board';   // an old link
-  if (q.mode === 'board' || q.mode === 'list' || q.mode === 'calendar') { if (q.mode === 'board' && _dk.rmode !== 'board') _dk.rsel = null; _dk.rmode = q.mode; }
+  if (q.mode === 'board' || q.mode === 'list' || q.mode === 'calendar') { if (q.mode === 'board' && _dk.rmode !== 'board') _dk.rsel = null; _dk.rmode = q.mode; _dk.rmodeTemp = q.mode === 'calendar'; }
   if (first && screen !== 'today' && screen !== 'roster' && screen !== 'meets' && screen !== 'teams' && screen !== 'clients') {
     // A legacy screen at boot: the demo boots while coach.html's script is still running, and the
     // builder reads lets declared further down it. A microtask runs once that script is done,
@@ -428,7 +429,7 @@ function deskRoute(first) {
     queueMicrotask(function () { deskGo(screen, { view: view, noPush: true }); });
     return;
   }
-  deskGo(screen, { view: view, noPush: true, replace: first && !m });
+  deskGo(screen, { view: view, noPush: true, replace: first && !m, keepMode: q.mode === 'calendar' });
 }
 var DK_TAB_FOR = { roster: 'athletes', programs: 'program', messages: 'messages', club: 'club', settings: 'you' };
 // clients is a desk screen of its own (clients-ui.js draws the same pane on the phone, under You).
@@ -438,12 +439,15 @@ function deskGo(screen, opts) {
   if (!isDesk()) return;
   closeDkMenus();
   if (screen === 'meets' && !dkPlannedMeets().length) screen = 'roster';
+  // The season calendar is a visit, never a mode that sticks (Today's "All on the season calendar", Lifters' Calendar):
+  // any other way in or out of the roster comes back to Lifters. Its own Board / List / Calendar switch still works.
+  if (_dk.rmodeTemp && !opts.keepMode) { _dk.rmodeTemp = false; if (_dk.rmode === 'calendar') _dk.rmode = null; }
   if (screen !== _dk.screen) dkCardForget();   // the side card belongs to the screen it opened on
   // The board opens with no row picked out.
   if (screen === 'roster' && _dk.screen !== 'roster' && dkRMode() === 'board') _dk.rsel = null;
   _dk.screen = screen;
   _dk.ws = null;
-  if (screen === 'roster') _dk.view = opts.view || null;
+  if (screen === 'roster') _dk.view = deskViewKey(opts.view) || null;
   dkSetHash(screen, opts);
   if (screen === 'teams' && typeof dsRenderTeams !== 'function') screen = 'programs';
   if (screen === 'clients' && !window.ClientsUI) screen = 'roster';
@@ -672,8 +676,8 @@ function dkBuildRail() {
 
   var views = el('div', { class: 'dk-views', role: 'group', 'aria-label': 'Saved views' });
   views.appendChild(el('div', { class: 'dk-sub' }, 'Views'));
-  // "Needs you" is Today's count, and Check on is a tab on Lifters: not a second time here.
-  DESK_VIEWS.filter(function (v) { return v.key !== 'needs' && v.key !== 'check'; }).forEach(function (v) {
+  // Need you is Today's count and Lifters' first tab: not a second time here.
+  DESK_VIEWS.filter(function (v) { return v.key !== 'need'; }).forEach(function (v) {
     var b = el('button', { class: 'dk-item dk-view', type: 'button', 'data-view': v.key });
     b.appendChild(el('span', { class: 'dk-item-label' }, v.label));
     b.appendChild(el('span', { class: 'dk-count', 'data-vcount': v.key }));
@@ -729,8 +733,9 @@ function dkPaintRail() {
   var rows = _dk.rows || [], q = _dk.queue;
   var athletePage = _dkOnPage();
   dkPaintSubnav(false);
+  var railView = _dk.view && !!rail.querySelector('[data-view="' + _dk.view + '"]');
   rail.querySelectorAll('[data-go]').forEach(function (b) {
-    var on = b.dataset.go === _dk.screen && !(_dk.screen === 'roster' && _dk.view && !athletePage);
+    var on = b.dataset.go === _dk.screen && !(_dk.screen === 'roster' && railView && !athletePage);
     b.classList.toggle('on', on);
     if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
@@ -781,7 +786,9 @@ function dkPaintRail() {
   if (plan) {
     var t = getCurrentTier(), lim = getCurrentTierLimit(), u = _dkUser();
     var n = u ? getAthleteCount(u.id) : rows.length;
-    plan.textContent = (TIER_LABELS[t] || t) + (lim >= 9999 ? ' · ' + n + ' athletes' : ' · ' + n + '/' + lim);
+    // The seats taken are the plan's own count: lifters and unused invites (an invite holds a seat), as Today's business line.
+    var taken = u && typeof getOccupiedSlots === 'function' ? getOccupiedSlots(u.id) : n;
+    plan.textContent = (TIER_LABELS[t] || t) + (lim >= 9999 ? ' · ' + n + ' athletes' : ' · ' + taken + '/' + lim);
   }
 }
 function dkToggleRail() {
@@ -1503,14 +1510,17 @@ var DK_SORTS = {
 // The roster opens on the live board; the list is one click (or V) away. An old 'sheet' choice
 // is the board now.
 function dkRMode() {
-  if (!_dk.rmode) { var sv = _dkLS('powa-desk-rmode'); _dk.rmode = sv === 'list' || sv === 'calendar' ? sv : 'board'; }
+  // A stored 'calendar' is from before the calendar became a visit: Lifters.
+  if (!_dk.rmode) { var sv = _dkLS('powa-desk-rmode'); _dk.rmode = sv === 'list' ? sv : 'board'; }
   if (_dk.rmode === 'calendar' && typeof dsPaintCalendar !== 'function') _dk.rmode = 'board';
   return _dk.rmode;
 }
 function dkSetRMode(m) {
   if (dkRMode() === m) return;
   _dk.rmode = m;
-  _dkLS('powa-desk-rmode', m === 'list' || m === 'calendar' ? m : null);
+  // The calendar is for this visit only (deskGo comes back to Lifters); Board and List are remembered.
+  _dk.rmodeTemp = m === 'calendar';
+  if (m !== 'calendar') _dkLS('powa-desk-rmode', m === 'list' ? m : null);
   _dk.card = null;
   if (m === 'board') _dk.rsel = null;
   if (typeof renderRoster === 'function') renderRoster(); else deskRenderRoster(document.getElementById('rosterArea'));
@@ -1568,7 +1578,8 @@ function deskRenderRoster(area) {
   if (!area) return;
   dkRowsFresh();
   area.querySelectorAll('.dk-rhead, .dk-rhome, .dk-rbody, .dk-empty, .dk-bulk, .cl-desk').forEach(function (n) { n.remove(); });
-  area.classList.remove('cl-on');
+  // The old board's and the calendar's classes go with them (Lifters drawn after a calendar visit kept is-cal).
+  area.classList.remove('cl-on', 'is-list', 'is-sheet', 'is-board', 'is-cal', 'has-bulk');
   var rows = _dk.rows;
   var mode = dkRMode();
   // Lifters (coach-lifters.js) draws the roster: the list beside one lifter's page. The Calendar
