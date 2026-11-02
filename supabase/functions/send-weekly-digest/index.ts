@@ -22,10 +22,11 @@
 // over 4 weeks, last week's top sets against the RPE written, PRs, meets in the next 8 weeks with each
 // lifter's weigh-in against the class, the blocks to write next, money overdue and due this week,
 // applications waiting and seats, every lifter on one line (v2, 2 Nov). A team with nothing at all
-// (nobody trained, nothing waiting) gets nothing. The push (category alerts, so push_alerts mutes it) opens /coach.html?report=week; the email
-// goes unless weekly_digest is explicitly false (no row = opted in). A coach with no preferences row
-// gets one made at send time (defaults only: weekly email on, product emails off, pushes on) so the
-// email's one-click unsubscribe has a token; the link carries r=coach so the page says "Monday report".
+// (nobody trained, nothing waiting) gets nothing. The push (category alerts, so push_alerts mutes it)
+// opens /coach.html?report=week; the email goes unless weekly_digest is explicitly false (no row = opted
+// in). A coach with no preferences row gets one made at send time (defaults only: weekly email on, product
+// emails off, pushes on) so the email's one-click unsubscribe has a token; the link carries r=coach so the
+// page says "Monday report".
 // MIDWEEK (Thursdays): Monday to Wednesday count as gone; a lifter on N sessions should have
 // floor(N × 3/7) done. One push per coach naming who's behind (alerts again); no email.
 // Reads are paged (PostgREST returns at most 1000 rows a read) in chunks of 100 ids, logs are summed
