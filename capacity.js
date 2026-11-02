@@ -310,7 +310,7 @@
     rules: { label: 'Progression rules', icon: 'rules', verb: 'give' },
     notes: { label: 'Weekly note drafts', icon: 'note', verb: 'give' },
     replies: { label: 'Saved replies', icon: 'replies', verb: 'give' },
-    report: { label: 'Monday report', icon: 'report', verb: 'gives' }
+    report: { label: 'Weekly report', icon: 'report', verb: 'gives' }
   };
   // Each time-saver opens its feature. Progression rules and the Monday report show once their screens
   // exist (ProgressionUI / CoachReportUI, or Capacity.registerSaver(key, open)).
