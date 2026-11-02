@@ -25,12 +25,18 @@ class Q {
   constructor(db, t) { this.db = db; this.t = t; this.f = []; this.ord = null; this.rng = null; this.lim = null; this.op = 'select'; this.cols = '*'; this.one = false; this.inMax = 0; }
   select(c) { this.cols = c || '*'; return this; }
   eq(c, v) { this.f.push(r => r[c] === v); return this; }
-  in(c, vs) { this.inMax = Math.max(this.inMax, vs.length); this.f.push(r => vs.includes(r[c])); return this; }
+  in(c, vs) { this.inMax = Math.max(this.inMax, vs.length); this.inVals = vs; this.f.push(r => vs.includes(r[c])); return this; }
   gte(c, v) { this.f.push(r => r[c] != null && String(r[c]) >= String(v)); return this; }
   lte(c, v) { this.f.push(r => r[c] != null && String(r[c]) <= String(v)); return this; }
   lt(c, v) { this.f.push(r => r[c] != null && String(r[c]) < String(v)); return this; }
   is(c, v) { this.f.push(r => (r[c] == null ? null : r[c]) === v); return this; }
   not(c, op, v) { if (op === 'is' && v === null) this.f.push(r => r[c] != null); return this; }
+  // PostgREST's or=(a.is.null,a.neq.x): what the week's claim sends.
+  or(expr) {
+    const parts = String(expr).split(',').map(x => x.split('.'));
+    this.f.push(r => parts.some(([c, op, ...v]) => { v = v.join('.'); return op === 'is' ? (r[c] == null) === (v === 'null') : op === 'neq' ? r[c] != null && String(r[c]) !== v : op === 'eq' ? r[c] != null && String(r[c]) === v : false; }));
+    return this;
+  }
   order(c) { this.ord = c; return this; }
   range(a, b) { this.rng = [a, b]; return this; }
   limit(n) { this.lim = n; return this; }
@@ -47,6 +53,7 @@ class Q {
     const gone = cols.map(c => c.split(':').pop()).find(c => (db.missingCols[this.t] || []).includes(c));
     if (gone) return { data: null, error: { code: '42703', message: 'column ' + this.t + '.' + gone + ' does not exist' } };
     if (this.inMax > 100) return { data: null, error: { message: 'URI too long: ' + this.inMax + ' ids' } };
+    if (db.failRead) { const why = db.failRead(this.t, this.inVals || []); if (why) return { data: null, error: { message: why } }; }   // one read fails
     db.reads.push({ t: this.t, cols: this.cols, ids: this.inMax, range: this.rng });
     if (db.onRead) db.onRead(this.t, this.rng, db);   // a test changes the table between pages
     const rows = rowsOf(db, this.t);
@@ -56,7 +63,8 @@ class Q {
       const had = rows.find(r => r[k] === this.row[k]);
       if (had) { if (!this.opts.ignoreDuplicates) Object.assign(had, this.row); }
       else rows.push(Object.assign({ weekly_digest: true, product_emails: true, unsub_token: 'tok-' + this.row[k] }, this.row));
-      return { data: null, error: null };
+      // return=representation: the row written (none when an existing row was left alone).
+      return { data: had && this.opts.ignoreDuplicates ? [] : [{ [k]: this.row[k] }], error: null };
     }
     let list = rows.filter(r => this.f.every(fn => fn(r)));
     if (this.op === 'update') {
@@ -121,13 +129,22 @@ Date.now = () => Date.parse('2026-10-26T14:00:00Z');
 const realSetTimeout = globalThis.setTimeout;
 globalThis.setTimeout = (fn) => realSetTimeout(fn, 0);   // no real waits between sends
 const SENT = [];
-let resendScript = [];   // statuses to answer, in order (then 200)
+let resendScript = [];   // statuses to answer, in order (then 200); 'lost': sent, but the answer never comes back
+// Resend's idempotency keys: a key sends once; a repeat gets the first answer (or a 409 when its content differs).
+const IDEM = new Map();
 globalThis.fetch = async (url, init) => {
   const u = String(url);
   if (u.startsWith('https://api.resend.com/')) {
-    const body = JSON.parse(init.body);
-    const status = resendScript.length ? resendScript.shift() : 200;
-    SENT.push({ to: body.to, subject: body.subject, html: body.html, text: body.text, headers: body.headers || null, status });
+    const body = JSON.parse(init.body), key = (init.headers || {})['Idempotency-Key'] || null;
+    if (key && IDEM.has(key)) {
+      const first = IDEM.get(key);
+      if (first.body !== init.body) return new Response('{"name":"invalid_idempotent_request"}', { status: 409 });
+      return new Response('{"id":"x"}', { status: first.status });
+    }
+    const script = resendScript.length ? resendScript.shift() : 200, status = script === 'lost' ? 200 : script;
+    SENT.push({ to: body.to, subject: body.subject, html: body.html, text: body.text, headers: body.headers || null, status, key });
+    if (key && status === 200) IDEM.set(key, { status, body: init.body });
+    if (script === 'lost') throw new TypeError('fetch failed: the connection closed');
     return new Response(status === 200 ? '{"id":"x"}' : '{"error":"slow down"}', { status, headers: status === 429 ? { 'retry-after': '1' } : {} });
   }
   throw new Error('unexpected fetch ' + u);
@@ -186,7 +203,7 @@ const call = async (body, secret = ENV.CRON_SECRET) => {
   const res = await handler(new Request('https://fn.test/send-weekly-digest', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, secret ? { Authorization: 'Bearer ' + secret } : {}), body: body == null ? '' : JSON.stringify(body) }));
   return { status: res.status, json: await res.json() };
 };
-const reset = () => { globalThis.__DB = freshDB(); globalThis.__PUSH = []; SENT.length = 0; resendScript = []; return globalThis.__DB; };
+const reset = () => { globalThis.__DB = freshDB(); globalThis.__PUSH = []; SENT.length = 0; resendScript = []; IDEM.clear(); return globalThis.__DB; };
 
 // ---------------------------------------------------------------- the gate
 await t('no secret, a wrong secret: 401, and the body is never read', async () => {
@@ -240,7 +257,12 @@ await t('Monday for real: pushes to /coach.html?report=week (and the week), emai
   const dan = SENT.find(s => s.to[0] === 'dan@example.com');
   ok(dan && /token=tok-c2&r=coach/.test(dan.headers['List-Unsubscribe']), 'c2\'s token was made at send time');
   const made = db.writes.find(w => w.t === 'email_preferences' && w.op === 'upsert');
-  eq([made.row, made.opts.ignoreDuplicates], [{ user_id: 'c2', product_emails: false }, true], 'only defaults, product emails off, never overwriting');
+  eq([made.row, made.opts.ignoreDuplicates], [{ user_id: 'c2', product_emails: false, report_sent_week: '2026-10-19' }, true],
+    'c2 had no row: the week\'s claim makes one, defaults only, product emails off, never overwriting');
+  eq(db.tables.email_preferences.map(p => [p.user_id, p.report_sent_week || null]).filter(x => /^c/.test(x[0])), [['c1', '2026-10-19'], ['c3', '2026-10-19'], ['c2', '2026-10-19']],
+    'every coach\'s week claimed, the dormant one too (nothing to send)');
+  const reports = SENT.filter(m => /^Your team’s week/.test(m.subject));
+  ok(reports.length === 2 && reports.every(m => /^powa-report\/c[12]\/2026-10-19$/.test(m.key || '')), 'each report carries its coach and week as an idempotency key');
   ok(dan.html.includes('Leo &lt;script&gt;Park&lt;/script&gt;') && !dan.html.includes('<script>'), 'names escaped');
   eq(SENT.filter(s => /^Your week:/.test(s.subject)).map(s => s.to[0]), ['arjun@example.com'], 'the lifters\' digest: Arjun only (opted in, trained)');
 });
@@ -341,7 +363,7 @@ const resetWorld = () => {
   const db = { tables: JSON.parse(JSON.stringify(WD.tables)), calls: [], writes: [], reads: [], missing: new Set(), missingCols: {}, noStats: false };
   db.tables.push_subscriptions = ['c-sam', 'c-mia', 'c-big', 'c-dan', 'c-quiet'].map((c, i) => ({ id: 'ps' + i, user_id: c, platform: 'web', endpoint: 'https://fcm.googleapis.com/fcm/send/' + c, p256dh: 'k', auth: 'a' }));
   db.missing.add('schedule_requests');
-  globalThis.__DB = db; globalThis.__PUSH = []; SENT.length = 0; resendScript = [];
+  globalThis.__DB = db; globalThis.__PUSH = []; SENT.length = 0; resendScript = []; IDEM.clear();
   return db;
 };
 const withNow = async (ms, fn) => { const real = Date.now; Date.now = () => ms; try { return await fn(); } finally { Date.now = real; } };
@@ -468,7 +490,8 @@ await t('hourly: a missed hour catches up later that day; a dry run sends and ma
   eq(dry.json['coach-report'].preview.map(p => [p.coach, p.week]), [['c-dan', '2026-10-26'], ['c-mia', '2026-10-26']],
     'Dan three hours after his 18:00, Mia an hour after her Monday 07:00 in Sydney (the runs before didn\'t happen); Big\'s Sunday has ended in Kolkata');
   ok(db.writes.length === 0 && SENT.length === 0, 'a dry run writes and sends nothing');
-  ok(dry.json['coach-report'].preview[0].text.includes('Sent to Dan on Sundays at 6 pm. Change it in Settings, Notifications.'), 'the footer says when it comes');
+  ok(dry.json['coach-report'].preview[0].text.includes('Sent to Dan on Sundays at 6 pm UTC. Change it in Settings, Notifications.'), 'the footer says when it comes (no zone yet: UTC)');
+  ok(dry.json['coach-report'].preview[1].text.includes('Sent to Mia on Mondays at 7 am. Change it'), 'in their own zone: no UTC');
   const real = await hourly('2026-11-01T21:00:00Z');
   eq([real.json['coach-report'].emails, db.tables.email_preferences.find(p => p.user_id === 'c-dan').report_sent_week], [2, '2026-10-26']);
   eq((await hourly('2026-11-01T22:00:00Z')).json['coach-report'].due, 0, 'never twice');
@@ -507,6 +530,64 @@ await t('before the schedule\'s migration: the hourly job keeps every coach\'s r
   ok(SENT.every(m => m.text.startsWith('Your team’s week · 26 Oct – 1 Nov') && m.text.includes('Sent to') && m.text.includes('on Mondays. Change it')), 'last week, "Mondays"');
   ok(!db.writes.some(w => w.t === 'email_preferences' && w.op === 'update'), 'no week marked (no column to hold it)');
   eq((await hourly('2026-11-02T15:00:00Z')).json['coach-report'].due, 0, 'and only at 14:00');
+});
+
+// ---------------------------------------------------------------- never twice (the review of 2 Nov: claim the week before sending)
+const SAM_DAN = (db) => db.tables.email_preferences.forEach(p => { if (p.user_id !== 'c-dan') p.report_sent_week = '2026-10-26'; });   // only Dan is due
+const toCount = () => SENT.reduce((m, x) => { m[x.to[0]] = (m[x.to[0]] || 0) + 1; return m; }, {});
+await t('two runs at once (an hourly one and a retried or manual one): each coach gets the week once, from the run that claimed it', async () => {
+  resetPicks();
+  const [a, b] = await withNow(Date.parse('2026-11-01T18:00:00Z'), () => Promise.all([call({}), call({})]));
+  eq(toCount(), { 'big@coach.test': 1, 'dan@coach.test': 1 }, 'Big (Kolkata, still due) and Dan, once each');
+  eq(globalThis.__PUSH.filter(x => x.payload.tag === 'powa-report').length, 2, 'one push each');
+  eq(a.json['coach-report'].emails + b.json['coach-report'].emails, 2, 'two emails between the two runs');
+  ok(a.json['coach-report'].skipped + b.json['coach-report'].skipped >= 1, 'the run that lost a claim skipped that coach');
+  resetPicks();
+  await withNow(Date.parse('2026-11-01T18:00:00Z'), () => Promise.all([call({}), call({ job: 'coach-report', dueOnly: true })]));
+  eq(toCount(), { 'big@coach.test': 1, 'dan@coach.test': 1 }, 'the hourly run and a manual dueOnly one');
+});
+await t('the email goes, then the push lookup fails: the week stands, the email never goes again', async () => {
+  const db = resetPicks(); SAM_DAN(db);
+  db.missing.add('push_subscriptions');
+  const a = await hourly('2026-11-01T18:00:00Z');
+  eq([a.json['coach-report'].emails, a.json['coach-report'].failed, db.tables.email_preferences.find(p => p.user_id === 'c-dan').report_sent_week], [1, 0, '2026-10-26']);
+  db.missing.delete('push_subscriptions');
+  eq((await hourly('2026-11-01T19:00:00Z')).json['coach-report'].due, 0, 'the next hour: not due');
+  eq(toCount(), { 'dan@coach.test': 1 });
+});
+await t('a claim that can\'t be written: nothing goes (it fails closed), every hour that day', async () => {
+  const db = resetPicks(); SAM_DAN(db);
+  const row = db.tables.email_preferences.find(p => p.user_id === 'c-dan');
+  Object.defineProperty(row, 'report_sent_week', { value: null, writable: false, enumerable: true, configurable: false });
+  for (let h = 18; h <= 23; h++) await hourly('2026-11-01T' + h + ':00:00Z');
+  eq([SENT.length, globalThis.__PUSH.filter(x => x.endpoint.endsWith('/c-dan')).length], [0, 0]);
+});
+await t('an email whose answer is lost: the week goes back, and the next hour\'s retry is Resend\'s same key, not a second email', async () => {
+  const db = resetPicks(); SAM_DAN(db);
+  resendScript = ['lost'];
+  const a = await hourly('2026-11-01T18:00:00Z');
+  eq([a.json['coach-report'].failed, db.tables.email_preferences.find(p => p.user_id === 'c-dan').report_sent_week, globalThis.__PUSH.length], [1, null, 0], 'as far as the job knows, it failed: released, no push');
+  const b = await hourly('2026-11-01T19:00:00Z');
+  eq(SENT.length, 1, 'one email reached Dan');
+  eq([b.json['coach-report'].emails + b.json['coach-report'].already, globalThis.__PUSH.filter(x => x.endpoint.endsWith('/c-dan')).length, db.tables.email_preferences.find(p => p.user_id === 'c-dan').report_sent_week],
+    [1, 1, '2026-10-26'], 'Resend already had it; the push goes; the week stands');
+});
+await t('one chunk of a read fails: only its lifters\' part is left out (and said); the rest of the report goes', async () => {
+  const db = resetPicks(); SAM_DAN(db);
+  // Dan gets 250 more lifters (three chunks of 100); pain on one lifter in each chunk; the second chunk's read fails.
+  const ids = [];
+  for (let i = 0; i < 250; i++) {
+    const id = 'd-x' + String(i).padStart(3, '0');
+    ids.push(id);
+    db.tables.profiles.push({ id, name: 'Extra ' + String(i).padStart(3, '0'), user_type: 'athlete', coach_id: 'c-dan', email: null, unit: 'kg' });
+  }
+  ['d-x005', 'd-x150', 'd-x240'].forEach((id, k) => db.tables.pain_reports.push({ id: 'px' + k, athlete_id: id, day: '2026-10-28', body_part: 'knee', resolved_at: null }));
+  db.failRead = (tb, vals) => (tb === 'pain_reports' && vals.includes('d-x150') ? 'canceling statement due to statement timeout' : null);
+  LOGS.length = 0;
+  const r = await hourly('2026-11-01T18:00:00Z', { dryRun: true });
+  const text = r.json['coach-report'].preview.find(p => p.coach === 'c-dan').text;
+  ok(/Pain reported: [^\n]*Extra 005/.test(text) && /Pain reported: [^\n]*Extra 240/.test(text) && !/Extra 150 /.test(text.split('\n').find(l => l.startsWith('- Pain')) || ''), 'the other chunks\' pain is there: ' + (text.split('\n').find(l => l.startsWith('- Pain')) || 'none'));
+  ok(LOGS.some(l => /pain_reports left out for 100 of 255/.test(l)), 'and it says what it left out: ' + LOGS.filter(l => /left out/.test(l)).join(' | '));
 });
 
 // ---------------------------------------------------------------- the lifters' digest, paged

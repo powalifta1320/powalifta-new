@@ -587,6 +587,8 @@ t('the pick: Sunday 18:00 unless said; hour 0 is midnight; a time zone the engin
   ['Europe/London', 'America/New_York', 'Asia/Kolkata', 'Australia/Sydney', 'UTC'].forEach(tz => eq(CR.validTz(tz), tz));
   eq([0, 7, 12, 18, 23].map(CR.hourText), ['12 am', '7 am', '12 pm', '6 pm', '11 pm']);
   eq([CR.scheduleText({ day: 'sun', hour: 18 }), CR.scheduleText({ day: 'mon', hour: 7 }), CR.scheduleText({ day: 'mon', hour: null })], ['Sundays at 6 pm', 'Mondays at 7 am', 'Mondays']);
+  eq([CR.scheduleText(CR.scheduleOf(null)), CR.scheduleText(CR.scheduleOf({ tz: 'Mars/Base' })), CR.scheduleText(CR.scheduleOf({ tz: 'Europe/London' }))],
+    ['Sundays at 6 pm UTC', 'Sundays at 6 pm UTC', 'Sundays at 6 pm'], 'no time zone yet: the footer says UTC');
 });
 t('the window: Sunday\'s report is this week, Monday\'s the week that ended yesterday', () => {
   eq(CR.reportWindow('sun', '2026-11-01'), { from: '2026-10-26', to: '2026-11-01', today: '2026-11-01' });

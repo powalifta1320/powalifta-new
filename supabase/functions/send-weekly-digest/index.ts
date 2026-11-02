@@ -375,6 +375,19 @@ async function byIds(ids: string[], read: (c: string[]) => Promise<Row[]>, size?
 async function optional(name: string, fn: () => Promise<Row[]>): Promise<Row[]> {
   try { return await fn(); } catch (e) { console.warn('coach jobs: ' + name + ' left out: ' + errMsg(e)); return []; }
 }
+// The same, read 100 ids at a time: a chunk that fails leaves out only its own ids' part (and says so); a table or
+// function an older project doesn't have yet leaves out the whole part, as optional() does.
+async function optionalByIds(name: string, ids: string[], read: (c: string[]) => Promise<Row[]>, size?: number): Promise<Row[]> {
+  const out: Row[] = [];
+  for (const c of chunk(ids, size || IDS)) {
+    try { out.push(...await read(c)); }
+    catch (e) {
+      if (isMissing(e)) { console.warn('coach jobs: ' + name + ' left out: ' + errMsg(e)); return []; }
+      console.warn('coach jobs: ' + name + ' left out for ' + c.length + ' of ' + ids.length + ' (' + c[0] + '…): ' + errMsg(e));
+    }
+  }
+  return out;
+}
 function indexBy(rows: Row[], key: string): Map<string, Row[]> {
   const m = new Map<string, Row[]>();
   for (const r of rows) { const k = String(r[key] || ''); if (!k) continue; if (!m.has(k)) m.set(k, []); m.get(k)!.push(r); }
@@ -436,15 +449,23 @@ async function tokenFor(admin: any, coachId: string, pref: Row | undefined): Pro
     return data && data.unsub_token ? String(data.unsub_token) : null;
   } catch (e) { console.warn('coach-report: token for', coachId, errMsg(e)); return null; }
 }
-async function sendEmail(apiKey: string, msg: Record<string, unknown>): Promise<boolean> {
+// An email through Resend. idemKey (the coach and the week): Resend sends a key once; a repeat (a retry after an answer
+// that never came back) gets the first send's answer, or a 409 when the content has changed since or the first is still
+// going, which both mean it already went. Never throws: a network error is a failed send. → 'sent' | 'already' | 'failed'
+async function sendEmail(apiKey: string, msg: Record<string, unknown>, idemKey?: string): Promise<'sent' | 'already' | 'failed'> {
+  const headers: Record<string, string> = { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' };
+  if (idemKey) headers['Idempotency-Key'] = idemKey;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await fetch(RESEND_ENDPOINT, { method: 'POST', headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' }, body: JSON.stringify(msg) });
-    if (res.ok) return true;
+    let res: Response;
+    try { res = await fetch(RESEND_ENDPOINT, { method: 'POST', headers, body: JSON.stringify(msg) }); }
+    catch (e) { console.error('coach-report: Resend unreachable', errMsg(e)); return 'failed'; }
+    if (res.ok) return 'sent';
+    if (res.status === 409 && idemKey) { console.warn('coach-report: Resend already had', idemKey); return 'already'; }
     if (res.status === 429 && attempt === 0) { await sleep(Math.min(5, Number(res.headers.get('retry-after')) || 1) * 1000); continue; }
     console.error('coach-report: Resend', res.status, (await res.text()).slice(0, 200));
-    return false;
+    return 'failed';
   }
-  return false;
+  return 'failed';
 }
 
 // An RPC's rows (a set-returning function answers 1000 rows at most, like a read: each call takes 100 lifters
@@ -473,17 +494,31 @@ async function readPrefs(admin: any, ids: string[], schedule: boolean): Promise<
   return { rows, schedule: false };
 }
 
-// After a coach's report went (or there was nothing to send them), the week is theirs: report_sent_week = its Monday,
-// so a later hour never sends it again. A coach with no preferences row gets one (defaults only, product emails off).
+// A coach's week is claimed before anything goes to them: one conditional update, so of two runs (an hourly one and a
+// manual one, a retried call) only the one that finds the week unreported wins it, and sends; the other skips. A
+// coach with no preferences row gets one already holding the week (defaults only, product emails off); a row made
+// meanwhile wins instead. → { won, prev } (prev: the week it held before, for a release)
 // deno-lint-ignore no-explicit-any
-async function markSent(admin: any, coachId: string, monday: string): Promise<void> {
-  try {
-    const { data, error } = await admin.from('email_preferences').update({ report_sent_week: monday }).eq('user_id', coachId).select('user_id');
+async function claimWeek(admin: any, coachId: string, monday: string, pref: Row | undefined): Promise<{ won: boolean; prev: string | null }> {
+  if (pref) {
+    const prev = pref.report_sent_week ? String(pref.report_sent_week).slice(0, 10) : null;
+    const { data, error } = await admin.from('email_preferences').update({ report_sent_week: monday }).eq('user_id', coachId)
+      .or('report_sent_week.is.null,report_sent_week.neq.' + monday).select('user_id');
     if (error) throw error;
-    if (data && data.length) return;
-    const made = await admin.from('email_preferences').upsert({ user_id: coachId, product_emails: false, report_sent_week: monday }, { onConflict: 'user_id', ignoreDuplicates: true });
-    if (made.error) throw made.error;
-  } catch (e) { console.warn('coach-report: the week not marked sent for', coachId, errMsg(e)); }
+    return { won: !!(data && data.length), prev };
+  }
+  const { data, error } = await admin.from('email_preferences').upsert({ user_id: coachId, product_emails: false, report_sent_week: monday }, { onConflict: 'user_id', ignoreDuplicates: true }).select('user_id');
+  if (error) throw error;
+  return { won: !!(data && data.length), prev: null };
+}
+// The email didn't go: the week goes back to what it was (only if this run's claim still holds it), so a later hour
+// sends it. A release that fails leaves the week claimed: that coach misses it rather than getting it twice.
+// deno-lint-ignore no-explicit-any
+async function releaseWeek(admin: any, coachId: string, monday: string, prev: string | null): Promise<void> {
+  try {
+    const { error } = await admin.from('email_preferences').update({ report_sent_week: prev }).eq('user_id', coachId).eq('report_sent_week', monday);
+    if (error) throw error;
+  } catch (e) { console.error('coach-report: the week stays claimed for', coachId, errMsg(e)); }
 }
 
 type Pick = { id: string; W: { from: string; to: string; today: string }; sched: { day: string; hour: number | null } };
@@ -518,7 +553,8 @@ async function runCoachReport(admin: any, apiKey: string, plan: Plan): Promise<R
       picks.push({ id, W: CR.reportWindow(sched.day, plan.today), sched });
     }
   }
-  const out = { coaches: ids.length, due: picks.length, emails: 0, pushes: 0, quiet: 0, emailOff: 0, failed: 0, left: 0, preview: [] as Row[] };
+  // skipped: another run had the week (or it had gone); already: Resend had sent that email before (a retried call).
+  const out = { coaches: ids.length, due: picks.length, emails: 0, pushes: 0, quiet: 0, emailOff: 0, failed: 0, left: 0, skipped: 0, already: 0, preview: [] as Row[] };
   // One pass per week reported (a Sunday's this week and a Monday's last week; the same week where it's that day).
   const groups = new Map<string, Pick[]>();
   for (const p of picks) { const k = p.W.from + '|' + p.W.to + '|' + p.W.today; if (!groups.has(k)) groups.set(k, []); groups.get(k)!.push(p); }
@@ -532,49 +568,56 @@ async function runCoachReport(admin: any, apiKey: string, plan: Plan): Promise<R
 
 // One week's report to the coaches it is due for: their teams, then a push and an email each.
 // deno-lint-ignore no-explicit-any
-async function reportGroup(admin: any, apiKey: string, group: Pick[], prefBy: Map<string, Row>, schedule: boolean, plan: Plan, out: Record<string, any>, started: number) {
+async function reportGroup(admin: any, apiKey: string, group: Pick[], prefBy: Map<string, Row>, haveSchedule: boolean, plan: Plan, out: Record<string, any>, started: number) {
   const W = group[0].W, today = W.today, now = Date.parse(plan.now), dryRun = plan.dryRun;
   const schedBy = new Map(group.map((p) => [p.id, p.sched]));
   const T = await loadTeams(admin, W.from, W.to, { weeksLeft: true, coachIds: group.map((p) => p.id), prefBy });
   const ids = T.athleteIds;
   const ciFrom = CR.addDays(W.from, -28);
-  const pains = await optional('pain_reports', () => byIds(ids, (c) => readAll((f, t) => admin.from('pain_reports').select('id, athlete_id, day, resolved_at').in('athlete_id', c).gte('day', W.from).lte('day', W.to).order('id').range(f, t))));
-  const checkins = await optional('checkins', () => byIds(ids, (c) => readAll((f, t) => admin.from('checkins').select('id, athlete_id, created_at, week_start').in('athlete_id', c).gte('created_at', ciFrom).order('id').range(f, t))));
-  const answers = await optional('checkin_answers', () => byIds(ids, (c) => readAll((f, t) => admin.from('checkin_answers').select('id, athlete_id, period').in('athlete_id', c).gte('period', ciFrom).lte('period', W.to).order('id').range(f, t))));
-  const meets = await optional('meets', () => byIds(ids, (c) => readAll((f, t) => admin.from('meets').select('id, athlete_id, name, meet_date, weight_class').in('athlete_id', c).gte('meet_date', today).lte('meet_date', CR.addDays(today, 56)).order('id').range(f, t))));
-  const formChecks = await optional('form_checks', () => byIds(T.coachIds, (c) => readAll((f, t) => admin.from('form_checks').select('id, athlete_id, coach_id, coach_reply').in('coach_id', c).is('coach_reply', null).order('id').range(f, t))));
+  const pains = await optionalByIds('pain_reports', ids, (c) => readAll((f, t) => admin.from('pain_reports').select('id, athlete_id, day, resolved_at').in('athlete_id', c).gte('day', W.from).lte('day', W.to).order('id').range(f, t)));
+  const checkins = await optionalByIds('checkins', ids, (c) => readAll((f, t) => admin.from('checkins').select('id, athlete_id, created_at, week_start').in('athlete_id', c).gte('created_at', ciFrom).order('id').range(f, t)));
+  const answers = await optionalByIds('checkin_answers', ids, (c) => readAll((f, t) => admin.from('checkin_answers').select('id, athlete_id, period').in('athlete_id', c).gte('period', ciFrom).lte('period', W.to).order('id').range(f, t)));
+  const meets = await optionalByIds('meets', ids, (c) => readAll((f, t) => admin.from('meets').select('id, athlete_id, name, meet_date, weight_class').in('athlete_id', c).gte('meet_date', today).lte('meet_date', CR.addDays(today, 56)).order('id').range(f, t)));
+  const formChecks = await optionalByIds('form_checks', T.coachIds, (c) => readAll((f, t) => admin.from('form_checks').select('id, athlete_id, coach_id, coach_reply').in('coach_id', c).is('coach_reply', null).order('id').range(f, t)));
   // Money: overdue, and due in the next 7 days.
-  const billing = await optional('client_billing', () => byIds(T.coachIds, (c) => readAll((f, t) => admin.from('client_billing').select('id, athlete_id, coach_id, amount_cents, currency, next_due, status').in('coach_id', c).eq('status', 'active').lte('next_due', CR.addDays(today, 7)).order('id').range(f, t))));
+  const billing = await optionalByIds('client_billing', T.coachIds, (c) => readAll((f, t) => admin.from('client_billing').select('id, athlete_id, coach_id, amount_cents, currency, next_due, status').in('coach_id', c).eq('status', 'active').lte('next_due', CR.addDays(today, 7)).order('id').range(f, t)));
   // v2. The week before (one more coach_week_stats call): without it, no "than the week before".
   let before: Row[] | null = null;
   try { before = await byIds(ids, (c) => rpcRows(admin, 'coach_week_stats', { p_athletes: c, p_from: CR.addDays(W.from, -7), p_to: CR.addDays(W.to, -7) })); }
   catch (e) { console.warn('coach jobs: the week before left out: ' + errMsg(e)); }
   // The week's logged RPE sets per block, and who sent each thread's last message (never the words).
-  const effort = await optional('coach_week_effort', () => byIds(ids, (c) => rpcRows(admin, 'coach_week_effort', { p_athletes: c, p_from: W.from, p_to: W.to })));
-  const threads = await optional('coach_threads_last', () => byIds(ids, (c) => rpcRows(admin, 'coach_threads_last', { p_athletes: c })));
+  const effort = await optionalByIds('coach_week_effort', ids, (c) => rpcRows(admin, 'coach_week_effort', { p_athletes: c, p_from: W.from, p_to: W.to }));
+  const threads = await optionalByIds('coach_threads_last', ids, (c) => rpcRows(admin, 'coach_threads_last', { p_athletes: c }));
   // Session notes waiting on a reply, the last 4 weeks (the note is read only to see it has words in it).
-  const notes = await optional('session_notes', () => byIds(ids, (c) => readAll((f, t) => admin.from('session_notes').select('id, athlete_id, date, note').in('athlete_id', c).is('coach_comment', null).gte('date', CR.addDays(today, -28)).order('id').range(f, t))));
+  const notes = await optionalByIds('session_notes', ids, (c) => readAll((f, t) => admin.from('session_notes').select('id, athlete_id, date, note').in('athlete_id', c).is('coach_comment', null).gte('date', CR.addDays(today, -28)).order('id').range(f, t)));
   // The latest weigh-ins of the lifters with a meet coming, the last 2 weeks.
   const meetIds = [...new Set(meets.map((m) => String(m.athlete_id)))];
-  const bodyweight = await optional('bodyweight', () => byIds(meetIds, (c) => readAll((f, t) => admin.from('bodyweight').select('id, athlete_id, date, weight').in('athlete_id', c).gte('date', CR.addDays(today, -14)).lte('date', today).order('id').range(f, t))));
+  const bodyweight = await optionalByIds('bodyweight', meetIds, (c) => readAll((f, t) => admin.from('bodyweight').select('id, athlete_id, date, weight').in('athlete_id', c).gte('date', CR.addDays(today, -14)).lte('date', today).order('id').range(f, t)));
   // Applications waiting (confirmed, not decided), the unused invites holding a seat, and the plan in force.
-  const apps = await optional('coach_applications', () => byIds(T.coachIds, (c) => readAll((f, t) => admin.from('coach_applications').select('id, coach_id').in('coach_id', c).eq('status', 'new').not('confirmed_at', 'is', null).order('id').range(f, t))));
-  const invites = await optional('invites', () => byIds(T.coachIds, (c) => readAll((f, t) => admin.from('invites').select('code, coach_id, used, created_at').in('coach_id', c).gte('created_at', new Date(now - 60 * 86400000).toISOString()).order('code').range(f, t), 'code')));
-  const plans = await optional('plans', () => byIds(T.coachIds, (c) => readAll((f, t) => admin.from('profiles').select('id, subscription_tier, subscription_period_end').in('id', c).order('id').range(f, t))));
+  const apps = await optionalByIds('coach_applications', T.coachIds, (c) => readAll((f, t) => admin.from('coach_applications').select('id, coach_id').in('coach_id', c).eq('status', 'new').not('confirmed_at', 'is', null).order('id').range(f, t)));
+  const invites = await optionalByIds('invites', T.coachIds, (c) => readAll((f, t) => admin.from('invites').select('code, coach_id, used, created_at').in('coach_id', c).gte('created_at', new Date(now - 60 * 86400000).toISOString()).order('code').range(f, t), 'code'));
+  const plans = await optionalByIds('plans', T.coachIds, (c) => readAll((f, t) => admin.from('profiles').select('id, subscription_tier, subscription_period_end').in('id', c).order('id').range(f, t)));
   const painBy = indexByAthlete(pains), ciBy = indexByAthlete(checkins), ansBy = indexByAthlete(answers), meetBy = indexByAthlete(meets);
   const fcBy = indexBy(formChecks, 'coach_id'), billBy = indexBy(billing, 'coach_id');
   const beforeBy = before ? indexByAthlete(before) : null, effBy = indexByAthlete(effort), thrBy = indexByAthlete(threads), noteBy = indexByAthlete(notes), bwBy = indexByAthlete(bodyweight);
   const appBy = indexBy(apps, 'coach_id'), invBy = indexBy(invites, 'coach_id'), planBy = new Map(plans.map((p) => [String(p.id), p]));
-  // Marked sent: real runs only, once the schedule is there to hold it.
-  const mark = (id: string) => (schedule && !dryRun ? markSent(admin, id, W.from) : Promise.resolve());
+  // Real runs claim each coach's week before anything goes (claimWeek): of two runs only one sends. Dry runs don't, nor
+  // runs before the schedule's migration (no column to hold it: the old Monday 14:00 UTC run, once a week).
+  const claims = haveSchedule && !dryRun;
 
   for (const p of group) {
     const coachId = p.id;
     if (!dryRun && Date.now() - started > DEADLINE_MS) { out.left++; continue; }
+    const pref = prefBy.get(coachId);
+    let claim: { won: boolean; prev: string | null } | null = null, emailed = false;
     try {
+      if (claims) {
+        claim = await claimWeek(admin, coachId, W.from, pref);
+        if (!claim.won) { out.skipped++; continue; }   // another run has it, or it went already
+      }
       const lifters = T.roster.get(coachId) || [];
-      // A coach with nobody on the roster: nothing to report, the week done.
-      if (!lifters.length) { out.quiet++; await mark(coachId); continue; }
+      // A coach with nobody on the roster: nothing to report, the week done (it stays claimed).
+      if (!lifters.length) { out.quiet++; continue; }
       const lid = lifters.map((a) => a.id);
       const coach: Row = T.coachBy.get(coachId) || {};
       const unit = coach.unit === 'lb' || coach.unit === 'lbs' ? 'lbs' : 'kg';
@@ -585,36 +628,46 @@ async function reportGroup(admin: any, apiKey: string, group: Pick[], prefBy: Ma
         statsBefore: beforeBy ? pick(beforeBy, lid) : null, effort: pick(effBy, lid), threads: pick(thrBy, lid), notes: pick(noteBy, lid),
         bodyweight: pick(bwBy, lid), applications: appBy.get(coachId) || [], invites: invBy.get(coachId) || [], plan: planBy.get(coachId) || null,
       }, { coachId, today, now }), { from: W.from, to: W.to, today: W.today, now, unit });
-      if (!CR.worthSending(team)) { out.quiet++; await mark(coachId); continue; }
-      const pref = prefBy.get(coachId);
+      if (!CR.worthSending(team)) { out.quiet++; continue; }
       const push = CR.reportPush(team);
       const email = String(coach.email || '');
       const emailOn = !(pref && pref.weekly_digest === false) && email.includes('@') && !!apiKey;
-      const schedule = schedBy.get(coachId);
+      const pickOf = schedBy.get(coachId);   // when they get it, for the footer
       // The push opens this week's report in the app (w: its Monday; an older app opens its own week).
       const pushMsg = { title: push.title, body: push.body, url: '/coach.html?report=week&w=' + W.from, tag: 'powa-report' };
       if (dryRun) {
-        const m = CR.reportEmail(team, { coachName: coach.name, unsubUrl: emailOn ? unsubLink(UNSUB_BASE, 'token-made-at-send') : '', appUrl: APP_URL, unit, schedule });
+        const m = CR.reportEmail(team, { coachName: coach.name, unsubUrl: emailOn ? unsubLink(UNSUB_BASE, 'token-made-at-send') : '', appUrl: APP_URL, unit, schedule: pickOf });
         out.preview.push({ coach: coachId, week: W.from, to: emailOn ? maskEmail(email) : null, subject: m.subject, text: m.text, push, pushMuted: !!(pref && pref.push_alerts === false) });
         continue;
       }
-      // The email first: when it fails, nothing goes and a later hour tries both again (never a push twice).
+      // The email first. When it fails, nothing goes and the week goes back to a later hour; Resend's idempotency key
+      // (the coach and the week) keeps a retry after a lost answer from sending it twice.
       if (emailOn) {
         const token = await tokenFor(admin, coachId, pref);
         const unsub = unsubLink(UNSUB_BASE, token);
-        const m = CR.reportEmail(team, { coachName: coach.name, unsubUrl: unsub, appUrl: APP_URL, unit, schedule });
+        const m = CR.reportEmail(team, { coachName: coach.name, unsubUrl: unsub, appUrl: APP_URL, unit, schedule: pickOf });
         const msg: Record<string, unknown> = { from: FROM, to: [email], subject: m.subject, html: m.html, text: m.text };
         if (unsub) msg.headers = { 'List-Unsubscribe': '<' + unsub + '>' };
-        if (!(await sendEmail(apiKey, msg))) { out.failed++; continue; }
-        out.emails++;
+        const sent = await sendEmail(apiKey, msg, 'powa-report/' + coachId + '/' + W.from);
+        if (sent === 'failed') {
+          if (claim) { await releaseWeek(admin, coachId, W.from, claim.prev); claim = null; }
+          out.failed++;
+          continue;
+        }
+        emailed = true;
+        if (sent === 'sent') out.emails++; else out.already++;
         await sleep(SEND_GAP_MS);
       } else out.emailOff++;
-      const r = await deliver(admin, coachId, pushMsg, 'alerts', { pref: pref || null });
-      if (r.sent) out.pushes++;
-      await mark(coachId);
+      // The push goes with it. A push that fails is only a push: the email never goes again for it.
+      try {
+        const r = await deliver(admin, coachId, pushMsg, 'alerts', { pref: pref || null });
+        if (r.sent) out.pushes++;
+      } catch (e) { console.warn('coach-report: push not delivered for', coachId, errMsg(e)); }
     } catch (e) {
       out.failed++;
       console.error('coach-report failed for', coachId, errMsg(e));
+      // Nothing went: the week goes back to a later hour. (Once the email has gone, the claim stands.)
+      if (claim && !emailed) await releaseWeek(admin, coachId, W.from, claim.prev);
     }
   }
 }

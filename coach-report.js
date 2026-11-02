@@ -1167,10 +1167,12 @@
   }
   // "6 pm", "7 am", "12 pm", "12 am": the email's English clock.
   function hourText(h) { h = Number(h); return h === 0 ? '12 am' : h < 12 ? h + ' am' : h === 12 ? '12 pm' : (h - 12) + ' pm'; }
-  // "Sundays at 6 pm", "Mondays at 7 am"; "Mondays" with no hour (before the schedule's migration).
+  // "Sundays at 6 pm" (the coach's own time), "Sundays at 6 pm UTC" (no time zone yet: the job reads UTC until the app
+  // saves theirs), "Mondays" with no hour (before the schedule's migration).
   function scheduleText(sched) {
     sched = sched || {};
-    return (sched.day === 'mon' ? 'Mondays' : 'Sundays') + (sched.hour != null && isFinite(sched.hour) ? ' at ' + hourText(sched.hour) : '');
+    var hasHour = sched.hour != null && isFinite(sched.hour);
+    return (sched.day === 'mon' ? 'Mondays' : 'Sundays') + (hasHour ? ' at ' + hourText(sched.hour) + (sched.tz === 'UTC' ? ' UTC' : '') : '');
   }
 
   /* ---------------------------------------------------------------- the server's jobs */
