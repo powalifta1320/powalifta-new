@@ -1,11 +1,11 @@
 // Supabase Edge Function: send-weekly-digest
 //
 // Scheduled (cron) batch job — NOT called from the browser. Three jobs, one function:
-//   digest        Mondays    every opted-in athlete's recap of their last 7 days (below, unchanged)
-//   coach-report  Mondays    every coach with a lifter: last week's report as a push and an email
-//   midweek       Thursdays  every coach with a lifter behind by Wednesday: one push
-// The cron runs it at 14:00 UTC on Mondays and Thursdays with an empty body; the UTC weekday picks
-// the jobs (_shared/coach-report.js jobPlan). Each job runs in its own try/catch: one failing never
+//   digest        Mondays 14:00 UTC    every opted-in athlete's recap of their last 7 days (below, unchanged)
+//   coach-report  every hour           each coach whose pick is due (Sunday evening for this week or Monday morning
+//                                      for last week, their hour, their time zone): the report as a push and an email
+//   midweek       Thursdays 14:00 UTC  every coach with a lifter behind by Wednesday: one push
+// The cron runs it every hour with an empty body; the hour picks the jobs (_shared/coach-report.js jobPlan). Each job runs in its own try/catch: one failing never
 // stops another. What the coach report says (the week, the push, the email) is coach-report.js, the
 // same core the app's "Last week" uses; coach-jobs.ts groups the rows; _shared/push-deliver.ts sends.
 //
@@ -59,7 +59,10 @@
 //          UNSUB_BASE (defaults to https://powalifta.com/unsubscribe.html?token=).
 //          The coach pushes use send-push's VAPID_* and APNS_* secrets (no new secret).
 // Schedule (Supabase → Database → Cron, or pg_cron): sql/cron-weekly-digest.sql, then
-//          sql/cron-coach-alerts-2026-10-28.sql moves it to '0 14 * * 1,4' (Mondays and Thursdays).
+//          sql/cron-coach-report-hourly-2026-11-02.sql moves it to '0 * * * *' (hourly; deploy this function first).
+// Each coach's pick: email_preferences report_day / report_hour / tz, and report_sent_week (the Monday of the week
+// last reported: never twice), sql/migration-coach-report-schedule-2026-11-02.sql. Without those columns the report
+// keeps its old time, every coach's on Mondays at 14:00 UTC.
 //
 // Needs sql/migration-coach-alerts-2026-10-28.sql for the coach jobs (they say so if it's missing;
 // the lifters' digest doesn't need it). sql/migration-coach-report-v2-2026-11-02.sql adds the report's v2
@@ -379,10 +382,13 @@ function indexBy(rows: Row[], key: string): Map<string, Row[]> {
 }
 
 // The coaches, their lifters, programs (lean) and the week's stats: what both coach jobs need. weeksLeft: the
-// Monday report also reads each block's weeks left (programs_weeks_left); Thursday's read is as it was.
+// report also reads each block's weeks left (programs_weeks_left); coachIds: only these coaches' teams (the report's
+// coaches due this hour), prefBy: their preferences, already read. Thursday's reads are as they were.
 // deno-lint-ignore no-explicit-any
-async function loadTeams(admin: any, from: string, to: string, opts: { weeksLeft?: boolean } = {}) {
-  const profiles = await readAll((f, t) => admin.from('profiles').select('id, name, coach_id').not('coach_id', 'is', null).order('id').range(f, t));
+async function loadTeams(admin: any, from: string, to: string, opts: { weeksLeft?: boolean; coachIds?: string[]; prefBy?: Map<string, Row> } = {}) {
+  const profiles = opts.coachIds
+    ? await byIds(opts.coachIds, (c) => readAll((f, t) => admin.from('profiles').select('id, name, coach_id').in('coach_id', c).order('id').range(f, t)))
+    : await readAll((f, t) => admin.from('profiles').select('id, name, coach_id').not('coach_id', 'is', null).order('id').range(f, t));
   const roster = rosterByCoach(profiles);
   const coachIds = [...roster.keys()];
   const athleteIds = [...roster.values()].flat().map((a) => a.id);
@@ -392,13 +398,7 @@ async function loadTeams(admin: any, from: string, to: string, opts: { weeksLeft
     if (!isMissing(e)) throw e;   // profiles.unit arrives with migration-program-integrity-2026-10-22.sql
     coaches = await byIds(coachIds, (c) => readAll((f, t) => admin.from('profiles').select('id, name, email').in('id', c).order('id').range(f, t)));
   }
-  const prefs = await optional('email_preferences', async () => {
-    try { return await byIds(coachIds, (c) => readAll((f, t) => admin.from('email_preferences').select('user_id, weekly_digest, unsub_token, push_alerts').in('user_id', c).order('user_id').range(f, t), 'user_id')); }
-    catch (e) {
-      if (!isMissing(e)) throw e;
-      return await byIds(coachIds, (c) => readAll((f, t) => admin.from('email_preferences').select('user_id, weekly_digest, unsub_token').in('user_id', c).order('user_id').range(f, t), 'user_id'));
-    }
-  });
+  const prefs = opts.prefBy ? [...opts.prefBy.values()] : await readPrefs(admin, coachIds, false).then((r) => r.rows);
   // Programs: only what the report reads (whose, when it changed, the sessions it plans this week). The
   // database works the sessions out (programs_planned, sql/migration-data-scale-2026-10-28.sql); before
   // that runs, the block's JSON is read 25 lifters at a time and dropped as each page is read.
@@ -456,13 +456,86 @@ async function rpcRows(admin: any, name: string, args: Record<string, unknown>):
   return (data || []) as Row[];
 }
 
-// Mondays: last week's report to every coach with a lifter.
+// The coaches' email_preferences rows. schedule: with the report's schedule (report_day, report_hour, tz,
+// report_sent_week: sql/migration-coach-report-schedule-2026-11-02.sql). → { rows, schedule } (schedule false: those
+// columns aren't there yet). A missing table is no rows.
 // deno-lint-ignore no-explicit-any
-async function runCoachReport(admin: any, apiKey: string, today: string, dryRun: boolean): Promise<Record<string, unknown>> {
+async function readPrefs(admin: any, ids: string[], schedule: boolean): Promise<{ rows: Row[]; schedule: boolean }> {
+  const read = (cols: string) => byIds(ids, (c) => readAll((f, t) => admin.from('email_preferences').select(cols).in('user_id', c).order('user_id').range(f, t), 'user_id'));
+  if (schedule) {
+    try { return { rows: await read('user_id, weekly_digest, unsub_token, push_alerts, report_day, report_hour, tz, report_sent_week'), schedule: true }; }
+    catch (e) { if (!isMissing(e)) throw e; }
+  }
+  const rows = await optional('email_preferences', async () => {
+    try { return await read('user_id, weekly_digest, unsub_token, push_alerts'); }
+    catch (e) { if (!isMissing(e)) throw e; return await read('user_id, weekly_digest, unsub_token'); }
+  });
+  return { rows, schedule: false };
+}
+
+// After a coach's report went (or there was nothing to send them), the week is theirs: report_sent_week = its Monday,
+// so a later hour never sends it again. A coach with no preferences row gets one (defaults only, product emails off).
+// deno-lint-ignore no-explicit-any
+async function markSent(admin: any, coachId: string, monday: string): Promise<void> {
+  try {
+    const { data, error } = await admin.from('email_preferences').update({ report_sent_week: monday }).eq('user_id', coachId).select('user_id');
+    if (error) throw error;
+    if (data && data.length) return;
+    const made = await admin.from('email_preferences').upsert({ user_id: coachId, product_emails: false, report_sent_week: monday }, { onConflict: 'user_id', ignoreDuplicates: true });
+    if (made.error) throw made.error;
+  } catch (e) { console.warn('coach-report: the week not marked sent for', coachId, errMsg(e)); }
+}
+
+type Pick = { id: string; W: { from: string; to: string; today: string }; sched: { day: string; hour: number | null } };
+type Plan = { today: string; now: string; dryRun: boolean; dueOnly: boolean };
+
+// The coaches' report. Every coach picks when theirs comes (Sunday evening for this week, or Monday morning for the
+// week before; the hour; their time zone). The cron calls hourly (dueOnly): first only who's due, from the coaches'
+// preferences (two small reads, nothing else when nobody is), then their teams, one pass per week reported. By hand (a
+// job by name, a day): every coach, each with the week their pick gives that day. Before the schedule's migration:
+// every coach on Mondays at 14:00 UTC, last week, as it always was.
+// deno-lint-ignore no-explicit-any
+async function runCoachReport(admin: any, apiKey: string, plan: Plan): Promise<Record<string, unknown>> {
   const started = Date.now();
-  const now = Date.now();
-  const W = CR.lastWeek(today);
-  const T = await loadTeams(admin, W.from, W.to, { weeksLeft: true });
+  const now = Date.parse(plan.now), dryRun = plan.dryRun;
+  const coachRows = await readAll((f, t) => admin.from('profiles').select('id').in('user_type', ['coach', 'admin']).order('id').range(f, t));
+  const ids = coachRows.map((c) => String(c.id));
+  const P = await readPrefs(admin, ids, true);
+  const prefBy = new Map(P.rows.map((p) => [String(p.user_id), p]));
+  const utc = new Date(now), utcDay = utc.toISOString().slice(0, 10);
+  const picks: Pick[] = [];
+  for (const id of ids) {
+    const pref = prefBy.get(id);
+    if (!P.schedule) {
+      // Before the migration: the Monday report, Mondays at 14:00 UTC, for every coach.
+      if (plan.dueOnly && !(utc.getUTCDay() === 1 && utc.getUTCHours() === 14)) continue;
+      picks.push({ id, W: CR.lastWeek(plan.dueOnly ? utcDay : plan.today), sched: { day: 'mon', hour: null } });
+    } else if (plan.dueOnly) {
+      const d = CR.reportDue(pref, now);
+      if (d.due) picks.push({ id, W: d.window, sched: d.sched });
+    } else {
+      const sched = CR.scheduleOf(pref);
+      picks.push({ id, W: CR.reportWindow(sched.day, plan.today), sched });
+    }
+  }
+  const out = { coaches: ids.length, due: picks.length, emails: 0, pushes: 0, quiet: 0, emailOff: 0, failed: 0, left: 0, preview: [] as Row[] };
+  // One pass per week reported (a Sunday's this week and a Monday's last week; the same week where it's that day).
+  const groups = new Map<string, Pick[]>();
+  for (const p of picks) { const k = p.W.from + '|' + p.W.to + '|' + p.W.today; if (!groups.has(k)) groups.set(k, []); groups.get(k)!.push(p); }
+  for (const g of groups.values()) {
+    if (!dryRun && Date.now() - started > DEADLINE_MS) { out.left += g.length; continue; }
+    await reportGroup(admin, apiKey, g, prefBy, P.schedule, plan, out, started);
+  }
+  if (out.left) console.error('coach-report: out of time, ' + out.left + ' coaches left (a later hour sends theirs)');
+  return dryRun ? out : { ...out, preview: undefined };
+}
+
+// One week's report to the coaches it is due for: their teams, then a push and an email each.
+// deno-lint-ignore no-explicit-any
+async function reportGroup(admin: any, apiKey: string, group: Pick[], prefBy: Map<string, Row>, schedule: boolean, plan: Plan, out: Record<string, any>, started: number) {
+  const W = group[0].W, today = W.today, now = Date.parse(plan.now), dryRun = plan.dryRun;
+  const schedBy = new Map(group.map((p) => [p.id, p.sched]));
+  const T = await loadTeams(admin, W.from, W.to, { weeksLeft: true, coachIds: group.map((p) => p.id), prefBy });
   const ids = T.athleteIds;
   const ciFrom = CR.addDays(W.from, -28);
   const pains = await optional('pain_reports', () => byIds(ids, (c) => readAll((f, t) => admin.from('pain_reports').select('id, athlete_id, day, resolved_at').in('athlete_id', c).gte('day', W.from).lte('day', W.to).order('id').range(f, t))));
@@ -476,7 +549,7 @@ async function runCoachReport(admin: any, apiKey: string, today: string, dryRun:
   let before: Row[] | null = null;
   try { before = await byIds(ids, (c) => rpcRows(admin, 'coach_week_stats', { p_athletes: c, p_from: CR.addDays(W.from, -7), p_to: CR.addDays(W.to, -7) })); }
   catch (e) { console.warn('coach jobs: the week before left out: ' + errMsg(e)); }
-  // Last week's logged RPE sets per block, and who sent each thread's last message (never the words).
+  // The week's logged RPE sets per block, and who sent each thread's last message (never the words).
   const effort = await optional('coach_week_effort', () => byIds(ids, (c) => rpcRows(admin, 'coach_week_effort', { p_athletes: c, p_from: W.from, p_to: W.to })));
   const threads = await optional('coach_threads_last', () => byIds(ids, (c) => rpcRows(admin, 'coach_threads_last', { p_athletes: c })));
   // Session notes waiting on a reply, the last 4 weeks (the note is read only to see it has words in it).
@@ -492,12 +565,16 @@ async function runCoachReport(admin: any, apiKey: string, today: string, dryRun:
   const fcBy = indexBy(formChecks, 'coach_id'), billBy = indexBy(billing, 'coach_id');
   const beforeBy = before ? indexByAthlete(before) : null, effBy = indexByAthlete(effort), thrBy = indexByAthlete(threads), noteBy = indexByAthlete(notes), bwBy = indexByAthlete(bodyweight);
   const appBy = indexBy(apps, 'coach_id'), invBy = indexBy(invites, 'coach_id'), planBy = new Map(plans.map((p) => [String(p.id), p]));
+  // Marked sent: real runs only, once the schedule is there to hold it.
+  const mark = (id: string) => (schedule && !dryRun ? markSent(admin, id, W.from) : Promise.resolve());
 
-  const out = { coaches: T.coachIds.length, emails: 0, pushes: 0, quiet: 0, emailOff: 0, failed: 0, left: 0, preview: [] as Row[] };
-  for (const coachId of T.coachIds) {
-    if (!dryRun && Date.now() - started > DEADLINE_MS) { out.left = T.coachIds.length - T.coachIds.indexOf(coachId); console.error('coach-report: out of time, ' + out.left + ' coaches left'); break; }
+  for (const p of group) {
+    const coachId = p.id;
+    if (!dryRun && Date.now() - started > DEADLINE_MS) { out.left++; continue; }
     try {
       const lifters = T.roster.get(coachId) || [];
+      // A coach with nobody on the roster: nothing to report, the week done.
+      if (!lifters.length) { out.quiet++; await mark(coachId); continue; }
       const lid = lifters.map((a) => a.id);
       const coach: Row = T.coachBy.get(coachId) || {};
       const unit = coach.unit === 'lb' || coach.unit === 'lbs' ? 'lbs' : 'kg';
@@ -508,32 +585,38 @@ async function runCoachReport(admin: any, apiKey: string, today: string, dryRun:
         statsBefore: beforeBy ? pick(beforeBy, lid) : null, effort: pick(effBy, lid), threads: pick(thrBy, lid), notes: pick(noteBy, lid),
         bodyweight: pick(bwBy, lid), applications: appBy.get(coachId) || [], invites: invBy.get(coachId) || [], plan: planBy.get(coachId) || null,
       }, { coachId, today, now }), { from: W.from, to: W.to, today: W.today, now, unit });
-      if (!CR.worthSending(team)) { out.quiet++; continue; }
-      const pref = T.prefBy.get(coachId);
+      if (!CR.worthSending(team)) { out.quiet++; await mark(coachId); continue; }
+      const pref = prefBy.get(coachId);
       const push = CR.reportPush(team);
       const email = String(coach.email || '');
       const emailOn = !(pref && pref.weekly_digest === false) && email.includes('@') && !!apiKey;
+      const schedule = schedBy.get(coachId);
+      // The push opens this week's report in the app (w: its Monday; an older app opens its own week).
+      const pushMsg = { title: push.title, body: push.body, url: '/coach.html?report=week&w=' + W.from, tag: 'powa-report' };
       if (dryRun) {
-        const m = CR.reportEmail(team, { coachName: coach.name, unsubUrl: emailOn ? unsubLink(UNSUB_BASE, 'token-made-at-send') : '', appUrl: APP_URL, unit });
-        out.preview.push({ coach: coachId, to: emailOn ? maskEmail(email) : null, subject: m.subject, text: m.text, push, pushMuted: !!(pref && pref.push_alerts === false) });
+        const m = CR.reportEmail(team, { coachName: coach.name, unsubUrl: emailOn ? unsubLink(UNSUB_BASE, 'token-made-at-send') : '', appUrl: APP_URL, unit, schedule });
+        out.preview.push({ coach: coachId, week: W.from, to: emailOn ? maskEmail(email) : null, subject: m.subject, text: m.text, push, pushMuted: !!(pref && pref.push_alerts === false) });
         continue;
       }
-      const r = await deliver(admin, coachId, { title: push.title, body: push.body, url: '/coach.html?report=week', tag: 'powa-report' }, 'alerts', { pref: pref || null });
+      // The email first: when it fails, nothing goes and a later hour tries both again (never a push twice).
+      if (emailOn) {
+        const token = await tokenFor(admin, coachId, pref);
+        const unsub = unsubLink(UNSUB_BASE, token);
+        const m = CR.reportEmail(team, { coachName: coach.name, unsubUrl: unsub, appUrl: APP_URL, unit, schedule });
+        const msg: Record<string, unknown> = { from: FROM, to: [email], subject: m.subject, html: m.html, text: m.text };
+        if (unsub) msg.headers = { 'List-Unsubscribe': '<' + unsub + '>' };
+        if (!(await sendEmail(apiKey, msg))) { out.failed++; continue; }
+        out.emails++;
+        await sleep(SEND_GAP_MS);
+      } else out.emailOff++;
+      const r = await deliver(admin, coachId, pushMsg, 'alerts', { pref: pref || null });
       if (r.sent) out.pushes++;
-      if (!emailOn) { out.emailOff++; continue; }
-      const token = await tokenFor(admin, coachId, pref);
-      const unsub = unsubLink(UNSUB_BASE, token);
-      const m = CR.reportEmail(team, { coachName: coach.name, unsubUrl: unsub, appUrl: APP_URL, unit });
-      const msg: Record<string, unknown> = { from: FROM, to: [email], subject: m.subject, html: m.html, text: m.text };
-      if (unsub) msg.headers = { 'List-Unsubscribe': '<' + unsub + '>' };
-      if (await sendEmail(apiKey, msg)) out.emails++; else out.failed++;
-      await sleep(SEND_GAP_MS);
+      await mark(coachId);
     } catch (e) {
       out.failed++;
       console.error('coach-report failed for', coachId, errMsg(e));
     }
   }
-  return dryRun ? out : { ...out, preview: undefined };
 }
 
 // Thursdays: who's behind by Wednesday, one push per coach.
@@ -586,15 +669,15 @@ Deno.serve(async (req) => {
   // Only now, behind the secret: { job, dryRun, today } (the cron sends {}: the weekday decides).
   let body: unknown = {};
   try { body = await req.json(); } catch { /* empty body ok */ }
-  const plan = CR.jobPlan(body, new Date().toISOString());
+  const plan = CR.jobPlan(body, new Date(Date.now()).toISOString());
   if (plan.error) return jsonResponse(400, { error: plan.error });
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-  const result: Record<string, unknown> = { today: plan.today, dryRun: plan.dryRun, jobs: plan.jobs };
+  const result: Record<string, unknown> = { today: plan.today, now: plan.now, dryRun: plan.dryRun, jobs: plan.jobs };
   for (const job of plan.jobs) {
     try {
       if (job === 'digest') result.digest = apiKey ? await runLifterDigest(admin, apiKey, plan.dryRun) : { error: 'Email service not configured' };
-      else if (job === 'coach-report') result['coach-report'] = await runCoachReport(admin, apiKey, plan.today, plan.dryRun);
+      else if (job === 'coach-report') result['coach-report'] = await runCoachReport(admin, apiKey, plan);
       else if (job === 'midweek') result.midweek = await runMidweek(admin, plan.today, plan.dryRun);
     } catch (e) {
       console.error(job + ' failed:', errMsg(e));

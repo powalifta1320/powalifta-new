@@ -36,6 +36,7 @@ class Q {
   limit(n) { this.lim = n; return this; }
   maybeSingle() { this.one = true; return this; }
   upsert(row, opts) { this.op = 'upsert'; this.row = row; this.opts = opts || {}; return this; }
+  update(row) { this.op = 'update'; this.row = row; return this; }
   delete() { this.op = 'delete'; return this; }
   then(res, rej) { return Promise.resolve().then(() => this.run()).then(res, rej); }
   run() {
@@ -58,6 +59,11 @@ class Q {
       return { data: null, error: null };
     }
     let list = rows.filter(r => this.f.every(fn => fn(r)));
+    if (this.op === 'update') {
+      list.forEach(r => Object.assign(r, this.row));
+      db.writes.push({ t: this.t, op: 'update', row: this.row, n: list.length });
+      return { data: list.map(r => cols.length ? Object.fromEntries(cols.map(c => [c, r[c] === undefined ? null : r[c]])) : Object.assign({}, r)), error: null };
+    }
     if (this.op === 'delete') {
       db.writes.push({ t: this.t, op: 'delete', n: list.length });
       db.tables[this.t] = rows.filter(r => !list.includes(r));
@@ -219,13 +225,14 @@ await t('Monday, dry run: both jobs, previews only, nothing written or sent', as
   eq([SENT.length, globalThis.__PUSH.length], [0, 0], 'nothing sent');
   ok(r.json.digest && r.json.digest.dryRun === true && r.json.digest.preview.length === 1, 'the lifters\' digest dry run as before');
 });
-await t('Monday for real: pushes to /coach.html?report=week, emails with a one-click unsubscribe', async () => {
+await t('Monday for real: pushes to /coach.html?report=week (and the week), emails with a one-click unsubscribe', async () => {
   const db = reset();
   const r = await call({ today: '2026-10-26' });
   const cr = r.json['coach-report'];
   eq([cr.emails, cr.pushes, cr.failed, cr.quiet], [2, 2, 0, 1]);
   const pushes = globalThis.__PUSH.map(p => [p.endpoint.split('/').pop(), p.payload.url, p.payload.tag]);
-  eq(pushes.sort(), [['c1', '/coach.html?report=week', 'powa-report'], ['c2', '/coach.html?report=week', 'powa-report'], ['gone-c1', '/coach.html?report=week', 'powa-report']].sort());
+  eq(pushes.sort(), [['c1', '/coach.html?report=week&w=2026-10-19', 'powa-report'], ['c2', '/coach.html?report=week&w=2026-10-19', 'powa-report'], ['gone-c1', '/coach.html?report=week&w=2026-10-19', 'powa-report']].sort(),
+    'the report in the app, the week it covers (an older app matches report=week)');
   ok(!db.tables.push_subscriptions.some(s => s.id === 'ps2'), 'the dead endpoint is pruned');
   const mia = SENT.find(s => s.to[0] === 'mia.coach@example.com');
   eq(mia.headers, { 'List-Unsubscribe': '<https://powalifta.com/unsubscribe.html?token=11111111-1111-4111-8111-111111111111&r=coach>' });
@@ -343,7 +350,8 @@ const W2 = CR2.lastWeek(WD.today);
 const coreMail = (c, unit) => {
   const name = WD.tables.profiles.find(p => p.id === c).name;
   const team = CR2.teamWeek(CR2.fromRows(worldRows(CR2, WD.tables, c, W2), { coachId: c, today: WD.today, now: WD.now }), Object.assign({ now: WD.now, unit: unit || 'kg' }, W2));
-  return CR2.reportEmail(team, { coachName: name, unsubUrl: 'https://powalifta.com/unsubscribe.html?token=token-made-at-send&r=coach', appUrl: 'https://www.powalifta.com/coach.html', unit: unit || 'kg' });
+  const pref = WD.tables.email_preferences.find(p => p.user_id === c);
+  return CR2.reportEmail(team, { coachName: name, unsubUrl: 'https://powalifta.com/unsubscribe.html?token=token-made-at-send&r=coach', appUrl: 'https://www.powalifta.com/coach.html', unit: unit || 'kg', schedule: CR2.scheduleOf(pref) });
 };
 await t('v2, Monday dry run over five coaches: 20, 3 and 60 lifters, one with no billing or meets, one dormant', async () => {
   resetWorld();
@@ -417,6 +425,88 @@ await t('v2 leaves Thursday as it was: the same reads, the same pushes', async (
   eq([...new Set(db.calls.filter(c => c.op === 'rpc').map(c => c.t))], ['rpc:coach_week_stats'], 'no v2 calls on Thursday');
   ok(!db.reads.some(x => ['session_notes', 'bodyweight', 'coach_applications', 'invites', 'meets', 'client_billing'].includes(x.t)), 'none of the Monday reads');
   ok(r.json.midweek.failed === 0 && r.json.midweek.preview.length >= 1, 'pushes as before: ' + JSON.stringify(r.json.midweek.preview.map(p => p.push.title)));
+});
+
+// ---------------------------------------------------------------- each coach's own time (the owner's poll, 2 Nov: "Their pick, Sunday 6 pm default")
+// The world's coaches pick: Sam Sunday 18:00 in New York (the Sunday clocks go back), Mia Monday 07:00 in Sydney, Big
+// Barbell Sunday 18:00 in Kolkata (+5:30), Dan no zone (UTC, the default 18:00), the dormant coach the default.
+const SCHED = { 'c-sam': { report_day: 'sun', report_hour: 18, tz: 'America/New_York' }, 'c-mia': { report_day: 'mon', report_hour: 7, tz: 'Australia/Sydney' },
+  'c-big': { report_day: 'sun', report_hour: 18, tz: 'Asia/Kolkata' }, 'c-dan': { report_day: 'sun', report_hour: 18, tz: null }, 'c-quiet': { report_day: 'sun', report_hour: 18, tz: null } };
+const resetPicks = () => { const db = resetWorld(); db.tables.email_preferences.forEach(p => Object.assign(p, SCHED[p.user_id] || {}, { report_sent_week: null })); return db; };
+const hourly = (iso, body) => withNow(Date.parse(iso), () => call(body || {}));
+const H = (h, day) => new Date(Date.parse((day || '2026-11-01') + 'T00:00:00Z') + h * 3600000).toISOString();
+await t('hourly: nobody due is two small reads (the coaches, their picks) and nothing else', async () => {
+  const db = resetPicks();
+  const r = await hourly('2026-11-01T12:00:00Z');
+  eq(r.json.jobs, ['coach-report']);
+  eq([r.json['coach-report'].coaches, r.json['coach-report'].due, r.json['coach-report'].emails], [5, 0, 0]);
+  eq(db.reads.map(x => x.t + ':' + x.cols), ['profiles:id', 'email_preferences:user_id, weekly_digest, unsub_token, push_alerts, report_day, report_hour, tz, report_sent_week']);
+  eq([db.calls.filter(c => c.op === 'rpc').length, db.writes.length, SENT.length, globalThis.__PUSH.length], [0, 0, 0, 0]);
+});
+await t('hourly over Sunday 1 Nov and Monday 2 Nov: each coach once, at their own hour where they are, the week their pick gives', async () => {
+  const db = resetPicks();
+  const got = {}, weeks = {};
+  for (let h = 0; h < 48; h++) {
+    const iso = H(h), r = await hourly(iso);
+    if (r.status !== 200 || r.json['coach-report'].failed) throw new Error(iso + ' ' + JSON.stringify(r.json));
+    SENT.splice(0).forEach(m => { const c = WD.tables.profiles.find(p => p.email === m.to[0]); (got[c.id] = got[c.id] || []).push(iso.slice(0, 13)); weeks[c.id] = m.text.split('\n')[0]; });
+    if (iso === '2026-11-02T14:00:00.000Z') eq(r.json.jobs, ['digest', 'coach-report'], 'the lifters\' digest: Monday 14:00 UTC, as before');
+    else if (r.json.jobs.includes('digest')) throw new Error('the digest at ' + iso);
+  }
+  eq(got, { 'c-big': ['2026-11-01T13'], 'c-dan': ['2026-11-01T18'], 'c-mia': ['2026-11-01T20'], 'c-sam': ['2026-11-01T23'] },
+    'Kolkata 18:30, UTC 18:00, Sydney Monday 07:00, New York 18:00 (EST that day)');
+  eq(weeks, { 'c-big': 'Your team’s week · This week, 26 Oct – 1 Nov', 'c-dan': 'Your team’s week · This week, 26 Oct – 1 Nov', 'c-mia': 'Your team’s week · 26 Oct – 1 Nov', 'c-sam': 'Your team’s week · This week, 26 Oct – 1 Nov' },
+    'Sunday\'s report: this week; Monday\'s: the week that ended yesterday');
+  const sent = Object.fromEntries(db.tables.email_preferences.filter(p => SCHED[p.user_id]).map(p => [p.user_id, p.report_sent_week]));
+  eq(sent, { 'c-sam': '2026-10-26', 'c-mia': '2026-10-26', 'c-big': '2026-10-26', 'c-dan': '2026-10-26', 'c-quiet': '2026-10-26' }, 'every week marked, the dormant team too (nothing to send)');
+  eq(globalThis.__PUSH.filter(x => x.payload.tag === 'powa-report').map(x => x.endpoint.split('/').pop()).sort(), ['c-big', 'c-dan', 'c-mia', 'c-sam'], 'one push each, with the email');
+  ok(globalThis.__PUSH.every(x => x.payload.url === '/coach.html?report=week&w=2026-10-26'), 'the push opens that week');
+});
+await t('hourly: a missed hour catches up later that day; a dry run sends and marks nothing; Thursday\'s push stays at 14:00 UTC', async () => {
+  const db = resetPicks();
+  const dry = await hourly('2026-11-01T21:00:00Z', { dryRun: true });
+  eq(dry.json['coach-report'].preview.map(p => [p.coach, p.week]), [['c-dan', '2026-10-26'], ['c-mia', '2026-10-26']],
+    'Dan three hours after his 18:00, Mia an hour after her Monday 07:00 in Sydney (the runs before didn\'t happen); Big\'s Sunday has ended in Kolkata');
+  ok(db.writes.length === 0 && SENT.length === 0, 'a dry run writes and sends nothing');
+  ok(dry.json['coach-report'].preview[0].text.includes('Sent to Dan on Sundays at 6 pm. Change it in Settings, Notifications.'), 'the footer says when it comes');
+  const real = await hourly('2026-11-01T21:00:00Z');
+  eq([real.json['coach-report'].emails, db.tables.email_preferences.find(p => p.user_id === 'c-dan').report_sent_week], [2, '2026-10-26']);
+  eq((await hourly('2026-11-01T22:00:00Z')).json['coach-report'].due, 0, 'never twice');
+  eq((await hourly('2026-11-05T14:00:00Z')).json.jobs, ['midweek', 'coach-report']);
+  eq((await hourly('2026-11-05T15:00:00Z')).json.jobs, ['coach-report']);
+});
+await t('hourly: an email that fails sends nothing and marks nothing; the next hour sends both, once', async () => {
+  const db = resetPicks();
+  db.tables.email_preferences.forEach(p => { if (p.user_id !== 'c-dan') p.report_sent_week = '2026-10-26'; });   // only Dan to send
+  resendScript = [500];
+  const a = await hourly('2026-11-01T18:00:00Z');
+  eq([a.json['coach-report'].failed, a.json['coach-report'].emails, globalThis.__PUSH.filter(x => x.endpoint.endsWith('/c-dan')).length], [1, 0, 0], 'no push without the email');
+  eq(db.tables.email_preferences.find(p => p.user_id === 'c-dan').report_sent_week, null);
+  const b = await hourly('2026-11-01T19:00:00Z');
+  eq([b.json['coach-report'].emails, globalThis.__PUSH.filter(x => x.endpoint.endsWith('/c-dan')).length], [1, 1]);
+  eq((await hourly('2026-11-01T20:00:00Z')).json['coach-report'].emails, 0, 'and not again');
+});
+await t('by hand: a job by name is every coach, each with the week their pick gives that day, and marks it; dueOnly only those due', async () => {
+  let db = resetPicks();
+  const r = await hourly('2026-11-01T09:00:00Z', { job: 'coach-report', today: '2026-11-01', dryRun: true });
+  eq(r.json['coach-report'].preview.map(p => [p.coach, p.week]).sort(), [['c-big', '2026-10-26'], ['c-dan', '2026-10-26'], ['c-mia', '2026-10-19'], ['c-sam', '2026-10-26']],
+    'on a Sunday: Sunday coaches this week, Mia (Monday) the week before');
+  db = resetPicks();
+  await hourly('2026-11-01T09:00:00Z', { job: 'coach-report', today: '2026-11-01' });
+  eq(db.tables.email_preferences.find(p => p.user_id === 'c-big').report_sent_week, '2026-10-26', 'marked');
+  eq((await hourly('2026-11-01T13:00:00Z')).json['coach-report'].due, 0, 'so the hourly job doesn\'t send Big\'s week again');
+  db = resetPicks();
+  eq((await hourly('2026-11-01T09:00:00Z', { job: 'coach-report', dueOnly: true, dryRun: true })).json['coach-report'].due, 0, 'dueOnly: nobody yet');
+});
+await t('before the schedule\'s migration: the hourly job keeps every coach\'s report on Mondays at 14:00 UTC, last week, and marks nothing', async () => {
+  const db = resetPicks();
+  db.missingCols.email_preferences = ['report_day'];
+  for (const iso of ['2026-11-01T13:00:00Z', '2026-11-01T23:00:00Z', '2026-11-02T13:00:00Z']) eq((await hourly(iso)).json['coach-report'].due, 0, iso);
+  const r = await hourly('2026-11-02T14:00:00Z');
+  eq([r.json['coach-report'].due, r.json['coach-report'].emails], [5, 4]);
+  ok(SENT.every(m => m.text.startsWith('Your team’s week · 26 Oct – 1 Nov') && m.text.includes('Sent to') && m.text.includes('on Mondays. Change it')), 'last week, "Mondays"');
+  ok(!db.writes.some(w => w.t === 'email_preferences' && w.op === 'update'), 'no week marked (no column to hold it)');
+  eq((await hourly('2026-11-02T15:00:00Z')).json['coach-report'].due, 0, 'and only at 14:00');
 });
 
 // ---------------------------------------------------------------- the lifters' digest, paged

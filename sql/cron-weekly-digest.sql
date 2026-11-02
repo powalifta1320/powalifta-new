@@ -11,9 +11,10 @@
 --      Supabase → SQL Editor.  (The secret lives in two places: the function's
 --      env and this cron job's Authorization header — they must match.)
 --
--- Runs Mondays and Thursdays 14:00 UTC (2026-10-28, coach alerts: was Mondays only, moved by
--- sql/cron-coach-alerts-2026-10-28.sql). The function picks its jobs by the UTC weekday: Monday →
--- the lifters' digest + the coaches' Monday report; Thursday → the coaches' missed-sessions push.
+-- Runs every hour (2026-11-02, each coach's own time: sql/cron-coach-report-hourly-2026-11-02.sql moved it from
+-- Mondays and Thursdays at 14:00 UTC). The function's hour-aware plan picks its jobs: the lifters' digest on Mondays
+-- at 14:00 UTC, the coaches' missed-sessions push on Thursdays at 14:00 UTC, and every hour the weekly report for
+-- the coaches it is due for. Deploy that function (coach-report-v2) before scheduling this.
 -- Athletes with zero sessions in the last 7 days are skipped by the function, so no "you did
 -- nothing" emails go out.
 
@@ -29,7 +30,7 @@ where exists (select 1 from cron.job where jobname = 'powa-weekly-digest');
 
 select cron.schedule(
   'powa-weekly-digest',
-  '0 14 * * 1,4',                            -- Mondays + Thursdays 14:00 UTC (the function picks the job by weekday)
+  '0 * * * *',                               -- every hour (the function picks the jobs by the hour and each coach's pick)
   $$
     select net.http_post(
       url     := 'https://cxnotrikxvzncupswvio.functions.supabase.co/send-weekly-digest',
@@ -57,4 +58,6 @@ select cron.schedule(
 --     -H 'Authorization: Bearer <CRON_SECRET>' \
 --     -H 'Content-Type: application/json' \
 --     -d '{"dryRun":true,"job":"coach-report"}'
--- An empty body on a day that isn't Monday or Thursday does nothing (it answers jobs: []).
+-- An empty body is the hourly run: the digest and the midweek push only at their hour, the weekly report for the
+-- coaches due then. {"today":"YYYY-MM-DD"} without a job does what that weekday did before (by hand); {"now": an ISO
+-- time} pretends the hour.
