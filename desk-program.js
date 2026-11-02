@@ -555,6 +555,8 @@
     if (drafts.length) { var pi = W && W.draft === true && weekSets(W).length ? wi : drafts[0]; return { k: 'publish', wi: pi, label: 'Publish week ' + wn(prog, pi) }; }
     var ch = typeof dkPbChanges === 'function' ? dkPbChanges(prog).length : 0;
     if (ch) return { k: 'send', label: 'Send the changes to ' + first(a.name), n: ch };
+    // Every set of the block lifted: the next block (the phone's builder makes it the red too).
+    if (weeks.length && weeks.every(function (w) { var st = weekSets(w).filter(function (x) { return !x.extra; }); return st.length && st.every(isLogged); })) return { k: 'block', label: 'Start the next block' };
     var last = -1; weeks.forEach(function (w, i) { if (weekSets(w).length) last = i; });
     var empty = weeks.findIndex(function (w, i) { return i > last && !weekSets(w).length; });
     if (empty >= 0) return { k: 'write', wi: empty, label: 'Write week ' + wn(prog, empty) };
@@ -567,6 +569,7 @@
     else if (c.k === 'send') { if (typeof dkPublish === 'function') dkPublish(aid); repaintHead(); }
     else if (c.k === 'write') doWriteWeek(aid, c.wi);
     else if (c.k === 'next') addWeek(aid, true);
+    else if (c.k === 'block' && typeof openNextBlockSheet === 'function') openNextBlockSheet(S.prog, aid);
   }
 
   /* ---------- the head: who, the block, the weeks, the tools, the crimson ---------- */
@@ -630,6 +633,7 @@
       tip(b, c.k === 'publish' ? first(a.name) + ' sees week ' + wn(prog, c.wi) + ' once it’s published, with a heads-up. Until then it’s your draft'
         : c.k === 'send' ? 'Your edits are live as you type. This sends ' + first(a.name) + ' a heads-up about the ' + plural(c.n, 'change')
         : c.k === 'write' ? 'Copies the week before it as a draft: change it, then publish'
+        : c.k === 'block' ? 'Every set of this block is lifted. The next block, from a template or this one moved on'
         : 'Adds week ' + c.label.replace(/\D+/g, '') + ' as a draft, a copy of the last week');
       act.appendChild(b);
     } else {
@@ -673,6 +677,7 @@
     tip(add, 'Add week ' + ((prog.weeks.length ? wn(prog, prog.weeks.length - 1) : 0) + 1) + ' as a draft');
     add.addEventListener('click', function () { addWeek(aid, false); });
     bar.appendChild(add);
+
     // The meet at the end, in gold; the weeks between the block's end and it, one click to write.
     var meet = typeof dkPbMeet === 'function' ? dkPbMeet(prog, aid) : null;
     if (meet) {
