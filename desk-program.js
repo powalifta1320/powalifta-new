@@ -26,6 +26,9 @@
   function num(v) { return v != null && v !== '' && isFinite(Number(v)) ? Number(v) : null; }
   function isMain(lift) { return MAIN.indexOf(lift) >= 0; }
   function isLogged(s) { return !!(s && (s.completed || s.skipped || s.missed)); }
+  // A draft only while drafts are on (app.js DRAFTS_ON / weekIsDraft); off, a stray flag means nothing.
+  function isDraft(w) { return typeof weekIsDraft === 'function' ? weekIsDraft(w) : false; }
+  function draftsOn() { return typeof DRAFTS_ON !== 'undefined' && !!DRAFTS_ON; }
   function isRest(day) { return !!day && !(day.exercises || []).length && REST_RX.test(day.name || ''); }
   function weekSets(w) { var out = []; ((w && w.days) || []).forEach(function (d) { (d.exercises || []).forEach(function (e) { (e.sets || []).forEach(function (s) { out.push(s); }); }); }); return out; }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
@@ -138,7 +141,7 @@
     weeks = weeks || [];
     var nowIdx = env.nowIdx == null ? -1 : env.nowIdx;
     var W = weeks[wi] || null;
-    var out = { weeks: weeks.map(function (w, i) { return { idx: i, n: Number(w.number) || i + 1, state: weekState(w, i, nowIdx), draft: !!(w && w.draft === true) }; }), week: null, days: [] };
+    var out = { weeks: weeks.map(function (w, i) { return { idx: i, n: Number(w.number) || i + 1, state: weekState(w, i, nowIdx), draft: isDraft(w) }; }), week: null, days: [] };
     if (!W) return out;
     out.week = Object.assign({}, out.weeks[wi], { empty: !weekSets(W).length });
     (W.days || []).forEach(function (D, di) {
@@ -403,27 +406,20 @@
     W.days = deskCopyWeekDays(weeks[src].days, W.days);
     return { ok: true, from: src, draft: draftWeekFrom(weeks, wi) };
   }
-  // Append n empty weeks to the block (the same day names as its last week), as drafts, numbered on. → the first index.
+  // Append n empty weeks to the block (the same day names as its last week), numbered on: drafts while drafts are on
+  // (app.js appendBlockWeek, the one append every path uses). → the first index.
   function appendWeeks(weeks, n) {
     var last = weeks[weeks.length - 1], at = weeks.length;
     var num = last ? (Number(last.number) || weeks.length) : 0;
     var uidF = typeof uid === 'function' ? uid : String;
     for (var i = 0; i < n; i++) {
-      weeks.push({ id: uidF('wk'), number: num + 1 + i, draft: true, days: ((last && last.days) || [{ name: 'Day 1' }, { name: 'Day 2' }, { name: 'Day 3' }]).map(function (d) { return { id: uidF('day'), name: d.name || 'Day', exercises: [] }; }) });
+      var w = { id: uidF('wk'), number: num + 1 + i, days: ((last && last.days) || [{ name: 'Day 1' }, { name: 'Day 2' }, { name: 'Day 3' }]).map(function (d) { return { id: uidF('day'), name: d.name || 'Day', exercises: [] }; }) };
+      if (typeof appendBlockWeek === 'function') appendBlockWeek(weeks, w, { draft: true }); else weeks.push(w);
     }
     return at;
   }
-  // The trailing rule, repaired: a draft before a published week with sets is published (it was live in effect). → changes
-  function keepDraftsTrailing(weeks) {
-    var n = 0, seenLive = false;
-    for (var i = (weeks || []).length - 1; i >= 0; i--) {
-      var w = weeks[i];
-      if (w.draft === true) { if (seenLive) { delete w.draft; n++; } }
-      else if (weekSets(w).length) seenLive = true;
-      else if (i < weeks.length - 1 && weeks[i + 1].draft === true) { w.draft = true; n++; }
-    }
-    return n;
-  }
+  // The trailing rule, repaired (app.js keepWeeksDraftsTrailing, also run on every save). → changes
+  function keepDraftsTrailing(weeks) { return typeof keepWeeksDraftsTrailing === 'function' ? keepWeeksDraftsTrailing(weeks) : 0; }
 
   /* ---------- the Programs list: a lifter's status ---------- */
   // o: { prog, week (status.week), reasons, live, toWrite (a week number with suggestions), today, nowIdx }
@@ -437,7 +433,7 @@
     var line = !prog ? 'No program' : name + (nowN != null ? ' · week ' + nowN + ' of ' + weeksN : wk ? (wk.finished ? ' · done' : ' · week ' + wk.number + ' of ' + wk.total) : '');
     if (!prog) return { write: true, text: 'No block yet', line: line };
     var weeks = prog.weeks || [];
-    var dr = weeks.findIndex(function (w) { return w && w.draft === true && weekSets(w).length; });
+    var dr = weeks.findIndex(function (w) { return isDraft(w) && weekSets(w).length; });
     if (dr >= 0) return { write: true, text: 'Week ' + (Number(weeks[dr].number) || dr + 1) + ' draft', line: line };
     var from = wk && !wk.finished && wk.idx != null ? wk.idx : -1;
     for (var i = Math.max(0, from + 1); from >= 0 && i < weeks.length; i++) if (!weekSets(weeks[i]).length) return { write: true, text: 'Week ' + (Number(weeks[i].number) || i + 1) + ' to write', line: line };
@@ -546,26 +542,50 @@
     return wi;
   }
 
-  /* ---------- the crimson: one per screen, the next job ---------- */
-  function crimson(prog, aid, wi) {
+  /* ---------- the crimson: one per screen, the next job (the lead's order, 2 Nov) ---------- */
+  // Next week's suggestions still to take: the week about to be trained (deskWeekReview's nextIdx). → { wi, rows } | null
+  function pendingSuggestions(prog) {
+    if (typeof deskWeekReview !== 'function') return null;
+    var rev = deskWeekReview(prog);
+    if (rev.nextIdx < 0) return null;
+    var rows = rev.rows.filter(function (x) { return typeof deskSuggestActionable === 'function' ? deskSuggestActionable(x) : !!(x.suggest && x.suggest.delta); });
+    return rows.length ? { wi: rev.nextIdx, rows: rows, last: rev.lastIdx } : null;
+  }
+  // The weeks between the block's last week and the meet (0 when there's no meet ahead, or none between).
+  function meetGap(prog, aid) {
+    var meet = typeof dkPbMeet === 'function' ? dkPbMeet(prog, aid) : null;
+    var starts = typeof dkPbStarts === 'function' ? dkPbStarts(prog) : [];
+    var ls = starts[starts.length - 1];
+    if (!meet || !ls || typeof _monISO !== 'function') return 0;
+    var g = Math.round((Date.parse(_monISO(meet.date)) - Date.parse(ls)) / 6048e5) - 1;
+    return g >= 1 && g <= 12 ? g : 0;
+  }
+  // 1 Publish week N (a draft, drafts on) · 2 Take N suggestions (the week about to be trained) · 3 Send the changes to
+  // Arjun · 4 Write week N (an unwritten week in the block, or the next one up to the meet) · 5 Start the next block (a
+  // finished block, as the phone) · else no crimson: a quiet "Next: <name> ›" (a block written ahead isn't nagged).
+  function crimson(prog, aid, wi, o) {
+    o = o || {};
     var weeks = prog.weeks || [], a = athleteOf(aid) || { name: '' };
     var W = weeks[wi];
-    if (W && !weekSets(W).length) return { k: 'write', wi: wi, label: 'Write week ' + wn(prog, wi) };
-    var drafts = weeks.map(function (w, i) { return w && w.draft === true && weekSets(w).length ? i : -1; }).filter(function (i) { return i >= 0; });
-    if (drafts.length) { var pi = W && W.draft === true && weekSets(W).length ? wi : drafts[0]; return { k: 'publish', wi: pi, label: 'Publish week ' + wn(prog, pi) }; }
+    var drafts = weeks.map(function (w, i) { return isDraft(w) && weekSets(w).length ? i : -1; }).filter(function (i) { return i >= 0; });
+    if (drafts.length) { var pi = isDraft(W) && weekSets(W).length ? wi : drafts[0]; return { k: 'publish', wi: pi, label: 'Publish week ' + wn(prog, pi) }; }
+    var sug = o.sug !== undefined ? o.sug : pendingSuggestions(prog);
+    if (sug && !(S.sugOff && S.sugOff[prog.id + ':' + sug.wi])) return { k: 'take', wi: sug.wi, rows: sug.rows, label: sug.rows.length === 1 ? 'Take 1 suggestion' : 'Take ' + sug.rows.length + ' suggestions' };
     var ch = typeof dkPbChanges === 'function' ? dkPbChanges(prog).length : 0;
     if (ch) return { k: 'send', label: 'Send the changes to ' + first(a.name), n: ch };
-    // Every set of the block lifted: the next block (the phone's builder makes it the red too).
-    if (weeks.length && weeks.every(function (w) { var st = weekSets(w).filter(function (x) { return !x.extra; }); return st.length && st.every(isLogged); })) return { k: 'block', label: 'Start the next block' };
-    var last = -1; weeks.forEach(function (w, i) { if (weekSets(w).length) last = i; });
-    var empty = weeks.findIndex(function (w, i) { return i > last && !weekSets(w).length; });
+    if (W && !weekSets(W).length) return { k: 'write', wi: wi, label: 'Write week ' + wn(prog, wi) };
+    var empty = weeks.findIndex(function (w) { return !weekSets(w).length; });
     if (empty >= 0) return { k: 'write', wi: empty, label: 'Write week ' + wn(prog, empty) };
-    return { k: 'next', wi: weeks.length, label: 'Write week ' + ((weeks.length ? wn(prog, weeks.length - 1) : 0) + 1) };
+    var gap = o.gap !== undefined ? o.gap : meetGap(prog, aid);
+    if (gap >= 1 && weeks.length) return { k: 'next', wi: weeks.length, label: 'Write week ' + (wn(prog, weeks.length - 1) + 1) };
+    if (weeks.length && weeks.every(function (w) { var st = weekSets(w).filter(function (x) { return !x.extra; }); return st.length && st.every(isLogged); })) return { k: 'block', label: 'Start the next block' };
+    return { k: 'none', label: '' };
   }
   function runCrimson(c) {
     var aid = S.aid;
     if (!commitOpen()) return;
     if (c.k === 'publish') publishWeek(aid, c.wi);
+    else if (c.k === 'take') { if (S.wi !== c.wi) pickWeek(c.wi, false); takeSuggestions(aid, c.wi, c.rows); }
     else if (c.k === 'send') { if (typeof dkPublish === 'function') dkPublish(aid); repaintHead(); }
     else if (c.k === 'write') doWriteWeek(aid, c.wi);
     else if (c.k === 'next') addWeek(aid, true);
@@ -580,9 +600,40 @@
     paintHeadInto(h, prog, aid);
     return h;
   }
-  function blockLine(prog, aid) {
+  // The quiet line: the block's name (typed in place: Enter or leaving saves, Esc puts it back, ⌘Z undoes it), then where
+  // they are and the meet.
+  function subEl(prog, aid) {
+    var p = E('p', { class: 'dp-sub' });
+    var bn = E('input', { type: 'text', class: 'dp-bname', 'aria-label': 'Block name', spellcheck: 'false', maxlength: '80', placeholder: 'Name the block', 'data-k': 'head:bname' });
+    bn.value = prog.name || '';
+    var save = function () {
+      var cur = progOf(S.aid);
+      if (!cur) return true;
+      var v = bn.value.trim().slice(0, 80);
+      if (!v) { bn.value = cur.name || ''; return true; }
+      if (v === (cur.name || '')) return true;
+      dkPbRemember(cur, 'Rename the block');
+      Store.update(function (s) { var x = s.programs.find(function (y) { return y.id === cur.id; }); if (x) x.name = v; });
+      persistProgram(cur.id);
+      var l = document.getElementById('dkPbList'); if (l && typeof dkPaintPbRows === 'function') dkPaintPbRows(l);
+      if (typeof dkPbPaintUndo === 'function') dkPbPaintUndo();
+      return true;
+    };
+    bn._commit = save;
+    bn.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); bn.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); var cur = progOf(S.aid); bn.value = (cur && cur.name) || ''; bn.blur(); }
+    });
+    bn.addEventListener('blur', function () { if (bn.isConnected) save(); });
+    p.appendChild(bn);
+    var rest = blockLine(prog, aid, true);
+    if (rest) p.appendChild(E('span', { class: 'dp-sub-rest' }, '· ' + rest));   // the name's own padding is the space before it
+    if ((prog.name || '').length + rest.length > 44) tip(p, (prog.name || '') + ' · ' + rest);
+    return p;
+  }
+  function blockLine(prog, aid, noName) {
     var r = typeof dkRow === 'function' ? dkRow(aid) : null, st = r && r.status, wk = st && st.week;
-    var bits = [String(prog.name || 'Program').replace(/\s+block$/i, '') || 'Program'];
+    var bits = noName ? [] : [String(prog.name || 'Program').replace(/\s+block$/i, '') || 'Program'];
     var env = envFor(prog, aid);
     if (env.nowIdx >= 0) bits.push('week ' + wn(prog, env.nowIdx) + ' of ' + prog.weeks.length);
     else if (wk && wk.finished) bits.push('done');
@@ -604,16 +655,14 @@
       var b = E('button', { type: 'button', class: 'dp-navb', 'aria-label': x[2], html: IC[x[0]] });
       tip(b, x[2], x[3]);
       // A cell's blur can't re-render the button away mid-click: the press keeps the focus where it is.
-      b.addEventListener('mousedown', function (e) { e.preventDefault(); });
+      hold(b, true);
       b.addEventListener('click', function () { step(x[1]); });
       nav.appendChild(b);
     });
     top.appendChild(nav);
     var who = E('div', { class: 'dp-who' });
     who.appendChild(E('h1', { class: 'dp-name' }, a.name || 'Lifter'));
-    var line = blockLine(prog, aid), sub = E('p', { class: 'dp-sub' }, line);
-    if (line.length > 44) tip(sub, line);
-    who.appendChild(sub);
+    who.appendChild(subEl(prog, aid));
     top.appendChild(who);
     top.appendChild(toolsEl(prog, aid, wi));
     h.appendChild(top);
@@ -628,14 +677,28 @@
     var act = E('span', { class: 'dp-act' });
     if (S.view !== 'progress') {
       var c = crimson(prog, aid, wi);
-      var b = (typeof dkBtn === 'function' ? dkBtn : function (l) { return E('button', { type: 'button' }, l); })(c.label, { primary: true, cls: 'dp-cta', onClick: function () { runCrimson(c); } });
-      b.addEventListener('mousedown', function (e) { if (document.activeElement && document.activeElement.classList.contains('dp-cell')) e.preventDefault(); });
-      tip(b, c.k === 'publish' ? first(a.name) + ' sees week ' + wn(prog, c.wi) + ' once it’s published, with a heads-up. Until then it’s your draft'
-        : c.k === 'send' ? 'Your edits are live as you type. This sends ' + first(a.name) + ' a heads-up about the ' + plural(c.n, 'change')
-        : c.k === 'write' ? 'Copies the week before it as a draft: change it, then publish'
-        : c.k === 'block' ? 'Every set of this block is lifted. The next block, from a template or this one moved on'
-        : 'Adds week ' + c.label.replace(/\D+/g, '') + ' as a draft, a copy of the last week');
-      act.appendChild(b);
+      if (c.k === 'none') {
+        // Nothing due for this lifter: no red. The next lifter in the list, quietly.
+        var ids = order(), at = ids.indexOf(aid), nx = ids.length > 1 ? athleteOf(ids[(at + 1 + ids.length) % ids.length]) : null;
+        if (nx) {
+          var q = E('button', { type: 'button', class: 'dp-tool dp-next' }, 'Next: ' + first(nx.name));
+          q.insertAdjacentHTML('beforeend', IC.next);
+          tip(q, first(a.name) + '’s block is written ahead. ' + nx.name + ' next', 'J');
+          hold(q);
+          q.addEventListener('click', function () { step(1); });
+          act.appendChild(q);
+        }
+      } else {
+        var b = (typeof dkBtn === 'function' ? dkBtn : function (l) { return E('button', { type: 'button' }, l); })(c.label, { primary: true, cls: 'dp-cta', onClick: function () { runCrimson(c); } });
+        hold(b);
+        tip(b, c.k === 'publish' ? first(a.name) + ' sees week ' + wn(prog, c.wi) + ' once it’s published, with a heads-up. Until then it’s your draft'
+          : c.k === 'take' ? 'Writes ' + (c.rows.length === 1 ? 'the suggestion' : 'the ' + c.rows.length + ' suggestions') + ' from how week ' + wn(prog, Math.max(0, c.wi - 1)) + ' was lifted into week ' + wn(prog, c.wi)
+          : c.k === 'send' ? 'Your edits are live as you type. This sends ' + first(a.name) + ' a heads-up about the ' + plural(c.n, 'change')
+          : c.k === 'write' ? 'Copies the week before it' + (draftsOn() ? ' as a draft: change it, then publish' : ': change what needs changing')
+          : c.k === 'block' ? 'Every set of this block is lifted. The next block, from a template or this one moved on'
+          : 'Adds week ' + c.label.replace(/\D+/g, '') + (draftsOn() ? ' as a draft' : '') + ', a copy of the last week');
+        act.appendChild(b);
+      }
     } else {
       var back = (typeof dkBtn === 'function' ? dkBtn : function (l) { return E('button', { type: 'button' }, l); })('Back to the week', { cls: 'is-quiet dp-tool', onClick: function () { deskSetPbView('sessions'); loadProgram(); } });
       act.appendChild(back);
@@ -663,6 +726,7 @@
       var starts = (typeof dkPbStarts === 'function' ? dkPbStarts(prog) : [])[w.idx];
       b.setAttribute('aria-label', 'Week ' + w.n + ({ done: ', done', now: ', this week', write: ', nothing written', past: '', next: '' }[w.state] || '') + (w.draft ? ', a draft' : '') + (starts ? ', from ' + fmtDateShort(starts) : ''));
       if (starts) tip(b, 'From ' + fmtDateShort(starts) + (w.draft ? ' · a draft: ' + first((athleteOf(aid) || {}).name) + ' doesn’t see it yet' : ''), short ? String(w.idx + 1) : null);
+      hold(b);
       b.addEventListener('click', function (e) { if (on) return; S.keyPick = e.detail === 0; pickWeek(w.idx, true); });
       strip.appendChild(b);
     });
@@ -674,7 +738,8 @@
       pickWeek(e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : wi + (e.key === 'ArrowRight' ? 1 : -1), true);
     });
     var add = E('button', { type: 'button', class: 'dp-wk-add', 'aria-label': 'Add a week', html: IC.plus });
-    tip(add, 'Add week ' + ((prog.weeks.length ? wn(prog, prog.weeks.length - 1) : 0) + 1) + ' as a draft');
+    tip(add, 'Add week ' + ((prog.weeks.length ? wn(prog, prog.weeks.length - 1) : 0) + 1) + (draftsOn() ? ' as a draft' : ''));
+    hold(add);
     add.addEventListener('click', function () { addWeek(aid, false); });
     bar.appendChild(add);
 
@@ -687,7 +752,8 @@
       if (gap >= 1 && gap <= 12) {
         var lastN = wn(prog, prog.weeks.length - 1);
         var g = E('button', { type: 'button', class: 'dp-wk-gap' }, gap === 1 ? 'Week ' + (lastN + 1) + ' to write' : 'Weeks ' + (lastN + 1) + '–' + (lastN + gap) + ' to write');
-        tip(g, 'The weeks between the block’s end and ' + meet.name + '. Adds them to this block as drafts and writes the first');
+        tip(g, 'The weeks between the block’s end and ' + meet.name + '. Adds them to this block' + (draftsOn() ? ' as drafts' : '') + ' and writes the first');
+        hold(g);
         g.addEventListener('click', function () { writeThem(aid, gap); });
         bar.appendChild(g);
       }
@@ -711,21 +777,32 @@
       b.appendChild(E('span', { class: 'dp-tool-s', 'aria-hidden': 'true' }, short || label));
       tip(b, tipText);
       if (menu) { b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', 'false'); }
-      b.addEventListener('click', function (e) { e.stopPropagation(); if (!commitOpen()) return; run(b); });
+      hold(b);
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (b.getAttribute('aria-disabled') === 'true') { say(b._why || ''); return; }
+        if (!commitOpen()) return;
+        // The commit may have drawn the head again: the menu anchors to the button that's on screen now.
+        var live = b.isConnected ? b : (S.head && S.head.querySelector('.dp-tool[aria-label="' + label + '"]')) || b;
+        run(live);
+      });
       bar.appendChild(b);
       return b;
     };
-    var W = prog.weeks[wi], logged = weekSets(W).some(isLogged);
-    var why = wi === 0 ? 'Week ' + wn(prog, wi) + ' is the first week' : logged ? 'Week ' + wn(prog, wi) + ' has logged sets: what they lifted stays' : '';
-    var cp = mk('Copy last week', IC.copy, why || 'Week ' + wn(prog, wi - 1) + ' into week ' + wn(prog, wi) + ' as a draft', function () { copyLastWeek(aid, wi); }, false, 'Copy');
-    if (wi === 0 || logged) cp.disabled = true;
-    var pg = mk('Progress the week', IC.up, why || 'Week ' + wn(prog, wi - 1) + ' moved on a step into week ' + wn(prog, wi), function (b) {
+    // Off, with the reason in its tooltip and a click that says it: a disabled button can't show a tooltip.
+    var off = function (b, why) { b.setAttribute('aria-disabled', 'true'); b.classList.add('is-off'); b._why = why; tip(b, why); };
+    var W = prog.weeks[wi], logged = weekSets(W).some(isLogged), lastWk = wi >= prog.weeks.length - 1, n0 = wn(prog, wi), n1 = n0 + 1;
+    var whyCp = wi === 0 ? 'Week ' + n0 + ' is the first week: nothing before it to copy' : logged ? 'Week ' + n0 + ' has sets logged: ' + (lastWk ? 'add week ' + n1 + ' with + and copy it there' : 'copy it to week ' + n1 + ' instead') : '';
+    var whyPg = wi === 0 ? 'Week ' + n0 + ' is the first week: nothing before it to progress from' : logged ? 'Week ' + n0 + ' has sets logged: ' + (lastWk ? 'add week ' + n1 + ' with + and progress into it' : 'progress it into week ' + n1 + ' instead') : '';
+    var cp = mk('Copy last week', IC.copy, 'Week ' + wn(prog, Math.max(0, wi - 1)) + ' into week ' + n0 + (draftsOn() ? ' as a draft' : ''), function () { copyLastWeek(aid, wi); }, false, 'Copy');
+    if (whyCp) off(cp, whyCp);
+    var pg = mk('Progress the week', IC.up, 'Week ' + wn(prog, Math.max(0, wi - 1)) + ' moved on a step into week ' + n0, function (b) {
       var items = [{ node: E('div', { class: 'dk-menu-title', role: 'presentation' }, 'Week ' + wn(prog, wi - 1) + ' a step on, into week ' + wn(prog, wi)) }].concat((typeof dkPbKinds === 'function' ? dkPbKinds() : []).map(function (k) {
         return { label: k[1], hint: k[2], run: function () { progressWeek(aid, wi, k[0]); } };
       }));
       dkPopMenu(b, items);
     }, true, 'Progress');
-    if (wi === 0 || logged) pg.disabled = true;
+    if (whyPg) off(pg, whyPg);
     mk('Templates', IC.layers, 'Save this block as a template, or start from one', function (b) {
       var p = progOf(aid), items = [{ label: 'Save as a template…', run: function () { openSaveTemplate(p); } }];
       var me = typeof _dkCoachMeId === 'function' ? _dkCoachMeId() : null;
@@ -735,7 +812,13 @@
     }, true);
     var more = E('button', { type: 'button', class: 'dp-tool dp-more', 'aria-label': 'More for this block', 'aria-haspopup': 'menu', 'aria-expanded': 'false', html: IC.more });
     tip(more, 'More');
-    more.addEventListener('click', function (e) { e.stopPropagation(); if (commitOpen()) dkPopMenu(more, blockMenu(aid, wi), { alignRight: true }); });
+    hold(more);
+    more.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!commitOpen()) return;
+      var live = more.isConnected ? more : (S.head && S.head.querySelector('.dp-tools .dp-more')) || more;
+      dkPopMenu(live, blockMenu(aid, wi), { alignRight: true });
+    });
     bar.appendChild(more);
     return bar;
   }
@@ -750,13 +833,13 @@
     items.push({ label: 'Add a training day', run: function () { dkPbRemember(progOf(aid), 'Add a day'); addDay(wi); } });
     // Critical fix #1: Add rest day stays (addRestDay names it "Rest", the isRestDay heuristic reads it).
     items.push({ label: 'Add a rest day', run: function () { dkPbRemember(progOf(aid), 'Add a rest day'); addRestDay(wi); } });
-    if (W && W.draft === true && weekSets(W).length) items.push({ label: 'Publish week ' + n, run: function () { publishWeek(aid, wi); } });
+    if (isDraft(W) && weekSets(W).length) items.push({ label: 'Publish week ' + n, run: function () { publishWeek(aid, wi); } });
     if (prog.weeks.length > 1) items.push({ label: 'Remove week ' + n, danger: true, run: function () { removeWeek(aid, wi); } });
     items.push('-', title('The block'));
     items.push({ label: S.view === 'progress' ? 'The week' : 'Across the block', hint: 'V', run: function () { deskSetPbView(S.view === 'progress' ? 'sessions' : 'progress'); loadProgram(); } });
     items.push({ label: 'Maxes for % sets…', run: function () { openMaxesSheet(prog.id, aid); } });
     items.push({ label: 'Set fields…', run: function () { openSetFieldsSheet(prog.id, function () { loadProgram(); }); } });
-    items.push({ label: 'Rename the block…', run: function () { renameBlock(aid); } });
+    items.push({ label: 'Rename the block', run: function () { var bn = S.head && S.head.querySelector('.dp-bname'); if (bn) { bn.focus(); bn.select(); } } });
     if (typeof window.deskBuilderTeam === 'function') {
       var onTeam = typeof dsTeamOf === 'function' && dsTeamOf(aid);
       items.push({ label: onTeam ? 'Open ' + (onTeam.name || 'the team') : 'Make it a team program…', run: function () { window.deskBuilderTeam(aid); } });
@@ -770,17 +853,6 @@
     var del = acts.filter(function (x) { return x.danger; });
     if (del.length) { items.push('-'); del.forEach(function (x) { items.push({ label: x.label, danger: true, run: x.onClick }); }); }
     return items;
-  }
-  function renameBlock(aid) {
-    var prog = progOf(aid);
-    var v = typeof prompt === 'function' ? prompt('Rename the block', prog.name || '') : null;
-    if (v == null) return;
-    v = String(v).trim().slice(0, 80);
-    if (!v || v === prog.name) return;
-    dkPbRemember(prog, 'Rename the block');
-    Store.update(function (s) { var p = s.programs.find(function (x) { return x.id === prog.id; }); if (p) p.name = v; });
-    persistProgram(prog.id);
-    repaintHead();
   }
   function repaintHead() {
     var prog = progOf(S.aid);
@@ -837,7 +909,7 @@
   function weekEl(prog, aid, wi) {
     var env = envFor(prog, aid), m = model(prog.weeks, wi, env);
     var lifted = weekSets(prog.weeks[wi]).some(isLogged);
-    var wrap = E('div', { class: 'dp-week' + (lifted ? ' has-lifted' : '') + (prog.weeks[wi] && prog.weeks[wi].draft === true ? ' is-draft' : ''), 'data-wi': String(wi) });
+    var wrap = E('div', { class: 'dp-week' + (lifted ? ' has-lifted' : '') + (isDraft(prog.weeks[wi]) ? ' is-draft' : ''), 'data-wi': String(wi) });
     if (m.week && m.week.empty) {
       var src = writeSource(prog.weeks, wi);
       wrap.appendChild(E('p', { class: 'dp-note-line' }, src >= 0 ? 'Nothing written for week ' + m.week.n + ' yet. Write week ' + m.week.n + ' starts from week ' + wn(prog, src) + ' as a draft, or write the days below.' : 'Nothing written for week ' + m.week.n + ' yet. Write the days below, or start from a template.'));
@@ -867,15 +939,26 @@
     var hd = E('header', { class: 'dp-day-head' });
     var nm = E('input', { type: 'text', class: 'dp-day-name', 'aria-label': 'Day name', spellcheck: 'false', maxlength: '60', 'data-k': wi + ':day:' + d.key });
     nm.value = d.name; nm.placeholder = 'Day ' + (d.idx + 1);
-    nm.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); if (e.key === 'Escape') nm.value = d.name; nm.blur(); } });
-    nm.addEventListener('change', function () {
-      var v = nm.value.trim();
-      if (v === d.name) return;
-      run({ t: 'renameDay', wi: wi, di: d.idx, dayId: D.id, name: v, label: 'Rename ' + (d.name || 'the day') }, { scope: 'head' });
-    });
-    hd.appendChild(nm);
+    // Compared with the Store's name now, never the one drawn (a rename and back again both save).
+    var storeName = function () { var p = progOf(aid), dd = p && p.weeks[wi] && p.weeks[wi].days[d.idx]; return dd && String(dd.id) === String(D.id) ? dd.name || '' : null; };
+    var saveName = function () {
+      var cur = storeName(), v = nm.value.trim();
+      if (cur == null || v === cur) return true;
+      var r = run({ t: 'renameDay', wi: wi, di: d.idx, dayId: D.id, name: v, label: 'Rename ' + (cur || 'the day') }, { scope: 'head' });
+      card.setAttribute('aria-label', v || 'Day ' + (d.idx + 1));
+      return !!(r && r.ok);
+    };
+    nm._commit = saveName;
+    nm.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); if (e.key === 'Escape') { var c0 = storeName(); nm.value = c0 == null ? d.name : c0; } nm.blur(); } });
+    nm.addEventListener('change', function () { if (nm.isConnected) saveName(); });
+    // The day's name and when it was trained, together; "Lifted" over its column; More at the end.
+    var idw = E('div', { class: 'dp-day-id' });
+    idw.appendChild(nm);
     var when = live ? 'Lifting now' : dayWhen(d);
-    if (when) hd.appendChild(E('span', { class: 'dp-day-meta' + (live ? ' is-live' : '') }, when));
+    if (when) idw.appendChild(E('span', { class: 'dp-day-meta' + (live ? ' is-live' : '') }, when));
+    hd.appendChild(idw);
+    // The right-hand numbers say what they are, once, over their column.
+    if (d.done || d.skipped) hd.appendChild(E('span', { class: 'dp-day-lifted' }, 'Lifted'));
     var more = E('button', { type: 'button', class: 'dp-day-more', tabindex: '-1', 'aria-label': (d.name || 'Day') + ' options', 'aria-haspopup': 'menu', 'aria-expanded': 'false', html: IC.more });
     more.addEventListener('click', function (e) { e.stopPropagation(); if (commitOpen()) dkPopMenu(more, dayMenu(aid, wi, d.idx), { alignRight: true }); });
     hd.appendChild(more);
@@ -986,13 +1069,16 @@
       inp.value = x.note;
       var orig = x.note;
       inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); inp.value = orig; inp.blur(); } });
-      inp.addEventListener('blur', function () {
-        if (S.busy || !inp.isConnected) return;
+      var saveNote = function () {
+        if (S.busy || !inp.isConnected) return true;
         var v = inp.value.trim();
-        if (v === orig) return;
+        if (v === orig) return true;
         orig = v;
         run({ t: 'note', wi: wi, di: d.idx, ei: x.idx, exId: x.key, text: v, label: 'Note on ' + x.title }, { scope: 'ex', ex: x.key });
-      });
+        return true;
+      };
+      inp._commit = saveNote;
+      inp.addEventListener('blur', saveNote);
       w.appendChild(inp);
     }
     if (x.athleteNote) { var an = E('span', { class: 'dp-an' }, '“' + x.athleteNote + '”'); tip(an, 'Their note from the day'); w.appendChild(an); }
@@ -1098,7 +1184,7 @@
     var box = E('div', { class: 'dp-sug', role: 'group', 'aria-label': 'Suggestions from week ' + wn(prog, rev.lastIdx) });
     var hd = E('div', { class: 'dp-sug-head' });
     hd.appendChild(E('span', {}, 'From how week ' + wn(prog, rev.lastIdx) + ' was lifted'));
-    var all = dkBtn(rows.length === 1 ? 'Take it' : 'Take all ' + rows.length, { cls: 'is-quiet dp-tool', onClick: function () { takeSuggestions(aid, wi, rows); } });
+    var all = hold(dkBtn(rows.length === 1 ? 'Take it' : 'Take all ' + rows.length, { cls: 'is-quiet dp-tool', onClick: function () { if (commitOpen()) takeSuggestions(aid, wi, rows); } }));
     var off = dkBtn('Not now', { cls: 'is-quiet dp-tool', onClick: function () { S.sugOff = S.sugOff || {}; S.sugOff[prog.id + ':' + wi] = 1; if (S.root) fill(S.root); } });
     hd.appendChild(off);
     hd.appendChild(all);
@@ -1113,7 +1199,7 @@
       var ev = lg ? 'lifted ' + (lg.weight > 0 ? showKg(lg.weight) + ' × ' : '') + lg.reps + (lg.rpe != null ? ' @' + n2(lg.rpe) : '') : '';
       if (ev && x.delta != null && Math.abs(x.delta) >= 0.25) ev += ', ' + (x.delta > 0 ? '+' : '−') + n2(Math.abs(x.delta)) + ' over what you wrote'.replace('over', x.delta > 0 ? 'over' : 'under');
       r.appendChild(E('span', {}, said + (ev ? ' · ' + ev : '')));
-      r.appendChild(dkBtn('Take', { cls: 'is-quiet dp-tool', onClick: function () { takeSuggestions(aid, wi, [x]); } }));
+      r.appendChild(hold(dkBtn('Take', { cls: 'is-quiet dp-tool', onClick: function () { if (commitOpen()) takeSuggestions(aid, wi, [x]); } })));
       box.appendChild(r);
     });
     return box;
@@ -1147,6 +1233,11 @@
     selectOnFocus(inp);
     return inp;
   }
+  // A press on a control while the coach is typing in a cell (or the block's or a day's name, or a note) keeps the focus
+  // there: no blur commits and redraws the head under the pointer, so the click lands; its handler commits first
+  // (commitOpen). The first click after typing is never lost. always: keep the focus wherever it is (‹ ›).
+  function editingEl() { var a = document.activeElement; return a && a._commit && ((S.root && S.root.contains(a)) || (S.head && S.head.contains(a))) ? a : null; }
+  function hold(el, always) { el.addEventListener('mousedown', function (e) { if (always || editingEl()) e.preventDefault(); }); return el; }
   // A cell takes focus with its value selected, so typing replaces it (one keystroke for a load); the click that focused
   // it doesn't drop the selection, a second click places the caret.
   function selectOnFocus(inp) {
@@ -1175,8 +1266,8 @@
   }
   // The cell the coach is typing in, committed (before a week or a lifter changes under it). false: it doesn't read.
   function commitOpen() {
-    var a = document.activeElement;
-    if (!a || !S.root || !S.root.contains(a) || !a._commit) return true;
+    var a = editingEl();
+    if (!a) return true;
     return a._commit('nav') !== false;
   }
   function moveFrom(inp, dir) {
@@ -1200,9 +1291,15 @@
       focusVal = inp.value;
       if (typeof dkBxFocus === 'function') { try { dkBxFocus({ athleteId: aid, wi: wi, di: d.idx, ei: x.idx, label: x.full || x.title }); } catch (e) {} }
     });
+    // Guarded three ways: S.busy (a redraw in progress), isConnected (the cell was redrawn away), and _committing (a
+    // nested blur, as WebKit can fire one when focus moves inside a blur handler: unverified in Safari).
     var commit = function (why, want) {
-      if (S.busy || !inp.isConnected || inp.readOnly) return true;
+      if (S.busy || !inp.isConnected || inp.readOnly || inp._committing) return true;
       if (inp.value === focusVal) { inp.classList.remove('is-bad'); inp.removeAttribute('aria-invalid'); return true; }
+      inp._committing = true;
+      try { return commitNow(why, want); } finally { inp._committing = false; }
+    };
+    var commitNow = function (why, want) {
       var op;
       if (col === 'w') {
         var prog = progOf(aid), ex = prog && prog.weeks[wi] && prog.weeks[wi].days[d.idx] && prog.weeks[wi].days[d.idx].exercises[x.idx];
@@ -1378,7 +1475,7 @@
     var rev = deskWeekReview(progOf(aid));
     S.sug = rev.nextIdx === wi ? { prog: prog.id, wi: wi } : null;
     afterEdit({ scope: 'all' });
-    say('Week ' + wn(prog, wi) + ' written from week ' + wn(prog, res.from) + (res.draft ? ' as a draft: ' + first((athleteOf(aid) || {}).name) + ' sees it when you publish' : ': it’s live, a week after it is published') + '. ' + (mac() ? '⌘Z' : 'Ctrl Z') + ' undoes it');
+    say('Week ' + wn(prog, wi) + ' written from week ' + wn(prog, res.from) + (res.draft ? ' as a draft: ' + first((athleteOf(aid) || {}).name) + ' sees it when you publish' : draftsOn() ? ': it’s live (a week after it is published)' : '') + '. ' + (mac() ? '⌘Z' : 'Ctrl Z') + ' undoes it');
   }
   // "Write them": the weeks between the block's end and the meet, appended to this block as drafts (the program id stays,
   // nothing is archived), the first selected and written.
@@ -1400,7 +1497,7 @@
     var rev = deskWeekReview(progOf(aid));
     S.sug = rev.nextIdx === at ? { prog: prog.id, wi: at } : null;
     afterEdit({ scope: 'all' });
-    say(plural(n, 'week') + ' added to ' + (prog.name || 'the block') + ' as drafts; week ' + wn(progOf(aid), at) + ' written from week ' + wn(prog, res && res.from != null ? res.from : src) + '. ' + (mac() ? '⌘Z' : 'Ctrl Z') + ' undoes it');
+    say(plural(n, 'week') + ' added to ' + (prog.name || 'the block') + (draftsOn() ? ' as drafts' : '') + '; week ' + wn(progOf(aid), at) + ' written from week ' + wn(prog, res && res.from != null ? res.from : src) + '. ' + (mac() ? '⌘Z' : 'Ctrl Z') + ' undoes it');
   }
   function addWeek(aid, write) {
     var prog = progOf(aid);
@@ -1528,6 +1625,7 @@
     [['athletes', 'Lifters', aths.length], ['teams', 'Teams', teams.length], ['templates', 'Templates', tpls.length]].forEach(function (x) {
       var on = mode === x[0];
       var b = E('button', { type: 'button', class: 'dp-tab' + (on ? ' on' : ''), role: 'tab', 'aria-selected': String(on) }, x[1], E('span', { class: 'dp-tab-n' }, x[2] ? String(x[2]) : ''));
+      hold(b);
       b.addEventListener('click', function () {
         if (on) return;
         if (!commitOpen()) return;
@@ -1547,7 +1645,8 @@
     head.appendChild(sw);
     list.appendChild(head);
     list.appendChild(E('div', { class: 'dk-lane dk-pb-rows dp-rows' }));
-    paintRows(list);
+    // Templates: the desk's own rows (each template, and Bring a template in); Lifters: ours (dkPaintPbRows routes).
+    if (typeof dkPaintPbRows === 'function') dkPaintPbRows(list); else paintRows(list);
   }
   function paintRows(list) {
     var box = list.querySelector('.dk-pb-rows');
@@ -1570,6 +1669,7 @@
         row.appendChild(main);
         if (x.s.text) row.appendChild(E('span', { class: 'dp-lstat' + (x.s.write ? ' is-write' : '') + (/draft$/i.test(x.s.text) ? ' is-draft' : '') }, x.s.text));
         row.setAttribute('aria-label', x.a.name + ', ' + x.s.line + (x.s.text ? ', ' + x.s.text : ''));
+        hold(row);
         row.addEventListener('click', function () { if (on) return; if (!commitOpen()) return; openLifter(x.a.id); });
         box.appendChild(row);
       });
@@ -1845,6 +1945,6 @@
     model: model, exLines: exLines, roleOf: roleOf, loadCell: loadCell, effortCell: effortCell, liftedOf: liftedOf, gapCls: gapCls, setGap: setGap, weekState: weekState,
     parseLoadCell: parseLoadCell, parseEffortCell: parseEffortCell, fieldsPatch: fieldsPatch, planCell: planCell, stepCell: stepCell, typedLineSets: typedLineSets,
     refuse: refuse, mutate: mutate, writeSource: writeSource, writeWeek: writeWeek, appendWeeks: appendWeeks, keepDraftsTrailing: keepDraftsTrailing,
-    listStatus: listStatus, crimson: crimson, seedAccessories: seedAccessories, isRest: isRest
+    listStatus: listStatus, crimson: crimson, pendingSuggestions: pendingSuggestions, seedAccessories: seedAccessories, isRest: isRest
   };
 })();
