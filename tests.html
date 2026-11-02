@@ -7666,84 +7666,128 @@ test('the coach demo: Arjun\'s Base Block for Sarah, from his maxes to hers', ()
 });
 
 group('capacity (capacity.js)');
-const CAPM = { program: 10, message: 2, formCheck: 6, checkin: 2, note: 3 };
-const CAPT = { program: 1, messages: 3, formChecks: 0.5, checkins: 1, notes: 1 };   // 10 + 6 + 3 + 2 + 3 = 24 min
-test('20 lifters at 24 min with 10 h: about 25, 5 more; +5 / +10 / +20 need 10 / 12 / 16 h', () => {
+const CAPM = { review: 10, program: 15, message: 2, formCheck: 6, checkin: 3, note: 3 };
+const CAPS = { review: 1, program: 1, messages: 3, formChecks: 0.5, checkins: 1, notes: 1 };   // 10 + 15 + 6 + 3 + 3 + 3 = 40 min
+test('the standard: 40 min a lifter a week with the defaults, in six tasks that add up', () => {
   assert(typeof capacityEstimate === 'function' && window.Capacity, 'capacity.js is loaded');
-  const r = capacityEstimate({ lifters: 20, perLifterWeek: CAPT, minutes: CAPM, hours: 10, seats: 25 });
-  eq(r.minPerLifter, 24); eq(r.weekMinutes, 480); eq(r.capacity, 25); eq(r.more, 5);
-  eq(r.rows.map(x => x.add + ':' + x.lifters + ':' + x.hours + ':' + (x.over ? 'over' : 'ok')).join(), '5:25:10:ok,10:30:12:over,20:40:16:over');
+  eq(JSON.stringify(Capacity.DEFAULT_MINUTES), JSON.stringify(CAPM));
+  eq(JSON.stringify(Capacity.STANDARD), JSON.stringify(CAPS));
+  const r = capacityEstimate({ lifters: 20, hours: 10 });
+  eq(r.minPerLifter, 40, 'no minutes or counts given: the standard');
+  eq(r.tasks.map(t => t.key + ' ' + t.shown).join(), 'program 15,review 10,messages 6,formChecks 3,checkins 3,notes 3', 'biggest first');
+  eq(r.tasks.reduce((s, t) => s + t.shown, 0), 40, 'the parts add up to the whole');
+  const m = r.tasks.find(t => t.key === 'messages');
+  eq(m.count, 3, 'three messages a lifter a week'); eq(m.each, 2, 'two minutes each');
+});
+test('editing a task changes the standard; a task at 0 leaves the list; bad minutes are clamped', () => {
+  eq(capacityEstimate({ lifters: 20, minutes: { review: 20 }, hours: 10 }).minPerLifter, 50, 'reviewing at 20 min: 50 min');
+  eq(capacityEstimate({ lifters: 20, minutes: { message: 3 }, hours: 10 }).minPerLifter, 43, 'messages at 3 min each: 9 a week');
+  const z = capacityEstimate({ lifters: 20, minutes: { formCheck: 0 }, hours: 10 });
+  eq(z.minPerLifter, 37); assert(!z.tasks.some(t => t.key === 'formChecks'), 'no form checks: no row');
+  const b = capacityEstimate({ lifters: 20, minutes: { program: 'x', message: -4, formCheck: 600 }, hours: 10 });
+  eq(b.minutes.program, 15, 'not a number: the default'); eq(b.minutes.message, 0, 'never below zero'); eq(b.minutes.formCheck, 120, 'two hours at most');
+  const r = capacityEstimate({ lifters: 4, minutes: { formCheck: 5 }, hours: 10 });   // 2.5 min of form checks a week
+  eq(r.minPerLifter, 40, '10 + 15 + 6 + 2.5 + 3 + 3 = 39.5'); eq(r.tasks.reduce((s, t) => s + t.shown, 0), 40, 'whole minutes that still add up');
+});
+test('20 lifters at 40 min with 10 h: 13 h 20 min a week, 3 h 20 min over, 15 get the full 40 min', () => {
+  const r = capacityEstimate({ lifters: 20, hours: 10, seats: 25 });
+  eq(r.weekMinutes, 800); eq(r.minutesHave, 600); eq(r.overMinutes, 200); eq(r.spareMinutes, 0);
+  eq(r.capacity, 15); eq(r.more, -5);
+  eq(Capacity.durText(r.weekMinutes), '13 h 20 min');
+  eq(Capacity.lineText(r), 'That’s 3 h 20 min more than you set. At 10 h, 15 lifters get the full 40 min.');
+  eq(Capacity.lineText(r, true), 'That’s <b>3\u00a0h\u00a020\u00a0min</b> more than you set. At\u00a010\u00a0h, <b>15 lifters</b> get the full 40\u00a0min.', 'on screen: the numbers bold, no duration split over two lines, nor “At” from its hours');
   eq(r.seats.limit, 25); eq(r.seats.left, 5);
 });
-test('the minutes a task takes default to 10 / 2 / 6 / 2 / 3, and bad ones are clamped', () => {
-  eq(JSON.stringify(Capacity.DEFAULT_MINUTES), JSON.stringify(CAPM));
-  const a = capacityEstimate({ lifters: 20, perLifterWeek: CAPT, hours: 10 });
-  eq(a.minPerLifter, 24, 'no minutes given: the defaults');
-  const b = capacityEstimate({ lifters: 20, perLifterWeek: CAPT, minutes: { program: 'x', message: -4, formCheck: 600 }, hours: 10 });
-  eq(b.minutes.program, 10, 'not a number: the default'); eq(b.minutes.message, 0, 'never below zero'); eq(b.minutes.formCheck, 120, 'two hours at most');
+test('room: whole lifters only (15 h: 22, room for 2), one more, exactly full, nobody yet', () => {
+  const r = capacityEstimate({ lifters: 20, hours: 15 });
+  eq(r.capacity, 22, '900 / 40 = 22.5: 22 get the full 40 min'); eq(r.more, 2); eq(r.overMinutes, 0); eq(r.spareMinutes, 100);
+  eq(Capacity.lineText(r), 'Room for 2 more lifters at 40 min each.');
+  eq(Capacity.lineText(capacityEstimate({ lifters: 14, hours: 10 })), 'Room for 1 more lifter at 40 min.');
+  const full = capacityEstimate({ lifters: 15, hours: 10 });
+  eq(full.more, 0); eq(full.overMinutes, 0); eq(Capacity.lineText(full), 'That fills your 10 h.');
+  const near = capacityEstimate({ lifters: 13, minutes: { review: 15 }, hours: 10 });   // 45 min each: 585 of 600, no room for a 14th
+  eq(near.more, 0); eq(near.spareMinutes, 15); eq(Capacity.lineText(near), 'That fills your 10 h.');
+  const none = capacityEstimate({ lifters: 0, hours: 10 });
+  eq(none.weekMinutes, 0); eq(none.capacity, 15); eq(none.more, 15); eq(Capacity.lineText(none), 'Room for 15 lifters in your 10 h.');
 });
-test('where the time goes: one entry per task, the biggest first, empty tasks left out', () => {
-  const r = capacityEstimate({ lifters: 20, perLifterWeek: Object.assign({}, CAPT, { formChecks: 0 }), minutes: CAPM, hours: 10 });
-  eq(r.tasks.map(t => t.key + ' ' + t.perLifter).join(), 'program 10,messages 6,notes 3,checkins 2');
-  eq(r.tasks[1].count, 3, 'three messages a lifter a week'); eq(r.tasks[1].each, 2, 'two minutes each');
-  eq(r.minPerLifter, 21);
+test('over by a little; one lifter; so far over nobody gets the full time; every task at 0', () => {
+  const r = capacityEstimate({ lifters: 20, hours: 13 });
+  eq(r.overMinutes, 20); eq(r.capacity, 19);
+  eq(Capacity.lineText(r), 'That’s 20 min more than you set. At 13 h, 19 lifters get the full 40 min.');
+  eq(Capacity.lineText(capacityEstimate({ lifters: 3, hours: 1 })), 'That’s 1 h more than you set. At 1 h, 1 lifter gets the full 40 min.');
+  eq(Capacity.lineText(capacityEstimate({ lifters: 3, minutes: { review: 60 }, hours: 1 })), 'That’s 3 h 30 min more than you set. At 1 h, no lifter gets the full 1 h 30 min.', '90 min each');
+  const z = capacityEstimate({ lifters: 4, minutes: { review: 0, program: 0, message: 0, formCheck: 0, checkin: 0, note: 0 }, hours: 10 });
+  eq(z.minPerLifter, 0); eq(z.capacity, null); eq(z.more, null); eq(z.rows.length, 0); eq(z.tasks.length, 0);
+  eq(Capacity.lineText(z), 'Every task is at 0 min. Change minutes to set how long each one takes you.');
 });
-test('where the time goes in whole minutes that add up to the big number; counts in words', () => {
-  const r = capacityEstimate({ lifters: 4, perLifterWeek: { program: 1, messages: 3.375, formChecks: 0.5, checkins: 0.875, notes: 0.875 }, minutes: CAPM, hours: 10 });
-  eq(r.minPerLifter, 24, '10 + 6.75 + 3 + 1.75 + 2.625');
-  eq(r.tasks.map(t => t.key + ' ' + t.shown).join(), 'program 10,messages 7,formChecks 3,notes 2,checkins 2');
-  eq(r.tasks.reduce((s, t) => s + t.shown, 0), 24, 'the parts add up to the whole');
-  eq(Capacity.countText(3.4, 'message', 'messages'), 'About 3 messages a lifter a week');
-  eq(Capacity.countText(0.9, 'check-in', 'check-ins'), 'About 1 check-in a lifter a week');
-  eq(Capacity.countText(0.5, 'form check', 'form checks'), '1 form check a lifter every 2 weeks');
-  eq(Capacity.countText(0.2, 'form check', 'form checks'), '1 form check a lifter a month');
-  eq(Capacity.countText(0.05, 'form check', 'form checks'), 'Now and then');
+test('durations the way a coach says them: exact hours and minutes, an estimate to the 5 from an hour up; how often in words', () => {
+  const d = Capacity.durText;
+  eq(d(40), '40 min'); eq(d(0), '0 min'); eq(d(60), '1 h'); eq(d(800), '13 h 20 min'); eq(d(59.6), '1 h'); eq(d(-5), '0 min');
+  eq(d(164), '2 h 44 min', 'the roster\'s hours are an exact sum: 4 lifters at 41 min');
+  eq(d(149, true), '2 h 30 min', 'about: to the nearest 5'); eq(d(147, true), '2 h 25 min'); eq(d(38, true), '38 min', 'under an hour: the minute');
+  eq(Capacity.oftenText(3), '3 a week'); eq(Capacity.oftenText(1), '1 a week'); eq(Capacity.oftenText(0.5), '1 every 2 weeks');
+  eq(Capacity.oftenText(0.2), '1 a month'); eq(Capacity.oftenText(0.05), 'Now and then');
 });
-test('over the hours: fewer than now, and the rows over the hours are flagged', () => {
-  const r = capacityEstimate({ lifters: 30, perLifterWeek: CAPT, minutes: CAPM, hours: 10 });
-  eq(r.capacity, 25); eq(r.more, -5); eq(r.weekMinutes, 720);
-  assert(r.rows.every(x => x.over), 'every row is over 10 h');
+test('taking on more: +5 / +10 / +20 in hours and minutes, and how far past your hours', () => {
+  const r = capacityEstimate({ lifters: 20, hours: 15 });
+  eq(r.rows.map(x => x.add + ':' + Capacity.durText(x.minutes) + ':' + Capacity.durText(x.over)).join(), '5:16 h 40 min:1 h 40 min,10:20 h:5 h,20:26 h 40 min:11 h 40 min');
+  const roomy = capacityEstimate({ lifters: 4, hours: 15 });
+  eq(roomy.rows.map(x => x.over).join(), '0,0,60', '+20 is the first past 15 h: 24 × 40 min = 16 h');
 });
-test('hours needed round up to the half hour; the minutes per lifter round to the minute', () => {
-  const r = capacityEstimate({ lifters: 20, perLifterWeek: { program: 1, messages: 2.3, formChecks: 0.5, checkins: 1, notes: 0.6 }, minutes: CAPM, hours: 10 });
-  eq(r.minPerLifter, 21, '10 + 4.6 + 3 + 2 + 1.8 = 21.4');
-  eq(r.rows.map(x => x.hours).join(), '9,10.5,14', '25 × 21 = 525 min, 30 × 21 = 630, 40 × 21 = 840');
-  eq(r.capacity, 28, '600 / 21');
+test('save time on the standard: minutes a week back across the roster, the biggest first', () => {
+  const r = capacityEstimate({ lifters: 20, hours: 15 });
+  // rules: 20 weeks written × 15 min × ½ = 150; notes: 20 × (3 − 1) = 40; replies: 60 × 2 ÷ 3 = 40; report: 20 × 3 × ½ = 30
+  eq(r.saves.map(s => s.feature + ' ' + s.minutes).join(), 'rules 150,notes 40,replies 40,report 30');
+  eq(Capacity.durText(r.saves[0].minutes), '2 h 30 min');
+  const q = capacityEstimate({ lifters: 20, minutes: { note: 0 }, hours: 15 });
+  assert(!q.saves.some(s => s.feature === 'notes'), 'no weekly notes: the drafts save nothing, no row');
+  eq(capacityEstimate({ lifters: 0, hours: 15 }).saves.length, 0, 'nobody yet: nothing to give back');
 });
-test('a new coach: nobody yet, the estimate still answers (typical lifter), and no work at all gives no number', () => {
-  const r = capacityEstimate({ lifters: 0, perLifterWeek: CAPT, minutes: CAPM, hours: 10 });
-  eq(r.weekMinutes, 0); eq(r.capacity, 25); eq(r.more, 25);
-  const z = capacityEstimate({ lifters: 4, perLifterWeek: { program: 0, messages: 0, formChecks: 0, checkins: 0, notes: 0 }, minutes: CAPM, hours: 10 });
-  eq(z.minPerLifter, 0); eq(z.capacity, null); eq(z.more, null); eq(z.rows.length, 0);
-});
-test('hours: never negative, at most a week; the plan: no limit at Premium', () => {
-  eq(capacityEstimate({ lifters: 5, perLifterWeek: CAPT, hours: -3 }).capacity, 0);
-  eq(capacityEstimate({ lifters: 5, perLifterWeek: CAPT, hours: 'lots' }).hours, 0);
-  eq(capacityEstimate({ lifters: 5, perLifterWeek: CAPT, hours: 900 }).hours, 168);
-  const p = capacityEstimate({ lifters: 5, perLifterWeek: CAPT, hours: 10, seats: 9999 });
+test('hours: never negative, at most a week; the plan: seats left, no limit at Premium, nothing without a plan', () => {
+  eq(capacityEstimate({ lifters: 5, hours: -3 }).capacity, 0);
+  eq(capacityEstimate({ lifters: 5, hours: 'lots' }).hours, 0);
+  eq(capacityEstimate({ lifters: 5, hours: 900 }).hours, 168);
+  const p = capacityEstimate({ lifters: 5, hours: 10, seats: 9999 });
   eq(p.seats.limit, null); eq(p.seats.left, null);
-  eq(capacityEstimate({ lifters: 5, perLifterWeek: CAPT, hours: 10 }).seats, null, 'no plan given: nothing about seats');
+  eq(capacityEstimate({ lifters: 30, hours: 10, seats: 25 }).seats.left, 0, 'never below zero');
+  eq(capacityEstimate({ lifters: 5, hours: 10 }).seats, null, 'no plan given: nothing about seats');
 });
-test('save time: minutes a week each feature saves from your own numbers, the biggest first', () => {
-  const r = capacityEstimate({ lifters: 20, perLifterWeek: CAPT, minutes: CAPM, hours: 10 });
-  // rules: 20 weeks written × 10 min × ½ = 100; notes: 20 × (3 − 1) = 40; replies: 60 × 2 ÷ 3 = 40; report: 20 × 2 × ½ = 20
-  eq(r.saves.map(s => s.feature + ' ' + s.minutes).join(), 'rules 100,notes 40,replies 40,report 20');
-  const q = capacityEstimate({ lifters: 20, perLifterWeek: Object.assign({}, CAPT, { notes: 0 }), minutes: CAPM, hours: 10 });
-  assert(!q.saves.some(s => s.feature === 'notes'), 'no notes sent: the drafts save nothing, no row');
+test('settings: the new shape, and the first version still loads (hours and changed minutes kept, its old defaults move, review gets 10)', () => {
+  const s0 = Capacity.settingsOf(null);
+  eq(s0.v, 2); eq(s0.hours, null); eq(JSON.stringify(s0.minutes), JSON.stringify(CAPM));
+  const v1 = Capacity.settingsOf({ hours: 12, minutes: { program: 10, message: 3, formCheck: 6, checkin: 2, note: 4 } });
+  eq(v1.hours, 12);
+  eq(v1.minutes.program, 15, 'v1 wrote its default 10: the new default'); eq(v1.minutes.checkin, 3, 'v1 wrote its default 2: the new default');
+  eq(v1.minutes.message, 3, 'a minute the coach changed stays'); eq(v1.minutes.note, 4); eq(v1.minutes.review, 10, 'the new task: its default');
+  eq(Capacity.settingsOf({ hours: 8, minutes: { program: 20 } }).minutes.program, 20, 'v1, changed: kept');
+  const v2 = Capacity.settingsOf({ v: 2, hours: 9, minutes: { program: 10, checkin: 2, review: 12 } });
+  eq(v2.minutes.program, 10, 'v2: 10 is the coach\'s choice'); eq(v2.minutes.checkin, 2); eq(v2.minutes.review, 12);
+  eq(Capacity.settingsOf({ hours: 'x' }).hours, null, 'hours not a number: not set');
+  eq(Capacity.settingsOf([1, 2]).hours, null, 'not an object: nothing set');
 });
-test('signals: a block a week per lifter with one, messages and notes from the tally, scaled to the weeks it covers', () => {
+test('signals: a week written per lifter with a block, messages and notes from the tally, scaled to the weeks it covers', () => {
   const T0 = '2026-10-27';
   const lifters = [{ id: 'a', hasProgram: true }, { id: 'b', hasProgram: true }, { id: 'c', hasProgram: true }, { id: 'd', hasProgram: false }];
-  const s = capacitySignals({ today: T0, lifters, tally: { weeks: 4, messages: 48, notes: 12, formChecks: 8, checkins: 14 } });
+  const s = capacitySignals({ today: T0, lifters, tally: { weeks: 4, messages: 48, notes: 12, formChecks: 8, checkins: 14 }, logs: [] });
   eq(s.perLifterWeek.program, 0.75); eq(s.perLifterWeek.messages, 3); eq(s.perLifterWeek.notes, 0.75);
-  eq(s.perLifterWeek.formChecks, 0.5); eq(s.perLifterWeek.checkins, 0.875); eq(s.typical.length, 0);
-  const half = capacitySignals({ today: T0, lifters, tally: { weeks: 2, messages: 24, notes: 6 }, trained: true });
+  eq(s.perLifterWeek.formChecks, 0.5); eq(s.perLifterWeek.checkins, 0.875); eq(s.perLifterWeek.review, 0); eq(s.typical.length, 0);
+  const half = capacitySignals({ today: T0, lifters, tally: { weeks: 2, messages: 24, notes: 6 }, trained: true, logs: [] });
   eq(half.perLifterWeek.messages, 3, '24 in the 2 weeks the last 500 messages cover'); eq(half.perLifterWeek.notes, 0.75);
+});
+test('signals: training reviewed, a lifter\'s week with any logged set counting once', () => {
+  const T0 = '2026-10-27';   // a Tuesday: the 4 weeks run from 30 Sep
+  const lifters = [{ id: 'a', hasProgram: true }, { id: 'b', hasProgram: true }];
+  const logs = [{ athleteId: 'a', date: '2026-10-27' }, { athleteId: 'a', date: '2026-10-26' }, { athleteId: 'a', date: '2026-10-20' },
+    { athleteId: 'b', date: '2026-10-21' }, { athleteId: 'b', date: '2026-09-15' }, { athleteId: 'x', date: '2026-10-21' }, null];
+  const s = capacitySignals({ today: T0, lifters, trained: true, tally: { weeks: 4, messages: 0, notes: 0 }, logs });
+  eq(s.perLifterWeek.review, 0.375, 'a: two weeks (Mon 26 and Tue 27 are one), b: one (15 Sep is too old), x is not on the roster: 3 of 8 lifter-weeks');
+  assert(s.typical.indexOf('review') < 0, 'counted');
+  assert(capacitySignals({ today: T0, lifters, trained: true, tally: { weeks: 4, messages: 0, notes: 0 } }).typical.indexOf('review') >= 0, 'no logs given: the standard stands in');
 });
 test('signals: form checks answered, check-ins and note replies from what the device holds (the last 4 weeks)', () => {
   const T0 = '2026-10-27';
   const lifters = [{ id: 'a', hasProgram: true }, { id: 'b', hasProgram: true }, { id: 'c', hasProgram: true }, { id: 'd', hasProgram: true }];
-  const s = capacitySignals({ today: T0, lifters, trained: true, tally: { weeks: 4, messages: 0, notes: 0 },
+  const s = capacitySignals({ today: T0, lifters, trained: true, tally: { weeks: 4, messages: 0, notes: 0 }, logs: [],
     formChecks: [{ coachReplyAt: '2026-10-26T10:00:00Z' }, { coachReplyAt: '2026-10-20T10:00:00Z' }, { coachReplyAt: '2026-10-05T10:00:00Z' }, { coachReplyAt: '2026-10-01T09:00:00Z' }, { coachReplyAt: '2026-09-20T10:00:00Z' }, { coachReplyAt: null }],
     checkins: [{ athleteId: 'b', weekStart: '2026-10-19', createdAt: '2026-10-20T08:00:00Z' }, { athleteId: 'b', weekStart: '2026-10-05', createdAt: '2026-10-06T08:00:00Z' }],
     checkinAnswers: ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25'].map(d => ({ athleteId: 'a', period: d })).concat([{ athleteId: 'b', period: '2026-10-21' }]),
@@ -7752,24 +7796,45 @@ test('signals: form checks answered, check-ins and note replies from what the de
   eq(s.perLifterWeek.checkins, 0.1875, 'a: one week (seven daily answers), b: two weeks (its answer joins the same week) → 3 lifter-weeks');
   eq(s.perLifterWeek.messages, 0.125, 'two replies to session notes');
 });
-test('signals: no history yet (nobody trained, no tally) → a typical lifter, and it says which parts', () => {
+test('signals: no history yet (nobody trained, no tally) → the standard stands in, and it says which parts', () => {
   const s = capacitySignals({ today: '2026-10-27', lifters: [{ id: 'a', hasProgram: false }], trained: false });
-  eq(s.perLifterWeek.messages, Capacity.TYPICAL.messages); eq(s.perLifterWeek.notes, Capacity.TYPICAL.notes);
+  eq(s.perLifterWeek.messages, Capacity.STANDARD.messages); eq(s.perLifterWeek.notes, Capacity.STANDARD.notes);
   eq(s.perLifterWeek.program, 0, 'no block yet: no weeks to write');
-  eq(s.typical.slice().sort().join(), 'checkins,formChecks,messages,notes');
+  eq(s.typical.slice().sort().join(), 'checkins,formChecks,messages,notes,review');
   const n = capacitySignals({ today: '2026-10-27', lifters: [] });
-  eq(n.perLifterWeek.program, 1, 'nobody yet: a typical lifter has a block'); eq(n.typical.length, 5);
-  const m = capacitySignals({ today: '2026-10-27', lifters: [{ id: 'a', hasProgram: true }], trained: true });
-  eq(m.typical.slice().sort().join(), 'messages,notes', 'messages not loaded yet: typical until the tally comes');
+  eq(n.perLifterWeek.program, 1, 'nobody yet: the standard'); eq(n.typical.length, 6);
+  const m = capacitySignals({ today: '2026-10-27', lifters: [{ id: 'a', hasProgram: true }], trained: true, logs: [] });
+  eq(m.typical.slice().sort().join(), 'messages,notes', 'messages not loaded yet: standing in until the tally comes');
 });
-test('the demo coach: 10 h and an estimate from the demo\'s own four weeks', () => {
+test('the quiet line: what each lifter got from you, only on a real account with real history, never the demo', () => {
+  const T0 = '2026-10-27';
+  const lifters = [{ id: 'a', hasProgram: true }, { id: 'b', hasProgram: true }, { id: 'c', hasProgram: true }, { id: 'd', hasProgram: false }];
+  const tally = { weeks: 4, messages: 48, notes: 12, formChecks: 8, checkins: 14 };
+  const logs = [];
+  ['a', 'b', 'c', 'd'].forEach(id => ['2026-10-06', '2026-10-13', '2026-10-20', '2026-10-27'].forEach(date => logs.push({ athleteId: id, date })));
+  const sig = capacitySignals({ today: T0, lifters, tally, trained: true, logs });
+  // reviewed 1 × 10 + written 0.75 × 15 + messages 3 × 2 + form checks 0.5 × 6 + check-ins 0.875 × 3 + notes 0.75 × 3 = 35.125
+  eq(Capacity.measuredMinutes({ lifters: 4, trained: true, tally, signals: sig }), 35);
+  eq(Capacity.measuredMinutes({ lifters: 4, trained: true, tally, signals: sig, minutes: { review: 0, program: 0 } }), 14, 'at the coach\'s own minutes');
+  eq(Capacity.measuredMinutes({ demo: true, lifters: 4, trained: true, tally, signals: sig }), null, 'never the demo');
+  eq(Capacity.measuredMinutes({ lifters: 4, trained: false, tally, signals: sig }), null, 'nobody trained here: no history');
+  eq(Capacity.measuredMinutes({ lifters: 4, trained: true, tally: null, signals: sig }), null, 'messages not counted yet');
+  const part = capacitySignals({ today: T0, lifters, trained: true, logs });   // no tally: messages and notes stand in
+  eq(Capacity.measuredMinutes({ lifters: 4, trained: true, tally: {}, signals: part }), null, 'a part standing in: no line');
+  eq(Capacity.measuredMinutes({ lifters: 0, trained: true, tally, signals: sig }), null, 'nobody yet');
+  const idle = capacitySignals({ today: T0, lifters: [{ id: 'a', hasProgram: false }], tally: { weeks: 4, messages: 0, notes: 0, formChecks: 0, checkins: 0 }, trained: true, logs: [] });
+  eq(Capacity.measuredMinutes({ lifters: 1, trained: true, tally: { weeks: 4 }, signals: idle }), null, 'under a minute says nothing');
+});
+test('the demo coach: 15 h; the laptop\'s twenty need 13 h 20 min (room for 2), and the demo never shows the quiet line', () => {
+  eq(Capacity.DEMO_HOURS, 15);
+  const desk = capacityEstimate({ lifters: 20, hours: Capacity.DEMO_HOURS });
+  eq(Capacity.durText(desk.weekMinutes), '13 h 20 min'); eq(Capacity.lineText(desk), 'Room for 2 more lifters at 40 min each.');
   const CD = _buildCoachDemoData();
-  assert(CD.store.coachTally && CD.store.coachTally.weeks === 4, 'the demo carries four weeks of the coach\'s work');
   const lifters = CD.store.athletes.map(a => ({ id: a.id, hasProgram: CD.store.programs.some(p => p.athleteId === a.id) }));
-  const s = capacitySignals({ today: todayISO(), lifters, tally: CD.store.coachTally, trained: true });
-  const r = capacityEstimate({ lifters: lifters.length, perLifterWeek: s.perLifterWeek, minutes: CAPM, hours: 10 });
-  assert(r.minPerLifter >= 18 && r.minPerLifter <= 30, 'a believable load per lifter, got ' + r.minPerLifter);
-  eq(Capacity.DEMO_HOURS, 10);
+  const sig = capacitySignals({ today: todayISO(), lifters, tally: CD.store.coachTally, trained: true, logs: CD.store.workoutLogs });
+  eq(Capacity.measuredMinutes({ demo: true, lifters: lifters.length, trained: true, tally: CD.store.coachTally, signals: sig }), null);
+  const r = capacityEstimate({ lifters: lifters.length, hours: Capacity.DEMO_HOURS });
+  eq(r.minPerLifter, 40); assert(r.more > 0, 'the phone demo has room');
 });
 
 group('busy weeks (busy-week.js)');

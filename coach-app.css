@@ -2337,9 +2337,9 @@ html:not(.desk) body.powa-app .md-root.md-planner .md-link { position: relative;
 html:not(.desk) body.powa-app .md-root.md-planner .md-link::after { content: ''; position: absolute; inset: -6px -4px; }
 html:not(.desk) body.powa-app .md-root.md-planner .md-note { font-size: 17px; }
 
-/* Capacity and Progression rules: rows 17, words 15, the crimson 52 / 17 */
+/* Your coaching week and Progression rules: rows 17, words 15, the crimson 52 / 17 */
 html:not(.desk) body.powa-app .cap-root.is-phone :is(.cap-per, .cap-say) { font-size: 15px; }
-html:not(.desk) body.powa-app .cap-root.is-phone :is(.cap-rt, .cap-tl, .cap-st) { font-size: 17px; }
+html:not(.desk) body.powa-app .cap-root.is-phone :is(.cap-rt, .cap-tl, .cap-stx) { font-size: 17px; }
 html:not(.desk) body.powa-app :is(.cap-root.is-phone .cl-btn.red.cap-invite, .prg-root.is-phone .cl-btn.red.prg-add) { height: 52px; font-size: 17px !important; font-weight: 650 !important; }
 html:not(.desk) body.powa-app .prg-root.is-phone :is(.prg-sent, .prg-tok, .prg-sel, .prg-pvr, .prg-et b, .prg-opt .ui-row-title) { font-size: 17px; }
 html:not(.desk) body.powa-app .prg-sheet .prg-sheet-row span { font-size: 17px; }

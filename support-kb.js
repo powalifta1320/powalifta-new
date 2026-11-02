@@ -1616,18 +1616,22 @@ window.POWA_SUPPORT_KB = [
   "q": "How many more lifters can I take on?",
   "t": [
    "capacity",
+   "coaching week",
+   "your coaching week",
    "how many lifters can i coach",
    "how many more lifters",
    "take on more lifters",
    "hours a week",
+   "how many hours",
    "time per lifter",
    "minutes per lifter",
+   "time each lifter gets",
    "where does my time go",
    "am i at capacity",
    "too many lifters"
   ],
-  "a": "Open **Capacity** (You › Capacity on the phone; Settings › **Plan & seats** on the laptop). It counts the work each lifter made you in your last 4 weeks (a week to write for each lifter with a block, the messages you sent, form checks you answered, check-ins and weekly notes) at the minutes each task takes, and says it big: about how many minutes a lifter takes you each week. Set **your hours a week** and it tells you how many lifters fit and how many more than now, with the hours +5, +10 and +20 lifters would need (in amber past your hours). Tap **Where the time goes** to change how long each task takes you, and **Save time** shows what would give you time back. Until you have a few weeks here it uses a typical lifter.",
-  "app": "Open You › **Capacity**. It counts the work each lifter made you in your last 4 weeks (a week to write for each lifter with a block, the messages you sent, form checks you answered, check-ins and weekly notes) at the minutes each task takes, and says it big: about how many minutes a lifter takes you each week. Set **your hours a week** and it tells you how many lifters fit and how many more than now, with the hours +5, +10 and +20 lifters would need (in amber past your hours). Tap **Where the time goes** to change how long each task takes you. Until you have a few weeks here it uses a typical lifter."
+  "a": "Open **Your coaching week** (You › Your coaching week on the phone; Settings › **Plan & seats** on the laptop). It starts from the time each lifter should get from you every week: 40 min to begin with (reviewing their training 10, writing next week 15, three messages 6, a form check every other week 3, their check-in 3 and a weekly note 3). The big number is the hours your roster needs at that, for example 13 h 20 min for 20 lifters, set against **your hours a week**: it says how many more lifters you have room for, or how far over your hours you are and how many lifters get the full time in them. **Taking on more** shows the week +5, +10 and +20 lifters would make. Tap **Where the time goes** to change how long each task takes you (0 leaves out anything you don't do), and **Save time** shows what gives you hours back. Once you've coached here for a few weeks, a quiet line says how much time each lifter actually got from you.",
+  "app": "Open You › **Your coaching week**. It starts from the time each lifter should get from you every week: 40 min to begin with (reviewing their training 10, writing next week 15, three messages 6, a form check every other week 3, their check-in 3 and a weekly note 3). The big number is the hours your roster needs at that, set against **your hours a week**: room for more lifters, or how far over your hours you are and how many lifters get the full time in them. **Taking on more** shows the week +5, +10 and +20 lifters would make. Tap **Where the time goes** to change how long each task takes you (0 leaves out anything you don't do), and **Save time** shows what gives you hours back. Once you've coached here for a few weeks, a quiet line says how much time each lifter actually got from you."
  },
  {
   "id": "lifter-busy-week",

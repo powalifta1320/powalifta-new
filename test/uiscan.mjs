@@ -2,7 +2,7 @@
 /*
  * Small-stuff scanner: the details a person notices and a unit test doesn't.
  *
- * Opens 350 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
+ * Opens 400+ screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
  * sheets (New challenge and a challenge's board among them, the import intake's steps, the two-factor code prompt, the coach's
  * Ask sheet, bell list, first-run tour and form-check review), the planner, the onboarding, every public page at desktop and phone width, dark and light) and
  * reports: sideways scroll, text overlapping text, controls overlapping controls, text cut off
@@ -83,8 +83,11 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-home-search' + suf, page: C, theme, eval: 'CoachApp.openSearch()' },
     { name: 'sh-home-checkins' + suf, page: C, theme, eval: 'CoachApp.openCheckins()' },
     { name: 'sh-home-wins' + suf, page: C, theme, eval: 'CoachApp.openWins()' });
-  // Capacity (You › Capacity) for the demo coach and a brand-new one; a lifter's busy-week sheet.
+  // Your coaching week (You › Your coaching week, capacity.js) for the demo coach and a brand-new one; a lifter's busy-week sheet.
+  // Past the coach's hours (2 h for the phone demo's four lifters: the amber bar and line) and the minutes sheet.
   screens.push({ name: 'c-capacity' + suf, page: C, theme, eval: tab('capacity') }, { name: 'f-capacity' + suf, page: F, theme, eval: tab('capacity') },
+    { name: 'c-capacity-over' + suf, page: C, theme, eval: "CoachSettings.set('capacity', { v: 2, hours: 2 }); " + tab('capacity') },
+    { name: 'sh-capacity-minutes' + suf, page: C, theme, eval: tab('capacity') + "; setTimeout(() => document.querySelector('.cap-root.is-phone .cap-edit').click(), 400)" },
     { name: 'sh-busy' + suf, page: A, theme, eval: 'BusyWeekUI.open()' });
   if (theme === 'dark') screens.push({ name: 'sh-busy-solo', page: SO, eval: 'BusyWeekUI.open()' }, { name: 'c-lifter-busy', page: C, eval: "CoachLifters.open('demo-a4')" });
   screens.push(
@@ -201,8 +204,10 @@ for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   for (const p of MORE_PUBLIC) screens.push({ name: pubName(p) + suf, page: p, mode: 'web', w, h });
   for (const p of ALL_PUBLIC) screens.push({ name: pubName(p) + suf + '-l', page: p, mode: 'web', w, h, theme: 'light' });
 }
-// The desk's Settings › Plan & seats with Capacity, dark and light.
-for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-capacity' + suf, page: C, mode: 'web', theme, eval: "localStorage.setItem('powa-desk-set', 'plan'); deskGo('settings')" });
+// The desk's Settings › Plan & seats with Your coaching week (capacity.js), dark and light, with room and past 10 h.
+// The desk takes its theme from applyTheme (as w-ws-swap and the rest), not from the stored key alone.
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-capacity' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "localStorage.setItem('powa-desk-set', 'plan'); deskGo('settings')" },
+  { name: 'w-capacity-over' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "CoachSettings.set('capacity', { v: 2, hours: 10 }); localStorage.setItem('powa-desk-set', 'plan'); deskGo('settings')" });
 // The desk's Career panel (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-career-panel' + suf, page: C, mode: 'web', theme, eval: "Career.openPanel('demo-a1');document.querySelectorAll('.cv-modal .cv-more').forEach(b => b.click())" });
 // The desk's Club with the coach's challenge, its whole board, and the planner's Aim for a total, dark and light.

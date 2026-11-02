@@ -1865,7 +1865,7 @@
     ['Invite a lifter', 'add new code link', function () { if (typeof openInviteModal === 'function') openInviteModal(); }],
     ['Lifter progress', 'charts e1rm trends roster', function () { tab('progress'); }],
     ['Progression rules', 'rules next week loads', function () { tab('rules'); }],
-    ['Capacity', 'hours seats time', function () { tab('capacity'); }],
+    ['Your coaching week', 'capacity hours seats time minutes lifters standard', function () { tab('capacity'); }],
     ['Settings', 'profile notifications units security you account', function () { tab('you'); }]
   ];
   function openSearch() {
