@@ -10825,6 +10825,95 @@ test('a lead\'s line also says the bodyweight and the next meet; a meet already 
   eq(Clients.leadLine({ email: 'x@example.com', bodyweight: 0 }), 'x@example.com');
 });
 
+group('desk v3 drop 2: Teams, seats, Settings (app.js)');
+// Push's button says what the push carries (desk-season.js dsTeamHead): one week, the block, or just how many.
+test('teamPushLabel: the week everyone gets, the block when it is whole, else how many; nothing to push is null', () => {
+  const pv = (rows, plan) => ({ rows, plan: { rows: plan }, pushing: rows.filter(r => r.push).length });
+  const up = (id) => ({ athleteId: id, push: true, action: 'update' });
+  eq(teamPushLabel(pv([up('a'), up('b'), { athleteId: 'c', push: false, action: 'same' }], [{ athleteId: 'a', changedWeeks: [4] }, { athleteId: 'b', changedWeeks: [4] }])), 'Push week 4 to 2 lifters');
+  eq(teamPushLabel(pv([up('a'), up('b')], [{ athleteId: 'a', changedWeeks: [2] }, { athleteId: 'b', changedWeeks: [3] }])), 'Push weeks 2 and 3 to 2 lifters');
+  eq(teamPushLabel(pv([up('a')], [{ athleteId: 'a', changedWeeks: [4, 2, 3] }])), 'Push weeks 2–4 to 1 lifter', 'a run of weeks, in order');
+  eq(teamPushLabel(pv([up('a')], [{ athleteId: 'a', changedWeeks: [1, 3, 5] }])), 'Push 3 weeks to 1 lifter', 'weeks apart: how many');
+  eq(teamPushLabel(pv([{ athleteId: 'h', push: true, action: 'create' }, { athleteId: 'i', push: true, action: 'replace' }], [])), 'Push the block to 2 lifters');
+  eq(teamPushLabel(pv([up('a'), { athleteId: 'h', push: true, action: 'create' }], [{ athleteId: 'a', changedWeeks: [4] }])), 'Push to 2 lifters', 'one gets a week, one the whole block: just how many');
+  eq(teamPushLabel(pv([up('a')], [{ athleteId: 'a', changedWeeks: [] }])), 'Push to 1 lifter', 'only the dates move');
+  eq(teamPushLabel(pv([{ athleteId: 'a', push: false, action: 'same' }], [])), null);
+  eq(teamPushLabel(null), null);
+});
+test('teamBlockLine: the block without the team\'s name, and where the team is today', () => {
+  const t = { name: 'Meet team', programName: 'Meet team · Strength', startsOn: '2026-10-26', weeks: [{}, {}, {}, {}] };
+  const now = teamBlockLine(t, '2026-11-02');
+  eq(now.block, 'Strength'); eq(now.state, 'now'); eq(now.idx, 1); eq(now.week, 'week 2 of 4'); eq(now.line, 'Strength · week 2 of 4');
+  eq(teamBlockLine(t, '2026-10-26').week, 'week 1 of 4', 'its first Monday is week 1');
+  eq(teamBlockLine(t, '2026-11-22').week, 'week 4 of 4', 'its last Sunday is still week 4');
+  const before = teamBlockLine(t, '2026-10-20');
+  eq(before.state, 'before'); eq(before.week, 'starts ' + fmtDateShort('2026-10-26'));
+  const after = teamBlockLine(t, '2026-11-23');
+  eq(after.state, 'after'); eq(after.week, 'ended ' + fmtDateShort('2026-11-22')); eq(after.idx, 3);
+  eq(teamBlockLine({ name: 'Uni', programName: 'Peak block', weeks: [{}, {}] }, '2026-11-02').line, 'Peak · 2 weeks', 'no start date: how long it is');
+  eq(teamBlockLine({ name: 'Uni', weeks: [] }, '2026-11-02').line, 'Nothing written yet');
+  eq(teamBlockLine({ name: 'Uni', programName: 'Volume', startsOn: '2026-11-04', weeks: [{}] }, '2026-11-02').week, 'week 1 of 1', 'a Wednesday start counts from its Monday');
+});
+test('teamNextMeet: the team\'s own meet, else the soonest planned meet of its lifters, and who is in it', () => {
+  const t = { members: [{ athleteId: 'a' }, { athleteId: 'b' }, { athleteId: 'c' }] };
+  const meets = [
+    { athleteId: 'a', name: 'Winter Open', date: '2026-12-12', status: 'planned' },
+    { athleteId: 'b', name: 'Autumn Classic', date: '2026-12-06', status: 'planned' },
+    { athleteId: 'c', name: 'Autumn Classic', date: '2026-12-06', status: 'planned' },
+    { athleteId: 'z', name: 'Not ours', date: '2026-11-10', status: 'planned' },
+    { athleteId: 'a', name: 'Spring Open', date: '2026-10-01', status: 'planned' },
+    { athleteId: 'b', name: 'Done meet', date: '2026-11-20', status: 'done', squat: 200, bench: 120, deadlift: 240 }];
+  const m = teamNextMeet(t, meets, '2026-11-02');
+  eq(m.name, 'Autumn Classic'); eq(m.date, '2026-12-06'); eq(m.days, 34); eq(m.lifters, 2); eq(m.ids.join(), 'b,c');
+  const own = teamNextMeet(Object.assign({ meetDate: '2026-12-12' }, t), meets, '2026-11-02');
+  eq(own.name, 'Winter Open', 'the team\'s own date wins, named by the meet on it'); eq(own.lifters, 1);
+  eq(teamNextMeet(Object.assign({ meetDate: '2027-01-09' }, t), meets, '2026-11-02').lifters, 3, 'its own date with nobody entered yet: the whole team');
+  eq(teamNextMeet(t, [], '2026-11-02'), null);
+  eq(meetInDays(34), 'in 34 days'); eq(meetInDays(1), 'tomorrow'); eq(meetInDays(0), 'today');
+});
+// One seats number everywhere: the rail said 21/25 (lifters + an unused invite) while Settings said 20 of 25 (2 Nov).
+test('planSeats: lifters plus unused invites against the plan, the same number as the rail and Today', () => {
+  const s = planSeats(20, 1, 25);
+  eq(s.used, 21); eq(s.limit, 25); eq(s.free, 4); eq(s.text, '21 of 25 seats'); eq(s.sub, '20 lifters · 1 unused invite'); eq(s.near, true);
+  close(s.frac, 0.84, 0.001);
+  eq(planSeats(2, 0, 10).near, false); eq(planSeats(2, 0, 10).sub, '2 lifters');
+  eq(planSeats(1, 2, 3).sub, '1 lifter · 2 unused invites');
+  eq(planSeats(12, 0, 3).free, 0, 'past the limit: no seats left, never negative'); eq(planSeats(12, 0, 3).frac, 1);
+  const u = planSeats(40, 3, 9999);
+  eq(u.unlimited, true); eq(u.limit, null); eq(u.text, '40 lifters · no limit');
+  // the rail and the business line count the same way
+  eq(planSeats(20, 1, 25).used, 20 + 1);
+});
+test('colorWord: a brand colour in a word', () => {
+  eq(colorWord('#dc2637'), 'red'); eq(colorWord('#ff6b00'), 'orange'); eq(colorWord('#ffbf3c'), 'gold'); eq(colorWord('#34d982'), 'green');
+  eq(colorWord('#2ec5ff'), 'blue'); eq(colorWord('#14b8a6'), 'teal'); eq(colorWord('#a98bff'), 'purple'); eq(colorWord('#ff4fa3'), 'pink');
+  eq(colorWord('#777777'), 'grey'); eq(colorWord('#050506'), 'black'); eq(colorWord('ffffff'), 'white');
+  eq(colorWord(''), ''); eq(colorWord('red'), ''); eq(colorWord(null), '');
+});
+test('deskSettingsLines: each section\'s state in one line, its purpose when the state isn\'t known', () => {
+  const L = deskSettingsLines({
+    questions: [{ cadence: 'daily' }, { cadence: 'daily' }, { cadence: 'daily', active: false }, { cadence: 'weekly' }],
+    rules: 3, brand: { name: 'Iron Temple', color: '#dc2637', logo: 'x.png' }, pro: true, invites: 1,
+    report: { day: 'sun', hour: 18 }, mfa: false, theme: 'dark', unit: 'kg', compact: false, listings: 2, live: 1, sales: 3 });
+  eq(L.checkins, '3 questions · 2 daily, 1 weekly · 1 paused');
+  eq(L.rules, '3 rules'); eq(L.brand, 'Iron Temple · Red + logo'); eq(L.athletes, '1 open invite');
+  eq(L.notify, 'Weekly report, Sundays at 18:00'); eq(L.security, 'Two-factor off'); eq(L.prefs, 'Dark · kg · comfortable rows');
+  eq(L.market, '2 listings · 1 live · 3 sales');
+  const E = deskSettingsLines({ questions: [], rules: 0, brand: {}, pro: false, invites: 0, report: null, mfa: null, theme: 'light', unit: 'lbs', compact: true });
+  eq(E.checkins, 'No questions yet'); eq(E.rules, 'No rules yet'); eq(E.brand, 'Your name and colour, with Pro'); eq(E.athletes, 'No open invites');
+  eq(E.notify, 'Pushes and emails you get', 'no schedule known: what it is for'); eq(E.security, 'Password and two-factor', 'two-factor not read yet');
+  eq(E.prefs, 'Light · lb · compact rows'); eq(E.market, 'Sell your templates'); eq(E.week, 'The hours your roster needs');
+  eq(deskSettingsLines({ brand: {}, pro: true }).brand, 'Off: your lifters see POWALIFTA');
+  eq(deskSettingsLines({ brand: { color: '#2ec5ff' } }).brand, 'Blue', 'a colour alone');
+  eq(deskSettingsLines({ brand: { logo: 'x' } }).brand, 'Logo');
+  eq(deskSettingsLines({ questions: [{ cadence: 'weekly' }] }).checkins, '1 question · weekly');
+  eq(deskSettingsLines({ questions: [{ cadence: 'daily', active: false }] }).checkins, '1 question, all paused');
+  eq(deskSettingsLines({ report: { day: 'mon', hour: 7, at: '7 am' } }).notify, 'Weekly report, Mondays at 7 am', 'the device\'s own clock when it\'s given');
+  eq(deskSettingsLines({ report: { day: 'mon', hour: 7 } }).notify, 'Weekly report, Mondays at 07:00');
+  eq(deskSettingsLines({ mfa: true }).security, 'Two-factor on');
+  eq(deskSettingsLines({ week: 'Room for 2 more' }).week, 'Room for 2 more');
+});
+
 function render() {
   const sum = document.getElementById('summary');
   const total = T.pass + T.fail + T.skip;

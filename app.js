@@ -18252,6 +18252,128 @@ function teamPushPreview(team, members, opts) {
   const text = pushing ? 'Push to ' + pushing + (pushing === 1 ? ' lifter' : ' lifters') : 'Everyone is up to date';
   return { plan, rows, skipped, pushing, text };
 }
+// ---------- the Teams page on the laptop (desk-season.js, desk v3 drop 2): the crimson, a team's row and head ----------
+// What Push says on its button: the week it carries when every lifter gets the same week, the block when every lifter
+// gets it whole, else how many. preview: teamPushPreview's answer.
+// → 'Push week 4 to 5 lifters' | 'Push weeks 2 and 3 to 6 lifters' | 'Push weeks 2–4 to 6 lifters' | 'Push the block to 2 lifters'
+//   | 'Push to 6 lifters' | null (nothing to push)
+function teamPushLabel(preview) {
+  const p = preview || {};
+  const going = (p.rows || []).filter(r => r && r.push);
+  const n = going.length;
+  if (!n) return null;
+  const who = n + (n === 1 ? ' lifter' : ' lifters');
+  const whole = going.filter(r => r.action === 'create' || r.action === 'replace').length;
+  if (whole === n) return 'Push the block to ' + who;
+  if (whole) return 'Push to ' + who;
+  const plan = {};
+  ((p.plan && p.plan.rows) || []).forEach(r => { plan[r.athleteId] = r; });
+  const weeks = [];
+  going.forEach(r => ((plan[r.athleteId] || {}).changedWeeks || []).forEach(w => { w = Number(w); if (w > 0 && weeks.indexOf(w) < 0) weeks.push(w); }));
+  weeks.sort((a, b) => a - b);
+  if (!weeks.length) return 'Push to ' + who;
+  if (weeks.length === 1) return 'Push week ' + weeks[0] + ' to ' + who;
+  if (weeks.length === 2) return 'Push weeks ' + weeks[0] + ' and ' + weeks[1] + ' to ' + who;
+  const run = weeks.every((w, i) => !i || w === weeks[i - 1] + 1);
+  return 'Push ' + (run ? 'weeks ' + weeks[0] + '–' + weeks[weeks.length - 1] : weeks.length + ' weeks') + ' to ' + who;
+}
+// A team's block as its list row and its page say it: the block's name without the team's ("Meet team · Strength" →
+// "Strength") and where the team is in it on todayIso (Monday weeks from team.startsOn).
+// → { block, week: 'week 2 of 4' | 'starts Nov 9' | 'ended Nov 22' | '4 weeks' | '', idx, n, state: 'before' | 'now' | 'after' | 'none', line }
+function teamBlockLine(team, todayIso) {
+  const t = team || {};
+  const n = (t.weeks || []).length;
+  const nm = String(t.name || '').trim();
+  let block = String(t.programName || '').trim();
+  if (nm && block.toLowerCase().indexOf(nm.toLowerCase() + ' · ') === 0) block = block.slice(nm.length + 3).trim();
+  block = block.replace(/\s+block$/i, '');
+  if (!n) return { block, week: '', idx: -1, n: 0, state: 'none', line: 'Nothing written yet' };
+  const wk = (k) => k + (k === 1 ? ' week' : ' weeks');
+  const st = _isoDay(t.startsOn), today = _isoDay(todayIso) || todayISO();
+  if (!st) return { block, week: wk(n), idx: 0, n, state: 'none', line: [block, wk(n)].filter(Boolean).join(' · ') };
+  const mon = _monISO(st);
+  const i = Math.round((Date.parse(_monISO(today) + 'T12:00:00Z') - Date.parse(mon + 'T12:00:00Z')) / 6048e5);
+  let week, state, idx;
+  if (i < 0) { state = 'before'; idx = 0; week = 'starts ' + fmtDateShort(mon); }
+  else if (i >= n) { state = 'after'; idx = n - 1; week = 'ended ' + fmtDateShort(_addDaysISO(mon, 7 * n - 1)); }
+  else { state = 'now'; idx = i; week = 'week ' + (i + 1) + ' of ' + n; }
+  return { block, week, idx, n, state, line: [block, week].filter(Boolean).join(' · ') };
+}
+// The next meet for a team: its own date (team.meetDate), else the soonest planned meet one of its lifters has, with how
+// many of the team are in it. meets: the Store's ({ athleteId, name, date, status }). → { name, date, days, lifters, ids } | null
+function teamNextMeet(team, meets, todayIso) {
+  const t = team || {}, today = _isoDay(todayIso) || todayISO();
+  const ids = (t.members || []).map(m => m.athleteId);
+  const days = (d) => Math.round((Date.parse(d + 'T12:00:00Z') - Date.parse(today + 'T12:00:00Z')) / 864e5);
+  const up = (meets || []).filter(m => m && ids.indexOf(m.athleteId) >= 0 && _isoDay(m.date) && _isoDay(m.date) >= today && isPlannedMeet(m, _addDaysISO(today, -1)))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const who = (list) => list.map(m => m.athleteId).filter((id, i, all) => all.indexOf(id) === i);
+  const own = _isoDay(t.meetDate);
+  if (own && own >= today) {
+    const same = who(up.filter(m => _isoDay(m.date) === own));
+    return { name: (up.find(m => _isoDay(m.date) === own) || {}).name || 'The team’s meet', date: own, days: days(own), lifters: same.length || ids.length, ids: same.length ? same : ids.slice() };
+  }
+  if (!up.length) return null;
+  const first = up[0], d = _isoDay(first.date);
+  const same = who(up.filter(m => _isoDay(m.date) === d && (m.name || '') === (first.name || '')));
+  return { name: first.name || 'A meet', date: d, days: days(d), lifters: same.length, ids: same };
+}
+// "in 24 days", "tomorrow", "today": a meet's countdown in the coach's words.
+function meetInDays(days) { const n = Number(days); return n <= 0 ? 'today' : n === 1 ? 'tomorrow' : 'in ' + n + ' days'; }
+// The plan's seats, one number on every screen (the rail, Today's business line, Settings): lifters plus unused invites
+// (an unused invite holds a seat) against the plan's limit. limit ≥ 9999 or none: no limit.
+// → { used, limit, lifters, invites, free, frac, near, unlimited, text: '21 of 25 seats', sub: '20 lifters · 1 unused invite' }
+function planSeats(lifters, invites, limit) {
+  const L = Math.max(0, Number(lifters) || 0), I = Math.max(0, Number(invites) || 0), lim = Number(limit) || 0;
+  const used = L + I, unlimited = !(lim > 0) || lim >= 9999;
+  const sub = L + (L === 1 ? ' lifter' : ' lifters') + (I ? ' · ' + I + (I === 1 ? ' unused invite' : ' unused invites') : '');
+  if (unlimited) return { used, limit: null, lifters: L, invites: I, free: null, frac: 0, near: false, unlimited: true, text: L + (L === 1 ? ' lifter' : ' lifters') + ' · no limit', sub };
+  return { used, limit: lim, lifters: L, invites: I, free: Math.max(0, lim - used), frac: Math.min(1, used / lim), near: used >= Math.floor(lim * 0.8), unlimited: false,
+    text: used + ' of ' + lim + ' seats', sub };
+}
+// A brand colour in a word ("#dc2637" → "red"), for Settings' Branding line; greys say so. → word | ''
+function colorWord(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return '';
+  const v = parseInt(m[1], 16), r = (v >> 16) / 255, g = ((v >> 8) & 255) / 255, b = (v & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, l = (mx + mn) / 2;
+  if (d < 0.1) return l < 0.12 ? 'black' : l > 0.92 ? 'white' : 'grey';
+  let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  return h < 12 || h >= 340 ? 'red' : h < 38 ? 'orange' : h < 52 ? 'gold' : h < 68 ? 'yellow' : h < 160 ? 'green' : h < 195 ? 'teal' : h < 255 ? 'blue' : h < 290 ? 'purple' : 'pink';
+}
+// Settings' overview on the laptop (desk.js): each section's state in one line, from what the app already holds. A state
+// it can't know yet (two-factor before its read) says what the section is for.
+// x: { questions: [{ cadence, active }], rules: n | null, brand: { name, color, logo }, pro, invites, report: { day, hour, at } | null,
+//      mfa: true | false | null, theme, unit, compact, listings, live, sales, earnedCents, week }
+// → { checkins, rules, brand, athletes, notify, security, prefs, market, keys, help, data, week }
+function deskSettingsLines(x) {
+  x = x || {};
+  const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  const qs = (x.questions || []).filter(Boolean), on = qs.filter(q => q.active !== false);
+  const daily = on.filter(q => q.cadence === 'daily').length, weekly = on.length - daily, off = qs.length - on.length;
+  const checkins = !qs.length ? 'No questions yet'
+    : !on.length ? plural(off, 'question') + ', all paused'
+    : plural(on.length, 'question') + ' · ' + (daily && weekly ? daily + ' daily, ' + weekly + ' weekly' : daily ? 'daily' : 'weekly') + (off ? ' · ' + off + ' paused' : '');
+  const rn = Number(x.rules);
+  const rules = x.rules == null ? 'How next week moves' : rn > 0 ? plural(rn, 'rule') : 'No rules yet';
+  const br = x.brand || {};
+  const word = colorWord(br.color);
+  const look = [word ? word.charAt(0).toUpperCase() + word.slice(1) : '', br.logo ? (word ? 'logo' : 'Logo') : ''].filter(Boolean).join(' + ');
+  const brand = (br.name || look) ? [String(br.name || '').trim(), look].filter(Boolean).join(' · ') : x.pro ? 'Off: your lifters see POWALIFTA' : 'Your name and colour, with Pro';
+  const inv = Math.max(0, Number(x.invites) || 0);
+  const athletes = inv ? plural(inv, 'open invite') : 'No open invites';
+  const rp = x.report;
+  const at = rp ? (rp.at || (('0' + (Number(rp.hour) || 0)).slice(-2) + ':00')) : '';
+  const notify = rp ? 'Weekly report, ' + (rp.day === 'mon' ? 'Mondays' : 'Sundays') + ' at ' + at : 'Pushes and emails you get';
+  const security = x.mfa === true ? 'Two-factor on' : x.mfa === false ? 'Two-factor off' : 'Password and two-factor';
+  const prefs = [x.theme === 'light' ? 'Light' : 'Dark', x.unit === 'lbs' || x.unit === 'lb' ? 'lb' : 'kg', x.compact ? 'compact rows' : 'comfortable rows'].join(' · ');
+  const ln = Math.max(0, Number(x.listings) || 0), lv = Math.max(0, Number(x.live) || 0), sales = Math.max(0, Number(x.sales) || 0);
+  const market = ln ? plural(ln, 'listing') + ' · ' + lv + ' live' + (sales ? ' · ' + plural(sales, 'sale') : '') : 'Sell your templates';
+  return { checkins, rules, brand, athletes, notify, security, prefs, market,
+    keys: 'Every shortcut, screen by screen', help: 'Ask AI, support and log out', data: 'Download everything, or delete your account',
+    week: x.week ? String(x.week) : 'The hours your roster needs' };
+}
 // The roster calendar: what a bar counts down to. The block's own meet, else the first planned meet
 // that falls in it or within 12 weeks of its end. n is counted from this week while the block runs,
 // from its first week before it starts. → { meetId, name, date, week, n, label } | null
@@ -18392,6 +18514,7 @@ function prWallLift(p, fmt) {
   const name = v === 'Competition' ? base : (VN[v] || v.charAt(0).toUpperCase() + v.slice(1).toLowerCase() + ' ' + String(base).toLowerCase());
   return name + ' ' + show(p.weight) + (p.reps > 1 ? ' × ' + p.reps : '');
 }
+if (typeof window !== 'undefined') Object.assign(window, { teamPushLabel, teamBlockLine, teamNextMeet, meetInDays, planSeats, colorWord, deskSettingsLines });
 if (typeof window !== 'undefined') Object.assign(window, { rpePctOfMax, teamWeekLoads, teamPushPreview, teamStripOverrides, calendarBarMeet, calendarWarnings, calendarDragWeeks, moveBlockStart, blockAchieved, teamBlockGain, teamPrWall, cardName, cardRowName, prWallLift });
 
 // ----- Scoring per federation (brief §8: one number, the formula always named) -----

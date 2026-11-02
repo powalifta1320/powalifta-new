@@ -1698,16 +1698,53 @@
   /* ====================================================================================================
      THE TEAM ADAPTER: the Teams screen's program and every lifter's load (desk-season.js dsRenderTeams)
      ==================================================================================================== */
-  function team(T, members, W, wi) {
+  // opts.bare: no head of its own (the Teams page draws the name, the weeks and these tools in its own head: teamTools);
+  // opts.noLoads: no lifters' loads under each main lift (the Teams page lists them as rows under the week).
+  function team(T, members, W, wi, opts) {
+    opts = opts || {};
     S.team = T.id; S.teamWi = wi;
-    var sec = E('div', { class: 'ds-sec dp-team', 'data-team': T.id });
-    var hd = E('div', { class: 'dp-team-head' });
-    hd.appendChild(E('h2', { class: 'dp-team-t' }, 'Week ' + (W.number || wi + 1) + ', the team’s program'));
-    hd.appendChild(E('p', { class: 'dp-sub' }, 'Written once: a % of each lifter’s max, or RPE. Push gives it to everyone on their own loads; what you adjust for one stays theirs.'));
+    var sec = E('div', { class: 'ds-sec dp-team' + (opts.bare ? ' is-bare' : ''), 'data-team': T.id });
+    if (!opts.bare) {
+      var hd = E('div', { class: 'dp-team-head' });
+      hd.appendChild(E('h2', { class: 'dp-team-t' }, 'Week ' + (W.number || wi + 1) + ', the team’s program'));
+      hd.appendChild(E('p', { class: 'dp-sub' }, 'Written once: a % of each lifter’s max, or RPE. Push gives it to everyone on their own loads; what you adjust for one stays theirs.'));
+      hd.appendChild(teamTools(T, W, wi));
+      sec.appendChild(hd);
+    }
+    var loads = typeof teamWeekLoads === 'function' ? teamWeekLoads(T.weeks, _tmKey(W, wi), members) : { cols: [], rows: [] };
+    var m = model(T.weeks, wi, { unit: unitTag(), show: showKg, team: true, nowIdx: -1 });
+    var days = E('div', { class: 'dp-days' });
+    var root = E('div', { class: 'dp is-team', 'data-wi': String(wi) });
+    m.days.forEach(function (d) {
+      d.weekN = W.number || wi + 1;
+      var D = W.days[d.idx];
+      var card = E('article', { class: 'dp-day' + (d.rest ? ' is-rest' : ''), 'data-di': String(d.idx), 'data-day': d.key });
+      var h = E('header', { class: 'dp-day-head' });
+      h.appendChild(E('h3', { class: 'dp-day-title' }, d.name || 'Day ' + (d.idx + 1)));
+      card.appendChild(h);
+      if (d.rest) { card.appendChild(E('p', { class: 'dp-rest' }, 'Rest day · no training')); days.appendChild(card); return; }
+      d.exercises.forEach(function (x) {
+        var blk = teamExEl(T, W, wi, d, x);
+        var dayId = _tmKey(D, d.idx), exId = _tmKey(D.exercises[x.idx], x.idx);
+        var ci = loads.cols.findIndex(function (c) { return c.dayId === dayId && c.exId === exId; });
+        if (!opts.noLoads && ci >= 0 && loads.rows.length) blk.appendChild(membersEl(T, members, W, wi, loads, ci));
+        card.appendChild(blk);
+      });
+      card.appendChild(teamAddRow(T, wi, d, D));
+      days.appendChild(card);
+    });
+    if (!(W.days || []).length) root.appendChild(E('p', { class: 'dp-note-line' }, 'Week ' + (W.number || wi + 1) + ' has no sessions yet.'));
+    root.appendChild(days);
+    sec.appendChild(root);
+    return sec;
+  }
+  // The team week's own tools: Progress the week (a step on for everyone, or add or remove a week) and undo.
+  function teamTools(T, W, wi, o) {
     var tools = E('div', { class: 'dp-tools' });
-    var wk = E('button', { type: 'button', class: 'dp-tool', 'aria-haspopup': 'menu' });
+    var wk = E('button', { type: 'button', class: 'dp-tool', 'aria-haspopup': 'menu', 'aria-label': 'Progress the week' });
     wk.insertAdjacentHTML('beforeend', IC.up);
-    wk.appendChild(E('span', { class: 'dp-tool-l' }, 'Progress the week'));
+    wk.appendChild(E('span', { class: 'dp-tool-l' }, o && o.short ? 'Progress' : 'Progress the week'));
+    tip(wk, 'Week ' + (W.number || wi + 1) + ' a step on for everyone, or add a week');
     wk.addEventListener('click', function (e) {
       e.stopPropagation();
       var n = (T.weeks || []).length;
@@ -1726,34 +1763,7 @@
     tip(u, top ? 'Undo: ' + top.label : 'Nothing to undo', mac() ? '⌘Z' : 'Ctrl Z');
     u.addEventListener('click', teamUndo);
     tools.appendChild(u);
-    hd.appendChild(tools);
-    sec.appendChild(hd);
-    var loads = typeof teamWeekLoads === 'function' ? teamWeekLoads(T.weeks, _tmKey(W, wi), members) : { cols: [], rows: [] };
-    var m = model(T.weeks, wi, { unit: unitTag(), show: showKg, team: true, nowIdx: -1 });
-    var days = E('div', { class: 'dp-days' });
-    var root = E('div', { class: 'dp is-team', 'data-wi': String(wi) });
-    m.days.forEach(function (d) {
-      d.weekN = W.number || wi + 1;
-      var D = W.days[d.idx];
-      var card = E('article', { class: 'dp-day' + (d.rest ? ' is-rest' : ''), 'data-di': String(d.idx), 'data-day': d.key });
-      var h = E('header', { class: 'dp-day-head' });
-      h.appendChild(E('h3', { class: 'dp-day-title' }, d.name || 'Day ' + (d.idx + 1)));
-      card.appendChild(h);
-      if (d.rest) { card.appendChild(E('p', { class: 'dp-rest' }, 'Rest day · no training')); days.appendChild(card); return; }
-      d.exercises.forEach(function (x) {
-        var blk = teamExEl(T, W, wi, d, x);
-        var dayId = _tmKey(D, d.idx), exId = _tmKey(D.exercises[x.idx], x.idx);
-        var ci = loads.cols.findIndex(function (c) { return c.dayId === dayId && c.exId === exId; });
-        if (ci >= 0 && loads.rows.length) blk.appendChild(membersEl(T, members, W, wi, loads, ci));
-        card.appendChild(blk);
-      });
-      card.appendChild(teamAddRow(T, wi, d, D));
-      days.appendChild(card);
-    });
-    if (!(W.days || []).length) root.appendChild(E('p', { class: 'dp-note-line' }, 'Week ' + (W.number || wi + 1) + ' has no sessions yet.'));
-    root.appendChild(days);
-    sec.appendChild(root);
-    return sec;
+    return tools;
   }
   function teamExEl(T, W, wi, d, x) {
     var blk = E('div', { class: 'dp-ex lift-' + (x.main ? x.lift : 'acc'), 'data-ex': x.key, role: 'group', 'aria-label': x.title });
@@ -1940,7 +1950,7 @@
   window.DeskProgram = {
     // the desk
     head: head, body: body, empty: empty, paintList: paintList, paintRows: paintRows, order: order, step: step, openLifter: openLifter,
-    focusExercise: focusExercise, publishWeek: publishWeek, writeWeekFor: doWriteWeek, writeThem: writeThem, commitOpen: commitOpen, team: team, teamUndo: teamUndo,
+    focusExercise: focusExercise, publishWeek: publishWeek, writeWeekFor: doWriteWeek, writeThem: writeThem, commitOpen: commitOpen, team: team, teamTools: teamTools, teamUndo: teamUndo,
     pickWeek: pickWeek, state: function () { return S; },
     // pure, for tests
     model: model, exLines: exLines, roleOf: roleOf, loadCell: loadCell, effortCell: effortCell, liftedOf: liftedOf, gapCls: gapCls, setGap: setGap, weekState: weekState,

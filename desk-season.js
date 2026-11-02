@@ -29,7 +29,8 @@ var DS_IC = {
   cal: _dkSvg('<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M7 14.5h6" stroke-width="2.6"/>'),
   team: _dkSvg('<circle cx="8" cy="8.5" r="2.6"/><circle cx="16" cy="8.5" r="2.6"/><path d="M3.5 19a4.5 4.5 0 0 1 9 0M11.5 19a4.5 4.5 0 0 1 9 0"/>'),
   push: _dkSvg('<path d="M12 19V6"/><path d="M6.5 11.5 12 6l5.5 5.5"/><path d="M5 4h14"/>'),
-  meetPlus: _dkSvg('<path d="M5 21V4M5 4h10l-2 4 2 4H5"/><path d="M18 15v6M15 18h6"/>')
+  meetPlus: _dkSvg('<path d="M5 21V4M5 4h10l-2 4 2 4H5"/><path d="M18 15v6M15 18h6"/>'),
+  flag: _dkSvg('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>')
 };
 function _dsMe() { var u = _dkUser(); return u ? u.id : null; }
 function _dsDemo() { return !!window._demoMode; }
@@ -121,47 +122,152 @@ function dsTeamNowIdx(team) {
   var i = Math.round((Date.parse(_monISO(todayISO())) - Date.parse(_monISO(st))) / 6048e5);
   return Math.max(0, Math.min(n - 1, i));
 }
+// The Teams page (desk v3 drop 2): list | week, like Programs. The list: Programs' own tabs (Teams on), the teams as rows
+// (faces · name · block · week · next meet) and New team. The week: the team's name and one quiet line, the tools, the weeks
+// with the one crimson (Push, saying what it carries), the team's week in the program editor (desk-program.js), then each
+// lifter's loads as rows: a chip per main lift, clicked to change it for that lifter only.
 function dsRenderTeams() {
   var host = document.getElementById('deskTeams');
   if (!host) return;
   if (!_dk.rows) dkRowsFresh();
   var teams = dsTeams();
-  var keepScroll = host.parentNode ? host.parentNode.scrollTop : 0;
+  var oldMain = host.querySelector('.ds-main'), oldList = host.querySelector('.ds-tlist');
+  var keepScroll = oldMain ? oldMain.scrollTop : 0, keepList = oldList ? oldList.scrollTop : 0;
   host.innerHTML = '';
-  if (!teams.length) { host.appendChild(dsTeamsEmpty()); return; }
-  var team = teams.find(function (t) { return t.id === _ds.team; }) || teams[0];
-  if (_ds.team !== team.id) { _ds.team = team.id; _ds.wk = null; }
+  host.classList.add('ds-split');
+  var team = teams.find(function (t) { return t.id === _ds.team; }) || teams[0] || null;
+  if (team && _ds.team !== team.id) { _ds.team = team.id; _ds.wk = null; }
+  var list = el('aside', { class: 'dk-list dp-list ds-tlist', 'aria-label': 'Teams' });
+  dsPaintTeamList(list, teams, team);
+  host.appendChild(list);
+  var main = el('div', { class: 'ds-main' });
+  host.appendChild(main);
+  if (!team) { main.appendChild(dsTeamsEmpty()); list.scrollTop = keepList; return; }
   var weeks = team.weeks || [];
   if (_ds.wk == null || _ds.wk >= weeks.length) _ds.wk = dsTeamNowIdx(team);
   var members = teamMembersFor(team);
   (team.members || []).forEach(function (m) { _dsKnownName(m.athleteId); });
   var preview = teamPushPreview(team, members, { departed: dsDeparted(team) });
+  main.appendChild(dsTeamHead(team, members, preview));
 
-  // The head: the name, one quiet line of facts, the tools, the one red Push.
-  var head = el('div', { class: 'ds-head' });
-  var id = el('div', { class: 'ds-head-id' });
-  var tr = el('div', { class: 'dk-title-row' });
-  tr.appendChild(el('h1', { class: 'dk-h1' }, team.name || 'Team'));
-  if (teams.length > 1) {
-    var pick = dkBtn('Switch team', { cls: 'is-quiet dk-btn-sm dk-btn-menu' });
-    pick.insertAdjacentHTML('beforeend', '<span class="dk-btn-caret">' + DK_IC.chevD + '</span>');
-    pick.setAttribute('aria-haspopup', 'menu');
-    pick.addEventListener('click', function (e) { e.stopPropagation(); dkPopMenu(pick, teams.map(function (t) { return { label: t.name || 'Team', hint: _dsLifters((t.members || []).length), check: t.id === team.id, run: function () { _ds.team = t.id; _ds.wk = null; dsRenderTeams(); } }; })); });
-    tr.appendChild(pick);
+  // The last push, said once under the head.
+  var last = _ds.last[team.id];
+  if (last && last.lines.length) {
+    var lp = el('div', { class: 'ds-last', role: 'status' });
+    lp.appendChild(el('i', { class: 'dk-dot t-ok', 'aria-hidden': 'true' }));
+    lp.appendChild(el('span', {}, 'Pushed ' + _dkAgoTime(last.at) + ' · ' + last.lines.join(' · ')));
+    main.appendChild(lp);
   }
-  id.appendChild(tr);
-  var facts = el('p', { class: 'ds-facts' });
-  [ _dsLifters(members.length), team.programName || '', weeks.length ? _dsWeeks(weeks.length) : '', _isoDay(team.startsOn) ? 'from ' + fmtDateShort(team.startsOn) : '',
-    _isoDay(team.meetDate) ? 'meet ' + fmtDateShort(team.meetDate) : '' ].filter(Boolean).forEach(function (t, i) {
-    if (i) facts.appendChild(el('span', { class: 'ds-sep', 'aria-hidden': 'true' }, '·'));
-    facts.appendChild(el('span', {}, t));
+
+  if (!weeks.length) {
+    main.appendChild(el('div', { class: 'dk-noresults' }, el('b', {}, 'Nothing written for the team yet'), el('span', {}, 'Make a lifter’s block the team’s program to start.')));
+  } else {
+    var W = weeks[_ds.wk];
+    // The program editor (desk-program.js): the team's week written once, a % of each lifter's max or RPE. The previous
+    // line editor stays behind ?oldbuilder=1 (dkWpOn off).
+    var wp = null;
+    if (typeof dkWpOn === 'function' && dkWpOn()) { try { wp = DeskProgram.team(team, members, W, _ds.wk, { bare: true, noLoads: true }); } catch (e) { console.error('desk-program team', e); wp = null; } }
+    main.appendChild(wp || dsTeamProgram(team, W, _ds.wk));
+    main.appendChild(dsLoadRows(team, members, W, _ds.wk));
+  }
+  main.scrollTop = keepScroll;
+  list.scrollTop = keepList;
+  dsWatchEdge(main);
+}
+// The list column: Programs' tabs (Lifters · Teams · Templates, Teams on: the other two open Programs), then the teams.
+function dsPaintTeamList(list, teams, cur) {
+  var s = Store.get(), me = _dsMe();
+  list.innerHTML = '';
+  var head = el('div', { class: 'dk-list-head dp-list-head' });
+  var tabs = el('div', { class: 'dp-tabs', role: 'tablist', 'aria-label': 'Programs' });
+  var aths = (s.athletes || []).filter(function (a) { return a.coachId === me; }).length;
+  var tpls = (s.programTemplates || []).filter(function (t) { return t.coachId === me; }).length;
+  [['athletes', 'Lifters', aths], ['teams', 'Teams', teams.length], ['templates', 'Templates', tpls]].forEach(function (x) {
+    var on = x[0] === 'teams';
+    var b = el('button', { type: 'button', class: 'dp-tab' + (on ? ' on' : ''), role: 'tab', 'aria-selected': String(on) }, x[1], el('span', { class: 'dp-tab-n' }, x[2] ? String(x[2]) : ''));
+    if (!on) b.addEventListener('click', function () { _dk.pbMode = x[0]; deskGo('programs'); });
+    tabs.appendChild(b);
   });
-  id.appendChild(facts);
-  head.appendChild(id);
-  var tools = el('div', { class: 'ds-head-tools' });
-  tools.appendChild(dkBtn('Add lifters', { icon: DK_IC.plus, cls: 'is-quiet', onClick: function () { dsAddMembers(team); } }));
-  tools.appendChild(dkBtn('Plan a meet', { icon: DS_IC.meetPlus, cls: 'is-quiet', title: 'One meet for everyone on ' + (team.name || 'the team') + ', or the lifters you pick', onClick: function () { dsPlanMeet(null, { team: team }); } }));
-  var more = dkIconBtn(DK_IC.more, 'More', function (e) {
+  head.appendChild(tabs);
+  list.appendChild(head);
+  var box = el('div', { class: 'dk-lane dp-rows ds-trows' });
+  if (teams.length) box.appendChild(el('div', { class: 'dp-lgrp', role: 'presentation' }, 'Your teams', el('span', {}, String(teams.length))));
+  teams.forEach(function (t) { box.appendChild(dsTeamRow(t, !!cur && t.id === cur.id)); });
+  var nb = el('button', { type: 'button', class: 'dk-pb-new ds-tnew', html: DK_IC.plus });
+  nb.appendChild(el('span', {}, 'New team'));
+  nb.addEventListener('click', function () { dsNewTeam(null); });
+  if (teams.length) box.appendChild(nb);
+  list.appendChild(box);
+  if (teams.length && teams.length < 4) list.appendChild(el('p', { class: 'ds-tlist-note' }, 'A team is one block for many lifters: write it once, and each lifter gets their own loads from their own maxes.'));
+}
+// Faces, overlapping, the first few of a team (+N for the rest).
+function dsFaces(ids, max) {
+  var w = el('span', { class: 'ds-faces', 'aria-hidden': 'true' });
+  (ids || []).slice(0, max).forEach(function (aid) { var a = dsAthlete(aid); w.appendChild(dkAv(a || { name: _dsKnownName(aid) || '?' }, 'is-sm')); });
+  if ((ids || []).length > max) w.appendChild(el('span', { class: 'ds-faces-n' }, '+' + (ids.length - max)));
+  return w;
+}
+// A team's row: faces · its name · the block and the week · the next meet's date (gold).
+function dsTeamRow(t, on) {
+  var today = todayISO();
+  var bl = teamBlockLine(t, today), nm = teamNextMeet(t, Store.get().meets || [], today);
+  var ids = (t.members || []).map(function (m) { return m.athleteId; });
+  var r = el('button', { type: 'button', class: 'dp-lrow ds-trow' + (on ? ' is-sel' : '') + (nm ? ' has-stat' : ''), 'aria-current': on ? 'true' : 'false' });
+  r.appendChild(dsFaces(ids, 3));
+  var main = el('span', { class: 'dp-lmain' });
+  main.appendChild(el('span', { class: 'dp-lname' }, t.name || 'Team'));
+  main.appendChild(el('span', { class: 'dp-lline' }, bl.line));
+  r.appendChild(main);
+  var meetText = nm ? nm.name + ' ' + meetInDays(nm.days) + dsMeetWho(nm, ids.length) : '';
+  if (nm) {
+    var st = el('span', { class: 'dp-lstat ds-tmeet', html: DS_IC.flag });
+    st.appendChild(el('span', {}, fmtDateShort(nm.date)));
+    dkTip(st, meetText);
+    r.appendChild(st);
+  }
+  r.setAttribute('aria-label', (t.name || 'Team') + ', ' + _dsLifters(ids.length) + ', ' + bl.line + (meetText ? ', ' + meetText : ''));
+  r.addEventListener('click', function () { if (on) return; _ds.team = t.id; _ds.wk = null; dsRenderTeams(); var m = document.querySelector('#deskTeams .ds-main'); if (m) m.scrollTop = 0; });
+  return r;
+}
+// Who of the team goes to its next meet, when it isn't all of them: " (Kofi)", " (Leo and Kofi)", " (3 of 6)".
+function dsMeetWho(nm, n) {
+  var ids = (nm && nm.ids) || [];
+  if (!ids.length || ids.length >= n) return '';
+  var names = ids.map(function (id) { return _dkFirst(_dsKnownName(id) || ''); }).filter(Boolean);
+  return names.length === ids.length && ids.length <= 2 ? ' (' + names.join(' and ') + ')' : ' (' + ids.length + ' of ' + n + ')';
+}
+// The week's head: the team's name, one quiet line (lifters · block · week · meet), the quiet tools; then the weeks
+// (sticky) and the one crimson, which says what the push carries.
+function dsTeamHead(team, members, preview) {
+  var weeks = team.weeks || [], today = todayISO();
+  var bl = teamBlockLine(team, today), nm = teamNextMeet(team, Store.get().meets || [], today);
+  var head = el('div', { class: 'dp-head ds-thead' });
+  var a = el('div', { class: 'dp-head-a' });
+  var who = el('div', { class: 'dp-who' });
+  who.appendChild(el('h1', { class: 'dp-name' }, team.name || 'Team'));
+  // The lifters' count is the list row's faces and the loads below; the line keeps the block, the week and the meet.
+  var line = [bl.line, nm ? nm.name + ' ' + meetInDays(nm.days) + dsMeetWho(nm, members.length) : 'no meet planned'].filter(Boolean).join(' · ');
+  var sub = el('p', { class: 'dp-sub' }, line);
+  if (line.length > 64) dkTip(sub, line);
+  who.appendChild(sub);
+  a.appendChild(who);
+  var tools = el('div', { class: 'dp-tools' });
+  var tool = function (label, icon, run, tipText) {
+    var b = el('button', { type: 'button', class: 'dp-tool', 'aria-label': label, html: icon });
+    b.appendChild(el('span', { class: 'dp-tool-l' }, label));
+    dkTip(b, tipText || label);
+    b.addEventListener('click', run);
+    return b;
+  };
+  tools.appendChild(tool('Add lifters', DK_IC.plus, function () { dsAddMembers(team); }, 'Add lifters to ' + (team.name || 'the team') + ': they get its block with their own loads at the next push'));
+  tools.appendChild(tool('Plan a meet', DS_IC.meetPlus, function () { dsPlanMeet(null, { team: team }); }, 'One meet for everyone on ' + (team.name || 'the team') + ', or the lifters you pick'));
+  if (weeks.length && window.DeskProgram && DeskProgram.teamTools && typeof dkWpOn === 'function' && dkWpOn()) {
+    var tt = DeskProgram.teamTools(team, weeks[_ds.wk], _ds.wk, { short: true });
+    while (tt.firstChild) tools.appendChild(tt.firstChild);
+  }
+  var more = el('button', { type: 'button', class: 'dp-tool dp-more', 'aria-label': 'More for ' + (team.name || 'the team'), 'aria-haspopup': 'menu', html: DK_IC.more });
+  dkTip(more, 'Rename, new team, delete');
+  more.addEventListener('click', function (e) {
     e.stopPropagation();
     dkPopMenu(more, [
       { label: 'Rename team…', run: function () { dsRenameTeam(team); } },
@@ -170,45 +276,27 @@ function dsRenderTeams() {
       { label: 'Delete team', danger: true, run: function () { dsDeleteTeam(team); } }
     ], { alignRight: true });
   });
-  more.setAttribute('aria-haspopup', 'menu');
   tools.appendChild(more);
-  var pushSlot = el('span', { class: 'ds-push-slot' });
-  var nAdj = preview.rows.filter(function (r) { return r.adjusted.length; }).length;
-  if (preview.pushing) {
-    pushSlot.appendChild(dkBtn('Push to team', { primary: true, icon: DS_IC.push, count: preview.pushing,
-      title: 'See who gets what first: nothing is written until you push', onClick: function () { dsPushPreview(team); } }));
-  } else {
-    var st = el('span', { class: 'dk-state', role: 'status' }, 'Everyone has the latest');
-    dkTip(st, 'Every lifter on the team has the team’s program, with their own loads');
-    pushSlot.appendChild(st);
-    // Their own adjustments can still go back to the team's version: one quiet way in.
-    if (nAdj) pushSlot.appendChild(dkBtn(nAdj + ' adjusted by you', { cls: 'is-quiet dk-btn-sm', title: 'Keep them, or give a lifter the team’s version again', onClick: function () { dsPushPreview(team); } }));
-  }
-  tools.appendChild(pushSlot);
-  head.appendChild(tools);
-  host.appendChild(head);
+  a.appendChild(tools);
+  head.appendChild(a);
+  if (!weeks.length) return head;
 
-  // The last push, said once under the head.
-  var last = _ds.last[team.id];
-  if (last && last.lines.length) {
-    var lp = el('div', { class: 'ds-last', role: 'status' });
-    lp.appendChild(el('i', { class: 'dk-dot t-ok', 'aria-hidden': 'true' }));
-    lp.appendChild(el('span', {}, 'Pushed ' + _dkAgoTime(last.at) + ' · ' + last.lines.join(' · ')));
-    host.appendChild(lp);
-  }
-
-  if (!weeks.length) { host.appendChild(el('div', { class: 'dk-noresults' }, el('b', {}, 'Nothing written for the team yet'), el('span', {}, 'Make a lifter’s block the team’s program to start.'))); return; }
-
-  // Weeks: one strip, it drives the loads and the program below it.
+  var row = el('div', { class: 'dp-head-b' });
   var nowIdx = dsTeamNowIdx(team);
-  var strip = el('div', { class: 'ds-weeks', role: 'tablist', 'aria-label': 'Weeks of the team’s program' });
+  var bar = el('div', { class: 'dp-weeks' + (weeks.length > 3 ? ' is-long' : '') });
+  var strip = el('div', { class: 'dp-wks', role: 'tablist', 'aria-label': 'Weeks of the team’s block' });
+  bar.appendChild(strip);
+  var short = weeks.length > 6;
   weeks.forEach(function (w, i) {
     var on = i === _ds.wk;
-    var b = el('button', { type: 'button', class: 'ds-wk' + (on ? ' is-sel' : ''), role: 'tab', 'aria-selected': String(on), tabindex: on ? '0' : '-1' });
-    b.appendChild(el('b', {}, 'Week ' + (w.number || i + 1)));
     var start = _isoDay(team.startsOn) ? _addDaysISO(_monISO(team.startsOn), 7 * i) : null;
-    b.appendChild(el('span', {}, i === nowIdx && start ? 'Now' : start ? fmtDateShort(start) : ''));
-    b.addEventListener('click', function () { _ds.wk = i; dsRenderTeams(); var x = document.querySelector('#deskTeams .ds-wk.is-sel'); if (x) x.focus({ preventScroll: true }); });
+    var isNow = i === nowIdx && bl.state === 'now';
+    var b = el('button', { type: 'button', class: 'dp-wk' + (on ? ' is-sel' : '') + (isNow ? ' is-now' : ''), role: 'tab', 'aria-selected': String(on), tabindex: on ? '0' : '-1', 'data-wi': String(i) });
+    b.appendChild(el('span', { class: 'dp-wk-n' }, short ? 'W' : 'Week ', String(w.number || i + 1)));
+    if (isNow) b.appendChild(el('span', { class: 'dp-wk-m' }, 'Now'));
+    b.setAttribute('aria-label', 'Week ' + (w.number || i + 1) + (isNow ? ', this week' : '') + (start ? ', from ' + fmtDateShort(start) : ''));
+    if (start) dkTip(b, 'From ' + fmtDateShort(start));
+    b.addEventListener('click', function () { if (on) return; _ds.wk = i; dsRenderTeams(); var x = document.querySelector('#deskTeams .dp-wk.is-sel'); if (x) x.focus({ preventScroll: true }); });
     strip.appendChild(b);
   });
   strip.addEventListener('keydown', function (e) {
@@ -216,135 +304,157 @@ function dsRenderTeams() {
     e.preventDefault();
     _ds.wk = Math.max(0, Math.min(weeks.length - 1, _ds.wk + (e.key === 'ArrowRight' ? 1 : -1)));
     dsRenderTeams();
-    var x = document.querySelector('#deskTeams .ds-wk.is-sel'); if (x) x.focus({ preventScroll: true });
+    var x = document.querySelector('#deskTeams .dp-wk.is-sel'); if (x) x.focus({ preventScroll: true });
   });
-  host.appendChild(strip);
-
-  var W = weeks[_ds.wk];
-  // The program editor (desk-program.js): the team's week as a program, each main lift with every lifter's own load
-  // under it. The previous loads table and session cards stay with the previous editor (dkWpOn off).
-  var wp = null;
-  if (typeof dkWpOn === 'function' && dkWpOn()) { try { wp = DeskProgram.team(team, members, W, _ds.wk); } catch (e) { console.error('desk-program team', e); wp = null; } }
-  if (wp) host.appendChild(wp);
-  else {
-    host.appendChild(dsLoads(team, members, W, _ds.wk));
-    // The team's program, the selected week: the builder's session cards, written once for everyone.
-    host.appendChild(dsTeamProgram(team, W, _ds.wk));
+  if (nm && nm.days >= 0) {
+    var mt = el('span', { class: 'dp-meet', html: DS_IC.flag });
+    mt.appendChild(el('span', { class: 'dp-meet-n' }, fmtDateShort(nm.date)));
+    dkTip(mt, nm.name + ' ' + meetInDays(nm.days));
+    bar.appendChild(mt);
   }
-  if (host.parentNode) host.parentNode.scrollTop = keepScroll;
+  row.appendChild(bar);
+  var act = el('span', { class: 'dp-act' });
+  var label = teamPushLabel(preview);
+  var nAdj = preview.rows.filter(function (r) { return r.adjusted.length; }).length;
+  if (label) {
+    var go = dkBtn(label, { primary: true, cls: 'dp-cta', onClick: function () { dsPushPreview(team); } });
+    dkTip(go, 'See who gets what first: nothing is written until you push');
+    act.appendChild(go);
+  } else {
+    var stt = el('span', { class: 'dk-state', role: 'status' }, 'Everyone has the latest');
+    dkTip(stt, 'Every lifter on the team has the team’s block, with their own loads');
+    act.appendChild(stt);
+    // Their own adjustments can still go back to the team's version: one quiet way in.
+    if (nAdj) act.appendChild(dkBtn(nAdj + ' adjusted by you', { cls: 'is-quiet dp-tool', title: 'Keep them, or give a lifter the team’s version again', onClick: function () { dsPushPreview(team); } }));
+  }
+  row.appendChild(act);
+  head.appendChild(row);
+  return head;
 }
-// The loads: lifters down, the week's main sets across, each cell their own kg as a bar in the
-// lift's colour (how heavy against the heaviest on the team), the number in ink.
-function dsLoads(team, members, W, wi) {
+// The soft edge under the sticky weeks, once the week has scrolled under them (as Programs').
+function dsWatchEdge(sc) {
+  if (!sc || sc._dsEdge) return;
+  sc._dsEdge = true;
+  sc.addEventListener('scroll', function () { var b = sc.querySelector('.dp-head-b'), a = sc.querySelector('.dp-head-a'); if (b && a) b.classList.toggle('is-stuck', sc.scrollTop > a.offsetHeight + 8); }, { passive: true });
+}
+// Each lifter's loads for the week: one row per lifter (face · name · a chip per main lift · Reset · ⋯). A chip is their
+// own load from their own max; clicked, it takes a number for that lifter only (dsSetMemberLoad: theirs from then on, a
+// push asks before changing it). Lifted sets, and a lift with no max, can't be changed here.
+function dsLoadRows(team, members, W, wi) {
   var mx = teamWeekLoads(team.weeks, _tmKey(W, wi), members);
-  var sec = el('div', { class: 'ds-sec' });
+  var wn = W.number || wi + 1;
+  var sec = el('div', { class: 'ds-sec ds-loads', role: 'region', 'aria-label': 'Each lifter’s loads, week ' + wn });
   var hd = el('div', { class: 'ds-sec-head' });
-  hd.appendChild(el('h2', { class: 'ds-sec-title' }, 'Loads, week ' + (W.number || wi + 1)));
-  var anyKg = mx.cols.some(function (c) { return c.kind === 'kg'; });
-  hd.appendChild(el('span', { class: 'ds-sec-sub' }, 'Each lifter’s load from their own max, rounded to their plates' + (anyKg ? ' (a set written in kg is the same kg for everyone)' : '') + '. Click a load to adjust it for one lifter.'));
+  hd.appendChild(el('h2', { class: 'ds-sec-title' }, 'Each lifter’s loads'));
+  hd.appendChild(el('p', { class: 'ds-sec-sub' }, mx.cols.length ? 'Week ' + wn + ', from each lifter’s own max, rounded to their plates. Click a load to change it for that lifter only.' : 'Week ' + wn + ' has no squat, bench or deadlift written.'));
   sec.appendChild(hd);
-  if (!members.length) { sec.appendChild(el('div', { class: 'dk-noresults' }, el('b', {}, 'Nobody on the team yet'), el('span', {}, 'Add lifters and each one gets the program with their own loads.'))); return sec; }
-  if (!mx.cols.length) { sec.appendChild(el('p', { class: 'dk-quiet-p' }, 'Week ' + (W.number || wi + 1) + ' has no squat, bench or deadlift written.')); }
-  var grid = el('div', { class: 'ds-lx', role: 'table', 'aria-label': 'Loads for week ' + (W.number || wi + 1) });
-  grid.style.setProperty('--ds-cols', String(mx.cols.length));
-  var hr = el('div', { class: 'ds-lx-row is-head', role: 'row' });
-  hr.appendChild(el('div', { class: 'ds-lx-who', role: 'columnheader' }, 'Lifter'));
-  var colMax = mx.cols.map(function (c, ci) { return Math.max.apply(null, mx.rows.map(function (r) { return r.cells[ci].kg || 0; }).concat([1])); });
-  var lastDay = null;
-  mx.cols.forEach(function (c) {
-    var th = el('div', { class: 'ds-lx-col lift-' + c.lift, role: 'columnheader' });
-    th.appendChild(el('span', { class: 'ds-lx-day' + (c.dayId === lastDay ? ' is-same' : '') }, c.day));
-    lastDay = c.dayId;
-    var nm = el('span', { class: 'ds-lx-ex' });
-    nm.appendChild(el('i', { class: 'dk-lift-dot', 'aria-hidden': 'true' }));
-    nm.appendChild(el('b', {}, c.label));
-    th.appendChild(nm);
-    th.appendChild(el('span', { class: 'ds-lx-rx' }, c.rx + (c.kind === 'kg' ? ' · same kg for all' : '')));
-    hr.appendChild(th);
-  });
-  hr.appendChild(el('div', { class: 'ds-lx-act', role: 'columnheader' }, el('span', { class: 'dk-nil' }, 'Actions')));
-  grid.appendChild(hr);
+  if (!members.length) {
+    var none = el('div', { class: 'ds-lcard is-empty' });
+    none.appendChild(el('p', {}, el('b', {}, 'Nobody on the team yet'), el('span', {}, 'Add lifters and each one gets the block with their own loads.')));
+    none.appendChild(dkBtn('Add lifters', { icon: DK_IC.plus, onClick: function () { dsAddMembers(team); } }));
+    sec.appendChild(none);
+    return sec;
+  }
+  var card = el('div', { class: 'ds-lcard', role: 'list' });
+  card.style.setProperty('--ds-n', String(Math.max(1, mx.cols.length)));
   var noMaxLines = [];
   mx.rows.forEach(function (row, ri) {
     var mb = members.find(function (m) { return m.athleteId === row.athleteId; }) || {};
     var r = dkRow(row.athleteId);
-    var tr = el('div', { class: 'ds-lx-row', role: 'row', 'data-id': row.athleteId });
-    tr.style.setProperty('--i', String(ri));
-    var who = el('div', { class: 'ds-lx-who', role: 'rowheader' });
-    who.appendChild(r ? dkRingAv(r, 'sm') : dkAv({ name: row.name }, 'is-sm'));
-    var idw = el('div', { class: 'ds-lx-id' });
-    var nb = el('button', { type: 'button', class: 'ds-lx-name' }, row.name);
+    var first = _dkFirst(row.name);
+    var li = el('div', { class: 'ds-lrow', role: 'listitem', 'data-id': row.athleteId });
+    li.style.setProperty('--i', String(Math.min(ri, 8)));
+    var who = el('div', { class: 'ds-lwho' });
+    var face = el('span', { class: 'dk-avw' });
+    face.appendChild(dkAv(dsAthlete(row.athleteId) || { name: row.name }));
+    if (r && r.live) face.appendChild(el('span', { class: 'dk-live', title: 'Training now' }));
+    who.appendChild(face);
+    var nb = el('button', { type: 'button', class: 'ds-lname' }, row.name);
     nb.addEventListener('click', function () { openAthletePage(row.athleteId); });
-    dkTip(nb, 'Open ' + _dkFirst(row.name) + '’s page');
-    idw.appendChild(nb);
-    var sub = el('span', { class: 'ds-lx-sub' });
-    if (r && r.live) { sub.appendChild(el('i', { class: 'dk-dot t-live', 'aria-hidden': 'true' })); sub.appendChild(el('span', { class: 'ds-live' }, 'Training now')); }
-    var maxes = el('span', { class: 'ds-maxes' });
-    MAIN_LIFTS.forEach(function (L) {
-      var kg = teamMaxKg(mb.maxes, L);
-      if (!(kg > 0)) return;
-      var m = el('span', { class: 'ds-max lift-' + L });
-      m.appendChild(el('i', { class: 'dk-lift-dot', 'aria-hidden': 'true' }));
-      m.appendChild(document.createTextNode(String(Math.round(kgToDisplay(kg)))));
-      var src = teamMaxSource(mb.maxes, L);
-      dkTip(m, (LIFT_LABELS[L] || L) + ' max ' + Math.round(kgToDisplay(kg)) + ' ' + unitLabel() + (src === 'program' ? ', the max you set for their block' : src === 'e1rm' ? ', their best e1RM' : src === 'meet' ? ', their best meet single' : ''));
-      maxes.appendChild(m);
-    });
-    if (maxes.childNodes.length) { maxes.appendChild(el('span', { class: 'ds-unit' }, unitLabel())); sub.appendChild(maxes); }
-    else sub.appendChild(el('span', { class: 'ds-nomax' }, 'No maxes yet'));
-    idw.appendChild(sub);
-    who.appendChild(idw);
-    tr.appendChild(who);
+    dkTip(nb, 'Open ' + first + '’s page');
+    who.appendChild(nb);
+    li.appendChild(who);
+    var chips = el('div', { class: 'ds-lchips' });
     var miss = [];
     row.cells.forEach(function (c, ci) {
       var col = mx.cols[ci];
-      var td = el('div', { class: 'ds-lx-col lift-' + col.lift + (c.ovr ? ' is-own' : ''), role: 'cell' });
-      if (c.noMax) { miss.push((LIFT_LABELS[col.lift] || col.lift).toLowerCase()); td.appendChild(dkNil(c.note)); tr.appendChild(td); return; }
-      var ld = _dsLoad(c.kg, row.unit);
-      var b = el('button', { type: 'button', class: 'ds-cell' });
-      var num = el('span', { class: 'ds-cell-n' });
-      if (c.approx) num.appendChild(el('span', { class: 'ds-approx' }, '≈'));
-      num.appendChild(document.createTextNode(ld ? ld.n : ''));
-      if (ld) num.appendChild(el('small', {}, ' ' + ld.u));
-      if (c.ovr) num.appendChild(el('i', { class: 'ds-own', 'aria-hidden': 'true' }));
-      if (c.over) { td.classList.add('is-over'); num.appendChild(el('i', { class: 'dk-dot t-warn', 'aria-hidden': 'true' })); }
-      b.appendChild(num);
-      var bar = el('span', { class: 'ds-cell-bar', 'aria-hidden': 'true' });
-      bar.appendChild(el('i', { style: 'width:' + Math.max(6, Math.min(100, (c.kg / colMax[ci]) * 100)).toFixed(1) + '%' }));
-      b.appendChild(bar);
-      var why = c.over ? 'The same ' + teamLoadText(c.kg, row.unit) + ' for everyone: above ' + _dkFirst(row.name) + '’s ' + (LIFT_LABELS[col.lift] || '').toLowerCase() + ' max of ' + _num(kgToDisplay(c.max)) + '. Click to adjust it for them, or write the team’s set as a %'
-        : c.ovr ? 'Adjusted by you for ' + _dkFirst(row.name) + '. A push asks before changing it'
+      var chip = el('button', { type: 'button', class: 'ds-lchip lift-' + col.lift + (c.ovr ? ' is-own' : '') + (c.over ? ' is-over' : '') + (c.noMax ? ' is-nomax' : '') + (c.logged ? ' is-lifted' : '') });
+      chip.appendChild(el('i', { class: 'dk-lift-dot', 'aria-hidden': 'true' }));
+      chip.appendChild(el('span', { class: 'ds-lchip-l' }, col.label));
+      var v = el('span', { class: 'ds-lchip-v' });
+      if (c.noMax) { miss.push((LIFT_LABELS[col.lift] || col.lift).toLowerCase()); v.textContent = 'No max'; }
+      else {
+        var ld = _dsLoad(c.kg, row.unit);
+        v.appendChild(document.createTextNode((c.approx ? '≈' : '') + (ld ? ld.n : '')));
+        if (ld) v.appendChild(el('small', {}, ' ' + ld.u));
+      }
+      chip.appendChild(v);
+      if (c.ovr) chip.appendChild(el('i', { class: 'ds-lchip-own', 'aria-hidden': 'true' }));
+      if (c.logged) chip.insertAdjacentHTML('beforeend', '<span class="ds-lchip-ok" aria-hidden="true">' + DK_IC.check + '</span>');
+      var why = c.noMax ? 'No ' + (LIFT_LABELS[col.lift] || col.lift).toLowerCase() + ' max yet: their load stays blank until one is set'
+        : c.over ? 'The same ' + teamLoadText(c.kg, row.unit) + ' for everyone: above ' + first + '’s ' + (LIFT_LABELS[col.lift] || '').toLowerCase() + ' max of ' + _num(kgToDisplay(c.max)) + '. Click to change it for them, or write the team’s set as a %'
+        : c.ovr ? 'Changed by you for ' + first + '. A push asks before changing it'
         : c.approx ? col.rx + ' from their ' + (LIFT_LABELS[col.lift] || '').toLowerCase() + ' max of ' + _num(kgToDisplay(c.max)) + ' (RPE chart)'
-        : col.pct != null ? col.pct + '% of ' + _num(kgToDisplay(c.max)) : 'As written';
-      b.setAttribute('aria-label', row.name + ', ' + col.label + ': ' + teamLoadText(c.kg, row.unit) + '. ' + why);
-      dkTip(b, why + (c.logged ? ' · lifted' : ' · click to adjust'));
-      b.addEventListener('click', function () { dsEditCell(team, mb, W, wi, col, c, td, b); });
-      td.appendChild(b);
-      tr.appendChild(td);
+        : col.pct != null ? col.rx + ': ' + col.pct + '% of their max of ' + _num(kgToDisplay(c.max)) : col.rx + ', as written';
+      chip.setAttribute('aria-label', row.name + ', ' + col.label + ': ' + (c.noMax ? 'no max' : teamLoadText(c.kg, row.unit)) + '. ' + why + (c.logged ? '. Lifted' : ''));
+      dkTip(chip, why + (c.logged ? ' · lifted' : c.noMax ? '' : ' · click to change'));
+      if (c.noMax) chip.setAttribute('aria-disabled', 'true');
+      else chip.addEventListener('click', function () { dsChipEdit(team, mb, W, wi, col, c, chip); });
+      chips.appendChild(chip);
     });
-    if (miss.length) noMaxLines.push(_dkFirst(row.name) + ' has no ' + _dsList(miss) + ' max yet: ' + (miss.length === 1 ? 'that load stays' : 'those loads stay') + ' blank');
-    var act = el('div', { class: 'ds-lx-act', role: 'cell' });
+    li.appendChild(chips);
+    if (miss.length) noMaxLines.push(first + ' has no ' + _dsList(miss) + ' max yet: ' + (miss.length === 1 ? 'that load stays' : 'those loads stay') + ' blank');
+    var end = el('div', { class: 'ds-lend' });
+    var prog = mb.program && isTeamLinked(mb.program) ? mb.program : null;
+    var own = 0;
+    if (prog) _tmWalkEx(prog.weeks, function (x) { if (_tmExClaimed(x)) own++; });
+    if (own) {
+      var rs = dkBtn('Reset', { cls: 'is-quiet dk-btn-sm', onClick: function () { dsResetMember(team, mb); } });
+      dkTip(rs, first + ' has ' + own + (own === 1 ? ' change' : ' changes') + ' of yours: back to the team’s. Sets they lifted stay');
+      end.appendChild(rs);
+    }
     var mb2 = dkIconBtn(DK_IC.more, 'More for ' + row.name, function (e) {
       e.stopPropagation();
-      var prog = mb.program && isTeamLinked(mb.program) ? mb.program : null;
-      var own = 0;
-      if (prog) _tmWalkEx(prog.weeks, function (x) { if (_tmExClaimed(x)) own++; });
       dkPopMenu(mb2, [
-        { label: 'Open ' + _dkFirst(row.name) + '’s page', run: function () { openAthletePage(row.athleteId); } },
+        { label: 'Open ' + first + '’s page', run: function () { openAthletePage(row.athleteId); } },
         { label: 'Open their program', run: function () { openAthleteProgram(row.athleteId); } },
-        own ? { label: 'Reset to the team', hint: own + (own === 1 ? ' adjustment' : ' adjustments'), run: function () { dsResetMember(team, mb); } } : null,
         '-',
-        { label: 'Remove from ' + (team.name || 'the team'), hint: 'Detaches them: their program stays theirs', danger: true, run: function () { dsRemoveMember(team, row.athleteId, row.name); } }
-      ].filter(Boolean), { alignRight: true });
+        { label: 'Remove from ' + (team.name || 'the team'), hint: 'Their program stays theirs', danger: true, run: function () { dsRemoveMember(team, row.athleteId, row.name); } }
+      ], { alignRight: true });
     });
-    act.appendChild(mb2);
-    tr.appendChild(act);
-    grid.appendChild(tr);
+    end.appendChild(mb2);
+    li.appendChild(end);
+    card.appendChild(li);
   });
-  sec.appendChild(grid);
-  if (!_dkReduced()) grid.classList.add('is-in');
+  sec.appendChild(card);
   if (noMaxLines.length) sec.appendChild(el('p', { class: 'ds-note' }, noMaxLines.join(' · ')));
   return sec;
+}
+// A chip, changed in place: a number for that lifter only. Enter or leaving saves, Esc puts it back.
+function dsChipEdit(team, mb, W, wi, col, c, chip) {
+  var unitLb = mb.unit === 'lbs' || mb.unit === 'lb';
+  var v = chip.querySelector('.ds-lchip-v');
+  if (!v) return;
+  var inp = el('input', { type: 'text', inputmode: 'decimal', class: 'ds-lchip-in', 'aria-label': _dkFirst(mb.name) + '’s ' + col.label + ' load in ' + (unitLb ? 'lb' : 'kg') });
+  var cur = Number(c.kg) || 0;
+  inp.value = cur > 0 ? String(unitLb ? Math.round(cur / KG_PER_LB * 10) / 10 : _num(cur)) : '';
+  v.replaceWith(inp);
+  chip.classList.add('is-editing');
+  inp.addEventListener('click', function (e) { e.stopPropagation(); });
+  inp.focus(); inp.select();
+  var done = false;
+  var finish = function (save) {
+    if (done) return;
+    done = true;
+    var x = parseFloat(String(inp.value).replace(',', '.'));
+    if (save && x > 0) { var kg = unitLb ? x * KG_PER_LB : x; if (Math.abs(kg - cur) >= 0.01) { dsSetMemberLoad(team, mb, W, wi, col, c, kg); return; } }
+    dsRenderTeams();
+  };
+  inp.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
+  });
+  inp.addEventListener('blur', function () { finish(true); });
 }
 // The team's program, one week: the builder's session cards and line editor, writing the team's
 // program itself. Every edit is saved once (compare-and-swap on the team's rev); Push then says who
@@ -541,38 +651,8 @@ function dsProgressMaster(team, wi, kind) {
     return n;
   }, function (n) { toast('Week ' + (W.number || wi + 1) + ': ' + n + (n === 1 ? ' set' : ' sets') + ' a step on. Push when it reads right'); dsRenderTeams(); });
 }
-// One lifter's load, adjusted by hand: their copy of that exercise is theirs from now on (the next
-// push asks: keep or overwrite). Sets they lifted are never rewritten.
-function dsEditCell(team, mb, W, wi, col, c, td, btn) {
-  var prog = mb.program && isTeamLinked(mb.program) ? mb.program : null;
-  var first = _dkFirst(mb.name);
-  if (!prog) { toast('Push first: ' + first + ' gets their own copy, then adjust it'); return; }
-  var ex = null;
-  _tmWalkEx(prog.weeks, function (e, d, w) { if (!ex && String(w.srcId) === _tmKey(W, wi) && String(d.srcId) === col.dayId && String(e.srcId) === col.exId) ex = e; });
-  if (!ex) { toast(first + ' has no ' + col.label.toLowerCase() + ' this week'); return; }
-  if ((ex.sets || []).every(isLoggedSet)) { toast(first + ' lifted it: what happened stays'); return; }
-  var unitLb = mb.unit === 'lbs' || mb.unit === 'lb';
-  var inp = el('input', { type: 'text', inputmode: 'decimal', class: 'ds-cell-in', 'aria-label': first + '’s ' + col.label + ' load in ' + (unitLb ? 'lb' : 'kg') });
-  var cur = Number(c.kg) || 0;
-  inp.value = cur > 0 ? String(unitLb ? Math.round(cur / KG_PER_LB * 10) / 10 : _num(cur)) : '';
-  td.replaceChild(inp, btn);
-  inp.focus(); inp.select();
-  var done = false;
-  var finish = function (save) {
-    if (done) return;
-    done = true;
-    var v = parseFloat(String(inp.value).replace(',', '.'));
-    if (!save || !(v > 0) || Math.abs((unitLb ? v * KG_PER_LB : v) - cur) < 0.01) { dsRenderTeams(); return; }
-    dsSetMemberLoad(team, mb, W, wi, col, c, unitLb ? v * KG_PER_LB : v);
-  };
-  inp.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
-    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
-  });
-  inp.addEventListener('blur', function () { finish(true); });
-}
-// One lifter's load for a team exercise, set by hand (dsEditCell's write, without its DOM; the program editor's lifter
-// rows call it too): their copy of that exercise is theirs from now on (ovr: the next push asks), sets they lifted stay,
+// One lifter's load for a team exercise, set by hand (the Teams page's load chips and the program editor's lifter
+// rows call it): their copy of that exercise is theirs from now on (ovr: the next push asks), sets they lifted stay,
 // and the coach's ⌘Z on their program brings it back (dkPbRemember).
 function dsSetMemberLoad(team, mb, W, wi, col, c, kg) {
   var prog = mb.program && isTeamLinked(mb.program) ? mb.program : null;
@@ -904,11 +984,18 @@ function dsNewTeam(fromAid, pick) {
       toast(team.name + ' is ready. Push to give everyone their loads');
     } });
 }
+// No team yet: what a team is, in one line, and the way to make one. A team starts from one lifter's block, so before
+// there is a block the button says what comes first (write one, or invite a lifter), never a dead end.
 function dsTeamsEmpty() {
-  var box = el('div', { class: 'ds-empty' });
-  box.appendChild(el('h1', { class: 'dk-h1' }, 'Teams'));
-  box.appendChild(el('p', {}, 'One program, many lifters. Every lifter trains it on their own loads from their own maxes; what you adjust for one stays theirs, and sets they logged are never rewritten.'));
-  box.appendChild(dkBtn('Make a team', { primary: true, icon: DK_IC.plus, onClick: function () { dsNewTeam(null); } }));
+  var me = _dsMe(), s = Store.get();
+  var aths = (s.athletes || []).filter(function (a) { return a.coachId === me; });
+  var progs = (s.programs || []).filter(function (p) { var a = dsAthlete(p.athleteId); return a && a.coachId === me && (p.weeks || []).length; });
+  var line = 'Write one block for many lifters; each gets their own loads.';
+  var primary = progs.length ? { label: 'New team', onClick: function () { dsNewTeam(null); } }
+    : aths.length ? { label: 'Write a block first', onClick: function () { openAthleteProgram(aths[0].id); } }
+    : { label: 'Invite a lifter', onClick: function () { openInviteModal(); } };
+  var box = el('div', { class: 'ds-tempty' });
+  box.appendChild(uiEmpty({ icon: DS_IC.team, title: 'Teams', text: line + (progs.length ? '' : aths.length ? ' A team starts from one lifter’s block.' : ' A team starts from one lifter’s block: invite a lifter, then write theirs.'), primary: primary }));
   return box;
 }
 // The builder's Team button: their team's page, or a new team from this block.
