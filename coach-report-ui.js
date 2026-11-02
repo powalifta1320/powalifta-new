@@ -47,12 +47,135 @@
     return '<span class="ui-av av-h' + hue + ' mr-av" data-name="' + esc(name) + '" aria-hidden="true">' + esc(ini) + '</span>';
   }
 
+  /* ---------------------------------------------------------------- when the report comes (2 Nov: "Their pick, Sunday 6 pm default") */
+  // The coach's pick (email_preferences report_day / report_hour / tz), read once a load; Sunday at 18:00 until it is
+  // (the report's own default). The demo keeps a pick in memory only. ready: false when the row has no such columns
+  // yet (migration-coach-report-schedule-2026-11-02.sql not run): Settings says "available soon".
+  var SCHED = { day: 'sun', hour: 18, tz: null, ready: null };
+  var HOURS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];   // 5 am to 10 pm
+  function deviceTz() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; } }
+  // The preferences as db.js maps them ({ reportDay, reportHour, tz, scheduleReady }) or a pick ({ day, hour, ready }).
+  function pickOf(p) {
+    p = p || {};
+    var day = p.reportDay || p.day, hour = p.reportHour != null ? p.reportHour : p.hour;
+    hour = Number(hour);
+    return { day: day === 'mon' ? 'mon' : 'sun', hour: Number.isInteger(hour) && hour >= 0 && hour <= 23 ? hour : 18,
+      tz: p.tz || null, ready: p.scheduleReady !== undefined ? p.scheduleReady : p.ready !== undefined ? p.ready : null };
+  }
+  function setSchedule(p) { SCHED = pickOf(p); return SCHED; }
+  // Switching the day moves the default hours with it (Sunday 6 pm ⇄ Monday 7 am); any other hour stays.
+  function pickNext(cur, change) {
+    var next = { day: cur.day, hour: cur.hour };
+    if (change.day && change.day !== cur.day) {
+      next.day = change.day === 'mon' ? 'mon' : 'sun';
+      if (next.day === 'mon' && cur.hour === 18) next.hour = 7;
+      else if (next.day === 'sun' && cur.hour === 7) next.hour = 18;
+    }
+    if (change.hour != null && Number.isInteger(Number(change.hour))) next.hour = Number(change.hour);
+    return next;
+  }
+  // What a save sends: the day, the hour and this device's time zone (the hourly job reads them where the coach is).
+  function schedulePatch(pick, tz) {
+    var out = { reportDay: pick.day, reportHour: pick.hour }, CR = window.CoachReport;
+    if (tz && CR && CR.validTz(tz) === tz) out.tz = tz;
+    return out;
+  }
+  // An hour as this device writes it ("6:00 PM", "18:00").
+  function hourLabel(h) {
+    try { return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(2026, 0, 5, h, 0)); }
+    catch (e) { return (h < 10 ? '0' : '') + h + ':00'; }
+  }
+  function scheduleSub(p) { var k = pickOf(p); return 'Your team’s week, ' + (k.day === 'mon' ? 'Mondays' : 'Sundays') + ' at ' + hourLabel(k.hour); }
+  // Settings › Notifications, under the Weekly report switch: Sunday evening or Monday morning, the hour, where.
+  function scheduleHtml(p, opts) {
+    var k = pickOf(p), off = k.ready === false, tz = (opts && opts.tz) || deviceTz() || 'UTC';
+    var hrs = HOURS.indexOf(k.hour) < 0 ? HOURS.concat([k.hour]).sort(function (a, b) { return a - b; }) : HOURS;
+    return '<div class="rs-box' + (off ? ' is-off' : '') + '" id="rsBox">' +
+      '<div class="ui-seg rs-seg" role="radiogroup" aria-label="When the weekly report comes">' +
+      [['sun', 'Sunday evening'], ['mon', 'Monday morning']].map(function (d) {
+        var on = k.day === d[0];
+        return '<button type="button" role="radio" aria-checked="' + on + '"' + (on ? ' class="on"' : '') + ' data-rs-day="' + d[0] + '"' + (off ? ' disabled' : '') + '>' + d[1] + '</button>';
+      }).join('') + '</div>' +
+      '<label class="rs-hour" for="rsHour"><span>Time</span><select id="rsHour"' + (off ? ' disabled' : '') + '>' +
+      hrs.map(function (h) { return '<option value="' + h + '"' + (h === k.hour ? ' selected' : '') + '>' + esc(hourLabel(h)) + '</option>'; }).join('') + '</select></label>' +
+      '<p class="rs-tz" id="rsTz">' + (off ? 'Available soon. Until then it comes on Mondays.' : 'In ' + esc(String(tz).replace(/_/g, ' ')) + ', from this device') + '</p></div>';
+  }
+  // The row's controls. opts: { demo (nothing saves), save(patch) → Promise, onChange(pick) }.
+  function wireSchedule(root, opts) {
+    opts = opts || {};
+    var box = root && root.querySelector ? root.querySelector('#rsBox') : null;
+    if (!box || box.classList.contains('is-off')) return;
+    var cur = { day: SCHED.day, hour: SCHED.hour }, sel = box.querySelector('#rsHour');
+    var paint = function () {
+      [].forEach.call(box.querySelectorAll('[data-rs-day]'), function (b) { var on = b.getAttribute('data-rs-day') === cur.day; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+      if (sel) {
+        if (![].some.call(sel.options, function (o) { return Number(o.value) === cur.hour; })) { var o = document.createElement('option'); o.value = String(cur.hour); o.textContent = hourLabel(cur.hour); sel.appendChild(o); }
+        sel.value = String(cur.hour);
+      }
+      if (opts.onChange) opts.onChange(cur);
+    };
+    var off = function () {
+      box.classList.add('is-off');
+      [].forEach.call(box.querySelectorAll('button, select'), function (c) { c.disabled = true; });
+      var t = box.querySelector('#rsTz'); if (t) t.textContent = 'Available soon. Until then it comes on Mondays.';
+    };
+    var commit = function (next) {
+      var prev = cur;
+      cur = next; paint();
+      if (opts.demo) { SCHED.day = cur.day; SCHED.hour = cur.hour; if (typeof toast === 'function') toast('Preview only in demo mode.'); return; }
+      var tz = deviceTz();
+      Promise.resolve().then(function () { return opts.save(schedulePatch(cur, tz)); }).then(function () {
+        SCHED.day = cur.day; SCHED.hour = cur.hour; if (tz) SCHED.tz = tz;
+        if (typeof toast === 'function') toast('Weekly report: ' + (cur.day === 'mon' ? 'Mondays' : 'Sundays') + ' at ' + hourLabel(cur.hour));
+      }, function (e) {
+        cur = prev; paint();
+        if (e && e.notReady) off();
+        if (typeof toast === 'function') toast(e && e.notReady ? 'That turns on with the next update.' : 'Couldn’t save that right now.');
+      });
+    };
+    box.addEventListener('click', function (e) {
+      var b = e.target && e.target.closest ? e.target.closest('[data-rs-day]') : null;
+      if (!b || b.disabled || b.getAttribute('data-rs-day') === cur.day) return;
+      commit(pickNext(cur, { day: b.getAttribute('data-rs-day') }));
+    });
+    if (sel) sel.addEventListener('change', function () { commit(pickNext(cur, { hour: Number(sel.value) })); });
+  }
+  // Once a load, for a coach: read their pick, and when their row has no time zone or another one than this device's,
+  // save this device's quietly (the hourly job reads it). Never in the demo, never for a lifter, never twice a load.
+  // o (tests): { user, db, tz, demo, force }.
+  // Whether to read a user's pick at all (a coach, not the demo), and what to save once it's read (this device's zone,
+  // when theirs is none or another, and the browser knows it; nothing before the migration).
+  function shouldSync(u, demo) { return !!u && u.userType === 'coach' && !demo; }
+  function tzToSave(p, tz) {
+    var CR = window.CoachReport;
+    return p && p.scheduleReady !== false && tz && CR && CR.validTz(tz) === tz && p.tz !== tz ? { tz: tz } : null;
+  }
+  var synced = null;
+  function syncSchedule(o) {
+    o = o || {};
+    if (synced && !o.force) return synced;
+    var u = o.user !== undefined ? o.user : me(), db = o.db || (typeof DB !== 'undefined' ? DB : null);
+    var demo = o.demo !== undefined ? o.demo : !!window._demoMode, tz = o.tz !== undefined ? o.tz : deviceTz();
+    if (!shouldSync(u, demo) || !db || !db.getEmailPrefs) { synced = Promise.resolve(SCHED); return synced; }
+    var got;
+    try { got = Promise.resolve(db.getEmailPrefs(u.id)); } catch (e) { got = Promise.reject(e); }
+    synced = got.then(function (p) {
+      setSchedule(p);
+      var patch = tzToSave(p, tz);
+      if (!patch || !db.updateEmailPrefs) return SCHED;
+      return Promise.resolve().then(function () { return db.updateEmailPrefs(u.id, patch); }).then(function () { SCHED.tz = tz; return SCHED; }, function () { return SCHED; });
+    }, function () { return SCHED; });
+    return synced;
+  }
+  // The week the report in the app shows: the one the coach's pick gives today (on a Sunday, a Sunday pick's this week).
+  function windowNow(today) { var CR = window.CoachReport; return CR.reportWindow(SCHED.day, today || todayIso()); }
+
   /* ---------------------------------------------------------------- the week, from the Store */
   function model(opts) {
     opts = opts || {};
     var CR = window.CoachReport;
     if (!CR) return null;
-    var t = opts.today || todayIso(), W = CR.lastWeek(t), u = me(), now = opts.now || Date.now();
+    var t = opts.today || todayIso(), W = opts.window || CR.reportWindow(SCHED.day, t), u = me(), now = opts.now || Date.now();
     var store = typeof Store !== 'undefined' && Store.get ? Store.get() : {};
     var input = CR.fromStore(store, opts.coachId || (u && u.id), { from: W.from, to: W.to, today: t, now: now, formChecks: opts.formChecks || formChecks(),
       threads: opts.threads || threads(), plan: u ? { tier: u.subscriptionTier, periodEnd: u.subscriptionPeriodEnd } : null });
@@ -236,13 +359,15 @@
     }
     // One red: the first lifter who needs you. Nobody? Then nothing red to do.
     var up = live && CR ? CR.firstUp(team) : null;
-    h += '<div class="mr-foot rise" style="--i:' + (k++) + '"><p>' + (live ? 'Monday’s push and email say the same.' : 'A sample. Your lifters’ week lands here, and in Monday’s push and email, once they train.') + '</p>' +
+    var when = SCHED.day === 'mon' ? 'Monday' : 'Sunday';
+    h += '<div class="mr-foot rise" style="--i:' + (k++) + '"><p>' + (live ? when + '’s push and email say the same.' : 'A sample. Your lifters’ week lands here, and in ' + when + '’s push and email, once they train.') + '</p>' +
       (up ? '<button type="button" class="cl-btn mr-go red" data-mr-lifter="' + esc(up.id) + '">Start with ' + esc(first(up.name)) + '</button>' : '') + '</div>';
     return h + '</div>';
   }
   // The quiet way in: Today › This week (laptop) and Lifters › This week (phone).
   function entryHtml() {
-    return '<button type="button" class="cl-quiet mr-entry" data-mr-open>Last week’s report' + ic('chev', 2.2) + '</button>';
+    var W = window.CoachReport ? windowNow() : null;
+    return '<button type="button" class="cl-quiet mr-entry" data-mr-open>' + (W && W.to >= W.today ? 'This week’s report' : 'Last week’s report') + ic('chev', 2.2) + '</button>';
   }
 
   /* ---------------------------------------------------------------- open, act, close */
@@ -254,7 +379,8 @@
     if (!team) return;
     var sample = !team.of && !!opts.example;
     if (sample) team = sampleTeam(todayIso());
-    var CR = window.CoachReport, W = CR.lastWeek(todayIso());
+    var CR = window.CoachReport, W = opts.window || CR.reportWindow(SCHED.day, todayIso());
+    var title = W.to >= W.today ? 'This week' : 'Last week';
     var sub = CR.rangeLabel(W.from, W.to) + (sample ? ' · a sample' : '');
     var body = html(team, { unit: unit(), sample: sample });
     var opener = document.activeElement;
@@ -264,7 +390,7 @@
       var box = document.createElement('div');
       box.className = 'mr-box cl-root';
       box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'mrTitle'); box.tabIndex = -1;
-      box.innerHTML = '<header class="mr-head"><div><h2 class="mr-title" id="mrTitle">Last week</h2><p class="mr-sub">' + esc(sub) + '</p></div>' +
+      box.innerHTML = '<header class="mr-head"><div><h2 class="mr-title" id="mrTitle">' + title + '</h2><p class="mr-sub">' + esc(sub) + '</p></div>' +
         '<button type="button" class="cl-ibtn mr-x" data-mr-close aria-label="Close the report">' + ic('x') + '</button></header>' +
         '<div class="mr-scroll">' + body + '</div>';
       veil.appendChild(box);
@@ -303,7 +429,7 @@
       return;
     }
     if (typeof uiSheet !== 'function') return;
-    var closeSheet = uiSheet('Last week', function (sheet) {
+    var closeSheet = uiSheet(title, function (sheet) {
       var p = document.createElement('p'); p.className = 'ui-sheet-sub'; p.textContent = sub;
       sheet.appendChild(p);
       var wrap = document.createElement('div');
@@ -344,17 +470,28 @@
       if (b.hasAttribute('data-mr-money') || b.hasAttribute('data-mr-due')) { e.preventDefault(); close(goClients); }
     });
   }
-  // The Monday push opens coach.html?report=week: show the report once the coach's data is in, then
-  // take the flag off the address so a reload doesn't open it again.
+  // The report's push opens coach.html?report=week&w=<the week's Monday>: show that week once the coach's data is in
+  // (an older push without w: the week the pick gives), then take the flags off the address so a reload doesn't open it
+  // again.
+  function linkWindow(search, today) {
+    var m = /[?&]w=(\d{4}-\d{2}-\d{2})\b/.exec(search || ''), CR = window.CoachReport;
+    if (!m || !CR || !CR.isIso(m[1]) || CR.mondayOf(m[1]) !== m[1] || m[1] > today) return null;
+    var end = CR.addDays(m[1], 6);
+    return { from: m[1], to: end < today ? end : today, today: today };
+  }
   function fromLink(ready) {
-    if (!/[?&]report=week\b/.test(location.search || '')) return false;
+    var search = location.search || '';
+    if (!/[?&]report=week\b/.test(search)) return false;
+    var W = linkWindow(search, todayIso());
     try {
-      var q = location.search.replace(/([?&])report=week\b&?/, '$1').replace(/[?&]$/, '');
+      var q = search.replace(/([?&])report=week\b&?/, '$1').replace(/([?&])w=[^&]*&?/, '$1').replace(/[?&]$/, '');
       history.replaceState(null, '', location.pathname + q + location.hash);
     } catch (e) {}
-    Promise.resolve(ready).catch(function () {}).then(function () { setTimeout(function () { open(); }, 120); });
+    Promise.resolve(ready).catch(function () {}).then(function () { setTimeout(function () { open(W ? { window: W } : {}); }, 120); });
     return true;
   }
 
-  window.CoachReportUI = { model: model, html: html, sampleTeam: sampleTeam, entryHtml: entryHtml, open: open, close: close, fromLink: fromLink, isOpen: function () { return !!S; } };
+  window.CoachReportUI = { model: model, html: html, sampleTeam: sampleTeam, entryHtml: entryHtml, open: open, close: close, fromLink: fromLink, isOpen: function () { return !!S; },
+    schedule: function () { return SCHED; }, setSchedule: setSchedule, syncSchedule: syncSchedule, scheduleHtml: scheduleHtml, scheduleSub: scheduleSub, wireSchedule: wireSchedule,
+    pickNext: pickNext, schedulePatch: schedulePatch, hourLabel: hourLabel, windowNow: windowNow, linkWindow: linkWindow, shouldSync: shouldSync, tzToSave: tzToSave };
 })();

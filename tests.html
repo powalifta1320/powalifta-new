@@ -7990,6 +7990,61 @@ test('the in-app report: an empty roster says how it starts', () => {
   eq((h.match(/mr-go red/g) || []).length, 0, 'no red with nobody to open');
 });
 
+// When the weekly report comes (the owner's poll, 2 Nov: "Their pick, Sunday 6 pm default"): Settings › Notifications.
+(() => {
+  const fakeDb = (row) => {
+    const calls = { get: 0, update: [] };
+    return { calls, getEmailPrefs: async () => { calls.get++; return row; }, updateEmailPrefs: async (id, patch) => { calls.update.push([id, patch]); return row; } };
+  };
+  const coach = { id: 'c1', userType: 'coach' };
+  test('the time zone: read for a coach only, never in the demo; saved when theirs is none or another and the browser knows it; never before the migration; once a load', () => {
+    eq([CoachReportUI.shouldSync(coach, false), CoachReportUI.shouldSync(coach, true), CoachReportUI.shouldSync({ id: 'a1', userType: 'athlete' }, false), CoachReportUI.shouldSync(null, false)].join(), 'true,false,false,false');
+    eq(JSON.stringify(CoachReportUI.tzToSave({ tz: null, scheduleReady: true }, 'Europe/London')), JSON.stringify({ tz: 'Europe/London' }), 'none yet');
+    eq(JSON.stringify(CoachReportUI.tzToSave({ tz: 'Europe/London', scheduleReady: null }, 'America/New_York')), JSON.stringify({ tz: 'America/New_York' }), 'travelling; no row yet');
+    eq(CoachReportUI.tzToSave({ tz: 'Europe/London', scheduleReady: true }, 'Europe/London'), null, 'the same zone');
+    eq(CoachReportUI.tzToSave({ tz: null, scheduleReady: false }, 'Europe/London'), null, 'before the migration');
+    eq(CoachReportUI.tzToSave({ tz: null, scheduleReady: true }, 'Not/AZone'), null, 'a zone the browser doesn\'t know');
+    eq(CoachReportUI.tzToSave({ tz: null, scheduleReady: true }, ''), null, 'no zone');
+    const a = fakeDb({ tz: null, scheduleReady: true });
+    const p1 = CoachReportUI.syncSchedule({ user: coach, db: a, tz: 'Europe/London', demo: false, force: true }), p2 = CoachReportUI.syncSchedule({ user: coach, db: a, tz: 'Europe/London', demo: false });
+    assert(p1 === p2 && a.calls.get === 1, 'one read a load');
+    const d = fakeDb({ tz: null, scheduleReady: true });
+    CoachReportUI.syncSchedule({ user: coach, db: d, tz: 'Europe/London', demo: true, force: true });
+    eq(d.calls.get, 0, 'the demo reads nothing');
+  });
+  test('the Weekly report row: Sunday evening or Monday morning, the hour (5 am to 10 pm), where; available soon before the migration', () => {
+    const h = CoachReportUI.scheduleHtml({ reportDay: 'mon', reportHour: 7, scheduleReady: true }, { tz: 'America/New_York' });
+    assert(/aria-checked="true" class="on" data-rs-day="mon">Monday morning/.test(h) && /aria-checked="false" data-rs-day="sun">Sunday evening/.test(h), 'the pick is on');
+    eq((h.match(/<option /g) || []).length, 18, '5 am to 10 pm');
+    assert(/<option value="7" selected>/.test(h), 'the hour selected');
+    assert(h.includes('In America/New York, from this device'), 'where');
+    assert(CoachReportUI.scheduleHtml({ reportDay: 'sun', reportHour: 23, scheduleReady: true }).includes('<option value="23" selected>'), 'a saved hour outside the list still shows');
+    const off = CoachReportUI.scheduleHtml({ scheduleReady: false });
+    assert(off.includes('rs-box is-off') && (off.match(/ disabled/g) || []).length === 3 && off.includes('Available soon'), 'before the migration');
+    eq(CoachReportUI.scheduleSub({ reportDay: 'sun', reportHour: 18 }).indexOf('Your team’s week, Sundays at '), 0);
+  });
+  test('the pick: switching the day moves the default hours with it (Sunday 6 pm, Monday 7 am); a save sends this device\'s zone', () => {
+    eq(JSON.stringify(CoachReportUI.pickNext({ day: 'sun', hour: 18 }, { day: 'mon' })), JSON.stringify({ day: 'mon', hour: 7 }));
+    eq(JSON.stringify(CoachReportUI.pickNext({ day: 'mon', hour: 7 }, { day: 'sun' })), JSON.stringify({ day: 'sun', hour: 18 }));
+    eq(JSON.stringify(CoachReportUI.pickNext({ day: 'mon', hour: 9 }, { day: 'sun' })), JSON.stringify({ day: 'sun', hour: 9 }), 'a chosen hour stays');
+    eq(JSON.stringify(CoachReportUI.pickNext({ day: 'sun', hour: 18 }, { hour: 20 })), JSON.stringify({ day: 'sun', hour: 20 }));
+    eq(JSON.stringify(CoachReportUI.schedulePatch({ day: 'mon', hour: 7 }, 'Asia/Kolkata')), JSON.stringify({ reportDay: 'mon', reportHour: 7, tz: 'Asia/Kolkata' }));
+    eq(JSON.stringify(CoachReportUI.schedulePatch({ day: 'sun', hour: 18 }, 'Mars/Base')), JSON.stringify({ reportDay: 'sun', reportHour: 18 }), 'no unknown zone');
+  });
+  test('the report in the app follows the pick: a Sunday pick shows this week on Sundays; the push\'s link opens the week it covers', () => {
+    CoachReportUI.setSchedule({ reportDay: 'sun', reportHour: 18 });
+    eq(JSON.stringify(CoachReportUI.windowNow('2026-11-01')), JSON.stringify({ from: '2026-10-26', to: '2026-11-01', today: '2026-11-01' }));
+    eq(CoachReportUI.windowNow('2026-11-03').from, '2026-10-26', 'later in the week: the week it reported');
+    CoachReportUI.setSchedule({ reportDay: 'mon', reportHour: 7 });
+    eq(CoachReportUI.windowNow('2026-11-01').from, '2026-10-19', 'a Monday pick on a Sunday: the week before');
+    eq(JSON.stringify(CoachReportUI.linkWindow('?report=week&w=2026-10-26', '2026-11-01')), JSON.stringify({ from: '2026-10-26', to: '2026-11-01', today: '2026-11-01' }));
+    eq(CoachReportUI.linkWindow('?report=week&w=2026-10-27', '2026-11-01'), null, 'not a Monday');
+    eq(CoachReportUI.linkWindow('?report=week&w=2026-11-09', '2026-11-01'), null, 'a week to come');
+    eq(CoachReportUI.linkWindow('?report=week', '2026-11-01'), null, 'an older push: the pick\'s week');
+    CoachReportUI.setSchedule({});
+  });
+})();
+
 test('report: an approved busy week counts its agreed sessions (the table keeps days as a list)', () => {
   const rows = CoachReport.busyRows([
     { athleteId: 'a', weekStart: '2026-10-26', status: 'approved', days: ['2026-10-29', '2026-10-31'], proposal: { v: 1, assign: [{ dayIdx: 0, date: '2026-10-29' }, { dayIdx: 2, date: '2026-10-31' }], merge: [{ from: 1, into: 0 }] } },

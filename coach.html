@@ -532,8 +532,11 @@ function _coachReady() {
   subscribeRosterMessages();
   subscribePainReports();
   const _fcReady = refreshFormChecks();
-  // The Monday push opens coach.html?report=week: Last week's report, once the form checks are in.
+  // The report's push opens coach.html?report=week (&w=its week): the report, once the form checks are in.
   if (window.CoachReportUI) CoachReportUI.fromLink(_fcReady);
+  // When the weekly report comes: the coach's pick, read once; this device's time zone saved quietly when theirs has
+  // none or another one (the hourly job sends at their hour where they are). Never in the demo.
+  if (window.CoachReportUI && CoachReportUI.syncSchedule) CoachReportUI.syncSchedule();
   // A new application's push or email opens coach.html?lead=ID (apply-to-coach, night C): Lifters, then its sheet.
   try {
     const lid = new URLSearchParams(location.search).get('lead');

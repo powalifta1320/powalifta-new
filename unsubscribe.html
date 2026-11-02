@@ -62,7 +62,7 @@
 (function () {
   const params = new URLSearchParams(location.search);
   let token = (params.get('token') || '').trim();
-  // A coach's Monday report links here with r=coach: the same switch (weekly_digest), the coach's words.
+  // A coach's weekly report links here with r=coach: the same switch (weekly_digest), the coach's words.
   const isCoach = params.get('r') === 'coach';
   // The token is the whole credential: it leaves the address bar at once (kept for this tab, so a
   // reload still works), so it's never sent on as the next page's referrer (sweep 2026-10-28 #13).
@@ -108,7 +108,7 @@
         '<span class="ur-body">' + esc(note.msg) + '</span></span>' +
       '</div>' +
       '<div class="unsub-prefs-head">Your emails</div>' +
-      (isCoach ? prefRow('epWeekly', 'Monday report', 'Your team\u2019s week, every Monday.', weekly)
+      (isCoach ? prefRow('epWeekly', 'Weekly report', 'Your team\u2019s week, at the time you picked in Settings.', weekly)
         : prefRow('epWeekly', 'Weekly progress email', 'A Monday recap of your last 7 days: sessions, tonnage, best e1RMs.', weekly)) +
       prefRow('epProduct', 'Product tips & announcements',
         'Occasional notes on new features. No spam, ever.', product) +
@@ -160,7 +160,7 @@
       return;
     }
     renderPrefs(res, isCoach ? {
-      title: 'You\'re unsubscribed from the Monday report',
+      title: 'You\'re unsubscribed from the weekly report',
       msg: 'We won\'t email your team\u2019s week anymore. Changed your mind? Flip it back on below.'
     } : {
       title: 'You\'re unsubscribed from weekly emails',

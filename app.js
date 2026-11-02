@@ -5361,27 +5361,37 @@ function emailPrefRow(id, label, sub, checked) {
 async function renderEmailPrefs(container) {
   const u = getCurrentUser();
   if (!container || !u) { if (container) container.innerHTML = ''; return; }
-  // A coach's weekly email is the Monday report (send-weekly-digest's coach job), a lifter's their own recap.
+  // A coach's weekly email is their weekly report (send-weekly-digest's coach job), at the time they pick under it
+  // (coach-report-ui.js: Sunday evening or Monday morning, the hour, this device's time zone); a lifter's their own recap.
   const isCoach = u.userType === 'coach';
+  const RS = isCoach && window.CoachReportUI && CoachReportUI.scheduleHtml ? CoachReportUI : null;
   const paint = (prefs, demo) =>
     '<p class="dim text-sm mb-8">Email</p>' +
-    (isCoach ? emailPrefRow('epWeekly', 'Monday report', 'Your team’s week, every Monday', prefs.weeklyDigest)
+    (isCoach ? emailPrefRow('epWeekly', 'Weekly report', RS ? RS.scheduleSub(prefs) : 'Your team’s week, every week', prefs.weeklyDigest) + (RS ? RS.scheduleHtml(prefs) : '')
       : emailPrefRow('epWeekly', 'Weekly progress email',
         'A Monday recap of your last 7 days. Sessions, tonnage, best e1RMs.', prefs.weeklyDigest)) +
     emailPrefRow('epProduct', 'Product tips & announcements',
       'Occasional notes on new features. No spam, unsubscribe anytime.', prefs.productEmails) +
     (demo ? '<p class="dim text-xs mt-8" style="opacity:.7">Preview only in demo mode.</p>' : '') +
     '<p class="dim text-xs mt-8" style="line-height:1.5">Every email has a one-click unsubscribe link in the footer too.</p>' +
-    (isCoach && window.CoachReportUI ? '<button type="button" class="np-example" id="npExample"><span>See an example of the Monday report</span>' +
+    (isCoach && window.CoachReportUI ? '<button type="button" class="np-example" id="npExample"><span>See an example of the weekly report</span>' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>' : '');
   const wireExample = () => { const b = document.getElementById('npExample'); if (b) b.addEventListener('click', () => CoachReportUI.open({ example: true })); };
+  // The weekly report's time: its line under the switch follows the pick.
+  const wireSchedule = (demo) => {
+    if (!RS) return;
+    RS.wireSchedule(container, { demo, save: (patch) => DB.updateEmailPrefs(u.id, patch),
+      onChange: (pick) => { const sub = container.querySelector('label[for="epWeekly"] .epr-sub'); if (sub) sub.textContent = RS.scheduleSub(pick); } });
+  };
 
   if (window._demoMode) {
-    container.innerHTML = paint({ weeklyDigest: true, productEmails: false }, true);
+    // Demo: the pick works on screen (and in the report it opens), nothing is saved.
+    const pick = RS ? RS.schedule() : {};
+    container.innerHTML = paint({ weeklyDigest: true, productEmails: false, reportDay: pick.day, reportHour: pick.hour, scheduleReady: true }, true);
     // Demo: reflect the flip visually, but never hit the network.
     const wire = (id) => { const el = document.getElementById(id); if (el) el.addEventListener('change', () => toast('Preview only in demo mode.')); };
     wire('epWeekly'); wire('epProduct');
-    wireExample();
+    wireExample(); wireSchedule(true);
     return;
   }
 
@@ -5389,8 +5399,9 @@ async function renderEmailPrefs(container) {
   let prefs;
   try { prefs = await DB.getEmailPrefs(u.id); }
   catch (e) { prefs = { weeklyDigest: true, productEmails: false }; }
+  if (RS) RS.setSchedule(prefs);
   container.innerHTML = paint(prefs, false);
-  wireExample();
+  wireExample(); wireSchedule(false);
 
   const save = async (patch, box) => {
     const prev = !box.checked; // we're in the change handler; prev is the pre-toggle state
@@ -5428,7 +5439,7 @@ async function renderNotifPrefs(container) {
   const catRows = (prefs) => !coachLinked ? '<p class="dim text-xs" style="line-height:1.5;margin:0">Training-buddy nudges from your club arrive here. Messages, form checks and program updates join them once you have a coach.</p>' :
     isCoach ? emailPrefRow('npMsg', 'Messages', 'When a lifter writes to you', prefs.pushMessages) +
       emailPrefRow('npForm', 'Form checks', 'When a lifter sends one', prefs.pushFormChecks) +
-      emailPrefRow('npAlerts', 'PRs and missed sessions', 'PRs as they’re logged, who’s behind on Thursday, and Monday’s summary', prefs.pushAlerts !== false) :
+      emailPrefRow('npAlerts', 'PRs and missed sessions', 'PRs as they’re logged, who’s behind on Thursday, and the weekly report', prefs.pushAlerts !== false) :
     emailPrefRow('npMsg',  'Messages',
       'A push when your coach or an athlete sends you a message.', prefs.pushMessages) +
     emailPrefRow('npForm', 'Form-check replies',

@@ -59,6 +59,15 @@ service_role only, STATUS-check row 63 false before and true after.
 PGLITE=/path/to/@electric-sql/pglite/dist/index.js node test/coach-report-sql.test.mjs
 ```
 
+When the report comes (2 Nov): each coach picks Sunday evening or Monday morning, the hour, in their time zone. The
+pick's columns and their own-row policies in PGlite, and the app's quiet time-zone save (awaited: tests.html's runner
+doesn't await):
+
+```bash
+PGLITE=/path/to/@electric-sql/pglite/dist/index.js node test/coach-report-schedule-sql.test.mjs
+node test/coach-report-ui.test.mjs
+```
+
 ## Applications to a coach (no dependencies)
 
 The apply-to-coach edge function end to end under Node, the supabase client, web-push and fetch faked: the gate the
