@@ -43,6 +43,22 @@ node test/coach-jobs.test.mjs
 node test/send-weekly-digest.test.mjs
 ```
 
+The Monday report's v2 (2 Nov) runs on one world for both, `test/coach-report-fixture.mjs`: five coaches as the
+database's rows (Sam Ellis and the demo team of 20, 3 lifters on the free plan in lbs, 60 lifters, one with no
+billing or meets, a dormant one), the same world as the app's Store, and the RPCs answered as the SQL does. The core's
+effort is checked against the app's own Effort functions (clEffort, caEffortOf / caEffortSplit / caEffortBins),
+lifted out of their files.
+
+The SQL itself (`sql/migration-coach-report-v2-2026-11-02.sql`) against `coach-report.js` in PGlite (needs PGlite,
+not a repo dependency; without it the test says so and skips): the migration twice after rows 53 and 56,
+coach_week_stats' old answers kept and its 4-week windows equal to the app's, planned sessions and weeks left (drafts
+skipped) and the effort sets equal to the JS on 600+ generated blocks, the threads' last message (never its words),
+service_role only, STATUS-check row 63 false before and true after.
+
+```bash
+PGLITE=/path/to/@electric-sql/pglite/dist/index.js node test/coach-report-sql.test.mjs
+```
+
 ## Applications to a coach (no dependencies)
 
 The apply-to-coach edge function end to end under Node, the supabase client, web-push and fetch faked: the gate the
