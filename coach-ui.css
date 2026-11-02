@@ -2009,6 +2009,8 @@ html:not(.desk) .cap-head .cl-h1 { font-size: 32px; line-height: 1.08; text-wrap
   background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--acc, #a98bff) 10%, transparent), transparent 60%), var(--cl-surface);
   border: 1px solid var(--cl-line); border-radius: var(--cl-r); box-shadow: var(--ch-lit); }
 .cap-sum { display: flex; flex-direction: column; min-width: 0; }
+/* a slot with nothing to say this time (no Invite past your hours, nobody to save time on) takes no gap */
+.cap-root :is([data-cp-invite], [data-cp-saves], [data-cp-morewrap], [data-cp-plan]):empty { display: none; }
 /* "13 h 20 min": the numbers big, the units small, a pair's space wider than a number's own */
 .cap-big { margin: 0; color: var(--text); white-space: nowrap; line-height: 1; }
 .cap-big b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 44px; line-height: 0.95; font-weight: 800; letter-spacing: -0.035em; }
