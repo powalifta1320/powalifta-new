@@ -488,6 +488,8 @@
   function leadsChanged() {
     try { if (typeof renderRoster === 'function') renderRoster(); } catch (e) {}
     try { if (window.CoachApp) CoachApp.paintHomeIfShown(); } catch (e) {}
+    // The laptop's Today counts them too (its business line, "2 applications waiting"): it draws again.
+    try { if (window.CoachLifters && CoachLifters.refresh && typeof isDesk === 'function' && isDesk()) CoachLifters.refresh(); } catch (e) {}
     afterChange();
   }
   function setLead(id, patch) {

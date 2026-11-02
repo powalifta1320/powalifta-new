@@ -134,7 +134,7 @@
     <section data-pane="clients" class="hidden"><div id="clientsArea"></div></section>
     <!-- Progression rules (progression.js): how next week moves, in the coach's words. You › Progression rules on the phone; Settings on the laptop. -->
     <section data-pane="rules" class="hidden"><div id="rulesArea"></div></section>
-    <!-- Capacity (capacity.js): how many more lifters fit the coach's hours. You › Capacity on the phone; Settings › Plan & seats on the laptop. -->
+    <!-- Your coaching week (capacity.js): the hours the roster needs at the coaching standard against the coach's own. You › Your coaching week on the phone; Settings › Plan & seats on the laptop. -->
     <section data-pane="capacity" class="hidden"><div id="capacityArea"></div></section>
 
     <!-- PROGRAM BUILDER -->
@@ -391,6 +391,7 @@
 <script src="challenges.js"></script><!-- COACH CHALLENGES: the coach's challenges at the top of Club, their boards, New challenge (window.Challenges) -->
 <script src="desk.js"></script>
 <script src="desk-season.js"></script><!-- the desk's season: Teams, the roster calendar, Plan a meet, the last week of a block -->
+<script src="desk-program.js"></script><!-- the desk's program editor: the week as a program (DeskProgram); drafts and Publish on both screens -->
 <script src="coach-home.js"></script><!-- Home: the roster summary (desk Today + the top of the phone Roster) -->
 <script src="coach-lifters.js"></script><!-- Lifters: everyone then one (desk Roster + the phone Lifters tab and its lifter page) -->
 <script src="coach-app.js"></script><!-- The iPhone app's coach screens (28 Oct): Home, the Lifters hub, a lifter's card (CoachApp); phone only -->
@@ -407,7 +408,7 @@
 <script src="coach-widget.js"></script><!-- The coach's Home Screen widgets: Need you, Next meet, Clients, Team week (CoachWidget.build over the Store; CoachWidget.sync, native only) -->
 <script src="career.js"></script><!-- Career: a lifter's lifelong record (careerEvents), read-only from their page: a sheet on the phone, a panel on the desk -->
 <script src="busy-week.js"></script><!-- Busy weeks: a lifter's days for the week and the plan; Today's job, Approve applies it to the program (BusyWeek) -->
-<script src="capacity.js"></script><!-- Capacity: the coach's hours against the work each lifter makes (CapacityUI: You › Capacity, Settings › Plan & seats) -->
+<script src="capacity.js"></script><!-- Your coaching week: the hours the roster needs at the coaching standard against the coach's own (CapacityUI: You › Your coaching week, Settings › Plan & seats) -->
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: history import + export everything -->
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the form-check review tool (openVideoReview) -->
 <script src="meetday.js"></script><!-- MEET DAY hook: attempt planner + meet-day board (openAttemptPlanner, openMeetDayBoard, renderMeetsScreen) -->
@@ -466,7 +467,7 @@ function _coachReady() {
   setLbl('tab-you', ICONS.user, 'You');
   if (window.ClientsUI) setLbl('tab-clients', ClientsUI.ICON, 'Clients');
   if (window.ProgressionUI) setLbl('tab-rules', ProgressionUI.ICON, 'Progression rules');
-  if (window.CapacityUI) setLbl('tab-capacity', CapacityUI.ICON, 'Capacity');
+  if (window.CapacityUI) setLbl('tab-capacity', CapacityUI.ICON, CapacityUI.LABEL || 'Your coaching week');
   // The demo's unread counts come from its Store: in place before the first render paints a badge.
   if (window._demoMode) { _unreadByAthlete = _demoUnreadCounts(); _demoUnreadPainted = _unreadSig(_unreadByAthlete); _unreadState = 'ready'; }
   // The laptop desk never shows the phone's Home: its boot skeleton goes.
@@ -532,8 +533,11 @@ function _coachReady() {
   subscribeRosterMessages();
   subscribePainReports();
   const _fcReady = refreshFormChecks();
-  // The Monday push opens coach.html?report=week: Last week's report, once the form checks are in.
+  // The report's push opens coach.html?report=week (&w=its week): the report, once the form checks are in.
   if (window.CoachReportUI) CoachReportUI.fromLink(_fcReady);
+  // When the weekly report comes: the coach's pick, read once; this device's time zone saved quietly when theirs has
+  // none or another one (the hourly job sends at their hour where they are). Never in the demo.
+  if (window.CoachReportUI && CoachReportUI.syncSchedule) CoachReportUI.syncSchedule();
   // A new application's push or email opens coach.html?lead=ID (apply-to-coach, night C): Lifters, then its sheet.
   try {
     const lid = new URLSearchParams(location.search).get('lead');
@@ -715,8 +719,8 @@ function renderCoachYou() {
         window.WeeklyNote && WeeklyNote.openDeck && roster.length ? _youWeeklyNotesRow(svg) : null,
         // Clients: what's overdue. (Applications wait on Lifters, under New lifters: night C review M5.)
         window.ClientsUI && roster.length ? { label: 'Clients', value: overdue ? overdue + ' overdue' : '', warn: !!overdue, icon: ClientsUI.ICON, tint: 'green', onClick: go('clients') } : null,
-        // How many more lifters fit your hours (capacity.js): room left, in lifters.
-        window.CapacityUI ? { label: 'Capacity', value: CapacityUI.rowValue(), icon: CapacityUI.ICON, tint: 'iris', onClick: go('capacity') } : null,
+        // Your coaching week (capacity.js): the roster's hours at the coaching standard against yours; room left, or how far over.
+        window.CapacityUI ? { label: CapacityUI.LABEL || 'Your coaching week', value: CapacityUI.rowValue(), icon: CapacityUI.ICON, tint: 'iris', onClick: go('capacity') } : null,
         Object.assign({ label: 'Lifter progress', onClick: go('progress') }, rowIcon('Athlete progress')),
         { label: 'Check-in questions', value: String((Store.get().checkinQuestions || []).filter(q => q.coachId === user.id && q.active !== false).length || ''), icon: svg('<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16M9 14.5l2 2 4-4"/>'), tint: 'blue', onClick: () => openCheckinQuestionsSheet() },
         // How next week moves (progression.js): a screen of its own, pushed from here.
@@ -1011,14 +1015,32 @@ async function renderJoinRequests(host) {
   if (!_desk()) fillNewLifters(host);
   else document.querySelectorAll('#rosterArea .nl-slot').forEach(fillNewLifters);
 }
-// The section into a host: the phone's top of Lifters (.nl-host), the laptop's list column (coach-lifters.js .nl-slot).
+// The section into a host: the phone's top of Lifters (.nl-host). The laptop's list column (coach-lifters.js .nl-slot,
+// 2 Nov) takes one slim row instead ("2 new lifters waiting · Jonas, Mia ›"), which opens them: openNewLifters.
 function fillNewLifters(host) {
   if (!host) return;
   host.innerHTML = '';
   const apps = window.ClientsUI && ClientsUI.leads ? ClientsUI.leads() : [];
   const reqs = window._joinReqs || [];
   if (!reqs.length && !apps.length) return;
+  if (_desk() && host.classList.contains('nl-slot') && window.CoachLifters && CoachLifters.newLiftersRowHtml) { host.innerHTML = CoachLifters.newLiftersRowHtml(reqs, apps); return; }
   host.appendChild(_newLiftersSection(reqs, apps));
+}
+// The laptop's New lifters (Lifters' row, Today's business line): one application opens its sheet straight away; more,
+// or a join request, open as a list of the same rows the phone shows (an application opens its sheet, a join request
+// keeps Accept and Decline), each line held to two. The list closes before an application's sheet opens over it.
+function openNewLifters() {
+  const apps = window.ClientsUI && ClientsUI.leads ? ClientsUI.leads() : [];
+  const reqs = window._joinReqs || [];
+  if (!reqs.length && apps.length === 1) { ClientsUI.openLead(apps[0].id); return; }
+  if (!reqs.length && !apps.length) return;
+  uiSheet('New lifters', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, (reqs.length + apps.length) + ' waiting, the soonest meet first.'));
+    const sec = _newLiftersSection(reqs, apps);
+    const head = sec.querySelector('.ca-h'); if (head) head.remove();
+    sec.querySelectorAll('.nl-lead').forEach(b => b.addEventListener('click', () => close(), true));
+    sheet.appendChild(sec);
+  }, { cls: 'nl-sheet' });
 }
 function _newLiftersSection(reqs, apps) {
   const t = todayISO();
@@ -4294,7 +4316,7 @@ function addWeek() {
   const aid = document.getElementById('progAthlete').value;
   Store.update(s => {
     const p = s.programs.find(p => p.athleteId === aid);
-    if (p) { const num = (p.weeks.at(-1)?.number || 0) + 1; p.weeks.push(newWeek(num, 3)); activeWeekIdx = p.weeks.length - 1; }
+    if (p) { const num = (p.weeks.at(-1)?.number || 0) + 1; appendBlockWeek(p.weeks, newWeek(num, 3)); activeWeekIdx = p.weeks.length - 1; }   // app.js: after a draft, a draft
   });
   persistProgram(progIdForAthlete(aid));
   loadProgram();
@@ -4407,14 +4429,7 @@ function setBlockRx(wi, di, ei, startIdx, count, patchObj, rerender) {
   Store.update(s => {
     const p = s.programs.find(p => p.athleteId === aid);
     if (!p) return;
-    const sets = p.weeks[wi].days[di].exercises[ei].sets;
-    for (let i = startIdx; i < startIdx + count && i < sets.length; i++) {
-      Object.keys(patchObj).forEach(k => {
-        const v = patchObj[k];
-        if (v == null && (k === 'pct' || k === 'rpeHi' || k === 'rir' || k === 'pctHi' || k === 'weightHi' || k === 'pctFeel')) delete sets[i][k];
-        else sets[i][k] = v;
-      });
-    }
+    blockPatch(p.weeks[wi].days[di].exercises[ei].sets, startIdx, count, patchObj);   // app.js: the desk's editor runs the same loop
   });
   claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
@@ -4450,20 +4465,10 @@ function setExerciseRx(wi, di, ei, fn) {
 
 function setBlockCount(wi, di, ei, startIdx, oldCount, newCount) {
   const aid = document.getElementById('progAthlete').value;
-  const target = Math.max(1, Math.min(50, Number(newCount) || 1));
   Store.update(s => {
     const p = s.programs.find(p => p.athleteId === aid);
     if (!p) return;
-    const sets = p.weeks[wi].days[di].exercises[ei].sets;
-    if (target > oldCount) {
-      const tpl = sets[startIdx];
-      const additions = target - oldCount;
-      const fillers = [];
-      for (let i = 0; i < additions; i++) fillers.push(Object.assign(newSet(tpl.weight, tpl.reps, tpl.rpe, tpl.tempo), rxOf(tpl)));
-      sets.splice(startIdx + oldCount, 0, ...fillers);
-    } else if (target < oldCount) {
-      sets.splice(startIdx + target, oldCount - target);
-    }
+    blockResize(p.weeks[wi].days[di].exercises[ei].sets, startIdx, oldCount, newCount);   // app.js: new sets carry rxOf
   });
   claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
@@ -4475,9 +4480,7 @@ function deleteBlock(wi, di, ei, startIdx, count) {
   Store.update(s => {
     const p = s.programs.find(p => p.athleteId === aid);
     if (!p) return;
-    const sets = p.weeks[wi].days[di].exercises[ei].sets;
-    sets.splice(startIdx, count);
-    if (sets.length === 0) sets.push(newSet(0, 5, null));
+    blockRemove(p.weeks[wi].days[di].exercises[ei].sets, startIdx, count);   // app.js: an exercise keeps one set
   });
   claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
@@ -4489,14 +4492,9 @@ function addBlock(wi, di, ei) {
   Store.update(s => {
     const p = s.programs.find(p => p.athleteId === aid);
     if (!p) return;
-    const sets = p.weeks[wi].days[di].exercises[ei].sets;
-    const last = sets[sets.length - 1] || { weight: 0, reps: 5, rpe: null, tempo: '' };
-    // New block = back-down style: 1 set, copies last weight/reps (and its %), NO prescribed RPE
-    // ...and the same set fields (tempo, pause, bands / chains, the coach's columns): a back-down
-    // keeps the bar and the method, only the RPE is left for the coach to set.
-    const nb = Object.assign(newSet(last.weight, last.reps, null, last.tempo), setFieldsOf(last));
-    if (last.pct != null) nb.pct = last.pct;
-    sets.push(nb);
+    // New block = back-down style (app.js blockAppend): 1 set, the last one's weight/reps (and its %) and set
+    // fields, NO prescribed RPE: a back-down keeps the bar and the method, only the RPE is left for the coach.
+    blockAppend(p.weeks[wi].days[di].exercises[ei].sets);
   });
   claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
@@ -5115,7 +5113,7 @@ window.__applyAIProgram = function (program, opts) {
       const go = async () => {
         await archiveProgramIfTrained(existing);   // their logged training stays as a past block
         const prog = Object.assign({}, program, { id: existing ? existing.id : (program.id || uid('prog')), athleteId: a.id, coachId: user.id,
-          weeks: JSON.parse(JSON.stringify(program.weeks)), maxes: existing ? existing.maxes || null : null });
+          weeks: weeksWithoutDrafts(JSON.parse(JSON.stringify(program.weeks))), maxes: existing ? existing.maxes || null : null });   // a copy never carries a draft flag
         Store.update(s => { s.programs = s.programs.filter(p => p.athleteId !== a.id); s.programs.push(prog); });
         if (!window._demoMode) { try { await DB.upsertProgram(prog); } catch (e) { console.error(e); toast('Saved on this device: sync failed'); } }
         toast('Program inserted for ' + firstOf(a));

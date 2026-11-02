@@ -191,8 +191,15 @@ function mapDbEmailPrefs(r) {
     pushFormChecks: r ? r.push_form_checks !== false : true,
     pushProgram: r ? r.push_program !== false : true,
     // Coach alerts (migration-coach-alerts-2026-10-28.sql): a lifter's PR, Thursday's missed sessions
-    // and the Monday summary. Absent before the migration = on, like the rest.
-    pushAlerts: r ? r.push_alerts !== false : true
+    // and the weekly summary. Absent before the migration = on, like the rest.
+    pushAlerts: r ? r.push_alerts !== false : true,
+    // When a coach's weekly report comes (migration-coach-report-schedule-2026-11-02.sql): Sunday evening or Monday
+    // morning, the hour, their time zone. scheduleReady: false when the row came back without those columns (the
+    // migration hasn't run: Settings shows the row as available soon); null with no row to tell.
+    reportDay: r && r.report_day === 'mon' ? 'mon' : 'sun',
+    reportHour: r && r.report_hour != null && isFinite(Number(r.report_hour)) ? Number(r.report_hour) : 18,
+    tz: r && r.tz ? String(r.tz) : null,
+    scheduleReady: r ? 'report_day' in r : null
   };
 }
 // ---------- CLUBS (migration-clubs.sql) ----------
@@ -1916,13 +1923,18 @@ const DB = {
     if (typeof patch.pushFormChecks === 'boolean') full.push_form_checks = patch.pushFormChecks;
     if (typeof patch.pushProgram === 'boolean')    full.push_program = patch.pushProgram;
     if (typeof patch.pushAlerts === 'boolean')     full.push_alerts = patch.pushAlerts;
+    // The weekly report's schedule (coaches): a day, an hour, the device's time zone.
+    if (patch.reportDay === 'sun' || patch.reportDay === 'mon') full.report_day = patch.reportDay;
+    if (Number.isInteger(patch.reportHour) && patch.reportHour >= 0 && patch.reportHour <= 23) full.report_hour = patch.reportHour;
+    if (typeof patch.tz === 'string' && /^[A-Za-z0-9_+\/-]{1,64}$/.test(patch.tz)) full.tz = patch.tz;
     const asked = Object.keys(full).filter(k => k !== 'user_id');
     let row = full;
     let res = await sb.from('email_preferences')
       .upsert(row, { onConflict: 'user_id' }).select('*').limit(1);
-    for (let i = 0; i < 2 && res.error; i++) {
+    for (let i = 0; i < 3 && res.error; i++) {
       const msg = String(res.error.message || '');
-      const drop = /push_alerts/.test(msg) && 'push_alerts' in row ? ['push_alerts']
+      const drop = /report_day|report_hour|report_sent_week|'tz'|\btz\b/.test(msg) && ('report_day' in row || 'report_hour' in row || 'tz' in row) ? ['report_day', 'report_hour', 'tz']
+        : /push_alerts/.test(msg) && 'push_alerts' in row ? ['push_alerts']
         : /push_(messages|form_checks|program|alerts)/.test(msg) ? ['push_messages', 'push_form_checks', 'push_program', 'push_alerts'] : null;
       if (!drop) break;
       row = Object.assign({}, row);

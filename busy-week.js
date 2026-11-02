@@ -57,7 +57,9 @@
   // was started, finished, skipped or is a rest day isn't one to plan.
   // → { weekIdx, weekNumber, sessions: [{ dayIdx, dayId, name, lifts, heavy, accessories, pinned }] }
   function sessionsLeft(prog) {
-    var weeks = (prog && prog.weeks) || [];
+    // The weeks the lifter can see (app.js liftWeeks: no coach's draft). Drafts are only ever the last weeks, so
+    // weekIdx is the same in the whole program, and busyWeekApply (given the whole program) writes the right week.
+    var weeks = typeof liftWeeks === 'function' ? liftWeeks(prog) : ((prog && prog.weeks) || []);
     var work = function (d) { return (d.exercises || []).some(function (e) { return (e.sets || []).length; }); };
     var wi = -1;
     for (var i = 0; i < weeks.length && wi < 0; i++) if ((weeks[i].days || []).some(function (d) { return work(d) && d.exercises.some(function (e) { return (e.sets || []).some(setOpen); }); })) wi = i;

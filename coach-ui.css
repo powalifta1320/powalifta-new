@@ -355,28 +355,8 @@ html.desk .dk-today.ch-host:has(.cl-today) { padding: 28px var(--gut, 24px) 64px
 .cl-key .k-at { background: var(--cl-up); } .cl-key .k-half { background: color-mix(in srgb, var(--cl-down) 55%, transparent); } .cl-key .k-over { background: var(--cl-down); }
 .cl-key-tl { justify-content: space-between; margin-top: -6px; }
 
-/* Also on your list: every other job, by kind */
-.cl-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start; }
-.cl-col { --tc: var(--text-3); display: flex; flex-direction: column; gap: 2px; padding: 12px 10px 10px; background: var(--cl-surface); border: 1px solid var(--cl-line); border-radius: var(--cl-r); box-shadow: var(--ch-lit); min-width: 0; }
-.cl-col.k-answer { --tc: var(--cl-msg); } .cl-col.k-check { --tc: var(--cl-down); } .cl-col.k-meet { --tc: var(--cl-meet); } .cl-col.k-write { --tc: var(--cl-write); }
-.cl-colh { display: flex; align-items: center; gap: 10px; padding: 2px 6px 10px; }
-.cl-colh b { font-size: 16px; font-weight: 700; color: var(--text); }
-.cl-cn { font-size: 15px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; }
-.cl-cd { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--cl-up); }
-.cl-cd svg { width: 13px; height: 13px; }
-.cl-cr { border-radius: 12px; transition: background-color 150ms ease-out; }
-.cl-cr .cl-job { padding: 7px 6px; gap: 10px; }
-.cl-cr .ui-av { width: 30px; height: 30px; font-size: 13px; }
-.cl-cr .cl-stack .ui-av { width: 26px; height: 26px; }
-.cl-cr .cl-jt { font-size: 15px; }
-.cl-cr .cl-jt > span { color: var(--text-2); font-weight: 400; }
-.cl-cr .cl-jd { display: none; }
-.cl-cr.is-extra { display: none; }
-.cl-col.is-open .cl-cr.is-extra { display: block; }
-@media (hover: hover) and (pointer: fine) { .cl-cr:hover { background: var(--ch-fill-1); } }
 .cl-morebtn { margin: 4px 6px 0; align-self: flex-start; border: 0; padding: 6px 4px; background: none; color: var(--text-2); font-size: 15px; font-weight: 600; cursor: pointer; }
-.cl-colnone { margin: 2px 6px 6px; font-size: 15px; color: var(--text-3); }
-@media (max-width: 1240px) { .cl-tiles, .cl-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1240px) { .cl-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ==================== Lifters (laptop): the list beside the lifter ==================== */
 html.desk #rosterArea.cl-on { height: 100vh; overflow: hidden; }
@@ -395,8 +375,6 @@ html.desk #rosterArea.cl-on > .dk-rhead, html.desk #rosterArea.cl-on > .dk-rbody
 .cl-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
 .cl-search kbd { flex: none; height: 22px; min-width: 22px; padding: 0 6px; border-radius: 7px; display: inline-grid; place-items: center; background: var(--ch-fill-3); color: var(--text-3); font: 600 13px/1 var(--font-body, inherit); }
 .cl-search:focus-within kbd { display: none; }
-.cl-vchip { display: inline-flex; align-items: center; gap: 6px; height: 30px; margin-top: 12px; padding: 0 8px 0 12px; border: 0; border-radius: 999px; background: var(--ch-fill-3); color: var(--text); font: 600 13px/1 var(--font-body, inherit); cursor: pointer; }
-.cl-vchip svg { width: 14px; height: 14px; color: var(--text-3); }
 .cl-groups { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 48px; scrollbar-width: thin; scrollbar-color: var(--bg-3) transparent; }
 .cl-grp + .cl-grp { margin-top: 22px; }
 .cl-gh { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; padding: 0 8px; font-family: var(--font-body); font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
@@ -565,14 +543,6 @@ html.desk #rosterArea.cl-on > .dk-rhead, html.desk #rosterArea.cl-on > .dk-rbody
 .cl-sbtn { flex: none; display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--ch-fill-2); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--text); font: 600 13px/1 var(--font-body, inherit) !important; white-space: nowrap; cursor: pointer; transition: background-color 150ms ease-out, transform 140ms ease-out; }
 .cl-sbtn:active { transform: scale(0.96); }
 @media (hover: hover) and (pointer: fine) { .cl-sbtn:hover { background: var(--ch-fill-4); } }
-.cl-cr .cl-jt { display: flex; flex-direction: column; gap: 2px; white-space: normal; }
-.cl-cr .cl-jt b, .cl-cr .cl-jt > span { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cl-cr .cl-jt b { font-size: 15px; }
-.cl-cr .cl-jt > span { font-size: 13px; color: var(--text-3); }
-.cl-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font-size: 13px; color: var(--text-3); }
-.cl-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.cl-legend b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-weight: 700; color: var(--cl-up); }
-.cl-legend .cl-pips { width: 26px; }
 .cl-empty { display: flex; align-items: flex-start; gap: 14px; padding: 18px 20px; background: var(--cl-surface); border: 1px solid var(--cl-line); border-radius: var(--cl-r); box-shadow: var(--ch-lit); --tc: var(--cl-write); }
 .cl-empty b { display: block; font-size: 16px; color: var(--text); }
 .cl-empty p { margin: 4px 0 0; font-size: 15px; line-height: 1.45; color: var(--text-3); max-width: 52ch; }
@@ -590,7 +560,6 @@ html.desk #rosterArea.cl-on > .dk-rhead, html.desk #rosterArea.cl-on > .dk-rbody
    down; the line's dot = coral for pain, amber for anything to watch, none for routine (messages, blocks). ---- */
 .cl-list .cl-n.t-up b, .cl-list .cl-n.t-flat b { color: var(--text-2); }
 .cl-list .cl-n.t-down b { color: var(--cl-down); }
-.cl-legend b { color: var(--text); }
 .cl-line.sev-alert { --tc: var(--cl-pain); }
 .cl-line.sev-watch { --tc: var(--cl-down); }
 
@@ -1472,8 +1441,7 @@ html.desk :is(.cl-root, .cs-page) :is(.cl-sbtn, .cl-quiet) {
 html.desk :is(.cl-root, .cs-page) .cl-sbtn { background: var(--dk-fill); color: var(--text); }
 html.desk :is(.cl-root, .cs-page) .cl-quiet { padding: 0 var(--s-2); color: var(--text-2); }
 html.desk :is(.cl-root, .cs-page) :is(.cl-quiet, .cl-btn) svg { width: var(--ic-2); height: var(--ic-2); }
-html.desk :is(.cl-root, .cs-page) :is(.cl-ibtn, .cl-search, .cl-vchip, .cl-morebtn) { border-radius: var(--r-1); }
-html.desk .cl-root .cl-vchip { height: 28px; font: var(--fw-2) var(--fs-2)/1 var(--font-body) !important; }
+html.desk :is(.cl-root, .cs-page) :is(.cl-ibtn, .cl-search, .cl-morebtn) { border-radius: var(--r-1); }
 html.desk .cl-root .cl-morebtn { padding: 6px var(--s-2); margin: 4px 0 0; font-size: var(--fs-2); font-weight: var(--fw-2); color: var(--text-2); }
 @media (hover: hover) and (pointer: fine) {
   html.desk :is(.cl-root, .cs-page) :is(.cl-btn, .cl-sbtn):hover { background: var(--dk-fill-2); }
@@ -1481,7 +1449,7 @@ html.desk .cl-root .cl-morebtn { padding: 6px var(--s-2); margin: 4px 0 0; font-
   html.desk :is(.cl-root, .cs-page) :is(.cl-btn.quiet, .cl-quiet):hover { background: var(--dk-hover); color: var(--text); }
   html.desk .cl-root .cl-morebtn:hover { background: var(--dk-hover); color: var(--text); }
 }
-html.desk :is(.cl-root, .cs-page) :is(.cl-btn, .cl-sbtn, .cl-quiet, .cl-ibtn, .cl-vchip, .cl-morebtn, .cl-nm, .cl-link, .cl-mplan, .cs-due):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
+html.desk :is(.cl-root, .cs-page) :is(.cl-btn, .cl-sbtn, .cl-quiet, .cl-ibtn, .cl-morebtn, .cl-nm, .cl-link, .cl-mplan, .cs-due):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
 
 /* Today and Lifters: overlapping faces keep their initials (a 2px ring in the surface colour, not a 9px bite). */
 html.desk .cl-root .cl-stack .ui-av { box-shadow: 0 0 0 2px var(--cl-surface); }
@@ -1492,20 +1460,8 @@ html.desk .cl-root .cl-tf { white-space: normal; overflow: hidden; display: -web
 /* Two lines of names: a mouse needs no 7px of extra height, and the targets must not overlap the line below. */
 html.desk .cl-root .cl-tf :is(.cl-nm, .cl-link) { padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; }
 
-/* The side card open (Reply, Notes) on a laptop: Lifters folds its list to the faces and Today goes to two
-   columns, so the lifter and the jobs keep their room beside the thread (under 1200px the card floats over
-   the page, so the fold matters even more). 1920px and up has room for all three. */
-@media (max-width: 1919px) {
-  html.desk.ctx-show.ctx-card .cl-desk { --cl-list-w: 80px; }
-  html.desk.ctx-show.ctx-card .cl-desk :is(.cl-head, .cl-gh) { display: none; }
-  html.desk.ctx-show.ctx-card .cl-desk .cl-groups { padding: 20px 12px 48px; scrollbar-width: none; }
-  html.desk.ctx-show.ctx-card .cl-desk .cl-groups::-webkit-scrollbar { display: none; }
-  html.desk.ctx-show.ctx-card .cl-desk .cl-grp + .cl-grp { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--cl-line); }
-  html.desk.ctx-show.ctx-card .cl-desk .cl-list { background: none; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
-  html.desk.ctx-show.ctx-card .cl-desk .cl-row { position: relative; display: flex; justify-content: center; min-height: 0; padding: 6px 0; border: 0; border-radius: var(--r-2); }
-  html.desk.ctx-show.ctx-card .cl-desk .cl-row :is(.cl-main, .cl-end) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  html.desk.ctx-show.ctx-card .cl-today :is(.cl-tiles, .cl-cols) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
+/* The side card open (Reply, Notes) on a laptop: Lifters keeps its list (desk v3 below: the page beside it narrows,
+   or the card floats over the page where three columns don't fit). */
 
 /* Clients on the desk: the shared page frame (the same left edge and top as Today), no glow behind the title,
    filters as the desk's tabs, and a status as a dot beside ink words, never a painted sentence. */
@@ -1689,7 +1645,7 @@ html.native:not(.desk) .fr-wrap :is(.fr-num, .fr-chip) { font-size: 13px; }
    Desk only (html.desk); the phone keeps every rule above. One card on every desk screen: the tiles
    drop their hue wash (the hue stays on the icon chip and the marks, where it has a job) and every
    card takes the desk's light from above (desk.css --dk-card*). */
-html.desk :is(.cl-do, .cl-tile, .cl-col, .cl-list, .cl-lift, .cl-empty, .cl-calm, .cs-list) {
+html.desk :is(.cl-do, .cl-tile, .cl-list, .cl-lift, .cl-empty, .cl-calm, .cs-list) {
   background-color: var(--dk-card); background-image: var(--dk-card-sheen); border-color: var(--dk-card-edge); box-shadow: var(--dk-card-lit);
 }
 html.desk .cl-links { background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: inset 0 0 0 1px var(--dk-card-edge), var(--dk-card-lit); }
@@ -1712,8 +1668,6 @@ html.desk .cl-root .cl-hmeet svg { color: var(--cl-meet); }
 html.desk .cl-root .cl-pr-b { display: inline-flex; align-items: center; gap: 6px; padding: 0; background: none; color: var(--text-2); font-weight: 600; }
 html.desk .cl-root .cl-pr-b::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--cl-meet); }
 html.desk .cl-root .cl-reft { fill: var(--text-3); }
-html.desk .cl-root .cl-cd { color: var(--text-3); }
-html.desk .cl-root .cl-cd svg { color: var(--cl-up); }
 /* Program from a photo: the flagged cell carries the colour; its reason and the foot's note are ink beside a dot. */
 html.desk body.powa-app .pp-sheet :is(.pp-why, .pp-why.is-bad) { color: var(--text-2); }
 html.desk body.powa-app .pp-sheet :is(.pp-note.is-bad, .pp-note.is-unsure) { display: inline-flex; align-items: center; gap: 7px; color: var(--text); }
@@ -1732,17 +1686,19 @@ html.desk[data-theme="light"] .cl-today::before { display: none; }
 html.desk[data-theme="light"] .cl-hero { background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--acc, #ff3b4a) 4%, transparent), transparent 55%), var(--dk-card); }
 /* The month's meter is drawn at its value; it never animates a width on the desk. */
 html.desk .cs-meter i { transition: none; }
-/* Also on your list: a job's reason wraps to a second line instead of stopping mid-word ("you wro…"). */
-html.desk .cl-root .cl-cr .cl-jt > span { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
 /* Lifters: the list's card starts on the column's one left edge (the title's, the search's), not 8 px
    outside it; the group titles sit on that edge like Today's section titles. */
 html.desk .cl-desk .cl-groups { padding-left: var(--gut, 24px); padding-right: var(--gut, 24px); }
 html.desk .cl-desk .cl-gh { padding: 0 2px; }
-/* A lifter's four small tiles: two by two while the page is narrow (the rail open at 1440: 172 px tiles
-   ran "Training" into "4 weeks" and "Oct 12" into "Oct 19"), four across once there is room. */
+/* A lifter's small tiles (training, effort, bodyweight; the meet is its own card on the laptop): equal widths, three
+   across whenever the page has room (560 px and up: 1280 with the rail open, 1366, 1440), one column only on a narrow
+   page (the side card beside it). Never two over one. */
 html.desk .cl-page .cl-pg { container: clpg / inline-size; }
-html.desk .cl-page .cl-small { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@container clpg (min-width: 880px) { html.desk .cl-page .cl-small { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+html.desk .cl-page .cl-small { grid-template-columns: minmax(0, 1fr); }
+@container clpg (min-width: 560px) {
+  html.desk .cl-page .cl-small.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  html.desk .cl-page .cl-small.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 /* Moving between lifters (a click or J/K, many times a day): the page swaps with a 120 ms settle, no longer a 180 ms fade. */
 html.desk .cl-pg.is-swap { animation: dkSwap 120ms ease-out; }
 @keyframes dkSwap { from { opacity: 0.7; } }
@@ -1995,28 +1951,45 @@ html[data-theme="light"] .prg-root.is-desk .prg-rule.is-drag { background: #fff;
 .rb-sheet :is(.rb-note, .rb-warn) { font-size: 15px; }
 @media (prefers-reduced-motion: reduce) { .rb-who { animation: none; } .bd-sheet .bd-open:active, .bd-pback:active { transform: none; } }
 
-/* ==================== Capacity (capacity.js, 2026-10-28) ====================
-   You › Capacity on the phone, Settings › Plan & seats on the laptop. One answer big (minutes per lifter),
-   the sentence it means in lifters, the hours, then three quiet lists. Past the coach's hours a status reads
-   as ink words beside an amber dot (the desk polish's rule, and AA in light). Type, phone: 13/15/16/20 with
-   the 32 large title and the 44 hero number; laptop: 15/16/20 with 40 for the number. */
+/* ==================== Your coaching week (capacity.js, 2026-10-28; the standard, 2026-11-02) ====================
+   You › Your coaching week on the phone, Settings › Plan & seats on the laptop. One answer big (the hours the
+   roster needs at the standard), what it's made of, one bar against the coach's hours, one plain line, then
+   quiet lists. Amber is the one colour, and only past the coach's hours: the bar's overflow, and a status in
+   ink words beside an amber dot (the desk polish's rule, and AA in light). Type, phone: 13/15/16/20 with the
+   32 large title and the 44 hero number; laptop: 15/16/20 with 40 for the number. */
 .cap-root { --cp-ink: color-mix(in srgb, var(--text) 62%, transparent); }
 .cap-root.is-phone { display: flex; flex-direction: column; gap: 16px; padding: 4px 0 32px; }
 .cap-head { padding: 8px 0 0; }
 html:not(.desk) .cap-head .cl-h1 { font-size: 32px; line-height: 1.08; text-wrap: balance; }
-.cap-head .cl-sub { margin-top: 4px; }
 .cap-hero { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 20px 16px 16px; overflow: hidden;
   background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--acc, #a98bff) 10%, transparent), transparent 60%), var(--cl-surface);
   border: 1px solid var(--cl-line); border-radius: var(--cl-r); box-shadow: var(--ch-lit); }
-.cap-big { display: flex; align-items: baseline; gap: 8px; margin: 0; color: var(--text); white-space: nowrap; }
+.cap-sum { display: flex; flex-direction: column; min-width: 0; }
+/* a slot with nothing to say this time (no Invite past your hours, nobody to save time on) takes no gap */
+.cap-root :is([data-cp-invite], [data-cp-saves], [data-cp-morewrap], [data-cp-plan]):empty { display: none; }
+/* "13 h 20 min": the numbers big, the units small, a pair's space wider than a number's own */
+.cap-big { margin: 0; color: var(--text); white-space: nowrap; line-height: 1; }
 .cap-big b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 44px; line-height: 0.95; font-weight: 800; letter-spacing: -0.035em; }
-.cap-about, .cap-unit { font-size: 20px; font-weight: 600; color: var(--text-2); }
-.cap-per { margin: 4px 0 0; font-size: 16px; line-height: 1.3; color: var(--text-2); }
-.cap-say { margin: 0; font-size: 16px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
+.cap-big .cap-unit { font-size: 20px; font-weight: 600; color: var(--text-2); }
+.cap-big .cap-unit + b { margin-left: 6px; }
+.cap-per { margin: 8px 0 0; font-size: 16px; line-height: 1.3; color: var(--text-2); }
+/* the bar: ink to the roster's need (or to your hours, then amber past them), "Your 10 h" where your hours end */
+.cap-meter { margin-top: 20px; }
+.cap-mtrack { position: relative; display: block; height: 8px; border-radius: 4px; background: var(--ch-fill-3); overflow: hidden; }
+.cap-mtrack i { position: absolute; top: 0; bottom: 0; left: 0; display: block; }
+.cap-mfill { width: calc(var(--w, 0) * 100%); min-width: 4px; border-radius: 4px; background: var(--cp-ink); }
+.cap-meter.is-over .cap-mfill { border-radius: 4px 0 0 4px; }
+.cap-mtrack .cap-mover { left: calc(var(--l, 1) * 100% + 2px); right: 0; border-radius: 0 4px 4px 0; background: var(--cl-down); }
+.cap-mlab { position: relative; display: block; height: 18px; margin-top: 8px; }
+.cap-mlab span { position: absolute; top: 0; left: calc(var(--x, 1) * 100%); transform: translateX(-100%); font-size: 13px; line-height: 18px; font-weight: 600; color: var(--text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cap-mlab.is-start span { transform: none; }
+.cap-say { margin: 12px 0 0; font-size: 16px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
 .cap-say b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+/* what the coach actually gave (a real account's last 4 weeks): one quiet line under where the time goes */
+.cap-was { margin: 12px 4px 0; font-size: 15px; line-height: 1.4; color: var(--text-3); text-wrap: pretty; }
 /* Over the hours: ink words, an amber dot. */
-.cap-say .cap-warn, .cap-root .cap-over { color: var(--text); font-weight: 600; }
-.cap-say .cap-warn::before, .cap-root .cap-over::before { content: ''; display: inline-block; vertical-align: 1px; width: 7px; height: 7px; margin: 0 7px 0 2px; border-radius: 50%; background: var(--cl-down); }
+.cap-root .cap-over { color: var(--text); font-weight: 600; }
+.cap-root .cap-over::before { content: ''; display: inline-block; vertical-align: 1px; width: 7px; height: 7px; margin: 0 7px 0 2px; border-radius: 50%; background: var(--cl-down); }
 .cap-hours { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; border-top: 1px solid var(--cl-line); }
 .cap-hl { font-size: 15px; font-weight: 600; color: var(--text-2); }
 .cap-root .ui-stepper.cap-step { grid-template-columns: 44px minmax(4.5ch, auto) 44px; gap: 6px; }
@@ -2030,13 +2003,13 @@ html:not(.desk) .cap-head .cl-h1 { font-size: 32px; line-height: 1.08; text-wrap
 .cap-edit { margin-left: auto; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--text-2); font: 600 15px/1 var(--font-body, inherit) !important; cursor: pointer; transition: color 150ms ease-out, transform 140ms ease-out; }
 .cap-edit:active { color: var(--text); transform: scale(0.97); }
 .cap-list { display: flex; flex-direction: column; }
-.cap-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 10px 16px; border-bottom: 1px solid var(--cl-line); }
+/* taking on more: +5 lifters and their week on one line, where that sits against your hours under it */
+.cap-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; column-gap: 12px; row-gap: 4px; min-height: 52px; padding: 12px 16px; border-bottom: 1px solid var(--cl-line); }
 .cap-row:last-child, .cap-trow:last-child, .cap-srow:last-child { border-bottom: 0; }
 .cap-rt { font-size: 16px; font-weight: 600; color: var(--text); white-space: nowrap; }
-.cap-rside { display: inline-flex; align-items: baseline; justify-content: flex-end; flex-wrap: wrap; gap: 2px 12px; min-width: 0; }
-.cap-rv { font-size: 15px; color: var(--text-2); font-variant-numeric: tabular-nums; text-align: right; transition: color 200ms var(--cl-ease); }
-.cap-root .cap-over { font-size: 15px; white-space: nowrap; }
-.cap-row.is-over .cap-rv { color: var(--text-2); }
+.cap-rv { font-size: 15px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cap-rs { grid-column: 1 / -1; font-size: 15px; line-height: 1.3; color: var(--text-3); text-wrap: pretty; }
+.cap-root .cap-over { font-size: 15px; }
 /* where the time goes: a Screen Time list (label and minutes, a thin bar, what it's made of) */
 .cap-trow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; column-gap: 12px; row-gap: 6px; width: 100%; min-height: 52px; padding: 12px 16px;
   border: 0; border-bottom: 1px solid var(--cl-line); background: none; color: var(--text); text-align: left; cursor: pointer; transition: background-color 150ms ease-out; }
@@ -2051,9 +2024,10 @@ html:not(.desk) .cap-head .cl-h1 { font-size: 32px; line-height: 1.08; text-wrap
   border: 0; border-bottom: 1px solid var(--cl-line); background: none; color: var(--text); text-align: left; cursor: pointer; transition: background-color 150ms ease-out; }
 .cap-sic { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--ch-fill-3); color: var(--text-2); }
 .cap-sic svg { width: 17px; height: 17px; }
-.cap-stx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.cap-st { font-size: 16px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cap-sv { font-size: 15px; line-height: 1.3; color: var(--text-3); text-wrap: pretty; }
+/* one sentence a row: "Progression rules give back about 2 h 30 min a week", the feature in ink */
+.cap-stx { display: block; min-width: 0; font-size: 16px; line-height: 1.35; text-wrap: pretty; }
+.cap-st { font-weight: 600; color: var(--text); }
+.cap-sv { color: var(--text-2); }
 .cap-chev { display: inline-grid; color: var(--text-3); }
 .cap-chev svg { width: 16px; height: 16px; }
 .cap-trow:active, .cap-srow:active { background: var(--ch-fill-2); }
@@ -2074,7 +2048,7 @@ html:not(.desk) .cap-head .cl-h1 { font-size: 32px; line-height: 1.08; text-wrap
 .cap-root.is-desk .cap-hours { padding-top: 0; border-top: 0; flex-direction: column; align-items: stretch; gap: 8px; }
 .cap-root.is-desk .cap-hours .ui-stepper { justify-self: start; align-self: flex-start; }
 .cap-root.is-desk .cap-invite { width: auto; align-self: flex-start; height: 44px; }
-.cap-dgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 24px; align-items: start; }
+.cap-dgrid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .cap-dcol { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .cap-root.is-desk .cap-gh { margin-top: 0; }
 @media (max-width: 1180px) { .cap-dgrid, .cap-root.is-desk .cap-hero { grid-template-columns: minmax(0, 1fr); } }
@@ -2082,7 +2056,7 @@ html.desk .cap-root .ui-stepper.cap-step .st-btn { width: 40px; height: 40px; }
 /* The laptop: the desk's card material (no hue wash), its number size (40) and 16 for body. */
 html.desk .cap-root .cap-hero { background-color: var(--dk-card); background-image: var(--dk-card-sheen); border-color: var(--dk-card-edge); box-shadow: var(--dk-card-lit); }
 html.desk .cap-root .cap-big b { font-size: 40px; }
-@media (prefers-reduced-motion: reduce) { .cap-bar i, .cap-rv, .cap-edit { transition: none; } .cap-edit:active { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cap-bar i, .cap-edit { transition: none; } .cap-edit:active { transform: none; } }
 
 /* ==================== Busy weeks on the coach side (busy-week.js, 2026-10-28) ====================
    The flag on a lifter's page: the plan, their words, and the quiet way to keep the week as written. */
@@ -2175,6 +2149,29 @@ button.mr-row:active { background: var(--ch-fill-2); }
 .mr-empty .mr-tic { width: 48px; height: 48px; border-radius: 14px; margin-bottom: 4px; }
 .mr-empty .mr-tic svg { width: 22px; height: 22px; }
 .mr-empty p { max-width: 40ch; margin: 0; font-size: 15px; line-height: 1.45; color: var(--text-3); text-wrap: pretty; }
+/* v2 (2 Nov): the week before under the sessions, strength per lift, effort's split, meets with the class, every lifter.
+   Lift colours only on the lift tiles and their bars; amber only for over (a weigh-in over the class, a top set over). */
+.mr-vs { margin: -4px 0 0; font-size: 15px; line-height: 1.35; color: var(--text-3); }
+.mr-sess { display: flex; flex-direction: column; gap: 6px; }
+.mr-mrow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0; font-size: 13px; line-height: 1.3; color: var(--text-2); }
+.mr-mrow b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.mr-mrow.is-was { margin-top: 6px; color: var(--text-3); }
+.mr-mrow.is-was b { color: var(--text-2); }
+.mr-meter.is-was { background: var(--ch-fill-2); }
+.mr-meter.is-was i { background: var(--text-3); }
+.mr-rt > .mr-bar, .mr-rt > .mr-split { display: flex; height: 4px; margin-top: 6px; border-radius: 2px; overflow: hidden; background: var(--ch-fill-3); }
+.mr-rt > .mr-split { height: 6px; border-radius: 3px; margin: 6px 0 2px; }
+.mr-bar i, .mr-split i { display: block; height: 100%; }
+.mr-bar i { border-radius: inherit; background: var(--dc, var(--text-3)); }
+.mr-bar.l-sq, .mr-lt.l-sq { --dc: var(--ch-squat); --tc: var(--ch-squat); } .mr-bar.l-be, .mr-lt.l-be { --dc: var(--ch-bench); --tc: var(--ch-bench); } .mr-bar.l-dl, .mr-lt.l-dl { --dc: var(--ch-deadlift); --tc: var(--ch-deadlift); }
+.mr-lt .mr-dot { width: 10px; height: 10px; }
+.mr-split .s-ok { background: var(--cl-up); } .mr-split .s-half { background: color-mix(in srgb, var(--cl-down) 50%, transparent); } .mr-split .s-over { background: var(--cl-down); }
+.mr-tic.t-write { --tc: var(--cl-write); }
+.mr-dot.t-meet { --dc: var(--cl-meet); } .mr-dot.t-win { --dc: var(--cl-up); }
+.mr-rt > span.mr-wrap { white-space: normal; flex-wrap: wrap; }
+.mr-rt > span.mr-ml { display: block; }   /* a meet's lifter: the name and the weigh-in as one line of text */
+.mr-ml em { font-style: normal; color: var(--text-2); }
+.mr-ml em.mr-over { color: var(--cl-down); }
 
 /* the phone: a sheet; iOS sizes (17 rows, 20 sections, 44 pt targets), the red full width at the end */
 .ui-sheet.mr-sheet { --mr-surface: var(--bg-1); }
@@ -2190,6 +2187,8 @@ button.mr-row:active { background: var(--ch-fill-2); }
 .mr-phone .mr-rt > span { font-size: 15px; }
 .cl-root.mr-phone .mr-more { padding-left: 66px; font-size: 15px; }
 .mr-phone .mr-rt > span { white-space: normal; flex-wrap: wrap; row-gap: 2px; }   /* the reason wraps on a phone; the name stays one line */
+.mr-phone .mr-rt > span:not(.mr-lps) { display: block; }   /* a long reason wraps beside its dot, never under it */
+.mr-phone .mr-rt > span:not(.mr-lps) > .mr-dot { display: inline-block; margin: 0 7px 0 0; vertical-align: 1px; }
 .mr-phone .mr-foot { position: static; flex-direction: column; align-items: stretch; gap: 12px; margin: 0; padding: 0; background: none; box-shadow: none; }
 .mr-phone .mr-foot p { font-size: 15px; text-align: center; }
 .mr-phone .mr-foot .mr-go { max-width: none; width: 100%; height: 50px; font-size: 16px !important; }
@@ -2208,6 +2207,15 @@ html.desk button.mr-row:active { background: var(--dk-fill-2, var(--ch-fill-2));
 .settings-sheet .np-example svg { flex: none; width: 16px; height: 16px; color: var(--text-3); }
 .settings-sheet .np-example:active { background: var(--bg-3); }
 @media (hover: hover) and (pointer: fine) { .settings-sheet .np-example:hover { background: var(--bg-3); } }
+/* Settings › Notifications: when the weekly report comes (coach-report-ui.js scheduleHtml), the second half of the
+   Weekly report row: Sunday evening or Monday morning, the hour, and where (this device's time zone, quietly). */
+.settings-sheet .rs-box { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 2px 14px 14px; background: var(--bg-2, #161619); }
+.settings-sheet .rs-box + .email-pref-row { box-shadow: inset 0 1px 0 var(--hair); }
+.settings-sheet .rs-box .rs-seg { width: 100%; box-sizing: border-box; }
+.settings-sheet .rs-box .rs-hour { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; font-size: var(--fs-body, 15px); font-weight: 600; letter-spacing: normal; text-transform: none; color: var(--text); cursor: default; }   /* the app's form labels are small caps: this one is a row */
+.settings-sheet .rs-box select { width: auto; min-width: 128px; min-height: 38px; margin: 0; padding: 0 36px 0 14px; border: 0; border-radius: 10px; background-color: var(--bg-3); color: var(--text); font: inherit; font-weight: 600; font-variant-numeric: tabular-nums; }
+.settings-sheet .rs-box .rs-tz { margin: -4px 0 0; font-size: var(--fs-meta, 13px); line-height: 1.4; color: var(--text-3); }
+.settings-sheet .rs-box.is-off :is(.rs-seg, .rs-hour) { opacity: 0.45; }
 @media (prefers-reduced-motion: reduce) { .mr-box, .dk-veil.mr-veil { animation: none; } .mr-meter i { animation: none; } .mr-veil.is-leaving .mr-box { transform: none; } }
 
 /* Applications (night C, 30 Oct; fixed after its review): they wait on Lifters under New lifters with the join requests
@@ -2248,3 +2256,336 @@ html.desk .nl-row .jr-yes { background: var(--fill-3, rgba(255, 255, 255, 0.08))
 .cs-lead-delrow { display: flex; justify-content: center; margin-top: 4px; }
 .cs-lead-sheet .cs-lead-del { min-height: 44px; padding: 0 18px; font-size: 15px; font-weight: 600; color: var(--text-3); }
 a.ui-row.cs-lead-mail { color: inherit; text-decoration: none; }
+
+/* ==================== the desk, v3 (2 Nov): Lifters, its views, Today's team and list ====================
+   html.desk only (the phone keeps every rule above). Archivo on the app's scale (13 caption · 15 body · 17 row title ·
+   20 section · 28 page title; 44 / 56 for the big numbers), weights 400 / 600 / 800, tabular numbers, 4-pt spacing,
+   cards 20 with 24 inside, one crimson per screen. Motion: cubic-bezier(0.23, 1, 0.32, 1), 140–250 ms, presses at
+   0.97, hover only with a mouse, no layout properties animated. */
+
+/* ---- Lifters: the list column, full height. Head ≈ 120 (the title, search and Calendar on one row, the tabs under
+   them), then one scroller with a visible scrollbar: New lifters, a view's picture, the rows (64). ---- */
+html.desk .cl-desk { --cl-list-w: 400px; }   /* every desk width: under 1200 the rail folds to 64 by default, so the page keeps ~640 */
+html.desk .cl-desk .cl-head { flex: none; padding: var(--page-top, 28px) var(--gut, 24px) 8px; }
+html.desk .cl-hrow { display: flex; align-items: center; gap: 12px; min-width: 0; }
+html.desk .cl-hrow .cl-h1 { flex: none; display: inline-flex; align-items: baseline; gap: 8px; margin: 0; }
+html.desk .cl-h1n { font-family: var(--font-body); font-stretch: 100%; font-size: 15px; font-weight: 600; letter-spacing: 0; font-variant-numeric: tabular-nums; color: var(--text-3); }
+html.desk .cl-hrow .cl-search { flex: 1 1 auto; height: 36px; min-width: 0; }
+html.desk .cl-desk .cl-calbtn { width: 36px; height: 36px; border-radius: var(--r-1); background: none; color: var(--text-2); }
+@media (hover: hover) and (pointer: fine) { html.desk .cl-desk .cl-calbtn:hover { background: var(--dk-hover); color: var(--text); } }
+/* The tabs: the desk's filter tabs (Clients wears the same), a count in each, the chosen one on a fill. New this month
+   or Wins (chosen in the rail) is one more, with an ×: it takes a line of its own when the row is full. */
+html.desk .cl-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 2px; margin: 10px -6px 0; min-width: 0; }
+html.desk .cl-tab { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 7px; border: 0; border-radius: var(--r-1); background: none; color: var(--text-3);
+  font: 600 13px/1 var(--font-body) !important; white-space: nowrap; cursor: pointer; transition: background-color 150ms var(--cl-ease), color 150ms var(--cl-ease), transform 140ms var(--cl-ease); }
+html.desk .cl-tab em { font-style: normal; font-variant-numeric: tabular-nums; color: var(--text-4); }
+html.desk .cl-tab.on { background: var(--dk-fill); color: var(--text); }
+html.desk .cl-tab.on em { color: var(--text-3); }
+html.desk .cl-tab svg { width: 12px; height: 12px; margin: 0 -2px 0 1px; color: var(--text-3); }
+html.desk .cl-tab:active { transform: scale(0.97); }
+html.desk .cl-tab:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { html.desk .cl-tab:not(.on):hover { background: var(--dk-hover); color: var(--text); } html.desk .cl-tab.is-extra:hover svg { color: var(--text); } }
+html.desk .cl-desk .cl-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px var(--gut, 24px) 48px;
+  scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text) 28%, transparent) transparent; }
+html.desk .cl-desk .cl-groups { flex: none; overflow: visible; min-height: 0; padding: 0; }
+html.desk .cl-desk .cl-grp + .cl-grp { margin-top: 20px; }
+html.desk .cl-desk .cl-gh { margin: 0 0 8px; padding: 0 2px; font-size: 13px; font-weight: 600; line-height: 20px; letter-spacing: 0; color: var(--text-3); }
+html.desk .cl-desk .cl-gh span { font-size: 13px; color: var(--text-4); }
+html.desk .cl-desk .cl-gh .cl-gh-end { margin-left: auto; padding-right: 14px; font-weight: 400; }
+/* A row: face (its ring the lane), name, one line, the number. */
+html.desk .cl-desk .cl-row { grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; min-height: 64px; padding: 10px 14px; }
+html.desk .cl-desk .cl-main { gap: 3px; }
+html.desk .cl-desk .cl-name { font-size: 15px; line-height: 20px; font-weight: 600; }
+html.desk .cl-desk .cl-line { font-size: 15px; line-height: 20px; color: var(--text-2); }
+html.desk .cl-desk .cl-lt { overflow: hidden; text-overflow: ellipsis; }
+html.desk .cl-desk .cl-end { display: flex; align-self: center; min-width: 0; }
+html.desk .cl-desk .cl-n { top: 0; }
+html.desk .cl-desk .cl-n b { font-size: 15px; }
+html.desk .cl-desk .cl-n:is(.t-meet, .t-pain, .t-quiet) b { color: var(--text-2); }
+html.desk .cl-face { position: relative; flex: none; display: inline-grid; place-items: center; border-radius: 50%; }
+html.desk .cl-face .ui-av { width: 40px; height: 40px; font-size: 13px; }
+/* The ring sits 2 px off the face and says one of two statuses: pain (coral) or gone quiet (dashed). On a meet track
+   the faces wear the meet's gold. */
+html.desk .cl-face[class*="ring-"]::after, html.desk .cl-tm::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--ring, transparent); pointer-events: none; }
+html.desk .ring-pain { --ring: var(--cl-pain); }
+html.desk .ring-meet { --ring: var(--cl-meet); }
+html.desk .ring-quiet { --ring: var(--text-4); }
+html.desk .cl-face.ring-quiet::after, html.desk .cl-tm.ring-quiet::after { border-style: dashed; }
+html.desk .cl-desk .cl-none { margin: 20px 4px; }
+html.desk .cl-desk .cl-none .cl-link { font-size: 15px; }
+
+/* New lifters: one slim row on top of the list; it opens them (coach.html openNewLifters). */
+html.desk .cl-desk .nl-slot { padding: 0; }
+html.desk .cl-newl { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; margin: 0 0 12px; padding: 8px 12px 8px 12px; border: 1px solid var(--dk-card-edge); border-radius: 14px;
+  background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); color: var(--text); text-align: left; cursor: pointer; transition: background-color 150ms var(--cl-ease), transform 140ms var(--cl-ease); }
+html.desk .cl-newl .cl-stack { gap: 4px; }
+html.desk .cl-newl .cl-stack .ui-av { width: 28px; height: 28px; font-size: 13px; margin-left: 0 !important; box-shadow: none !important; }
+html.desk .cl-newl-t { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 15px; line-height: 20px; }
+html.desk .cl-newl-t b { font-weight: 600; }
+html.desk .cl-newl-t span { color: var(--text-3); }
+html.desk .cl-newl > svg { flex: none; width: 16px; height: 16px; color: var(--text-3); }
+html.desk .cl-newl:active { transform: scale(0.985); }
+html.desk .cl-newl:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { html.desk .cl-newl:hover { background-color: var(--dk-hover); } }
+/* Their list (a sheet): the phone's rows, each line held to two. */
+html.desk body.powa-app .ui-sheet.nl-sheet { width: min(560px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; }
+html.desk .nl-sheet .nl-sec { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+html.desk .nl-sheet .nl-row .jr-tx > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+html.desk .nl-sheet .nl-row .jr-tx b { font-size: 15px; font-weight: 600; }
+
+/* A view's picture: the count, then the faces on one track (tier 1 steps up over a neighbour). */
+html.desk .cl-vslot:empty { display: none; }
+html.desk .cl-vpic { margin: 0 0 16px; padding: 16px 16px 12px; border: 1px solid var(--dk-card-edge); border-radius: var(--cl-r); background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); }
+html.desk .cl-vp-h { display: flex; align-items: baseline; gap: 8px; margin: 0; min-width: 0; font-size: 15px; line-height: 20px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.desk .cl-vp-h b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 28px; line-height: 1; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--text); }
+html.desk .cl-vp-h span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+html.desk .cl-trk { --tc: var(--text-3); position: relative; height: 58px; margin: 10px 13px 0; }
+html.desk .cl-trk.is-meet { --tc: var(--cl-meet); } html.desk .cl-trk.is-pain { --tc: var(--cl-pain); } html.desk .cl-trk.is-quiet { --tc: var(--text-4); }
+html.desk .cl-trk-rail { position: absolute; left: -13px; right: -13px; top: 44px; height: 2px; margin-top: -1px; border-radius: 1px; background: var(--line-2); }
+html.desk .cl-tk { position: absolute; top: -3px; left: calc(var(--x) * (100% - 26px) + 13px); width: 1px; height: 8px; background: var(--line-2); }
+html.desk .cl-tz { position: absolute; top: -1px; height: 4px; left: calc(var(--x0) * (100% - 26px) + 13px); width: calc((var(--x1) - var(--x0)) * (100% - 26px)); border-radius: 2px; background: color-mix(in srgb, var(--tc) 55%, transparent); }
+html.desk .cl-tm { position: absolute; top: 44px; left: calc(var(--x) * 100%); width: 26px; height: 26px; margin: -13px 0 0 -13px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; --ring: var(--tc); transition: transform 140ms var(--cl-ease); }
+html.desk .cl-tm.t1 { top: 16px; }
+html.desk .cl-tm::after { inset: -3px; }
+html.desk .cl-tm .ui-av { width: 26px; height: 26px; font-size: 13px; letter-spacing: -0.02em; box-shadow: 0 0 0 1px var(--dk-card); }
+html.desk .cl-tm em { position: absolute; bottom: -8px; right: -16px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--dk-fill-2); color: var(--text); font: 600 13px/18px var(--font-body); font-style: normal; font-variant-numeric: tabular-nums; }
+html.desk .cl-tm:active { transform: scale(0.94); }
+html.desk .cl-tm:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 4px; }
+html.desk .cl-trk-x { position: relative; height: 16px; margin: 2px 0 0; font-size: 13px; line-height: 16px; color: var(--text-3); }
+html.desk .cl-trk-x span { position: absolute; left: calc(var(--x) * (100% - 26px) + 13px); transform: translateX(-50%); white-space: nowrap; }
+html.desk .cl-trk-x span:first-child { left: 0; transform: none; }
+html.desk .cl-trk-x span:last-child { left: auto; right: 0; transform: none; }
+
+/* ---- a lifter's page on the laptop ---- */
+html.desk .cl-page .cl-ptools { flex-wrap: wrap; justify-content: flex-end; }
+html.desk .cl-page .cl-pname { font-size: 20px; line-height: 26px; }
+html.desk .cl-page .cl-pmeta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.desk .cl-page .cl-next { position: relative; margin-left: 13px; color: var(--text); }
+html.desk .cl-page .cl-next::before { content: ''; position: absolute; left: -7px; top: 8px; bottom: 8px; width: 1px; background: var(--line-2); }
+/* the small tiles: training, effort, bodyweight three across once the page has room; one height */
+html.desk .cl-page .cl-small { align-items: stretch; }
+html.desk .cl-page .cl-small .cl-tile { height: 100%; box-sizing: border-box; }
+/* the meet: one slim card */
+html.desk .cl-meetcard { --tc: var(--cl-meet); display: flex; align-items: center; gap: 14px; min-height: 72px; padding: 14px 16px 14px 18px; border: 1px solid var(--dk-card-edge); border-radius: var(--cl-r);
+  background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); }
+html.desk .cl-mc-id { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+html.desk .cl-mc-id b { font-size: 15px; line-height: 20px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.desk .cl-mc-id span { font-size: 13px; line-height: 18px; color: var(--text-3); }
+html.desk .cl-mc-n { flex: none; display: inline-flex; align-items: baseline; gap: 5px; }
+html.desk .cl-mc-n b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 28px; line-height: 1; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--text); }
+html.desk .cl-mc-n span { font-size: 15px; color: var(--text-3); }
+html.desk .cl-mc-w { flex: none; display: inline-flex; align-items: center; gap: 7px; font-size: 15px; color: var(--text-2); white-space: nowrap; }
+html.desk .cl-mc-w i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-4); }
+html.desk .cl-mc-w.is-warn i { background: var(--cl-down); }
+html.desk .cl-mc-w.is-ok i { background: var(--cl-up); }
+html.desk .cl-mc-plan.is-set { gap: 7px; color: var(--text-2); }
+html.desk .cl-mc-plan.is-set i { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-up); }
+/* Pain first (the Pain view): the flag as a card of where, how bad and how often */
+html.desk .cl-paincard { align-items: center; padding: 16px 14px 16px 16px; }
+html.desk .cl-pc-t { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+html.desk .cl-pc-t > b { font-size: 15px; line-height: 20px; }
+html.desk .cl-pc-s { font-size: 15px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+html.desk .cl-pc-s b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 15px; font-weight: 800; color: var(--text); }
+html.desk .cl-pmeter { display: inline-flex; gap: 2px; }
+html.desk .cl-pmeter i { width: 9px; height: 8px; border-radius: 2px; background: var(--ch-fill-3); }
+html.desk .cl-pmeter i.on { background: var(--cl-pain); }
+/* Lifters with the side card (Reply, Notes) under 1920: the list keeps its width. Where the page beside it would be
+   under 420 px the card floats over the page (as under 1200); otherwise the page narrows and reflows. */
+@media (max-width: 1411px) { html.desk.ctx-show.ctx-card:not(.rail-min):has(section[data-pane="athletes"]:not(.hidden) #rosterArea.cl-on) .dash-shell { margin-right: 0; } }
+@media (max-width: 1243px) { html.desk.ctx-show.ctx-card.rail-min:has(section[data-pane="athletes"]:not(.hidden) #rosterArea.cl-on) .dash-shell { margin-right: 0; } }
+html.desk.ctx-show.ctx-card .cl-desk .cl-page { padding-left: 20px; padding-right: 20px; }
+/* A page under 720 (a smaller window, the folded rail with the card open): the tools take a row under the name. Under
+   560 (the card beside it): one column. */
+@container clpg (max-width: 719px) {
+  html.desk .cl-page .cl-ph { flex-wrap: wrap; row-gap: 8px; }
+  html.desk .cl-page .cl-ptools { width: 100%; justify-content: flex-start; margin-left: -8px; }
+}
+@container clpg (max-width: 560px) {
+  html.desk .cl-page .cl-hero { grid-template-columns: minmax(0, 1fr); }
+  html.desk .cl-page .cl-hnum b { font-size: 44px; }
+  html.desk .cl-page .cl-lifts { gap: 8px; }
+  html.desk .cl-page .cl-lift { padding: 12px 12px 10px; }
+  html.desk .cl-page .cl-lv b { font-size: 22px; }
+  html.desk .cl-page .cl-lv span { display: none; }
+  html.desk .cl-page :is(.cl-flag, .cl-meetcard) { flex-wrap: wrap; }
+  html.desk .cl-page .cl-facts { width: 100%; justify-content: flex-end; }
+}
+@media (prefers-reduced-motion: reduce) { html.desk :is(.cl-tab, .cl-newl, .cl-tm) { transition: none; } html.desk :is(.cl-tab, .cl-newl, .cl-tm):active { transform: none; } }
+
+/* ---- Today: the header on the scale (28, like every desk title), Do first's rows at 15 ---- */
+html.desk .cl-today .cl-h1x { font-size: 28px; letter-spacing: -0.025em; }
+html.desk .cl-today .cl-do .cl-jt { font-size: 15px; line-height: 20px; }
+html.desk .cl-today .cl-do .cl-jt b { font-weight: 600; }
+
+/* ---- Today: Your team. A 6-column grid at a laptop's width: Roster (4) | This week (2); Effort | Strength | Meets;
+   Where everyone is (all 6); then the business line. Two columns when the page is narrow (the side card open). ---- */
+html.desk .cl-team { container: clteam / inline-size; }
+html.desk .cl-team-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
+html.desk .cl-c-roster { grid-column: span 4; }
+html.desk :is(.cl-c-week, .cl-c-effort, .cl-c-strength, .cl-c-meets) { grid-column: span 2; }
+html.desk .cl-c-season { grid-column: 1 / -1; }
+@container clteam (max-width: 900px) {
+  html.desk .cl-team-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html.desk :is(.cl-c-roster, .cl-c-season) { grid-column: 1 / -1; }
+  html.desk :is(.cl-c-week, .cl-c-effort, .cl-c-strength, .cl-c-meets) { grid-column: span 1; }
+}
+html.desk .cl-card { position: relative; display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 24px; border: 1px solid var(--dk-card-edge); border-radius: var(--cl-r);
+  background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); transition: border-color 150ms var(--cl-ease); }
+html.desk .cl-card[data-golist] { cursor: pointer; }
+@media (hover: hover) and (pointer: fine) { html.desk .cl-card[data-golist]:hover { border-color: var(--line-2); } }
+html.desk .cl-card-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; }
+html.desk .cl-card-h h3 { margin: 0; font-family: var(--font-body); font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: 0; color: var(--text); white-space: nowrap; }
+html.desk .cl-card-h > span { font-size: 13px; line-height: 18px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.desk .cl-card-main { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; padding: 0; border: 0; border-radius: 12px; background: none; color: var(--text); text-align: left; cursor: pointer; }
+html.desk .cl-card-main:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 4px; }
+html.desk .cl-card-n { flex: 1 1 auto; display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+html.desk .cl-card-n b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 44px; line-height: 1; font-weight: 800; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; color: var(--text); }
+html.desk .cl-card-n > span { min-width: 0; font-size: 15px; line-height: 20px; color: var(--text-3); text-wrap: balance; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+html.desk .cl-card-pic { min-width: 0; }
+html.desk .cl-card-f { margin-top: auto; min-width: 0; font-size: 13px; line-height: 18px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.desk .cl-card-f .cl-nm { display: inline; margin: 0; padding: 0; font-weight: 600; color: var(--text-2); }
+html.desk .cl-card-none { margin: 0; font-size: 15px; line-height: 20px; color: var(--text-3); }
+html.desk .cl-card-none b { display: block; margin-bottom: 4px; font-weight: 600; color: var(--text); }
+/* Roster: four lanes, a big count and the faces (each ringed by its lane) */
+html.desk .cl-lanes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+html.desk .cl-lane { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; min-width: 0; margin: -8px; padding: 8px; border: 0; border-radius: 12px; background: none; color: var(--text); text-align: left; cursor: pointer;
+  transition: background-color 150ms var(--cl-ease), transform 140ms var(--cl-ease); }
+@media (hover: hover) and (pointer: fine) { html.desk .cl-lane:hover { background: var(--dk-hover); } }
+html.desk .cl-lane:active { transform: scale(0.985); }
+html.desk .cl-lane:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 0; }
+html.desk .cl-lane-n { display: flex; align-items: baseline; gap: 8px; min-width: 0; max-width: 100%; }
+html.desk .cl-lane-n b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 44px; line-height: 1; font-weight: 800; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
+html.desk .cl-lane-n span { min-width: 0; font-size: 15px; line-height: 20px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.desk .cl-lane-f { display: flex; flex-wrap: wrap; gap: 8px; padding: 3px; margin: -3px; }
+html.desk .cl-lane-f .cl-face .ui-av { width: 26px; height: 26px; font-size: 13px; letter-spacing: -0.02em; }
+html.desk .cl-lane-f .cl-face::after { inset: -3px; }
+html.desk .cl-lane-more { height: 26px; padding: 0 8px; border-radius: 13px; background: var(--dk-fill); font: 600 13px/26px var(--font-body); font-variant-numeric: tabular-nums; color: var(--text-2); }
+html.desk .cl-lane-none { font-size: 13px; line-height: 26px; color: var(--text-3); }
+/* This week: the number, its ring, the last 7 days as columns (today last) */
+html.desk .cl-ring { position: relative; flex: none; display: inline-grid; place-items: center; width: 48px; height: 48px; }
+html.desk .cl-ring svg { position: absolute; inset: 0; }
+html.desk .cl-ring-t { fill: none; stroke: var(--ch-fill-3); stroke-width: 5; }
+html.desk .cl-ring-v { fill: none; stroke: var(--cl-up); stroke-width: 5; stroke-linecap: round; }
+html.desk .cl-ring b { position: relative; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+html.desk .cl-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; height: 72px; }
+html.desk .cl-day { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+html.desk .cl-day-p { position: relative; flex: 1 1 auto; width: 100%; max-width: 28px; border-radius: 6px; background: var(--ch-fill-1); }
+html.desk .cl-day-p i { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--h) * 100%); min-height: 4px; border-radius: 6px; background: color-mix(in srgb, var(--cl-up) 55%, transparent); }
+html.desk .cl-day.is-today .cl-day-p i { background: var(--cl-up); }
+html.desk .cl-day-p i.is-zero { height: 3px; min-height: 0; background: var(--ch-fill-4); }
+html.desk .cl-day-l { font-size: 13px; line-height: 16px; color: var(--text-3); }
+html.desk .cl-day.is-today .cl-day-l { font-weight: 600; color: var(--text); }
+/* Effort: five bins in the app's effort colours, each label under its bars */
+html.desk .cl-bins { display: flex; flex-direction: column; gap: 6px; }
+html.desk .cl-bins-c { position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; height: 56px; }
+html.desk .cl-bin { position: relative; display: flex; align-items: flex-end; justify-content: center; min-width: 0; }
+html.desk .cl-bin i { width: 100%; max-width: 32px; height: calc(var(--h) * 100%); min-height: 4px; border-radius: 6px 6px 3px 3px; }
+html.desk .cl-bin i.is-easier { background: color-mix(in srgb, var(--ch-bw) 22%, var(--text-4)); opacity: 0.7; }
+html.desk .cl-bin i.is-under { background: color-mix(in srgb, var(--ch-bw) 22%, var(--text-4)); }
+html.desk .cl-bin i.is-at { background: var(--cl-up); }
+html.desk .cl-bin i.is-half { background: var(--cl-down); }
+html.desk .cl-bin i.is-over { background: var(--cl-pain); }
+html.desk .cl-bin i.is-zero { height: 3px; min-height: 0; background: var(--ch-fill-4); }
+html.desk .cl-bins-x { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; font-size: 13px; line-height: 16px; color: var(--text-3); text-align: center; white-space: nowrap; }
+html.desk .cl-bins-x .b-under { grid-column: 1 / 3; }
+html.desk .cl-bins-x .b-at { margin: 0 -12px; }   /* "As written" is a little wider than its bar's column */
+/* Strength: each lift's change, in the lift's colour */
+html.desk .cl-lbars { display: flex; flex-direction: column; gap: 10px; }
+html.desk .cl-lbar { --lc: var(--text-3); display: grid; grid-template-columns: 76px minmax(0, 1fr) 56px; align-items: center; gap: 10px; font-size: 13px; line-height: 16px; color: var(--text-2); }
+html.desk .cl-lbar.lb-sq { --lc: var(--ch-squat); } html.desk .cl-lbar.lb-be { --lc: var(--ch-bench); } html.desk .cl-lbar.lb-dl { --lc: var(--ch-deadlift); }
+html.desk .cl-lbar-n { display: inline-flex; align-items: center; gap: 7px; }
+html.desk .cl-lbar-n::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--lc); }
+html.desk .cl-lbar-t { height: 8px; border-radius: 4px; background: var(--ch-fill-2); overflow: hidden; }
+html.desk .cl-lbar-t i { display: block; height: 100%; width: calc(var(--w) * 100%); min-width: 4px; border-radius: 4px; background: var(--lc); }
+html.desk .cl-lbar-t i.is-down { background: var(--cl-down); }
+html.desk .cl-lbar-v { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+/* Where everyone is: face and name · the block's weeks on the shared weeks (today's line through every row) · days to the meet */
+html.desk .cl-c-season { gap: 8px; }
+html.desk :is(.cl-sn-head, .cl-sn-l) { display: grid; grid-template-columns: 248px minmax(0, 1fr) 88px; align-items: center; column-gap: 16px; }
+html.desk .cl-sn-head { height: 20px; margin-top: 4px; }
+html.desk .cl-sn-ax { position: relative; height: 20px; font-size: 13px; line-height: 20px; color: var(--text-3); }
+html.desk .cl-sn-ax span { position: absolute; top: 0; left: calc(var(--x) * 100%); transform: translateX(-50%); white-space: nowrap; }
+html.desk .cl-sn-ax span.is-now { font-weight: 600; color: var(--text); }
+html.desk .cl-sn-dh { text-align: right; font-size: 13px; color: var(--text-3); }
+html.desk .cl-sn { display: flex; flex-direction: column; margin: 0 -12px; }
+html.desk .cl-sn-l { min-height: 44px; padding: 0 12px; border: 0; border-radius: 12px; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: background-color 150ms var(--cl-ease); }
+@media (hover: hover) and (pointer: fine) { html.desk .cl-sn-l:hover { background: var(--dk-hover); } }
+html.desk .cl-sn-l:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: -2px; }
+html.desk .cl-sn-who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+html.desk .cl-sn-who .ui-av { width: 28px; height: 28px; font-size: 13px; letter-spacing: -0.02em; }
+html.desk .cl-sn-who .cl-face::after { inset: -3px; }
+html.desk .cl-sn-n { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+html.desk .cl-sn-n b { min-width: 0; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.desk .cl-sn-n span { flex: none; font-size: 13px; color: var(--text-3); white-space: nowrap; }
+html.desk .cl-sn-t { position: relative; height: 44px; }
+html.desk .cl-sn-rail { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--line); }
+html.desk .cl-sn-w { position: absolute; top: 50%; height: 10px; margin-top: -5px; left: calc(var(--x0) * 100% + 1px); width: calc((var(--x1) - var(--x0)) * 100% - 2px); border-radius: 3px; background: var(--ch-fill-4); }
+html.desk .cl-sn-w.is-past { background: color-mix(in srgb, var(--text) 24%, transparent); }
+html.desk .cl-sn-w.is-now { background: var(--text); }
+html.desk .cl-sn-now { position: absolute; top: 0; bottom: 0; left: calc(var(--x) * 100%); width: 1px; background: color-mix(in srgb, var(--text) 36%, transparent); }
+html.desk .cl-sn-flag { position: absolute; top: 50%; left: calc(var(--x) * 100%); width: 16px; height: 16px; margin: -16px 0 0 -2px; color: var(--cl-meet); }
+html.desk .cl-sn-flag svg { width: 16px; height: 16px; }
+html.desk .cl-sn-d { text-align: right; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+html.desk .cl-sn-d.is-none { font-weight: 400; color: var(--text-4); }
+html.desk .cl-sn-all { margin-left: -8px; }
+/* the business line */
+html.desk .cl-biz { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 2px; margin: 16px -8px 0; }
+html.desk .cl-biz-p { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 8px; border: 0; border-radius: var(--r-1); background: none; color: var(--text-2); font: 400 15px/1 var(--font-body) !important; white-space: nowrap; cursor: pointer;
+  transition: background-color 150ms var(--cl-ease), color 150ms var(--cl-ease); }
+html.desk .cl-biz-p.k-money { font-weight: 600 !important; color: var(--text); }
+html.desk .cl-biz-p i { width: 7px; height: 7px; border-radius: 50%; background: var(--cl-down); }
+html.desk .cl-biz-sep { color: var(--text-4); }
+html.desk .cl-biz-p:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { html.desk .cl-biz-p:hover { background: var(--dk-hover); color: var(--text); } }
+
+/* ---- Today: Your list, one list with tabs by kind ---- */
+html.desk .cl-yl .cl-tabs { margin: -2px -6px 12px; }
+html.desk .cl-jlist { display: flex; flex-direction: column; border: 1px solid var(--dk-card-edge); border-radius: var(--cl-r); background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); overflow: hidden; }
+html.desk .cl-jr { display: flex; align-items: center; gap: 12px; min-height: 56px; padding-right: 16px; border-bottom: 1px solid var(--line); transition: background-color 150ms var(--cl-ease); }
+html.desk .cl-jr:last-child { border-bottom: 0; }
+@media (hover: hover) and (pointer: fine) { html.desk .cl-jr:hover { background: var(--dk-hover); } }
+html.desk .cl-jr-main { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: 36px 180px 20px minmax(0, 1fr); align-items: center; column-gap: 12px; min-height: 56px; padding: 0 0 0 16px; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+html.desk .cl-jr-main:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: -2px; }
+html.desk .cl-jr-main .cl-face .ui-av, html.desk .cl-jr-main .cl-stack .ui-av { width: 36px; height: 36px; font-size: 13px; }
+html.desk .cl-jr-n { min-width: 0; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.desk .cl-jr-ic { display: inline-grid; place-items: center; width: 20px; height: 20px; color: var(--text-3); }
+html.desk .cl-jr-ic svg { width: 18px; height: 18px; }
+html.desk .cl-jr.tone-pain .cl-jr-ic { color: var(--cl-pain); }
+html.desk .cl-jr-t { min-width: 0; font-size: 15px; line-height: 20px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.desk .cl-jr-t b { font-weight: 400; }
+html.desk .cl-jr-t span { margin-left: 10px; color: var(--text-3); }
+html.desk .cl-jr .cl-sbtn { flex: none; }
+html.desk .cl-jr.is-done .cl-jr-main { opacity: 0.55; }
+html.desk .cl-jr-done { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-3); }
+html.desk .cl-jr-done svg { width: 14px; height: 14px; color: var(--cl-up); }
+html.desk .cl-ylmore { margin: 8px -2px 0; }
+@media (prefers-reduced-motion: reduce) { html.desk :is(.cl-card, .cl-lane, .cl-sn-l, .cl-biz-p, .cl-jr) { transition: none; } html.desk .cl-lane:active { transform: none; } }
+/* Today's sections: 40 between them (the first title of a block keeps its own top) */
+html.desk .cl-today > :is(.cl-team, .cl-yl) { margin-top: 40px; }
+html.desk .cl-today > .pn-slot + .cl-team { margin-top: 32px; }
+/* ---- the laptop's Lifters and Today on the scale (a census of the sizes on screen found 11, 16 and 22 here) ---- */
+html.desk .cl-page .cl-ph .ui-av.lg { font-size: 15px; }
+html.desk .cl-page .cl-flag .cl-ftx > b, html.desk .cl-page .cl-pc-t > b { font-size: 15px; line-height: 20px; font-weight: 600; }
+html.desk .cl-page .cl-hnum span { font-size: 20px; }
+html.desk .cl-page .cl-big3 { font-size: 28px; line-height: 1; letter-spacing: -0.03em; }
+html.desk .cl-root .cl-svgt { font-size: 13px; }
+html.desk .cl-page .cl-wq { font-size: 15px; }
+html.desk .cl-biz-sep { font-size: 15px; }
+html.desk .cl-page .cl-empty b { font-size: 15px; line-height: 20px; font-weight: 600; }
+/* ---- the review's fixes (2 Nov) ----
+   Colour with a job only on the laptop: a flag tints for a status (pain coral, watch amber, the meet's gold,
+   bodyweight blue); a message, a block to write or going quiet sit on the plain card with a neutral mark. The red
+   light behind Today's title and the total's card goes: red is the logo and the one action. */
+html.desk .cl-page .cl-flag:is(.tone-msg, .tone-write, .tone-quiet) { --tc: var(--text-3); background: var(--dk-card); box-shadow: inset 0 0 0 1px var(--dk-card-edge); }
+html.desk .cl-page .cl-hero { background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--text) 4%, transparent), transparent 55%), var(--dk-card); }
+html.desk .cl-today::before { display: none; }
+/* the Pain view's picture: each lifter's body part (and score), a chip each */
+html.desk .cl-pchips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+html.desk .cl-pchip { display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px 0 8px; border: 0; border-radius: 20px; background: var(--dk-fill); color: var(--text); font: 400 15px/1 var(--font-body) !important; white-space: nowrap; cursor: pointer;
+  transition: background-color 150ms var(--cl-ease), transform 140ms var(--cl-ease); }
+html.desk .cl-pchip .ui-av { width: 26px; height: 26px; font-size: 13px; letter-spacing: -0.02em; }
+html.desk .cl-pchip .cl-face::after { inset: -3px; }
+html.desk .cl-pchip:active { transform: scale(0.97); }
+html.desk .cl-pchip:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { html.desk .cl-pchip:hover { background: var(--dk-fill-2); } }
+@media (prefers-reduced-motion: reduce) { html.desk .cl-pchip { transition: none; } html.desk .cl-pchip:active { transform: none; } }

@@ -2,7 +2,7 @@
 // (182.5 kg x 5 at RPE 8) lands, and once more with the numbers that change left out (the homepage draws them live).
 // Also records where everything is (desk-values.json): the changing numbers and their regions on Arjun's page, and the
 // Lifters list row by row (name, why, rectangle), which the homepage's numbered pins and rings follow.
-//   desk-arjun-before.png  -> site-img/home/desk-before-*, was-hero*, was-sq*, was-tr2, was-pips2 (mkimg.py)
+//   desk-arjun-before.png  -> site-img/home/desk-before-*, was-hero*, was-sq*, was-tr2 (mkimg.py; was-pips2 went with the v3 list's session marks)
 //   desk-arjun-after.png   -> win-after-*, win-list-*
 //   desk-arjun-blank.png   -> desk-live-*, win-live-*
 import { writeFileSync } from 'node:fs';
@@ -21,7 +21,7 @@ const openArjun = async () => {
 await openArjun();
 const TARGETS = { total: '.cl-hnum b', chip: '.cl-chip.up', sqPr: '.l-sq .cl-pr-b', sqNum: '.l-sq .cl-lv b', sqDelta: '.l-sq .cl-ld, .l-sq .cl-lv .cl-d, .l-sq [class*="delta"]', sqFoot: '.l-sq .cl-lf',
   trNum: '.cl-page .t-training .cl-big3', trFoot: '.cl-page .t-training .cl-tf', rowKg: '.cl-row.is-sel .cl-n b' };
-const REGIONS = { heroViz: '.cl-hc', sqViz: '.l-sq .cl-vz-lift', trViz: '.cl-page .t-training .cl-viz', rowPips: '.cl-row.is-sel .cl-pips', sqCard: '.l-sq', page: '.cl-page', head: '.cl-hero, .cl-head, .cl-top' };
+const REGIONS = { heroViz: '.cl-hc', sqViz: '.l-sq .cl-vz-lift', trViz: '.cl-page .t-training .cl-viz', sqCard: '.l-sq', page: '.cl-page', head: '.cl-hero, .cl-head, .cl-top' };
 const measure = () => p.evaluate(({ T, R }) => {
   const props = ['font-family', 'font-size', 'font-weight', 'font-stretch', 'letter-spacing', 'line-height', 'color', 'font-variant-numeric', 'background-color', 'border-radius', 'padding', 'white-space'];
   const out = { nodes: {}, regions: {}, list: [] };

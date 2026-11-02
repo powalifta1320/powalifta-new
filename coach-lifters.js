@@ -1,10 +1,11 @@
-/* coach-lifters.js: the coach's Today and Lifters (2026-10-26, round 2).
+/* coach-lifters.js: the coach's Today and Lifters (2026-10-26, round 2; the laptop's v3, 2 Nov).
    Today (laptop, coach-home.js renderDesk hands over to CoachLifters.renderToday): Do first (the most
-   urgent jobs, the first fix in red), This week (four team tiles: training, effort, strength, meets),
-   then every other job by kind (answer, check, meet prep, write).
+   urgent jobs, the first fix in red), Your team (Roster in four lanes, Training, Effort, Strength, Meets,
+   Where everyone is, the business line), then Your list (every other job, one list, tabs by kind).
    Lifters (laptop, desk.js deskRenderRoster hands over; ?oldroster=1 keeps the old board, the Calendar
-   stays its own mode): everyone in four groups, each row a week ring and the 4-week change, beside one
-   lifter's summary (the total, the three lifts, training / effort / bodyweight / meet tiles, their words).
+   stays its own mode): tabs (Check on, Meet soon, Pain, Quiet, All; a tab is a saved view with an
+   address), New lifters as one row, a view's picture, each row a face, a line and one number, beside one
+   lifter's summary (the total, the three lifts, training / effort / bodyweight tiles, the meet, their words).
    iPhone (html.native) and phone web: the Lifters tab is the team tiles, Do first and the groups; a lifter
    pushes in (section[data-pane="lifter"]). Wide screens (the iPhone Duo open, iPad, 700 px and up) show
    the list and the lifter side by side.
@@ -88,11 +89,11 @@
   }
 
   var KIND = { message: 'answer', note: 'answer', formcheck: 'answer', pain: 'check', checkin: 'check', nocheckin: 'check', readiness: 'check', overshoot: 'check', drift: 'check',
-    quiet: 'check', never: 'check', missed: 'check', stalling: 'check', meet: 'meet', weight: 'meet', offpace: 'meet', blockend: 'write', blockdone: 'write', noprogram: 'write' };
+    quiet: 'check', never: 'check', missed: 'check', stalling: 'check', meet: 'meet', weight: 'meet', offpace: 'meet', blockend: 'write', blockdone: 'write', noprogram: 'write', unpub: 'write' };
   // The order of every list (the owner's call, 29 Oct: pain first, everywhere): a pain comes first, whatever else is
   // going on, a meet today next; after that how soon (clTier) decides and the kind breaks ties, in this order.
   var ORDER = ['pain', 'meetday', 'busy', 'weight', 'meet', 'overshoot', 'message', 'formcheck', 'drift', 'note', 'checkin', 'nocheckin', 'readiness', 'offpace',
-    'blockdone', 'blockend', 'quiet', 'missed', 'never', 'noprogram', 'stalling', 'write'];
+    'unpub', 'blockdone', 'blockend', 'quiet', 'missed', 'never', 'noprogram', 'stalling', 'write'];
   function waitHours(x) { var m = /(\d+)\s*(h|d)\b/.exec((x && x.text) || ''); if (!m) return 0; return Number(m[1]) * (m[2] === 'd' ? 24 : 1); }
   // How soon: 0 today, 1 this week's health and deadlines, 2 the program and replies, 3 planning and
   // engagement, 4 the long view. Pure over the row: unit-tested.
@@ -114,6 +115,8 @@
       case 'message': return waitHours(x) >= 24 ? 1 : 2;
       case 'checkin': return x.tone === 'warn' ? 1 : 2;
       case 'formcheck': case 'drift': case 'note': case 'readiness': case 'offpace': return 2;
+      // A week written and not published (desk-program.js drafts): more urgent as it nears; started already, today.
+      case 'unpub': return x.days == null ? 2 : x.days <= 1 ? 0 : x.days <= 3 ? 1 : 2;
       case 'blockdone': case 'blockend': case 'quiet': case 'missed': case 'never': case 'nocheckin': return 3;   // a check-in nudge is engagement: low urgency
       default: return 4;
     }
@@ -176,6 +179,15 @@
       var id = b.r.athlete.id, x = { type: 'busy', tier: b.info.tier };
       items.push({ key: id + ':busy', kind: 'busy', type: 'busy', tier: clTier(b.r, x, t), order: ORDER.indexOf('busy'), r: b.r, reason: x, info: b.info, name: b.r.athlete.name,
         done: done[id] === 1 || done[id] === true });
+    });
+    // A week the coach wrote and hasn't published, starting within a week (app.js programUnpublished): Publish. It is the
+    // lifter's write job (the others for them go); nothing publishes by itself.
+    (rows || []).forEach(function (r) {
+      var up = typeof programUnpublished === 'function' && r.status ? programUnpublished(r.status.program, t) : null;
+      if (!up || (up.days != null && up.days > 7)) return;
+      var id = r.athlete.id, x = { type: 'unpub', days: up.days, idx: up.idx, number: up.number, start: up.start };
+      for (var k = items.length - 1; k >= 0; k--) if (items[k].r && items[k].r.athlete.id === id && items[k].kind === 'write') items.splice(k, 1);
+      items.push({ key: id + ':unpub', kind: 'write', type: 'unpub', tier: clTier(r, x, t), order: ORDER.indexOf('unpub'), r: r, reason: x, week: up.number, name: r.athlete.name, done: covers(done[id], 'write') });
     });
     (opts.toWrite || []).forEach(function (w) {
       if (!w || !w.r) return;
@@ -378,6 +390,8 @@
       case 'blockend': return { icon: 'pen', tone: 'write', title: 'Last week of the block', detail: prog ? clip(prog.name, 40) + ' · nothing after it' : '' };
       case 'blockdone': return { icon: 'pen', tone: 'write', title: 'Block finished', detail: 'Every set logged' };
       case 'stalling': return { icon: 'trend', tone: 'quiet', title: 'Flat for 3 weeks', detail: 'No main lift up' };
+      case 'unpub': { var ud = x.days, uw = x.start ? localDate(x.start, { weekday: 'long' }) : '';
+        return { icon: 'pen', tone: 'write', title: 'Week ' + x.number + ' isn’t published', detail: ud == null ? 'Written, waiting for you' : ud < 0 ? 'Started ' + (uw || plural(-ud, 'day') + ' ago') + ': they can’t see it yet' : ud === 0 ? 'Starts today' : 'Starts ' + (ud <= 6 && uw ? uw : 'in ' + plural(ud, 'day')) }; }
       case 'write': return { icon: 'pen', tone: 'write', title: 'Next week to write' + (it.rule ? ' (your rule)' : ''), detail: (it.week ? 'Week ' + it.week + ' has suggestions' : 'Suggestions ready') + (it.rule ? ' (your rule)' : '') };
       case 'busy': {
         var bi = it.info || {}, nd = Number(bi.days) || 0;
@@ -407,11 +421,12 @@
     var v = Math.round(kgShow(d));
     return { text: (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v), tone: v > 0 ? 'up' : v < 0 ? 'down' : 'flat', title: (v > 0 ? '+' : '') + v + ' ' + unit() + ' of total e1RM in four weeks' };
   }
-  // Four groups, a lifter in one only. order: { athleteId: rank } from the jobs, most urgent first.
-  var NEED = /^(pain|weight|offpace|overshoot|drift|note|message|formcheck|checkin|nocheckin|readiness|quiet|never|missed|stalling)$/;
+  // The one grouping (the lead's call, 2 Nov): the four lanes, Need you · Peaking · On plan · Quiet, a lifter in one only,
+  // worst first, on Lifters' All tab and Today's Roster alike (clLanes, below). The lanes are cut from the reasons:
+  // what a coach checks on (NEED), the meet (a 'meet' reason inside 14 days, or a meet in 8 weeks), a block to write.
+  var NEED = (typeof DESK_CHECK_RE !== 'undefined' && DESK_CHECK_RE) || /^(pain|weight|offpace|overshoot|drift|note|message|formcheck|checkin|nocheckin|readiness|quiet|never|missed|stalling)$/;
   var BLOCK = /^(blockend|blockdone|noprogram)$/;
-  var GROUPS = [{ key: 'need', title: 'Check on' }, { key: 'block', title: 'Next block due' }, { key: 'meet', title: 'Meet soon' }, { key: 'plan', title: 'On plan' }];
-  function clGroupKey(r) {
+  function baseKey(r) {
     var types = (r.reasons || []).map(function (x) { return x.type; });
     if (types.some(function (t) { return NEED.test(t); })) return 'need';
     if (types.indexOf('meet') >= 0) return 'meet';
@@ -419,22 +434,10 @@
     if (r.meet && r.meet.days <= 56) return 'meet';
     return 'plan';
   }
-  function clGroups(rows, opts) {
-    opts = opts || {};
-    var order = opts.order || {};
-    var by = { need: [], block: [], meet: [], plan: [] };
-    (rows || []).forEach(function (r) { by[clGroupKey(r)].push(r); });
-    function cmp(a, b) {
-      var ia = order[a.athlete.id], ib = order[b.athlete.id];
-      if (ia != null && ib != null && ia !== ib) return ia - ib;
-      if (ia != null && ib == null) return -1;
-      if (ib != null && ia == null) return 1;
-      return String(a.athlete.name).localeCompare(String(b.athlete.name));
-    }
-    by.meet.sort(function (a, b) { return (a.meet ? a.meet.days : 999) - (b.meet ? b.meet.days : 999) || cmp(a, b); });
-    ['need', 'block', 'plan'].forEach(function (k) { by[k].sort(cmp); });
-    return GROUPS.map(function (g) { return { key: g.key, title: g.title, rows: by[g.key] }; }).filter(function (g) { return g.rows.length; });
-  }
+  // A lifter's group (their lane): 'need' | 'meet' (Peaking) | 'plan' | 'quiet'.
+  function clGroupKey(r) { return clLaneKey(r); }
+  // The non-empty lanes, in order. order: { athleteId: rank } from the jobs, most urgent first.
+  function clGroups(rows, opts) { return clLanes(rows, opts).filter(function (g) { return g.rows.length; }); }
   // Their newest words: a typed message or a session note. { text, when, kind } or null.
   function clWords(r) {
     var s = typeof Store !== 'undefined' ? Store.get() : {}, aid = r.athlete.id;
@@ -444,6 +447,180 @@
       .map(function (n) { return { text: n.note, when: String(n.date || '').slice(0, 10), kind: 'note', at: String(n.date || '') }; });
     var all = msgs.concat(notes).sort(function (a, b) { return b.at.localeCompare(a.at); });
     return all[0] || null;
+  }
+
+  /* ---------- the desk, v3 (2 Nov): Lifters' tabs, a view's line, the team's lanes and season, the business line ----------
+     Pure over the rows (app.js deskRows, as dkAugment leaves them) and the data passed in: unit-tested in tests.html. */
+  // Lifters' tabs, in order. A tab is a saved view (app.js DESK_VIEWS) with an address, #roster?view=<key>; All is no view.
+  // New this month and Wins (the rail's other views) show as one more tab, with an ×, while one is chosen.
+  var TABS = [{ key: 'need', label: 'Need you' }, { key: 'meet', label: 'Meet soon' }, { key: 'pain', label: 'Pain' }, { key: 'quiet', label: 'Quiet' }, { key: null, label: 'All' }];
+  // #roster?view=check (the tab's first name) and ⌘K's Needs me land on Need you (app.js DESK_VIEW_ALIAS).
+  function viewKey(k) { return typeof deskViewKey === 'function' ? deskViewKey(k) : (k === 'check' || k === 'needs' ? 'need' : k || null); }
+  var EXTRA_TABS = { 'new': 'New this month', wins: 'Wins' };
+  var QUIETISH = /^(quiet|never|missed)$/;
+  function quietView(r) { var st = r.status || {}; return st.ago == null ? !!st.program : st.ago >= 7; }
+  function viewMatch(key, r, now) {
+    key = viewKey(key);
+    if (!key) return true;
+    if (key === 'need') return clLaneKey(r) === 'need';   // the Need you lane, exactly
+    if (typeof deskViewMatch === 'function') return deskViewMatch(key, r, now);
+    if (key === 'meet') return !!r.meet && r.meet.days <= 56;
+    if (key === 'pain') return (r.reasons || []).some(function (x) { return x.type === 'pain'; });
+    if (key === 'quiet') return quietView(r);
+    if (key === 'wins') return (r.wins || []).length > 0;
+    return false;
+  }
+  // A view's own number at the end of a row: Meet soon the countdown, Pain the score out of 10, Quiet the days since the
+  // last session; null elsewhere (the 4-week strength change). → { text, unit, tone, title }
+  function clViewNumber(r, view) {
+    var st = r.status || {};
+    if (view === 'meet') {
+      var d = r.meet ? r.meet.days : null;
+      if (d == null) return { text: '—', unit: '', tone: 'none', title: 'No meet planned' };
+      return { text: d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : String(d), unit: d > 1 ? 'days' : '', tone: 'meet', title: (r.meet.meet.name || 'Meet') + ' ' + daysText(d) };
+    }
+    if (view === 'pain') {
+      var pb = painBits(st);
+      return pb && pb.sev != null ? { text: String(pb.sev), unit: '/10', tone: 'pain', title: pb.part + ' ' + pb.sev + '/10' } : { text: '—', unit: '', tone: 'none', title: 'Pain on the check-in, no score' };
+    }
+    if (view === 'quiet') {
+      if (st.ago == null) return { text: 'Never', unit: '', tone: 'quiet', title: 'No sets logged yet' };
+      return { text: String(st.ago), unit: st.ago === 1 ? 'day' : 'days', tone: 'quiet', title: plural(st.ago, 'day') + ' since the last session' };
+    }
+    return null;
+  }
+  function clMeetNumber(r) { return clViewNumber(r, 'meet'); }
+  // Each tab's count, from the same rows the list draws. → { need, meet, pain, quiet, new, wins, all }
+  function clTabCounts(rows, now) {
+    var out = { all: (rows || []).length };
+    ['need', 'meet', 'pain', 'quiet', 'new', 'wins'].forEach(function (k) { out[k] = (rows || []).filter(function (r) { return viewMatch(k, r, now); }).length; });
+    return out;
+  }
+  function timesWord(n) { return n === 2 ? 'twice' : n + ' times'; }
+  // The line under a name inside a view: the view's question, answered for this lifter, most important first (a row is
+  // one line, so what the row can't hold is the least of it; the whole line is the row's tooltip). null: the usual line.
+  // In these three views the row's number is the view's own (clViewNumber: the countdown, the score, the days quiet), so
+  // the line keeps its room for the rest:
+  //   meet  "1.4 kg over · no openers · State Championships": only what's wrong (over the class; no attempts inside 3
+  //         weeks, Home's rule), then the meet; on weight with time to go, just "Autumn Classic".
+  //   pain  "Low back · deadlift · twice" (twice this week; the row is one line and stays whole at 400 px)
+  //   quiet "Last trained Oct 21"
+  function clViewLine(r, view) {
+    var st = r.status || {};
+    if (view === 'meet' && r.meet) {
+      var m = r.meet.meet || {}, bits = [];
+      if (r.bw && r.bw.over > 0) bits.push(num(kgShow(r.bw.over)) + ' ' + unit() + ' over');
+      if (r.meet.days <= 21 && !(typeof meetAttemptsSet === 'function' && meetAttemptsSet(m))) bits.push('no openers');
+      if (m.name) bits.push(clip(String(m.name).trim(), 40));
+      return bits.join(' · ') || 'Meet';
+    }
+    if (view === 'pain') {
+      var pb = painBits(st);
+      if (pb) return clip(pb.part, 18) + (pb.lift ? ' · ' + pb.lift.toLowerCase() : '') + (pb.count >= 2 ? ' · ' + timesWord(pb.count) : '');
+      if ((r.reasons || []).some(function (x) { return x.type === 'pain'; })) return 'Said yes to pain on the check-in';
+      return null;
+    }
+    if (view === 'quiet') {
+      if (st.ago == null) return st.program ? 'No sets logged yet' : null;
+      return st.lastDate ? 'Last trained ' + dayMonth(st.lastDate) : 'Last trained ' + plural(st.ago, 'day') + ' ago';
+    }
+    if (view === 'wins' && (r.wins || []).length) return r.wins.map(function (w) { return w.text; }).join(' · ');
+    return null;
+  }
+  // The lanes, the one grouping (Lifters' All tab, Today's Roster), every lifter in exactly one, worst first: Need you
+  // (anything the coach decides on, a block to write included), Quiet (nothing but going quiet, 7 days or more), Peaking
+  // (a meet in 8 weeks and nothing for the coach: a lifter in Need you with a meet counts there), On plan.
+  // A lane opens Lifters: Need you on the Need you tab (the same lifters), Peaking on Meet soon (every meet in 8 weeks),
+  // On plan on All at its group, Quiet on Quiet (everyone 7 days quiet, whatever else).
+  var LANES = [{ key: 'need', title: 'Need you', tab: 'need' }, { key: 'meet', title: 'Peaking', tab: 'meet' }, { key: 'plan', title: 'On plan', tab: null }, { key: 'quiet', title: 'Quiet', tab: 'quiet' }];
+  function clLaneKey(r) {
+    var g = baseKey(r);
+    if (g === 'need') {
+      var hard = (r.reasons || []).some(function (x) { return NEED.test(x.type) && !QUIETISH.test(x.type); });
+      return !hard && quietView(r) ? 'quiet' : 'need';
+    }
+    if (g === 'block') return 'need';
+    return g;   // meet | plan
+  }
+  // → [{ key, title, tab, rows }] in LANES order; inside a lane the jobs' order (opts.order, pain first), the meet date
+  // for meets, the longest quiet first, then the name.
+  function clLanes(rows, opts) {
+    opts = opts || {};
+    var order = opts.order || {}, by = { need: [], meet: [], plan: [], quiet: [] };
+    (rows || []).forEach(function (r) { by[clLaneKey(r)].push(r); });
+    var name = function (a, b) { return String(a.athlete.name).localeCompare(String(b.athlete.name)); };
+    var rank = function (a, b) { var ia = order[a.athlete.id], ib = order[b.athlete.id]; return (ia == null ? 1e6 : ia) - (ib == null ? 1e6 : ib); };
+    by.need.sort(function (a, b) { return rank(a, b) || name(a, b); });
+    by.meet.sort(function (a, b) { return (a.meet ? a.meet.days : 999) - (b.meet ? b.meet.days : 999) || name(a, b); });
+    by.quiet.sort(function (a, b) { var x = a.status.ago == null ? 1e4 : a.status.ago, y = b.status.ago == null ? 1e4 : b.status.ago; return y - x || name(a, b); });
+    by.plan.sort(name);
+    return LANES.map(function (l) { return { key: l.key, title: l.title, tab: l.tab, rows: by[l.key] }; });
+  }
+  // A face's ring says one of two statuses, wherever the face is: pain (coral) or gone quiet, 7 days or more (dashed).
+  // Everything else has none (a lane, a tab or the line already says it). → 'pain' | 'quiet' | ''
+  function clRingOf(r) {
+    if ((r.reasons || []).some(function (x) { return x.type === 'pain'; })) return 'pain';
+    return quietView(r) ? 'quiet' : '';
+  }
+  // Where everyone is in their block, on one shared window of weeks (opts.back before this week, opts.weeks in all), from
+  // app.js calendarRows (a block's dates) and calendarBarMeet (the meet it counts down to). Soonest meet first, then the
+  // rest by name. opts: { today, programs, meets, blocks, back: 4, weeks: 16 }
+  // → { from, weeks, now (0..1 across the window), lines: [{ r, id, name, bar: { x0, x1, from, weeks, cur, name } | null,
+  //     week: 'Week 2 of 4' | 'Starts in 2 weeks' | 'Block done' | 'Not scheduled' | 'No block', meet: { x, days, name, date, wn } | null }] }
+  function clSeason(rows, opts) {
+    opts = opts || {};
+    var t = opts.today || todayIso(), back = opts.back == null ? 4 : opts.back, W = opts.weeks || 16;
+    var from = addDays(mondayOf(t), -7 * back), span = W * 7;
+    var xOf = function (iso) { return (daysBetween(from, iso) + 0.5) / span; };
+    var cal = typeof calendarRows === 'function' ? calendarRows({ athletes: (rows || []).map(function (r) { return r.athlete; }), programs: opts.programs || [], meets: opts.meets || [],
+      blocks: opts.blocks || [], today: t, from: from, weeks: W }) : [];
+    var byId = {};
+    cal.forEach(function (c) { byId[c.athleteId] = c; });
+    var lines = (rows || []).map(function (r) {
+      var c = byId[r.athlete.id] || { bars: [], meets: [] };
+      // The week is the program's own (app.js programWeekState: the first week with a set to do, as the lifter's page
+      // reads it); the bar's place is the calendar's (its dates). A lifter a week behind shows the lit week left of today.
+      var st = r.status || {}, prog = st.program || null, wk = st.week || null;
+      var progs = c.bars.filter(function (b) { return b.kind === 'program'; });
+      var own = prog && prog.id != null ? progs.filter(function (b) { return b.programId === prog.id; })[0] || null : null;
+      var bar = own || progs.filter(function (b) { return b.current != null; })[0] || progs.filter(function (b) { return b.from > back; }).sort(function (a, b) { return a.from - b.from; })[0] ||
+        progs.slice().sort(function (a, b) { return (b.from + b.weeks) - (a.from + a.weeks); })[0] || null;
+      var mine = !!(wk && prog && own && own === bar);
+      var cur = bar ? (mine && !wk.finished ? Math.min(wk.idx, bar.weeks - 1) : bar.current) : null;
+      var B = bar ? { x0: Math.max(0, bar.from / W), x1: Math.min(1, (bar.from + bar.weeks) / W), from: bar.from, weeks: bar.weeks, cur: cur, name: bar.name } : null;
+      var starts = bar && bar.from > back && (!mine || wk.idx === 0) ? 'Starts ' + (bar.from - back === 1 ? 'next week' : 'in ' + (bar.from - back) + ' weeks') : null;
+      // A program with no dates yet (no set logged, no day pinned, no meet) has no place on the weeks: Not scheduled.
+      var week = !bar ? (prog ? 'Not scheduled' : 'No block') : starts ? starts
+        : mine ? (wk.finished ? 'Block done' : 'Week ' + (wk.idx + 1) + ' of ' + wk.total)
+        : bar.current != null ? 'Week ' + (bar.current + 1) + ' of ' + bar.weeks : 'Block done';
+      var M = null, nm = r.meet && r.meet.days >= 0 ? r.meet : null;
+      if (nm && nm.meet && nm.meet.date) {
+        var d = String(nm.meet.date).slice(0, 10), cm = c.meets.filter(function (x) { return x.date === d; })[0];
+        var bm = bar && typeof calendarBarMeet === 'function' ? calendarBarMeet(bar, c.meets, back) : null;
+        M = { x: xOf(d), days: nm.days, name: String(nm.meet.name || 'Meet').trim() || 'Meet', date: d, wn: bm && bm.date === d ? bm.label : (cm ? 'W-' + Math.max(0, cm.week - back) : null) };
+      }
+      return { r: r, id: r.athlete.id, name: r.athlete.name, bar: B, week: week, meet: M };
+    });
+    lines.sort(function (a, b) {
+      var x = a.meet ? a.meet.days : Infinity, y = b.meet ? b.meet.days : Infinity;
+      return (x === y ? 0 : x < y ? -1 : 1) || String(a.name).localeCompare(String(b.name));
+    });
+    return { from: from, weeks: W, back: back, now: xOf(t), lines: lines };
+  }
+  // The business, one quiet line: what the packages bring in a month, who is overdue, who wants to train with you, the
+  // plan's seats taken (lifters and unused invites, the rail's count too). A part with nothing to say is left out (no
+  // packages yet: no money). o: { summary (clients.js
+  // clientsSummary), money (cents, currency → text), apps (applications waiting), joins (join requests), seats: { used, limit } }
+  // → [{ key: 'money' | 'overdue' | 'apps' | 'seats', text }]
+  function clBusiness(o) {
+    o = o || {};
+    var out = [], sm = o.summary, money = o.money || function (c) { return '$' + Math.round(c / 100); };
+    if (sm && sm.mrr > 0) out.push({ key: 'money', text: money(Math.round(sm.mrr / 100) * 100, sm.currency) + ' a month' });
+    if (sm && sm.overdue && sm.overdue.n > 0) out.push({ key: 'overdue', text: sm.overdue.n + ' overdue' });
+    var apps = Number(o.apps) || 0, joins = Number(o.joins) || 0;
+    if (apps + joins) out.push({ key: 'apps', text: !joins ? plural(apps, 'application') + ' waiting' : !apps ? plural(joins, 'join request') : (apps + joins) + ' new lifters waiting' });
+    if (o.seats && o.seats.limit > 0) out.push({ key: 'seats', text: o.seats.used + ' of ' + o.seats.limit + ' seats' });
+    return out;
   }
 
   // Everything a lifter's summary shows, from the store. → { total, lifts, weeks, planned, effort, bw, words, ring }
@@ -650,6 +827,7 @@
     var h = home();
     if (it.type === 'meetday') return { k: 'open', ic: 'trophy', label: 'Open meet day', run: openMeetDay };
     if (it.type === 'write') { var a = it.r.athlete; return { k: 'open', ic: 'pen', label: 'Write week ' + (it.week || ''), run: function () { if (typeof openAthleteProgram === 'function') openAthleteProgram(a.id); } }; }
+    if (it.type === 'unpub') { var au = it.r.athlete, ux = it.reason || {}; return { k: 'apply', ic: 'check', label: 'Publish week ' + (ux.number || ''), run: function () { if (window.DeskProgram && DeskProgram.publishWeek) DeskProgram.publishWeek(au.id, ux.idx); } }; }
     // A busy week: Approve puts the plan in their program (busy-week.js BusyWeek.approve).
     if (it.type === 'busy') { var rq = it.info && it.info.req; return { k: 'apply', ic: 'check', label: 'Approve', run: function () { if (window.BusyWeek && rq) BusyWeek.approve(rq); } }; }
     if (h && h.fixFor) return h.fixFor(it.r, it.reason);
@@ -733,13 +911,31 @@
       if (it.done) return;
       (it.r ? [it.r] : it.rows || []).forEach(function (r) { if (order[r.athlete.id] == null) order[r.athlete.id] = i; });
     });
-    var view = isDeskNow() && typeof _dk !== 'undefined' && _dk.view ? _dk.view : null;
-    var shown = all;
-    if (view && typeof deskViewMatch === 'function') shown = all.filter(function (r) { return deskViewMatch(view, r); });
+    var view = isDeskNow() && typeof _dk !== 'undefined' && _dk.view ? viewKey(_dk.view) : null;
+    var now = Date.now();
+    var inView = view ? all.filter(function (r) { return viewMatch(view, r, now); }) : all;
+    var shown = inView;
     if (S.q) { var ql = S.q.toLowerCase(); shown = shown.filter(function (r) { return String(r.athlete.name).toLowerCase().indexOf(ql) >= 0; }); }
     var open = jobs.filter(function (it) { return !it.done; });
-    return { rows: all, shown: shown, q: q, view: view, jobs: jobs, open: open, done: jobs.length - open.length, order: order,
-      groups: clGroups(shown, { order: order }), need: all.filter(function (r) { return clGroupKey(r) === 'need'; }), live: all.filter(function (r) { return r.live; }) };
+    // All keeps its four groups; a tab (the desk's views) is one list in its own order.
+    var groups = view ? (shown.length ? [{ key: view, title: null, rows: shown.slice().sort(viewSort(view, order)) }] : []) : clGroups(shown, { order: order });
+    return { rows: all, shown: shown, inView: inView, q: q, view: view, jobs: jobs, open: open, done: jobs.length - open.length, order: order,
+      groups: groups, need: all.filter(function (r) { return clGroupKey(r) === 'need'; }), live: all.filter(function (r) { return r.live; }),
+      counts: clTabCounts(all, now) };
+  }
+  // A tab's order: the soonest meet (Meet soon), the longest quiet (Quiet), the newest (New this month); everything else
+  // the jobs' order (pain first, then how soon), then the name.
+  // Pain first in every tab (the owner's rule, everywhere), then the tab's own order.
+  function viewSort(view, order) {
+    order = order || {};
+    var name = function (a, b) { return String(a.athlete.name).localeCompare(String(b.athlete.name)); };
+    var rank = function (a, b) { var ia = order[a.athlete.id], ib = order[b.athlete.id]; return (ia == null ? 1e6 : ia) - (ib == null ? 1e6 : ib); };
+    var hurt = function (r) { return (r.reasons || []).some(function (x) { return x.type === 'pain'; }) ? 0 : 1; };
+    var pain = function (a, b) { return hurt(a) - hurt(b); };
+    if (view === 'meet') return function (a, b) { return pain(a, b) || (a.meet ? a.meet.days : 999) - (b.meet ? b.meet.days : 999) || rank(a, b) || name(a, b); };
+    if (view === 'quiet') return function (a, b) { var x = a.status.ago == null ? 1e4 : a.status.ago, y = b.status.ago == null ? 1e4 : b.status.ago; return pain(a, b) || y - x || name(a, b); };
+    if (view === 'new') return function (a, b) { return pain(a, b) || (Number(b.athlete.createdAt) || 0) - (Number(a.athlete.createdAt) || 0) || name(a, b); };
+    return function (a, b) { return pain(a, b) || rank(a, b) || name(a, b); };
   }
   function rowOf(id) { return typeof dkRow === 'function' ? dkRow(id) : null; }
 
@@ -845,17 +1041,6 @@
     return 'Open';
   }
   var KINDS = [['answer', 'Answer', 'msg'], ['check', 'Check', 'eye'], ['meet', 'Meet prep', 'trophy'], ['write', 'Write', 'pen']];
-  function columnsHtml(items, M) {
-    return '<div class="cl-cols">' + KINDS.map(function (k) {
-      // A busy week waits on the coach's answer, so it sits with Answer.
-      var inCol = function (it) { return it.kind === k[0] || (k[0] === 'meet' && it.kind === 'meetday') || (k[0] === 'answer' && it.kind === 'busy'); };
-      var list = items.filter(inCol);
-      var doneN = M.jobs.filter(function (it) { return it.done && inCol(it); }).length;
-      var rows = list.map(function (it, i) { return '<div class="cl-cr' + (i >= 5 ? ' is-extra' : '') + '">' + jobHtml(it, { icon: true, short: true }) + '</div>'; }).join('');
-      return '<div class="cl-col k-' + k[0] + '"><div class="cl-colh"><span class="cl-tic">' + ic(k[2]) + '</span><b>' + esc(k[1]) + '</b><span class="cl-cn">' + list.length + '</span>' + (doneN ? '<span class="cl-cd">' + ic('check', 2.4) + doneN + ' done</span>' : '') + '</div>' +
-        (list.length ? rows + (list.length > 5 ? '<button type="button" class="cl-morebtn" data-more>Show ' + (list.length - 5) + ' more</button>' : '') : '<p class="cl-colnone">' + (k[0] === 'answer' ? 'Nobody waiting on you' : k[0] === 'check' ? 'Nothing to check' : k[0] === 'meet' ? 'No meet prep' : 'Every block is written') + '</p>') + '</div>';
-    }).join('') + '</div>';
-  }
   function rowHtml(r, o, M) {
     var a = r.athlete, n = clNumber(r), top = M ? clTopJob(r, M.jobs) : null, line = clLine(r, top);
     var days = typeof trainingDays === 'function' ? trainingDays(a.id, 7) : [];
@@ -876,15 +1061,6 @@
       return '<div class="cl-grp"><h2 class="cl-gh">' + esc(g.title) + ' <span>' + g.rows.length + '</span></h2><div class="cl-list">' + g.rows.map(function (r) { return rowHtml(r, o, M); }).join('') + '</div></div>';
     }).join('');
   }
-  // What a row's ring and number mean, once at the top of the list.
-  function legendHtml() {
-    return '<div class="cl-legend"><span>' + pipsHtml({ n: 3, k: 2, trained: 2, text: 'Sessions in the last 7 days, out of the plan' }) + 'Sessions, last 7 days</span><span><b>+kg</b> Strength, 4 weeks</span></div>';
-  }
-  function subText(M) {
-    var n = M.rows.length, open = M.need.length;
-    return n + (n === 1 ? ' lifter' : ' lifters') + (open ? ' · <b>' + open + ' to check on</b>' : ' · all on plan') + (M.live.length ? ' · <b class="t-live">' + M.live.length + ' under the bar</b>' : '');
-  }
-
   // A lifter's summary: one big box for overall progress, a tile per lift, then training, effort,
   // bodyweight and the meet, then their words. o: { phone, rise }
   function summaryHtml(r, M, o) {
@@ -893,21 +1069,28 @@
     var top = clTopJob(r, M.jobs), fix = fixForLifter(r, top), alt = altFor(r, fix);
     var rz = function (i) { return o.rise ? ' rise" style="--i:' + i : ''; };
     var cls = r.meet && r.meet.meet.weightClass ? clsText(r.meet.meet.weightClass) : (r.bw ? clsText(r.bw.cls) : null);
-    var meta = [prog ? esc(clip(prog.name, 30)) + (st.week && st.week.total ? ' · week ' + (st.week.idx + 1) + ' of ' + st.week.total : '') : 'No block yet'];
+    // The laptop's header shares its row with the page's tools: the week as the desk writes it ("wk 1/3"), on one line.
+    var meta = [prog ? esc(clip(prog.name, 30)) + (st.week && st.week.total ? (o.desk ? ' · wk ' + (st.week.idx + 1) + '/' + st.week.total : ' · week ' + (st.week.idx + 1) + ' of ' + st.week.total) : '') : 'No block yet'];
     // Block DNA (block-dna.js): the blocks + compare, a quiet link beside Everything (a row above it on the phone).
     var blk = window.BlockDNA && BlockDNA.linkInfo ? BlockDNA.linkInfo(a.id) : null;
     var blkRow = blk && o.phone ? '<button type="button" class="cl-everything cl-blocks" data-blocks><span class="cl-ev-t">Blocks</span><span class="cl-ev-sub">' + esc(blk.text) + '</span>' + ic('chev') + '</button>' : '';
     if (cls) meta.push(esc(cls) + ' ' + esc(unit()) + ' class');
+    // The laptop's header ends on the next lifter in the list (J moves there too): the coach's loop, one lifter after another.
+    var nextBtn = o.desk && o.next ? '<button type="button" class="cl-quiet cl-next" data-next="' + esc(o.next.id) + '" data-tip="The next lifter in your list" data-kbd="J">Next: ' + esc(first(o.next.name)) + ic('chev') + '</button>' : '';
     var html = '<header class="cl-ph' + rz(0) + '">' + (o.phone ? '' : avHtml(a, 'lg')) + '<div class="cl-pid"><h2 class="cl-pname">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</h2><p class="cl-pmeta">' + meta.join(' · ') + '</p></div>' +
       (o.phone ? '' : '<div class="cl-ptools"><button type="button" class="cl-quiet" data-prog>' + ic('cal') + 'Program</button><button type="button" class="cl-quiet" data-card="notes">' + ic('pen') + 'Notes</button>' +
-        (blk ? '<button type="button" class="cl-quiet" data-blocks title="' + esc(blk.text) + '">' + ic('blocks') + 'Blocks</button>' : '') + '<button type="button" class="cl-quiet" data-go="all">Everything' + ic('chev') + '</button></div>') + '</header>';
-    // The flag: what needs doing and the fix (the page's one red). Nothing wrong, no flag.
+        (blk ? '<button type="button" class="cl-quiet" data-blocks title="' + esc(blk.text) + '">' + ic('blocks') + 'Blocks</button>' : '') + '<button type="button" class="cl-quiet" data-go="all">Everything' + ic('chev') + '</button>' + nextBtn + '</div>') + '</header>';
+    // The flag: what needs doing and the fix (the page's one red). Nothing wrong, no flag. In the laptop's Pain view a pain
+    // flag is the pain card (where, the lift, the score, how often, when), with the same fix.
     if (top) {
       var jt = jobText(top.type === 'meetday' ? Object.assign({}, top, { forId: a.id }) : top);
       var busyBits = top.type === 'busy' ? (jt.note ? '<span class="cl-fnote">“' + esc(clip(jt.note, 140)) + '”</span>' : '') + '<button type="button" class="cl-link cl-fkeep" data-busy-keep>Keep the week as written</button>' : '';
-      html += '<div class="cl-flag tone-' + jt.tone + rz(1) + '"><span class="cl-fic">' + ic(jt.icon) + '</span><span class="cl-ftx"><b>' + esc(jt.title) + '</b>' + (jt.detail ? '<span>' + detailHtml(jt) + '</span>' : '') + busyBits + '</span>' +
-        '<span class="cl-facts">' + (o.phone ? '' : '<button type="button" class="cl-btn quiet" data-act="alt">' + esc(alt.label) + '</button>') + '<button type="button" class="cl-btn red" data-act="fix">' + esc(fix.label) + '</button></span></div>';
+      var acts = '<span class="cl-facts">' + (o.phone ? '' : '<button type="button" class="cl-btn quiet" data-act="alt">' + esc(alt.label) + '</button>') + '<button type="button" class="cl-btn red" data-act="fix">' + esc(fix.label) + '</button></span>';
+      if (o.desk && o.view === 'pain' && top.type === 'pain') html += painCardHtml(r, jt, acts, rz(1));
+      else html += '<div class="cl-flag tone-' + jt.tone + rz(1) + '"><span class="cl-fic">' + ic(jt.icon) + '</span><span class="cl-ftx"><b>' + esc(jt.title) + '</b>' + (jt.detail ? '<span>' + detailHtml(jt) + '</span>' : '') + busyBits + '</span>' + acts + '</div>';
     }
+    // The laptop's Meet view: the meet first (its countdown, the weight against the class, the attempts).
+    if (o.desk && o.view === 'meet' && r.meet && r.meet.days <= 112) html += meetCardHtml(r, rz(1));
     // Nothing logged at all: one clear card instead of a page of dashes.
     var anyLog = D.total || D.lifts.some(function (L) { return L.e1 > 0; }) || D.weeks.some(function (x) { return x.done > 0; }) || D.bw.length;
     if (!anyLog) {
@@ -995,15 +1178,53 @@
         '<b class="cl-big3">' + num(kgShow(lastBw.kg)) + '</b><span class="cl-u">' + esc(unit()) + '</span>',
         viz('line', bwLine, o.phone ? 50 : 56), bwFoot, { compact: true }));
     }
+    // The meet: a tile on the phone; on the laptop one slim card under the three tiles (first, in the Meet view).
+    var meetAfter = '';
     if (r.meet && r.meet.days <= 112) {
       var m = r.meet.meet, planned = meetAttemptsSet(m);
-      small.push('<div class="cl-tile t-meets is-compact cl-meet"><div class="cl-th"><span class="cl-tic">' + ic('trophy') + '</span><span class="cl-tl">Meet</span><span class="cl-ts">' + esc(dayMonth(m.date)) + '</span></div>' +
+      if (o.desk) { if (o.view !== 'meet') meetAfter = meetCardHtml(r, rz(5)); }
+      else small.push('<div class="cl-tile t-meets is-compact cl-meet"><div class="cl-th"><span class="cl-tic">' + ic('trophy') + '</span><span class="cl-tl">Meet</span><span class="cl-ts">' + esc(dayMonth(m.date)) + '</span></div>' +
         '<div class="cl-tv"><b class="cl-big3">' + (r.meet.days <= 0 ? 'Today' : r.meet.days === 1 ? 'Tomorrow' : r.meet.days + ' days') + '</b></div>' +
         '<div class="cl-mname">' + esc(clip(m.name || 'Meet', 30)) + '</div>' +
         '<button type="button" class="cl-mplan' + (planned ? '' : ' is-warn') + '" data-plan="' + esc(a.id) + '">' + (planned ? ic('check') + 'Attempts set' : ic('alert') + 'Set attempts') + '</button></div>');
     }
-    html += '<div class="cl-small n' + small.length + rz(4) + '">' + small.join('') + '</div>';
+    html += '<div class="cl-small n' + small.length + rz(4) + '">' + small.join('') + '</div>' + meetAfter;
     return html;
+  }
+  // The meet on a lifter's laptop page, one slim card: its name and date, the countdown, the weight against the class
+  // (an amber dot when over), and the attempt plan (Set attempts opens the planner, meetday.js MeetDay.planFor).
+  function meetCardHtml(r, rise) {
+    var m = r.meet.meet || {}, d = r.meet.days, a = r.athlete, planned = typeof meetAttemptsSet === 'function' && meetAttemptsSet(m);
+    var bw = r.bw ? '<span class="cl-mc-w' + (r.bw.over > 0 ? ' is-warn' : ' is-ok') + '"><i aria-hidden="true"></i>' + esc(r.bw.over > 0 ? num(kgShow(r.bw.over)) + ' ' + unit() + ' over the ' + clsText(r.bw.cls) : 'On weight for the ' + clsText(r.bw.cls)) + '</span>'
+      : (m.weightClass ? '<span class="cl-mc-w"><i aria-hidden="true"></i>' + esc(clsText(m.weightClass) + ' ' + unit() + ' class') + '</span>' : '');
+    return '<div class="cl-meetcard' + (rise || '') + '"><span class="cl-tic">' + ic('trophy') + '</span>' +
+      '<span class="cl-mc-id"><b>' + esc(clip(m.name || 'Meet', 40)) + '</b><span>' + esc(dateShort(m.date)) + '</span></span>' +
+      '<span class="cl-mc-n"><b>' + (d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : d) + '</b>' + (d > 1 ? '<span>days</span>' : '') + '</span>' + bw +
+      (planned ? '<button type="button" class="cl-quiet cl-mc-plan is-set" data-plan="' + esc(a.id) + '" title="Open the attempt plan"><i aria-hidden="true"></i>Attempts set</button>'
+        : '<button type="button" class="cl-sbtn cl-mc-plan" data-plan="' + esc(a.id) + '">Set attempts</button>') + '</div>';
+  }
+  // The Pain view's lead on a lifter's laptop page: where it hurts and the score out of 10 (a ten-step meter), the lift,
+  // when in the session, the day, and how often this week; a check-in's yes when there's no report. acts: the flag's own
+  // two buttons (the fix is the page's one crimson).
+  function painCardHtml(r, jt, acts, rise) {
+    var st = r.status || {}, pb = painBits(st), p = st.pain || {}, rep = p.report || null, facts = [], title, sev = null;
+    var PH = typeof PAIN_PHASES !== 'undefined' ? PAIN_PHASES : {};
+    if (pb) {
+      title = pb.part; sev = pb.sev != null ? Number(pb.sev) : null;
+      if (pb.lift) facts.push(pb.lift);
+      if (rep && rep.phase && PH[rep.phase]) facts.push(PH[rep.phase].toLowerCase());
+      if (pb.day) facts.push(whenText(pb.day));
+      facts.push(pb.count >= 2 ? timesWord(pb.count) + ' this week' : 'first time this week');
+      if (p.open > pb.count) facts.push(p.open + ' reports open');
+    } else {
+      title = 'Pain on the check-in';
+      facts.push('Said yes to pain');
+      if (r.meet && r.meet.days <= 14) facts.push(meetLine(r));
+    }
+    var meter = sev != null ? '<span class="cl-pmeter" role="img" aria-label="' + sev + ' out of 10">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function (i) { return '<i' + (i <= sev ? ' class="on"' : '') + '></i>'; }).join('') + '</span>' : '';
+    return '<div class="cl-flag cl-paincard tone-pain' + (rise || '') + '"><span class="cl-fic">' + ic('alert') + '</span><span class="cl-ftx">' +
+      '<span class="cl-pc-t"><b>' + esc(title) + '</b>' + (sev != null ? '<span class="cl-pc-s"><b>' + sev + '</b>/10</span>' + meter : '') + '</span>' +
+      '<span>' + esc(facts.join(' · ')) + '</span></span>' + acts + '</div>';
   }
 
   // The way into a lifter's Career (career.js): its one line ('4 meets · since 2024'), or null when
@@ -1037,8 +1258,211 @@
   }
 
   /* =====================================================================================
-     TODAY (laptop): Do first, This week, then every other job by kind.
+     TODAY (laptop), v3 (2 Nov): "who needs me now, and is the team on track?" Do first (the page's one crimson),
+     Your team (the roster in lanes, this week, effort, strength, meets, where everyone is in their block, the business
+     line), then Your list (every other job, one list, tabs by kind). Every card opens the people behind it.
      ===================================================================================== */
+  function inKind(it, k) { return !k || it.kind === k || (k === 'meet' && it.kind === 'meetday') || (k === 'answer' && it.kind === 'busy'); }
+  // What the overview draws, from the rows the rest of Today draws (and the same maths as the phone's Home).
+  function teamModel(M) {
+    var t = todayIso(), s = typeof Store !== 'undefined' ? Store.get() : {}, rows = M.rows, CA = window.CoachApp || null;
+    var T = clTeam(rows, { today: t });
+    // Effort's picture: the sets clTeam counts (the last 7 days) in the phone's five bins (coach-app.js caEffortBins).
+    var since = addDays(t, -6), sets = [];
+    rows.forEach(function (r) {
+      var prog = r.status && r.status.program;
+      if (!prog || typeof programLoggedSets !== 'function') return;
+      programLoggedSets(prog).forEach(function (x) { if (x.date && x.date >= since && x.date <= t) sets.push({ id: r.athlete.id, name: r.athlete.name, set: x.set, date: x.date }); });
+    });
+    var bins = CA && CA.caEffortBins ? CA.caEffortBins(sets) : null;
+    // Strength by lift: each lifter's best e1RM now against 4 weeks ago, summed per lift (app.js getE1RMMomentum, as Home).
+    var lifts = null;
+    if (CA && CA.caTeamStrength && typeof getE1RMMomentum === 'function') {
+      try { lifts = CA.caTeamStrength(rows.map(function (r) { return { id: r.athlete.id, name: r.athlete.name, m: getE1RMMomentum(r.athlete.id, 28) }; })).lifts; } catch (e) { lifts = null; }
+    }
+    var C = window.Clients, sm = null;
+    if (C && C.clientsSummary) { try { sm = C.clientsSummary(s.clientBilling || [], s.clientPayments || [], t, (s.athletes || []).filter(function (a) { return a && a.id; }).map(function (a) { return a.id; })); } catch (e) { sm = null; } }
+    var leads = window.ClientsUI && ClientsUI.leads ? ClientsUI.leads() : [];
+    return { T: T, lanes: clLanes(rows, { order: M.order }), bins: bins, lifts: lifts,
+      season: clSeason(rows, { today: t, programs: s.programs || [], meets: s.meets || [], blocks: s.programBlocks || [] }),
+      biz: clBusiness({ summary: sm, money: C && C.formatMoney ? function (c, cur) { return C.formatMoney(c, cur); } : null, apps: leads.length, joins: (window._joinReqs || []).length,
+        seats: window.CoachHome && CoachHome.seats ? CoachHome.seats() : null }) };
+  }
+  // A card: its name and window, the big number (a button: it opens the people behind it, as a click anywhere on the card
+  // does), one picture, one line. o: { cls, title, win, go (attributes), num, unit, aside, pic, foot (HTML), aria }
+  function cardHead(title, win) { return '<div class="cl-card-h"><h3>' + esc(title) + '</h3>' + (win ? '<span>' + esc(win) + '</span>' : '') + '</div>'; }
+  function cardHtml(o) {
+    return '<div class="cl-card ' + o.cls + '" ' + (o.go || '') + '>' + cardHead(o.title, o.win) +
+      '<button type="button" class="cl-card-main" ' + (o.go || '') + ' aria-label="' + esc(o.aria) + '"><span class="cl-card-n" aria-hidden="true"><b>' + o.num + '</b>' + (o.unit ? '<span>' + esc(o.unit) + '</span>' : '') + '</span>' + (o.aside || '') + '</button>' +
+      (o.pic ? '<div class="cl-card-pic">' + o.pic + '</div>' : '') + '<div class="cl-card-f">' + (o.foot || '') + '</div></div>';
+  }
+  function emptyCard(cls, title, win, head, sub) { return '<div class="cl-card ' + cls + ' is-empty">' + cardHead(title, win) + '<p class="cl-card-none"><b>' + esc(head) + '</b>' + esc(sub) + '</p></div>'; }
+  // Every lifter at a glance: four lanes (Need you, Meet in 8 weeks, On plan, Quiet), a big count and the faces in each.
+  function rosterCardHtml(lanes, n) {
+    return '<div class="cl-card cl-c-roster">' + cardHead('Roster', plural(n, 'lifter')) + '<div class="cl-lanes">' + lanes.map(function (L) {
+      var cap = 14, faces = L.rows.length > cap + 1 ? L.rows.slice(0, cap) : L.rows, more = L.rows.length - faces.length;
+      var names = L.rows.map(function (r) { return first(r.athlete.name); });
+      return '<button type="button" class="cl-lane k-' + L.key + '" data-golist="' + esc(L.tab || '') + '"' + (L.tab ? '' : ' data-gogroup="' + L.key + '"') + ' aria-label="' + esc(L.title + ': ' + L.rows.length + (names.length ? ', ' + namesList(names, 6) : '') + '. Show them on Lifters') + '">' +
+        '<span class="cl-lane-n" aria-hidden="true"><b>' + L.rows.length + '</b><span>' + esc(L.title) + '</span></span>' +
+        '<span class="cl-lane-f" aria-hidden="true">' + (faces.length ? faces.map(function (r) { var rg = clRingOf(r); return '<span class="cl-face' + (rg ? ' ring-' + rg : '') + '" title="' + esc(r.athlete.name) + '">' + avHtml(r.athlete) + '</span>'; }).join('') +
+          (more > 0 ? '<span class="cl-lane-more">+' + more + '</span>' : '') : '<span class="cl-lane-none">Nobody</span>') + '</span></button>';
+    }).join('') + '</div></div>';
+  }
+  function ringHtml(pct) {
+    var S = 48, r = 20, c = 2 * Math.PI * r, f = Math.max(0, Math.min(1, pct / 100));
+    return '<span class="cl-ring" aria-hidden="true"><svg width="' + S + '" height="' + S + '" viewBox="0 0 ' + S + ' ' + S + '"><circle class="cl-ring-t" cx="24" cy="24" r="' + r + '"/>' +
+      '<circle class="cl-ring-v" cx="24" cy="24" r="' + r + '" stroke-dasharray="' + (c * f).toFixed(2) + ' ' + c.toFixed(2) + '" transform="rotate(-90 24 24)"/></svg><b>' + Math.round(pct) + '%</b></span>';
+  }
+  // The last 7 days, a column a day (today last, in ink), as tall as the day's sessions against the busiest.
+  function weekPicHtml(tr) {
+    var max = Math.max(1, Math.max.apply(null, tr.perDay));
+    return '<div class="cl-days">' + tr.perDay.map(function (v, i) {
+      var iso = tr.days[i];
+      return '<span class="cl-day' + (i === tr.perDay.length - 1 ? ' is-today' : '') + '" title="' + esc(dateShort(iso) + ': ' + plural(v, 'session')) + '"><span class="cl-day-p"><i class="' + (v ? '' : 'is-zero') + '" style="--h:' + (v / max).toFixed(3) + '"></i></span>' +
+        '<span class="cl-day-l">' + esc(localDate(iso, { weekday: 'narrow' })) + '</span></span>';
+    }).join('') + '</div>';
+  }
+  function weekCardHtml(T) {
+    var tr = T.training;
+    if (!tr.planned) return emptyCard('cl-c-week', 'Training', 'Last 7 days', 'No blocks running', 'Sessions land here as they’re logged.');
+    var pct = tr.done / tr.planned * 100;
+    var foot = tr.behind.length ? 'Behind: ' + nameBtns(tr.behind, 3, function (x) { return first(x.r.athlete.name) + ' ' + x.n + '/' + x.p; }) : 'Everyone on track';
+    return cardHtml({ cls: 'cl-c-week', title: 'Training', win: 'Last 7 days', go: 'data-golist="check"', num: String(tr.done), unit: 'of ' + tr.planned + ' sessions', aside: ringHtml(pct), pic: weekPicHtml(tr), foot: foot,
+      aria: tr.done + ' of ' + tr.planned + ' sessions in the last 7 days. ' + (tr.behind.length ? tr.behind.length + ' behind' : 'Everyone on track') + '. Show who to check on' });
+  }
+  // Where the sets landed against what was written: easier, a little under, as written, half a point over, a point or
+  // more over. The number is the first three together, so the picture and the number agree. The app's effort colours:
+  // under in a cool neutral, as written green (on target), half a point over amber, a point or more coral; each label
+  // sits under its own bars.
+  function binsPicHtml(B) {
+    var max = Math.max(1, Math.max.apply(null, B)), cls = ['is-easier', 'is-under', 'is-at', 'is-half', 'is-over'];
+    return '<div class="cl-bins"><span class="cl-bins-c">' + B.map(function (n, i) { return '<span class="cl-bin"><i class="' + cls[i] + (n ? '' : ' is-zero') + '" style="--h:' + (n / max).toFixed(3) + '"></i></span>'; }).join('') + '</span>' +
+      '<span class="cl-bins-x"><span class="b-under">Easier</span><span class="b-at">As written</span><span class="b-half">+0.5</span><span class="b-over">+1</span></span></div>';
+  }
+  function effortCardHtml(T, bins) {
+    var ef = T.effort;
+    if (!ef.total) return emptyCard('cl-c-effort', 'Effort', 'Last 7 days', 'No RPE logged yet', 'Each set lands here against the RPE you wrote.');
+    var B = bins && bins.length === 5 ? bins : [0, ef.at, 0, ef.half, ef.over];
+    var foot = ef.who.length ? 'Over: ' + nameBtns(ef.who, 2, function (x) { return first(x.r.athlete.name) + ' ' + x.text; }) : 'Nobody over what you wrote';
+    return cardHtml({ cls: 'cl-c-effort', title: 'Effort', win: 'Last 7 days', go: 'data-golist="check"', num: ef.pct + '%', unit: 'at or under what you wrote', pic: binsPicHtml(B), foot: foot,
+      aria: ef.pct + '% of ' + plural(ef.total, 'set') + ' at or under the RPE you wrote in the last 7 days' + (ef.who.length ? '. Over: ' + ef.who.map(function (x) { return first(x.r.athlete.name); }).join(', ') : '') + '. Show who to check on' });
+  }
+  // Each lift's team change over 4 weeks, in the lift's colour.
+  function liftsPicHtml(lifts) {
+    var CA = window.CoachApp || {};
+    var vals = LIFTS.map(function (L) { return lifts[L] && lifts[L].n && lifts[L].pct != null ? lifts[L].pct : null; });
+    var max = Math.max.apply(null, [0.5].concat(vals.map(function (v) { return v == null ? 0 : Math.abs(v); })));
+    return '<div class="cl-lbars">' + LIFTS.map(function (L, i) {
+      var v = vals[i], txt = v == null ? '–' : (CA.caPct ? CA.caPct(v) : (v > 0 ? '+' : '') + (Math.round(v * 10) / 10) + '%');
+      return '<span class="cl-lbar lb-' + LIFT_CLS[L].slice(2) + '"><span class="cl-lbar-n">' + LIFT[L] + '</span><span class="cl-lbar-t"><i class="' + (v != null && v < 0 ? 'is-down' : '') + '" style="--w:' + (v == null ? 0 : Math.abs(v) / max).toFixed(3) + '"></i></span><span class="cl-lbar-v">' + esc(txt) + '</span></span>';
+    }).join('') + '</div>';
+  }
+  function strengthCardHtml(T, lifts) {
+    var sg = T.strength;
+    if (!sg.n) return emptyCard('cl-c-strength', 'Strength', '4 weeks', 'No trends yet', 'Each lifter’s e1RM against 4 weeks ago, once they log.');
+    var foot = sg.prs.length ? 'PRs this week: ' + nameBtns(sg.prs.map(function (r) { return { r: r }; }), 3, function (x) { return first(x.r.athlete.name); }) : 'No PRs this week';
+    return cardHtml({ cls: 'cl-c-strength', title: 'Strength', win: '4 weeks', go: 'data-golist=""', num: String(sg.up), unit: 'of ' + sg.n + ' stronger', pic: lifts ? liftsPicHtml(lifts) : '', foot: foot,
+      aria: sg.up + ' of ' + sg.n + ' lifters stronger than 4 weeks ago' + (sg.prs.length ? ', ' + plural(sg.prs.length, 'PR') + ' this week' : '') + '. Show everyone' });
+  }
+  function meetsCardHtml(T, skip) {
+    var mt = T.meets;
+    if (!mt.list.length) return emptyCard('cl-c-meets', 'Meets', 'Next 8 weeks', 'No meets in 8 weeks', 'Plan one from a lifter’s page and it counts down here.');
+    var marks = [];
+    mt.list.forEach(function (g) { g.rows.forEach(function (r) { marks.push({ x: Math.min(56, Math.max(0, g.days)) / 56, r: r, title: r.athlete.name + ': ' + g.name + ', ' + daysText(g.days) }); }); });
+    var key = function (g) { return String(g.name || '').trim().toLowerCase() + '|' + String(g.date || '').slice(0, 10); };
+    var nx = mt.list.filter(function (g) { return !(skip || {})[key(g)]; })[0] || mt.next, who = nx.rows.map(function (r) { return first(r.athlete.name); });
+    var foot = esc((nx.days <= 0 ? 'Today: ' : nx.days === 1 ? 'Tomorrow: ' : 'Next: ') + nx.name + (nx.days > 1 ? ' in ' + nx.days + ' days' : '') + ' · ' + namesList(who, 3));
+    return cardHtml({ cls: 'cl-c-meets', title: 'Meets', win: 'Next 8 weeks', go: 'data-golist="meet"', num: String(mt.lifters), unit: (mt.lifters === 1 ? 'lifter' : 'lifters') + ' in ' + plural(mt.list.length, 'meet'),
+      pic: trackHtml({ tone: 'meet', marks: marks, ticks: [1, 2, 3, 4, 5, 6, 7].map(function (w) { return w / 8; }), labels: [[0, 'Today'], [0.5, '4 weeks'], [1, '8 weeks']] }), foot: foot,
+      aria: mt.lifters + ' lifters in ' + plural(mt.list.length, 'meet') + ' in the next 8 weeks. ' + nx.name + ' ' + daysText(nx.days) + '. Show them on Lifters' });
+  }
+  // Where everyone is: the next 8 by their next meet, one line each on the same weeks (today's line through all of them):
+  // the face, the name and the week of the block, the block's weeks (this one lit), the meet's flag, the days to go.
+  function seasonCardHtml(S, n) {
+    var lines = S.lines.slice(0, 8);
+    if (!lines.length) return '';
+    var span = S.weeks * 7, months = [];
+    for (var d = 1; d < span; d++) { var iso = addDays(S.from, d); if (iso.slice(8, 10) === '01') { var mx = (d + 0.5) / span; if (Math.abs(mx - S.now) > 0.07) months.push('<span style="--x:' + mx.toFixed(4) + '">' + esc(localDate(iso, { month: 'short' })) + '</span>'); } }
+    var axis = '<div class="cl-sn-head" aria-hidden="true"><span></span><span class="cl-sn-ax">' + months.join('') + '<span class="is-now" style="--x:' + S.now.toFixed(4) + '">Today</span></span><span class="cl-sn-dh">Meet</span></div>';
+    var body = lines.map(function (L) {
+      var a = L.r.athlete, segs = '', rg = clRingOf(L.r);
+      if (L.bar) for (var k = 0; k < L.bar.weeks; k++) {
+        var w = L.bar.from + k;
+        if (w < 0 || w >= S.weeks) continue;
+        var cls = L.bar.cur == null ? (L.bar.from > S.back ? 'is-next' : 'is-past') : k < L.bar.cur ? 'is-past' : k === L.bar.cur ? 'is-now' : 'is-next';
+        segs += '<i class="cl-sn-w ' + cls + '" style="--x0:' + (w / S.weeks).toFixed(4) + ';--x1:' + ((w + 1) / S.weeks).toFixed(4) + '"></i>';
+      }
+      var flag = L.meet ? '<i class="cl-sn-flag' + (L.meet.x > 1 ? ' is-out' : '') + '" style="--x:' + Math.min(1, L.meet.x).toFixed(4) + '">' + ic('flag', 2.2) + '</i>' : '';
+      var days = L.meet ? (L.meet.days <= 0 ? 'Today' : L.meet.days === 1 ? 'Tomorrow' : L.meet.days + ' days') : '–';
+      var title = a.name + ': ' + L.week + (L.meet ? '. ' + L.meet.name + ' ' + daysText(L.meet.days) + (L.meet.wn ? ' (' + L.meet.wn + ')' : '') : '. No meet planned');
+      return '<button type="button" class="cl-sn-l" data-pick="' + esc(a.id) + '" title="' + esc(title) + '" aria-label="' + esc(title) + '">' +
+        '<span class="cl-sn-who"><span class="cl-face' + (rg ? ' ring-' + rg : '') + '">' + avHtml(a) + '</span><span class="cl-sn-n"><b>' + esc(a.name) + '</b><span>' + esc(L.week) + '</span></span></span>' +
+        '<span class="cl-sn-t"><i class="cl-sn-rail"></i>' + segs + flag + '<i class="cl-sn-now" style="--x:' + S.now.toFixed(4) + '"></i></span>' +
+        '<span class="cl-sn-d' + (L.meet ? '' : ' is-none') + '">' + esc(days) + '</span></button>';
+    }).join('');
+    return '<div class="cl-card cl-c-season">' + cardHead('Where everyone is', 'Soonest meet first') + axis + '<div class="cl-sn">' + body + '</div>' +
+      '<div class="cl-card-f"><button type="button" class="cl-quiet cl-sn-all" data-season-all>All ' + n + ' on the season calendar' + ic('chev') + '</button></div></div>';
+  }
+  // The business, one quiet line under the cards; each part opens its place (Clients, the overdue, New lifters, Plan & seats).
+  function bizHtml(parts) {
+    if (!parts.length) return '';
+    return '<div class="cl-biz" role="group" aria-label="Your business">' + parts.map(function (p) {
+      return '<button type="button" class="cl-biz-p k-' + p.key + '" data-biz="' + p.key + '">' + (p.key === 'overdue' ? '<i aria-hidden="true"></i>' : '') + esc(p.text) + '</button>';
+    }).join('<span class="cl-biz-sep" aria-hidden="true">·</span>') + '</div>';
+  }
+  function bizGo(k) {
+    if (k === 'apps') { if (typeof openNewLifters === 'function') openNewLifters(); return; }
+    if (k === 'seats') { try { localStorage.setItem('powa-desk-set', 'plan'); } catch (e) {} if (typeof _dk !== 'undefined') _dk.setSec = 'plan'; if (typeof deskGo === 'function') deskGo('settings'); return; }
+    if (typeof deskGo !== 'function') return;
+    deskGo('clients');
+    var f = document.querySelector('#clientsArea [data-cs="filter"][data-f="' + (k === 'overdue' ? 'overdue' : 'all') + '"]');
+    if (f && !f.classList.contains('on')) f.click();
+  }
+  // The season calendar (desk-season.js), from Where everyone is: this visit only, the coach's own choice of mode stays.
+  function openSeason() {
+    if (typeof _dk !== 'undefined') { _dk.rmode = 'calendar'; _dk.rmodeTemp = true; }
+    if (typeof deskGo === 'function') deskGo('roster', { view: null, keepMode: true });
+  }
+  function teamHtml(M, X) {
+    var n = M.rows.length, skip = {};
+    // a meet today that Do first already leads with: the Meets card's line names the next one
+    (X.doFirst || []).forEach(function (it) { if (it.type === 'meetday' && it.meet) skip[String(it.meet.name || 'Meet').trim().toLowerCase() + '|' + String(it.meet.date || '').slice(0, 10)] = 1; });
+    return '<div class="cl-sh"><h2>Your team</h2><span class="cl-sh-end">' + (window.CoachReportUI && n ? CoachReportUI.entryHtml() : '') + (window.WeeklyNote ? WeeklyNote.todayEntryHtml(M.rows) : '') + '</span></div>' +
+      '<div class="cl-team-grid">' + rosterCardHtml(X.lanes, n) + weekCardHtml(X.T) + effortCardHtml(X.T, X.bins) + strengthCardHtml(X.T, X.lifts) + meetsCardHtml(X.T, skip) + seasonCardHtml(X.season, n) + '</div>' + bizHtml(X.biz);
+  }
+  // Your list: every job but Do first's, most urgent first, one line each (face, name, the kind's mark and why, one quiet
+  // fix), tabs by kind; 8 shown, then all; done jobs last.
+  function ylRowHtml(it) {
+    var t = jobText(it), fix = fixForJob(it), who = it.r ? [it.r] : (it.rows || []);
+    var openId = it.r ? it.r.athlete.id : (who[0] ? who[0].athlete.id : '');
+    var face = it.r ? '<span class="cl-face">' + avHtml(it.r.athlete) + '</span>' : '<span class="cl-stack">' + who.slice(0, 3).map(function (r) { return avHtml(r.athlete); }).join('') + '</span>';
+    var name = it.r ? it.r.athlete.name : String(it.name || 'Meet');
+    var title = (it.type === 'busy' && t.short) || t.title;
+    var full = name + ': ' + title + (t.detail ? ' · ' + t.detail : '');
+    return '<div class="cl-jr tone-' + t.tone + (it.done ? ' is-done' : '') + '" data-job="' + esc(it.key) + '">' +
+      '<button type="button" class="cl-jr-main" data-open="' + esc(openId) + '" title="' + esc(full) + '">' + face + '<span class="cl-jr-n">' + esc(name) + '</span>' +
+        '<span class="cl-jr-ic" aria-hidden="true">' + ic(t.icon) + '</span><span class="cl-jr-t"><b>' + esc(title) + '</b>' + (t.detail ? '<span>' + esc(t.detail) + '</span>' : '') + '</span></button>' +
+      (it.done ? '<span class="cl-jr-done">' + ic('check', 2.4) + 'Done</span>'
+        : '<button type="button" class="cl-sbtn" data-fix="' + esc(it.key) + '" aria-label="' + esc(fix.label) + '" title="' + esc(fix.label) + '">' + esc(shortLabel(fix)) + '</button>') + '</div>';
+  }
+  function yourListHtml(M, rest) {
+    var tab = S.yl || null, list = rest.filter(function (it) { return inKind(it, tab); });
+    var doneList = M.jobs.filter(function (it) { return it.done && inKind(it, tab); });
+    var shown = S.ylAll ? list : list.slice(0, 8), more = list.length - shown.length;
+    var tabs = '<div class="cl-tabs" role="tablist" aria-label="Your list">' + [[null, 'All']].concat(KINDS.map(function (k) { return [k[0], k[1]]; })).map(function (x) {
+      return tabBtn(x[0], x[1], rest.filter(function (it) { return inKind(it, x[0]); }).length, tab === x[0]);
+    }).join('') + '</div>';
+    var rows = shown.concat(more > 0 ? [] : doneList).map(ylRowHtml).join('');
+    return '<div class="cl-sh"><h2>Your list</h2><span>' + plural(rest.length, 'job') + ', most urgent first' + (M.done ? ' · ' + M.done + ' done' : '') + '</span></div>' + tabs +
+      (rows ? '<div class="cl-jlist">' + rows + '</div>' : '<p class="cl-none">' + (tab ? 'Nothing here.' : 'Nothing else on your list.') + '</p>') +
+      (more > 0 ? '<button type="button" class="cl-morebtn cl-ylmore" data-ylmore>Show all ' + list.length + '</button>' : '');
+  }
+  function paintYourList(host, o) {
+    var box = host.querySelector('.cl-yl');
+    if (!box || !host._clM) return;
+    box.innerHTML = yourListHtml(host._clM, host._clRest || []);
+    if (o && o.focus) { var nt = box.querySelector('.cl-tab[data-tab="' + (S.yl || '') + '"]'); if (nt) nt.focus({ preventScroll: true }); }
+  }
   function renderToday(host, opts) {
     var M = model({ reuse: !!(opts && opts.reuse) });
     var firstPaint = !host._clToday;
@@ -1046,7 +1470,8 @@
     var urgent = M.open.filter(function (it) { return it.tier <= 1; });
     var doFirst = urgent.slice(0, 3);
     var rest = M.open.filter(function (it) { return doFirst.indexOf(it) < 0; });
-    var T = clTeam(M.rows, { today: todayIso() });
+    var X = teamModel(M);
+    X.doFirst = doFirst;
     var total = M.jobs.length, pct = total ? Math.round(M.done / total * 100) : 0;
     var rz = function (i) { return firstPaint ? ' rise" style="--i:' + i : ''; };
     var date = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
@@ -1058,15 +1483,14 @@
     html += doFirst.length ? '<div class="cl-do' + rz(2) + '">' + doFirst.map(function (it, i) { return jobHtml(it, { big: true, red: i === 0 }); }).join('') + '</div>'
       : '<div class="cl-calm' + rz(2) + '"><span class="cl-tic">' + ic('check') + '</span><span><b>Nothing urgent.</b> ' + (M.open.length ? 'The rest is below, by job.' : 'Everyone is on plan.') + '</span></div>';
     html += PN_SPOT;
-    // This week's quiet ways on: last week's report (coach-report-ui.js) and the week's notes (weekly-note.js,
-    // the count still to write).
-    html += '<div class="cl-sh' + rz(3) + '"><h2>This week</h2><span class="cl-sh-end">' + (window.CoachReportUI && M.rows.length ? CoachReportUI.entryHtml() : '') +
-      (window.WeeklyNote ? WeeklyNote.todayEntryHtml(M.rows) : '') + '</span></div><div class="cl-wrap-t' + rz(4) + '">' + teamTilesHtml(T, {}) + '</div>';
-    if (rest.length || M.done) html += '<div class="cl-sh' + rz(5) + '"><h2>Also on your list</h2><span>' + plural(rest.length, 'job') + ', most urgent first</span></div><div class="cl-wrap-c' + rz(6) + '">' + columnsHtml(rest, M) + '</div>';
+    // Your team (its header carries this week's quiet ways on: last week's report, coach-report-ui.js, and the week's
+    // notes, weekly-note.js). The wrapper keeps .cl-pweek: the notify card's spot sits between Do first and it.
+    html += '<div class="cl-pweek cl-team' + rz(3) + '">' + teamHtml(M, X) + '</div>';
+    if (rest.length || M.done) html += '<div class="cl-yl' + rz(4) + '">' + yourListHtml(M, rest) + '</div>';
     html += '</div>';
     host.innerHTML = html;
     placeNotify(host, M.rows.length);
-    host._clM = M;
+    host._clM = M; host._clRest = rest;
     if (!host._clWired) { host._clWired = true; wire(host, { today: true }); }
     paint(host);
     host.querySelectorAll('.rise').forEach(function (n) { n.addEventListener('animationend', function () { n.classList.remove('rise'); }, { once: true }); });
@@ -1076,6 +1500,113 @@
   /* =====================================================================================
      LIFTERS (laptop): the list beside the lifter.
      ===================================================================================== */
+  // The tabs (Check on · Meet soon · Pain · Quiet · All, each with its count; New this month or Wins as one more, with
+  // an ×, while the rail chose it). One control for Lifters and Today's list: .cl-tabs. key → data-tab (All: '').
+  // Roving focus (the ARIA tabs pattern): the chosen tab takes Tab, the arrows move along the row.
+  function tabBtn(key, label, count, on, extra) {
+    return '<button type="button" class="cl-tab' + (on ? ' on' : '') + (extra ? ' is-extra' : '') + '" role="tab" aria-selected="' + (on ? 'true' : 'false') + '" tabindex="' + (on ? '0' : '-1') + '" data-tab="' + esc(key || '') + '"' +
+      (extra ? ' aria-label="' + esc(label + ', ' + count + '. Clear it') + '"' : '') + '><span>' + esc(label) + '</span><em>' + count + '</em>' + (extra ? ic('x', 2.2) : '') + '</button>';
+  }
+  function liftersTabsHtml(M) {
+    var C = M.counts || clTabCounts(M.rows), v = M.view;
+    var html = TABS.map(function (t) { return tabBtn(t.key, t.label, t.key ? C[t.key] : C.all, (v || null) === t.key); }).join('');
+    if (v && EXTRA_TABS[v]) html += tabBtn(v, EXTRA_TABS[v], C[v], true, true);
+    return '<div class="cl-tabs" role="tablist" aria-label="Show">' + html + '</div>';
+  }
+  function deskHeadHtml(M) {
+    var cal = typeof dkSetRMode === 'function' && typeof dsPaintCalendar === 'function';
+    return '<header class="cl-head">' +
+      '<div class="cl-hrow"><h1 class="cl-h1">Lifters<span class="cl-h1n">' + M.rows.length + '</span></h1>' +
+        '<label class="cl-search">' + ic('search') + '<input class="cl-q" type="search" placeholder="Find a lifter" aria-label="Find a lifter" autocomplete="off" spellcheck="false" value="' + esc(S.q) + '"><kbd>/</kbd></label>' +
+        (cal ? '<button type="button" class="cl-ibtn cl-calbtn" data-cal aria-label="Calendar: every block and meet" data-tip="The season: every block and meet">' + ic('cal') + '</button>' : '') + '</div>' +
+      liftersTabsHtml(M) + '</header>';
+  }
+  // A row: the face (its ring is the lifter's lane, pain in coral), the name, one line, the 4-week strength change.
+  // Inside a view the line answers the view's question (clViewLine). The whole line is the row's tooltip.
+  function deskRowHtml(r, o, M) {
+    var a = r.athlete, top = M ? clTopJob(r, M.jobs) : null, vn = M && M.view ? clViewNumber(r, M.view) : null, meetV = !!vn;
+    var n = vn || clNumber(r), nUnit = vn ? n.unit : (n.tone !== 'none' ? unit() : '');
+    var line = (M && M.view && clViewLine(r, M.view)) || clLine(r, top);
+    var ring = clRingOf(r), sel = o.sel === a.id;
+    return '<button type="button" class="cl-row' + (sel ? ' is-sel' : '') + '" data-id="' + esc(a.id) + '" role="option" aria-selected="' + (sel ? 'true' : 'false') + '" tabindex="' + (sel ? '0' : '-1') + '" title="' + esc(a.name + ': ' + (meetV ? n.title + ' · ' : '') + line) + '">' +
+      '<span class="cl-face' + (ring ? ' ring-' + ring : '') + '">' + avHtml(a) + '</span>' +
+      '<span class="cl-main"><span class="cl-name">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</span><span class="cl-line"><span class="cl-lt">' + esc(line) + '</span></span></span>' +
+      '<span class="cl-end"><span class="cl-n t-' + n.tone + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b>' + (nUnit ? '<small>' + esc(nUnit) + '</small>' : '') + '</span></span></button>';
+  }
+  function deskGroupsHtml(M) {
+    if (!M.groups.length) {
+      if (S.q) {
+        var all = M.rows.filter(function (r) { return String(r.athlete.name).toLowerCase().indexOf(S.q.toLowerCase()) >= 0; }).length;
+        return '<p class="cl-none">No one called “' + esc(S.q) + '”' + (M.view ? ' here' : '') + (M.view && all ? '. <button type="button" class="cl-link" data-tab="">Search everyone (' + all + ')</button>' : '') + '</p>';
+      }
+      return '<p class="cl-none">' + (M.view === 'pain' ? 'Nobody in pain.' : M.view === 'quiet' ? 'Nobody quiet for a week.' : M.view === 'meet' ? 'No meets in the next 8 weeks.' : M.view === 'need' ? 'Nobody needs you right now.' : 'No lifters here.') + '</p>';
+    }
+    return M.groups.map(function (g, gi) {
+      return '<div class="cl-grp" data-grp="' + esc(g.key) + '">' + (g.title ? '<h2 class="cl-gh">' + esc(g.title) + ' <span>' + g.rows.length + '</span>' + (gi === 0 ? '<span class="cl-gh-end">4-week change</span>' : '') + '</h2>' : '') +
+        '<div class="cl-list">' + g.rows.map(function (r) { return deskRowHtml(r, { sel: S.sel }, M); }).join('') + '</div></div>';
+    }).join('');
+  }
+  /* A view's picture, small, at the top of its list: the faces on one track. Meet soon: the next 8 weeks, each face at
+     its meet. Quiet: days since the last session. Pain: the score out of 10 (a check-in with no score sits at its own
+     mark, before 0). Faces that would touch step up a tier; past two tiers they fold into "+n". */
+  function trackHtml(o) {
+    var W = 320, face = 26, marks = o.marks.slice().sort(function (a, b) { return a.x - b.x; });
+    var placed = [], tiers = [-1e9, -1e9];
+    marks.forEach(function (m) {
+      var px = m.x * W, t = px - tiers[0] >= face + 2 ? 0 : px - tiers[1] >= face + 2 ? 1 : -1;
+      if (t < 0) { var last = placed[placed.length - 1]; if (last) { last.more = (last.more || 0) + 1; last.title += ', ' + m.title; } return; }
+      tiers[t] = px; placed.push({ m: m, t: t, title: m.title, more: 0 });
+    });
+    var ticks = (o.ticks || []).map(function (x) { return '<i class="cl-tk" style="--x:' + x.toFixed(4) + '"></i>'; }).join('');
+    var zone = o.zone ? '<i class="cl-tz" style="--x0:' + o.zone[0].toFixed(4) + ';--x1:' + o.zone[1].toFixed(4) + '"></i>' : '';
+    var faces = placed.map(function (p) {
+      return '<button type="button" class="cl-tm t' + p.t + (o.tone ? ' is-' + o.tone : '') + '" style="--x:' + p.m.x.toFixed(4) + '" data-pick="' + esc(p.m.r.athlete.id) + '" title="' + esc(p.title) + '" aria-label="' + esc(p.title) + '">' +
+        avHtml(p.m.r.athlete) + (p.more ? '<em>+' + p.more + '</em>' : '') + '</button>';
+    }).join('');
+    return '<div class="cl-trk' + (o.tone ? ' is-' + o.tone : '') + '"><div class="cl-trk-rail">' + zone + ticks + '</div>' + faces + '</div>' +
+      '<div class="cl-trk-x">' + o.labels.map(function (l) { return '<span style="--x:' + l[0].toFixed(4) + '">' + esc(l[1]) + '</span>'; }).join('') + '</div>';
+  }
+  function viewPicHtml(M) {
+    var v = M.view, rows = M.inView || [];
+    if (!rows.length || (v !== 'meet' && v !== 'pain' && v !== 'quiet')) return '';
+    var head, body, aria;
+    if (v === 'meet') {
+      var meets = {}; rows.forEach(function (r) { if (r.meet) meets[String(r.meet.meet.name || '').toLowerCase() + String(r.meet.meet.date || '')] = 1; });
+      var nm = Object.keys(meets).length, first0 = rows.slice().sort(function (a, b) { return a.meet.days - b.meet.days; })[0];
+      head = '<b>' + rows.length + '</b><span>with a meet in 8 weeks · ' + plural(nm, 'meet') + '</span>';
+      body = trackHtml({ tone: 'meet', marks: rows.map(function (r) { return { x: Math.min(56, Math.max(0, r.meet.days)) / 56, r: r, title: r.athlete.name + ': ' + (r.meet.meet.name || 'Meet') + ', ' + daysText(r.meet.days) }; }),
+        ticks: [1, 2, 3, 4, 5, 6, 7].map(function (w) { return w / 8; }), labels: [[0, 'Today'], [0.5, '4 weeks'], [1, '8 weeks']] });
+      aria = rows.length + ' lifters with a meet in the next 8 weeks. Next: ' + (first0.meet.meet.name || 'Meet') + ' ' + daysText(first0.meet.days);
+    } else if (v === 'pain') {
+      var parts = rows.map(function (r) { var pb = painBits(r.status || {}); return { r: r, t: pb ? pb.part + (pb.sev != null ? ' ' + pb.sev + '/10' : '') : 'On the check-in' }; });
+      head = '<b>' + rows.length + '</b><span>in pain</span>';
+      body = '<div class="cl-pchips">' + parts.map(function (x) {
+        return '<button type="button" class="cl-pchip" data-pick="' + esc(x.r.athlete.id) + '" title="' + esc(x.r.athlete.name + ': ' + x.t) + '"><span class="cl-face ring-pain">' + avHtml(x.r.athlete) + '</span><span>' + esc(x.t) + '</span></button>';
+      }).join('') + '</div>';
+      aria = rows.length + ' in pain: ' + parts.map(function (x) { return first(x.r.athlete.name) + ', ' + x.t; }).join('; ');
+    } else {
+      var X = function (r) { var a = r.status.ago; return a == null ? 1 : Math.min(21, a) / 21 * 0.88; };
+      head = '<b>' + rows.length + '</b><span>quiet a week or more</span>';
+      body = trackHtml({ tone: 'quiet', marks: rows.map(function (r) { return { x: X(r), r: r, title: r.athlete.name + ': ' + (r.status.ago == null ? 'no sets logged yet' : 'last trained ' + plural(r.status.ago, 'day') + ' ago') }; }),
+        zone: [7 / 21 * 0.88, 0.88], ticks: [7 / 21 * 0.88, 14 / 21 * 0.88, 0.88], labels: [[0, 'Today'], [7 / 21 * 0.88, '7 days'], [14 / 21 * 0.88, '14 days'], [1, 'Never']] });
+      aria = rows.length + ' quiet for a week or more';
+    }
+    return '<div class="cl-vpic is-' + v + '" role="group" aria-label="' + esc(aria) + '"><p class="cl-vp-h">' + head + '</p>' + body + '</div>';
+  }
+  // New lifters on the laptop: one slim row at the top of the list ("2 new lifters waiting · Jonas, Mia ›"). One
+  // application opens its sheet straight away (clients-ui.js openLead); more, or a join request, open them as a list
+  // (coach.html newLiftersSheet: the same rows the phone shows, each line held to two). coach.html fillNewLifters
+  // draws it into .nl-slot, now and whenever the join requests come in.
+  function newLiftersRowHtml(reqs, apps) {
+    reqs = reqs || []; apps = apps || [];
+    var n = reqs.length + apps.length;
+    if (!n) return '';
+    var names = apps.map(function (a) { return a.name || 'Someone'; }).concat(reqs.map(function (q) { return q.athleteName || 'A lifter'; }));
+    var faces = names.slice(0, 3).map(function (nm) { return avHtml({ name: nm }); }).join('');
+    var what = !reqs.length ? plural(apps.length, 'new lifter') + ' waiting' : !apps.length ? plural(reqs.length, 'join request') : n + ' new lifters waiting';
+    return '<button type="button" class="cl-newl" data-newl aria-label="' + esc(what + ': ' + names.join(', ') + '. Read them') + '">' +
+      '<span class="cl-stack">' + faces + '</span><span class="cl-newl-t"><b>' + esc(what) + '</b><span> · ' + esc(namesList(names.map(first), 3)) + '</span></span>' + ic('chev', 2.2) + '</button>';
+  }
   function renderDesk(area) {
     var M = model();
     var old = area.querySelector('.cl-desk'); if (old) old.remove();
@@ -1086,26 +1617,58 @@
     if (!S.sel || ids.indexOf(S.sel) < 0) S.sel = ids[0] || null;
     S.order = ids;
     var wrap = node('div', { class: 'cl-desk cl-root' });
-    var chip = M.view && typeof DESK_VIEWS !== 'undefined' ? (function () { var v = DESK_VIEWS.find(function (x) { return x.key === M.view; }); return v ? '<button type="button" class="cl-vchip" data-view-off aria-label="Clear the ' + esc(v.label) + ' view">' + esc(v.label) + ic('x') + '</button>' : ''; })() : '';
-    wrap.innerHTML = '<div class="cl-side"><header class="cl-head"><h1 class="cl-h1">Lifters</h1><p class="cl-sub">' + subText(M) + '</p>' +
-      '<div class="cl-tools"><label class="cl-search">' + ic('search') + '<input class="cl-q" type="search" placeholder="Find a lifter" aria-label="Find a lifter" autocomplete="off" spellcheck="false" value="' + esc(S.q) + '"><kbd>/</kbd></label>' +
-      (typeof dkSetRMode === 'function' && typeof dsPaintCalendar === 'function' ? '<button type="button" class="cl-quiet" data-cal>' + ic('cal') + 'Calendar</button>' : '') + '</div>' + chip + legendHtml() + '</header>' +
-      // New lifters (coach.html fillNewLifters: applications and join requests, night C review M5) above the roster.
-      '<div class="nl-slot"></div>' +
-      '<div class="cl-groups" role="listbox" aria-label="Lifters">' + groupsHtml(M, { sel: S.sel }) + '</div></div><div class="cl-page" id="clPage"></div>';
+    wrap.innerHTML = '<div class="cl-side">' + deskHeadHtml(M) +
+      '<div class="cl-scroll">' +
+        // New lifters (coach.html fillNewLifters: applications and join requests, night C review M5): one row, on top.
+        '<div class="nl-slot"></div>' +
+        '<div class="cl-vslot">' + viewPicHtml(M) + '</div>' +
+        '<div class="cl-groups" role="listbox" aria-label="Lifters">' + deskGroupsHtml(M) + '</div></div></div>' +
+      '<div class="cl-page" id="clPage"></div>';
     area.appendChild(wrap);
     if (typeof fillNewLifters === 'function') { try { fillNewLifters(wrap.querySelector('.nl-slot')); } catch (e) {} }
     wrap._clM = M;
     wire(wrap, { desk: true });
     paint(wrap);
     paintPage(wrap, true);
+    // A lane on Today that opens All at its group (On plan): the list starts there.
+    if (S.toGroup) { var tg = wrap.querySelector('.cl-grp[data-grp="' + S.toGroup + '"]'), sc0 = wrap.querySelector('.cl-scroll'); S.toGroup = null; if (tg && sc0) sc0.scrollTop = tg.offsetTop - sc0.offsetTop - 4; }
     if (!S.keysOn) { S.keysOn = true; document.addEventListener('keydown', onKey, true); }
+  }
+  // A tab (or the rail's view) chosen on Lifters: the address says it (#roster?view=pain), the list and its picture
+  // redraw, and the lifter stays on the page while they are in the new list (else the list's first).
+  function setView(key, o) {
+    key = viewKey(key) || null;
+    var wrap = document.querySelector('#rosterArea .cl-desk');
+    if (typeof _dk === 'undefined' || !wrap) { if (typeof deskGo === 'function') deskGo('roster', { view: key }); return; }
+    _dk.view = key;
+    if (typeof dkSetHash === 'function') dkSetHash('roster', {});
+    var M = model();
+    wrap._clM = M;
+    var ids = []; M.groups.forEach(function (g) { g.rows.forEach(function (r) { ids.push(r.athlete.id); }); });
+    S.order = ids;
+    var keep = S.sel && ids.indexOf(S.sel) >= 0;
+    if (!keep) S.sel = ids[0] || S.sel;
+    var tabs = wrap.querySelector('.cl-head .cl-tabs'); if (tabs) tabs.outerHTML = liftersTabsHtml(M);
+    // The bar was drawn again: focus stays on the tab chosen (a click, Enter or an arrow on the old one).
+    if (o && o.focus) { var nt = wrap.querySelector('.cl-head .cl-tab[data-tab="' + (key || '') + '"]'); if (nt) nt.focus({ preventScroll: true }); }
+    var vs = wrap.querySelector('.cl-vslot'); if (vs) vs.innerHTML = viewPicHtml(M);
+    var g = wrap.querySelector('.cl-groups'); if (g) g.innerHTML = deskGroupsHtml(M);
+    var sc = wrap.querySelector('.cl-scroll'); if (sc) sc.scrollTop = 0;
+    paint(wrap);
+    paintPage(wrap, false);
+    if (typeof dkPaintRail === 'function') { try { dkPaintRail(); } catch (e) {} }
+  }
+  function nextOf(id) {
+    var ids = S.order || [], i = ids.indexOf(id);
+    if (i < 0 || ids.length < 2) return null;
+    var r = rowOf(ids[(i + 1) % ids.length]);
+    return r ? { id: r.athlete.id, name: r.athlete.name } : null;
   }
   function paintPage(wrap, firstPaint) {
     var host = wrap.querySelector('#clPage'); if (!host) return;
     var r = S.sel ? rowOf(S.sel) : null;
     if (!r) { host.innerHTML = '<p class="cl-none">Pick a lifter</p>'; return; }
-    var P = summaryHtml(r, wrap._clM, { rise: !!firstPaint });
+    var P = summaryHtml(r, wrap._clM, { rise: !!firstPaint, desk: true, view: wrap._clM ? wrap._clM.view : null, next: nextOf(r.athlete.id) });
     host.innerHTML = '<div class="cl-pg' + (firstPaint ? '' : ' is-swap') + '">' + P.html + '</div>';
     host._P = P; host._r = r;
     host.scrollTop = 0;
@@ -1260,6 +1823,21 @@
   function wire(host, o) {
     host.addEventListener('click', function (e) {
       var t = e.target, b;
+      // Lifters' tabs (a saved view each), Today's list tabs, and the cards that open Lifters on a tab.
+      if ((b = t.closest('[data-tab]'))) {
+        e.preventDefault();
+        var tk = b.getAttribute('data-tab') || null, fo = { focus: b.classList.contains('cl-tab') && document.activeElement === b };
+        if (o.today) { S.yl = tk; S.ylAll = false; paintYourList(host, fo); }
+        else if (b.classList.contains('is-extra')) setView(null, fo);
+        else setView(tk, fo);
+        return;
+      }
+      if ((b = t.closest('[data-newl]'))) { e.preventDefault(); if (typeof openNewLifters === 'function') openNewLifters(); return; }
+      if ((b = t.closest('[data-pick]'))) { e.preventDefault(); var pk0 = b.getAttribute('data-pick'); if (o.desk) select(pk0); else open(pk0); return; }
+      if ((b = t.closest('[data-next]'))) { e.preventDefault(); select(b.getAttribute('data-next'), { key: false }); return; }
+      if ((b = t.closest('[data-biz]'))) { e.preventDefault(); bizGo(b.getAttribute('data-biz')); return; }
+      if ((b = t.closest('[data-season-all]'))) { e.preventDefault(); openSeason(); return; }
+      if ((b = t.closest('[data-ylmore]'))) { e.preventDefault(); S.ylAll = true; paintYourList(host); return; }
       if ((b = t.closest('[data-fix]'))) {
         e.preventDefault();
         var it = jobByKey(b, b.getAttribute('data-fix'));
@@ -1267,7 +1845,6 @@
         run(it.r || (it.rows && it.rows[0]), fixForJob(it), b);
         return;
       }
-      if ((b = t.closest('[data-more]'))) { e.preventDefault(); var col = b.closest('.cl-col'); if (col) { col.classList.add('is-open'); b.remove(); } return; }
       if ((b = t.closest('[data-wn-queue]'))) { e.preventDefault(); if (window.WeeklyNote) WeeklyNote.openQueue(); return; }
       if ((b = t.closest('[data-mr-open]'))) { e.preventDefault(); if (window.CoachReportUI) CoachReportUI.open(); return; }
       if ((b = t.closest('[data-wn-one]'))) { e.preventDefault(); if (window.WeeklyNote) WeeklyNote.openSheet(b.getAttribute('data-wn-one'), { onSent: refresh }); return; }
@@ -1297,8 +1874,21 @@
       if ((b = t.closest('[data-go="all"]'))) { e.preventDefault(); var pa = pageOf(host, b)._r; if (pa) openAll(pa.athlete.id); return; }
       if ((b = t.closest('[data-career]'))) { e.preventDefault(); var pc = pageOf(host, b)._r; if (pc && window.Career) Career.openForCoach(pc.athlete.id, pc.athlete); return; }
       if ((b = t.closest('[data-card]'))) { e.preventDefault(); if (typeof dkOpenCard === 'function') dkOpenCard(b.dataset.card); return; }
-      if ((b = t.closest('[data-view-off]'))) { e.preventDefault(); if (typeof deskGo === 'function') deskGo('roster', { view: null }); return; }
       if ((b = t.closest('[data-cal]'))) { e.preventDefault(); if (typeof dkSetRMode === 'function') dkSetRMode('calendar'); return; }
+      // Last, so a name or a face inside a card keeps its own click: Today's cards and lanes open Lifters on the tab
+      // that holds their people (data-golist: a view key, empty for All).
+      if ((b = t.closest('[data-golist]'))) { e.preventDefault(); var gv = b.getAttribute('data-golist') || null; S.toGroup = b.getAttribute('data-gogroup') || null; if (typeof deskGo === 'function') deskGo('roster', { view: gv }); return; }
+    });
+    host.addEventListener('keydown', function (e) {
+      var t = e.target;
+      if (!(t && t.classList && t.classList.contains('cl-tab')) || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End')) return;
+      var row = [].slice.call(t.parentNode.querySelectorAll('.cl-tab')), i = row.indexOf(t);
+      var n = e.key === 'Home' ? 0 : e.key === 'End' ? row.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + row.length) % row.length;
+      e.preventDefault(); e.stopPropagation();
+      var to = row[n]; if (!to || to === t) return;
+      var tk = to.getAttribute('data-tab') || null;
+      if (o.today) { S.yl = tk; S.ylAll = false; paintYourList(host, { focus: true }); }
+      else setView(to.classList.contains('is-extra') ? tk : tk, { focus: true });
     });
     var q = host.querySelector('.cl-q');
     if (q) {
@@ -1313,7 +1903,7 @@
     host._clM = M;
     var ids = []; M.groups.forEach(function (gr) { gr.rows.forEach(function (r) { ids.push(r.athlete.id); }); });
     if (o.desk || o.wide) S.order = ids;
-    g.innerHTML = groupsHtml(M, o.desk || o.wide ? { sel: S.sel } : { phone: true });
+    g.innerHTML = o.desk ? deskGroupsHtml(M) : groupsHtml(M, o.wide ? { sel: S.sel } : { phone: true });
     paint(g);
   }
   function refresh() {
@@ -1341,5 +1931,8 @@
     // for the iPhone app's screens (coach-app.js): a job's fix and running it, a message, a lifter's data and charts
     fixForJob: fixForJob, shortLabel: shortLabel, runFix: run, message: message, clLifter: clLifter, chartsHtml: chartsHtml, rowOf: rowOf, selected: function () { return S.sel; },
     clRing: clRing, clTier: clTier, clJobs: clJobs, clTopJob: clTopJob, clTeam: clTeam, clWeeks: clWeeks, clEffort: clEffort, clBw: clBw,
-    clGroups: clGroups, clGroupKey: clGroupKey, clLine: clLine, clNumber: clNumber, clWords: clWords, jobText: jobText, toWriteOf: toWriteOf };
+    clGroups: clGroups, clGroupKey: clGroupKey, clLine: clLine, clNumber: clNumber, clWords: clWords, jobText: jobText, toWriteOf: toWriteOf,
+    // the desk, v3 (2 Nov): Lifters' tabs and views, New lifters' row, the team's lanes and season, the business line
+    setView: setView, newLiftersRowHtml: newLiftersRowHtml, clTabCounts: clTabCounts, clViewLine: clViewLine, clViewNumber: clViewNumber, clMeetNumber: clMeetNumber, clLanes: clLanes, clLaneKey: clLaneKey, clRingOf: clRingOf,
+    clSeason: clSeason, clBusiness: clBusiness };
 })();

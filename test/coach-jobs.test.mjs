@@ -62,10 +62,15 @@ t('rows by athlete, picked for a coach\'s lifters', () => {
 t('programs read lean: planned sessions worked out, the JSON dropped', () => {
   const weeks = [{ days: [{ exercises: [{ sets: [{ completed: false }] }] }, { exercises: [{ sets: [{ completed: false }] }] }, { exercises: [] }] }];
   const lean = leanPrograms([{ athlete_id: 'a1', coach_id: 'c1', updated_at: 'u', weeks }, { athlete_id: 'a2', coach_id: 'c1', updated_at: 'u', weeks: JSON.stringify(weeks) }, { athlete_id: 'a3', weeks: null }]);
-  eq(lean, [{ athlete_id: 'a1', coach_id: 'c1', updated_at: 'u', planned: 2 }, { athlete_id: 'a2', coach_id: 'c1', updated_at: 'u', planned: 2 }, { athlete_id: 'a3', coach_id: null, updated_at: null, planned: 0 }]);
+  eq(lean, [{ id: null, athlete_id: 'a1', coach_id: 'c1', updated_at: 'u', planned: 2, weeks_left: 1 }, { id: null, athlete_id: 'a2', coach_id: 'c1', updated_at: 'u', planned: 2, weeks_left: 1 },
+    { id: null, athlete_id: 'a3', coach_id: null, updated_at: null, planned: 0, weeks_left: null }]);
   ok(!('weeks' in lean[0]), 'no JSON kept');
   // The database's count (programs_planned, sql/migration-data-scale-2026-10-28.sql): taken as it is.
   eq(leanPrograms([{ athlete_id: 'a4', coach_id: 'c1', updated_at: 'u', planned: 3 }, { athlete_id: 'a5', planned: null }, { athlete_id: 'a6', planned: '2' }]).map(p => p.planned), [3, 0, 2]);
+  ok(!('weeks_left' in leanPrograms([{ athlete_id: 'a4', planned: 3 }])[0]), 'weeks left only when asked for (Thursday doesn\'t)');
+  // The weeks left (programs_weeks_left, sql/migration-coach-report-v2-2026-11-02.sql) and the program's id (the effort read).
+  eq(leanPrograms([{ id: 'p7', athlete_id: 'a7', planned: 3, weeks_left: 1 }, { id: 'p8', athlete_id: 'a8', planned: 0, weeks_left: null }, { id: 'p9', athlete_id: 'a9', planned: 0, weeks_left: '0' }])
+    .map(p => [p.id, p.weeks_left]), [['p7', 1], ['p8', null], ['p9', 0]]);
 });
 t('the unsubscribe link: the coach\'s token, marked as the Monday report', () => {
   eq(unsubLink('https://powalifta.com/unsubscribe.html?token=', '1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed'), 'https://powalifta.com/unsubscribe.html?token=1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed&r=coach');

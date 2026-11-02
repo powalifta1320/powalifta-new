@@ -2,7 +2,7 @@
 /*
  * Small-stuff scanner: the details a person notices and a unit test doesn't.
  *
- * Opens 333 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
+ * Opens 400+ screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
  * sheets (New challenge and a challenge's board among them, the import intake's steps, the two-factor code prompt, the coach's
  * Ask sheet, bell list, first-run tour and form-check review), the planner, the onboarding, every public page at desktop and phone width, dark and light) and
  * reports: sideways scroll, text overlapping text, controls overlapping controls, text cut off
@@ -83,8 +83,11 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-home-search' + suf, page: C, theme, eval: 'CoachApp.openSearch()' },
     { name: 'sh-home-checkins' + suf, page: C, theme, eval: 'CoachApp.openCheckins()' },
     { name: 'sh-home-wins' + suf, page: C, theme, eval: 'CoachApp.openWins()' });
-  // Capacity (You › Capacity) for the demo coach and a brand-new one; a lifter's busy-week sheet.
+  // Your coaching week (You › Your coaching week, capacity.js) for the demo coach and a brand-new one; a lifter's busy-week sheet.
+  // Past the coach's hours (2 h for the phone demo's four lifters: the amber bar and line) and the minutes sheet.
   screens.push({ name: 'c-capacity' + suf, page: C, theme, eval: tab('capacity') }, { name: 'f-capacity' + suf, page: F, theme, eval: tab('capacity') },
+    { name: 'c-capacity-over' + suf, page: C, theme, eval: "CoachSettings.set('capacity', { v: 2, hours: 2 }); " + tab('capacity') },
+    { name: 'sh-capacity-minutes' + suf, page: C, theme, eval: tab('capacity') + "; setTimeout(() => document.querySelector('.cap-root.is-phone .cap-edit').click(), 400)" },
     { name: 'sh-busy' + suf, page: A, theme, eval: 'BusyWeekUI.open()' });
   if (theme === 'dark') screens.push({ name: 'sh-busy-solo', page: SO, eval: 'BusyWeekUI.open()' }, { name: 'c-lifter-busy', page: C, eval: "CoachLifters.open('demo-a4')" });
   screens.push(
@@ -201,8 +204,10 @@ for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   for (const p of MORE_PUBLIC) screens.push({ name: pubName(p) + suf, page: p, mode: 'web', w, h });
   for (const p of ALL_PUBLIC) screens.push({ name: pubName(p) + suf + '-l', page: p, mode: 'web', w, h, theme: 'light' });
 }
-// The desk's Settings › Plan & seats with Capacity, dark and light.
-for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-capacity' + suf, page: C, mode: 'web', theme, eval: "localStorage.setItem('powa-desk-set', 'plan'); deskGo('settings')" });
+// The desk's Settings › Plan & seats with Your coaching week (capacity.js), dark and light, with room and past 10 h.
+// The desk takes its theme from applyTheme (as w-ws-swap and the rest), not from the stored key alone.
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-capacity' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "localStorage.setItem('powa-desk-set', 'plan'); deskGo('settings')" },
+  { name: 'w-capacity-over' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "CoachSettings.set('capacity', { v: 2, hours: 10 }); localStorage.setItem('powa-desk-set', 'plan'); deskGo('settings')" });
 // The desk's Career panel (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-career-panel' + suf, page: C, mode: 'web', theme, eval: "Career.openPanel('demo-a1');document.querySelectorAll('.cv-modal .cv-more').forEach(b => b.click())" });
 // The desk's Club with the coach's challenge, its whole board, and the planner's Aim for a total, dark and light.
@@ -217,6 +222,21 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name:
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-pb-swap' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + SWAP_INJ + "; const p = Store.get().programs.find(x => x.athleteId === 'demo-a1'); const wi = p.weeks.findIndex(w => w.days.some(d => d.exercises.some(e => e.swap))); deskGo('programs'); const s = document.getElementById('progAthlete'); if (s) { s.value = 'demo-a1'; s.dispatchEvent(new Event('change', { bubbles: true })); } activeWeekIdx = wi; loadProgram(); true" },
   { name: 'w-msg-swap' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + SWAP_INJ + "; deskGo('messages'); new Promise(r => setTimeout(r, 400)).then(() => { dkOpenThread('demo-a1'); return true; })" });
+// The desk's program editor (desk-program.js, 2 Nov): Arjun's week, a load cell being typed in, the weeks to the meet
+// written as drafts with drafts on (Publish week N is the crimson), Marcus's lifted week (Take 1 suggestion, the Lifted caption), Progress the week's menu, a team's week with every lifter's load, dark
+// and light; the previous editor (?pb=v1); and the phone's builder on a draft week (its quiet Draft, ⋯ with Publish).
+const PB = (theme, js) => (theme === 'light' ? "applyTheme('light'); " : '') + "deskGo('programs'); DeskProgram.openLifter('demo-a1'); " + (js || '');
+const CP_DRAFT = "DRAFTS_ON = true; Store.update(s => { const p = s.programs.find(x => x.athleteId === 'demo-a1'); p.weeks[p.weeks.length - 1].draft = true; }); activeWeekIdx = Store.get().programs.find(x => x.athleteId === 'demo-a1').weeks.length - 1; ";
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
+  { name: 'w-pb-week' + suf, page: C, mode: 'web', theme, eval: PB(theme) },
+  { name: 'w-pb-edit' + suf, page: C, mode: 'web', theme, eval: PB(theme, "new Promise(r => setTimeout(() => { const c = document.querySelector('.dp-cell.dp-l:not([readonly])'); if (c) c.focus(); r(true); }, 300))") },
+  { name: 'w-pb-write' + suf, page: C, mode: 'web', theme, eval: "DRAFTS_ON = true; " + PB(theme, "new Promise(r => setTimeout(() => { const g = document.querySelector('.dp-wk-gap'); if (g) g.click(); r(true); }, 300))") },
+  { name: 'w-pb-marcus' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "deskGo('programs'); DeskProgram.openLifter('demo-d3'); setTimeout(() => DeskProgram.pickWeek(0, false), 300)" },
+  { name: 'w-pb-progress' + suf, page: C, mode: 'web', theme, eval: PB(theme, "new Promise(r => setTimeout(() => { const b = [...document.querySelectorAll('.dp-head .dp-tool')].find(x => /Progress/.test(x.getAttribute('aria-label'))); if (b) b.click(); r(true); }, 300))") },
+  { name: 'w-teams-week' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "deskGo('teams')" },
+  { name: 'c-program-draft' + suf, page: C, theme, t44: T44P, eval: CP_DRAFT + tab('program') },
+  { name: 'sh-program-menu-draft' + suf, page: C, theme, t44: '.cp-menu', eval: CP_DRAFT + tab('program') + ";setTimeout(() => document.querySelector('.cp-more').click(), 400)" });
+screens.push({ name: 'w-pb-v1', page: C + '&pb=v1', mode: 'web', eval: "deskGo('programs'); const s = document.getElementById('progAthlete'); if (s) { s.value = 'demo-a1'; loadProgram(); }" });
 // The desk's Last week report (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-report' + suf, page: C, mode: 'web', theme, eval: 'CoachReportUI.open()' });
 // Imports on the desk (coach.html at laptop width): the intake, a client list, a lifter's history, a guide, dark and light.
@@ -253,13 +273,29 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-lead' + suf, page: C, theme, t44: '.cs-lead-sheet', eval: tab('athletes') + ";setTimeout(() => ClientsUI.openLead('demo-app-2'), 300)" },
     { name: 'c-home-newl' + suf, page: C, theme, t44: '.ca-newl', eval: tab('home') + ";setTimeout(() => document.querySelector('.ca-newl').scrollIntoView({ block: 'center' }), 300)" },
     { name: 'w-clients' + suf, page: C, mode: 'web', theme, eval: "deskGo('clients')" },
-    { name: 'w-newlifters' + suf, page: C, mode: 'web', theme, eval: "deskGo('roster')" },
-    { name: 'w-lead' + suf, page: C, mode: 'web', theme, eval: "deskGo('roster');setTimeout(() => ClientsUI.openLead('demo-app-2'), 300)" },
+    { name: 'w-newlifters' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster')" },
+    { name: 'w-lead' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster');setTimeout(() => ClientsUI.openLead('demo-app-2'), 300)" },
     { name: 'w-meets' + suf, page: C, mode: 'web', theme, eval: "deskGo('meets')" },
     { name: 'w-profile-apply' + suf, page: 'coach-profile.html?id=none', mode: 'web', theme, eval: APPLY },
     { name: 'w-profile-apply-m' + suf, page: 'coach-profile.html?id=none', mode: 'web', w: 390, h: 844, theme, eval: APPLY },
     { name: 'w-profile-request-m' + suf, page: 'coach-profile.html?id=none', mode: 'web', w: 390, h: 844, theme, eval: REQUEST });
 }
+// The desk, v3 (2 Nov), dark and light: Today scrolled to Your team, to Where everyone is and to Your list (Today scrolls
+// inside #deskToday, which the scan's own scroll doesn't reach), Lifters on each tab with the side card open once, and New
+// lifters' list. deskTheme: these set the desk's own key too (powa-desk-theme; the desk never reads powa-theme), so their
+// light runs are light.
+const TODAY_AT = (sel) => "deskGo('today'); new Promise((r) => setTimeout(() => { const h = document.getElementById('deskToday'), n = document.querySelector('" + sel + "'); h.scrollTop = n.getBoundingClientRect().top - h.getBoundingClientRect().top + h.scrollTop - 16; r(true); }, 500))";
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
+  { name: 'w-coach-today-team' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: TODAY_AT('.cl-team') },
+  { name: 'w-coach-today-season' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: TODAY_AT('.cl-c-season') },
+  { name: 'w-coach-today-list' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: TODAY_AT('.cl-yl') },
+  { name: 'w-coach-lifters' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster')" },
+  { name: 'w-coach-view-check' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster', { view: 'check' })" },
+  { name: 'w-coach-view-meet' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster', { view: 'meet' })" },
+  { name: 'w-coach-view-pain' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster', { view: 'pain' }); setTimeout(() => CoachLifters.select('demo-a2'), 300)" },
+  { name: 'w-coach-view-quiet' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster', { view: 'quiet' })" },
+  { name: 'w-coach-lifters-card' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster'); setTimeout(() => dkOpenCard('notes'), 300)" },
+  { name: 'w-newlifters-sheet' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster'); setTimeout(() => document.querySelector('.cl-newl').click(), 300)" });
 // Never the live services: the screens are demos and public pages, but a public page still calls Supabase (the
 // coach list, the leaderboard, join.html's invite_preview, which counts toward a rate limit) and Plausible (a
 // pageview per screen). Both are refused before they leave this machine: by name in the browser (nothing resolves)
@@ -458,13 +494,14 @@ for (const s of run) {
     : { viewport: { width: s.w || 1440, height: s.h || 900 }, deviceScaleFactor: 1, isMobile: (s.w || 1440) < 600, hasTouch: (s.w || 1440) < 600 });
   await ctx.route(LIVE_URL, (route) => { liveRefused++; return route.abort('blockedbyclient'); });
   await ctx.routeWebSocket(LIVE_URL, (ws) => { liveRefused++; ws.close(); });
-  await ctx.addInitScript(([theme, native]) => {
+  await ctx.addInitScript(([theme, native, deskTheme]) => {
     if (native) {
       const add = () => { if (!document.documentElement) return false; document.documentElement.classList.add('native', 'native-ios'); return true; };
       if (!add()) { const mo = new MutationObserver(() => { if (add()) mo.disconnect(); }); mo.observe(document, { childList: true }); }
     }
     try {
       localStorage.setItem('powa-consent', 'essential'); localStorage.setItem('powa-theme', theme);
+      if (deskTheme) localStorage.setItem('powa-desk-theme', theme);
       ['athlete', 'coach'].forEach((k) => localStorage.setItem('powa-tour-' + k + '-done', '1'));
     } catch (e) {}
     document.addEventListener('DOMContentLoaded', () => {
@@ -472,7 +509,7 @@ for (const s of run) {
       st.textContent = '.demo-banner,.demo-pill,[class*="demo-banner"]{display:none!important}*,*::before,*::after{transition:none!important;animation-duration:0s!important;animation-delay:0s!important}';
       document.head.appendChild(st);
     });
-  }, [s.theme || 'dark', app]);
+  }, [s.theme || 'dark', app, !!s.deskTheme]);
   const page = await ctx.newPage();
   const errs = [];
   page.on('pageerror', (e) => errs.push(e.message));

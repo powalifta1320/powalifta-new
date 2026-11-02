@@ -3151,13 +3151,16 @@ window.renderDunningBanner = renderDunningBanner;
 // =========================================================
 const _persistTimers = {};
 
-function persistProgram(programId) { if (window._demoMode) return;
+// window.deskOnPersist (desk.js): the desk's program editor hears every save, the demo's too, so a change
+// made outside its own undo (Maxes, Set fields, the add-exercise form, an import, a rename) can be undone.
+function persistProgram(programId) { if (typeof window.deskOnPersist === 'function') { try { window.deskOnPersist(programId); } catch (e) {} } if (window._demoMode) return;
   if (!programId) return;
   clearTimeout(_persistTimers['prog_' + programId]);
   _persistTimers['prog_' + programId] = setTimeout(async () => {
     delete _persistTimers['prog_' + programId];   // no longer waiting (the live merge reads this)
     const prog = Store.get().programs.find(p => p.id === programId);
     if (!prog) return;
+    keepWeeksDraftsTrailing(prog.weeks);   // drafts stay last, whichever path wrote the weeks (switch or not)
     _progSaving[programId] = (_progSaving[programId] || 0) + 1;   // the live merge reads this too
     try { await DB.upsertProgram(prog); }
     catch (e) {
@@ -5361,27 +5364,37 @@ function emailPrefRow(id, label, sub, checked) {
 async function renderEmailPrefs(container) {
   const u = getCurrentUser();
   if (!container || !u) { if (container) container.innerHTML = ''; return; }
-  // A coach's weekly email is the Monday report (send-weekly-digest's coach job), a lifter's their own recap.
+  // A coach's weekly email is their weekly report (send-weekly-digest's coach job), at the time they pick under it
+  // (coach-report-ui.js: Sunday evening or Monday morning, the hour, this device's time zone); a lifter's their own recap.
   const isCoach = u.userType === 'coach';
+  const RS = isCoach && window.CoachReportUI && CoachReportUI.scheduleHtml ? CoachReportUI : null;
   const paint = (prefs, demo) =>
     '<p class="dim text-sm mb-8">Email</p>' +
-    (isCoach ? emailPrefRow('epWeekly', 'Monday report', 'Your team’s week, every Monday', prefs.weeklyDigest)
+    (isCoach ? emailPrefRow('epWeekly', 'Weekly report', RS ? RS.scheduleSub(prefs) : 'Your team’s week, every week', prefs.weeklyDigest) + (RS ? RS.scheduleHtml(prefs) : '')
       : emailPrefRow('epWeekly', 'Weekly progress email',
         'A Monday recap of your last 7 days. Sessions, tonnage, best e1RMs.', prefs.weeklyDigest)) +
     emailPrefRow('epProduct', 'Product tips & announcements',
       'Occasional notes on new features. No spam, unsubscribe anytime.', prefs.productEmails) +
     (demo ? '<p class="dim text-xs mt-8" style="opacity:.7">Preview only in demo mode.</p>' : '') +
     '<p class="dim text-xs mt-8" style="line-height:1.5">Every email has a one-click unsubscribe link in the footer too.</p>' +
-    (isCoach && window.CoachReportUI ? '<button type="button" class="np-example" id="npExample"><span>See an example of the Monday report</span>' +
+    (isCoach && window.CoachReportUI ? '<button type="button" class="np-example" id="npExample"><span>See an example of the weekly report</span>' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>' : '');
   const wireExample = () => { const b = document.getElementById('npExample'); if (b) b.addEventListener('click', () => CoachReportUI.open({ example: true })); };
+  // The weekly report's time: its line under the switch follows the pick.
+  const wireSchedule = (demo) => {
+    if (!RS) return;
+    RS.wireSchedule(container, { demo, save: (patch) => DB.updateEmailPrefs(u.id, patch),
+      onChange: (pick) => { const sub = container.querySelector('label[for="epWeekly"] .epr-sub'); if (sub) sub.textContent = RS.scheduleSub(pick); } });
+  };
 
   if (window._demoMode) {
-    container.innerHTML = paint({ weeklyDigest: true, productEmails: false }, true);
+    // Demo: the pick works on screen (and in the report it opens), nothing is saved.
+    const pick = RS ? RS.schedule() : {};
+    container.innerHTML = paint({ weeklyDigest: true, productEmails: false, reportDay: pick.day, reportHour: pick.hour, scheduleReady: true }, true);
     // Demo: reflect the flip visually, but never hit the network.
     const wire = (id) => { const el = document.getElementById(id); if (el) el.addEventListener('change', () => toast('Preview only in demo mode.')); };
     wire('epWeekly'); wire('epProduct');
-    wireExample();
+    wireExample(); wireSchedule(true);
     return;
   }
 
@@ -5389,8 +5402,9 @@ async function renderEmailPrefs(container) {
   let prefs;
   try { prefs = await DB.getEmailPrefs(u.id); }
   catch (e) { prefs = { weeklyDigest: true, productEmails: false }; }
+  if (RS) RS.setSchedule(prefs);
   container.innerHTML = paint(prefs, false);
-  wireExample();
+  wireExample(); wireSchedule(false);
 
   const save = async (patch, box) => {
     const prev = !box.checked; // we're in the change handler; prev is the pre-toggle state
@@ -5428,7 +5442,7 @@ async function renderNotifPrefs(container) {
   const catRows = (prefs) => !coachLinked ? '<p class="dim text-xs" style="line-height:1.5;margin:0">Training-buddy nudges from your club arrive here. Messages, form checks and program updates join them once you have a coach.</p>' :
     isCoach ? emailPrefRow('npMsg', 'Messages', 'When a lifter writes to you', prefs.pushMessages) +
       emailPrefRow('npForm', 'Form checks', 'When a lifter sends one', prefs.pushFormChecks) +
-      emailPrefRow('npAlerts', 'PRs and missed sessions', 'PRs as they’re logged, who’s behind on Thursday, and Monday’s summary', prefs.pushAlerts !== false) :
+      emailPrefRow('npAlerts', 'PRs and missed sessions', 'PRs as they’re logged, who’s behind on Thursday, and the weekly report', prefs.pushAlerts !== false) :
     emailPrefRow('npMsg',  'Messages',
       'A push when your coach or an athlete sends you a message.', prefs.pushMessages) +
     emailPrefRow('npForm', 'Form-check replies',
@@ -5595,14 +5609,14 @@ function buildExportPayload() {
   };
   if (u.userType === 'coach') {
     payload.roster = (s.athletes || []).filter(a => a.coachId === u.id).map(a => ({ id: a.id, name: a.name, email: a.email, countryCode: a.countryCode || null }));
-    payload.programs = (s.programs || []).filter(p => p.coachId === u.id);
+    payload.programs = (s.programs || []).filter(p => p.coachId === u.id).map(p => Object.assign({}, p, { weeks: weeksWithoutDrafts(p.weeks) }));   // an export carries no draft flag
     payload.templates = (s.programTemplates || []).filter(t => t.coachId === u.id);
     payload.sessionNotes = (s.sessionNotes || []).filter(n => n.coachId === u.id);
   } else {
     payload.workoutLogs = (s.workoutLogs || []).filter(l => l.athleteId === u.id);
     payload.bodyweight = (s.bodyweight || []).filter(b => b.athleteId === u.id);
     payload.goals = (s.goals || []).filter(g => g.athleteId === u.id);
-    payload.program = (s.programs || []).find(p => p.athleteId === u.id) || null;
+    payload.program = liftProgram((s.programs || []).find(p => p.athleteId === u.id) || null);   // their weeks: no coach's drafts
     payload.sessionNotes = (s.sessionNotes || []).filter(n => n.athleteId === u.id);
     payload.checkins = (s.checkins || []).filter(c => c.athleteId === u.id);
     payload.restDays = (s.restDays || []).filter(r => r.athleteId === u.id);
@@ -5730,7 +5744,8 @@ function exportProgramCsv(athleteId, athleteName) {
   const u = getCurrentUser();
   if (!u) return;
   const aid = athleteId || u.id;
-  const program = (Store.get().programs || []).find(p => p.athleteId === aid);
+  const own = (Store.get().programs || []).find(p => p.athleteId === aid);
+  const program = aid === u.id ? liftProgram(own) : own;   // the lifter's export: the weeks they can see
   const setCount = program ? (program.weeks || []).flatMap(w => w.days || []).flatMap(d => d.exercises || []).flatMap(e => e.sets || []).length : 0;
   if (!program || !setCount) return toast('No program to export yet');
   const stamp = todayISO();
@@ -8210,6 +8225,149 @@ function newSet(weight, reps, rpe, tempo) {
 function getProgramForAthlete(athleteId) {
   return Store.get().programs.find(p => p.athleteId === athleteId);
 }
+// ===== DRAFT WEEKS (2 Nov 2026, the desk's program editor; the owner's poll: "When I press Publish") =====
+// Reading and making are split, so the lifter's side can ride in an iPhone build now and work later unchanged:
+// - Reading never waits on a switch: a week with draft === true is always hidden from the lifter and never counted as
+//   planned (liftWeeks / liftProgram, busy weeks, challenges, Ask, the coach's planned counts, the Monday report).
+// - Making waits on DRAFTS_ON, off until the iPhone build that carries liftProgram / liftWeeks is live in the App
+//   Store (an older app reads every week and would show a draft): Write week, + and Copy, the builders' Draft UI,
+//   Publish week N and the "isn't published" job. While off nothing makes a draft: those write live weeks.
+// - No stray flags: every copy of weeks into something else drops it (weeksWithoutDrafts; templates and the next
+//   block build their weeks field by field), and every save keeps drafts last (keepWeeksDraftsTrailing), so a flag
+//   can never hide a week in the middle of a block. Turning drafts on is this one constant. (tests.html covers both.)
+var DRAFTS_ON = false;
+// A week the coach wrote but hasn't published carries draft: true inside programs.weeks. Old weeks carry no
+// flag: published, so nothing needs a migration. Only trailing weeks can be drafts (publishing week N
+// publishes every draft before it), so hiding them never shifts an earlier week's index: set logging patches
+// by id, and the lifter's screens count weeks by index. Hidden by the app, not the database (a lifter can read
+// their own program row), which is fine: a draft is the coach's working copy, not a secret.
+function weekIsDraft(w) { return !!(w && w.draft === true); }   // reading: never behind the switch
+// The weeks the lifter sees: the program's weeks without its trailing drafts (the same array when there are none).
+function liftWeeks(prog) {
+  const weeks = (prog && prog.weeks) || [];
+  let n = weeks.length;
+  while (n > 0 && weekIsDraft(weeks[n - 1])) n--;
+  return n === weeks.length ? weeks : weeks.slice(0, n);
+}
+// The lifter's view of a program: the same object with no drafts, else a copy whose weeks leave them out. The
+// weeks themselves are shared, so a set changed through it is the Store's own; every save goes by id
+// (persistProgram, persistProgramSet), never from this copy, so the coach's drafts stay in the row.
+function liftProgram(prog) {
+  if (!prog) return prog;
+  const w = liftWeeks(prog);
+  return w === prog.weeks ? prog : Object.assign({}, prog, { weeks: w });
+}
+function _weekHasSets(w) { return !!w && (w.days || []).some(d => (d.exercises || []).some(e => (e.sets || []).length > 0)); }
+// Publish week wi and every draft before it (the trailing rule). Mutates weeks; returns how many weeks it published.
+function publishDraftWeeks(weeks, wi) {
+  let n = 0;
+  (weeks || []).forEach((w, i) => { if (i <= wi && weekIsDraft(w)) { delete w.draft; n++; } });
+  return n;
+}
+// Can week wi be a draft? Only when every week after it is a draft already or has nothing written (those
+// become drafts with it, so the drafts stay trailing). A published week with sets after it keeps it live.
+function canDraftWeek(weeks, wi) {
+  if (!DRAFTS_ON) return false;
+  const ws = weeks || [];
+  for (let i = wi + 1; i < ws.length; i++) if (!weekIsDraft(ws[i]) && _weekHasSets(ws[i])) return false;
+  return wi >= 0 && wi < ws.length && !(ws[wi].days || []).some(d => (d.exercises || []).some(e => (e.sets || []).some(s => s.completed || s.skipped || s.missed)));
+}
+// Make week wi a draft (and the empty weeks after it). false when it can't be one (it stays live).
+function draftWeekFrom(weeks, wi) {
+  if (!canDraftWeek(weeks, wi)) return false;
+  for (let i = wi; i < weeks.length; i++) weeks[i].draft = true;
+  return true;
+}
+// A copy of a block's weeks for somewhere else (another lifter, a past block, an export): never with a draft flag.
+// → a new array; a week that had the flag is a shallow copy without it.
+function weeksWithoutDrafts(weeks) {
+  return (weeks || []).map(w => { if (!w || typeof w !== 'object' || !('draft' in w)) return w; const c = Object.assign({}, w); delete c.draft; return c; });
+}
+// One way to add a week at the end of a block, for every path that adds, duplicates or copies one (the desk's +,
+// Write week, Write them; the phone's Add a week and Duplicate week; the previous editor's +): after a draft the new
+// week is a draft too, so drafts stay trailing; opts.draft asks for one. Published otherwise. → the week
+function appendBlockWeek(weeks, week, opts) {
+  const last = weeks[weeks.length - 1];
+  if (DRAFTS_ON && ((opts && opts.draft) || weekIsDraft(last))) week.draft = true; else delete week.draft;
+  weeks.push(week);
+  return week;
+}
+// The trailing rule, kept on every save (persistProgram) whatever path wrote the weeks: a draft before a published
+// week with sets is published (the lifter already sees it: liftWeeks only hides trailing drafts), an empty week
+// after a draft is a draft. Mutates weeks; → how many weeks changed.
+function keepWeeksDraftsTrailing(weeks) {
+  const ws = weeks || [];
+  let lastLive = -1, firstDraft = -1, n = 0;
+  if (!DRAFTS_ON) {
+    // Drafts off: never make one. A flag the lifter wouldn't have hidden anyway (not one of the last weeks) goes.
+    let end = ws.length;
+    while (end > 0 && weekIsDraft(ws[end - 1])) end--;
+    for (let i = 0; i < end; i++) if (weekIsDraft(ws[i])) { delete ws[i].draft; n++; }
+    return n;
+  }
+  ws.forEach((w, i) => { if (!weekIsDraft(w) && _weekHasSets(w)) lastLive = i; });
+  ws.forEach((w, i) => {
+    if (i <= lastLive) { if (weekIsDraft(w)) { delete w.draft; n++; } return; }   // before a live week: it was live already
+    if (firstDraft < 0 && weekIsDraft(w)) firstDraft = i;
+    if (firstDraft >= 0 && !weekIsDraft(w)) { w.draft = true; n++; }               // from the first draft on, all drafts
+  });
+  return n;
+}
+// The coach's week that's written and not published, and when it starts:
+// { idx, number, start ('YYYY-MM-DD' | null), days (until it starts; negative once it has) | null } or null.
+function programUnpublished(prog, todayIso) {
+  if (!DRAFTS_ON) return null;   // the job is part of making drafts: it waits on the switch
+  const weeks = (prog && prog.weeks) || [];
+  const idx = weeks.findIndex(w => weekIsDraft(w) && _weekHasSets(w));
+  if (idx < 0) return null;
+  const t = _isoDay(todayIso) || todayISO();
+  const st = programStartsOn(prog, t);
+  const start = st ? _addDaysISO(st, 7 * idx) : null;
+  const days = start ? Math.round((Date.parse(start + 'T12:00:00Z') - Date.parse(t + 'T12:00:00Z')) / 86400000) : null;
+  return { idx, number: Number(weeks[idx].number) || idx + 1, start, days };
+}
+// ===== SET BLOCKS: the loops behind every builder (coach.html's setBlockRx / setBlockCount / addBlock /
+// deleteBlock on the phone, the desk's program editor, a team's program). sets: one exercise's sets, changed
+// in place, so their ids survive (a merge matches sets by id: new ids while the lifter logs could double one).
+// A patch's null clears an optional field (pct, rpeHi, rir, pctHi, weightHi, pctFeel) and blanks the rest.
+function blockPatch(sets, start, count, patch) {
+  for (let i = start; i < start + count && i < sets.length; i++) {
+    Object.keys(patch || {}).forEach(k => {
+      const v = patch[k];
+      if (v == null && (k === 'pct' || k === 'rpeHi' || k === 'rir' || k === 'pctHi' || k === 'weightHi' || k === 'pctFeel')) delete sets[i][k];
+      else sets[i][k] = v;
+    });
+  }
+  return sets;
+}
+// A block from oldCount sets to newCount (1–50): new sets copy its first, prescription and set fields (rxOf).
+function blockResize(sets, start, oldCount, newCount) {
+  const target = Math.max(1, Math.min(50, Number(newCount) || 1));
+  if (target > oldCount) {
+    const tpl = sets[start];
+    const fillers = [];
+    for (let i = 0; i < target - oldCount; i++) fillers.push(Object.assign(newSet(tpl.weight, tpl.reps, tpl.rpe, tpl.tempo), rxOf(tpl)));
+    sets.splice(start + oldCount, 0, ...fillers);
+  } else if (target < oldCount) {
+    sets.splice(start + target, oldCount - target);
+  }
+  return sets;
+}
+// A block taken out; an exercise always keeps one set.
+function blockRemove(sets, start, count) {
+  sets.splice(start, count);
+  if (sets.length === 0) sets.push(newSet(0, 5, null));
+  return sets;
+}
+// A new block, back-down style: one set, the last one's weight and reps (and its %), the same set fields
+// (the bar and the method), no prescribed RPE for the coach to set.
+function blockAppend(sets) {
+  const last = sets[sets.length - 1] || { weight: 0, reps: 5, rpe: null, tempo: '' };
+  const nb = Object.assign(newSet(last.weight, last.reps, null, last.tempo), setFieldsOf(last));
+  if (last.pct != null) nb.pct = last.pct;
+  sets.push(nb);
+  return sets;
+}
 
 // =========================================================
 // AI PROGRAM GENERATOR — "let the AI design the program directly"
@@ -9685,7 +9843,7 @@ function duplicateWeek(programId, weekIdx) {
         }))
       }))
     };
-    p.weeks.push(cloned);
+    appendBlockWeek(p.weeks, cloned);   // after a draft, a draft (drafts stay trailing)
   });
 }
 
@@ -12568,7 +12726,8 @@ function programWeekState(prog) {
   let idx = weeks.findIndex(w => work(w).some(d => d.exercises.some(e => e.sets.some(_setIsOpen))));
   const finished = idx < 0;
   if (finished) idx = weeks.length - 1;
-  return { idx, number: weeks[idx].number || idx + 1, total: weeks.length, finished, sessionsPerWeek: work(weeks[idx]).length || work(weeks[0]).length };
+  // A week the coach hasn't published yet (weekIsDraft) plans nothing for the lifter: they can't see it.
+  return { idx, number: weeks[idx].number || idx + 1, total: weeks.length, finished, sessionsPerWeek: weekIsDraft(weeks[idx]) ? 0 : (work(weeks[idx]).length || work(weeks[0]).length) };
 }
 // Every logged set of a program with its exercise, for review: [{ ex, set, date }].
 function programLoggedSets(prog) {
@@ -13178,18 +13337,28 @@ function deskQueue(rows, opts) {
     progress: done.length + snoozedRows.length + handled.length + cleared.length };
 }
 // The saved views in the rail. Counts are live: deskViewCount(rows, key).
+// 'need' is Lifters' Need you tab, exactly the Need you lane (coach-lifters.js clLaneKey, the one grouping on Lifters and
+// Today): it has an address (#roster?view=need) but no rail item. Old links and names land on it (DESK_VIEW_ALIAS).
 const DESK_VIEWS = [
-  { key: 'needs', label: 'Needs me' },
+  { key: 'need', label: 'Need you' },
   { key: 'meet', label: 'Meet ≤ 8 wk' },
   { key: 'pain', label: 'Pain' },
   { key: 'quiet', label: 'Quiet 7d+' },
   { key: 'new', label: 'New this month' },
   { key: 'wins', label: 'Wins' }
 ];
+// #roster?view=check (the tab's first name) and ⌘K's Needs me land on Need you.
+const DESK_VIEW_ALIAS = { check: 'need', needs: 'need' };
+function deskViewKey(key) { return key ? (DESK_VIEW_ALIAS[key] || key) : null; }
+// The reasons a coach checks on (coach-lifters.js cuts the lanes from them: Need you, and Quiet when going quiet is all).
+const DESK_CHECK_RE = /^(pain|weight|offpace|overshoot|drift|note|message|formcheck|checkin|nocheckin|readiness|quiet|never|missed|stalling)$/;
 function deskViewMatch(key, row, nowMs) {
   const now = nowMs || Date.now();
   switch (key) {
-    case 'needs': return row.reasons.some(r => r.group <= 8);
+    case 'needs': return row.reasons.some(r => r.group <= 8);   // the old board's grouping (?oldroster=1)
+    case 'need': case 'check':
+      if (typeof window !== 'undefined' && window.CoachLifters && CoachLifters.clLaneKey) return CoachLifters.clLaneKey(row) === 'need';
+      return row.reasons.some(r => r.group <= 8);
     case 'meet': return !!row.meet && row.meet.days <= 56;
     case 'pain': return row.reasons.some(r => r.type === 'pain');
     case 'quiet': return row.status.ago == null ? !!row.status.program : row.status.ago >= 7;
@@ -13701,7 +13870,7 @@ function blockFromProgram(prog) {
   (prog.weeks || []).forEach(w => (w.days || []).forEach(d => (d.exercises || []).forEach(e => (e.sets || []).forEach(s => { if (s.completed && s.completedAt) dates.push(String(s.completedAt).slice(0, 10)); }))));
   dates.sort();
   return { id: uid('blk'), athleteId: prog.athleteId, coachId: prog.coachId && prog.coachId !== prog.athleteId ? prog.coachId : null,
-    name: prog.name || 'Block', weeks: JSON.parse(JSON.stringify(prog.weeks || [])), maxes: prog.maxes || null, stats: blockStats(prog.weeks),
+    name: prog.name || 'Block', weeks: weeksWithoutDrafts(JSON.parse(JSON.stringify(prog.weeks || []))), maxes: prog.maxes || null, stats: blockStats(prog.weeks),
     startedOn: dates[0] || null, endedOn: dates[dates.length - 1] || null, createdAt: new Date().toISOString() };
 }
 // opts.anyLogged: a skipped or missed set counts too (a team push replacing the program keeps
@@ -15834,8 +16003,10 @@ function _sheetDrag(veil, sheet, close) {
     const ttl = head && head.querySelector('h1, h2');
     const tr = ttl ? ttl.getBoundingClientRect() : null;
     const barTop = navBottom - 44, barMid = navBottom - 22;
-    const show = !!(h && h.textContent.trim() && (tr ? tr.top + tr.height / 2 < barTop + 8 : h.getBoundingClientRect().bottom < navBottom + 2));
-    if (show) mini.textContent = h.textContent.trim();
+    // A title too long to sit between the back link and the icons names a shorter one for the bar (data-nav-title).
+    const label = h ? (h.getAttribute('data-nav-title') || h.textContent).trim() : '';
+    const show = !!(label && (tr ? tr.top + tr.height / 2 < barTop + 8 : h.getBoundingClientRect().bottom < navBottom + 2));
+    if (show) mini.textContent = label;
     mini.classList.toggle('on', show);
     // The AI + bell icons ride on the big title's row, then dock in the bar.
     const actions = nav.querySelector('.nav-actions');
@@ -17296,7 +17467,8 @@ function teamMemberWeeks(masterWeeks, memberWeeks, opts) {
   memberWeeks = memberWeeks ? _tmResolveSwaps(memberWeeks) : memberWeeks;
   const weeks = _tmMergeList(masterWeeks, memberWeeks, (mw, wi, xw) => {
     const w = Object.assign({}, xw || {});
-    Object.keys(mw || {}).forEach(k => { if (k !== 'id' && k !== 'days' && k !== 'srcId') w[k] = _tmClone(mw[k]); });
+    Object.keys(mw || {}).forEach(k => { if (k !== 'id' && k !== 'days' && k !== 'srcId' && k !== 'draft') w[k] = _tmClone(mw[k]); });
+    delete w.draft;   // a pushed week is published: the team's push is the coach sending it
     w.id = xw && xw.id != null ? xw.id : uid('wk');
     w.srcId = _tmKey(mw, wi);
     w.days = _tmMergeList(mw.days, xw ? xw.days : null, (md, di, xd) => {
@@ -17371,7 +17543,7 @@ function teamMasterFromProgram(prog, maxes) {
   const linked = _tmClone((prog && prog.weeks) || []);
   const weeks = linked.map(w => {
     const mw = { id: uid('wk'), number: w.number, days: [] };
-    Object.keys(w).forEach(k => { if (!['id', 'days', 'srcId', 'number'].includes(k)) mw[k] = _tmClone(w[k]); });
+    Object.keys(w).forEach(k => { if (!['id', 'days', 'srcId', 'number', 'draft'].includes(k)) mw[k] = _tmClone(w[k]); });   // a lifter's draft isn't the team's
     w.srcId = mw.id;
     mw.days = (w.days || []).map(d => {
       const md = { id: uid('day'), name: d.name, exercises: [] };

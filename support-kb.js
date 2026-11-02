@@ -934,8 +934,8 @@ window.POWA_SUPPORT_KB = [
    "turn off notifications",
    "weekly email"
   ],
-  "a": "Go to You → Notifications. Under Push notifications tap \"Enable on this device\" (or \"Turn off\"), then choose what gets pushed: Messages, Form-check replies and Program updates. Under Email switch the Weekly progress email and Product tips & announcements on or off; the weekly email also has an unsubscribe link at the bottom. Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the Monday report (on a laptop: Settings → Notifications). The app may also offer **Turn on** once, after a finished session (coaches: on your first screen); **Not now** waits two weeks. On an iPhone, alerts come through the POWALIFTA app: a browser tab can't get them.",
-  "app": "Go to You → Notifications and tap \"Enable on this device\"; iOS asks for permission. Then choose what gets pushed: Messages, Form-check replies and Program updates, and switch the Weekly progress email or Product tips & announcements on or off (the weekly email also has an unsubscribe link). Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the Monday report. The app may also offer **Turn on** once, after a finished session (coaches: on your first screen); iOS only asks when you tap it, and **Not now** waits two weeks. To stop all alerts, or if you said no to iOS, change it in iPhone Settings → Notifications → POWALIFTA."
+  "a": "Go to You → Notifications. Under Push notifications tap \"Enable on this device\" (or \"Turn off\"), then choose what gets pushed: Messages, Form-check replies and Program updates. Under Email switch the Weekly progress email and Product tips & announcements on or off; the weekly email also has an unsubscribe link at the bottom. Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the weekly report, at the time they pick there (on a laptop: Settings → Notifications). The app may also offer **Turn on** once, after a finished session (coaches: on your first screen); **Not now** waits two weeks. On an iPhone, alerts come through the POWALIFTA app: a browser tab can't get them.",
+  "app": "Go to You → Notifications and tap \"Enable on this device\"; iOS asks for permission. Then choose what gets pushed: Messages, Form-check replies and Program updates, and switch the Weekly progress email or Product tips & announcements on or off (the weekly email also has an unsubscribe link). Coaches choose Messages, Form checks and PRs and missed sessions, and their weekly email is the weekly report, at the time they pick there. The app may also offer **Turn on** once, after a finished session (coaches: on your first screen); iOS only asks when you tap it, and **Not now** waits two weeks. To stop all alerts, or if you said no to iOS, change it in iPhone Settings → Notifications → POWALIFTA."
  },
  {
   "id": "allow-notifications",
@@ -1616,18 +1616,22 @@ window.POWA_SUPPORT_KB = [
   "q": "How many more lifters can I take on?",
   "t": [
    "capacity",
+   "coaching week",
+   "your coaching week",
    "how many lifters can i coach",
    "how many more lifters",
    "take on more lifters",
    "hours a week",
+   "how many hours",
    "time per lifter",
    "minutes per lifter",
+   "time each lifter gets",
    "where does my time go",
    "am i at capacity",
    "too many lifters"
   ],
-  "a": "Open **Capacity** (You › Capacity on the phone; Settings › **Plan & seats** on the laptop). It counts the work each lifter made you in your last 4 weeks (a week to write for each lifter with a block, the messages you sent, form checks you answered, check-ins and weekly notes) at the minutes each task takes, and says it big: about how many minutes a lifter takes you each week. Set **your hours a week** and it tells you how many lifters fit and how many more than now, with the hours +5, +10 and +20 lifters would need (in amber past your hours). Tap **Where the time goes** to change how long each task takes you, and **Save time** shows what would give you time back. Until you have a few weeks here it uses a typical lifter.",
-  "app": "Open You › **Capacity**. It counts the work each lifter made you in your last 4 weeks (a week to write for each lifter with a block, the messages you sent, form checks you answered, check-ins and weekly notes) at the minutes each task takes, and says it big: about how many minutes a lifter takes you each week. Set **your hours a week** and it tells you how many lifters fit and how many more than now, with the hours +5, +10 and +20 lifters would need (in amber past your hours). Tap **Where the time goes** to change how long each task takes you. Until you have a few weeks here it uses a typical lifter."
+  "a": "Open **Your coaching week** (You › Your coaching week on the phone; Settings › **Plan & seats** on the laptop). It starts from the time each lifter should get from you every week: 40 min to begin with (reviewing their training 10, writing next week 15, three messages 6, a form check every other week 3, their check-in 3 and a weekly note 3). The big number is the hours your roster needs at that, for example 13 h 20 min for 20 lifters, set against **your hours a week**: it says how many more lifters you have room for, or how far over your hours you are and how many lifters get the full time in them. **Taking on more** shows the week +5, +10 and +20 lifters would make. Tap **Where the time goes** to change how long each task takes you (0 leaves out anything you don't do), and **Save time** shows what gives you hours back. Once you've coached here for a few weeks, a quiet line says how much time each lifter actually got from you.",
+  "app": "Open You › **Your coaching week**. It starts from the time each lifter should get from you every week: 40 min to begin with (reviewing their training 10, writing next week 15, three messages 6, a form check every other week 3, their check-in 3 and a weekly note 3). The big number is the hours your roster needs at that, set against **your hours a week**: room for more lifters, or how far over your hours you are and how many lifters get the full time in them. **Taking on more** shows the week +5, +10 and +20 lifters would make. Tap **Where the time goes** to change how long each task takes you (0 leaves out anything you don't do), and **Save time** shows what gives you hours back. Once you've coached here for a few weeks, a quiet line says how much time each lifter actually got from you."
  },
  {
   "id": "lifter-busy-week",
@@ -1760,15 +1764,19 @@ window.POWA_SUPPORT_KB = [
    "lifter hit a pr",
    "thursday notification"
   ],
-  "a": "Yes. Turn notifications on (on a laptop Settings → Notifications, on the phone You → Notifications, then **Enable on this device**, or tap **Turn on** when the app offers it on your first screen) and keep these on:\n\n- **Messages**: when a lifter writes to you.\n- **Form checks**: when a lifter sends one (\"Arjun sent a squat form check\").\n- **PRs and missed sessions**: a lifter's PR as they log it (\"Arjun hit a squat PR · 182.5 × 3 · e1RM 205 kg\", once per lift a day), on Thursday the lifters behind on their week (Monday to Wednesday count, so 1 of 3 or 4 sessions, 2 of 5 or 6; an agreed busy week counts its agreed days), and Monday's summary of the team's week.\n\nA pain report reaches you as \"sent you a training update\": a notification never names the body part. Each switch applies on every device where notifications are on.",
-  "app": "Yes. Go to You → Notifications and tap **Enable on this device** (or tap **Turn on** when the app offers it on your first screen), and keep these on: **Messages** (when a lifter writes to you), **Form checks** (when a lifter sends one) and **PRs and missed sessions**: a lifter's PR as they log it (once per lift a day), on Thursday who's behind on their week, and Monday's summary of the team's week. A pain report reaches you as \"sent you a training update\": a notification never names the body part."
+  "a": "Yes. Turn notifications on (on a laptop Settings → Notifications, on the phone You → Notifications, then **Enable on this device**, or tap **Turn on** when the app offers it on your first screen) and keep these on:\n\n- **Messages**: when a lifter writes to you.\n- **Form checks**: when a lifter sends one (\"Arjun sent a squat form check\").\n- **PRs and missed sessions**: a lifter's PR as they log it (\"Arjun hit a squat PR · 182.5 × 3 · e1RM 205 kg\", once per lift a day), on Thursday the lifters behind on their week (Monday to Wednesday count, so 1 of 3 or 4 sessions, 2 of 5 or 6; an agreed busy week counts its agreed days), and the weekly report on your team's week.\n\nA pain report reaches you as \"sent you a training update\": a notification never names the body part. Each switch applies on every device where notifications are on.",
+  "app": "Yes. Go to You → Notifications and tap **Enable on this device** (or tap **Turn on** when the app offers it on your first screen), and keep these on: **Messages** (when a lifter writes to you), **Form checks** (when a lifter sends one) and **PRs and missed sessions**: a lifter's PR as they log it (once per lift a day), on Thursday who's behind on their week, and the weekly report on your team's week. A pain report reaches you as \"sent you a training update\": a notification never names the body part."
  },
  {
   "id": "coach-monday-report",
-  "q": "What is the Monday report?",
+  "q": "What is the weekly report (the Monday report)?",
   "t": [
    "monday report",
+   "sunday report",
    "weekly report",
+   "report time",
+   "when does the report come",
+   "change report day",
    "team report",
    "last week's report",
    "last week report",
@@ -1777,8 +1785,8 @@ window.POWA_SUPPORT_KB = [
    "report email",
    "summary of my team"
   ],
-  "a": "Every Monday you get your team's last week (Monday to Sunday) as a push and an email: how many lifters trained and how many sessions of the ones you wrote, then who needs you (pain reported, behind, form checks waiting, no check-in), the PRs with their e1RM, meets in the next 4 weeks and payments overdue. **Open Today** in the email takes you to your list.\n\nThe same report is in the app any time: **Today › This week › Last week's report** on a laptop, **Lifters › This week › Last week's report** on the phone, and **See an example of the Monday report** in Settings › Notifications. **Start with** opens the first lifter who needs you. Switch the email off with **Monday report** in Settings › Notifications or the link at the bottom of the email; the push goes with **PRs and missed sessions**. A week where nobody trained and nothing is waiting sends nothing.",
-  "app": "Every Monday you get your team's last week as a push and an email: how many lifters trained, who needs you (pain reported, behind, form checks waiting, no check-in), the PRs with their e1RM, meets in the next 4 weeks and payments overdue. The same report is in the app: Lifters › This week › **Last week's report**, and **Start with** opens the first lifter who needs you. Switch the email off with **Monday report** in You › Notifications or the link at the bottom of the email."
+  "a": "Every week you get your team's week as a push and an email, when you pick in Settings › Notifications under **Weekly report**: **Sunday evening** (that week, Monday to Sunday; 6 pm unless you choose another hour) or **Monday morning** (the week that ended the day before), at the hour you choose, in your time zone (the app keeps the one your device is in). It says how many lifters trained and how many sessions of the ones you wrote, each against the week before; then who needs you (pain reported, behind, who wrote you and is waiting for an answer, who ran hot against the RPE you wrote, form checks waiting, no check-in, no lift up in 4 weeks); strength over 4 weeks (how many got stronger, each lift's median change, the biggest movers); last week's top sets against what you wrote; the PRs with their e1RM; meets in the next 8 weeks with each lifter's latest weigh-in against their class; whose block needs writing next; money overdue and due this week, applications waiting and your seats; and every lifter on one line. It never names a body part or quotes what a lifter wrote. **Open Today** in the email takes you to your list.\n\nThe same report is in the app any time: **Today › This week › Last week's report** on a laptop, **Lifters › This week › Last week's report** on the phone, and **See an example of the weekly report** in Settings › Notifications. **Start with** opens the first lifter who needs you. Switch the email off with **Weekly report** in Settings › Notifications or the link at the bottom of the email; the push goes with **PRs and missed sessions**. A week where nobody trained and nothing is waiting sends nothing.",
+  "app": "Every week you get your team's week as a push and an email, Sunday evening (6 pm unless you change it) or Monday morning, at the hour you pick in You › Notifications under **Weekly report**, in your time zone: who trained and the sessions against the week before, who needs you (pain reported, behind, who wrote you, who ran hot, form checks, no check-in, no lift up in 4 weeks), strength over 4 weeks, last week's top sets against what you wrote, the PRs, meets in the next 8 weeks with each lifter's weigh-in against their class, the blocks to write next, money, applications and seats, and every lifter on one line. It never names a body part or quotes what a lifter wrote. The same report is in the app: Lifters › This week › **Last week's report**, and **Start with** opens the first lifter who needs you. Switch the email off with **Weekly report** in You › Notifications or the link at the bottom of the email."
  },
  {
   "id": "bring-coaching-in",

@@ -332,6 +332,7 @@
       case 'blockdone': return f + ' finished the block';
       case 'stalling': return f + ' has been flat for 3 weeks';
       case 'write': return poss(f) + ' next week is ready to write';
+      case 'unpub': return poss(f) + ' week ' + (x.number || it.week || '') + ' isn\u2019t published';
       case 'busy': { var bl = caBusyLine(it); return bl ? f + ' ' + bl.charAt(0).toLowerCase() + bl.slice(1) : f + ' has a busy week'; }
     }
     return f;
@@ -1864,7 +1865,7 @@
     ['Invite a lifter', 'add new code link', function () { if (typeof openInviteModal === 'function') openInviteModal(); }],
     ['Lifter progress', 'charts e1rm trends roster', function () { tab('progress'); }],
     ['Progression rules', 'rules next week loads', function () { tab('rules'); }],
-    ['Capacity', 'hours seats time', function () { tab('capacity'); }],
+    ['Your coaching week', 'capacity hours seats time minutes lifters standard', function () { tab('capacity'); }],
     ['Settings', 'profile notifications units security you account', function () { tab('you'); }]
   ];
   function openSearch() {
