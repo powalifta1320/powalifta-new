@@ -322,7 +322,7 @@
             <img class="ph-img" src="/site-img/home/lifter-train-786.webp" srcset="/site-img/home/lifter-train-590.webp 590w, /site-img/home/lifter-train-786.webp 786w, /site-img/home/lifter-train-1179.webp 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" width="393" height="852" fetchpriority="high" loading="lazy" decoding="async"
               alt="The lifter app on Arjun’s phone, Train: Squat Day, Wednesday 28 October, week 3. Competition squat, set 1 of 3: 182.5 kg for 5, belt on, RPE 8 picked on the scale (two reps left in the tank), and the Log set button. Below it, his coach Sam’s note: top set today is 182.5 for 5 at 8.">
           </picture>
-          <!-- A moment later: set 2 up and the rest timer docked (only while motion plays the story). -->
+          <!-- A moment later: set 2 up and the rest timer docked (while motion plays the story, or once Log set is tapped). -->
           <img class="ph-next" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-srcset="/site-img/home/lifter-logged-590.avif 590w, /site-img/home/lifter-logged-786.avif 786w, /site-img/home/lifter-logged-1179.avif 1179w" data-fallback="/site-img/home/lifter-logged-590.webp 590w, /site-img/home/lifter-logged-786.webp 786w, /site-img/home/lifter-logged-1179.webp 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" width="393" height="852" alt="" decoding="async">
           <span class="sb" aria-hidden="true"><b data-t="9:41"></b><i class="sb-isl"></i><i class="sb-bat"></i></span>
           <span class="log" id="logBtn" aria-hidden="true"><span class="log-in"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Log set</span></span>
@@ -330,6 +330,10 @@
           <i class="hl" style="--x: 26; --y: 205; --w: 196; --h: 52; --r: 14" aria-hidden="true"></i>
           <i class="hl" style="--x: 27; --y: 305; --w: 339; --h: 92; --r: 20" aria-hidden="true"></i>
           <i class="hl" style="--x: 30; --y: 404; --w: 333; --h: 62; --r: 31" aria-hidden="true"></i>
+          <!-- Try it: Log set is a real button (home.js), clear over the app's own, so the page's one crimson stays Start free:
+               the set logs on the phone and lands on Sam's laptop. With JavaScript only; the still has none. -->
+          <button type="button" class="log-tap" id="logTap" aria-label="Log set: 182.5 kg for 5 reps at RPE 8"></button>
+          <p class="sr" id="logSaid" role="status" aria-live="polite"></p>
         </div>
       </div>
     </figure>

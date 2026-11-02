@@ -198,8 +198,22 @@ html.m .ph-next { display: block; visibility: hidden; opacity: 0; }
 .log-in { display: inline-flex; align-items: center; gap: 0.5em; font: 650 1.0625em/1 var(--font-body); letter-spacing: -0.005em; }
 .log svg { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 
+/* Try it: Log set is a real button (home.js), clear over the app's own Log set, so the page's one crimson stays its Start
+   free; a focus ring the button's shape. With JavaScript only. Logged without motion, the phone simply shows the moment
+   after (set 2 up, the rest timer docked) and Sam's laptop Arjun's page with the set in it. */
+.log-tap { display: none; }
+html.js .log-tap { display: block; position: absolute; z-index: 4; left: 2.1875em; top: 25.575em; width: 20.1875em; height: 3.25em; margin: 0; padding: 0; border: 0; border-radius: 999px; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+html.js .log-tap:focus-visible { outline: 2px solid #f4f4f6; outline-offset: 3px; border-radius: 999px; }
+@media (hover: hover) and (pointer: fine) { .ph-scr:has(> .log-tap:hover) .log { filter: brightness(1.07); } }
+.hphone.is-logged .ph-next { display: block; visibility: visible; opacity: 1; }
+.lt-after { position: absolute; z-index: 1; left: 668em; top: 16em; width: 756em; height: 576em; max-width: none; pointer-events: none; }
+/* With motion, Sam's laptop live: the Today window's own screen (home.js clones it), scaled onto this laptop (--ltk). */
+.lt-live { position: absolute; z-index: 1; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; transform: scale(var(--ltk, 0.49)); border-radius: 14px; overflow: hidden; visibility: hidden; opacity: 0; pointer-events: none; }
+.lt-live picture { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; }
+
 /* The set card's anatomy, shown rather than labelled: with motion a light ring travels from the load and reps to how hard
-   it felt to Log set, which presses (home.js). The rings sit in the screen's own points (out of 393 x 852). */
+   it felt to Log set, and stays there until the set is logged (home.js). The rings sit in the screen's own points (out
+   of 393 x 852). */
 .hl { display: none; }
 html.m .hl { display: block; position: absolute; z-index: 2; left: calc(var(--x) / 393 * 100%); top: calc(var(--y) / 852 * 100%); width: calc(var(--w) / 393 * 100%); height: calc(var(--h) / 852 * 100%);
   border-radius: calc(var(--r) / 16 * 1em); box-shadow: 0 0 0 1.5px rgba(244, 244, 246, 0.92), 0 0 0 5px rgba(244, 244, 246, 0.08); opacity: 0; visibility: hidden; pointer-events: none; }
@@ -714,7 +728,7 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
 .dec-opts button, .mx .mx-unit button, .mx .mx-share { transition: background-color var(--t-state) ease, color var(--t-state) ease, transform var(--t-press) var(--ease-out); }
 /* One crimson per screen: when two page actions share the screen, the one further from the middle steps back to ink. */
 .act-btn.is-quiet, .pub.is-quiet { background: #f4f4f6; color: #0b0b0d; box-shadow: none; }
-.log.is-quiet { background: #f4f4f6; color: #0b0b0d; }
+.log.is-quiet { background: #f4f4f6; color: #0b0b0d; box-shadow: 0 0 0 1px #f4f4f6, 0 1px 2px rgba(0, 0, 0, 0.45); }   /* the spread covers the app's own Log set's edge under it */
 .dec-btn.is-quiet .dec-red { visibility: hidden; }
 
 /* =====================================================================
