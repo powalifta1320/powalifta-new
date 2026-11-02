@@ -121,9 +121,9 @@
   function parseWeeks(weeks) { if (typeof weeks === 'string') { try { return JSON.parse(weeks); } catch (e) { return null; } } return weeks; }
   // A week the coach hasn't published yet (the drafts feature: "draft": true) is not the lifter's block:
   // nothing in the report counts it.
-  // A week the coach hasn't published (draft: true, always trailing) plans nothing: the lifter can't see it.
-  // In the app only while drafts are on (app.js DRAFTS_ON); the server has no switch and always respects the flag.
-  function isDraft(w) { return isObj(w) && w.draft === true && (typeof DRAFTS_ON === 'undefined' || !!DRAFTS_ON); }
+  // A week the coach hasn't published yet (the drafts feature: "draft": true) is not the lifter's block:
+  // nothing in the report counts it.
+  function isDraft(w) { return isObj(w) && w.draft === true; }
   function setOpen(s) { return !!s && !s.completed && !s.skipped; }
   // The days of a week with work in them (an exercise with at least one set). Odd parts (a day that isn't
   // an object, exercises or sets that aren't lists) are skipped, never thrown on: the SQL twins do the same.

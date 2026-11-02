@@ -26,8 +26,9 @@
   function num(v) { return v != null && v !== '' && isFinite(Number(v)) ? Number(v) : null; }
   function isMain(lift) { return MAIN.indexOf(lift) >= 0; }
   function isLogged(s) { return !!(s && (s.completed || s.skipped || s.missed)); }
-  // A draft only while drafts are on (app.js DRAFTS_ON / weekIsDraft); off, a stray flag means nothing.
-  function isDraft(w) { return typeof weekIsDraft === 'function' ? weekIsDraft(w) : false; }
+  // The editor's draft UI (the Draft mark, Publish week N, "Week 3 draft") waits on app.js DRAFTS_ON, as making one does;
+  // the lifter's side hides a flagged week whatever the switch (app.js weekIsDraft).
+  function isDraft(w) { return draftsOn() && typeof weekIsDraft === 'function' ? weekIsDraft(w) : false; }
   function draftsOn() { return typeof DRAFTS_ON !== 'undefined' && !!DRAFTS_ON; }
   function isRest(day) { return !!day && !(day.exercises || []).length && REST_RX.test(day.name || ''); }
   function weekSets(w) { var out = []; ((w && w.days) || []).forEach(function (d) { (d.exercises || []).forEach(function (e) { (e.sets || []).forEach(function (s) { out.push(s); }); }); }); return out; }

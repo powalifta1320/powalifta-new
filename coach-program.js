@@ -551,7 +551,7 @@
     var acts = typeof programMenuActions === 'function' ? programMenuActions(prog, aid) : [];
     var wi = curWeek(), w = prog.weeks[wi], wn = w ? Number(w.number) || wi + 1 : 0;
     var weeks = w ? [
-      typeof weekIsDraft === 'function' && weekIsDraft(w) && window.DeskProgram && DeskProgram.publishWeek ? { label: 'Publish week ' + wn, icon: ic('check'), onClick: function () { DeskProgram.publishWeek(aid, wi); if (typeof loadProgram === 'function') loadProgram(); } } : null,
+      typeof DRAFTS_ON !== 'undefined' && DRAFTS_ON && typeof weekIsDraft === 'function' && weekIsDraft(w) && window.DeskProgram && DeskProgram.publishWeek ? { label: 'Publish week ' + wn, icon: ic('check'), onClick: function () { DeskProgram.publishWeek(aid, wi); if (typeof loadProgram === 'function') loadProgram(); } } : null,
       { label: 'Duplicate week ' + wn, icon: ic('copy'), onClick: function () { duplicateWeekAction(prog.id, wi); } },
       { label: 'Add a day to week ' + wn, icon: ic('plus'), onClick: function () { addDayAndGo(aid, wi, false); } },
       // Critical fix #1: Add rest day stays (addRestDay names it "Rest", the isRestDay heuristic reads it).
@@ -596,7 +596,7 @@
     var lab = el('div', { class: 'cp-wklabel', 'aria-live': 'polite' });
     lab.innerHTML = '<b>Week ' + esc(String(wn)) + '</b><span class="cp-wkof"> of ' + n + '</span>' + (when ? '<span class="cp-wkwhen' + (when === 'this week' ? ' is-now' : '') + '"> · ' + esc(when) + '</span>' : '') +
       // A week the lifter can't see yet (desk-program.js drafts): said quietly; ⋯ has Publish.
-      (typeof weekIsDraft === 'function' && weekIsDraft(wk) ? '<span class="cp-wkwhen cp-wkdraft"> · Draft</span>' : '');
+      (typeof DRAFTS_ON !== 'undefined' && DRAFTS_ON && typeof weekIsDraft === 'function' && weekIsDraft(wk) ? '<span class="cp-wkwhen cp-wkdraft"> · Draft</span>' : '');
     step.appendChild(prev); step.appendChild(lab); step.appendChild(next);
     // A sideways swipe on the stepper turns the week, as the days below turn under a finger.
     var x0 = null, y0 = 0;
