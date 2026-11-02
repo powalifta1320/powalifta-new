@@ -2,7 +2,7 @@
 /*
  * Small-stuff scanner: the details a person notices and a unit test doesn't.
  *
- * Opens 333 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
+ * Opens 350 screens (athlete / solo / coach / brand-new-coach demos in the iPhone layout, their
  * sheets (New challenge and a challenge's board among them, the import intake's steps, the two-factor code prompt, the coach's
  * Ask sheet, bell list, first-run tour and form-check review), the planner, the onboarding, every public page at desktop and phone width, dark and light) and
  * reports: sideways scroll, text overlapping text, controls overlapping controls, text cut off
@@ -217,6 +217,21 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name:
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-pb-swap' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + SWAP_INJ + "; const p = Store.get().programs.find(x => x.athleteId === 'demo-a1'); const wi = p.weeks.findIndex(w => w.days.some(d => d.exercises.some(e => e.swap))); deskGo('programs'); const s = document.getElementById('progAthlete'); if (s) { s.value = 'demo-a1'; s.dispatchEvent(new Event('change', { bubbles: true })); } activeWeekIdx = wi; loadProgram(); true" },
   { name: 'w-msg-swap' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + SWAP_INJ + "; deskGo('messages'); new Promise(r => setTimeout(r, 400)).then(() => { dkOpenThread('demo-a1'); return true; })" });
+// The desk's program editor (desk-program.js, 2 Nov): Arjun's week, a load cell being typed in, the weeks to the meet
+// written as drafts with drafts on (Publish week N is the crimson), Marcus's lifted week (Take 1 suggestion, the Lifted caption), Progress the week's menu, a team's week with every lifter's load, dark
+// and light; the previous editor (?pb=v1); and the phone's builder on a draft week (its quiet Draft, ⋯ with Publish).
+const PB = (theme, js) => (theme === 'light' ? "applyTheme('light'); " : '') + "deskGo('programs'); DeskProgram.openLifter('demo-a1'); " + (js || '');
+const CP_DRAFT = "DRAFTS_ON = true; Store.update(s => { const p = s.programs.find(x => x.athleteId === 'demo-a1'); p.weeks[p.weeks.length - 1].draft = true; }); activeWeekIdx = Store.get().programs.find(x => x.athleteId === 'demo-a1').weeks.length - 1; ";
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
+  { name: 'w-pb-week' + suf, page: C, mode: 'web', theme, eval: PB(theme) },
+  { name: 'w-pb-edit' + suf, page: C, mode: 'web', theme, eval: PB(theme, "new Promise(r => setTimeout(() => { const c = document.querySelector('.dp-cell.dp-l:not([readonly])'); if (c) c.focus(); r(true); }, 300))") },
+  { name: 'w-pb-write' + suf, page: C, mode: 'web', theme, eval: "DRAFTS_ON = true; " + PB(theme, "new Promise(r => setTimeout(() => { const g = document.querySelector('.dp-wk-gap'); if (g) g.click(); r(true); }, 300))") },
+  { name: 'w-pb-marcus' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "deskGo('programs'); DeskProgram.openLifter('demo-d3'); setTimeout(() => DeskProgram.pickWeek(0, false), 300)" },
+  { name: 'w-pb-progress' + suf, page: C, mode: 'web', theme, eval: PB(theme, "new Promise(r => setTimeout(() => { const b = [...document.querySelectorAll('.dp-head .dp-tool')].find(x => /Progress/.test(x.getAttribute('aria-label'))); if (b) b.click(); r(true); }, 300))") },
+  { name: 'w-teams-week' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "deskGo('teams')" },
+  { name: 'c-program-draft' + suf, page: C, theme, t44: T44P, eval: CP_DRAFT + tab('program') },
+  { name: 'sh-program-menu-draft' + suf, page: C, theme, t44: '.cp-menu', eval: CP_DRAFT + tab('program') + ";setTimeout(() => document.querySelector('.cp-more').click(), 400)" });
+screens.push({ name: 'w-pb-v1', page: C + '&pb=v1', mode: 'web', eval: "deskGo('programs'); const s = document.getElementById('progAthlete'); if (s) { s.value = 'demo-a1'; loadProgram(); }" });
 // The desk's Last week report (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-report' + suf, page: C, mode: 'web', theme, eval: 'CoachReportUI.open()' });
 // Imports on the desk (coach.html at laptop width): the intake, a client list, a lifter's history, a guide, dark and light.

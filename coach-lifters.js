@@ -89,11 +89,11 @@
   }
 
   var KIND = { message: 'answer', note: 'answer', formcheck: 'answer', pain: 'check', checkin: 'check', nocheckin: 'check', readiness: 'check', overshoot: 'check', drift: 'check',
-    quiet: 'check', never: 'check', missed: 'check', stalling: 'check', meet: 'meet', weight: 'meet', offpace: 'meet', blockend: 'write', blockdone: 'write', noprogram: 'write' };
+    quiet: 'check', never: 'check', missed: 'check', stalling: 'check', meet: 'meet', weight: 'meet', offpace: 'meet', blockend: 'write', blockdone: 'write', noprogram: 'write', unpub: 'write' };
   // The order of every list (the owner's call, 29 Oct: pain first, everywhere): a pain comes first, whatever else is
   // going on, a meet today next; after that how soon (clTier) decides and the kind breaks ties, in this order.
   var ORDER = ['pain', 'meetday', 'busy', 'weight', 'meet', 'overshoot', 'message', 'formcheck', 'drift', 'note', 'checkin', 'nocheckin', 'readiness', 'offpace',
-    'blockdone', 'blockend', 'quiet', 'missed', 'never', 'noprogram', 'stalling', 'write'];
+    'unpub', 'blockdone', 'blockend', 'quiet', 'missed', 'never', 'noprogram', 'stalling', 'write'];
   function waitHours(x) { var m = /(\d+)\s*(h|d)\b/.exec((x && x.text) || ''); if (!m) return 0; return Number(m[1]) * (m[2] === 'd' ? 24 : 1); }
   // How soon: 0 today, 1 this week's health and deadlines, 2 the program and replies, 3 planning and
   // engagement, 4 the long view. Pure over the row: unit-tested.
@@ -115,6 +115,8 @@
       case 'message': return waitHours(x) >= 24 ? 1 : 2;
       case 'checkin': return x.tone === 'warn' ? 1 : 2;
       case 'formcheck': case 'drift': case 'note': case 'readiness': case 'offpace': return 2;
+      // A week written and not published (desk-program.js drafts): more urgent as it nears; started already, today.
+      case 'unpub': return x.days == null ? 2 : x.days <= 1 ? 0 : x.days <= 3 ? 1 : 2;
       case 'blockdone': case 'blockend': case 'quiet': case 'missed': case 'never': case 'nocheckin': return 3;   // a check-in nudge is engagement: low urgency
       default: return 4;
     }
@@ -177,6 +179,15 @@
       var id = b.r.athlete.id, x = { type: 'busy', tier: b.info.tier };
       items.push({ key: id + ':busy', kind: 'busy', type: 'busy', tier: clTier(b.r, x, t), order: ORDER.indexOf('busy'), r: b.r, reason: x, info: b.info, name: b.r.athlete.name,
         done: done[id] === 1 || done[id] === true });
+    });
+    // A week the coach wrote and hasn't published, starting within a week (app.js programUnpublished): Publish. It is the
+    // lifter's write job (the others for them go); nothing publishes by itself.
+    (rows || []).forEach(function (r) {
+      var up = typeof programUnpublished === 'function' && r.status ? programUnpublished(r.status.program, t) : null;
+      if (!up || (up.days != null && up.days > 7)) return;
+      var id = r.athlete.id, x = { type: 'unpub', days: up.days, idx: up.idx, number: up.number, start: up.start };
+      for (var k = items.length - 1; k >= 0; k--) if (items[k].r && items[k].r.athlete.id === id && items[k].kind === 'write') items.splice(k, 1);
+      items.push({ key: id + ':unpub', kind: 'write', type: 'unpub', tier: clTier(r, x, t), order: ORDER.indexOf('unpub'), r: r, reason: x, week: up.number, name: r.athlete.name, done: covers(done[id], 'write') });
     });
     (opts.toWrite || []).forEach(function (w) {
       if (!w || !w.r) return;
@@ -379,6 +390,8 @@
       case 'blockend': return { icon: 'pen', tone: 'write', title: 'Last week of the block', detail: prog ? clip(prog.name, 40) + ' · nothing after it' : '' };
       case 'blockdone': return { icon: 'pen', tone: 'write', title: 'Block finished', detail: 'Every set logged' };
       case 'stalling': return { icon: 'trend', tone: 'quiet', title: 'Flat for 3 weeks', detail: 'No main lift up' };
+      case 'unpub': { var ud = x.days, uw = x.start ? localDate(x.start, { weekday: 'long' }) : '';
+        return { icon: 'pen', tone: 'write', title: 'Week ' + x.number + ' isn’t published', detail: ud == null ? 'Written, waiting for you' : ud < 0 ? 'Started ' + (uw || plural(-ud, 'day') + ' ago') + ': they can’t see it yet' : ud === 0 ? 'Starts today' : 'Starts ' + (ud <= 6 && uw ? uw : 'in ' + plural(ud, 'day')) }; }
       case 'write': return { icon: 'pen', tone: 'write', title: 'Next week to write' + (it.rule ? ' (your rule)' : ''), detail: (it.week ? 'Week ' + it.week + ' has suggestions' : 'Suggestions ready') + (it.rule ? ' (your rule)' : '') };
       case 'busy': {
         var bi = it.info || {}, nd = Number(bi.days) || 0;
@@ -814,6 +827,7 @@
     var h = home();
     if (it.type === 'meetday') return { k: 'open', ic: 'trophy', label: 'Open meet day', run: openMeetDay };
     if (it.type === 'write') { var a = it.r.athlete; return { k: 'open', ic: 'pen', label: 'Write week ' + (it.week || ''), run: function () { if (typeof openAthleteProgram === 'function') openAthleteProgram(a.id); } }; }
+    if (it.type === 'unpub') { var au = it.r.athlete, ux = it.reason || {}; return { k: 'apply', ic: 'check', label: 'Publish week ' + (ux.number || ''), run: function () { if (window.DeskProgram && DeskProgram.publishWeek) DeskProgram.publishWeek(au.id, ux.idx); } }; }
     // A busy week: Approve puts the plan in their program (busy-week.js BusyWeek.approve).
     if (it.type === 'busy') { var rq = it.info && it.info.req; return { k: 'apply', ic: 'check', label: 'Approve', run: function () { if (window.BusyWeek && rq) BusyWeek.approve(rq); } }; }
     if (h && h.fixFor) return h.fixFor(it.r, it.reason);

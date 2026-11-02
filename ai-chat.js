@@ -147,7 +147,10 @@
     snap.total = (typeof currentTotal === 'function') ? round(currentTotal(athleteId)) : 0;
     snap.bw = (typeof latestBodyweight === 'function') ? latestBodyweight(athleteId) : null;
     var prog = (typeof getProgramForAthlete === 'function') ? getProgramForAthlete(athleteId) : null;
-    snap.program = prog ? { name: prog.name, weeks: (prog.weeks || []).length } : null;
+    // The lifter asking about themselves counts the weeks they can see (app.js liftWeeks: no coach's draft).
+    var askMe = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+    var seen = prog && askMe && askMe.id === athleteId && typeof liftWeeks === 'function' ? liftWeeks(prog) : (prog && prog.weeks) || [];
+    snap.program = prog ? { name: prog.name, weeks: seen.length } : null;
     return snap;
   }
 

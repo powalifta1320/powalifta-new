@@ -220,9 +220,16 @@ function dsRenderTeams() {
   host.appendChild(strip);
 
   var W = weeks[_ds.wk];
-  host.appendChild(dsLoads(team, members, W, _ds.wk));
-  // The team's program, the selected week: the builder's session cards, written once for everyone.
-  host.appendChild(dsTeamProgram(team, W, _ds.wk));
+  // The program editor (desk-program.js): the team's week as a program, each main lift with every lifter's own load
+  // under it. The previous loads table and session cards stay with the previous editor (dkWpOn off).
+  var wp = null;
+  if (typeof dkWpOn === 'function' && dkWpOn()) { try { wp = DeskProgram.team(team, members, W, _ds.wk); } catch (e) { console.error('desk-program team', e); wp = null; } }
+  if (wp) host.appendChild(wp);
+  else {
+    host.appendChild(dsLoads(team, members, W, _ds.wk));
+    // The team's program, the selected week: the builder's session cards, written once for everyone.
+    host.appendChild(dsTeamProgram(team, W, _ds.wk));
+  }
   if (host.parentNode) host.parentNode.scrollTop = keepScroll;
 }
 // The loads: lifters down, the week's main sets across, each cell their own kg as a bar in the
@@ -555,32 +562,46 @@ function dsEditCell(team, mb, W, wi, col, c, td, btn) {
     done = true;
     var v = parseFloat(String(inp.value).replace(',', '.'));
     if (!save || !(v > 0) || Math.abs((unitLb ? v * KG_PER_LB : v) - cur) < 0.01) { dsRenderTeams(); return; }
-    var kg = unitLb ? v * KG_PER_LB : v;
-    var ratio = cur > 0 ? kg / cur : 1;
-    Store.update(function (s) {
-      var p = (s.programs || []).find(function (x) { return x.id === prog.id; });
-      if (!p) return;
-      _tmWalkEx(p.weeks, function (e) {
-        if (String(e.id) !== String(ex.id)) return;
-        e.ovr = true;
-        (e.sets || []).forEach(function (st) {
-          if (isLoggedSet(st)) return;
-          var w0 = Number(planWeight(st)) || cur;
-          var nk = Math.round((w0 * ratio) / 2.5) * 2.5;
-          if (Math.abs(w0 - cur) < 0.01) nk = Math.round(kg * 100) / 100;
-          st.weight = nk; delete st.pct; delete st.pctHi; delete st.weightHi;
-        });
-      });
-    });
-    persistProgram(prog.id);
-    toast(first + '’s ' + col.label.toLowerCase() + ' is ' + teamLoadText(kg, mb.unit) + ', theirs from now on');
-    dsRenderTeams();
+    dsSetMemberLoad(team, mb, W, wi, col, c, unitLb ? v * KG_PER_LB : v);
   };
   inp.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') { e.preventDefault(); finish(true); }
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
   });
   inp.addEventListener('blur', function () { finish(true); });
+}
+// One lifter's load for a team exercise, set by hand (dsEditCell's write, without its DOM; the program editor's lifter
+// rows call it too): their copy of that exercise is theirs from now on (ovr: the next push asks), sets they lifted stay,
+// and the coach's ⌘Z on their program brings it back (dkPbRemember).
+function dsSetMemberLoad(team, mb, W, wi, col, c, kg) {
+  var prog = mb.program && isTeamLinked(mb.program) ? mb.program : null;
+  var first = _dkFirst(mb.name);
+  if (!prog) { toast('Push first: ' + first + ' gets their own copy, then adjust it'); dsRenderTeams(); return false; }
+  var ex = null;
+  _tmWalkEx(prog.weeks, function (e, d, w) { if (!ex && String(w.srcId) === _tmKey(W, wi) && String(d.srcId) === col.dayId && String(e.srcId) === col.exId) ex = e; });
+  if (!ex) { toast(first + ' has no ' + col.label.toLowerCase() + ' this week'); dsRenderTeams(); return false; }
+  if ((ex.sets || []).every(isLoggedSet)) { toast(first + ' lifted it: what happened stays'); dsRenderTeams(); return false; }
+  var cur = Number(c.kg) || 0, ratio = cur > 0 ? kg / cur : 1;
+  if (typeof dkPbRemember === 'function') dkPbRemember((Store.get().programs || []).find(function (x) { return x.id === prog.id; }), col.label + ' for ' + first);
+  Store.update(function (s) {
+    var p = (s.programs || []).find(function (x) { return x.id === prog.id; });
+    if (!p) return;
+    _tmWalkEx(p.weeks, function (e) {
+      if (String(e.id) !== String(ex.id)) return;
+      e.ovr = true;
+      (e.sets || []).forEach(function (st) {
+        if (isLoggedSet(st)) return;
+        var w0 = Number(planWeight(st)) || cur;
+        var nk = Math.round((w0 * ratio) / 2.5) * 2.5;
+        if (Math.abs(w0 - cur) < 0.01) nk = Math.round(kg * 100) / 100;
+        st.weight = nk; delete st.pct; delete st.pctHi; delete st.weightHi;
+      });
+    });
+  });
+  persistProgram(prog.id);
+  toast(first + '’s ' + col.label.toLowerCase() + ' is ' + teamLoadText(kg, mb.unit) + ', theirs from now on');
+  dsRenderTeams();
+  return true;
 }
 function dsResetMember(team, mb) {
   var prog = mb.program;

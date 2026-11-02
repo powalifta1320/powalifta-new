@@ -391,6 +391,7 @@
 <script src="challenges.js"></script><!-- COACH CHALLENGES: the coach's challenges at the top of Club, their boards, New challenge (window.Challenges) -->
 <script src="desk.js"></script>
 <script src="desk-season.js"></script><!-- the desk's season: Teams, the roster calendar, Plan a meet, the last week of a block -->
+<script src="desk-program.js"></script><!-- the desk's program editor: the week as a program (DeskProgram); drafts and Publish on both screens -->
 <script src="coach-home.js"></script><!-- Home: the roster summary (desk Today + the top of the phone Roster) -->
 <script src="coach-lifters.js"></script><!-- Lifters: everyone then one (desk Roster + the phone Lifters tab and its lifter page) -->
 <script src="coach-app.js"></script><!-- The iPhone app's coach screens (28 Oct): Home, the Lifters hub, a lifter's card (CoachApp); phone only -->
@@ -4312,7 +4313,7 @@ function addWeek() {
   const aid = document.getElementById('progAthlete').value;
   Store.update(s => {
     const p = s.programs.find(p => p.athleteId === aid);
-    if (p) { const num = (p.weeks.at(-1)?.number || 0) + 1; p.weeks.push(newWeek(num, 3)); activeWeekIdx = p.weeks.length - 1; }
+    if (p) { const num = (p.weeks.at(-1)?.number || 0) + 1; appendBlockWeek(p.weeks, newWeek(num, 3)); activeWeekIdx = p.weeks.length - 1; }   // app.js: after a draft, a draft
   });
   persistProgram(progIdForAthlete(aid));
   loadProgram();
@@ -4425,14 +4426,7 @@ function setBlockRx(wi, di, ei, startIdx, count, patchObj, rerender) {
   Store.update(s => {
     const p = s.programs.find(p => p.athleteId === aid);
     if (!p) return;
-    const sets = p.weeks[wi].days[di].exercises[ei].sets;
-    for (let i = startIdx; i < startIdx + count && i < sets.length; i++) {
-      Object.keys(patchObj).forEach(k => {
-        const v = patchObj[k];
-        if (v == null && (k === 'pct' || k === 'rpeHi' || k === 'rir' || k === 'pctHi' || k === 'weightHi' || k === 'pctFeel')) delete sets[i][k];
-        else sets[i][k] = v;
-      });
-    }
+    blockPatch(p.weeks[wi].days[di].exercises[ei].sets, startIdx, count, patchObj);   // app.js: the desk's editor runs the same loop
   });
   claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
@@ -4468,20 +4462,10 @@ function setExerciseRx(wi, di, ei, fn) {
 
 function setBlockCount(wi, di, ei, startIdx, oldCount, newCount) {
   const aid = document.getElementById('progAthlete').value;
-  const target = Math.max(1, Math.min(50, Number(newCount) || 1));
   Store.update(s => {
     const p = s.programs.find(p => p.athleteId === aid);
     if (!p) return;
-    const sets = p.weeks[wi].days[di].exercises[ei].sets;
-    if (target > oldCount) {
-      const tpl = sets[startIdx];
-      const additions = target - oldCount;
-      const fillers = [];
-      for (let i = 0; i < additions; i++) fillers.push(Object.assign(newSet(tpl.weight, tpl.reps, tpl.rpe, tpl.tempo), rxOf(tpl)));
-      sets.splice(startIdx + oldCount, 0, ...fillers);
-    } else if (target < oldCount) {
-      sets.splice(startIdx + target, oldCount - target);
-    }
+    blockResize(p.weeks[wi].days[di].exercises[ei].sets, startIdx, oldCount, newCount);   // app.js: new sets carry rxOf
   });
   claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
@@ -4493,9 +4477,7 @@ function deleteBlock(wi, di, ei, startIdx, count) {
   Store.update(s => {
     const p = s.programs.find(p => p.athleteId === aid);
     if (!p) return;
-    const sets = p.weeks[wi].days[di].exercises[ei].sets;
-    sets.splice(startIdx, count);
-    if (sets.length === 0) sets.push(newSet(0, 5, null));
+    blockRemove(p.weeks[wi].days[di].exercises[ei].sets, startIdx, count);   // app.js: an exercise keeps one set
   });
   claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
@@ -4507,14 +4489,9 @@ function addBlock(wi, di, ei) {
   Store.update(s => {
     const p = s.programs.find(p => p.athleteId === aid);
     if (!p) return;
-    const sets = p.weeks[wi].days[di].exercises[ei].sets;
-    const last = sets[sets.length - 1] || { weight: 0, reps: 5, rpe: null, tempo: '' };
-    // New block = back-down style: 1 set, copies last weight/reps (and its %), NO prescribed RPE
-    // ...and the same set fields (tempo, pause, bands / chains, the coach's columns): a back-down
-    // keeps the bar and the method, only the RPE is left for the coach to set.
-    const nb = Object.assign(newSet(last.weight, last.reps, null, last.tempo), setFieldsOf(last));
-    if (last.pct != null) nb.pct = last.pct;
-    sets.push(nb);
+    // New block = back-down style (app.js blockAppend): 1 set, the last one's weight/reps (and its %) and set
+    // fields, NO prescribed RPE: a back-down keeps the bar and the method, only the RPE is left for the coach.
+    blockAppend(p.weeks[wi].days[di].exercises[ei].sets);
   });
   claimTeamExercise(aid, wi, di, ei);
   persistProgram(progIdForAthlete(aid));
