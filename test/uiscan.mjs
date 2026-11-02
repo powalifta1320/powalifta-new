@@ -253,13 +253,29 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'sh-lead' + suf, page: C, theme, t44: '.cs-lead-sheet', eval: tab('athletes') + ";setTimeout(() => ClientsUI.openLead('demo-app-2'), 300)" },
     { name: 'c-home-newl' + suf, page: C, theme, t44: '.ca-newl', eval: tab('home') + ";setTimeout(() => document.querySelector('.ca-newl').scrollIntoView({ block: 'center' }), 300)" },
     { name: 'w-clients' + suf, page: C, mode: 'web', theme, eval: "deskGo('clients')" },
-    { name: 'w-newlifters' + suf, page: C, mode: 'web', theme, eval: "deskGo('roster')" },
-    { name: 'w-lead' + suf, page: C, mode: 'web', theme, eval: "deskGo('roster');setTimeout(() => ClientsUI.openLead('demo-app-2'), 300)" },
+    { name: 'w-newlifters' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster')" },
+    { name: 'w-lead' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster');setTimeout(() => ClientsUI.openLead('demo-app-2'), 300)" },
     { name: 'w-meets' + suf, page: C, mode: 'web', theme, eval: "deskGo('meets')" },
     { name: 'w-profile-apply' + suf, page: 'coach-profile.html?id=none', mode: 'web', theme, eval: APPLY },
     { name: 'w-profile-apply-m' + suf, page: 'coach-profile.html?id=none', mode: 'web', w: 390, h: 844, theme, eval: APPLY },
     { name: 'w-profile-request-m' + suf, page: 'coach-profile.html?id=none', mode: 'web', w: 390, h: 844, theme, eval: REQUEST });
 }
+// The desk, v3 (2 Nov), dark and light: Today scrolled to Your team, to Where everyone is and to Your list (Today scrolls
+// inside #deskToday, which the scan's own scroll doesn't reach), Lifters on each tab with the side card open once, and New
+// lifters' list. deskTheme: these set the desk's own key too (powa-desk-theme; the desk never reads powa-theme), so their
+// light runs are light.
+const TODAY_AT = (sel) => "deskGo('today'); new Promise((r) => setTimeout(() => { const h = document.getElementById('deskToday'), n = document.querySelector('" + sel + "'); h.scrollTop = n.getBoundingClientRect().top - h.getBoundingClientRect().top + h.scrollTop - 16; r(true); }, 500))";
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
+  { name: 'w-coach-today-team' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: TODAY_AT('.cl-team') },
+  { name: 'w-coach-today-season' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: TODAY_AT('.cl-c-season') },
+  { name: 'w-coach-today-list' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: TODAY_AT('.cl-yl') },
+  { name: 'w-coach-lifters' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster')" },
+  { name: 'w-coach-view-check' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster', { view: 'check' })" },
+  { name: 'w-coach-view-meet' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster', { view: 'meet' })" },
+  { name: 'w-coach-view-pain' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster', { view: 'pain' }); setTimeout(() => CoachLifters.select('demo-a2'), 300)" },
+  { name: 'w-coach-view-quiet' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster', { view: 'quiet' })" },
+  { name: 'w-coach-lifters-card' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster'); setTimeout(() => dkOpenCard('notes'), 300)" },
+  { name: 'w-newlifters-sheet' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster'); setTimeout(() => document.querySelector('.cl-newl').click(), 300)" });
 // Never the live services: the screens are demos and public pages, but a public page still calls Supabase (the
 // coach list, the leaderboard, join.html's invite_preview, which counts toward a rate limit) and Plausible (a
 // pageview per screen). Both are refused before they leave this machine: by name in the browser (nothing resolves)
@@ -458,13 +474,14 @@ for (const s of run) {
     : { viewport: { width: s.w || 1440, height: s.h || 900 }, deviceScaleFactor: 1, isMobile: (s.w || 1440) < 600, hasTouch: (s.w || 1440) < 600 });
   await ctx.route(LIVE_URL, (route) => { liveRefused++; return route.abort('blockedbyclient'); });
   await ctx.routeWebSocket(LIVE_URL, (ws) => { liveRefused++; ws.close(); });
-  await ctx.addInitScript(([theme, native]) => {
+  await ctx.addInitScript(([theme, native, deskTheme]) => {
     if (native) {
       const add = () => { if (!document.documentElement) return false; document.documentElement.classList.add('native', 'native-ios'); return true; };
       if (!add()) { const mo = new MutationObserver(() => { if (add()) mo.disconnect(); }); mo.observe(document, { childList: true }); }
     }
     try {
       localStorage.setItem('powa-consent', 'essential'); localStorage.setItem('powa-theme', theme);
+      if (deskTheme) localStorage.setItem('powa-desk-theme', theme);
       ['athlete', 'coach'].forEach((k) => localStorage.setItem('powa-tour-' + k + '-done', '1'));
     } catch (e) {}
     document.addEventListener('DOMContentLoaded', () => {
@@ -472,7 +489,7 @@ for (const s of run) {
       st.textContent = '.demo-banner,.demo-pill,[class*="demo-banner"]{display:none!important}*,*::before,*::after{transition:none!important;animation-duration:0s!important;animation-delay:0s!important}';
       document.head.appendChild(st);
     });
-  }, [s.theme || 'dark', app]);
+  }, [s.theme || 'dark', app, !!s.deskTheme]);
   const page = await ctx.newPage();
   const errs = [];
   page.on('pageerror', (e) => errs.push(e.message));
