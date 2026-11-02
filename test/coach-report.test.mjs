@@ -421,15 +421,15 @@ t('effort: placed and split as the app\'s Effort tile does (caEffortOf, caEffort
     eq(JSON.stringify(team.effort.hot.map(h => [h.id, h.why, h.avg, h.count, h.n, h.worst.over, h.worst.title])), JSON.stringify(split.hot.map(h => [h.id, h.why, h.avg, h.count, h.n, h.worst.over, h.worst.title])), 'who ran hot ' + k);
   }
 });
-t('effort: last week\'s top sets for Sam\'s team, at or under, half a point over, a point or more over, who ran hot', () => {
+t('effort: last week\'s top sets for Sam\'s team, at or under, at +0.5, at +1 or more, who ran hot', () => {
   const E = sam.effort;
   eq([E.total, E.atOrUnder, E.half, E.over, E.pct], [57, 48, 6, 3, 84]);
   eq(E.hot.map(h => [h.name, CR.hotText(h)]), [['Marcus Doyle', 'Bench @9.5, you wrote 8'], ['Leo Grant', 'Squat @9, you wrote 8'], ['Ines Duarte', '3 top sets, +0.5 on average']]);
   const m = mailOf('c-sam');
-  ok(m.html.includes('84%</span>') && m.html.includes('at or under what you wrote') && m.text.includes('- 84% at or under: 48 at or under, 6 half a point over, 3 a point or more over'), 'in the email');
+  ok(m.html.includes('84%</span>') && m.html.includes('at or under what you wrote') && m.text.includes('- 84% at or under: 48 at or under, 6 at +0.5, 3 at +1 or more'), 'in the email');
   ok(m.text.includes('- Marcus Doyle: Bench @9.5, you wrote 8'), 'the worst line');
   eq([CR.effortParts({ atOrUnder: 4, half: 0, over: 0 }), CR.effortParts({ atOrUnder: 4, half: 0, over: 2 })].map(p => p.map(x => x[1]).join(', ')),
-    ['4 at or under, nobody over', '4 at or under, 2 a point or more over'], 'zero parts drop out');
+    ['4 at or under, nobody over', '4 at or under, 2 at +1 or more'], 'zero parts drop out');
   eq(CR.effortSets([{ draft: true, days: [{ exercises: [{ lift: 'squat', sets: [{ completed: true, completedAt: W2.from, rpe: 8, actualRpe: 9 }] }] }] }], W2.from, W2.to), [], 'a draft week has no sets');
 });
 

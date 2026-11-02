@@ -651,12 +651,13 @@
     var notes = w.notes === 1 ? 'a note' : w.notes + ' notes';
     return w.message && w.notes ? 'a message and ' + notes : w.message ? 'a message' : notes;
   }
-  // Where last week's top sets landed, the parts with any: [[key, words]] ("48 at or under", "6 half a point over",
-  // "3 a point or more over"); with nothing over, "nobody over".
+  // Where last week's top sets landed, the parts with any, in the words of the app's Effort tile (coach-lifters.js:
+  // "At or under · +0.5 · +1 or more"): [[key, words]] ("48 at or under", "6 at +0.5", "3 at +1 or more"); with
+  // nothing over, "nobody over".
   function effortParts(ef) {
     var out = [['ok', ef.atOrUnder + ' at or under']];
-    if (ef.half) out.push(['half', ef.half + ' half a point over']);
-    if (ef.over) out.push(['over', ef.over + ' a point or more over']);
+    if (ef.half) out.push(['half', ef.half + ' at +0.5']);
+    if (ef.over) out.push(['over', ef.over + ' at +1 or more']);
     if (!ef.half && !ef.over) out.push(['none', 'nobody over']);
     return out;
   }
