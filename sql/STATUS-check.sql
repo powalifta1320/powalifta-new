@@ -214,6 +214,16 @@ with checks(n, migration, applied) as (values
   (62, 'migration-results-optout-2026-10-31.sql  (a lifter keeps their name off their coach''s Results cards: profiles.name_on_results, only the lifter, an admin or the service role changes it)',
         exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'profiles'
                  and column_name = 'name_on_results' and data_type = 'boolean' and is_nullable = 'NO' and column_default = 'true')
-        and exists (select 1 from pg_trigger where tgname = 'trg_profiles_results_name_guard'))
+        and exists (select 1 from pg_trigger where tgname = 'trg_profiles_results_name_guard')),
+  (63, 'migration-coach-report-v2-2026-11-02.sql  (the Monday report, version 2: strength over 4 weeks, effort against what was written, their words waiting, the blocks to write next; draft weeks left out of the planned sessions; send-weekly-digest only; after rows 53 and 56, and again if either is ever run again)',
+        to_regprocedure('public.program_weeks_left(jsonb)') is not null
+        and to_regprocedure('public.programs_weeks_left(public.programs)') is not null
+        and to_regprocedure('public.program_effort_sets(jsonb, date, date)') is not null
+        and to_regprocedure('public.coach_week_effort(uuid[], date, date)') is not null
+        and to_regprocedure('public.coach_threads_last(uuid[])') is not null
+        and position('recent' in coalesce((select p.prosrc from pg_proc p where p.oid = to_regprocedure('public.coach_week_stats(uuid[], date, date)')), '')) > 0
+        and position('draft' in coalesce((select p.prosrc from pg_proc p where p.oid = to_regprocedure('public.program_planned_per_week(jsonb)')), '')) > 0
+        and coalesce(not has_function_privilege('authenticated', to_regprocedure('public.coach_week_effort(uuid[], date, date)'), 'execute'), false)
+        and coalesce(not has_function_privilege('anon', to_regprocedure('public.coach_threads_last(uuid[])'), 'execute'), false))
 )
 select n, migration, applied from checks order by n;

@@ -226,7 +226,7 @@ await t('Monday, dry run: both jobs, previews only, nothing written or sent', as
   ok(/^Your team’s week: 3 of 3 trained/.test(mia.subject), mia.subject);
   ok(mia.text.includes('Pain reported: Sarah Kim') && !/knee/i.test(mia.text), 'pain without the body part');
   ok(mia.text.includes('1 payment overdue: $220'), 'money');
-  ok(mia.text.includes('Autumn Open, Sat 7 Nov (in 12 days): Arjun Mehta'), 'the meet');
+  ok(mia.text.includes('- Autumn Open, Sat 7 Nov (in 12 days)\n  Arjun Mehta\n'), 'the meet');
   eq(db.writes, [], 'no writes in a dry run');
   eq([SENT.length, globalThis.__PUSH.length], [0, 0], 'nothing sent');
   ok(r.json.digest && r.json.digest.dryRun === true && r.json.digest.preview.length === 1, 'the lifters\' digest dry run as before');
