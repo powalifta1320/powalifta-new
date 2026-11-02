@@ -1,10 +1,11 @@
-/* coach-lifters.js: the coach's Today and Lifters (2026-10-26, round 2).
+/* coach-lifters.js: the coach's Today and Lifters (2026-10-26, round 2; the laptop's v3, 2 Nov).
    Today (laptop, coach-home.js renderDesk hands over to CoachLifters.renderToday): Do first (the most
-   urgent jobs, the first fix in red), This week (four team tiles: training, effort, strength, meets),
-   then every other job by kind (answer, check, meet prep, write).
+   urgent jobs, the first fix in red), Your team (Roster in four lanes, Training, Effort, Strength, Meets,
+   Where everyone is, the business line), then Your list (every other job, one list, tabs by kind).
    Lifters (laptop, desk.js deskRenderRoster hands over; ?oldroster=1 keeps the old board, the Calendar
-   stays its own mode): everyone in four groups, each row a week ring and the 4-week change, beside one
-   lifter's summary (the total, the three lifts, training / effort / bodyweight / meet tiles, their words).
+   stays its own mode): tabs (Check on, Meet soon, Pain, Quiet, All; a tab is a saved view with an
+   address), New lifters as one row, a view's picture, each row a face, a line and one number, beside one
+   lifter's summary (the total, the three lifts, training / effort / bodyweight tiles, the meet, their words).
    iPhone (html.native) and phone web: the Lifters tab is the team tiles, Do first and the groups; a lifter
    pushes in (section[data-pane="lifter"]). Wide screens (the iPhone Duo open, iPad, 700 px and up) show
    the list and the lifter side by side.
