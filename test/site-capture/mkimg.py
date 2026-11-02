@@ -39,15 +39,16 @@ if 'desk' in what:
         x, y, w, h = d['before']['regions'][key]['rect']; pad = 2
         one(crop2(before, x - pad, y - pad, w + 2 * pad, h + 2 * pad), nm, q=90)
         print('   index.html #win .was:', 'left:%gpx;top:%gpx;width:%gpx;height:%gpx' % (round(x - pad, 1), round(y - pad, 1), round(w + 2 * pad, 1), round(h + 2 * pad, 1)))
-    # Small screens: a true-size window onto Arjun's page (desk 668..1424 x 16..592), after and live, and the list.
-    X0, Y0, W, H = 668, 16, 756, 576
+    # Small screens: a true-size window onto Arjun's page (desk 648..1404 x 16..592: his page starts at 632 since the v3
+    # desk's 400 px list), after and live, and the list.
+    X0, Y0, W, H = 648, 16, 756, 576
     save(crop2(after, X0, Y0, W, H), 'win-after', [756, 1512], q_webp=86, q_avif=62)
     save(crop2(blank, X0, Y0, W, H), 'win-live', [756, 1512], q_webp=86, q_avif=62)
     for key, nm in (('heroViz', 'was-hero'), ('sqViz', 'was-sq')):
         x, y, w, h = d['before']['regions'][key]['rect']
         one(crop2(before, x, y, w, h), nm)
         print('   index.html #fwLive .was:', 'left:%gpx;top:%gpx;width:%gpx;height:%gpx' % (round(x - X0, 1), round(y - Y0, 1), round(w, 1), round(h, 1)))
-    LX, LY = 248, 186
+    LX, LY = 246, 186   # the v3 list: rows 257..606, 64 px tall from 211; its column ends where Arjun's page starts (632)
     save(crop2(after, LX, LY, 386, 700), 'win-list', [386, 772, 1158], q_avif=60)
     # Where the list's rows are: index.html's .grp / .mk (desk px) and .fpin (--y, list-crop px) follow them.
     for i, row in enumerate(d['after']['list'][:10]):

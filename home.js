@@ -470,11 +470,11 @@
      total ticks up 651 to 656. --- */
   /* Zoomed out: Sam's screen covering the window (no empty bands), centred on the line between his list and Arjun's page. */
   function deskFit() {
-    var w = fwPort.clientWidth, h = fwPort.clientHeight, s = Math.max(w / 1440, h / 900), seen = w / s, cx = wide() ? 720 : 650;
+    var w = fwPort.clientWidth, h = fwPort.clientHeight, s = Math.max(w / 1440, h / 900), seen = w / s, cx = wide() ? 720 : 632;
     return { x: -clamp(0, 1440 - seen, cx - seen / 2) * s, y: -(900 - h / s) / 2 * s, s: s };
   }
-  function deskHold() { var k = fk(); return { x: -668 * k, y: -16 * k, s: k }; }
-  /* The list's view: "Check on" to Kofi, its group numbers clear of the window's edge (scaled a touch on a phone so its
+  function deskHold() { var k = fk(); return { x: -648 * k, y: -16 * k, s: k }; }   // Arjun's page from 632, 16 px in
+  /* The list's view: "Need you" to Ines, its group numbers clear of the window's edge (scaled a touch on a phone so its
      numbers' column stays in). */
   function deskList() { var s = Math.min(fk(), fwPort.clientWidth / 398); return { x: -222 * s, y: -180 * s, s: s }; }
   gsap.set(fwDesk, { transformOrigin: '0 0' });
@@ -498,7 +498,7 @@
     gsap.set(rg, { autoAlpha: 0 }); gsap.set(rgRect, { strokeDasharray: 100, strokeDashoffset: 100 });
     gsap.set(pr, { autoAlpha: 0, scale: 0.9, transformOrigin: '0% 50%' });
     sw.forEach(swapStart);
-    var w1 = [wasEl('was-sq2'), wasEl('was-tr2'), wasEl('was-pips2')], w2 = [wasEl('was-hero2')];
+    var w1 = [wasEl('was-sq2'), wasEl('was-tr2')], w2 = [wasEl('was-hero2')];
     gsap.set(w1.concat(w2), { opacity: 1 });
     var a = gsap.timeline({ paused: true })
       .set(rg, { autoAlpha: 1 }, 0)
@@ -582,8 +582,9 @@
   rise([$('#fwA')], { y: 36, start: 'top 96%', dur: 0.8 });
 
   /* =====================================================================
-     TODAY: the lifters who need Sam first, in the app's order, pain first (Priya and Sarah, then Tom's meet, Nina's busy
-     week, Elena over her class, Marcus over plan, the two who wrote). The window has panned to Sam's list: each group is
+     TODAY: the lifters who need Sam first, in the app's order, pain first (the desk v3 list's Need you: Priya and Sarah,
+     then Tom's meet, Elena over her class, Marcus over plan, the two who wrote, Ines running harder than written; a busy
+     week now sits under Quiet). The window has panned to Sam's list: each group is
      ringed and numbered in turn, and its reason lights in the chain beside it (below it on a phone) as its lifters'
      faces arrive. No sentences: the order is the explanation. The list's own figure is the still's.
      ===================================================================== */
