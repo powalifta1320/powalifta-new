@@ -13178,18 +13178,24 @@ function deskQueue(rows, opts) {
     progress: done.length + snoozedRows.length + handled.length + cleared.length };
 }
 // The saved views in the rail. Counts are live: deskViewCount(rows, key).
+// 'check' is Lifters' Check on tab (coach-lifters.js clGroupKey 'need'): it has an address (#roster?view=check)
+// but no rail item, like 'needs' (Today's count).
 const DESK_VIEWS = [
   { key: 'needs', label: 'Needs me' },
+  { key: 'check', label: 'Check on' },
   { key: 'meet', label: 'Meet ≤ 8 wk' },
   { key: 'pain', label: 'Pain' },
   { key: 'quiet', label: 'Quiet 7d+' },
   { key: 'new', label: 'New this month' },
   { key: 'wins', label: 'Wins' }
 ];
+// The reasons that put a lifter under Check on (one list for app.js and coach-lifters.js).
+const DESK_CHECK_RE = /^(pain|weight|offpace|overshoot|drift|note|message|formcheck|checkin|nocheckin|readiness|quiet|never|missed|stalling)$/;
 function deskViewMatch(key, row, nowMs) {
   const now = nowMs || Date.now();
   switch (key) {
     case 'needs': return row.reasons.some(r => r.group <= 8);
+    case 'check': return row.reasons.some(r => DESK_CHECK_RE.test(r.type));
     case 'meet': return !!row.meet && row.meet.days <= 56;
     case 'pain': return row.reasons.some(r => r.type === 'pain');
     case 'quiet': return row.status.ago == null ? !!row.status.program : row.status.ago >= 7;

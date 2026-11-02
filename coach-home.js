@@ -152,6 +152,18 @@
     if ((reason.type === 'note' || reason.type === 'formcheck' || reason.type === 'checkin' || reason.type === 'nocheckin' || reason.type === 'readiness') && reason.detail) text = reason.detail;
     return { text: text, lift: l };
   }
+  // The plan's seats: lifters plus unused invites (an invite holds a seat) against the plan's limit; null on an
+  // unlimited plan. Home's Lifters tile and Today's business line (coach-lifters.js) read the same numbers.
+  function seatsNow() {
+    try {
+      var me = typeof user !== 'undefined' && user ? user : (typeof _dkUser === 'function' ? _dkUser() : null);
+      if (typeof getCurrentTierLimit === 'function' && typeof getAthleteCount === 'function' && me) {
+        var lim = getCurrentTierLimit(), used = getAthleteCount(me.id) + (typeof getPendingInviteCount === 'function' ? getPendingInviteCount(me.id) : 0);
+        if (lim < 9999) return { limit: lim, used: used, near: used >= Math.floor(lim * 0.8) };
+      }
+    } catch (e) {}
+    return null;
+  }
   function model() {
     var R = rows(), all = R.rows, q = R.q;
     var now = Date.now();
@@ -171,14 +183,7 @@
     var prs = all.filter(function (r) { return (r.wins || []).some(function (w) { return w.type === 'pr'; }); });
     var peaking = withMeet.filter(function (r) { return r.meet.days <= 56; });
     var onPlan = all.filter(function (r) { return !(r.reasons || []).length; });
-    var seats = null;
-    try {
-      var me = typeof user !== 'undefined' && user ? user : (typeof _dkUser === 'function' ? _dkUser() : null);
-      if (typeof getCurrentTierLimit === 'function' && typeof getAthleteCount === 'function' && me) {
-        var lim = getCurrentTierLimit(), used = getAthleteCount(me.id) + (typeof getPendingInviteCount === 'function' ? getPendingInviteCount(me.id) : 0);
-        if (lim < 9999) seats = { limit: lim, used: used, near: used >= Math.floor(lim * 0.8) };
-      }
-    } catch (e) { seats = null; }
+    var seats = seatsNow();
     var queue = q ? q.queue.slice() : all.filter(function (r) { return r.reasons.length; });
     var handled = q ? q.handled : [];
     var need = queue.map(function (r) { return { r: r, fix: fixFor(r), met: metricFor(r), why: whyFor(r), handled: handled.indexOf(r) >= 0 }; });
@@ -396,5 +401,5 @@
     return true;
   }
 
-  window.CoachHome = { model: model, renderDesk: renderDesk, renderPhone: renderPhone, refresh: refresh, fixFor: fixFor, message: message, openLifter: openLifter };
+  window.CoachHome = { model: model, renderDesk: renderDesk, renderPhone: renderPhone, refresh: refresh, fixFor: fixFor, message: message, openLifter: openLifter, seats: seatsNow };
 })();

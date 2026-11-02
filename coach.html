@@ -1011,14 +1011,32 @@ async function renderJoinRequests(host) {
   if (!_desk()) fillNewLifters(host);
   else document.querySelectorAll('#rosterArea .nl-slot').forEach(fillNewLifters);
 }
-// The section into a host: the phone's top of Lifters (.nl-host), the laptop's list column (coach-lifters.js .nl-slot).
+// The section into a host: the phone's top of Lifters (.nl-host). The laptop's list column (coach-lifters.js .nl-slot,
+// 2 Nov) takes one slim row instead ("2 new lifters waiting · Jonas, Mia ›"), which opens them: openNewLifters.
 function fillNewLifters(host) {
   if (!host) return;
   host.innerHTML = '';
   const apps = window.ClientsUI && ClientsUI.leads ? ClientsUI.leads() : [];
   const reqs = window._joinReqs || [];
   if (!reqs.length && !apps.length) return;
+  if (_desk() && host.classList.contains('nl-slot') && window.CoachLifters && CoachLifters.newLiftersRowHtml) { host.innerHTML = CoachLifters.newLiftersRowHtml(reqs, apps); return; }
   host.appendChild(_newLiftersSection(reqs, apps));
+}
+// The laptop's New lifters (Lifters' row, Today's business line): one application opens its sheet straight away; more,
+// or a join request, open as a list of the same rows the phone shows (an application opens its sheet, a join request
+// keeps Accept and Decline), each line held to two. The list closes before an application's sheet opens over it.
+function openNewLifters() {
+  const apps = window.ClientsUI && ClientsUI.leads ? ClientsUI.leads() : [];
+  const reqs = window._joinReqs || [];
+  if (!reqs.length && apps.length === 1) { ClientsUI.openLead(apps[0].id); return; }
+  if (!reqs.length && !apps.length) return;
+  uiSheet('New lifters', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, (reqs.length + apps.length) + ' waiting, the soonest meet first.'));
+    const sec = _newLiftersSection(reqs, apps);
+    const head = sec.querySelector('.ca-h'); if (head) head.remove();
+    sec.querySelectorAll('.nl-lead').forEach(b => b.addEventListener('click', () => close(), true));
+    sheet.appendChild(sec);
+  }, { cls: 'nl-sheet' });
 }
 function _newLiftersSection(reqs, apps) {
   const t = todayISO();

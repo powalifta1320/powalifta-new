@@ -672,8 +672,8 @@ function dkBuildRail() {
 
   var views = el('div', { class: 'dk-views', role: 'group', 'aria-label': 'Saved views' });
   views.appendChild(el('div', { class: 'dk-sub' }, 'Views'));
-  // "Needs you" is Today's count: not a second time here.
-  DESK_VIEWS.filter(function (v) { return v.key !== 'needs'; }).forEach(function (v) {
+  // "Needs you" is Today's count, and Check on is a tab on Lifters: not a second time here.
+  DESK_VIEWS.filter(function (v) { return v.key !== 'needs' && v.key !== 'check'; }).forEach(function (v) {
     var b = el('button', { class: 'dk-item dk-view', type: 'button', 'data-view': v.key });
     b.appendChild(el('span', { class: 'dk-item-label' }, v.label));
     b.appendChild(el('span', { class: 'dk-count', 'data-vcount': v.key }));
