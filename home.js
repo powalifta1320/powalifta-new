@@ -109,6 +109,8 @@
       if (!l.offsetParent) return null;   // not in the bar at this width (Lifters on a tablet)
       /* Today starts at its first words (on a laptop with motion they sit beside Arjun's phone, above the row). */
       if (id === 'today') { var t = r($('#today')), c = r($('.land-copy')), w = r($('#who')); return [Math.min(t[0], c[0]), w[1]]; }
+      /* For lifters runs on through its last word, the band for those training on their own. */
+      if (id === 'lifters') { var s = $('#solo'); return [r($('#lifters'))[0], r(s || $('#lifters'))[1]]; }
       return r(document.getElementById(id));
     });
   }
@@ -626,6 +628,8 @@
     var b1 = onState(p1, { trigger: lfPr, start: 'center 62%' }), b2 = onState(p2, { trigger: lfProg, start: 'bottom 92%' });
     return function () { b1.kill(); b2.kill(); p1.kill(); p2.kill(); };
   });
+  /* Training on your own: the band's line and its link rise as it arrives. */
+  rise([$('.solo-in p'), $('.solo-in .quiet')], { trigger: '.solo', start: 'top 94%', stagger: 0.08 });
 
   /* =====================================================================
      MOVING OVER: the three steps tick in, one after another (the number, then its line); the import's preview rises

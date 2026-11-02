@@ -530,6 +530,13 @@ html.m .lf-l { display: block; position: absolute; z-index: 2; left: calc(var(--
 .lf-d { padding: 0.3333em 0.8em; border-radius: 999px; background: rgba(52, 217, 130, 0.14); color: #34d982; font-family: var(--font-body); font-size: calc(15 * var(--u)); font-weight: 750; line-height: 1.6; letter-spacing: -0.005em; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lf-line { width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u)); max-width: none; }
 
+/* FREE FOR SOLO LIFTERS: one calm band, the line and its link side by side. */
+.s-home .solo { padding: 26px 0 28px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.solo-in { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; }
+.solo-in p { font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.5; color: var(--text-2); text-wrap: pretty; }
+.solo-in b { font-weight: 700; color: var(--text); }
+.solo-in .quiet { font-size: clamp(16px, 0.9rem + 0.22vw, 17px); }
+
 /* =====================================================================
    MOVING OVER, AND THE MONEY (dark).
    ===================================================================== */
@@ -824,6 +831,8 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .lifter-copy .lead { margin-top: var(--s2); }
   .lf-try { margin-top: var(--s3); }
   .lf-phones { grid-row: 2; flex-direction: column; align-items: center; gap: var(--s5); --pw: min(250px, 64vw); }
+  .s-home .solo { padding: 22px 0 24px; }
+  .solo-in p { font-size: 16px; }
   .mp { margin: 0 auto; }
   .side-board { padding-bottom: 0; }
   .step-i { grid-template-columns: 34px minmax(0, 1fr); column-gap: 14px; padding: 14px 0 16px; }
