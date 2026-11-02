@@ -464,12 +464,26 @@
     if (key === 'wins') return (r.wins || []).length > 0;
     return false;
   }
-  // The Meet view's number at the end of a row: the countdown. → { text, unit, tone: 'meet', title }
-  function clMeetNumber(r) {
-    var d = r.meet ? r.meet.days : null;
-    if (d == null) return { text: '—', unit: '', tone: 'none', title: 'No meet planned' };
-    return { text: d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : String(d), unit: d > 1 ? 'days' : '', tone: 'meet', title: (r.meet.meet.name || 'Meet') + ' ' + daysText(d) };
+  // A view's own number at the end of a row: Meet soon the countdown, Pain the score out of 10, Quiet the days since the
+  // last session; null elsewhere (the 4-week strength change). → { text, unit, tone, title }
+  function clViewNumber(r, view) {
+    var st = r.status || {};
+    if (view === 'meet') {
+      var d = r.meet ? r.meet.days : null;
+      if (d == null) return { text: '—', unit: '', tone: 'none', title: 'No meet planned' };
+      return { text: d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : String(d), unit: d > 1 ? 'days' : '', tone: 'meet', title: (r.meet.meet.name || 'Meet') + ' ' + daysText(d) };
+    }
+    if (view === 'pain') {
+      var pb = painBits(st);
+      return pb && pb.sev != null ? { text: String(pb.sev), unit: '/10', tone: 'pain', title: pb.part + ' ' + pb.sev + '/10' } : { text: '—', unit: '', tone: 'none', title: 'Pain on the check-in, no score' };
+    }
+    if (view === 'quiet') {
+      if (st.ago == null) return { text: 'Never', unit: '', tone: 'quiet', title: 'No sets logged yet' };
+      return { text: String(st.ago), unit: st.ago === 1 ? 'day' : 'days', tone: 'quiet', title: plural(st.ago, 'day') + ' since the last session' };
+    }
+    return null;
   }
+  function clMeetNumber(r) { return clViewNumber(r, 'meet'); }
   // Each tab's count, from the same rows the list draws. → { check, meet, pain, quiet, new, wins, all }
   function clTabCounts(rows, now) {
     var out = { all: (rows || []).length };
@@ -479,11 +493,12 @@
   function timesWord(n) { return n === 2 ? 'twice' : n + ' times'; }
   // The line under a name inside a view: the view's question, answered for this lifter, most important first (a row is
   // one line, so what the row can't hold is the least of it; the whole line is the row's tooltip). null: the usual line.
-  //   meet  "1.4 kg over · no openers · State Championships": only what's wrong (over the class; no attempts inside 3 weeks,
-  //         Home's rule), then the meet; on weight with time to go, just "Autumn Classic". The countdown is the row's number
-  //         in this view (clMeetNumber), so the line keeps its room for the problems.
-  //   pain  "Low back 6/10 · twice this week · deadlift"
-  //   quiet "Last trained 9 days ago"
+  // In these three views the row's number is the view's own (clViewNumber: the countdown, the score, the days quiet), so
+  // the line keeps its room for the rest:
+  //   meet  "1.4 kg over · no openers · State Championships": only what's wrong (over the class; no attempts inside 3
+  //         weeks, Home's rule), then the meet; on weight with time to go, just "Autumn Classic".
+  //   pain  "Low back · twice this week · deadlift"
+  //   quiet "Last trained Oct 21"
   function clViewLine(r, view) {
     var st = r.status || {};
     if (view === 'meet' && r.meet) {
@@ -495,13 +510,13 @@
     }
     if (view === 'pain') {
       var pb = painBits(st);
-      if (pb) return pb.part + (pb.sev != null ? ' ' + pb.sev + '/10' : '') + (pb.count >= 2 ? ' · ' + timesWord(pb.count) + ' this week' : '') + (pb.lift ? ' · ' + pb.lift.toLowerCase() : '');
+      if (pb) return pb.part + (pb.count >= 2 ? ' · ' + timesWord(pb.count) + ' this week' : '') + (pb.lift ? ' · ' + pb.lift.toLowerCase() : '');
       if ((r.reasons || []).some(function (x) { return x.type === 'pain'; })) return 'Said yes to pain on the check-in';
       return null;
     }
     if (view === 'quiet') {
       if (st.ago == null) return st.program ? 'No sets logged yet' : null;
-      return st.ago <= 0 ? 'Trained today' : 'Last trained ' + plural(st.ago, 'day') + ' ago';
+      return st.lastDate ? 'Last trained ' + dayMonth(st.lastDate) : 'Last trained ' + plural(st.ago, 'day') + ' ago';
     }
     if (view === 'wins' && (r.wins || []).length) return r.wins.map(function (w) { return w.text; }).join(' · ');
     return null;
@@ -509,7 +524,9 @@
   // The team at a glance, every lifter in exactly one lane, worst first: Need you (anything the coach decides on, a block
   // to write included), Quiet (nothing but going quiet, 7 days or more), Meet in 8 weeks (on plan for a meet), On plan.
   // A lane opens Lifters on the tab that holds its faces (Need you → Check on, the rest by name; On plan → All).
-  var LANES = [{ key: 'need', title: 'Need you', tab: 'check' }, { key: 'meet', title: 'Meet in 8 weeks', tab: 'meet' }, { key: 'plan', title: 'On plan', tab: null }, { key: 'quiet', title: 'Quiet', tab: 'quiet' }];
+  // Peaking: a meet in 8 weeks and nothing for the coach (a lifter in Need you with a meet counts there, so the lane is
+  // never "Meet in 8 weeks", which the Meets card counts whole).
+  var LANES = [{ key: 'need', title: 'Need you', tab: 'check' }, { key: 'meet', title: 'Peaking', tab: 'meet' }, { key: 'plan', title: 'On plan', tab: null }, { key: 'quiet', title: 'Quiet', tab: 'quiet' }];
   function clLaneKey(r) {
     var g = clGroupKey(r);
     if (g === 'need') {
@@ -533,11 +550,11 @@
     by.plan.sort(name);
     return LANES.map(function (l) { return { key: l.key, title: l.title, tab: l.tab, rows: by[l.key] }; });
   }
-  // A face's ring: its lane, pain in coral. → 'pain' | 'need' | 'meet' | 'quiet' | ''
+  // A face's ring says one of two statuses, wherever the face is: pain (coral) or gone quiet, 7 days or more (dashed).
+  // Everything else has none (a lane, a tab or the line already says it). → 'pain' | 'quiet' | ''
   function clRingOf(r) {
-    var k = clLaneKey(r);
-    if (k === 'need') return (r.reasons || []).some(function (x) { return x.type === 'pain'; }) ? 'pain' : 'need';
-    return k === 'plan' ? '' : k;
+    if ((r.reasons || []).some(function (x) { return x.type === 'pain'; })) return 'pain';
+    return quietView(r) ? 'quiet' : '';
   }
   // Where everyone is in their block, on one shared window of weeks (opts.back before this week, opts.weeks in all), from
   // app.js calendarRows (a block's dates) and calendarBarMeet (the meet it counts down to). Soonest meet first, then the
@@ -576,7 +593,7 @@
     return { from: from, weeks: W, back: back, now: xOf(t), lines: lines };
   }
   // The business, one quiet line: what the packages bring in a month, who is overdue, who wants to train with you, the
-  // plan's seats. A part with nothing to say is left out (no packages yet: no money). o: { summary (clients.js
+  // plan's seats left (an unused invite holds one). A part with nothing to say is left out (no packages yet: no money). o: { summary (clients.js
   // clientsSummary), money (cents, currency → text), apps (applications waiting), joins (join requests), seats: { used, limit } }
   // → [{ key: 'money' | 'overdue' | 'apps' | 'seats', text }]
   function clBusiness(o) {
@@ -586,7 +603,7 @@
     if (sm && sm.overdue && sm.overdue.n > 0) out.push({ key: 'overdue', text: sm.overdue.n + ' overdue' });
     var apps = Number(o.apps) || 0, joins = Number(o.joins) || 0;
     if (apps + joins) out.push({ key: 'apps', text: !joins ? plural(apps, 'application') + ' waiting' : !apps ? plural(joins, 'join request') : (apps + joins) + ' new lifters waiting' });
-    if (o.seats && o.seats.limit > 0) out.push({ key: 'seats', text: o.seats.used + ' of ' + o.seats.limit + ' seats' });
+    if (o.seats && o.seats.limit > 0) { var left = Math.max(0, o.seats.limit - o.seats.used); out.push({ key: 'seats', text: left ? plural(left, 'seat') + ' left' : 'No seats left' }); }
     return out;
   }
 
@@ -1163,7 +1180,8 @@
     return '<div class="cl-meetcard' + (rise || '') + '"><span class="cl-tic">' + ic('trophy') + '</span>' +
       '<span class="cl-mc-id"><b>' + esc(clip(m.name || 'Meet', 40)) + '</b><span>' + esc(dateShort(m.date)) + '</span></span>' +
       '<span class="cl-mc-n"><b>' + (d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : d) + '</b>' + (d > 1 ? '<span>days</span>' : '') + '</span>' + bw +
-      '<button type="button" class="cl-sbtn cl-mc-plan" data-plan="' + esc(a.id) + '">' + (planned ? ic('check', 2.4) + 'Attempts set' : 'Set attempts') + '</button></div>';
+      (planned ? '<button type="button" class="cl-quiet cl-mc-plan is-set" data-plan="' + esc(a.id) + '" title="Open the attempt plan"><i aria-hidden="true"></i>Attempts set</button>'
+        : '<button type="button" class="cl-sbtn cl-mc-plan" data-plan="' + esc(a.id) + '">Set attempts</button>') + '</div>';
   }
   // The Pain view's lead on a lifter's laptop page: where it hurts and the score out of 10 (a ten-step meter), the lift,
   // when in the session, the day, and how often this week; a check-in's yes when there's no report. acts: the flag's own
@@ -1261,7 +1279,7 @@
   function emptyCard(cls, title, win, head, sub) { return '<div class="cl-card ' + cls + ' is-empty">' + cardHead(title, win) + '<p class="cl-card-none"><b>' + esc(head) + '</b>' + esc(sub) + '</p></div>'; }
   // Every lifter at a glance: four lanes (Need you, Meet in 8 weeks, On plan, Quiet), a big count and the faces in each.
   function rosterCardHtml(lanes, n) {
-    return '<div class="cl-card cl-c-roster">' + cardHead('Roster', plural(n, 'lifter')) + '<div class="cl-lanes">' + lanes.map(function (L) {
+    return '<div class="cl-card cl-c-roster">' + cardHead('Roster', plural(n, 'lifter') + ', each once') + '<div class="cl-lanes">' + lanes.map(function (L) {
       var cap = 14, faces = L.rows.length > cap + 1 ? L.rows.slice(0, cap) : L.rows, more = L.rows.length - faces.length;
       var names = L.rows.map(function (r) { return first(r.athlete.name); });
       return '<button type="button" class="cl-lane k-' + L.key + '" data-golist="' + esc(L.tab || '') + '" aria-label="' + esc(L.title + ': ' + L.rows.length + (names.length ? ', ' + namesList(names, 6) : '') + '. Show them on Lifters') + '">' +
@@ -1286,10 +1304,10 @@
   }
   function weekCardHtml(T) {
     var tr = T.training;
-    if (!tr.planned) return emptyCard('cl-c-week', 'This week', 'Last 7 days', 'No blocks running', 'Sessions land here as they’re logged.');
+    if (!tr.planned) return emptyCard('cl-c-week', 'Training', 'Last 7 days', 'No blocks running', 'Sessions land here as they’re logged.');
     var pct = tr.done / tr.planned * 100;
     var foot = tr.behind.length ? 'Behind: ' + nameBtns(tr.behind, 3, function (x) { return first(x.r.athlete.name) + ' ' + x.n + '/' + x.p; }) : 'Everyone on track';
-    return cardHtml({ cls: 'cl-c-week', title: 'This week', win: 'Last 7 days', go: 'data-golist="check"', num: String(tr.done), unit: 'of ' + tr.planned + ' sessions', aside: ringHtml(pct), pic: weekPicHtml(tr), foot: foot,
+    return cardHtml({ cls: 'cl-c-week', title: 'Training', win: 'Last 7 days', go: 'data-golist="check"', num: String(tr.done), unit: 'of ' + tr.planned + ' sessions', aside: ringHtml(pct), pic: weekPicHtml(tr), foot: foot,
       aria: tr.done + ' of ' + tr.planned + ' sessions in the last 7 days. ' + (tr.behind.length ? tr.behind.length + ' behind' : 'Everyone on track') + '. Show who to check on' });
   }
   // Where the sets landed against what was written: easier, under, as written, half a point over, a point or more over.
@@ -1324,12 +1342,13 @@
     return cardHtml({ cls: 'cl-c-strength', title: 'Strength', win: '4 weeks', go: 'data-golist=""', num: String(sg.up), unit: 'of ' + sg.n + ' stronger', pic: lifts ? liftsPicHtml(lifts) : '', foot: foot,
       aria: sg.up + ' of ' + sg.n + ' lifters stronger than 4 weeks ago' + (sg.prs.length ? ', ' + plural(sg.prs.length, 'PR') + ' this week' : '') + '. Show everyone' });
   }
-  function meetsCardHtml(T) {
+  function meetsCardHtml(T, skip) {
     var mt = T.meets;
     if (!mt.list.length) return emptyCard('cl-c-meets', 'Meets', 'Next 8 weeks', 'No meets in 8 weeks', 'Plan one from a lifter’s page and it counts down here.');
     var marks = [];
     mt.list.forEach(function (g) { g.rows.forEach(function (r) { marks.push({ x: Math.min(56, Math.max(0, g.days)) / 56, r: r, title: r.athlete.name + ': ' + g.name + ', ' + daysText(g.days) }); }); });
-    var nx = mt.next, who = nx.rows.map(function (r) { return first(r.athlete.name); });
+    var key = function (g) { return String(g.name || '').trim().toLowerCase() + '|' + String(g.date || '').slice(0, 10); };
+    var nx = mt.list.filter(function (g) { return !(skip || {})[key(g)]; })[0] || mt.next, who = nx.rows.map(function (r) { return first(r.athlete.name); });
     var foot = esc((nx.days <= 0 ? 'Today: ' : nx.days === 1 ? 'Tomorrow: ' : 'Next: ') + nx.name + (nx.days > 1 ? ' in ' + nx.days + ' days' : '') + ' · ' + namesList(who, 3));
     return cardHtml({ cls: 'cl-c-meets', title: 'Meets', win: 'Next 8 weeks', go: 'data-golist="meet"', num: String(mt.lifters), unit: (mt.lifters === 1 ? 'lifter' : 'lifters') + ' in ' + plural(mt.list.length, 'meet'),
       pic: trackHtml({ tone: 'meet', marks: marks, ticks: [1, 2, 3, 4, 5, 6, 7].map(function (w) { return w / 8; }), labels: [[0, 'Today'], [0.5, '4 weeks'], [1, '8 weeks']] }), foot: foot,
@@ -1383,9 +1402,11 @@
     if (typeof deskGo === 'function') deskGo('roster', { view: null });
   }
   function teamHtml(M, X) {
-    var n = M.rows.length;
+    var n = M.rows.length, skip = {};
+    // a meet today that Do first already leads with: the Meets card's line names the next one
+    (X.doFirst || []).forEach(function (it) { if (it.type === 'meetday' && it.meet) skip[String(it.meet.name || 'Meet').trim().toLowerCase() + '|' + String(it.meet.date || '').slice(0, 10)] = 1; });
     return '<div class="cl-sh"><h2>Your team</h2><span class="cl-sh-end">' + (window.CoachReportUI && n ? CoachReportUI.entryHtml() : '') + (window.WeeklyNote ? WeeklyNote.todayEntryHtml(M.rows) : '') + '</span></div>' +
-      '<div class="cl-team-grid">' + rosterCardHtml(X.lanes, n) + weekCardHtml(X.T) + effortCardHtml(X.T, X.bins) + strengthCardHtml(X.T, X.lifts) + meetsCardHtml(X.T) + seasonCardHtml(X.season, n) + '</div>' + bizHtml(X.biz);
+      '<div class="cl-team-grid">' + rosterCardHtml(X.lanes, n) + weekCardHtml(X.T) + effortCardHtml(X.T, X.bins) + strengthCardHtml(X.T, X.lifts) + meetsCardHtml(X.T, skip) + seasonCardHtml(X.season, n) + '</div>' + bizHtml(X.biz);
   }
   // Your list: every job but Do first's, most urgent first, one line each (face, name, the kind's mark and why, one quiet
   // fix), tabs by kind; 8 shown, then all; done jobs last.
@@ -1427,6 +1448,7 @@
     var doFirst = urgent.slice(0, 3);
     var rest = M.open.filter(function (it) { return doFirst.indexOf(it) < 0; });
     var X = teamModel(M);
+    X.doFirst = doFirst;
     var total = M.jobs.length, pct = total ? Math.round(M.done / total * 100) : 0;
     var rz = function (i) { return firstPaint ? ' rise" style="--i:' + i : ''; };
     var date = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
@@ -1478,8 +1500,8 @@
   // A row: the face (its ring is the lifter's lane, pain in coral), the name, one line, the 4-week strength change.
   // Inside a view the line answers the view's question (clViewLine). The whole line is the row's tooltip.
   function deskRowHtml(r, o, M) {
-    var a = r.athlete, top = M ? clTopJob(r, M.jobs) : null, meetV = !!(M && M.view === 'meet' && r.meet);
-    var n = meetV ? clMeetNumber(r) : clNumber(r), nUnit = meetV ? n.unit : (n.tone !== 'none' ? unit() : '');
+    var a = r.athlete, top = M ? clTopJob(r, M.jobs) : null, vn = M && M.view ? clViewNumber(r, M.view) : null, meetV = !!vn;
+    var n = vn || clNumber(r), nUnit = vn ? n.unit : (n.tone !== 'none' ? unit() : '');
     var line = (M && M.view && clViewLine(r, M.view)) || clLine(r, top);
     var ring = clRingOf(r), sel = o.sel === a.id;
     return '<button type="button" class="cl-row' + (sel ? ' is-sel' : '') + '" data-id="' + esc(a.id) + '" role="option" aria-selected="' + (sel ? 'true' : 'false') + '" tabindex="' + (sel ? '0' : '-1') + '" title="' + esc(a.name + ': ' + (meetV ? n.title + ' · ' : '') + line) + '">' +
@@ -1495,8 +1517,8 @@
       }
       return '<p class="cl-none">' + (M.view === 'pain' ? 'Nobody in pain.' : M.view === 'quiet' ? 'Nobody quiet for a week.' : M.view === 'meet' ? 'No meets in the next 8 weeks.' : M.view === 'check' ? 'Nobody to check on.' : 'No lifters here.') + '</p>';
     }
-    return M.groups.map(function (g) {
-      return '<div class="cl-grp">' + (g.title ? '<h2 class="cl-gh">' + esc(g.title) + ' <span>' + g.rows.length + '</span></h2>' : '') +
+    return M.groups.map(function (g, gi) {
+      return '<div class="cl-grp">' + (g.title ? '<h2 class="cl-gh">' + esc(g.title) + ' <span>' + g.rows.length + '</span>' + (gi === 0 ? '<span class="cl-gh-end">4-week change</span>' : '') + '</h2>' : '') +
         '<div class="cl-list">' + g.rows.map(function (r) { return deskRowHtml(r, { sel: S.sel }, M); }).join('') + '</div></div>';
     }).join('');
   }
@@ -1532,15 +1554,12 @@
         ticks: [1, 2, 3, 4, 5, 6, 7].map(function (w) { return w / 8; }), labels: [[0, 'Today'], [0.5, '4 weeks'], [1, '8 weeks']] });
       aria = rows.length + ' lifters with a meet in the next 8 weeks. Next: ' + (first0.meet.meet.name || 'Meet') + ' ' + daysText(first0.meet.days);
     } else if (v === 'pain') {
-      var worst = null;
-      var marks = rows.map(function (r) {
-        var pb = painBits(r.status || {}), sev = pb && pb.sev != null ? Number(pb.sev) : null;
-        if (sev != null && (!worst || sev > worst.sev)) worst = { sev: sev, pb: pb, r: r };
-        return { x: sev == null ? 0 : 0.12 + 0.88 * sev / 10, r: r, title: r.athlete.name + ': ' + (pb ? pb.part + (sev != null ? ' ' + sev + '/10' : '') : 'pain on the check-in') };
-      });
-      head = '<b>' + rows.length + '</b><span>in pain' + (worst ? ' · worst ' + esc(worst.pb.part.toLowerCase()) + ' ' + worst.sev + '/10' : '') + '</span>';
-      body = trackHtml({ tone: 'pain', marks: marks, zone: [0.12 + 0.88 * 0.7, 1], ticks: [0.12, 0.12 + 0.88 * 0.5], labels: [[0, 'Check-in'], [0.12 + 0.88 * 0.5, '5'], [0.12 + 0.88 * 0.7, '7'], [1, '10']] });
-      aria = rows.length + ' in pain';
+      var parts = rows.map(function (r) { var pb = painBits(r.status || {}); return { r: r, t: pb ? pb.part + (pb.sev != null ? ' ' + pb.sev + '/10' : '') : 'On the check-in' }; });
+      head = '<b>' + rows.length + '</b><span>in pain</span>';
+      body = '<div class="cl-pchips">' + parts.map(function (x) {
+        return '<button type="button" class="cl-pchip" data-pick="' + esc(x.r.athlete.id) + '" title="' + esc(x.r.athlete.name + ': ' + x.t) + '"><span class="cl-face ring-pain">' + avHtml(x.r.athlete) + '</span><span>' + esc(x.t) + '</span></button>';
+      }).join('') + '</div>';
+      aria = rows.length + ' in pain: ' + parts.map(function (x) { return first(x.r.athlete.name) + ', ' + x.t; }).join('; ');
     } else {
       var X = function (r) { var a = r.status.ago; return a == null ? 1 : Math.min(21, a) / 21 * 0.88; };
       head = '<b>' + rows.length + '</b><span>quiet a week or more</span>';
@@ -1877,6 +1896,6 @@
     clRing: clRing, clTier: clTier, clJobs: clJobs, clTopJob: clTopJob, clTeam: clTeam, clWeeks: clWeeks, clEffort: clEffort, clBw: clBw,
     clGroups: clGroups, clGroupKey: clGroupKey, clLine: clLine, clNumber: clNumber, clWords: clWords, jobText: jobText, toWriteOf: toWriteOf,
     // the desk, v3 (2 Nov): Lifters' tabs and views, New lifters' row, the team's lanes and season, the business line
-    setView: setView, newLiftersRowHtml: newLiftersRowHtml, clTabCounts: clTabCounts, clViewLine: clViewLine, clMeetNumber: clMeetNumber, clLanes: clLanes, clLaneKey: clLaneKey, clRingOf: clRingOf,
+    setView: setView, newLiftersRowHtml: newLiftersRowHtml, clTabCounts: clTabCounts, clViewLine: clViewLine, clViewNumber: clViewNumber, clMeetNumber: clMeetNumber, clLanes: clLanes, clLaneKey: clLaneKey, clRingOf: clRingOf,
     clSeason: clSeason, clBusiness: clBusiness };
 })();
