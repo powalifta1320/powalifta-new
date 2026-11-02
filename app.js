@@ -3160,6 +3160,7 @@ function persistProgram(programId) { if (typeof window.deskOnPersist === 'functi
     delete _persistTimers['prog_' + programId];   // no longer waiting (the live merge reads this)
     const prog = Store.get().programs.find(p => p.id === programId);
     if (!prog) return;
+    if (DRAFTS_ON) keepWeeksDraftsTrailing(prog.weeks);   // drafts stay trailing, whichever path wrote the weeks
     _progSaving[programId] = (_progSaving[programId] || 0) + 1;   // the live merge reads this too
     try { await DB.upsertProgram(prog); }
     catch (e) {
@@ -8214,12 +8215,18 @@ function getProgramForAthlete(athleteId) {
   return Store.get().programs.find(p => p.athleteId === athleteId);
 }
 // ===== DRAFT WEEKS (2 Nov 2026, the desk's program editor; the owner's poll: "When I press Publish") =====
+// DRAFTS_ON: off until the iPhone app build that carries liftProgram / liftWeeks is live in the App Store (the
+// shipped app reads every week, so it would show a coach's draft). While off nothing makes a draft (Write week, +
+// and Copy write live weeks, as before), the crimson never offers Publish, and a stray draft flag is ignored
+// everywhere (weekIsDraft is false): the hiding, the merge, the counts and both builders' draft UI are inert.
+// Turning drafts on is this one constant. (tests.html covers both states.)
+var DRAFTS_ON = false;
 // A week the coach wrote but hasn't published carries draft: true inside programs.weeks. Old weeks carry no
 // flag: published, so nothing needs a migration. Only trailing weeks can be drafts (publishing week N
 // publishes every draft before it), so hiding them never shifts an earlier week's index: set logging patches
 // by id, and the lifter's screens count weeks by index. Hidden by the app, not the database (a lifter can read
 // their own program row), which is fine: a draft is the coach's working copy, not a secret.
-function weekIsDraft(w) { return !!(w && w.draft === true); }
+function weekIsDraft(w) { return !!(DRAFTS_ON && w && w.draft === true); }
 // The weeks the lifter sees: the program's weeks without its trailing drafts (the same array when there are none).
 function liftWeeks(prog) {
   const weeks = (prog && prog.weeks) || [];
@@ -8245,6 +8252,7 @@ function publishDraftWeeks(weeks, wi) {
 // Can week wi be a draft? Only when every week after it is a draft already or has nothing written (those
 // become drafts with it, so the drafts stay trailing). A published week with sets after it keeps it live.
 function canDraftWeek(weeks, wi) {
+  if (!DRAFTS_ON) return false;
   const ws = weeks || [];
   for (let i = wi + 1; i < ws.length; i++) if (!weekIsDraft(ws[i]) && _weekHasSets(ws[i])) return false;
   return wi >= 0 && wi < ws.length && !(ws[wi].days || []).some(d => (d.exercises || []).some(e => (e.sets || []).some(s => s.completed || s.skipped || s.missed)));
@@ -8254,6 +8262,30 @@ function draftWeekFrom(weeks, wi) {
   if (!canDraftWeek(weeks, wi)) return false;
   for (let i = wi; i < weeks.length; i++) weeks[i].draft = true;
   return true;
+}
+// One way to add a week at the end of a block, for every path that adds, duplicates or copies one (the desk's +,
+// Write week, Write them; the phone's Add a week and Duplicate week; the previous editor's +): after a draft the new
+// week is a draft too, so drafts stay trailing; opts.draft asks for one. Published otherwise. → the week
+function appendBlockWeek(weeks, week, opts) {
+  const last = weeks[weeks.length - 1];
+  if (DRAFTS_ON && ((opts && opts.draft) || weekIsDraft(last))) week.draft = true; else delete week.draft;
+  weeks.push(week);
+  return week;
+}
+// The trailing rule, kept on every save (persistProgram) whatever path wrote the weeks: a draft before a published
+// week with sets is published (the lifter already sees it: liftWeeks only hides trailing drafts), an empty week
+// after a draft is a draft. Mutates weeks; → how many weeks changed.
+function keepWeeksDraftsTrailing(weeks) {
+  if (!DRAFTS_ON) return 0;
+  const ws = weeks || [];
+  let lastLive = -1, firstDraft = -1, n = 0;
+  ws.forEach((w, i) => { if (!weekIsDraft(w) && _weekHasSets(w)) lastLive = i; });
+  ws.forEach((w, i) => {
+    if (i <= lastLive) { if (weekIsDraft(w)) { delete w.draft; n++; } return; }   // before a live week: it was live already
+    if (firstDraft < 0 && weekIsDraft(w)) firstDraft = i;
+    if (firstDraft >= 0 && !weekIsDraft(w)) { w.draft = true; n++; }               // from the first draft on, all drafts
+  });
+  return n;
 }
 // The coach's week that's written and not published, and when it starts:
 // { idx, number, start ('YYYY-MM-DD' | null), days (until it starts; negative once it has) | null } or null.
@@ -9784,7 +9816,7 @@ function duplicateWeek(programId, weekIdx) {
         }))
       }))
     };
-    p.weeks.push(cloned);
+    appendBlockWeek(p.weeks, cloned);   // after a draft, a draft (drafts stay trailing)
   });
 }
 
@@ -17396,7 +17428,8 @@ function teamMemberWeeks(masterWeeks, memberWeeks, opts) {
   memberWeeks = memberWeeks ? _tmResolveSwaps(memberWeeks) : memberWeeks;
   const weeks = _tmMergeList(masterWeeks, memberWeeks, (mw, wi, xw) => {
     const w = Object.assign({}, xw || {});
-    Object.keys(mw || {}).forEach(k => { if (k !== 'id' && k !== 'days' && k !== 'srcId') w[k] = _tmClone(mw[k]); });
+    Object.keys(mw || {}).forEach(k => { if (k !== 'id' && k !== 'days' && k !== 'srcId' && k !== 'draft') w[k] = _tmClone(mw[k]); });
+    delete w.draft;   // a pushed week is published: the team's push is the coach sending it
     w.id = xw && xw.id != null ? xw.id : uid('wk');
     w.srcId = _tmKey(mw, wi);
     w.days = _tmMergeList(mw.days, xw ? xw.days : null, (md, di, xd) => {
@@ -17471,7 +17504,7 @@ function teamMasterFromProgram(prog, maxes) {
   const linked = _tmClone((prog && prog.weeks) || []);
   const weeks = linked.map(w => {
     const mw = { id: uid('wk'), number: w.number, days: [] };
-    Object.keys(w).forEach(k => { if (!['id', 'days', 'srcId', 'number'].includes(k)) mw[k] = _tmClone(w[k]); });
+    Object.keys(w).forEach(k => { if (!['id', 'days', 'srcId', 'number', 'draft'].includes(k)) mw[k] = _tmClone(w[k]); });   // a lifter's draft isn't the team's
     w.srcId = mw.id;
     mw.days = (w.days || []).map(d => {
       const md = { id: uid('day'), name: d.name, exercises: [] };

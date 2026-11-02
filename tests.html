@@ -8612,6 +8612,10 @@ test('Delete program and Delete template ask in the app’s own words: the name,
    =========================================================== */
 group('desk program (desk-program.js)');
 const DPg = typeof DeskProgram !== 'undefined' ? DeskProgram : (window.DeskProgram || null);
+// Drafts ship switched off (app.js DRAFTS_ON, until the iPhone build that hides them is live): this group checks the
+// drafts as they'll work once on, and the off state on its own; the switch goes back as it was at the group's end.
+const DP_DRAFTS_WAS = DRAFTS_ON;
+DRAFTS_ON = true;
 const dpSet = (o) => Object.assign({ id: 's' + Math.random().toString(36).slice(2, 8), weight: 0, reps: 5, rpe: null, tempo: '', completed: false, actualRpe: null, completedAt: null, note: '' }, o);
 const dpEnv = (o) => Object.assign({ unit: 'kg', show: (kg) => Math.round(kg * 100) / 100, toKg: (v) => v, maxKg: () => 200, estKg: () => 0, nowIdx: 0 }, o || {});
 const dpEx = (lift, sets, o) => Object.assign({ id: 'e' + Math.random().toString(36).slice(2, 8), lift, variant: '', exerciseName: '', note: '', sets }, o || {});
@@ -8874,6 +8878,86 @@ test('the demo’s accessories: after the main lift, logged with it, nothing els
   eq(d[3].exercises.length, 0, 'the rest day rests');
   eq(JSON.stringify(S0.programs[1]) + JSON.stringify(S0.programs[2]), before, 'Marcus and the phone’s four as they were');
 });
+
+test('drafts off (until the iPhone build is live): nothing makes a draft, a stray flag is ignored', () => {
+  const was = DRAFTS_ON; DRAFTS_ON = false;
+  try {
+    const w = (n, o, has) => dpWeek(n, [dpDay('A', has === false ? [] : [dpEx('squat', [dpSet({ weight: 100, completed: !!(o && o.done) })])])], o);
+    const stray = { id: 'S', startsOn: '2026-10-26', weeks: [w(1), w(2, { draft: true })] };
+    eq(weekIsDraft(stray.weeks[1]), false, 'a stray flag is no draft');
+    eq(liftWeeks(stray).length, 2, 'the lifter sees every week');
+    eq(programUnpublished(stray, '2026-11-04'), null, 'no "isn’t published" job');
+    eq(programWeekState({ weeks: [w(1, { done: true }), w(2, { draft: true })] }).sessionsPerWeek, 1, 'planned as usual');
+    if (window.CoachReport && CoachReport.plannedPerWeek) eq(CoachReport.plannedPerWeek([w(1, { done: true }), w(2, { draft: true })]), 1, 'the report plans it too');
+    const W = [w(1), w(2), w(3, {}, false)];
+    const r = DPg.writeWeek(W, 2);
+    assert(r.ok && !r.draft && W[2].draft !== true, 'Write week writes a live week');
+    const A = [w(1)]; DPg.appendWeeks(A, 2);
+    assert(A[1].draft !== true && A[2].draft !== true, '+ and Write them add live weeks');
+    const B = [w(1), w(2, { draft: true })]; appendBlockWeek(B, w(3));
+    assert(B[2].draft !== true, 'no draft inherited');
+    eq(draftWeekFrom([w(1), w(2)], 1), false); eq(keepWeeksDraftsTrailing([w(1, { draft: true }), w(2)]), 0);
+    assert(DPg.crimson({ id: 'X', weeks: stray.weeks }, 'nobody', 1, { sug: null, gap: 0 }).k !== 'publish', 'the crimson never offers Publish');
+    eq(DPg.listStatus({ prog: { name: 'P', weeks: stray.weeks }, week: { idx: 0, number: 1, total: 2 } }).text, '', 'the list never says draft');
+  } finally { DRAFTS_ON = was; }
+});
+test('one way to add a week: after a draft, a draft; the trailing rule kept on save', () => {
+  const w = (n, o) => dpWeek(n, [dpDay('A', [dpEx('squat', [dpSet({ weight: 100 })])])], o);
+  const B = [w(1), w(2, { draft: true })]; appendBlockWeek(B, w(3));
+  eq(B[2].draft, true, 'a week added after a draft is a draft (the phone’s Add a week, Duplicate week, the old +)');
+  const C = [w(1)]; appendBlockWeek(C, w(2)); assert(C[1].draft !== true, 'after a published week, published');
+  const D = [w(1)]; appendBlockWeek(D, w(2), { draft: true }); eq(D[1].draft, true, 'asked for: a draft');
+  const E2 = [w(1, { draft: true }), w(2)];
+  eq(keepWeeksDraftsTrailing(E2), 1); assert(E2[0].draft !== true, 'a draft before a published week is published (the lifter already sees it)');
+  const F = [w(1), w(2, { draft: true }), dpWeek(3, [dpDay('A')])];
+  keepWeeksDraftsTrailing(F); eq(F[2].draft, true, 'an empty week after a draft joins it');
+  resetState();
+  seed({ programs: [{ id: 'PX', athleteId: 'AX', coachId: 'C', name: 'X', weeks: [w(1), w(2, { draft: true })] }] });
+  duplicateWeek('PX', 0);
+  eq(Store.get().programs[0].weeks[2].draft, true, 'app.js duplicateWeek goes through it');
+  resetState();
+});
+test('a team never carries a lifter’s draft; a pushed week is published', () => {
+  const set = (id, o) => Object.assign({ id, weight: 150, reps: 5, rpe: 8, completed: false }, o || {});
+  const wk = (n, o) => Object.assign({ id: 'w' + n, number: n, days: [{ id: 'd' + n, name: 'A', exercises: [{ id: 'e' + n, lift: 'squat', variant: '', exerciseName: '', sets: [set('s' + n)] }] }] }, o || {});
+  const prog = { id: 'P', athleteId: 'L1', name: 'Block', weeks: [wk(1), wk(2), wk(3, { draft: true })] };
+  const r = teamMasterFromProgram(prog, { squat: 200 });
+  assert(r.weeks.every(w => w.draft !== true), 'the team’s weeks have no draft');
+  const m = teamMemberWeeks(r.weeks, null, { maxes: { squat: 220 }, unit: 'kg' });
+  assert(m.weeks.every(w => w.draft !== true), 'a new member’s weeks are published');
+  const mine = JSON.parse(JSON.stringify(m.weeks)); mine[2].draft = true;
+  const again = teamMemberWeeks(r.weeks, mine, { maxes: { squat: 220 }, unit: 'kg' });
+  assert(again.weeks.every(w => w.draft !== true), 'a push publishes the member’s week it writes');
+  const rb = reuseBlockWeeks(prog.weeks, { srcMaxes: { squat: 200 }, dstMaxes: { squat: 180 }, unit: 'kg' });
+  assert(rb.weeks.every(w => w.draft !== true), 'a block reused for another lifter comes published');
+});
+test('the lifter’s other screens never read a draft: busy week, challenges', () => {
+  const set = (id, o) => Object.assign({ id, weight: 100, reps: 5, rpe: 8, completed: false }, o || {});
+  const day = (id, lift, done) => ({ id, name: id, exercises: [{ id: 'e' + id, lift, sets: [set('s' + id, { completed: !!done })] }] });
+  const prog = { id: 'P', athleteId: 'L', weeks: [{ id: 'w1', number: 1, days: [day('a', 'squat', true), day('b', 'bench', true)] },
+    { id: 'w2', number: 2, draft: true, days: [day('c', 'squat'), day('d', 'bench'), day('e', 'deadlift')] }] };
+  if (window.BusyWeek && BusyWeek.sessionsLeft) {
+    eq(BusyWeek.sessionsLeft(prog).sessions.length, 0, 'busy week: the draft’s sessions aren’t theirs to plan');
+    const was = DRAFTS_ON; DRAFTS_ON = false;
+    try { eq(BusyWeek.sessionsLeft(prog).sessions.length, 3, 'drafts off: a stray flag is ignored'); } finally { DRAFTS_ON = was; }
+  }
+  if (window.Challenges && Challenges.sessionsPerWeek) eq(Challenges.sessionsPerWeek(prog), 2, 'challenges: the week they can see');
+});
+test('the crimson, in order: Publish, Take N suggestions, Write week N, Start the next block, else none', () => {
+  const set = (id, o) => Object.assign({ id, weight: 150, reps: 3, rpe: 8, completed: false, actualRpe: null, completedAt: null }, o || {});
+  const wk = (n, st, felt, o) => Object.assign({ id: 'w' + n, number: n, days: st === 'empty' ? [{ id: 'd' + n, name: 'Squat Day', exercises: [] }] : [{ id: 'd' + n, name: 'Squat Day', exercises: [{ id: 'e' + n, lift: 'squat', variant: 'Competition', exerciseName: '', sets: [
+    set('s' + n + 'a', st === 'done' ? { completed: true, actualRpe: felt == null ? 8 : felt, completedAt: '2026-10-28' } : {}),
+    set('s' + n + 'b', Object.assign({ weight: 130, reps: 5, rpe: 7 }, st === 'done' ? { completed: true, actualRpe: 7, completedAt: '2026-10-28' } : {}))] }] }] }, o || {});
+  const P = (weeks) => ({ id: 'P', athleteId: 'L', name: 'Strength', weeks });
+  eq(DPg.crimson(P([wk(1, 'done'), wk(2, 'open'), wk(3, 'open', null, { draft: true })]), 'L', 2, { gap: 0 }).k, 'publish', 'a draft: Publish week 3 first');
+  const t = DPg.crimson(P([wk(1, 'done', 9.5), wk(2, 'open'), wk(3, 'open')]), 'L', 0, { gap: 0 });
+  eq(t.k, 'take'); eq(t.label, 'Take 1 suggestion'); eq(t.wi, 1, 'for the week about to be trained');
+  eq(DPg.crimson(P([wk(1, 'done'), wk(2, 'open'), wk(3, 'empty')]), 'L', 1, { sug: null, gap: 0 }).label, 'Write week 3', 'an unwritten week in the block');
+  eq(DPg.crimson(P([wk(1, 'done'), wk(2, 'open')]), 'L', 1, { sug: null, gap: 2 }).label, 'Write week 3', 'up to the meet');
+  eq(DPg.crimson(P([wk(1, 'done'), wk(2, 'done')]), 'L', 1, { sug: null, gap: 0 }).k, 'block', 'a finished block: the next block');
+  eq(DPg.crimson(P([wk(1, 'done'), wk(2, 'open'), wk(3, 'open')]), 'L', 1, { sug: null, gap: 0 }).k, 'none', 'written ahead: no red');
+});
+DRAFTS_ON = DP_DRAFTS_WAS;
 
 /* ===========================================================
    Data scale (2026-10-28): the roster's sets indexed per lifter, the per-lifter memos, the snapshot's

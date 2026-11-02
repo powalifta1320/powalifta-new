@@ -96,7 +96,7 @@ var Challenges = (function () {
   // A program's sessions a week (app.js programWeekState's count): the days with sets in the week
   // being trained (the first with a set still to do), else the last.
   function sessionsPerWeek(program) {
-    var weeks = (program && program.weeks) || [];
+    var weeks = typeof liftWeeks === 'function' ? liftWeeks(program) : ((program && program.weeks) || []);   // never a coach's draft
     if (!weeks.length) return 0;
     var work = function (w) { return ((w && w.days) || []).filter(function (d) { return (d.exercises || []).some(function (e) { return (e.sets || []).length; }); }); };
     var idx = -1;

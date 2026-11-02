@@ -3349,12 +3349,13 @@ function dkWsApply(aid) {
     var pr = (s.programs || []).find(function (x) { return x.id === prog.id; });
     if (!pr) return;
     n = deskApplyNextWeek(pr.weeks, rev.nextIdx, edits);
-    if (typeof publishDraftWeeks === 'function') publishDraftWeeks(pr.weeks, rev.nextIdx);   // Publish week N: a draft no more
     // A swap (pain on the lift) changes the exercise itself, not only its sets.
     edits.forEach(function (e) { var ex = e.variant && pr.weeks[rev.nextIdx].days[e.di] && pr.weeks[rev.nextIdx].days[e.di].exercises[e.ei]; if (ex && !(ex.sets || []).some(function (x) { return x.completed; })) { ex.variant = e.variant; n = Math.max(n, 1); } });
   });
   dkPendDrop(aid);
   if (!n) { toast('Nothing changed: those sets were logged meanwhile'); dkWsRepaint(); return; }
+  // Publish week N: a draft no more (with drafts on), once something was actually written into it.
+  if (typeof publishDraftWeeks === 'function') Store.update(function (s) { var pr = (s.programs || []).find(function (x) { return x.id === prog.id; }); if (pr) publishDraftWeeks(pr.weeks, rev.nextIdx); });
   persistProgram(prog.id);
   if (window.WeeklyNote) { try { WeeklyNote.noteApplied(aid, said, { week: prog.weeks[rev.nextIdx].number || rev.nextIdx + 1 }); } catch (e) {} }
   var r = dkRow(aid);
@@ -4422,7 +4423,7 @@ function dkPbAddWeek(aid) {
   var prog = dkProgOf(aid);
   if (!prog) return;
   dkPbRemember(prog, 'Add a week');
-  Store.update(function (s) { var p = s.programs.find(function (x) { return x.id === prog.id; }); if (p) { var num = (p.weeks.length ? p.weeks[p.weeks.length - 1].number || p.weeks.length : 0) + 1; p.weeks.push(newWeek(num, 3)); } });
+  Store.update(function (s) { var p = s.programs.find(function (x) { return x.id === prog.id; }); if (p) { var num = (p.weeks.length ? p.weeks[p.weeks.length - 1].number || p.weeks.length : 0) + 1; appendBlockWeek(p.weeks, newWeek(num, 3)); } });
   persistProgram(prog.id);
   _dk.pbWk = { prog: prog.id, wi: dkProgOf(aid).weeks.length - 1 };
   loadProgram();
