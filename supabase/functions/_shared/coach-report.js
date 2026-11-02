@@ -121,8 +121,6 @@
   function parseWeeks(weeks) { if (typeof weeks === 'string') { try { return JSON.parse(weeks); } catch (e) { return null; } } return weeks; }
   // A week the coach hasn't published yet (the drafts feature: "draft": true) is not the lifter's block:
   // nothing in the report counts it.
-  // A week the coach hasn't published yet (the drafts feature: "draft": true) is not the lifter's block:
-  // nothing in the report counts it.
   function isDraft(w) { return isObj(w) && w.draft === true; }
   function setOpen(s) { return !!s && !s.completed && !s.skipped; }
   // The days of a week with work in them (an exercise with at least one set). Odd parts (a day that isn't
