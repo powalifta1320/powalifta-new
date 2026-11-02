@@ -2245,8 +2245,7 @@ a.ui-row.cs-lead-mail { color: inherit; text-decoration: none; }
 
 /* ---- Lifters: the list column, full height. Head ≈ 120 (the title, search and Calendar on one row, the tabs under
    them), then one scroller with a visible scrollbar: New lifters, a view's picture, the rows (64). ---- */
-html.desk .cl-desk { --cl-list-w: 400px; }
-@media (max-width: 1180px) { html.desk .cl-desk { --cl-list-w: 360px; } }
+html.desk .cl-desk { --cl-list-w: 400px; }   /* every desk width: under 1200 the rail folds to 64 by default, so the page keeps ~640 */
 html.desk .cl-desk .cl-head { flex: none; padding: var(--page-top, 28px) var(--gut, 24px) 8px; }
 html.desk .cl-hrow { display: flex; align-items: center; gap: 12px; min-width: 0; }
 html.desk .cl-hrow .cl-h1 { flex: none; display: inline-flex; align-items: baseline; gap: 8px; margin: 0; }
@@ -2273,7 +2272,7 @@ html.desk .cl-desk .cl-grp + .cl-grp { margin-top: 20px; }
 html.desk .cl-desk .cl-gh { margin: 0 0 8px; padding: 0 2px; font-size: 13px; font-weight: 600; line-height: 20px; letter-spacing: 0; color: var(--text-3); }
 html.desk .cl-desk .cl-gh span { font-size: 13px; color: var(--text-4); }
 /* A row: face (its ring the lane), name, one line, the number. */
-html.desk .cl-desk .cl-row { grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; min-height: 64px; padding: 10px 16px 10px 14px; }
+html.desk .cl-desk .cl-row { grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; min-height: 64px; padding: 10px 14px 10px 12px; }
 html.desk .cl-desk .cl-main { gap: 2px; }
 html.desk .cl-desk .cl-name { font-size: 17px; line-height: 22px; font-weight: 600; }
 html.desk .cl-desk .cl-line { font-size: 15px; line-height: 20px; color: var(--text-2); }
@@ -2281,6 +2280,7 @@ html.desk .cl-desk .cl-lt { overflow: hidden; text-overflow: ellipsis; }
 html.desk .cl-desk .cl-end { display: flex; align-self: center; min-width: 0; }
 html.desk .cl-desk .cl-n { top: 0; }
 html.desk .cl-desk .cl-n b { font-size: 15px; }
+html.desk .cl-desk .cl-n.t-meet b { color: var(--text-2); }
 html.desk .cl-face { position: relative; flex: none; display: inline-grid; place-items: center; border-radius: 50%; }
 html.desk .cl-face .ui-av { width: 40px; height: 40px; font-size: 13px; }
 /* The ring sits 2 px off the face: coral for pain, ink for the rest of Need you, gold for a meet, dashed for quiet,
@@ -2377,10 +2377,13 @@ html.desk .cl-pmeter i.on { background: var(--cl-pain); }
 @media (max-width: 1411px) { html.desk.ctx-show.ctx-card:not(.rail-min):has(section[data-pane="athletes"]:not(.hidden) #rosterArea.cl-on) .dash-shell { margin-right: 0; } }
 @media (max-width: 1243px) { html.desk.ctx-show.ctx-card.rail-min:has(section[data-pane="athletes"]:not(.hidden) #rosterArea.cl-on) .dash-shell { margin-right: 0; } }
 html.desk.ctx-show.ctx-card .cl-desk .cl-page { padding-left: 20px; padding-right: 20px; }
-/* A narrow page (the card beside it, a small window): one column, the tools under the name. */
-@container clpg (max-width: 560px) {
-  html.desk .cl-page .cl-ph { flex-wrap: wrap; }
+/* A page under 720 (a smaller window, the folded rail with the card open): the tools take a row under the name. Under
+   560 (the card beside it): one column. */
+@container clpg (max-width: 719px) {
+  html.desk .cl-page .cl-ph { flex-wrap: wrap; row-gap: 8px; }
   html.desk .cl-page .cl-ptools { width: 100%; justify-content: flex-start; margin-left: -8px; }
+}
+@container clpg (max-width: 560px) {
   html.desk .cl-page .cl-hero { grid-template-columns: minmax(0, 1fr); }
   html.desk .cl-page .cl-hnum b { font-size: 44px; }
   html.desk .cl-page .cl-lifts { gap: 8px; }
@@ -2421,7 +2424,7 @@ html.desk .cl-card-main { display: flex; align-items: center; gap: 12px; width: 
 html.desk .cl-card-main:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 4px; }
 html.desk .cl-card-n { flex: 1 1 auto; display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 html.desk .cl-card-n b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 44px; line-height: 1; font-weight: 800; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; color: var(--text); }
-html.desk .cl-card-n > span { min-width: 0; font-size: 15px; line-height: 20px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.desk .cl-card-n > span { min-width: 0; font-size: 15px; line-height: 20px; color: var(--text-3); text-wrap: balance; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 html.desk .cl-card-pic { min-width: 0; }
 html.desk .cl-card-f { margin-top: auto; min-width: 0; font-size: 13px; line-height: 18px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html.desk .cl-card-f .cl-nm { display: inline; margin: 0; padding: 0; font-weight: 600; color: var(--text-2); }

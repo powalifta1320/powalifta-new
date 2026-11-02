@@ -464,6 +464,12 @@
     if (key === 'wins') return (r.wins || []).length > 0;
     return false;
   }
+  // The Meet view's number at the end of a row: the countdown. → { text, unit, tone: 'meet', title }
+  function clMeetNumber(r) {
+    var d = r.meet ? r.meet.days : null;
+    if (d == null) return { text: '—', unit: '', tone: 'none', title: 'No meet planned' };
+    return { text: d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : String(d), unit: d > 1 ? 'days' : '', tone: 'meet', title: (r.meet.meet.name || 'Meet') + ' ' + daysText(d) };
+  }
   // Each tab's count, from the same rows the list draws. → { check, meet, pain, quiet, new, wins, all }
   function clTabCounts(rows, now) {
     var out = { all: (rows || []).length };
@@ -473,19 +479,19 @@
   function timesWord(n) { return n === 2 ? 'twice' : n + ' times'; }
   // The line under a name inside a view: the view's question, answered for this lifter, most important first (a row is
   // one line, so what the row can't hold is the least of it; the whole line is the row's tooltip). null: the usual line.
-  //   meet  "12 days · 1.4 kg over · no openers · State Championships": the countdown, then only what's wrong (over the
-  //         class; no attempts inside 3 weeks, Home's rule), then the meet. On weight with time to go: "34 days · Autumn Classic".
+  //   meet  "1.4 kg over · no openers · State Championships": only what's wrong (over the class; no attempts inside 3 weeks,
+  //         Home's rule), then the meet; on weight with time to go, just "Autumn Classic". The countdown is the row's number
+  //         in this view (clMeetNumber), so the line keeps its room for the problems.
   //   pain  "Low back 6/10 · twice this week · deadlift"
   //   quiet "Last trained 9 days ago"
   function clViewLine(r, view) {
     var st = r.status || {};
     if (view === 'meet' && r.meet) {
       var m = r.meet.meet || {}, bits = [];
-      bits.push(r.meet.days <= 0 ? 'Today' : r.meet.days === 1 ? 'Tomorrow' : r.meet.days + ' days');
       if (r.bw && r.bw.over > 0) bits.push(num(kgShow(r.bw.over)) + ' ' + unit() + ' over');
       if (r.meet.days <= 21 && !(typeof meetAttemptsSet === 'function' && meetAttemptsSet(m))) bits.push('no openers');
-      if (m.name) bits.push(clip(String(m.name).trim(), 26));
-      return bits.join(' · ');
+      if (m.name) bits.push(clip(String(m.name).trim(), 40));
+      return bits.join(' · ') || 'Meet';
     }
     if (view === 'pain') {
       var pb = painBits(st);
@@ -1472,13 +1478,14 @@
   // A row: the face (its ring is the lifter's lane, pain in coral), the name, one line, the 4-week strength change.
   // Inside a view the line answers the view's question (clViewLine). The whole line is the row's tooltip.
   function deskRowHtml(r, o, M) {
-    var a = r.athlete, n = clNumber(r), top = M ? clTopJob(r, M.jobs) : null;
+    var a = r.athlete, top = M ? clTopJob(r, M.jobs) : null, meetV = !!(M && M.view === 'meet' && r.meet);
+    var n = meetV ? clMeetNumber(r) : clNumber(r), nUnit = meetV ? n.unit : (n.tone !== 'none' ? unit() : '');
     var line = (M && M.view && clViewLine(r, M.view)) || clLine(r, top);
     var ring = clRingOf(r), sel = o.sel === a.id;
-    return '<button type="button" class="cl-row' + (sel ? ' is-sel' : '') + '" data-id="' + esc(a.id) + '" role="option" aria-selected="' + (sel ? 'true' : 'false') + '" tabindex="' + (sel ? '0' : '-1') + '" title="' + esc(a.name + ': ' + line) + '">' +
+    return '<button type="button" class="cl-row' + (sel ? ' is-sel' : '') + '" data-id="' + esc(a.id) + '" role="option" aria-selected="' + (sel ? 'true' : 'false') + '" tabindex="' + (sel ? '0' : '-1') + '" title="' + esc(a.name + ': ' + (meetV ? n.title + ' · ' : '') + line) + '">' +
       '<span class="cl-face' + (ring ? ' ring-' + ring : '') + '">' + avHtml(a) + '</span>' +
       '<span class="cl-main"><span class="cl-name">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</span><span class="cl-line"><span class="cl-lt">' + esc(line) + '</span></span></span>' +
-      '<span class="cl-end"><span class="cl-n t-' + n.tone + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b>' + (n.tone !== 'none' ? '<small>' + esc(unit()) + '</small>' : '') + '</span></span></button>';
+      '<span class="cl-end"><span class="cl-n t-' + n.tone + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b>' + (nUnit ? '<small>' + esc(nUnit) + '</small>' : '') + '</span></span></button>';
   }
   function deskGroupsHtml(M) {
     if (!M.groups.length) {
@@ -1870,6 +1877,6 @@
     clRing: clRing, clTier: clTier, clJobs: clJobs, clTopJob: clTopJob, clTeam: clTeam, clWeeks: clWeeks, clEffort: clEffort, clBw: clBw,
     clGroups: clGroups, clGroupKey: clGroupKey, clLine: clLine, clNumber: clNumber, clWords: clWords, jobText: jobText, toWriteOf: toWriteOf,
     // the desk, v3 (2 Nov): Lifters' tabs and views, New lifters' row, the team's lanes and season, the business line
-    setView: setView, newLiftersRowHtml: newLiftersRowHtml, clTabCounts: clTabCounts, clViewLine: clViewLine, clLanes: clLanes, clLaneKey: clLaneKey, clRingOf: clRingOf,
+    setView: setView, newLiftersRowHtml: newLiftersRowHtml, clTabCounts: clTabCounts, clViewLine: clViewLine, clMeetNumber: clMeetNumber, clLanes: clLanes, clLaneKey: clLaneKey, clRingOf: clRingOf,
     clSeason: clSeason, clBusiness: clBusiness };
 })();

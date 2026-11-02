@@ -5883,9 +5883,11 @@ test('Lifters’ tabs: each count from the same rows, Check on is exactly the Ch
 });
 test('a view’s line answers the view; the usual line everywhere else', () => {
   const rows = clDesk(), by = (id) => rows.find(r => r.athlete.id === id);
-  eq(CL.clViewLine(by('e'), 'meet'), '12 days · 1.4 kg over · no openers · State Championships', 'the countdown, then what’s wrong, then the meet');
-  eq(CL.clViewLine(by('s'), 'meet'), '34 days · Autumn Classic', 'on weight with time to go: nothing wrong to say');
-  eq(CL.clViewLine(by('p'), 'meet'), '30 days · City Classic', 'no openers is said only inside 3 weeks (Home’s rule)');
+  eq(CL.clViewLine(by('e'), 'meet'), '1.4 kg over · no openers · State Championships', 'what’s wrong, then the meet');
+  eq(CL.clViewLine(by('s'), 'meet'), 'Autumn Classic', 'on weight with time to go: nothing wrong to say');
+  eq(CL.clViewLine(by('p'), 'meet'), 'City Classic', 'no openers is said only inside 3 weeks (Home’s rule)');
+  eq(CL.clMeetNumber(by('e')).text + ' ' + CL.clMeetNumber(by('e')).unit, '12 days', 'the countdown is the Meet view’s number');
+  eq(CL.clMeetNumber(clRow({ meet: { days: 0, meet: { name: 'Open' } } })).text, 'Today');
   eq(CL.clViewLine(by('p'), 'pain'), 'Low back 6/10 · twice this week · deadlift', 'the score and the pattern before the lift');
   eq(CL.clViewLine(by('j'), 'quiet'), 'Last trained 12 days ago');
   eq(CL.clViewLine(by('n'), 'quiet'), 'No sets logged yet');
