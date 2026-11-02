@@ -224,6 +224,12 @@ with checks(n, migration, applied) as (values
         and position('recent' in coalesce((select p.prosrc from pg_proc p where p.oid = to_regprocedure('public.coach_week_stats(uuid[], date, date)')), '')) > 0
         and position('draft' in coalesce((select p.prosrc from pg_proc p where p.oid = to_regprocedure('public.program_planned_per_week(jsonb)')), '')) > 0
         and coalesce(not has_function_privilege('authenticated', to_regprocedure('public.coach_week_effort(uuid[], date, date)'), 'execute'), false)
-        and coalesce(not has_function_privilege('anon', to_regprocedure('public.coach_threads_last(uuid[])'), 'execute'), false))
+        and coalesce(not has_function_privilege('anon', to_regprocedure('public.coach_threads_last(uuid[])'), 'execute'), false)),
+  (64, 'migration-coach-report-schedule-2026-11-02.sql  (each coach picks when the weekly report comes: Sunday evening or Monday morning, the hour, their time zone; email_preferences, the owner''s own row; then deploy send-weekly-digest, then sql/cron-coach-report-hourly-2026-11-02.sql)',
+        (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'email_preferences'
+          and column_name in ('report_day', 'report_hour', 'tz', 'report_sent_week')) = 4
+        and exists (select 1 from pg_constraint where conname = 'email_preferences_report_day_check')
+        and exists (select 1 from pg_constraint where conname = 'email_preferences_report_hour_check')
+        and exists (select 1 from pg_constraint where conname = 'email_preferences_tz_check'))
 )
 select n, migration, applied from checks order by n;

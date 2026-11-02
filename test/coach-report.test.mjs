@@ -550,19 +550,104 @@ t('privacy: never a body part, never their words, in the subject, push, preheade
 });
 
 // ---------------------------------------------------------------- the server's jobs
-t('jobs by UTC weekday: Monday digest + report, Thursday midweek, else nothing', () => {
-  eq(CR.jobPlan({}, '2026-10-26T14:00:00Z'), { jobs: ['digest', 'coach-report'], today: '2026-10-26', dryRun: false, error: null });
-  eq(CR.jobPlan({}, '2026-10-29T14:00:00Z').jobs, ['midweek']);
-  eq(CR.jobPlan(null, '2026-10-27T14:00:00Z').jobs, []);
-  eq(CR.jobPlan({}, '2026-11-01T14:00:00Z').jobs, []);
+t('jobs by the hour (the cron runs hourly): the digest Mondays at 14:00 UTC, the missed-sessions push Thursdays at 14:00 UTC, the coaches\' report every hour, for those it is due for', () => {
+  eq(CR.jobPlan({}, '2026-10-26T14:00:00Z'), { jobs: ['digest', 'coach-report'], today: '2026-10-26', now: '2026-10-26T14:00:00.000Z', dryRun: false, dueOnly: true, error: null });
+  eq([CR.jobPlan({}, '2026-10-26T13:00:00Z').jobs, CR.jobPlan({}, '2026-10-26T15:00:00Z').jobs], [['coach-report'], ['coach-report']]);
+  eq(CR.jobPlan({}, '2026-10-29T14:00:00Z').jobs, ['midweek', 'coach-report']);
+  eq(CR.jobPlan({}, '2026-10-29T14:07:00Z').jobs, ['midweek', 'coach-report'], 'the call lands a few minutes late');
+  eq([CR.jobPlan(null, '2026-10-27T14:00:00Z').jobs, CR.jobPlan({}, '2026-11-01T23:00:00Z').jobs], [['coach-report'], ['coach-report']]);
+  let d = 0, m = 0, c = 0;
+  for (let h = 0; h < 168; h++) {
+    const p = CR.jobPlan({}, new Date(Date.parse('2026-10-26T00:00:00Z') + h * 3600000).toISOString());
+    if (p.jobs.includes('digest')) d++; if (p.jobs.includes('midweek')) m++; if (p.jobs.includes('coach-report') && p.dueOnly) c++;
+  }
+  eq([d, m, c], [1, 1, 168], 'a week of hourly runs: the digest once, the midweek push once, the report check every hour');
 });
 t('jobs: an explicit job and day (the cron secret already checked), dry runs only on true', () => {
-  eq(CR.jobPlan({ job: 'midweek', today: '2026-10-26', dryRun: true }, '2026-10-30'), { jobs: ['midweek'], today: '2026-10-26', dryRun: true, error: null });
+  eq(CR.jobPlan({ job: 'midweek', today: '2026-10-26', dryRun: true }, '2026-10-30'), { jobs: ['midweek'], today: '2026-10-26', now: '2026-10-30T00:00:00.000Z', dryRun: true, dueOnly: false, error: null });
+  eq([CR.jobPlan({ job: 'coach-report' }, '2026-11-01T23:00:00Z').dueOnly, CR.jobPlan({ job: 'coach-report', dueOnly: true }, '2026-11-01T23:00:00Z').dueOnly], [false, true], 'by name: every coach, unless dueOnly');
+  eq([CR.jobPlan({ today: '2026-10-26' }, '2026-10-30T09:00:00Z').jobs, CR.jobPlan({ today: '2026-10-29' }, '2026-10-30T09:00:00Z').jobs, CR.jobPlan({ today: '2026-10-27' }, '2026-10-30T09:00:00Z').jobs],
+    [['digest', 'coach-report'], ['midweek'], []], 'a day by hand: what that weekday did before');
+  eq(CR.jobPlan({ today: '2026-10-26' }, '2026-10-30T09:00:00Z').dueOnly, false);
+  eq(CR.jobPlan({ now: '2026-11-01T23:00:00Z', dryRun: true }, '2026-10-30T09:00:00Z'), { jobs: ['coach-report'], today: '2026-11-01', now: '2026-11-01T23:00:00.000Z', dryRun: true, dueOnly: true, error: null }, 'a pretend hour');
+  ok(CR.jobPlan({ now: 'soon' }, '2026-10-30').error, 'a bad now');
   eq(CR.jobPlan({ dryRun: 'yes' }, '2026-10-26').dryRun, false);
   ok(CR.jobPlan({ job: 'everything' }, '2026-10-26').error, 'unknown job accepted');
   ok(CR.jobPlan({ today: '2026-02-30' }, '2026-10-26').error, 'impossible date accepted');
   ok(CR.jobPlan({ today: "2026-10-26'; drop" }, '2026-10-26').error === null, 'today is cut to its date part');
 });
+// ---------------------------------------------------------------- when the report comes (the owner, 2 Nov: "Their pick, Sunday 6 pm default")
+t('the pick: Sunday 18:00 unless said; hour 0 is midnight; a time zone the engine doesn\'t know is UTC', () => {
+  eq(CR.scheduleOf(null), { day: 'sun', hour: 18, tz: 'UTC' });
+  eq(CR.scheduleOf({ report_day: 'mon', report_hour: 7, tz: 'Australia/Sydney' }), { day: 'mon', hour: 7, tz: 'Australia/Sydney' });
+  eq(CR.scheduleOf({ reportDay: 'mon', reportHour: 6, tz: 'Europe/London' }), { day: 'mon', hour: 6, tz: 'Europe/London' }, 'the app\'s camelCase');
+  eq(CR.scheduleOf({ report_day: 'tue', report_hour: 0 }), { day: 'sun', hour: 0, tz: 'UTC' });
+  eq([CR.scheduleOf({ report_hour: 24 }).hour, CR.scheduleOf({ report_hour: '7' }).hour, CR.scheduleOf({ report_hour: null }).hour, CR.scheduleOf({ report_hour: 6.5 }).hour], [18, 7, 18, 18]);
+  ['Mars/Base', '', 'UTC+5', 'Europe/London; drop', null, 42, 'Europe/' + 'x'.repeat(70), '../etc'].forEach(tz => eq(CR.validTz(tz), 'UTC', String(tz)));
+  ['Europe/London', 'America/New_York', 'Asia/Kolkata', 'Australia/Sydney', 'UTC'].forEach(tz => eq(CR.validTz(tz), tz));
+  eq([0, 7, 12, 18, 23].map(CR.hourText), ['12 am', '7 am', '12 pm', '6 pm', '11 pm']);
+  eq([CR.scheduleText({ day: 'sun', hour: 18 }), CR.scheduleText({ day: 'mon', hour: 7 }), CR.scheduleText({ day: 'mon', hour: null })], ['Sundays at 6 pm', 'Mondays at 7 am', 'Mondays']);
+});
+t('the window: Sunday\'s report is this week, Monday\'s the week that ended yesterday', () => {
+  eq(CR.reportWindow('sun', '2026-11-01'), { from: '2026-10-26', to: '2026-11-01', today: '2026-11-01' });
+  eq(CR.reportWindow('mon', '2026-11-02'), { from: '2026-10-26', to: '2026-11-01', today: '2026-11-02' });
+  eq(CR.reportWindow('sun', '2026-11-02'), CR.lastWeek('2026-11-02'), 'a Sunday coach on a Monday: last week, now complete');
+  eq(CR.reportWindow('mon', '2026-11-01'), { from: '2026-10-19', to: '2026-10-25', today: '2026-11-01' }, 'a Monday coach on a Sunday: the week before this one');
+  eq([CR.reportWindow('sun', '2027-01-03').from, CR.reportWindow('mon', '2027-01-04').from], ['2026-12-28', '2026-12-28'], 'across the new year');
+});
+const dueAt = (pref, iso) => CR.reportDue(pref, Date.parse(iso));
+t('due: the day, from the hour, in the coach\'s time zone, across daylight saving', () => {
+  const ny = { tz: 'America/New_York' };   // Sunday 18:00; clocks go back on Sunday 1 Nov 2026
+  eq([dueAt(ny, '2026-11-01T22:00:00Z').due, dueAt(ny, '2026-11-01T23:00:00Z').due], [false, true], 'the change\'s Sunday (EST): 23:00 UTC');
+  eq([dueAt(ny, '2026-10-25T21:00:00Z').due, dueAt(ny, '2026-10-25T22:00:00Z').due], [false, true], 'the Sunday before (EDT): 22:00 UTC');
+  eq(dueAt(ny, '2026-11-01T23:00:00Z').window, { from: '2026-10-26', to: '2026-11-01', today: '2026-11-01' });
+  const ist = { tz: 'Asia/Kolkata' };      // +5:30: the 13:00 UTC run is 18:30 there
+  eq([dueAt(ist, '2026-11-01T12:00:00Z').due, dueAt(ist, '2026-11-01T13:00:00Z').due, dueAt(ist, '2026-11-01T18:00:00Z').due, dueAt(ist, '2026-11-01T19:00:00Z').due], [false, true, true, false], 'until Monday there');
+  const syd = { report_day: 'mon', report_hour: 7, tz: 'Australia/Sydney' };   // +11 in their summer: Monday 07:00 is Sunday 20:00 UTC
+  eq([dueAt(syd, '2026-11-01T19:00:00Z').due, dueAt(syd, '2026-11-01T20:00:00Z').due], [false, true]);
+  eq(dueAt(syd, '2026-11-01T20:00:00Z').window, { from: '2026-10-26', to: '2026-11-01', today: '2026-11-02' }, 'the week that ended there yesterday');
+  eq([dueAt({ tz: 'Australia/Sydney' }, '2026-10-04T06:00:00Z').due, dueAt({ tz: 'Australia/Sydney' }, '2026-10-04T07:00:00Z').due], [false, true], 'Sydney\'s own change (4 Oct): Sunday 18:00 is 07:00 UTC');
+  eq([dueAt({ tz: 'Europe/London' }, '2026-10-25T17:00:00Z').due, dueAt({ tz: 'Europe/London' }, '2026-10-25T18:00:00Z').due], [false, true], 'London\'s change (25 Oct, GMT again): 18:00 UTC');
+});
+t('due: a missed hour catches up later that day; never twice; a new week is due again; no row is Sunday 18:00 UTC', () => {
+  const ldn = { tz: 'Europe/London' };
+  eq([dueAt(ldn, '2026-11-01T21:00:00Z').due, dueAt(ldn, '2026-11-01T23:59:00Z').due], [true, true], 'hours late: still due that evening');
+  const sent = dueAt(Object.assign({ report_sent_week: '2026-10-26' }, ldn), '2026-11-01T21:00:00Z');
+  eq([sent.due, sent.why], [false, 'sent']);
+  eq(dueAt(Object.assign({ reportSentWeek: '2026-10-26' }, ldn), '2026-11-01T22:00:00Z').due, false, 'the app\'s camelCase');
+  eq(dueAt(Object.assign({ report_sent_week: '2026-10-19' }, ldn), '2026-11-01T21:00:00Z').due, true, 'last week\'s mark: this week is still to send');
+  eq(dueAt(ldn, '2026-11-02T00:30:00Z').why, 'another day', 'Monday: the Sunday report\'s day has gone');
+  eq(dueAt({ report_day: 'mon', report_hour: 7, report_sent_week: '2026-10-26', tz: 'Europe/London' }, '2026-11-02T09:00:00Z').due, false, 'a switch from Sunday to Monday never repeats the week');
+  eq([dueAt(null, '2026-11-01T17:00:00Z').due, dueAt(null, '2026-11-01T18:00:00Z').due], [false, true], 'no preferences row');
+  eq(dueAt({ tz: 'Mars/Base' }, '2026-11-01T18:00:00Z').due, true, 'an unknown zone is UTC');
+  eq(dueAt({ report_hour: 0 }, '2026-11-01T00:00:00Z').due, true, 'midnight');
+  // Every hour of a week for a coach in each zone (from Monday noon UTC, Monday or later everywhere): due on their
+  // Sunday from 18:00 only, and once marked, never again.
+  ['Europe/London', 'America/New_York', 'Asia/Kolkata', 'Australia/Sydney', 'Pacific/Auckland', 'America/Los_Angeles'].forEach(tz => {
+    const pref = { tz }; let first = null, after = 0;
+    for (let h = 0; h < 168; h++) {
+      const iso = new Date(Date.parse('2026-10-26T12:00:00Z') + h * 3600000).toISOString(), d = CR.reportDue(pref, Date.parse(iso));
+      if (d.due && !first) { first = { iso, local: d.local, from: d.window.from }; pref.report_sent_week = d.window.from; }
+      else if (d.due) after++;
+    }
+    ok(first && first.local.weekday === 6 && first.local.hour === 18, tz + ': first due ' + JSON.stringify(first));
+    eq(after, 0, tz + ': due again after it was sent');
+  });
+});
+t('the Sunday email says this week; every email says when it comes and where to change it', () => {
+  const Wsun = CR.reportWindow('sun', '2026-11-01'), now = WD.now - 864e5;
+  const s = storeFor(WD.tables, 'c-sam');
+  const team = CR.teamWeek(CR.fromStore(s.store, 'c-sam', Object.assign({ formChecks: s.formChecks, plan: s.plan, now }, Wsun)), Object.assign({ now, unit: 'kg' }, Wsun));
+  eq([team.kind, sam.kind], ['this', 'last']);
+  const m = CR.reportEmail(team, { coachName: 'Sam Ellis', schedule: { day: 'sun', hour: 18 } });
+  ok(m.html.includes('This week, 26 Oct – 1 Nov') && m.text.startsWith('Your team’s week · This week, 26 Oct – 1 Nov'), 'the range');
+  ok(m.text.includes('No check-in this week: Leo Grant') && m.text.includes('Effort (this week’s top sets') && m.html.includes('No check-in this week'), 'this week\'s words');
+  ok(m.html.includes('Sent to Sam on Sundays at 6 pm. Change it in Settings › Notifications.') && m.text.includes('Sent to Sam on Sundays at 6 pm. Change it in Settings, Notifications.'), 'the footer');
+  const mon = CR.reportEmail(sam, { coachName: 'Sam Ellis', schedule: { day: 'mon', hour: 7 } });
+  ok(mon.html.includes('>26 Oct – 1 Nov<') && !mon.html.includes('This week,') && mon.text.includes('No check-in last week') && mon.html.includes('Sent to Sam on Mondays at 7 am.'), 'Monday\'s: last week');
+  ok(CR.reportEmail(sam, {}).text.includes('Sent on Mondays. Change it'), 'no pick given (before the migration): the day the week says');
+});
+
 t('busy weeks: approved only, snapped to their Monday, either shape', () => {
   eq(CR.busyRows([{ athlete_id: 'a', week_start: '2026-10-21', days: '2', status: 'APPROVED' }, { athleteId: 'b', weekStart: '2026-10-19', agreedDays: 1 },
     { athleteId: 'c', weekStart: '2026-10-19', days: 2, status: 'declined' }, { athleteId: 'd', weekStart: 'soon', days: 2 }, null, 'x']),

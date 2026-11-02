@@ -555,7 +555,7 @@
     }).sort(function (x, y) { return x.flag.rank - y.flag.rank || byName(x, y); });
 
     return {
-      from: from, to: to, today: today,
+      from: from, to: to, today: today, kind: to >= today ? 'this' : 'last',
       of: people.length, trained: trained, sessionsDone: done, sessionsPlanned: planned, prev: prev,
       behind: behind, pain: pain, prs: prs, formChecks: formChecks, formCheckWho: formCheckWho,
       checkinsMissing: checkinsMissing, meets: meets, overdue: overdue,
@@ -699,7 +699,12 @@
     var U = unitOf(opts.unit), appUrl = opts.appUrl || 'https://www.powalifta.com/coach.html', unsub = opts.unsubUrl || '';
     var push = reportPush(team) || { body: '' };
     var subject = 'Your team’s week: ' + push.body;
-    var range = rangeLabel(team.from, team.to);
+    // Sunday's report is this week (Monday to today), Monday's the week that ended yesterday.
+    var thisWeek = team.kind === 'this', wk = thisWeek ? 'this week' : 'last week';
+    var range = (thisWeek ? 'This week, ' : '') + rangeLabel(team.from, team.to);
+    // When it comes (the coach's pick; without one, the day the week says).
+    var sched = opts.schedule || { day: thisWeek ? 'sun' : 'mon', hour: null };
+    var sentWhen = (first(opts.coachName) ? 'Sent to ' + first(opts.coachName) + ' on ' : 'Sent on ') + scheduleText(sched) + '.';
     var needs = needsCount(team);
     var up = firstUp(team);
     var preheader = needs ? (needs === 1 ? (up ? up.name : 'One lifter') + ' needs you this week.' : plural(needs, 'lifter') + ' need you this week' + (up ? ', starting with ' + up.name : '') + '.')
@@ -722,7 +727,7 @@
     if (words.length) tNeeds.push('Wrote you: ' + capT(words, function (w) { return w.name + ' (' + wordsText(w) + ')'; }));
     if (ef.hot.length) tNeeds.push('Ran hot: ' + capT(ef.hot, function (h) { return h.name; }));
     if (team.formChecks) tNeeds.push('Form checks to review: ' + team.formChecks + ' (' + capT(team.formCheckWho, function (f) { return f.name; }) + ')');
-    if (team.checkinsMissing.length) tNeeds.push('No check-in last week: ' + capT(team.checkinsMissing, function (c) { return c.name; }));
+    if (team.checkinsMissing.length) tNeeds.push('No check-in ' + wk + ': ' + capT(team.checkinsMissing, function (c) { return c.name; }));
     if (st.stalled.length) tNeeds.push('No lift up in 4 weeks: ' + capT(st.stalled, function (s) { return s.name; }));
     T.push('Needs you');
     if (tNeeds.length) tNeeds.forEach(function (l) { T.push('- ' + l); }); else T.push('- Nobody. Everyone trained as planned.');
@@ -735,7 +740,7 @@
       T.push('');
     }
     if (ef.total) {
-      T.push('Effort (last week’s top sets against what you wrote)');
+      T.push('Effort (' + wk + '’s top sets against what you wrote)');
       T.push('- ' + ef.pct + '% at or under: ' + effortParts(ef).map(function (x) { return x[1]; }).join(', '));
       ef.hot.slice(0, EMAIL_HOT).forEach(function (h) { T.push('- ' + h.name + ': ' + hotText(h)); });
       if (ef.hot.length > EMAIL_HOT) T.push('- ' + (ef.hot.length - EMAIL_HOT) + ' more ran hot, in the app');
@@ -781,7 +786,7 @@
       T.push('');
     }
     T.push('Open Today: ' + appUrl, '');
-    T.push((coachFirst ? 'Sent to ' + coachFirst + ' because' : 'You get this because') + ' the Monday report is on in Settings, Notifications.');
+    T.push(sentWhen + ' Change it in Settings, Notifications.');
     if (unsub) T.push('Unsubscribe: ' + unsub);
     T.push('', 'POWALIFTA');
     // ---- the HTML version (tables and inline styles: email clients)
@@ -825,7 +830,7 @@
     if (words.length) nRows.push(row('Wrote you', names(words, function (w) { return soft(esc(wordsText(w))); }), '', nRows.length));
     if (ef.hot.length) nRows.push(row('Ran hot', names(ef.hot), C.warn, nRows.length));
     if (team.formChecks) nRows.push(row(plural(team.formChecks, 'form check') + ' to review', names(team.formCheckWho), '', nRows.length));
-    if (team.checkinsMissing.length) nRows.push(row('No check-in last week', names(team.checkinsMissing), '', nRows.length));
+    if (team.checkinsMissing.length) nRows.push(row('No check-in ' + wk, names(team.checkinsMissing), '', nRows.length));
     if (st.stalled.length) nRows.push(row('No lift up in 4 weeks', names(st.stalled), '', nRows.length));
     if (!nRows.length) nRows.push(row('Nobody', 'Everyone trained as planned.', C.ok, 0));
     // Strength: how many got stronger, each lift's median change and its share up, the biggest movers.
@@ -936,7 +941,7 @@
       '<a href="' + esc(appUrl) + '" style="display:inline-block;padding:14px 26px;font-family:' + FONT + ';font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">Open Today</a>',
       '</td></tr></table></td></tr>',
       '<tr><td style="padding:36px 0 0;border-top:0;font-family:' + FONT + ';font-size:13px;line-height:1.6;color:' + C.text3 + ';">',
-      (coachFirst ? 'Sent to ' + esc(coachFirst) + ' because' : 'You get this because') + ' the Monday report is on in Settings › Notifications.' +
+      esc(sentWhen) + ' Change it in Settings › Notifications.' +
       (unsub ? ' <a href="' + esc(unsub) + '" style="color:' + C.text2 + ';text-decoration:underline;">Unsubscribe</a>' : ''),
       '<br>POWALIFTA</td></tr></table></td></tr></table></body></html>');
     return { subject: subject, html: h.join(''), text: T.join('\n'), preheader: preheader };
@@ -1108,21 +1113,92 @@
     };
   }
 
+  /* ---------------------------------------------------------------- when the report comes (2 Nov) */
+  // Each coach picks when their report comes (the owner, 2 Nov: "Their pick, Sunday 6 pm default"): Sunday evening
+  // (this week, Monday to the Sunday it is) or Monday morning (the week that ended yesterday), at an hour, in their
+  // own time zone (email_preferences report_day, report_hour, tz: sql/migration-coach-report-schedule-2026-11-02.sql).
+  // Sunday at 18:00 unless they say otherwise; a time zone the engine doesn't know is UTC. Times come from
+  // Intl.DateTimeFormat (Deno and every browser have it): daylight saving is the zone's own.
+  var REPORT_DAY = 'sun', REPORT_HOUR = 18;
+  var TZF = {};   // a formatter per time zone: the hourly job asks for every coach
+  function tzFormatter(tz) {
+    if (Object.prototype.hasOwnProperty.call(TZF, tz)) return TZF[tz];
+    var f = null;
+    try { f = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }); }
+    catch (e) { f = null; }
+    TZF[tz] = f;
+    return f;
+  }
+  // An IANA time zone the engine knows ("Europe/London", "Asia/Kolkata"), else 'UTC'.
+  function validTz(tz) { return typeof tz === 'string' && tz.length > 0 && tz.length <= 64 && /^[A-Za-z0-9_+\/-]+$/.test(tz) && tzFormatter(tz) ? tz : 'UTC'; }
+  // The wall clock at an instant in a zone: { date 'YYYY-MM-DD', weekday (Mon 0 … Sun 6), hour 0–23, minute }.
+  function localParts(ms, tz) {
+    var p = {};
+    tzFormatter(validTz(tz)).formatToParts(new Date(ms)).forEach(function (x) { p[x.type] = x.value; });
+    var date = p.year + '-' + p.month + '-' + p.day;
+    return { date: date, weekday: weekday(date), hour: Number(p.hour) % 24, minute: Number(p.minute) };
+  }
+  // A coach's pick from their email_preferences row (snake or camel case, or none): { day: 'sun' | 'mon', hour, tz }.
+  function scheduleOf(pref) {
+    pref = pref || {};
+    var day = pref.report_day != null ? pref.report_day : pref.reportDay;
+    var h = pref.report_hour != null ? pref.report_hour : pref.reportHour;
+    h = h == null || h === '' ? NaN : Number(h);
+    return { day: day === 'mon' ? 'mon' : REPORT_DAY, hour: Number.isInteger(h) && h >= 0 && h <= 23 ? h : REPORT_HOUR, tz: validTz(pref.tz) };
+  }
+  // The week a report covers: on a Sunday, Sunday's report is this week (Monday to today); any other day, and for
+  // Monday's report always, the Monday-to-Sunday week before this one.
+  function reportWindow(day, today) {
+    today = d10(today);
+    return day !== 'mon' && weekday(today) === 6 ? { from: mondayOf(today), to: today, today: today } : lastWeek(today);
+  }
+  // Is a coach's report due at this instant? Their day has come and their hour has passed, in their time zone (a
+  // later hour catches up a missed one: the job runs hourly), and that week isn't reported yet (report_sent_week, the
+  // Monday of the week last reported). → { due, why, sched, local, window }
+  function reportDue(pref, nowMs) {
+    var sched = scheduleOf(pref), local = localParts(nowMs, sched.tz), window = reportWindow(sched.day, local.date);
+    var out = { due: false, why: '', sched: sched, local: local, window: window };
+    if (local.weekday !== (sched.day === 'mon' ? 0 : 6)) { out.why = 'another day'; return out; }
+    if (local.hour < sched.hour) { out.why = 'before the hour'; return out; }
+    var sent = pref ? (pref.report_sent_week != null ? pref.report_sent_week : pref.reportSentWeek) : null;
+    if (sent && d10(sent) === window.from) { out.why = 'sent'; return out; }
+    out.due = true;
+    return out;
+  }
+  // "6 pm", "7 am", "12 pm", "12 am": the email's English clock.
+  function hourText(h) { h = Number(h); return h === 0 ? '12 am' : h < 12 ? h + ' am' : h === 12 ? '12 pm' : (h - 12) + ' pm'; }
+  // "Sundays at 6 pm", "Mondays at 7 am"; "Mondays" with no hour (before the schedule's migration).
+  function scheduleText(sched) {
+    sched = sched || {};
+    return (sched.day === 'mon' ? 'Mondays' : 'Sundays') + (sched.hour != null && isFinite(sched.hour) ? ' at ' + hourText(sched.hour) : '');
+  }
+
   /* ---------------------------------------------------------------- the server's jobs */
-  // Which jobs a run does: the one asked for, else by the UTC weekday of `today` (Monday: the lifters'
-  // digest and the coaches' report; Thursday: the missed-sessions push; other days: nothing).
-  // body: { job, dryRun, today } (the cron sends {}). → { jobs, today, dryRun, error }
+  // Which jobs a run does. The cron calls every hour with {}: the lifters' digest on Mondays and the missed-sessions
+  // push on Thursdays, both at 14:00 UTC as before, and the coaches' report every hour for the coaches it is due for
+  // (dueOnly: reportDue). A run asked for by name (job) does that job for every coach (dueOnly only when said); a run
+  // for a given day (today, no job) does what that UTC weekday did before (Monday: the digest and the report;
+  // Thursday: the missed-sessions push), by hand. now: the instant the hourly plan is for (dry runs at a pretend hour).
+  // body: { job, dryRun, today, now, dueOnly }. → { jobs, today, now, dryRun, dueOnly, error }
   function jobPlan(body, nowIso) {
     body = body && typeof body === 'object' ? body : {};
-    var today = body.today != null ? d10(body.today) : d10(nowIso);
-    if (!isIso(today)) return { jobs: [], today: null, dryRun: !!body.dryRun, error: 'today must be YYYY-MM-DD' };
     var dryRun = body.dryRun === true;
+    var ms = Date.parse(body.now != null ? String(body.now) : String(nowIso == null ? '' : nowIso));
+    if (!isFinite(ms)) return { jobs: [], today: null, now: null, dryRun: dryRun, dueOnly: false, error: 'now must be an ISO time' };
+    var now = new Date(ms).toISOString();
+    var today = body.today != null ? d10(body.today) : now.slice(0, 10);
+    if (!isIso(today)) return { jobs: [], today: null, now: now, dryRun: dryRun, dueOnly: false, error: 'today must be YYYY-MM-DD' };
     if (body.job != null) {
-      if (JOBS.indexOf(body.job) < 0) return { jobs: [], today: today, dryRun: dryRun, error: 'job must be one of ' + JOBS.join(', ') };
-      return { jobs: [body.job], today: today, dryRun: dryRun, error: null };
+      if (JOBS.indexOf(body.job) < 0) return { jobs: [], today: today, now: now, dryRun: dryRun, dueOnly: false, error: 'job must be one of ' + JOBS.join(', ') };
+      return { jobs: [body.job], today: today, now: now, dryRun: dryRun, dueOnly: body.dueOnly === true, error: null };
     }
     var wd = weekday(today);
-    return { jobs: wd === 0 ? ['digest', 'coach-report'] : wd === 3 ? ['midweek'] : [], today: today, dryRun: dryRun, error: null };
+    if (body.today != null) return { jobs: wd === 0 ? ['digest', 'coach-report'] : wd === 3 ? ['midweek'] : [], today: today, now: now, dryRun: dryRun, dueOnly: false, error: null };
+    var at14 = new Date(ms).getUTCHours() === 14, jobs = [];
+    if (wd === 0 && at14) jobs.push('digest');
+    if (wd === 3 && at14) jobs.push('midweek');
+    jobs.push('coach-report');
+    return { jobs: jobs, today: today, now: now, dryRun: dryRun, dueOnly: true, error: null };
   }
 
   G.CoachReport = {
@@ -1136,6 +1212,8 @@
     teamWeek: teamWeek, worthSending: worthSending, needsCount: needsCount, firstUp: firstUp, prsByLifter: prsByLifter, midweekBehind: midweekBehind,
     wordsText: wordsText, wordsWhat: wordsWhat, hotText: hotText, effortParts: effortParts, meetLifterText: meetLifterText, everyText: everyText, seatsText: seatsText, TO_WRITE: TO_WRITE,
     reportPush: reportPush, midweekPush: midweekPush, reportEmail: reportEmail,
-    fromStore: fromStore, fromRows: fromRows, jobPlan: jobPlan
+    fromStore: fromStore, fromRows: fromRows, jobPlan: jobPlan,
+    REPORT_DAY: REPORT_DAY, REPORT_HOUR: REPORT_HOUR, validTz: validTz, localParts: localParts, scheduleOf: scheduleOf, reportWindow: reportWindow,
+    reportDue: reportDue, hourText: hourText, scheduleText: scheduleText
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
