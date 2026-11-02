@@ -391,7 +391,8 @@ html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 10
 .s-home .meet { padding: 0; }
 .meet { position: relative; background: var(--black); color: #f4f4f6; --bg: var(--black); --text: #f4f4f6; --text-2: #b8b8c0; --text-3: #8c8c96; --hair: rgba(255, 255, 255, 0.1); color-scheme: dark; }
 .meet-stage { display: flex; flex-direction: column; width: min(100% - 2 * var(--gut), var(--wrap)); margin: 0 auto; padding: var(--sec) 0; }
-.meet-h { margin-bottom: clamp(24px, 2.23vw, 32px); max-width: none; }
+.meet-h { max-width: none; }
+.meet-lead { margin-top: var(--s2); margin-bottom: clamp(24px, 2.23vw, 32px); }
 .scene-clip { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin: -18px -18px 0; padding: 18px 18px 0; overflow: clip; }
 /* The stage ends on a rule; Tom's phone runs on below it (its crop takes the row's height). */
 .scene { display: grid; grid-template-columns: minmax(0, clamp(240px, 21vw, 300px)) minmax(0, 1fr) minmax(0, clamp(380px, 30.5vw, 440px)); grid-template-areas: "phone mid board";
@@ -769,7 +770,7 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .wk-in { width: calc(1160px * 0.78); }
   html.m .wk-port { overflow: hidden; }
   .wk-foot { justify-content: flex-start; margin-top: var(--s2); }
-  .meet-h { margin-bottom: var(--s3); }
+  .meet-lead { margin-top: 14px; margin-bottom: var(--s3); }
   .scene { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "phone" "board"; row-gap: 22px; }
   .mid { padding-bottom: 0; }
   .judges { gap: 14px; }

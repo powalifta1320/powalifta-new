@@ -544,6 +544,7 @@
      green, "not declared yet" clears, he is one out). No captions say so: the stage does.
      ===================================================================== */
   words($('#meet-h'));
+  rise([$('.meet-lead')], { start: 'top 92%' });
   var scene = $('#scene'), judgesBox = $('#judges'), judges = $$('#judges i');
   var cell1 = $('#cell1'), cell2 = $('#cell2'), dec = $('#decBtn');
   var clockN = $('#clockN'), clockBar = $('#clockBar'), mpOn = $('#mpOn');
