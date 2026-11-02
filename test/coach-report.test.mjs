@@ -331,7 +331,7 @@ t('week over week: trained and sessions against the week before, counted the sam
   const m = mailOf('c-sam');
   ok(m.text.includes('18 of 20 trained (1 fewer than the week before) · 54 of 64 sessions (5 more than the week before) · 3 PRs'), 'the text');
   ok(m.html.includes('lifters trained, 1 fewer than the week before') && /5 more sessions than the week before<\/span> · <span[^>]*>3 PRs<\/span> · <span[^>]*>3 behind/.test(m.html) && m.html.includes('The week before'), 'the card');
-  eq([CR.vsText(4, 4, 'sessions'), CR.vsText(2, 5, 'sessions')], ['as many sessions as the week before', '3 fewer sessions than the week before']);
+  eq([CR.vsText(4, 4, 'sessions'), CR.vsText(2, 5, 'sessions'), CR.vsText(6, 5, 'sessions')], ['as many sessions as the week before', '3 fewer sessions than the week before', '1 more session than the week before']);
 });
 
 // ---------------------------------------------------------------- 2. strength over 4 weeks, stalling
@@ -428,6 +428,8 @@ t('effort: last week\'s top sets for Sam\'s team, at or under, half a point over
   const m = mailOf('c-sam');
   ok(m.html.includes('84%</span>') && m.html.includes('at or under what you wrote') && m.text.includes('- 84% at or under: 48 at or under, 6 half a point over, 3 a point or more over'), 'in the email');
   ok(m.text.includes('- Marcus Doyle: Bench @9.5, you wrote 8'), 'the worst line');
+  eq([CR.effortParts({ atOrUnder: 4, half: 0, over: 0 }), CR.effortParts({ atOrUnder: 4, half: 0, over: 2 })].map(p => p.map(x => x[1]).join(', ')),
+    ['4 at or under, nobody over', '4 at or under, 2 a point or more over'], 'zero parts drop out');
   eq(CR.effortSets([{ draft: true, days: [{ exercises: [{ lift: 'squat', sets: [{ completed: true, completedAt: W2.from, rpe: 8, actualRpe: 9 }] }] }] }], W2.from, W2.to), [], 'a draft week has no sets');
 });
 

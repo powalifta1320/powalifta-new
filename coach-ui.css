@@ -2175,6 +2175,29 @@ button.mr-row:active { background: var(--ch-fill-2); }
 .mr-empty .mr-tic { width: 48px; height: 48px; border-radius: 14px; margin-bottom: 4px; }
 .mr-empty .mr-tic svg { width: 22px; height: 22px; }
 .mr-empty p { max-width: 40ch; margin: 0; font-size: 15px; line-height: 1.45; color: var(--text-3); text-wrap: pretty; }
+/* v2 (2 Nov): the week before under the sessions, strength per lift, effort's split, meets with the class, every lifter.
+   Lift colours only on the lift tiles and their bars; amber only for over (a weigh-in over the class, a top set over). */
+.mr-vs { margin: -4px 0 0; font-size: 15px; line-height: 1.35; color: var(--text-3); }
+.mr-sess { display: flex; flex-direction: column; gap: 6px; }
+.mr-mrow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0; font-size: 13px; line-height: 1.3; color: var(--text-2); }
+.mr-mrow b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.mr-mrow.is-was { margin-top: 6px; color: var(--text-3); }
+.mr-mrow.is-was b { color: var(--text-2); }
+.mr-meter.is-was { background: var(--ch-fill-2); }
+.mr-meter.is-was i { background: var(--text-3); }
+.mr-rt > .mr-bar, .mr-rt > .mr-split { display: flex; height: 4px; margin-top: 6px; border-radius: 2px; overflow: hidden; background: var(--ch-fill-3); }
+.mr-rt > .mr-split { height: 6px; border-radius: 3px; margin: 6px 0 2px; }
+.mr-bar i, .mr-split i { display: block; height: 100%; }
+.mr-bar i { border-radius: inherit; background: var(--dc, var(--text-3)); }
+.mr-bar.l-sq, .mr-lt.l-sq { --dc: var(--ch-squat); --tc: var(--ch-squat); } .mr-bar.l-be, .mr-lt.l-be { --dc: var(--ch-bench); --tc: var(--ch-bench); } .mr-bar.l-dl, .mr-lt.l-dl { --dc: var(--ch-deadlift); --tc: var(--ch-deadlift); }
+.mr-lt .mr-dot { width: 10px; height: 10px; }
+.mr-split .s-ok { background: var(--cl-up); } .mr-split .s-half { background: color-mix(in srgb, var(--cl-down) 50%, transparent); } .mr-split .s-over { background: var(--cl-down); }
+.mr-tic.t-write { --tc: var(--cl-write); }
+.mr-dot.t-meet { --dc: var(--cl-meet); } .mr-dot.t-win { --dc: var(--cl-up); }
+.mr-rt > span.mr-wrap { white-space: normal; flex-wrap: wrap; }
+.mr-rt > span.mr-ml { display: block; }   /* a meet's lifter: the name and the weigh-in as one line of text */
+.mr-ml em { font-style: normal; color: var(--text-2); }
+.mr-ml em.mr-over { color: var(--cl-down); }
 
 /* the phone: a sheet; iOS sizes (17 rows, 20 sections, 44 pt targets), the red full width at the end */
 .ui-sheet.mr-sheet { --mr-surface: var(--bg-1); }
@@ -2190,6 +2213,8 @@ button.mr-row:active { background: var(--ch-fill-2); }
 .mr-phone .mr-rt > span { font-size: 15px; }
 .cl-root.mr-phone .mr-more { padding-left: 66px; font-size: 15px; }
 .mr-phone .mr-rt > span { white-space: normal; flex-wrap: wrap; row-gap: 2px; }   /* the reason wraps on a phone; the name stays one line */
+.mr-phone .mr-rt > span:not(.mr-lps) { display: block; }   /* a long reason wraps beside its dot, never under it */
+.mr-phone .mr-rt > span:not(.mr-lps) > .mr-dot { display: inline-block; margin: 0 7px 0 0; vertical-align: 1px; }
 .mr-phone .mr-foot { position: static; flex-direction: column; align-items: stretch; gap: 12px; margin: 0; padding: 0; background: none; box-shadow: none; }
 .mr-phone .mr-foot p { font-size: 15px; text-align: center; }
 .mr-phone .mr-foot .mr-go { max-width: none; width: 100%; height: 50px; font-size: 16px !important; }

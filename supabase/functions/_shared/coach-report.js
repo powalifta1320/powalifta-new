@@ -111,7 +111,7 @@
   // "6 more than the week before", "2 fewer than the week before", "the same as the week before"; with a noun:
   // "6 more sessions than the week before", "as many sessions as the week before".
   function vsText(now, before, noun) {
-    var d = now - before, n = noun ? ' ' + noun : '';
+    var d = now - before, n = noun ? ' ' + (Math.abs(d) === 1 ? noun.replace(/s$/, '') : noun) : '';
     return d > 0 ? d + ' more' + n + ' than the week before' : d < 0 ? -d + ' fewer' + n + ' than the week before' : noun ? 'as many' + n + ' as the week before' : 'the same as the week before';
   }
   function daysAgoText(n) { return n <= 0 ? 'today' : plural(n, 'day'); }
@@ -651,6 +651,15 @@
     var notes = w.notes === 1 ? 'a note' : w.notes + ' notes';
     return w.message && w.notes ? 'a message and ' + notes : w.message ? 'a message' : notes;
   }
+  // Where last week's top sets landed, the parts with any: [[key, words]] ("48 at or under", "6 half a point over",
+  // "3 a point or more over"); with nothing over, "nobody over".
+  function effortParts(ef) {
+    var out = [['ok', ef.atOrUnder + ' at or under']];
+    if (ef.half) out.push(['half', ef.half + ' half a point over']);
+    if (ef.over) out.push(['over', ef.over + ' a point or more over']);
+    if (!ef.half && !ef.over) out.push(['none', 'nobody over']);
+    return out;
+  }
   // Their worst top set: "Bench @9.5, you wrote 8"; a drift: "4 top sets, +0.5 on average".
   function hotText(h) {
     if (h.why === 'over') return h.worst.title + ' @' + rpeText(h.worst.felt) + ', you wrote ' + rpeText(h.worst.wrote);
@@ -726,7 +735,7 @@
     }
     if (ef.total) {
       T.push('Effort (last week’s top sets against what you wrote)');
-      T.push('- ' + ef.pct + '% at or under: ' + ef.atOrUnder + ' at or under, ' + ef.half + ' half a point over, ' + ef.over + ' a point or more over');
+      T.push('- ' + ef.pct + '% at or under: ' + effortParts(ef).map(function (x) { return x[1]; }).join(', '));
       ef.hot.slice(0, EMAIL_HOT).forEach(function (h) { T.push('- ' + h.name + ': ' + hotText(h)); });
       if (ef.hot.length > EMAIL_HOT) T.push('- ' + (ef.hot.length - EMAIL_HOT) + ' more ran hot, in the app');
       T.push('');
@@ -843,8 +852,8 @@
       eRows.push('<tr><td style="padding:16px 0 14px;font-family:' + FONT + ';"><span style="font-size:28px;line-height:1;font-weight:800;color:' + C.text + ';">' + ef.pct + '%</span>' +
         '<span style="font-size:15px;font-weight:600;color:' + C.text2 + ';"> at or under what you wrote</span>' +
         bar([{ n: ef.atOrUnder, color: C.ok }, { n: ef.half, color: C.half }, { n: ef.over, color: C.warn }], 12) +
-        '<div style="margin-top:8px;font-size:13px;line-height:1.6;color:' + C.text2 + ';">' + [[C.ok, ef.atOrUnder + ' at or under'], [C.half, ef.half + ' half a point over'], [C.warn, ef.over + ' a point or more over']]
-          .map(function (x) { return '<span style="white-space:nowrap;">' + dotOf(x[0], 6) + x[1] + '</span>'; }).join('&nbsp;&nbsp; ') + '</div></td></tr>');
+        '<div style="margin-top:8px;font-size:13px;line-height:1.6;color:' + C.text2 + ';">' + effortParts(ef)
+          .map(function (x) { return '<span style="white-space:nowrap;">' + dotOf({ ok: C.ok, half: C.half, over: C.warn }[x[0]] || '', 6) + x[1] + '</span>'; }).join('&nbsp;&nbsp; ') + '</div></td></tr>');
       ef.hot.slice(0, EMAIL_HOT).forEach(function (x) { eRows.push(row(esc(x.name), esc(hotText(x)), C.warn, eRows.length)); });
       if (ef.hot.length > EMAIL_HOT) eRows.push(row('<span style="color:' + C.text2 + ';">' + (ef.hot.length - EMAIL_HOT) + ' more ran hot</span>', 'In the app, on Last week’s report.', '', eRows.length));
     }
@@ -1124,7 +1133,7 @@
     effortSets: effortSets, topSets: topSets, effortOf: effortOf, effortBin: effortBin, exTitle: exTitle,
     prsFromStats: prsFromStats, busyRows: busyRows, effectiveTier: effectiveTier, classLimit: classLimit,
     teamWeek: teamWeek, worthSending: worthSending, needsCount: needsCount, firstUp: firstUp, prsByLifter: prsByLifter, midweekBehind: midweekBehind,
-    wordsText: wordsText, wordsWhat: wordsWhat, hotText: hotText, meetLifterText: meetLifterText, everyText: everyText, seatsText: seatsText, TO_WRITE: TO_WRITE,
+    wordsText: wordsText, wordsWhat: wordsWhat, hotText: hotText, effortParts: effortParts, meetLifterText: meetLifterText, everyText: everyText, seatsText: seatsText, TO_WRITE: TO_WRITE,
     reportPush: reportPush, midweekPush: midweekPush, reportEmail: reportEmail,
     fromStore: fromStore, fromRows: fromRows, jobPlan: jobPlan
   };
