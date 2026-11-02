@@ -330,6 +330,7 @@ as $$
     from public.programs p
     where p.athlete_id = any (coalesce(p_athletes, '{}'::uuid[]))
       and p_from is not null and p_to is not null and p_from <= p_to
+    offset 0   -- keeps the subquery as it is: each block's sets worked out once (pulled up, the filter would work them out again)
   ) x
   where x.sets <> '[]'::jsonb;
 $$;
