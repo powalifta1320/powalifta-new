@@ -175,6 +175,32 @@ await t('the details: allow-listed keys only, typed, cut, scrubbed; an idea keep
   eq((await call({ kind: 'idea', body: 'Dark mode on the website', context: PROBLEM.context })).status, 200);
   eq(W2.tables.feedback[0].context, {}, 'an idea carries no details');
 });
+await t('details near 8 KB (4-byte characters) are trimmed oldest error first, so the table\'s jsonb check never trips', async () => {
+  const W = world();
+  const err = (i) => ({ kind: 'error', msg: '😀'.repeat(300), at: '2026-11-03T10:4' + i + ':00.000Z' });
+  const over = { screen: '😀'.repeat(80), ua: '😀'.repeat(250), errors: [1, 2, 3, 4, 5, 6, 7, 8].map(err) };
+  ok(Buffer.byteLength(JSON.stringify(over)) > 8192, 'the first is over 8 KB as sent');
+  eq((await call({ kind: 'problem', body: 'x', context: over })).status, 400, 'over 8 KB as sent: refused');
+  const near = { screen: '😀'.repeat(80), ua: '😀'.repeat(250), errors: [1, 2, 3, 4, 5].map(err) };
+  const raw = Buffer.byteLength(JSON.stringify(near));
+  ok(raw <= 8192 && raw > 7000, 'the second is under 8 KB as sent, over 7 KB (' + raw + ')');
+  eq((await call({ kind: 'problem', body: 'x', context: near })).status, 200);
+  const c = W.tables.feedback[0].context;
+  const bytes = Buffer.byteLength(JSON.stringify(c));
+  ok(bytes <= 7000, 'kept at ' + bytes + ' bytes');
+  eq(c.errors.length, 4, 'one error went');
+  eq(c.errors[0].at, '2026-11-03T10:42:00.000Z', 'the oldest went first');
+  eq(Array.from(c.ua).length, 250, 'the browser line stays while errors can go');
+});
+await t('cut by character, never through an emoji; a lone half of one is dropped (Postgres refuses it in jsonb)', async () => {
+  const W = world();
+  eq((await call({ kind: 'problem', body: 'ok \ud83d then \ude00 end 😀', context: { screen: 'S' + '😀'.repeat(100), ua: 'a' + '😀'.repeat(400), errors: [{ kind: 'error', msg: 'x\ud800y', at: '2026-11-03T10:41:00.000Z' }] } })).status, 200);
+  const row = W.tables.feedback[0];
+  const lone = /\p{Cs}/u;
+  ok(!lone.test(row.body) && row.body === 'ok  then  end 😀', 'the words keep whole emoji, lose lone halves: ' + JSON.stringify(row.body));
+  ok(!lone.test(JSON.stringify(row.context).replace(/\\u[0-9a-f]{4}/g, '')) && ![row.context.screen, row.context.ua, row.context.errors[0].msg].some((v) => lone.test(v)), 'no half emoji in the details');
+  eq(Array.from(row.context.screen).length, 80); eq(Array.from(row.context.ua).length, 300); eq(row.context.errors[0].msg, 'x y');
+});
 await t('the row as saved: kind, the words (line breaks kept, control characters out, trimmed), the details', async () => {
   const W = world(); SENT.length = 0;
   const r = await call(Object.assign({}, PROBLEM, { body: '  ' + PROBLEM.body + '\u0000\u0007  ' }));

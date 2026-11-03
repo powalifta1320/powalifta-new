@@ -34,7 +34,7 @@
   // or base64 with a digit in it) becomes [token], a link loses its query and fragment. Control characters go.
   function scrub(v) {
     return String(v == null ? '' : v)
-      .replace(/[\p{Cc}\p{Cf}]/gu, ' ')
+      .replace(/[\p{Cc}\p{Cf}\p{Cs}]/gu, ' ')
       .replace(/\b(https?:\/\/[^\s?#"'<>]+)[?#][^\s"'<>]*/gi, '$1')
       .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]')
       .replace(/\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*/g, '[token]')
@@ -42,7 +42,8 @@
       .replace(/\b[A-Za-z0-9_\-+\/]{32,}={0,2}/g, function (m) { return /[0-9]/.test(m) && /[A-Za-z]/.test(m) ? '[token]' : m; })
       .replace(/\s{2,}/g, ' ').trim();
   }
-  function clip(v, n) { var s = scrub(v); return s.length > n ? s.slice(0, n).trim() : s; }
+  // Cut by code point, never through an emoji: half a surrogate pair is JSON Postgres refuses (the widget snapshot's lesson).
+  function clip(v, n) { var s = scrub(v), a = Array.from(s); return a.length > n ? a.slice(0, n).join('').trim() : s; }
   // "iPhone · iOS 26.0 · Safari 26", "Mac · Chrome 141", "Android 14 · Chrome 141", the iPhone app's web view: "… · app".
   function deviceLabel(ua) {
     ua = String(ua || '');
@@ -113,7 +114,7 @@
   }
   // The words as sent: line breaks kept, other control characters out, trimmed. → { ok, body, why }
   function checkBody(s) {
-    var body = String(s == null ? '' : s).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim();
+    var body = String(s == null ? '' : s).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').replace(/\p{Cs}/gu, '').trim();
     if (!/\S/.test(body)) return { ok: false, body: '', why: 'empty' };
     if (Array.from(body).length > MAX_BODY) return { ok: false, body: body, why: 'long' };
     return { ok: true, body: body };
@@ -253,6 +254,7 @@
   function open(opts) {
     opts = opts || {};
     if (!hasDom || typeof uiSheet !== 'function') return null;
+    if (document.querySelector('.ui-sheet-veil:not(.leaving) .fb-sheet')) return null;   // one at a time (a quick double Enter)
     var from = opts.from || document.activeElement;
     var uid = uidNow();
     var env = envNow();   // the screen under the sheet, as it is when the sheet opens

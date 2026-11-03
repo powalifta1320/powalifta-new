@@ -163,6 +163,17 @@ const nullCtx = await as(db, D, `insert into public.feedback (kind, body, contex
 ok(nullCtx.err && /null value/i.test(nullCtx.err), 'refused: a null context');
 const edge = await send(db, D, 'problem', 'é'.repeat(4000), { app: 'web', errors: [{ msg: 'x'.repeat(200) }] });
 ok(!edge.err, '4,000 characters (counted as characters, not bytes) and a context under 8 KB: fine (' + (edge.err || 'ok') + ')');
+// The function keeps the details at 7,000 bytes as compact JSON: as jsonb text (a space after every colon and comma)
+// that still passes the 8 KB check, even emoji-heavy with every key and five errors.
+const ceiling = { screen: '😀'.repeat(80), route: '/athlete.html', app: 'iphone', version: 'bundle 4cff7fb · 2026-11-03', device: 'iPhone · iOS 26.0 · app',
+  viewport: '393×852 @3x', theme: 'dark', layout: 'phone', ua: '', errors: [1, 2, 3, 4, 5].map((i) => ({ kind: 'error', msg: '😀'.repeat(210), at: '2026-11-03T10:4' + i + ':00.000Z' })) };
+while (Buffer.byteLength(JSON.stringify(ceiling)) < 6990) ceiling.ua += 'a';
+const atCeiling = await send(db, D, 'problem', 'at the ceiling', ceiling);
+ok(!atCeiling.err && Buffer.byteLength(JSON.stringify(ceiling)) <= 7000, 'details at the function\'s 7,000-byte ceiling pass the jsonb check (' + (atCeiling.err || Buffer.byteLength(JSON.stringify(ceiling)) + ' bytes') + ')');
+const lone = await as(db, D, `insert into public.feedback (kind, body, context) values ('problem', 'x', '{"msg": "\\ud83d"}'::jsonb)`);
+const pair = await as(db, D, `insert into public.feedback (kind, body, context) values ('problem', 'x', '{"msg": "\\ud83d\\ude00"}'::jsonb) returning context`);
+ok(lone.err && /invalid input syntax for type json|surrogate/i.test(lone.err) && !pair.err && pair.rows[0].context.msg === '😀',
+  'half an emoji is refused in jsonb (the whole one is fine), which is why the app and the function cut by character (' + (lone.err || 'it went in') + ' / ' + (pair.err || 'pair ok') + ')');
 const quoted = await send(db, D, 'idea', `'); drop table public.feedback; --  <script>alert(1)</script>`);
 ok(!quoted.err && (await rowOf(db, quoted.rows[0].id)).body.startsWith("'); drop table"), 'quotes, semicolons and markup are stored as text');
 

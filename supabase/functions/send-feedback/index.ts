@@ -57,7 +57,7 @@ export function mailName(v: unknown, fallback: string): string {
 // (a JWT, a Bearer value, 32+ characters of hex or base64) becomes [token], a link loses its query and fragment.
 export function scrub(v: unknown): string {
   return String(v == null ? '' : v)
-    .replace(/[\p{Cc}\p{Cf}]/gu, ' ')
+    .replace(/[\p{Cc}\p{Cf}\p{Cs}]/gu, ' ')
     .replace(/\b(https?:\/\/[^\s?#"'<>]+)[?#][^\s"'<>]*/gi, '$1')
     .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]')
     .replace(/\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*/g, '[token]')
@@ -67,7 +67,8 @@ export function scrub(v: unknown): string {
 }
 const str = (v: unknown, max: number): string | null => {
   if (typeof v !== 'string' && typeof v !== 'number') return null;
-  const s = scrub(v).slice(0, max);
+  // by code point: never half an emoji (a lone surrogate is JSON Postgres refuses)
+  const s = Array.from(scrub(v)).slice(0, max).join('').trim();
   return s ? s : null;
 };
 const chars = (s: string) => Array.from(s).length;   // as Postgres char_length counts (code points)
@@ -108,7 +109,7 @@ export function validateFeedback(p: unknown): { ok: true; kind: string; body: st
   if (!KINDS.includes(o.kind as string)) return { ok: false, message: 'kind is idea or problem.' };
   if (typeof o.body !== 'string') return { ok: false, message: 'Write something first.' };
   // Line breaks kept, other control characters out, trimmed.
-  const body = o.body.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim();
+  const body = o.body.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').replace(/\p{Cs}/gu, '').trim();
   if (!/\S/.test(body)) return { ok: false, message: 'Write something first.' };
   if (chars(body) > MAX_BODY) return { ok: false, message: 'That’s over 4,000 characters.' };
   let context: Record<string, unknown> = {};
@@ -116,6 +117,14 @@ export function validateFeedback(p: unknown): { ok: true; kind: string; body: st
     if (typeof o.context !== 'object' || Array.isArray(o.context)) return { ok: false, message: 'context is an object.' };
     if (new TextEncoder().encode(JSON.stringify(o.context)).length > MAX_CONTEXT) return { ok: false, message: 'The technical details are over 8 KB.' };
     context = cleanContext(o.context as Record<string, unknown>);
+    // The table measures the details as jsonb text (wider than this compact JSON): stay well under its 8 KB by letting
+    // the oldest errors go, then the browser line, so a send never fails at the table for being near the edge.
+    const size = () => new TextEncoder().encode(JSON.stringify(context)).length;
+    while (size() > 7000 && Array.isArray(context.errors) && (context.errors as unknown[]).length) {
+      (context.errors as unknown[]).shift();
+      if (!(context.errors as unknown[]).length) delete context.errors;
+    }
+    if (size() > 7000) delete context.ua;
   }
   // An idea carries no technical details (the app only offers them with a problem).
   if (o.kind === 'idea') context = {};

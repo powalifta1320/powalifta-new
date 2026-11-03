@@ -1718,7 +1718,7 @@ const DB = {
   async updateFeedbackAdmin(id, patch) {
     const row = {};
     if (patch && patch.status) row.status = patch.status;
-    if (patch && 'adminNote' in patch) row.admin_note = String(patch.adminNote || '').trim().slice(0, 2000) || null;
+    if (patch && 'adminNote' in patch) row.admin_note = Array.from(String(patch.adminNote || '').replace(/\p{Cs}/gu, '').trim()).slice(0, 2000).join('') || null;
     const { data, error } = await sb.from('feedback').update(row).eq('id', id).select(_FB_COLS).maybeSingle();
     if (error) return { ok: false, error };
     if (!data) return { ok: false, error: { message: 'Not updated (admins only)' } };

@@ -11013,6 +11013,14 @@ group('feedback (feedback.js)');
     eq(PF.checkBody('').why, 'empty'); eq(PF.checkBody(' \n\t ').why, 'empty'); eq(PF.checkBody(null).why, 'empty');
     eq(PF.checkBody('x'.repeat(4000)).ok, true); eq(PF.checkBody('x'.repeat(4001)).why, 'long');
     eq(PF.checkBody('💪'.repeat(4000)).ok, true, '4,000 characters, counted as Postgres counts them (not UTF-16 units)');
+    eq(PF.checkBody('ok \ud83d then 💪').body, 'ok  then 💪', 'a lone half of an emoji is dropped (Postgres refuses it)');
+  });
+  test('details are cut by character, never through an emoji', () => {
+    const c = PF.buildContext(Object.assign({}, ENV, { screen: 'S' + '😀'.repeat(100), ua: 'a' + '😀'.repeat(400), errors: [{ kind: 'error', msg: '😀'.repeat(250), ts: '2026-11-03T10:42:00.000Z' }] }));
+    const lone = /\p{Cs}/u;
+    assert(![c.screen, c.ua, c.errors[0].msg].some(v => lone.test(v)), 'no half emoji');
+    eq(Array.from(c.screen).length, 80); eq(Array.from(c.ua).length, 300); eq(Array.from(c.errors[0].msg).length, 200);
+    eq(PF.scrub('a\ud800b'), 'a b', 'a lone half in a message becomes a space');
   });
   test('"See what\'s sent" lines read the details back in words', () => {
     const L = PF.contextLines(PF.buildContext(ENV));
