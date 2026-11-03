@@ -1768,7 +1768,7 @@ html.desk body.powa-app input.dp-bname:focus { background: var(--bg) !important;
 .dp-pvbtn[aria-pressed="true"] svg { color: var(--dh-ink); }
 .dp-h2 { display: flex; align-items: center; flex-wrap: wrap; gap: 6px var(--s-4); min-height: 30px; margin-top: 10px; padding-left: calc(30px + 2px + 30px + var(--s-3) + 40px + var(--s-3)); }
 .dp-h2-gap { flex: 1 1 0; }
-.dp-meetf { gap: 6px; color: var(--dk-gold); font-weight: var(--fw-3); border-radius: 6px; }
+.dp-meetf { gap: 6px; color: var(--dk-gold); font-weight: var(--fw-3); border-radius: var(--r-1); }
 .dp-meetf svg { width: 14px; height: 14px; flex: none; }
 .dp-meetf-d { color: var(--text-2); font-weight: var(--fw-2); }
 .dp-maxes { display: inline-flex; align-items: center; gap: 10px; height: 26px; padding: 0 8px; margin-left: -8px; border: 0; border-radius: var(--r-1); background: none; cursor: pointer;
@@ -1802,7 +1802,9 @@ button.dp-tile:active { transform: scale(0.985); }
 .dp-tile.is-draft { border-style: dashed; border-color: var(--text-4); }
 .dp-tile.is-draft.is-sel { border-color: color-mix(in srgb, var(--dh) 70%, transparent); }
 .dp-tile-r1, .dp-tile-r2 { display: flex; align-items: center; gap: 6px; min-width: 0; font: var(--fw-2) var(--fs-1)/16px var(--font-body); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.dp-tile-n { font-weight: var(--fw-3); color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+.dp-tile-n { flex: none; font-weight: var(--fw-3); color: var(--text); }
+.dp-tile-m { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dp-tile-meet .dp-tile-n { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .dp-tile-ns { display: none; }
 /* a narrow tile says less: the phase goes to its tooltip, then "Week 2" becomes "W2" */
 @container dptile (max-width: 114px) { .dp-tile-ph { display: none; } }
@@ -1823,7 +1825,7 @@ button.dp-tile:active { transform: scale(0.985); }
 .dp-tile-eff { margin-left: auto; color: var(--text-2); font-weight: var(--fw-3); }
 /* the sessions: a mark each (2 px apart, rounded): done filled, part done half, missed hatched, to come an empty track */
 .dp-tile-bar { display: flex; gap: 2px; height: 4px; margin-top: 2px; }
-.dp-sg { flex: 1 1 0; height: 4px; border-radius: 2px; background: var(--dk-fill-2); }
+.dp-sg { flex: 1 1 0; height: 4px; border-radius: var(--r-round); background: var(--dk-fill-2); }
 .dp-sg.t-done { background: var(--dk-ok); }
 .dp-sg.t-part { background: color-mix(in srgb, var(--dk-ok) 55%, var(--dk-fill-2)); }
 .dp-sg.t-missed { background: repeating-linear-gradient(135deg, var(--dk-warn) 0 2px, transparent 2px 4px); }
@@ -1909,7 +1911,8 @@ html.desk body.powa-app input.dp-day-name:focus { background: var(--bg) !importa
 .dp-badge.t-today { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-ok) 30%, transparent); }
 .dp-badge.t-missed { background: var(--dk-raise-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-warn) 42%, transparent); }
 .dp-badge.t-missed .dp-badge-dot { background: var(--dk-warn); }
-.dp-badge.t-planned { color: var(--text-2); }
+.dp-badge.t-planned { background: none; padding: 0 2px; color: var(--text-3); font-weight: var(--fw-2); }   /* most days are: said quietly */
+.dp-badge.t-planned .dp-badge-dot { background: none; box-shadow: inset 0 0 0 1.5px var(--text-3); }
 .dp-badge.t-rest, .dp-badge.t-empty { background: none; padding: 0; color: var(--text-3); font-weight: var(--fw-2); }
 .dp-day-date { font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); white-space: nowrap; }
 .dp-day-sum { flex: none; margin-left: auto; font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -2100,12 +2103,13 @@ html.desk body.powa-app input.dp-pick-in.is-bad { color: var(--dk-alert); }
 
 /* ---------- drag: the ghost under the pointer, the line where it lands ---------- */
 html.dp-dragging, html.dp-dragging * { cursor: grabbing !important; user-select: none; }
+html.dp-dragging .dk-tip { display: none !important; }
 .dp-ghost { position: fixed; left: 0; top: 0; z-index: 160; padding: 6px 14px 10px; box-sizing: border-box; border-radius: 14px; background: var(--bg-2); box-shadow: var(--dk-pop), 0 18px 40px -16px rgba(0, 0, 0, 0.6); pointer-events: none; opacity: 0.96; }
 html.desk[data-theme="light"] .dp-ghost { background: #fff; }
 .dp-ghost .dp-ex-head { min-height: 36px; }
 .dp-ghost :is(.dp-more, .dp-grip, .dp-exmax) { display: none; }
 .dp-ghost-sub { margin-left: var(--c-ind); font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); }
-.dp-dropline { position: fixed; left: 0; top: 0; z-index: 159; height: 2px; border-radius: 2px; background: var(--dh); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dh) 22%, transparent); pointer-events: none; transition: transform 0.12s var(--dk-ease), opacity 0.12s var(--dk-ease); }
+.dp-dropline { position: fixed; left: 0; top: 0; z-index: 159; height: 2px; border-radius: var(--r-round); background: var(--dh); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dh) 22%, transparent); pointer-events: none; transition: transform 0.12s var(--dk-ease), opacity 0.12s var(--dk-ease); }
 
 /* ---------- Preview: the week as the lifter's Train shows it ---------- */
 .dp-pv { position: fixed; top: 12px; right: 12px; bottom: 12px; z-index: 120; display: flex; flex-direction: column; width: 412px; box-sizing: border-box; border-radius: 20px; background: var(--bg-1); box-shadow: var(--dk-card-shadow); overflow: hidden; }
@@ -2157,14 +2161,14 @@ html.desk[data-theme="light"] .dp-pv-phone { background: #f2f2f5; }
   html.dp-printing, html.dp-printing body { background: #fff !important; }
   html.dp-printing #dpPrint { display: block !important; padding: 0; color: #000; font: 11pt/1.4 Archivo, system-ui, sans-serif; }
   #dpPrint h1 { margin: 0 0 2pt; font: 800 20pt/1.2 Archivo, system-ui, sans-serif; color: #000; }
-  #dpPrint .dp-pr-sub { margin: 0 0 2pt; color: #333; }
+  #dpPrint .dp-pr-sub { margin: 0 0 2pt; color: #000; }
   #dpPrint .dp-pr-day { margin-top: 14pt; padding-top: 8pt; border-top: 1pt solid #000; break-inside: avoid; page-break-inside: avoid; }
   #dpPrint h2 { margin: 0 0 6pt; font: 700 13pt/1.3 Archivo, system-ui, sans-serif; color: #000; }
   #dpPrint .dp-pr-ex { margin: 0 0 6pt; break-inside: avoid; }
   #dpPrint h3 { margin: 0; font: 700 11pt/1.3 Archivo, system-ui, sans-serif; color: #000; }
   #dpPrint .dp-pr-line { margin: 0; padding-left: 10pt; white-space: pre-wrap; font-variant-numeric: tabular-nums; color: #000; }
-  #dpPrint .dp-pr-cue { margin: 0; padding-left: 10pt; color: #333; font-style: italic; }
-  #dpPrint .dp-pr-foot { margin-top: 16pt; color: #666; font-size: 9pt; }
+  #dpPrint .dp-pr-cue { margin: 0; padding-left: 10pt; color: #000; font-style: italic; }
+  #dpPrint .dp-pr-foot { margin-top: 16pt; color: #000; font-size: 9pt; }
   @page { margin: 14mm; }
 }
 
@@ -2676,7 +2680,8 @@ html.desk #deskTeams.ds-split.is-empty .ds-tlist { display: none; }
 /* a team's row: its faces (three, then +N) where a lifter's face sits, its name, the block and the week, the next meet in gold */
 .dp-lrow.ds-trow { grid-template-columns: auto minmax(0, 1fr) auto; min-height: 64px; }
 .ds-faces { display: inline-flex; align-items: center; flex: none; }
-.dp-lrow.ds-trow .ds-faces .dk-av { width: 28px; height: 28px; font-size: var(--fs-1); letter-spacing: -0.02em; box-shadow: 0 0 0 2px var(--bg); }
+.dp-lrow.ds-trow .ds-faces .dk-av { width: 30px; height: 30px; font-size: var(--fs-1); letter-spacing: -0.02em; box-shadow: 0 0 0 2px var(--bg); }
+.dp-lrow.ds-trow .ds-faces .dk-av + .dk-av { margin-left: -6px; }   /* initials at 13 (the screen's four sizes) never under the next face */
 .dp-lrow.ds-trow.is-sel .ds-faces .dk-av { box-shadow: 0 0 0 2px var(--dk-sel); }
 .ds-faces .dk-av + .dk-av { margin-left: -6px; }
 .ds-faces-n { margin-left: 6px; font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); font-variant-numeric: tabular-nums; }

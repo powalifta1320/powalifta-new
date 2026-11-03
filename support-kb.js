@@ -371,6 +371,27 @@ window.POWA_SUPPORT_KB = [
   "app": "Open Programs and pick the lifter from the title, or open the lifter and tap Program. Tap Create program (or Bring a program in if you already have it: a photo, a screenshot, a PDF or a paste from your sheet). Step through the weeks with ‹ › (or swipe them), tap a day under them (or swipe the days), and use Add exercise at the end of the day; + after the days adds a day or a rest day. Tap an exercise to change its sets, reps, load and RPE. The ⋯ at the top, beside Ask, has the block (Rename the block, Maxes for % work, Start the next block), its weeks (Add a week, Duplicate week, Add a day, Add a rest day, Remove week), Save as template, Export and Delete program; a day's own ⋯ renames, moves, copies or deletes it. Build from goal builds a whole block from each lift's current and target numbers. Changes save as you go; tap ⋯ → Notify to tell the lifter it is ready."
  },
  {
+  "id": "coach-laptop-program-editor",
+  "q": "On the laptop, how do I edit a week fast: add, move, copy, undo, preview or print it?",
+  "t": [
+   "move an exercise",
+   "drag exercise",
+   "reorder exercises",
+   "add a set",
+   "undo",
+   "redo",
+   "preview as lifter",
+   "print the week",
+   "print program",
+   "clear the week",
+   "progress the week",
+   "copy last week",
+   "block strip"
+  ],
+  "a": "Open **Programs** on a laptop and pick the lifter. The tiles across the top are the block: each week's date, its sessions (done filled, missed hatched), its effort and the weeks to the meet; click one to open it, and **Weeks 4–8 · Write** adds the weeks up to the meet. Under it: **Copy last week**, **Progress the week** (+2.5 kg or +0.5 RPE, with the changes shown before they're written), **Templates**, **Clear** and undo / redo (⌘Z, ⇧⌘Z). Click any number to change it: Tab moves across, Enter goes down a line (on the last notes it starts a new line), Esc puts it back. **+ Set** adds one more set like the last; **+ Add exercise** opens a search (type it with its sets, like Paused squat 3x4 @7, then Enter). Drag an exercise by its handle to move it within the day or to another day (or ⋯ › Move to day). **Preview** shows the week as your lifter sees it in the app; ⋯ › **Print week** prints it on its own. Anything already lifted stays as it was.",
+  "app": "These tools are on the laptop's Programs screen (powalifta.com on a computer): the block as tiles, Copy last week, Progress the week with a preview, drag to move exercises, + Set, + Add exercise with a search, undo and redo, Preview as your lifter and Print week. In the app, open Programs and use the day's ⋯ and Add exercise."
+ },
+ {
   "id": "coach-prescriptions",
   "q": "How do I write RPE ranges, RIR, percentages or a weight range?",
   "t": [

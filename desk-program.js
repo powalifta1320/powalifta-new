@@ -2403,7 +2403,8 @@
     if (!d || e.pointerId !== d.id) return;
     d.y = e.clientY;
     if (!d.on) { if (Math.abs(e.clientX - d.x0) + Math.abs(e.clientY - d.y0) < 5) return; dragStart(d); }
-    d.ghost.style.transform = 'translate(' + Math.round(e.clientX - Math.min(d.gx, 120)) + 'px,' + Math.round(e.clientY - d.gy) + 'px)';
+    // Held where it was grabbed: the handle sits at the right end, so the ghost hangs to the pointer's left.
+    d.ghost.style.transform = 'translate(' + Math.round(e.clientX - Math.min(d.gx, d.ghost.offsetWidth - 24)) + 'px,' + Math.round(e.clientY - Math.min(d.gy, 24)) + 'px)';
     d.target = dropAt(e.clientX, e.clientY, d);
     paintDrop(d);
   }
@@ -2581,9 +2582,9 @@
     var mx = MAIN.map(function (L) { var v = programMaxKg(prog, S.aid, L); return v > 0 ? (LIFT_LABELS[L] || L) + ' ' + showKg(v) : ''; }).filter(Boolean);
     if (mx.length) host.appendChild(E('p', { class: 'dp-pr-sub' }, 'Maxes: ' + mx.join(' · ') + ' ' + env.unit));
     m.days.forEach(function (d) {
-      var sec = E('section', { class: 'dp-pr-day' });
+      var sec = E('div', { class: 'dp-pr-day' });   // a div: every <section> outside a pane is padded (CLAUDE.md gotcha)
       sec.appendChild(E('h2', {}, (d.name || 'Day ' + (d.idx + 1)) + (d.sum.date ? ' · ' + fmtDay(d.sum.date) : '') + (d.rest ? '' : ' · ' + plural(d.sum.sets, 'set') + (d.sum.minutes ? ' · about ' + d.sum.minutes + ' min' : ''))));
-      if (d.rest) { sec.appendChild(E('p', {}, 'Rest')); host.appendChild(sec); return; }
+      if (d.rest) { sec.appendChild(E('p', { class: 'dp-pr-line' }, 'No training')); host.appendChild(sec); return; }
       d.exercises.forEach(function (x) {
         var ex = E('div', { class: 'dp-pr-ex' });
         ex.appendChild(E('h3', {}, x.title + (x.maxKg ? '  (max ' + showKg(x.maxKg) + ' ' + env.unit + ')' : '')));
