@@ -249,6 +249,8 @@ html.desk .dk-rail-foot { position: sticky; bottom: 0; z-index: 1; background: v
   html.desk:not(.rail-min) .dk-views .dk-item { height: 28px; }
   html.desk:not(.rail-min) .dk-rail-top { height: 48px; }
   html.desk:not(.rail-min) .dk-rail-foot { padding-top: var(--s-2); }
+  /* The footer's rows tighten with the views (Feedback, 3 Nov, made it one row taller): it fits a 1440×800 window. */
+  html.desk:not(.rail-min) .dk-rail-foot .dk-item { height: 28px; }
 }
 
 .dk-demo {

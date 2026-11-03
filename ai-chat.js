@@ -1161,7 +1161,7 @@
   // after the guide has had its chance ("my coach code does not work").
   var BROKEN_HARD = /\b(crash(es|ed|ing)?|bug|broken|frozen|freez(es|ing)|blank screen|error|won'?t (open|load))\b/i;
   var BROKEN_SOFT = /\b(not working|doesn'?t work|does not work|won'?t work|stuck)\b/i;
-  var BROKEN_TEXT = "Sorry about that. The quickest fix is a human: tap **WhatsApp** or **Email** below, say what you tapped and what happened (a screenshot helps), and the founder will look at it personally.";
+  var BROKEN_TEXT = "Sorry about that. **Report a problem** (in **You** → **Help**, or **Settings** → **Help & account** on a laptop) sends it straight to the founder with the screen you were on. Or tap **WhatsApp** or **Email** below: say what you tapped and what happened (a screenshot helps), and the founder will look at it personally.";
 
   // Local support answer: the best entry when the match is clear, a bug
   // report straight to the human row, otherwise an honest hand-off. `human`

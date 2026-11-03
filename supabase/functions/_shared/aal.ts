@@ -9,7 +9,7 @@
 // getUser is what proves the token is real (Auth checks the signature and the session); this only reads the
 // aal claim of that same token and the factors Auth returned with the user (GoTrue's /user lists them: the
 // list supabase-js's mfa.listFactors() reads). Used by delete-account, ls-portal, apple-iap, send-invite,
-// send-program-assigned, send-push, program-read and ai-chat (the eight Verify-JWT functions).
+// send-program-assigned, send-push, program-read, ai-chat and send-feedback (the nine Verify-JWT functions).
 //
 // Fails closed: when the account has a verified factor, a token without a readable aal2 claim is refused.
 // The refusal's words contain "Not authenticated" on purpose: app.js treats that as a session to sign in again.

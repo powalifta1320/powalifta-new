@@ -72,7 +72,35 @@
 .cd-del-btn, .cd-del-btn:disabled:hover { background: var(--brand-red); border-color: var(--brand-red); color: #fff; }
 .cd-del-btn:hover:not(:disabled) { background: var(--red-deep); border-color: var(--red-deep); color: #fff; }
 #clubDetailModal .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+/* Feedback tab: one card per idea or problem, the person's words first. */
+.fb-adm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 18px; }
+.fb-adm-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--line); }
+.fb-adm-seg button { min-height: 34px; padding: 0 14px; border: 0; border-radius: 9px; background: none; color: var(--text-2); font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+.fb-adm-seg button[aria-pressed="true"] { background: var(--bg-3); color: var(--text); }
+.fb-adm-seg button .fb-adm-n { margin-left: 6px; font-family: var(--font-num); font-variant-numeric: tabular-nums; color: var(--text-3); }
+.fb-adm-reload { margin-left: auto; }
+.fb-adm-item { padding: 18px 20px; margin: 0 0 12px; border-radius: var(--r-lg); background: var(--bg-1); border: 1px solid var(--line); }
+.fb-adm-item.is-done { opacity: 0.86; }
+.fb-adm-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
+.fb-adm-when { margin-left: auto; font-size: 0.85rem; color: var(--text-3); white-space: nowrap; }
+.fb-adm-body { margin: 0 0 12px; font-size: 1rem; line-height: 1.55; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.fb-adm-who { margin: 0 0 12px; font-size: 0.9rem; color: var(--text-2); overflow-wrap: anywhere; }
+.fb-adm-who b { color: var(--text); font-weight: 650; }
+.fb-adm-ctx { margin: 0 0 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.fb-adm-ctx summary { cursor: pointer; font-size: 0.88rem; font-weight: 600; color: var(--text-2); min-height: 28px; display: flex; align-items: center; }
+.fb-adm-ctx dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 10px 0 0; font-size: 0.86rem; line-height: 1.45; }
+.fb-adm-ctx dt { color: var(--text-3); }
+.fb-adm-ctx dd { margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
+.fb-adm-ctx ol { margin: 0; padding-left: 18px; }
+.fb-adm-none { margin: 0 0 14px; font-size: 0.86rem; color: var(--text-3); }
+.fb-adm-note { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; margin: 0 0 12px; }
+.fb-adm-note label { grid-column: 1 / -1; margin: 0; }
+.fb-adm-note textarea { min-height: 42px; max-height: 240px; resize: vertical; overflow-y: auto; }
+.fb-adm-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.fb-adm-empty { padding: 28px; text-align: center; }
 @media (max-width: 560px) {
+  .fb-adm-note { grid-template-columns: 1fr; }
+  .fb-adm-reload { margin-left: 0; }
   .cd-edit-grid { grid-template-columns: 1fr; }
   .cd-row { flex-wrap: wrap; }
 }
@@ -98,6 +126,7 @@
     <button class="sidebar-tab" data-tab="payouts" id="tab-payouts"></button>
     <button class="sidebar-tab" data-tab="clubs" id="tab-clubs"></button>
     <button class="sidebar-tab" data-tab="reports" id="tab-reports"></button>
+    <button class="sidebar-tab" data-tab="feedback" id="tab-feedback"></button>
     <button class="sidebar-tab" data-tab="errors" id="tab-errors"></button>
     <button class="sidebar-tab" data-tab="tests" id="tab-tests"></button>
     <div class="sidebar-foot">
@@ -165,6 +194,24 @@
     <section data-pane="reports" class="hidden">
       <div class="dash-header"><div><h2>Club reports</h2><p class="dim text-sm">Posts and clubs lifters reported. Apple expects these handled quickly: remove the post, or dismiss the report if it's fine.</p></div></div>
       <div id="reportsArea"></div>
+    </section>
+
+    <section data-pane="feedback" class="hidden">
+      <div class="dash-header"><div><h2>Feedback</h2><p class="dim text-sm">Ideas and problem reports from coaches and lifters (the Feedback box in the app), newest first. Each one is also emailed to every admin account.</p></div></div>
+      <div class="fb-adm-bar" role="toolbar" aria-label="Filter feedback">
+        <div class="fb-adm-seg" role="group" aria-label="Kind">
+          <button type="button" data-fb-kind="all" aria-pressed="true">All</button>
+          <button type="button" data-fb-kind="idea" aria-pressed="false">Ideas</button>
+          <button type="button" data-fb-kind="problem" aria-pressed="false">Problems</button>
+        </div>
+        <div class="fb-adm-seg" role="group" aria-label="Status">
+          <button type="button" data-fb-status="new" aria-pressed="true">New</button>
+          <button type="button" data-fb-status="done" aria-pressed="false">Done</button>
+          <button type="button" data-fb-status="all" aria-pressed="false">All</button>
+        </div>
+        <button type="button" class="btn btn-sm btn-ghost fb-adm-reload" id="fbAdmReload">Refresh</button>
+      </div>
+      <div id="feedbackArea" aria-live="polite"></div>
     </section>
 
     <section data-pane="errors" class="hidden">
@@ -258,6 +305,7 @@
 <script src="supabase.js"></script>
 <script src="db.js"></script>
 <script src="app.js"></script>
+<script src="feedback.js"></script>
 <script>
 let user;
 let cache = { profiles: [], invites: [], programs: [], logs: [], bw: [], goals: [] };
@@ -288,6 +336,7 @@ bootstrap('coach', async () => {
   setLbl('tab-payouts', ICONS.trophy, 'Payouts');
   setLbl('tab-clubs', ICONS.athletes, 'Clubs');
   setLbl('tab-reports', ICONS.note, 'Club reports');
+  setLbl('tab-feedback', ICONS.chat, 'Feedback');
   setLbl('tab-errors', ICONS.note, 'Client errors');
   setLbl('tab-tests', ICONS.check, 'Test harness');
 
@@ -309,6 +358,7 @@ bootstrap('coach', async () => {
       if (t === 'errors') loadClientErrors();
       if (t === 'clubs') loadClubsAdmin();
       if (t === 'reports') loadClubReports();
+      if (t === 'feedback') loadFeedbackAdmin();
       if (t === 'tests') { const f = document.getElementById('testFrame'); if (f && !f.src) f.src = 'tests.html'; }
     });
   });
@@ -320,6 +370,12 @@ bootstrap('coach', async () => {
   document.getElementById('searchInvites').addEventListener('input', renderInvites);
   document.getElementById('searchErrors').addEventListener('input', renderClientErrors);
   document.getElementById('searchClubs').addEventListener('input', renderClubsAdmin);
+  // Feedback: the filters and Refresh.
+  document.querySelectorAll('[data-fb-kind], [data-fb-status]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.fbKind) fbAdm.kind = b.dataset.fbKind; else fbAdm.status = b.dataset.fbStatus;
+    renderFeedbackAdmin();
+  }));
+  document.getElementById('fbAdmReload').addEventListener('click', () => loadFeedbackAdmin(true));
 
   // Load all admin data in parallel
   try {
@@ -339,6 +395,8 @@ bootstrap('coach', async () => {
     toast('Failed to load admin data: ' + (e.message || ''));
     console.error(e);
   }
+  // admin.html#feedback (the link in the feedback email): the tab, once the accounts are in to say who sent each one.
+  if (location.hash === '#feedback') { const tb = document.getElementById('tab-feedback'); if (tb) tb.click(); }
 });
 
 function profileById(id) { return cache.profiles.find(p => p.id === id); }
@@ -778,6 +836,149 @@ function renderClientErrors() {
 // CLUB REPORTS (admin) — club_reports from the club feed + club report
 // sheets. Every user-supplied string is escHtml'd / set as text.
 // =========================================================
+// =========================================================
+// FEEDBACK (admin): the Feedback box's ideas and problem reports (feedback.js, the send-feedback function,
+// sql/migration-feedback-2026-11-03.sql). Newest first; All / Ideas / Problems and New (not done yet) / Done / All;
+// each card: the words, who and when, the technical details folded open on click, Mark seen / Mark done / Reopen,
+// a note for yourself, Reply (an email to them). Everything they wrote is set as text, never as HTML.
+// =========================================================
+const fbAdm = { kind: 'all', status: 'new' };
+async function loadFeedbackAdmin(force) {
+  const area = document.getElementById('feedbackArea');
+  if (cache.feedback === undefined || force) {
+    area.innerHTML = '';
+    area.appendChild(el('p', { class: 'dim' }, 'Loading…'));
+    try { cache.feedback = await DB.listFeedbackAdmin(500); }
+    catch (e) { cache.feedback = { rows: [], error: e }; }
+  }
+  renderFeedbackAdmin();
+}
+function fbAdmWho(userId) {
+  const p = (cache.profiles || []).find(x => x.id === userId) || null;
+  const role = !p ? '' : p.user_type === 'coach' ? 'coach' : p.user_type === 'admin' ? 'admin' : 'lifter';
+  return { name: (p && p.name) || 'An account that\'s gone', role, email: (p && p.email) || '' };
+}
+function fbAdmShown(rows) {
+  return rows.filter(r => (fbAdm.kind === 'all' || r.kind === fbAdm.kind)
+    && (fbAdm.status === 'all' || (fbAdm.status === 'done' ? r.status === 'done' : r.status !== 'done')));
+}
+function renderFeedbackAdmin() {
+  const area = document.getElementById('feedbackArea');
+  area.innerHTML = '';
+  const data = cache.feedback || { rows: [] };
+  const rows = data.rows || [];
+  // The filters say how many each one holds (the kind's counts follow the status chosen, and the other way round).
+  document.querySelectorAll('[data-fb-kind]').forEach(b => {
+    const on = b.dataset.fbKind === fbAdm.kind;
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    const n = rows.filter(r => (b.dataset.fbKind === 'all' || r.kind === b.dataset.fbKind) && (fbAdm.status === 'all' || (fbAdm.status === 'done' ? r.status === 'done' : r.status !== 'done'))).length;
+    b.innerHTML = '';
+    b.appendChild(document.createTextNode(b.dataset.fbKind === 'all' ? 'All' : b.dataset.fbKind === 'idea' ? 'Ideas' : 'Problems'));
+    b.appendChild(el('span', { class: 'fb-adm-n' }, String(n)));
+  });
+  document.querySelectorAll('[data-fb-status]').forEach(b => b.setAttribute('aria-pressed', b.dataset.fbStatus === fbAdm.status ? 'true' : 'false'));
+  if (!rows.length) {
+    const empty = el('div', { class: 'tbl-card fb-adm-empty' });
+    empty.appendChild(el('p', { class: 'fw-700', style: 'margin-bottom:6px' }, data.notReady ? 'Feedback isn\'t switched on yet' : 'Nothing yet'));
+    empty.appendChild(el('p', { class: 'dim text-sm', style: 'max-width:560px; margin:0 auto; line-height:1.6' }, data.notReady
+      ? 'Run sql/migration-feedback-2026-11-03.sql, then deploy the send-feedback function. Until then the app keeps people\'s words on their device and says it didn\'t go through.'
+      : 'Ideas and problem reports land here as coaches and lifters send them from the app (You › Feedback, Report a problem; the laptop\'s rail and Settings).'));
+    area.appendChild(empty);
+    return;
+  }
+  const shown = fbAdmShown(rows);
+  if (!shown.length) {
+    const empty = el('div', { class: 'tbl-card fb-adm-empty' });
+    empty.appendChild(el('p', { class: 'fw-700', style: 'margin-bottom:6px' }, fbAdm.status === 'new' ? 'All caught up' : 'Nothing here'));
+    empty.appendChild(el('p', { class: 'dim text-sm' }, fbAdm.status === 'new' ? 'Everything that matches is done. Done or All shows the rest.' : 'Nothing matches these filters.'));
+    area.appendChild(empty);
+    return;
+  }
+  shown.forEach(r => area.appendChild(fbAdmCard(r)));
+}
+function fbAdmCard(r) {
+  const who = fbAdmWho(r.userId);
+  const ms = r.createdAt ? new Date(r.createdAt).getTime() : 0;
+  const kindWord = r.kind === 'problem' ? 'Problem' : 'Idea';
+  const card = el('article', { class: 'fb-adm-item is-' + r.status, 'aria-label': kindWord + ' from ' + who.name + (ms ? ', ' + errRelTime(ms) : '') });
+  const head = el('header', { class: 'fb-adm-head' });
+  head.appendChild(el('span', { class: 'badge' + (r.kind === 'problem' ? ' badge-gold' : '') }, kindWord));
+  head.appendChild(el('span', { class: 'badge' + (r.status === 'new' ? ' badge-red' : r.status === 'done' ? ' badge-green' : '') }, r.status === 'new' ? 'New' : r.status === 'done' ? 'Done' : 'Seen'));
+  const when = el('time', { class: 'fb-adm-when' }, ms ? errRelTime(ms) : '');
+  if (ms) { when.setAttribute('datetime', new Date(ms).toISOString()); when.title = new Date(ms).toLocaleString(); }
+  head.appendChild(when);
+  card.appendChild(head);
+  card.appendChild(el('p', { class: 'fb-adm-body' }, r.body));
+  const line = el('p', { class: 'fb-adm-who' });
+  line.appendChild(el('b', {}, who.name));
+  if (who.role) line.appendChild(document.createTextNode(' · ' + who.role));
+  if (who.email) { line.appendChild(document.createTextNode(' · ')); line.appendChild(el('a', { href: 'mailto:' + who.email }, who.email)); }
+  card.appendChild(line);
+  // The technical details, folded: what the app sent, in words, then the errors one by one.
+  const c = r.context || {};
+  if (r.kind === 'problem') {
+    if (Object.keys(c).length) {
+      const det = el('details', { class: 'fb-adm-ctx' });
+      const APP = { web: 'Web', iphone: 'iPhone app', android: 'Android app' };
+      const errs = Array.isArray(c.errors) ? c.errors : [];
+      det.appendChild(el('summary', {}, 'Technical details · ' + [c.screen, APP[c.app] || null, errs.length ? errs.length + (errs.length === 1 ? ' error' : ' errors') : 'no errors'].filter(Boolean).join(' · ')));
+      const dl = el('dl');
+      const lines = window.PowaFeedback ? PowaFeedback.contextLines(c).filter(l => l[0] !== 'Recent errors') : [];
+      lines.forEach(l => { dl.appendChild(el('dt', {}, l[0])); dl.appendChild(el('dd', {}, String(l[1]))); });
+      if (c.ua) { dl.appendChild(el('dt', {}, 'Browser')); dl.appendChild(el('dd', {}, String(c.ua))); }
+      dl.appendChild(el('dt', {}, 'Recent errors'));
+      const dd = el('dd');
+      if (errs.length) {
+        const ol = el('ol');
+        errs.forEach(e => ol.appendChild(el('li', {}, (e.at ? new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' : '') + String(e.msg || ''))));
+        dd.appendChild(ol);
+      } else dd.textContent = 'None';
+      dl.appendChild(dd);
+      det.appendChild(dl);
+      card.appendChild(det);
+    } else card.appendChild(el('p', { class: 'fb-adm-none' }, 'No technical details: they turned them off.'));
+  }
+  // A note for yourself (only admins see it).
+  const note = el('div', { class: 'fb-adm-note' });
+  const nid = 'fbn-' + r.id;
+  note.appendChild(el('label', { for: nid }, 'Your note'));
+  const ta = el('textarea', { id: nid, rows: '1', maxlength: '2000', placeholder: 'Only admins see this' });
+  ta.value = r.adminNote || '';
+  // The box grows with the note as it's written (never on focus: a box that shrank on blur moved Save note mid-click).
+  const fit = () => { ta.style.height = 'auto'; ta.style.height = Math.min(240, Math.max(42, ta.scrollHeight + 2)) + 'px'; };
+  ta.addEventListener('input', fit);
+  note.appendChild(ta);
+  requestAnimationFrame(fit);
+  const saveNote = el('button', { type: 'button', class: 'btn btn-sm' }, 'Save note');
+  saveNote.addEventListener('click', () => fbAdmSet(r, { adminNote: ta.value }, saveNote, 'Note saved'));
+  note.appendChild(saveNote);
+  card.appendChild(note);
+  const acts = el('div', { class: 'fb-adm-acts' });
+  const act = (label, status, msg) => { const b = el('button', { type: 'button', class: 'btn btn-sm' }, label); b.addEventListener('click', () => fbAdmSet(r, { status }, b, msg)); acts.appendChild(b); };
+  if (r.status === 'new') act('Mark seen', 'seen', 'Marked seen');
+  if (r.status !== 'done') act('Mark done', 'done', 'Marked done');
+  else act('Reopen', 'new', 'Back in New');
+  if (who.email) {
+    const first = (who.name || '').split(' ')[0] || 'there';
+    const quote = r.body.length > 500 ? r.body.slice(0, 500) + '…' : r.body;
+    const href = 'mailto:' + who.email + '?subject=' + encodeURIComponent('Re: your POWALIFTA ' + (r.kind === 'problem' ? 'problem report' : 'idea'))
+      + '&body=' + encodeURIComponent('Hi ' + first + ',\n\n\n\n' + quote.split('\n').map(x => '> ' + x).join('\n'));
+    acts.appendChild(el('a', { class: 'btn btn-sm btn-ghost', href }, 'Reply'));
+  }
+  card.appendChild(acts);
+  return card;
+}
+async function fbAdmSet(r, patch, btn, msg) {
+  btn.disabled = true;
+  let res;
+  try { res = await DB.updateFeedbackAdmin(r.id, patch); } catch (e) { res = { ok: false, error: e }; }
+  btn.disabled = false;
+  if (!res || !res.ok) { toast('Couldn\'t save: ' + ((res && res.error && res.error.message) || 'try again')); return; }
+  Object.assign(r, res.row);
+  renderFeedbackAdmin();
+  toast(msg);
+}
+
 async function loadClubReports() {
   const area = document.getElementById('reportsArea');
   area.innerHTML = '';

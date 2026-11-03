@@ -18411,7 +18411,7 @@ function deskSettingsLines(x) {
   const ln = Math.max(0, Number(x.listings) || 0), lv = Math.max(0, Number(x.live) || 0), sales = Math.max(0, Number(x.sales) || 0);
   const market = ln ? plural(ln, 'listing') + ' · ' + lv + ' live' + (sales ? ' · ' + plural(sales, 'sale') : '') : 'Sell your templates';
   return { checkins, rules, brand, athletes, notify, security, prefs, market,
-    keys: 'Every shortcut, screen by screen', help: 'Ask AI, support and log out', data: 'Download everything, or delete your account',
+    keys: 'Every shortcut, screen by screen', help: 'Ask AI, support, report a problem and log out', data: 'Download everything, or delete your account',
     week: x.week ? String(x.week) : 'The hours your roster needs' };
 }
 // The roster calendar: what a bar counts down to. The block's own meet, else the first planned meet

@@ -120,6 +120,7 @@
 <script src="notify.js"></script>
 <script src="coach-you.js"></script>
 <script src="coach-widget.js"></script>
+<script src="feedback.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -11073,6 +11074,143 @@ test('deskSettingsLines: each section\'s state in one line, its purpose when the
   eq(deskSettingsLines({ mfa: true }).security, 'Two-factor on');
   eq(deskSettingsLines({ week: 'Room for 2 more' }).week, 'Room for 2 more');
 });
+
+/* ===========================================================
+   The Feedback box (feedback.js, 3 Nov 2026): a problem's technical details, what never rides along, the
+   words as sent, the draft kept on this device, the rows in You.
+   =========================================================== */
+group('feedback (feedback.js)');
+(() => {
+  const PF = typeof PowaFeedback !== 'undefined' ? PowaFeedback : (window.PowaFeedback || null);
+  if (!PF) { skip('feedback.js', 'not loaded'); return; }
+  const UA_IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1';
+  const UA_APP = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+  const NOW = Date.parse('2026-11-03T12:00:00Z');
+  const ENV = { kind: 'problem', include: true, screen: 'You (from Train)', path: '/athlete.html', shell: 'ios', version: 'bundle 1a2b3c4 · 2026-11-03',
+    ua: UA_IPHONE, w: 393, h: 852, dpr: 3, theme: 'dark', desk: false, native: true, now: NOW,
+    errors: [{ kind: 'error', msg: 'TypeError: x is undefined', ts: '2026-11-03T10:42:00.000Z', stack: 'at render (app.js:1:2)', src: 'https://www.powalifta.com/app.js', line: 9 }] };
+  test('an idea, or a problem with the switch off, sends no details at all', () => {
+    eq(JSON.stringify(PF.buildContext(Object.assign({}, ENV, { kind: 'idea' }))), '{}');
+    eq(JSON.stringify(PF.buildContext(Object.assign({}, ENV, { include: false }))), '{}');
+    eq(JSON.stringify(PF.buildContext({})), '{}');
+  });
+  test('a problem\'s details: the screen, the page, the app and version, the device, the window, the theme, the errors', () => {
+    const c = PF.buildContext(ENV);
+    eq(c.screen, 'You (from Train)'); eq(c.route, '/athlete.html'); eq(c.app, 'iphone'); eq(c.version, 'bundle 1a2b3c4 · 2026-11-03');
+    eq(c.device, 'iPhone · iOS 26.0 · Safari 26'); eq(c.viewport, '393×852 @3x'); eq(c.theme, 'dark'); eq(c.layout, 'phone');
+    eq(JSON.stringify(c.errors), JSON.stringify([{ kind: 'error', msg: 'TypeError: x is undefined', at: '2026-11-03T10:42:00.000Z' }]), 'the message and when: never the stack, the file or the line');
+    assert(Object.keys(c).every(k => PF.CONTEXT_KEYS.indexOf(k) >= 0), 'only the allow-listed keys: ' + Object.keys(c));
+  });
+  test('the website, the laptop, the light theme; a page\'s query and hash never ride along', () => {
+    const c = PF.buildContext(Object.assign({}, ENV, { shell: 'web', version: null, desk: true, native: false, theme: 'light', w: 1440, h: 800, dpr: 1,
+      path: '/coach.html?code=ABC234#access_token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefg', ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' }));
+    eq(c.app, 'web'); eq(c.version, undefined, 'the website is the live deploy: no version'); eq(c.layout, 'desk'); eq(c.theme, 'light');
+    eq(c.viewport, '1440×800', 'no @1x'); eq(c.route, '/coach.html'); eq(c.device, 'Mac · Chrome 141');
+    eq(PF.buildContext(Object.assign({}, ENV, { native: false, desk: false })).layout, undefined, 'the web app at phone width: no layout word');
+    eq(PF.buildContext(Object.assign({}, ENV, { shell: 'android' })).app, 'android');
+    eq(PF.buildContext(Object.assign({}, ENV, { theme: 'sepia' })).theme, undefined);
+  });
+  test('the last five errors of the last 24 hours, each scrubbed and cut to 200 characters', () => {
+    const errs = [];
+    errs.push({ kind: 'error', msg: 'an old one', ts: '2026-11-01T09:00:00.000Z' });
+    for (let i = 1; i <= 7; i++) errs.push({ kind: i === 7 ? 'promise' : i === 6 ? 'warn' : 'odd', msg: 'Error ' + i + ' for sarah.kim@example.com at https://x.test/a?token=zzz', ts: '2026-11-03T11:0' + i + ':00.000Z' });
+    errs.push({ kind: 'error', msg: 'x'.repeat(500), ts: '2026-11-03T11:30:00.000Z' }, { kind: 'error', msg: '', ts: '2026-11-03T11:31:00.000Z' }, null, 'junk');
+    const c = PF.buildContext(Object.assign({}, ENV, { errors: errs }));
+    eq(c.errors.length, 5, 'five');
+    eq(c.errors[0].msg, 'Error 4 for [email] at https://x.test/a', 'an email and a link\'s query out');
+    eq(c.errors[0].kind, 'error', 'a kind that isn\'t error, promise or warn reads as error');
+    eq(c.errors[2].kind, 'warn'); eq(c.errors[3].kind, 'promise');
+    eq(c.errors[4].msg.length, 200, 'cut to 200');
+    assert(!c.errors.some(e => /old one/.test(e.msg)), 'older than a day: left out');
+    eq(JSON.stringify(PF.buildContext(Object.assign({}, ENV, { errors: 'nope' })).errors), undefined);
+  });
+  test('the details at their largest stay under the 8 KB the server and the table allow', () => {
+    const big = (n) => 'é'.repeat(n);
+    const c = PF.buildContext(Object.assign({}, ENV, { screen: big(400), path: '/' + big(400), version: big(400), ua: big(900),
+      errors: Array.from({ length: 50 }, (_, i) => ({ kind: 'error', msg: big(900) + i, ts: '2026-11-03T11:00:00.000Z' })) }));
+    const bytes = new TextEncoder().encode(JSON.stringify(c)).length;
+    assert(bytes <= PF.MAX_CONTEXT, bytes + ' bytes');
+    eq(c.screen.length, 80); eq(c.route.length, 200); eq(c.version.length, 60); eq(c.ua.length, 300);
+  });
+  test('scrub: emails, tokens and links\' queries out, ordinary words kept, and doing it twice changes nothing', () => {
+    eq(PF.scrub('mail me: a.b+c@x-y.io, token=abcdefghijklmnopqrstuv123 then eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig_part_here ok'), 'mail me: [email], token=[token] then [token] ok');
+    eq(PF.scrub('Authorization: Bearer abcdefghijklmnop1234'), 'Authorization: Bearer [token]');
+    eq(PF.scrub('see https://www.powalifta.com/coach.html?demo=1#settings?sec=help now'), 'see https://www.powalifta.com/coach.html now');
+    eq(PF.scrub('id 5f8a2c1e9b7d4e3fa1b2c3d4e5f60718 here'), 'id [token] here');
+    eq(PF.scrub('Failed to fetch dynamically imported module'), 'Failed to fetch dynamically imported module');
+    eq(PF.scrub('ResizeObserver loop completed with undelivered notifications'), 'ResizeObserver loop completed with undelivered notifications');
+    eq(PF.scrub('a\u0000b‮c  d'), 'a b c d', 'control and direction characters out, spaces folded');
+    const s = 'x@y.co eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefg https://a.test/b?c=d';
+    eq(PF.scrub(PF.scrub(s)), PF.scrub(s));
+    eq(PF.scrub(null), ''); eq(PF.scrub(42), '42');
+  });
+  test('the device in words: the phone and its iOS, the iPhone app\'s web view, the laptop and its browser', () => {
+    eq(PF.deviceLabel(UA_IPHONE), 'iPhone · iOS 26.0 · Safari 26');
+    eq(PF.deviceLabel(UA_APP), 'iPhone · iOS 18.1 · app', 'no Safari in the app\'s web view');
+    eq(PF.deviceLabel('Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1'), 'iPad · iPadOS 17.1 · Safari 17');
+    eq(PF.deviceLabel('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36'), 'Android 14 · Chrome 141');
+    eq(PF.deviceLabel('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15'), 'Mac · Safari 18');
+    eq(PF.deviceLabel('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0'), 'Windows · Edge 141');
+    eq(PF.deviceLabel('Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0'), 'Linux · Firefox 133');
+    eq(PF.deviceLabel('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/141.0 Mobile/15E148 Safari/604.1'), 'iPhone · iOS 18.0 · Chrome 141');
+    eq(PF.deviceLabel(''), '');
+  });
+  test('the words as sent: line breaks kept, control characters out, trimmed; empty, blank and over 4,000 refused', () => {
+    eq(JSON.stringify(PF.checkBody('  Line one\r\nLine two\u0007  ')), JSON.stringify({ ok: true, body: 'Line one\nLine two' }));
+    eq(PF.checkBody('').why, 'empty'); eq(PF.checkBody(' \n\t ').why, 'empty'); eq(PF.checkBody(null).why, 'empty');
+    eq(PF.checkBody('x'.repeat(4000)).ok, true); eq(PF.checkBody('x'.repeat(4001)).why, 'long');
+    eq(PF.checkBody('💪'.repeat(4000)).ok, true, '4,000 characters, counted as Postgres counts them (not UTF-16 units)');
+    eq(PF.checkBody('ok \ud83d then 💪').body, 'ok  then 💪', 'a lone half of an emoji is dropped (Postgres refuses it)');
+  });
+  test('details are cut by character, never through an emoji', () => {
+    const c = PF.buildContext(Object.assign({}, ENV, { screen: 'S' + '😀'.repeat(100), ua: 'a' + '😀'.repeat(400), errors: [{ kind: 'error', msg: '😀'.repeat(250), ts: '2026-11-03T10:42:00.000Z' }] }));
+    const lone = /\p{Cs}/u;
+    assert(![c.screen, c.ua, c.errors[0].msg].some(v => lone.test(v)), 'no half emoji');
+    eq(Array.from(c.screen).length, 80); eq(Array.from(c.ua).length, 300); eq(Array.from(c.errors[0].msg).length, 200);
+    eq(PF.scrub('a\ud800b'), 'a b', 'a lone half in a message becomes a space');
+  });
+  test('"See what\'s sent" lines read the details back in words', () => {
+    const L = PF.contextLines(PF.buildContext(ENV));
+    eq(L.map(l => l[0]).join(','), 'Screen,Page,App,Device,Screen size,Theme,Recent errors');
+    eq(L[2][1], 'iPhone app bundle 1a2b3c4 · 2026-11-03'); eq(L[4][1], '393×852 @3x, phone layout'); eq(L[6][1], 'TypeError: x is undefined');
+    eq(PF.contextLines(PF.buildContext(Object.assign({}, ENV, { errors: [] })))[6][1], 'None');
+    eq(PF.contextLines({})[0].join(': '), 'App: Web');
+  });
+  test('the one-line description names everything that goes', () => {
+    ['screen', 'app version', 'web or iPhone app', 'device', 'screen size', 'theme', 'error messages', 'Never your training data'].forEach(w => assert(PF.INCLUDES.indexOf(w) >= 0, w));
+  });
+  test('the draft: kept for this account on this device, gone when sent, emptied or a month old', () => {
+    const u = 'test-fb-' + Date.now();
+    eq(PF.draft.load(u), null);
+    assert(PF.draft.save(u, { kind: 'problem', body: 'It froze on Programs', include: false }, NOW), 'saved');
+    const d = PF.draft.load(u, NOW + 3600e3);
+    eq(d.kind, 'problem'); eq(d.body, 'It froze on Programs'); eq(d.include, false); eq(d.at, NOW);
+    eq(PF.draft.load('someone-else'), null, 'another account on this device sees nothing');
+    assert(!PF.draft.save(u, { kind: 'idea', body: '   ' }), 'an emptied box clears it');
+    eq(PF.draft.load(u), null);
+    PF.draft.save(u, { kind: 'weird', body: 'x' }, NOW);
+    eq(PF.draft.load(u, NOW).kind, 'idea', 'an unknown kind reads as idea');
+    eq(PF.draft.load(u, NOW + 31 * 864e5), null, 'a month old: dropped');
+    eq(localStorage.getItem(PF.draft.key(u)), null, 'and cleared');
+    localStorage.setItem(PF.draft.key(u), '{not json');
+    eq(PF.draft.load(u), null, 'a broken one reads as none');
+    PF.draft.clear(u);
+    eq(localStorage.getItem(PF.draft.key(u)), null);
+  });
+  test('a failed send says why and that the words are kept', () => {
+    assert(/20 today/.test(PF.failWords({ ok: false, status: 429, error: 'rate_limited' })));
+    assert(/No connection/.test(PF.failWords({ ok: false, status: 0, error: 'network' })));
+    assert(/No connection/.test(PF.failWords({ ok: false, status: 0, error: 'timeout' })));
+    assert(/Sign in again/.test(PF.failWords({ ok: false, status: 401, error: 'Invalid session' })));
+    assert(/Sign in again/.test(PF.failWords({ ok: false, status: 403, error: 'aal2_required' })));
+    [{ status: 503, error: 'not_ready' }, { status: 500 }, {}, null].forEach(r => assert(/saved on this device/.test(PF.failWords(r)), JSON.stringify(r)));
+  });
+  test('You\'s two rows: Feedback, and Report a problem (which opens on a problem)', () => {
+    const rows = PF.youRows();
+    eq(rows.map(r => r.label).join(','), 'Feedback,Report a problem');
+    assert(rows.every(r => /<svg/.test(r.icon) && typeof r.onClick === 'function'), 'icons and actions');
+  });
+})();
 
 function render() {
   const sum = document.getElementById('summary');

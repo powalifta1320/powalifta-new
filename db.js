@@ -165,6 +165,13 @@ function mapDbRewardClaim(r) {
     createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now()
   };
 }
+// A row of the Feedback box (sql/migration-feedback-2026-11-03.sql): an idea or a problem, its details, the owner's status.
+function mapDbFeedback(r) {
+  return { id: r.id, userId: r.user_id || null, kind: r.kind === 'problem' ? 'problem' : 'idea', body: r.body || '',
+    context: r.context && typeof r.context === 'object' && !Array.isArray(r.context) ? r.context : {},
+    status: r.status || 'new', adminNote: r.admin_note || '', handledAt: r.handled_at || null, createdAt: r.created_at || null };
+}
+const _FB_COLS = 'id, user_id, kind, body, context, status, admin_note, handled_at, created_at';
 function mapDbClientError(r) {
   return {
     id: r.id, kind: r.kind || 'error',
@@ -1173,6 +1180,27 @@ const DB = {
     }
   },
 
+  // ---------- FEEDBACK (the Feedback box, feedback.js) ----------
+  // An idea or a problem report to the JWT-gated send-feedback function (the user comes from the session, never the
+  // body). Never throws: { ok: true, id } or { ok: false, status, error, message } where error is the function's
+  // ('invalid' | 'rate_limited' | 'not_ready' | 'save_failed' | 'aal2_required'…), 'network' (no answer) or 'timeout'.
+  async sendFeedback({ kind, body, context }) {
+    const call = (async () => {
+      try {
+        const { data, error } = await sb.functions.invoke('send-feedback', { body: { kind, body, context: context || {} } });
+        if (!error) return data && data.ok ? { ok: true, id: data.id || null } : { ok: false, status: 200, error: 'unexpected', message: '' };
+        let status = 0, j = null;
+        try {
+          if (error.context && typeof error.context.clone === 'function') { status = error.context.status || 0; j = await error.context.clone().json(); }
+        } catch (_) { /* not JSON */ }
+        return { ok: false, status, error: (j && (j.error || j.code)) || (status ? 'http_' + status : 'network'), message: (j && j.message) || '' };
+      } catch (e) {
+        return { ok: false, status: 0, error: 'network', message: '' };
+      }
+    })();
+    return Promise.race([call, new Promise((r) => setTimeout(() => r({ ok: false, status: 0, error: 'timeout', message: '' }), 20000))]);
+  },
+
   // ---------- ACCOUNT DELETION / GDPR ERASURE ----------
   // Hard-deletes the CALLER's account + all cascading data. The uid is derived
   // server-side from the session JWT (never sent), so a caller can only ever
@@ -1678,6 +1706,23 @@ const DB = {
       .select('*').order('received_at', { ascending: false }).limit(limit || 500);
     if (error) { console.warn('admin listClientErrors', error); return []; }
     return (data || []).map(mapDbClientError);
+  },
+  // The Feedback tab (admin.html): every row, newest first (RLS: admins read all). { rows, notReady, error }
+  async listFeedbackAdmin(limit) {
+    const { data, error } = await sb.from('feedback').select(_FB_COLS).order('created_at', { ascending: false }).limit(limit || 500);
+    if (error) { if (!_isNotReady(error)) console.warn('admin listFeedback', error); return { rows: [], notReady: _isNotReady(error), error }; }
+    return { rows: (data || []).map(mapDbFeedback) };
+  },
+  // Mark seen / done / new, or the owner's note. patch: { status?, adminNote? }. The table's guard stamps handled_at and
+  // keeps everything else. → { ok, row } (RLS answering no row is { ok: false }: not an admin).
+  async updateFeedbackAdmin(id, patch) {
+    const row = {};
+    if (patch && patch.status) row.status = patch.status;
+    if (patch && 'adminNote' in patch) row.admin_note = Array.from(String(patch.adminNote || '').replace(/\p{Cs}/gu, '').trim()).slice(0, 2000).join('') || null;
+    const { data, error } = await sb.from('feedback').update(row).eq('id', id).select(_FB_COLS).maybeSingle();
+    if (error) return { ok: false, error };
+    if (!data) return { ok: false, error: { message: 'Not updated (admins only)' } };
+    return { ok: true, row: mapDbFeedback(data) };
   },
   // Club + post reports for the admin Reports tab (App Store 1.2: act on
   // reports). Admin read/delete policies live in migration-clubs-social.sql.

@@ -62,4 +62,8 @@ rsync -a --delete \
 for f in "$DEST"/*.html; do
   sed -i '' -E '/<script[^>]*plausible\.io\/js\/script[^>]*><\/script>/d' "$f"
 done
+# The bundle's stamp: which web code this build of the app carries. A problem report from the app (feedback.js) sends
+# it as the app version until a build offers its own (Capacitor's App plugin). The commit and when, nothing else.
+COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+printf '{"commit":"%s","built":"%s"}\n' "$COMMIT" "$(date -u +%Y-%m-%dT%H:%MZ)" > "$DEST/bundle-info.json"
 echo "Copied web app into $DEST"
