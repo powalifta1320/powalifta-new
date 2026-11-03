@@ -6441,6 +6441,17 @@ function deskSeedDemo(store, h) {
     l.e1rm = calcE1RM(l.weight, l.reps, l.rpe);
     l.e1rmComp = calcCompE1RM(l.weight, l.reps, l.rpe, l.lift, l.variant || 'Competition');
   });
+  // Sessions pinned to a date (athlete.html pinDayToDate: day.scheduledDate), as lifters do when a week moves: Elena,
+  // Amara and Grace pinned their next session to today (Today's Training today: still to come); Mei pinned Bench Day to
+  // yesterday and didn't train (the knee in her note). Each pin is on the week they're in, so its dates don't move. (Not
+  // the team's six: seedTeamDemo writes their programs after this.)
+  [['demo-d4', 0], ['demo-d14', 0], ['demo-d16', 0], ['demo-d6', 1]].forEach(function (x) {
+    var prog = S.programs.find(function (q) { return q.athleteId === x[0]; });
+    var ws = prog && typeof programWeekState === 'function' ? programWeekState(prog) : null;
+    if (!ws || ws.finished) return;
+    var day = (prog.weeks[ws.idx].days || []).find(function (d) { return (d.exercises || []).some(function (e) { return (e.sets || []).some(function (st) { return !st.completed; }); }); });
+    if (day) day.scheduledDate = daysAgo(x[1]);
+  });
   // The program editor's demo: two or three accessories under each day's main lift, logged when it was (no workout logs,
   // so e1RM, PRs and the roster read as before). Marcus (demo-d3) keeps the week the homepage's capture pins.
   if (window.DeskProgram && DeskProgram.seedAccessories) DeskProgram.seedAccessories(S, { skip: ['demo-d3'] });

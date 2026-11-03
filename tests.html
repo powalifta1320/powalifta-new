@@ -100,6 +100,7 @@
 <script src="meetday.js"></script>
 <script src="social-auth.js"></script>
 <script src="coach-lifters.js"></script>
+<script src="desk-day.js"></script>
 <script src="program-photo.js"></script>
 <script src="intake.js"></script>
 <script src="clients.js"></script>
@@ -5965,6 +5966,207 @@ test('the business line: money a month, overdue, who is waiting, seats; a part w
   eq(CL.clBusiness({ summary: { currency: 'USD', mrr: 0, overdue: { n: 0 } }, money, apps: 0, joins: 1, seats: null }).map(p => p.text).join(' · '), '1 join request', 'no packages yet: no money, no overdue');
   eq(CL.clBusiness({ apps: 1, joins: 2 })[0].text, '3 new lifters waiting');
   eq(CL.clBusiness({}).length, 0, 'nothing to say: no line');
+});
+
+/* ===========================================================
+   The coach's day on the laptop (desk-day.js, 3 Nov 2026): Training today, Check-ins, This week, Wins; a lifter's week
+   session by session, the meet plan, readiness and pain, the timeline; the list's range pick; form checks as jobs.
+   =========================================================== */
+group('desk day (desk-day.js)');
+const DD = typeof DeskDay !== 'undefined' ? DeskDay : (window.DeskDay || null);
+const DDT = '2026-11-03', DDY = '2026-11-02';   // a Tuesday, and the Monday before it
+const ddAdd = (iso, n) => _isoAddDays(iso, n);
+const ddRow = (id, name, o) => clRow(Object.assign({ athlete: { id, name } }, o || {}));
+const ddRun = (o) => Object.assign({ program: { id: 'p', weeks: [] }, week: { idx: 0, total: 4, finished: false, sessionsPerWeek: 3 }, ago: 2, sessions: { done: 0, planned: 3 } }, o || {});
+const ddPinProg = (iso, done) => ({ id: 'pp', weeks: [{ number: 1, days: [{ id: 'd1', name: 'Bench Day', scheduledDate: iso, exercises: [{ lift: 'bench', sets: [{ weight: 100, reps: 5, completed: !!done }, { weight: 100, reps: 5, completed: false }] }] }] }] });
+test('Training today: done, lifting now, still to come (pinned, agreed, their usual day), missed yesterday; only what we know', () => {
+  assert(DD && DD.trainingToday, 'DeskDay is loaded');
+  const dates = {
+    d: [DDT, ddAdd(DDT, -2)],
+    u: [ddAdd(DDT, -7), ddAdd(DDT, -14), ddAdd(DDT, -21), ddAdd(DDT, -3)],
+    q: [ddAdd(DDT, -14), ddAdd(DDT, -21), ddAdd(DDT, -28), ddAdd(DDT, -12)],
+    y: [ddAdd(DDY, -7), ddAdd(DDY, -14), ddAdd(DDY, -21), ddAdd(DDY, -28)],
+    w: [ddAdd(DDT, -7), ddAdd(DDT, -14), ddAdd(DDT, -21), DDY],
+    n: [ddAdd(DDT, -7), ddAdd(DDT, -14), ddAdd(DDT, -21)],
+    k: [ddAdd(DDT, -4)], p: [ddAdd(DDT, -3)], b: [ddAdd(DDT, -3)]
+  };
+  const rows = [
+    ddRow('l', 'Liv', { live: { sets: 2, at: 5 }, status: ddRun() }),
+    ddRow('d', 'Dan', { status: ddRun() }),
+    ddRow('m', 'Max', { meet: { days: 0, meet: { name: 'Open' } }, status: ddRun() }),
+    ddRow('p', 'Pia', { status: ddRun({ program: ddPinProg(DDT) }) }),
+    ddRow('u', 'Uma', { status: ddRun() }),
+    ddRow('q', 'Quin', { status: ddRun({ ago: 12 }) }),
+    ddRow('y', 'Yan', { status: ddRun({ ago: 8 - 1 }) }),
+    ddRow('k', 'Kai', { status: ddRun({ program: ddPinProg(DDY) }) }),
+    ddRow('w', 'Wes', { status: ddRun({ week: { idx: 0, total: 4, finished: false, sessionsPerWeek: 1 } }) }),
+    ddRow('b', 'Bea', { status: ddRun() }),
+    ddRow('n', 'Ned', { status: ddRun({ program: null, week: null }) })
+  ];
+  const T = DD.trainingToday(rows, { today: DDT, datesOf: (id) => dates[id] || [], agreedOf: (id) => id === 'b' ? [DDT] : null });
+  const ids = (k) => T[k].map(x => x.r.athlete.id + (x.why ? ':' + x.why : '')).join(',');
+  eq(ids('live'), 'l', 'a set in the last half hour'); eq(ids('done'), 'd', 'a set today');
+  eq(ids('meet'), 'm', 'competing today: neither to come nor missed');
+  eq(ids('todo'), 'p:pinned,b:agreed,u:usual', 'pinned first, then by name: a pin, a busy week’s agreed day, their usual Tuesday');
+  eq(ids('missed'), 'k:pinned,y:usual', 'a day pinned to yesterday, their usual Monday: nothing logged');
+  assert(!rows.some(r => r.athlete.id === 'q' && T.todo.concat(T.missed).some(x => x.r === r)), 'quiet 12 days: their old Tuesdays plan nothing');
+  assert(!T.todo.some(x => x.r.athlete.id === 'w'), 'one session a week, done Monday: nothing left to plan');
+  assert(!T.todo.some(x => x.r.athlete.id === 'n'), 'no block running: no session planned');
+  eq(T.n, rows.length);
+  // their usual day: 3 of the 4 weeks before
+  eq(DD.habitOn((d) => [ddAdd(DDT, -7), ddAdd(DDT, -21)].includes(d), DDT), false, 'twice in four weeks is not a habit');
+  eq(DD.habitOn((d) => [ddAdd(DDT, -7), ddAdd(DDT, -14), ddAdd(DDT, -28)].includes(d), DDT), true);
+  // a pinned day already started today is done; one finished yesterday was no miss
+  const T2 = DD.trainingToday([ddRow('a', 'Ann', { status: ddRun({ program: ddPinProg(DDT, true) }) }), ddRow('c', 'Cy', { status: ddRun({ program: ddPinProg(DDY, true) }) })], { today: DDT, datesOf: () => [] });
+  eq(T2.done.map(x => x.r.athlete.id).join(','), 'a'); eq(T2.missed.length, 0, 'the pinned day has sets done: not missed');
+  eq(DD.pinsOn(ddPinProg(DDT), DDT)[0].open, true);
+});
+test('Check-ins this week: who sent one, what the answers flag (pain first), who to remind', () => {
+  const qs = [{ id: 'q0', prompt: 'How many hours did you sleep?', kind: 'number', cadence: 'daily', athleteIds: ['a', 'b', 'c', 'd'] },
+    { id: 'q1', prompt: 'How sore are you?', kind: 'scale', cadence: 'daily', athleteIds: ['a', 'b', 'c', 'd'] },
+    { id: 'q2', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily', athleteIds: ['a', 'b', 'c', 'd'] },
+    { id: 'q3', prompt: 'How stressed are you?', kind: 'scale', cadence: 'daily', athleteIds: ['a', 'b', 'c', 'd'] },
+    { id: 'q4', prompt: 'How was your nutrition this week?', kind: 'choice', cadence: 'weekly', athleteIds: ['a', 'b', 'c', 'd'] },
+    { id: 'qx', prompt: 'Sleep?', kind: 'number', cadence: 'daily', active: false }];
+  const A = (q, a, p, num) => ({ questionId: q, athleteId: a, period: p, num });
+  const answers = [A('q0', 'a', DDY, 8), A('q0', 'a', DDT, 5), A('q1', 'a', DDY, 8), A('q2', 'a', DDT, 1), A('q3', 'a', DDT, 4),
+    A('q0', 'b', DDY, 4), A('q0', 'b', DDT, 7), A('q1', 'b', DDT, 3), A('q2', 'b', DDT, 0),
+    A('q0', 'c', ddAdd(DDT, -6), 4), A('q1', 'c', ddAdd(DDT, -6), 9)];
+  const checkins = [{ athleteId: 'd', weekStart: DDY, createdAt: DDY + 'T08:00:00Z', sleep: 7, soreness: 6, stress: 2, feel: 6 }];
+  const rows = ['a', 'b', 'c', 'd', 'e'].map(id => ddRow(id, id.toUpperCase() + 'nn'));
+  const C = DD.checkinsWeek(rows, { today: DDT, questions: qs, answers, checkins });
+  eq(C.mon, DDY); eq(C.asked, 4, 'e has no question and no form: not asked'); eq(C.sent, 3); eq(C.pct, 75);
+  eq(C.missing.map(r => r.athlete.id).join(','), 'c', 'last week’s answers don’t count');
+  eq(C.flags.map(f => f.key).join(','), 'pain,sleep,soreness,stress', 'pain first');
+  eq(C.flags[0].who.map(w => w.r.athlete.id + ' ' + w.text).join(','), 'a yes today');
+  eq(C.flags[1].who.map(w => w.r.athlete.id + ' ' + w.text).join(','), 'a 5 h', 'the latest answer: b slept 4 h Monday but 7 last night');
+  eq(C.flags[2].who.map(w => w.text).join(','), '8/10');
+  eq(C.flags[3].who.map(w => w.r.athlete.id + ' ' + w.text).join(','), 'd calm 2/10', 'the weekly form reads 10 as calm');
+  eq(C.flags[3].label, 'Stress 7+');
+  eq(DD.checkinsWeek(rows, { today: DDT, questions: [], answers: [], checkins: [] }).asked, 0, 'no questions: nobody asked');
+  eq(DD.questionKind({ prompt: 'Any pain or niggles?' }), 'pain'); eq(DD.questionKind({ prompt: 'How was your nutrition this week?' }), null);
+});
+test('This week: meets and weigh-ins, a week to publish, a block ending, the check-in, payments, today first', () => {
+  const r = (id, o) => ddRow(id, id.toUpperCase() + 'nn', o);
+  const rows = [r('a', { bw: { over: 0.3, cls: 105 }, status: ddRun({ program: { id: 'pa' } }) }), r('b', { status: ddRun({ program: { id: 'pb' } }) }), r('c', { status: ddRun({ program: { id: 'pc' } }) }), r('d')];
+  const meets = [{ athleteId: 'a', name: 'Open', date: DDT, status: 'planned' }, { athleteId: 'b', name: 'Open', date: DDT, status: 'planned' },
+    { athleteId: 'c', name: 'City', date: '2026-11-08', weighInAt: '2026-11-07T17:00:00', status: 'planned' }, { athleteId: 'd', name: 'Far', date: '2026-11-20', status: 'planned' },
+    { athleteId: 'a', name: 'Old', date: '2026-10-01', squat: 200 }, { athleteId: 'x', name: 'Not mine', date: DDT, status: 'planned' }];
+  const billing = [{ athleteId: 'a', amountCents: 15000, s: { state: 'overdue', due: '2026-10-28' } }, { athleteId: 'b', amountCents: 22000, s: { state: 'soon', due: '2026-11-05' } },
+    { athleteId: 'c', amountCents: 15000, s: { state: 'soon', due: '2026-11-05' } }, { athleteId: 'd', amountCents: 15000, s: { state: 'ok', due: '2026-11-12' } }];
+  const A = DD.agenda(rows, { today: DDT, meets, billing, statusOf: (b) => b.s, money: (c) => '$' + c / 100,
+    questions: [{ id: 'w', cadence: 'weekly' }], unpublished: (p) => p.id === 'pa' ? { days: 2, number: 3 } : null, endsOn: (p) => p.id === 'pb' ? '2026-11-08' : p.id === 'pc' ? '2026-11-30' : null });
+  eq(A.from, DDT); eq(A.to, '2026-11-09'); eq(A.days.length, 7); eq(A.days[0].today, true);
+  const day = (i) => A.days[i].items.map(it => it.kind + ':' + it.text + (it.who.length ? ' (' + it.who.map(x => x.athlete.id).join('') + ')' : '') + (it.warn.length ? ' !' + it.warn.map(x => x.athlete.id).join('') : '')).join(' | ');
+  eq(day(0), 'meet:Open (ab) !a | overdue:1 overdue · $150 (a)', 'the meet with its lifters (one over the class), then what’s overdue');
+  eq(day(2), 'publish:Publish week 3 (a) | due:2 payments · $370 (bc)');
+  eq(day(4), 'weighin:Weigh-in · City (c)', 'a weigh-in on its own day');
+  eq(day(5), 'meet:City (c) | blockend:Block ends (b)');
+  eq(day(6), 'checkin:Weekly check-in', 'the weekly questions open on Monday');
+  eq(A.days[1].items.length + A.days[3].items.length, 0, 'an empty day says nothing');
+  eq(A.n, 8);
+  const tones = {}; A.days.forEach(d => d.items.forEach(it => { tones[it.kind] = it.tone; }));
+  eq([tones.meet, tones.weighin, tones.publish, tones.blockend, tones.overdue, tones.due, tones.checkin].join(','), 'gold,gold,cyan,cyan,amber,ink,ink', 'colour with a job');
+});
+test('Wins this week: a card a PR, the best set of the week and how far past the best before it', () => {
+  const L = (id, lift, date, e1rmComp, pr, w) => ({ id, lift, date, e1rmComp, pr, weight: w || 100, reps: 5, rpe: 8 });
+  const logs = { a: [L('1', 'squat', '2026-10-20', 200, false), L('2', 'squat', '2026-11-01', 205, true, 170), L('3', 'squat', DDT, 210, true, 175), L('4', 'bench', '2026-10-25', 145, false), L('5', 'bench', DDY, 150, true, 120)],
+    b: [L('6', 'deadlift', DDY, 260, true)] };
+  const rows = [ddRow('a', 'Ann', { wins: [{ type: 'pr', lifts: ['squat', 'bench'] }] }), ddRow('b', 'Bo', { wins: [{ type: 'streak', text: '4-week streak' }] })];
+  const W = DD.winsWeek(rows, { today: DDT, logsOf: (id) => logs[id] || [], isPR: (id, l) => !!l.pr });
+  eq(W.map(w => w.lift + ' ' + w.date + ' ' + w.weight + ' +' + w.delta).join(' | '), 'squat 2026-11-03 175 +10 | bench 2026-11-02 120 +5', 'newest first; the week’s best against the best before it');
+  eq(W[0].e1rm, 210); eq(W[0].reps, 5); eq(W[0].rpe, 8);
+  eq(DD.winsWeek([ddRow('c', 'Cy', { wins: [{ type: 'pr', lifts: ['squat'] }] })], { today: DDT, logsOf: () => [L('9', 'squat', DDT, 100, true)], isPR: () => true })[0].delta, null, 'a first best has nothing to beat');
+});
+test('A lifter’s week, session by session, from Programs’ own model: status, the top set as written and as lifted', () => {
+  const S = (o) => Object.assign({ weight: 0, reps: 3, rpe: null, completed: false, actualRpe: null, completedAt: null }, o);
+  const ex = (lift, sets, o) => Object.assign({ id: 'e' + Math.random().toString(36).slice(2, 7), lift, variant: '', exerciseName: '', note: '', sets }, o || {});
+  const env = (start) => ({ unit: 'kg', show: (kg) => Math.round(kg * 100) / 100, maxKg: () => 200, estKg: () => 0, nowIdx: 0, starts: [start], today: DDT, live: () => false });
+  const week = { number: 1, days: [
+    { id: 'a', name: 'Squat Day', exercises: [ex('squat', [S({ rpe: 8, weight: 180, completed: true, actualRpe: 8, completedAt: DDY })]), ex('squat', [S({ pct: 70, weight: 0, reps: 4, completed: true, actualRpe: 7.5, completedAt: DDY })], { variant: 'Paused' }), ex('legs', [S({ reps: 10, completed: true, completedAt: DDY })], { exerciseName: 'Leg Press' })] },
+    { id: 'b', name: 'Bench Day', scheduledDate: DDT, exercises: [ex('bench', [S({ rpe: 8, weight: 0, reps: 3 }), S({ weight: 100, reps: 5, rpe: 7 })])] },
+    { id: 'c', name: 'Deadlift Day', exercises: [ex('deadlift', [S({ weight: 200, reps: 3, rpe: 8, completed: true, actualRpe: 9, completedAt: DDT })])] },
+    { id: 'r', name: 'Rest', exercises: [] }] };
+  const days = DD.sessionsOf(DeskProgram.model([week], 0, env(DDY)));
+  eq(days.map(d => d.name + ':' + d.status).join(','), 'Squat Day:done,Bench Day:today,Deadlift Day:done', 'the rest day is left out');
+  eq(days[0].date, DDY); eq(days[1].date, DDT); eq(days[1].dateKind, 'pinned');
+  eq(days[0].lifts.map(L => L.name + (L.tag ? ' ' + L.tag : '') + ' ' + L.tone).join(','), 'Squat ok,Squat Paused done', 'the main lifts, the accessory left to the count');
+  eq(days[0].more, 1);
+  eq(days[0].lifts[0].lifted.top.weight + ' × ' + days[0].lifts[0].lifted.top.reps + ' @' + days[0].lifts[0].lifted.top.rpe, '180 × 3 @8');
+  eq(days[0].lifts[1].pct, 70, 'the % as written');
+  eq(days[2].lifts[0].tone, 'alert', 'a point over what was written'); eq(days[2].lifts[0].lifted.gap, 1);
+  eq(days[1].lifts[0].lifted, null, 'nothing lifted yet: the line as written'); eq(days[1].lifts[0].effort, '@8');
+  // a week that ended with a day never lifted: missed
+  const past = DD.sessionsOf(DeskProgram.model([{ number: 1, days: [{ id: 'x', name: 'Deadlift Day', exercises: [ex('deadlift', [S({ weight: 200, reps: 3 })])] }] }], 0, env('2026-10-26')));
+  eq(past[0].status, 'missed');
+});
+test('The meet plan: attempts set or not, the class against the latest weigh-in, the total and its score', () => {
+  const P = DD.meetPlan({ meet: { name: ' Nationals ', date: '2026-12-26', weightClass: '74 kg', federation: 'USAPL', division: 'Open' }, days: 53,
+    plan: { squat: [185, 195, 202.5], bench: [125, 130, 0], deadlift: null }, maxes: { squat: 210, bench: 140, deadlift: 255 }, total: 605.04,
+    bw: [{ date: '2026-10-20', kg: 75.8 }, { date: '2026-11-02', kg: 74.8 }], sex: 'male', score: (t, bw, sx) => ({ label: 'DOTS', points: 400.123 }) });
+  eq(P.name, 'Nationals'); eq(P.cls, '74 kg'); eq(P.clsKg, 74); eq(P.fed, 'USAPL · Open');
+  eq(P.lifts.map(l => l.lift + ':' + (l.set ? l.att.join('/') : 'no')).join(' '), 'squat:185/195/202.5 bench:125/130/ deadlift:no');
+  eq(P.set, 2); eq(P.planTotal, null, 'a planned total needs all three');
+  eq(P.proj.total, 605); eq(P.proj.points, 400.1); eq(P.proj.label, 'DOTS');
+  eq(P.bw.last, 74.8); eq(P.bw.over, 0.8); eq(P.bw.date, '2026-11-02');
+  const Q = DD.meetPlan({ meet: { name: 'Open', weightClass: '120 kg+' }, plan: { squat: [300, 310, 320], bench: [200, 205, 210], deadlift: [320, 330, 340] }, maxes: { squat: 330, bench: 215, deadlift: 350 }, bw: [] });
+  eq(Q.clsKg, null, 'no ceiling over 120'); eq(Q.planTotal, 870, 'the three thirds'); eq(Q.proj.total, 895, 'the maxes when no total is passed'); eq(Q.bw, null);
+});
+test('Readiness: a row a question on one daily axis, from their first answer; pain reports, newest first', () => {
+  const qs = [{ id: 's', prompt: 'How many hours did you sleep?', kind: 'number', cadence: 'daily' }, { id: 'p', prompt: 'Any pain or niggles?', kind: 'yesno', cadence: 'daily' },
+    { id: 'n', prompt: 'How was your nutrition this week?', kind: 'choice', cadence: 'weekly' }, { id: 't', prompt: 'Anything else?', kind: 'text', cadence: 'daily' }];
+  const A = (q, p, num, text) => ({ id: q + p, questionId: q, athleteId: 'a', period: p, num, text });
+  const answers = [];
+  for (let i = 0; i < 10; i++) answers.push(A('s', ddAdd(DDT, -i), [7, 8, 5.5, 7, 8, 7, 7.5, 8, 6, 7][i]));
+  answers.push(A('p', DDY, 1), A('p', DDT, 0), A('n', '2026-10-26', null, 'Off'), A('n', DDY, null, 'On point'), A('t', DDT, null, 'fine'), { questionId: 's', athleteId: 'b', period: DDT, num: 3 });
+  const R = DD.readiness({ today: DDT, weeks: 6, questions: qs, answers, athleteId: 'a' });
+  eq(R.weeks, 2, 'ten days of answers: a two-week window'); eq(R.from, '2026-10-21'); eq(R.to, DDT);
+  eq(R.rows.map(r => r.key + ':' + r.cadence).join(','), 'pain:daily,sleep:daily,choice:weekly', 'pain first; a written answer has no trend');
+  const sl = R.rows[1];
+  eq(sl.marks.length, 14); eq(sl.marks[13].v, 7); eq(sl.marks[11].watch, true, '5.5 h: under 6'); eq(sl.marks[0], null, 'no answer that day');
+  eq(sl.latest.text, '7 h'); eq(sl.latest.watch, false); eq(sl.avg, 7.1);
+  eq(R.rows[0].latest.text, 'No'); eq(R.rows[0].yes, 1);
+  const nu = R.rows[2];
+  eq(nu.marks.map((m, i) => m && m.gap ? '' : i + (m ? '=' + m.text + (m.watch ? '!' : '') : '-')).filter(Boolean).join(' '), '0- 5=Off! 12=On point', 'the week the window opens in, then each Monday');
+  const PH = DD.painHistory([{ id: 1, day: '2026-10-26', bodyPart: 'hip', side: 'left', severity: 4, phase: 'top', lift: 'squat', resolvedAt: '2026-10-27T09:00:00Z', coachNote: 'Wider stance' },
+    { id: 2, day: DDY, bodyPart: 'low_back', severity: 6, lift: 'deadlift', resolvedAt: null }, { id: 3, day: '2026-08-01', bodyPart: 'knee', severity: 2 }], { since: '2026-09-08' });
+  eq(PH.map(p => p.part + ' ' + p.sev + ' ' + (p.open ? 'open' : 'closed')).join(' | '), 'Low back 6 open | L hip 4 closed', 'newest first, the window only');
+  eq(PH[1].phase, 'Working sets'); eq(PH[1].lift, 'Squat'); eq(PH[1].note, 'Wider stance');
+});
+test('Notes and history: one timeline, newest first; a week’s PRs one line; Reply only where it waits on you', () => {
+  const T = DD.timeline({ athleteId: 'a', coachId: 'me', today: DDT, since: '2026-10-10',
+    notes: [{ id: 'n1', athleteId: 'a', coachId: 'me', body: 'Shoulder: comp grip', createdAt: '2026-10-30T10:00:00Z' }, { id: 'n2', athleteId: 'a', coachId: 'other', body: 'not mine', createdAt: '2026-10-31T10:00:00Z' }],
+    sessionNotes: [{ id: 's1', athleteId: 'a', date: DDT, note: 'Moved like an opener' }, { id: 's2', athleteId: 'a', date: '2026-10-20', note: 'Heavy', coachComment: 'Good' }, { id: 's3', athleteId: 'b', date: DDT, note: 'other lifter' }],
+    messages: [{ id: 'm1', athleteId: 'a', senderId: 'a', body: 'Old question', createdAt: '2026-10-29T08:00:00Z' }, { id: 'm2', athleteId: 'a', senderId: 'me', body: 'Answer', createdAt: '2026-10-30T09:00:00Z' },
+      { id: 'm3', athleteId: 'a', senderId: 'a', body: 'Sleeves?', createdAt: '2026-11-02T07:30:00Z' }, { id: 'm4', athleteId: 'a', senderId: 'a', body: 'Voice note · 0:24', meta: { type: 'voice' }, createdAt: '2026-11-02T07:32:00Z' },
+      { id: 'm5', athleteId: 'a', senderId: 'a', body: 'Squat 172.5', meta: { type: 'set' }, createdAt: '2026-11-01T07:00:00Z' }],
+    formChecks: [{ id: 'f1', athleteId: 'a', lift: 'squat', note: 'Deep enough?', createdAt: DDT + 'T09:00:00Z', coachReply: null }, { id: 'f0', athleteId: 'a', lift: 'squat', createdAt: '2026-09-20T09:00:00Z', coachReply: 'Brace' }],
+    prs: [{ lift: 'squat', date: '2026-10-27', weight: 180, reps: 3, rpe: 8, e1rm: 205 }, { lift: 'bench', date: '2026-10-29', weight: 120, reps: 5, rpe: 8, e1rm: 145 }, { lift: 'deadlift', date: DDY, weight: 230, reps: 3, rpe: 8, e1rm: 260 }],
+    blocks: [{ id: 'b1', athleteId: 'a', name: 'Base Block', endedOn: '2026-10-25' }], program: { id: 'p1', name: 'Strength Block', weeks: [{}, {}, {}] }, programStart: '2026-10-26' });
+  eq(T.map(x => x.kind + ':' + x.title).join(' | '),
+    'session:Session note | formcheck:Form check · squat | pr:Deadlift PR | message:Voice note | message:Message | note:Your note | mine:You wrote | pr:Squat and Bench PRs | message:Message | block:Block started | block:Block finished | session:Session note',
+    'newest first (a date with no time at noon); another coach’s note, a shared set and a check from before the window are left out');
+  eq(T.filter(x => x.kind === 'message').map(x => x.ref + ':' + x.open).join(','), 'm4:true,m3:true,m1:false', 'after your last message: waiting on you');
+  eq(T.find(x => x.ref === 'm4').body, '0:24', 'a voice note is its length');
+  eq(T.find(x => x.kind === 'pr' && /Squat/.test(x.title)).body.replace(/\s+/g, ' '), 'Squat 180 × 3 @8, bench 120 × 5 @8', 'one line for the week');
+  eq(T.find(x => x.ref === 's1').open, true); eq(T.find(x => x.ref === 'f1').open, true);
+  eq(DD.timelineChips(T).map(c => (c.key || 'all') + ' ' + c.n).join(','), 'all 12,notes 3,messages 4,videos 1,prs 2,blocks 2');
+  eq(DD.timelineChips([]).length, 1, 'nothing yet: All alone');
+});
+test('the Lifters list: a range picked between the last pick and this one, in the list’s order', () => {
+  const order = ['a', 'b', 'c', 'd', 'e'];
+  eq(DD.pickRange(order, 'b', 'd').join(''), 'bcd'); eq(DD.pickRange(order, 'e', 'c').join(''), 'cde', 'either way');
+  eq(DD.pickRange(order, null, 'c').join(''), 'c', 'no anchor: just the one'); eq(DD.pickRange(order, 'a', 'z').length, 0, 'off the list: nothing');
+});
+test('Form checks: their own job on the desk (only Done covers a video), folded into the answer on the phone', () => {
+  const r = clRow({ athlete: { id: 'a', name: 'Arjun Mehta' }, reasons: [{ type: 'message', group: 4, text: 'Message 1d', body: 'Sleeves?' }, { type: 'formcheck', group: 5, text: 'Form check · squat', detail: 'Deep enough?', formCheckId: 'f1' }] });
+  const desk = CL.clJobs([r], { today: DDT, formChecksApart: true });
+  eq(desk.map(j => j.key).join(','), 'a:answer,a:formcheck', 'two jobs: the message, then the video');
+  eq(desk[1].kind, 'answer', 'on Your list’s Answer tab');
+  const replied = CL.clJobs([r], { today: DDT, formChecksApart: true, done: { a: 'reply' } });
+  eq(replied.map(j => j.type + ':' + j.done).join(','), 'formcheck:false,message:true', 'a reply answers the message, not the video');
+  eq(CL.clJobs([r], { today: DDT, formChecksApart: true, done: { a: 1 } }).every(j => j.done), true, 'Done covers both');
+  eq(CL.clJobs([r], { today: DDT }).map(j => j.type).join(','), 'message', 'the phone: one answer job, as before');
 });
 
 group('clients (clients.js)');

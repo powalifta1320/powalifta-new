@@ -2624,6 +2624,19 @@
     openLifter(ids[j]);
   }
   // What a list row's click does, exactly once (no change event: #progAthlete's inline onchange would draw twice).
+  // A day of a lifter's week, from their page (desk-day.js, The week): Programs on that lifter, that week, that day's card
+  // in view (wi / di null: the week they're in, its top).
+  function openDay(aid, wi, di) {
+    if (typeof deskGo === 'function' && (typeof _dk === 'undefined' || _dk.screen !== 'programs')) deskGo('programs');
+    openLifter(aid);
+    var go = function () {
+      var prog = progOf(aid);
+      if (!prog || S.aid !== aid) return;
+      if (wi != null && wi >= 0 && wi < (prog.weeks || []).length && S.wi !== wi) pickWeek(wi, false);
+      if (di != null && di >= 0) jumpTo(di);
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(function () { requestAnimationFrame(go); }); else setTimeout(go, 30);
+  }
   function openLifter(id) {
     closePop();
     var sel = document.getElementById('progAthlete');
@@ -2958,7 +2971,7 @@
     // the desk
     head: head, body: body, empty: empty, paintList: paintList, paintRows: paintRows, order: order, step: step, openLifter: openLifter,
     focusExercise: focusExercise, publishWeek: publishWeek, writeWeekFor: doWriteWeek, writeThem: writeThem, commitOpen: commitOpen, team: team, teamTools: teamTools, teamUndo: teamUndo,
-    pickWeek: pickWeek, state: function () { return S; }, preview: togglePreview, printWeek: printWeek, jumpTo: jumpTo, closePop: closePop,
+    pickWeek: pickWeek, state: function () { return S; }, preview: togglePreview, printWeek: printWeek, jumpTo: jumpTo, closePop: closePop, openDay: openDay, envFor: envFor,
     // pure, for tests
     model: model, exLines: exLines, roleOf: roleOf, loadCell: loadCell, effortCell: effortCell, liftedOf: liftedOf, gapCls: gapCls, setGap: setGap, weekState: weekState,
     parseLoadCell: parseLoadCell, parseEffortCell: parseEffortCell, fieldsPatch: fieldsPatch, planCell: planCell, stepCell: stepCell, typedLineSets: typedLineSets,

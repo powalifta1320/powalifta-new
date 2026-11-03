@@ -187,6 +187,8 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'social-auth.js')) ? fs.readFileSync(path.join(ROOT, 'social-auth.js'), 'utf8') : '') + '\n;\n' +
   // LIFTERS: the coach's groups, lines, answers and the block picture (tests.html "lifters")
   (fs.existsSync(path.join(ROOT, 'coach-lifters.js')) ? fs.readFileSync(path.join(ROOT, 'coach-lifters.js'), 'utf8') : '') + '\n;\n' +
+  // THE COACH'S DAY ON THE LAPTOP: Training today, check-ins, the week's agenda, wins, a lifter's week, meet plan, readiness, history (tests.html "desk day (desk-day.js)")
+  (fs.existsSync(path.join(ROOT, 'desk-day.js')) ? fs.readFileSync(path.join(ROOT, 'desk-day.js'), 'utf8') : '') + '\n;\n' +
   // PROGRAM FROM A PHOTO: the read -> draft -> weeks path and its checks (tests.html "program from a photo")
   (fs.existsSync(path.join(ROOT, 'program-photo.js')) ? fs.readFileSync(path.join(ROOT, 'program-photo.js'), 'utf8') : '') + '\n;\n' +
   // INTAKE: the lifter's questionnaire (tests.html "intake")

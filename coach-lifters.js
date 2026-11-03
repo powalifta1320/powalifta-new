@@ -135,7 +135,8 @@
       String(a.name || '').localeCompare(String(b.name || ''));
   }
   // Every job on the roster, one per lifter per kind (their most urgent reason of that kind), plus one
-  // item per meet happening today or tomorrow. opts: { today, done: { athleteId: 1 }, toWrite: [{ r, week }] }.
+  // item per meet happening today or tomorrow. opts: { today, done: { athleteId: 1 }, toWrite: [{ r, week }],
+  // formChecksApart (the desk: a video waiting is a job of its own, never folded into a message's; only Done covers it) }.
   // → [{ key, kind: meetday|answer|check|meet|write, type, tier, order, r, rows, reason, meet, done }] most urgent first.
   // What the coach's action covers, job by job. done[id] is 'reply' (a message answers and checks in),
   // 'apply' (next week published: it's written, and the RPE that asked for it is settled) or anything
@@ -168,8 +169,10 @@
         var kind = KIND[x.type];
         if (!kind) return;
         if ((x.type === 'meet' || x.type === 'weight') && r.meet && r.meet.days <= 1 && r.meet.days >= 0) return;   // the meet-day item has it
-        var it = { key: r.athlete.id + ':' + kind, kind: kind, type: x.type, tier: clTier(r, x, t), order: ORDER.indexOf(x.type), r: r, reason: x, name: r.athlete.name, done: covers(done[r.athlete.id], kind) };
-        if (!best[kind] || jobCmp(it, best[kind]) < 0) best[kind] = it;
+        var apart = !!opts.formChecksApart && x.type === 'formcheck', slot = apart ? 'formcheck' : kind;
+        var it = { key: r.athlete.id + ':' + slot, kind: kind, type: x.type, tier: clTier(r, x, t), order: ORDER.indexOf(x.type), r: r, reason: x, name: r.athlete.name,
+          done: apart ? done[r.athlete.id] === 1 || done[r.athlete.id] === true : covers(done[r.athlete.id], kind) };
+        if (!best[slot] || jobCmp(it, best[slot]) < 0) best[slot] = it;
       });
       Object.keys(best).forEach(function (k) { items.push(best[k]); });
     });
@@ -868,7 +871,7 @@
   /* =====================================================================================
      THE MODEL for a render: rows, the queue, the jobs.
      ===================================================================================== */
-  var S = { sel: null, q: '', deskOn: false, keysOn: false, order: [], wideOn: false };
+  var S = { sel: null, q: '', deskOn: false, keysOn: false, order: [], wideOn: false, picked: {}, pickAnchor: null };
   function rowsNow(reuse) {
     if (reuse && typeof _dk !== 'undefined' && _dk.rows) return { rows: _dk.rows || [], q: _dk.queue };
     if (typeof dkRowsFresh === 'function') { dkRowsFresh(); return { rows: _dk.rows || [], q: _dk.queue }; }
@@ -905,7 +908,7 @@
   function model(opts) {
     var R = rowsNow(opts && opts.reuse), all = R.rows, q = R.q;
     var dm = doneMap(q);
-    var jobs = clJobs(all, { today: todayIso(), done: dm, toWrite: toWriteOf(all, dm), busy: busyOf(all) });
+    var jobs = clJobs(all, { today: todayIso(), done: dm, toWrite: toWriteOf(all, dm), busy: busyOf(all), formChecksApart: isDeskNow() });
     var order = {};
     jobs.forEach(function (it, i) {
       if (it.done) return;
@@ -1089,21 +1092,28 @@
       if (o.desk && o.view === 'pain' && top.type === 'pain') html += painCardHtml(r, jt, acts, rz(1));
       else html += '<div class="cl-flag tone-' + jt.tone + rz(1) + '"><span class="cl-fic">' + ic(jt.icon) + '</span><span class="cl-ftx"><b>' + esc(jt.title) + '</b>' + (jt.detail ? '<span>' + detailHtml(jt) + '</span>' : '') + busyBits + '</span>' + acts + '</div>';
     }
+    // The day's desk (desk-day.js): the week session by session, the meet plan, readiness and pain, notes and history.
+    var B = null;
+    if (o.desk && window.DeskDay) { try { B = DeskDay.lifterBlocks(r, { D: D, rise: o.rise ? rz : null, meetQuiet: !!(top && /^(meet|meetday)$/.test(top.type)) }); } catch (e) { console.warn('DeskDay', e); B = null; } }
+    o.noMeet = !!(B && B.meet);
     // The laptop's Meet view: the meet first (its countdown, the weight against the class, the attempts).
-    if (o.desk && o.view === 'meet' && r.meet && r.meet.days <= 112) html += meetCardHtml(r, rz(1));
+    if (o.desk && o.view === 'meet' && r.meet && r.meet.days <= 112) html += B && B.meet ? B.meet : meetCardHtml(r, rz(1));
     // Nothing logged at all: one clear card instead of a page of dashes.
     var anyLog = D.total || D.lifts.some(function (L) { return L.e1 > 0; }) || D.weeks.some(function (x) { return x.done > 0; }) || D.bw.length;
     if (!anyLog) {
       html += '<div class="cl-empty' + rz(2) + '"><span class="cl-tic">' + ic('cal') + '</span><div><b>Nothing logged yet</b><p>Once ' + esc(first(a.name)) + ' logs a session, their total, the three lifts, training and bodyweight show here.</p>' + deskCareerBtn(a, o) + '</div></div>';
-      if (D.words) html += '<div class="cl-words' + rz(3) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
+      if (B) html += B.week + (o.view === 'meet' ? '' : B.meet) + B.readiness + B.history;
+      else if (D.words) html += '<div class="cl-words' + rz(3) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
       // The business side and their intake (clients-ui.js): a new lifter's About matters most here.
       if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 4 : null });
       if (o.phone) html += linksHtml(a, 'Profile, check-ins, notes', rz(4), blkRow);
       return { html: html, fix: fix, alt: alt, top: top };
     }
     html += chartsHtml(r, D, o);
+    // The laptop: the week, the meet plan, readiness and pain, then one timeline (their words are its newest lines).
+    if (B) html += B.week + (o.view === 'meet' ? '' : B.meet) + B.readiness + B.history;
     // Their words.
-    if (D.words) html += '<div class="cl-words' + rz(5) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · ' + (D.words.kind === 'note' ? 'session note' : 'message') + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
+    else if (D.words) html += '<div class="cl-words' + rz(5) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · ' + (D.words.kind === 'note' ? 'session note' : 'message') + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
     // The phone: the week's note, drafted from what's above (weekly-note.js).
     if (o.phone && window.WeeklyNote) html += WeeklyNote.lifterEntryHtml(r, { rise: o.rise ? 5 : null });
     // The business side (package, payments) and their intake (clients-ui.js): everything about this lifter.
@@ -1182,7 +1192,7 @@
     var meetAfter = '';
     if (r.meet && r.meet.days <= 112) {
       var m = r.meet.meet, planned = meetAttemptsSet(m);
-      if (o.desk) { if (o.view !== 'meet') meetAfter = meetCardHtml(r, rz(5)); }
+      if (o.desk) { if (o.view !== 'meet' && !o.noMeet) meetAfter = meetCardHtml(r, rz(5)); }
       else small.push('<div class="cl-tile t-meets is-compact cl-meet"><div class="cl-th"><span class="cl-tic">' + ic('trophy') + '</span><span class="cl-tl">Meet</span><span class="cl-ts">' + esc(dayMonth(m.date)) + '</span></div>' +
         '<div class="cl-tv"><b class="cl-big3">' + (r.meet.days <= 0 ? 'Today' : r.meet.days === 1 ? 'Tomorrow' : r.meet.days + ' days') + '</b></div>' +
         '<div class="cl-mname">' + esc(clip(m.name || 'Meet', 30)) + '</div>' +
@@ -1378,7 +1388,7 @@
   }
   // Where everyone is: the next 8 by their next meet, one line each on the same weeks (today's line through all of them):
   // the face, the name and the week of the block, the block's weeks (this one lit), the meet's flag, the days to go.
-  function seasonCardHtml(S, n) {
+  function seasonCardHtml(S, n, mt) {
     var lines = S.lines.slice(0, 8);
     if (!lines.length) return '';
     var span = S.weeks * 7, months = [];
@@ -1400,7 +1410,9 @@
         '<span class="cl-sn-t"><i class="cl-sn-rail"></i>' + segs + flag + '<i class="cl-sn-now" style="--x:' + S.now.toFixed(4) + '"></i></span>' +
         '<span class="cl-sn-d' + (L.meet ? '' : ' is-none') + '">' + esc(days) + '</span></button>';
     }).join('');
-    return '<div class="cl-card cl-c-season">' + cardHead('Where everyone is', 'Soonest meet first') + axis + '<div class="cl-sn">' + body + '</div>' +
+    // With the Check-ins card in Your team (desk-day.js), the meets live here and in This week: the count heads the card.
+    var win = mt && mt.list && mt.list.length ? plural(mt.lifters, 'lifter') + ' in ' + plural(mt.list.length, 'meet') + ' in 8 weeks · soonest first' : 'Soonest meet first';
+    return '<div class="cl-card cl-c-season">' + cardHead('Where everyone is', win) + axis + '<div class="cl-sn">' + body + '</div>' +
       '<div class="cl-card-f"><button type="button" class="cl-quiet cl-sn-all" data-season-all>All ' + n + ' on the season calendar' + ic('chev') + '</button></div></div>';
   }
   // The business, one quiet line under the cards; each part opens its place (Clients, the overdue, New lifters, Plan & seats).
@@ -1428,7 +1440,11 @@
     // a meet today that Do first already leads with: the Meets card's line names the next one
     (X.doFirst || []).forEach(function (it) { if (it.type === 'meetday' && it.meet) skip[String(it.meet.name || 'Meet').trim().toLowerCase() + '|' + String(it.meet.date || '').slice(0, 10)] = 1; });
     return '<div class="cl-sh"><h2>Your team</h2><span class="cl-sh-end">' + (window.CoachReportUI && n ? CoachReportUI.entryHtml() : '') + (window.WeeklyNote ? WeeklyNote.todayEntryHtml(M.rows) : '') + '</span></div>' +
-      '<div class="cl-team-grid">' + rosterCardHtml(X.lanes, n) + weekCardHtml(X.T) + effortCardHtml(X.T, X.bins) + strengthCardHtml(X.T, X.lifts) + meetsCardHtml(X.T, skip) + seasonCardHtml(X.season, n) + '</div>' + bizHtml(X.biz);
+      '<div class="cl-team-grid">' + rosterCardHtml(X.lanes, n) + weekCardHtml(X.T) +
+        // The day's desk (desk-day.js): Check-ins (who sent one, what the answers flag) takes the Meets card's place, the
+        // meets reading in This week (the next 7 days) and Where everyone is (8 weeks, the count in its head).
+        (X.D ? DeskDay.checkinsCardHtml(X.D.ci) + effortCardHtml(X.T, X.bins) + strengthCardHtml(X.T, X.lifts) : effortCardHtml(X.T, X.bins) + strengthCardHtml(X.T, X.lifts) + meetsCardHtml(X.T, skip)) +
+        seasonCardHtml(X.season, n, X.D ? X.T.meets : null) + '</div>' + bizHtml(X.biz);
   }
   // Your list: every job but Do first's, most urgent first, one line each (face, name, the kind's mark and why, one quiet
   // fix), tabs by kind; 8 shown, then all; done jobs last.
@@ -1472,17 +1488,23 @@
     var rest = M.open.filter(function (it) { return doFirst.indexOf(it) < 0; });
     var X = teamModel(M);
     X.doFirst = doFirst;
+    // The day's desk (desk-day.js): Training today, This week, Wins, Check-ins, the form checks waiting. The laptop only.
+    var D = null;
+    if (window.DeskDay && isDeskNow()) { try { D = DeskDay.todayData(M.rows); } catch (e) { console.warn('DeskDay', e); D = null; } }
+    X.D = D;
     var total = M.jobs.length, pct = total ? Math.round(M.done / total * 100) : 0;
     var rz = function (i) { return firstPaint ? ' rise" style="--i:' + i : ''; };
     var date = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
     var html = '<div class="ch-home cl-root cl-today">' +
-      '<header class="cl-thead' + rz(0) + '"><div><h1 class="cl-h1x">Today</h1><p class="cl-sub">' + esc(date) + ' · ' + plural(M.rows.length, 'lifter') + (M.live.length ? ' · <b class="t-live">' + M.live.length + ' under the bar</b>' : '') + (window.ClientsUI ? ClientsUI.todayBit() : '') + '</p></div>' +
+      '<header class="cl-thead' + rz(0) + '"><div><h1 class="cl-h1x">Today</h1><p class="cl-sub">' + esc(date) + ' · ' + plural(M.rows.length, 'lifter') + (M.live.length ? ' · <b class="t-live">' + M.live.length + ' under the bar</b>' : '') + (D ? DeskDay.formChecksBit(D.fc) : '') + (window.ClientsUI ? ClientsUI.todayBit() : '') + '</p></div>' +
         (total ? '<div class="cl-prog"><span><b>' + (total - M.done) + '</b> to do this week' + (M.done ? ' · <b>' + M.done + '</b> done' : '') + '</span>' + (M.done ? '<span class="cl-pbar" aria-hidden="true"><i style="width:' + pct + '%"></i></span>' : '') + '</div>' : '') + '</header>';
     // One count on Today: the rail, the header and Do first + Also on your list all add up to the same jobs.
     html += '<div class="cl-sh' + rz(1) + '"><h2>Do first</h2></div>';
     html += doFirst.length ? '<div class="cl-do' + rz(2) + '">' + doFirst.map(function (it, i) { return jobHtml(it, { big: true, red: i === 0 }); }).join('') + '</div>'
       : '<div class="cl-calm' + rz(2) + '"><span class="cl-tic">' + ic('check') + '</span><span><b>Nothing urgent.</b> ' + (M.open.length ? 'The rest is below, by job.' : 'Everyone is on plan.') + '</span></div>';
     html += PN_SPOT;
+    // Training today, This week and the week's wins (desk-day.js): after the notify card's spot, before Your team.
+    if (D) html += '<div class="dd-day' + rz(3) + '">' + DeskDay.trainingTodayHtml(D.tt) + DeskDay.agendaHtml(D.ag) + DeskDay.winsHtml(D.wins, { sent: DeskDay.sent() }) + '</div>';
     // Your team (its header carries this week's quiet ways on: last week's report, coach-report-ui.js, and the week's
     // notes, weekly-note.js). The wrapper keeps .cl-pweek: the notify card's spot sits between Do first and it.
     html += '<div class="cl-pweek cl-team' + rz(3) + '">' + teamHtml(M, X) + '</div>';
@@ -1490,7 +1512,7 @@
     html += '</div>';
     host.innerHTML = html;
     placeNotify(host, M.rows.length);
-    host._clM = M; host._clRest = rest;
+    host._clM = M; host._clRest = rest; host._ddT = D; host._ddWins = D ? D.wins : null;
     if (!host._clWired) { host._clWired = true; wire(host, { today: true }); }
     paint(host);
     host.querySelectorAll('.rise').forEach(function (n) { n.addEventListener('animationend', function () { n.classList.remove('rise'); }, { once: true }); });
@@ -1527,8 +1549,11 @@
     var a = r.athlete, top = M ? clTopJob(r, M.jobs) : null, vn = M && M.view ? clViewNumber(r, M.view) : null, meetV = !!vn;
     var n = vn || clNumber(r), nUnit = vn ? n.unit : (n.tone !== 'none' ? unit() : '');
     var line = (M && M.view && clViewLine(r, M.view)) || clLine(r, top);
-    var ring = clRingOf(r), sel = o.sel === a.id;
-    return '<button type="button" class="cl-row' + (sel ? ' is-sel' : '') + '" data-id="' + esc(a.id) + '" role="option" aria-selected="' + (sel ? 'true' : 'false') + '" tabindex="' + (sel ? '0' : '-1') + '" title="' + esc(a.name + ': ' + (meetV ? n.title + ' · ' : '') + line) + '">' +
+    var ring = clRingOf(r), sel = o.sel === a.id, picked = !!S.picked[a.id], picking = pickCount() > 0;
+    // Several picked to message at once (the box over the face: on hover and focus, always while any are picked; X picks
+    // the focused row, Shift for a range). The option's checked state is the pick, independent of the one open.
+    return '<button type="button" class="cl-row' + (sel ? ' is-sel' : '') + (picked ? ' is-picked' : '') + '" data-id="' + esc(a.id) + '" role="option" aria-selected="' + (sel ? 'true' : 'false') + '"' + (picking ? ' aria-checked="' + picked + '"' : '') + ' tabindex="' + (sel ? '0' : '-1') + '" title="' + esc(a.name + ': ' + (meetV ? n.title + ' · ' : '') + line) + '">' +
+      '<span class="cl-pick" aria-hidden="true">' + ic('check', 3) + '</span>' +
       '<span class="cl-face' + (ring ? ' ring-' + ring : '') + '">' + avHtml(a) + '</span>' +
       '<span class="cl-main"><span class="cl-name">' + esc(a.name) + (r.live ? '<i class="cl-live" title="Training right now"></i>' : '') + '</span><span class="cl-line"><span class="cl-lt">' + esc(line) + '</span></span></span>' +
       '<span class="cl-end"><span class="cl-n t-' + n.tone + '" title="' + esc(n.title) + '"><b>' + esc(n.text) + '</b>' + (nUnit ? '<small>' + esc(nUnit) + '</small>' : '') + '</span></span></button>';
@@ -1611,6 +1636,8 @@
     var M = model();
     var old = area.querySelector('.cl-desk'); if (old) old.remove();
     area.classList.add('cl-on');
+    // Picks hold across tabs and redraws while their lifters are on the roster.
+    Object.keys(S.picked).forEach(function (id) { if (!M.rows.some(function (r) { return r.athlete.id === id; })) delete S.picked[id]; });
     S.deskOn = true;
     if (typeof _dk !== 'undefined' && _dk.rsel && rowOf(_dk.rsel)) S.sel = _dk.rsel;
     var ids = []; M.groups.forEach(function (g) { g.rows.forEach(function (r) { ids.push(r.athlete.id); }); });
@@ -1622,7 +1649,8 @@
         // New lifters (coach.html fillNewLifters: applications and join requests, night C review M5): one row, on top.
         '<div class="nl-slot"></div>' +
         '<div class="cl-vslot">' + viewPicHtml(M) + '</div>' +
-        '<div class="cl-groups" role="listbox" aria-label="Lifters">' + deskGroupsHtml(M) + '</div></div></div>' +
+        '<div class="cl-groups" role="listbox" aria-label="Lifters">' + deskGroupsHtml(M) + '</div></div>' +
+        '<div class="cl-bulk" role="region" aria-label="Picked lifters" hidden></div><p class="dk-nil" aria-live="polite" id="clPickSay"></p></div>' +
       '<div class="cl-page" id="clPage"></div>';
     area.appendChild(wrap);
     if (typeof fillNewLifters === 'function') { try { fillNewLifters(wrap.querySelector('.nl-slot')); } catch (e) {} }
@@ -1630,6 +1658,7 @@
     wire(wrap, { desk: true });
     paint(wrap);
     paintPage(wrap, true);
+    paintPicks(wrap, { quiet: true });
     // A lane on Today that opens All at its group (On plan): the list starts there.
     if (S.toGroup) { var tg = wrap.querySelector('.cl-grp[data-grp="' + S.toGroup + '"]'), sc0 = wrap.querySelector('.cl-scroll'); S.toGroup = null; if (tg && sc0) sc0.scrollTop = tg.offsetTop - sc0.offsetTop - 4; }
     if (!S.keysOn) { S.keysOn = true; document.addEventListener('keydown', onKey, true); }
@@ -1691,6 +1720,55 @@
     var i = ids.indexOf(S.sel), n = i < 0 ? 0 : Math.max(0, Math.min(ids.length - 1, i + step));
     select(ids[n], { key: true });
   }
+  /* ---------- several lifters picked (Lifters, the laptop): message them at once ---------- */
+  function pickCount() { return Object.keys(S.picked).filter(function (k) { return S.picked[k]; }).length; }
+  function pickedIds() { return (S.order || []).filter(function (id) { return S.picked[id]; }).concat(Object.keys(S.picked).filter(function (id) { return S.picked[id] && (S.order || []).indexOf(id) < 0; })); }
+  // id: the row; o.range picks every row between the last one picked (or the open lifter) and this one.
+  function pickToggle(id, o) {
+    o = o || {};
+    if (!id) return;
+    var anchor = S.pickAnchor || S.sel;
+    if (o.range && anchor && anchor !== id && window.DeskDay && DeskDay.pickRange) DeskDay.pickRange(S.order, anchor, id).forEach(function (x) { S.picked[x] = true; });
+    else if (S.picked[id]) delete S.picked[id];
+    else S.picked[id] = true;
+    S.pickAnchor = id;
+    var wrap = document.querySelector('#rosterArea .cl-desk');
+    if (wrap) paintPicks(wrap);
+  }
+  function pickClear(o) {
+    S.picked = {}; S.pickAnchor = null;
+    var wrap = document.querySelector('#rosterArea .cl-desk');
+    if (wrap) paintPicks(wrap, o);
+  }
+  function paintPicks(wrap, o) {
+    o = o || {};
+    var n = pickCount(), ids = pickedIds();
+    wrap.classList.toggle('has-picks', n > 0);
+    wrap.querySelectorAll('.cl-row[data-id]').forEach(function (b) {
+      var on = !!S.picked[b.dataset.id];
+      b.classList.toggle('is-picked', on);
+      if (n) b.setAttribute('aria-checked', String(on)); else b.removeAttribute('aria-checked');
+    });
+    var bar = wrap.querySelector('.cl-bulk');
+    if (bar) {
+      if (!n) { bar.hidden = true; bar.innerHTML = ''; }
+      else {
+        var names = ids.map(function (id) { var r = rowOf(id); return r ? first(r.athlete.name) : null; }).filter(Boolean);
+        bar.innerHTML = '<span class="cl-bulk-t"><b>' + n + ' picked</b><span>' + esc(namesList(names, 3)) + '</span></span>' +
+          '<button type="button" class="cl-btn cl-bulk-msg" data-bulk="msg">' + ic('msg') + 'Message ' + (n === 1 ? esc(names[0] || '1') : n) + '</button>' +
+          '<button type="button" class="cl-ibtn cl-bulk-x" data-bulk="clear" aria-label="Clear the picks" data-tip="Clear the picks" data-kbd="Esc">' + ic('x', 2.2) + '</button>';
+        bar.hidden = false;
+      }
+    }
+    var say = wrap.querySelector('#clPickSay');
+    if (say && !o.quiet) say.textContent = n ? n + ' picked' : 'Picks cleared';
+  }
+  function bulkMessage() {
+    var ids = pickedIds().filter(function (id) { return !!rowOf(id); });
+    if (!ids.length || typeof dkCompose !== 'function') return;
+    var one = ids.length === 1 ? rowOf(ids[0]) : null;
+    dkCompose(ids, { title: one ? 'Message ' + first(one.athlete.name) : 'Message ' + ids.length + ' lifters', onSent: function () { pickClear({ quiet: true }); } });
+  }
   function typing(t) { return typeof _dkTyping === 'function' ? _dkTyping(t) : !!(t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)); }
   function onKey(e) {
     if (!S.deskOn || !isDeskNow() || typeof _dk === 'undefined' || _dk.screen !== 'roster') return;
@@ -1703,6 +1781,8 @@
       return;
     }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (low === 'x' && S.sel) { pickToggle(S.sel, { range: e.shiftKey }); e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if (k === 'Escape' && pickCount() && !document.querySelector('.dk-modal, .dk-veil, .ui-sheet, .dk-menu')) { pickClear(); e.preventDefault(); e.stopImmediatePropagation(); return; }
     if (low === 'j' || k === 'ArrowDown') move(1);
     else if (low === 'k' || k === 'ArrowUp') move(-1);
     else if (k === '/') { var q = document.querySelector('#rosterArea .cl-q'); if (!q) return; q.focus(); q.select(); }
@@ -1820,9 +1900,35 @@
     return null;
   }
   function pageOf(host, t) { return t.closest('#clPage, #clWidePage, #lifterPage') || host; }
+  // One block of the open lifter's page drawn again in place (desk-day.js: a timeline chip, a note saved, Show more):
+  // the page keeps its scroll; opts.focusTab puts focus back on the chip chosen.
+  var DD_SEL = { history: '.dd-tlc', week: '.dd-wk', meet: '.dd-mp', readiness: '.dd-rdc' };
+  function ddRepaint(pg, which, opts) {
+    var r = pg && pg._r;
+    if (!r || !window.DeskDay) return;
+    var B = DeskDay.lifterBlocks(r, {}), old = pg.querySelector(DD_SEL[which]);
+    if (!old || !B[which]) return;
+    old.insertAdjacentHTML('afterend', B[which]);
+    old.parentNode.removeChild(old);
+    if (opts && opts.focusTab !== undefined) { var nt = pg.querySelector('.dd-tlc .cl-tab[data-dd-tl="' + (opts.focusTab || '') + '"]'); if (nt) nt.focus({ preventScroll: true }); }
+  }
+  function ddCtx(host, t, o) {
+    if (o.today) return { today: true };
+    var pg = pageOf(host, t);
+    return { page: true, r: pg._r || null, repaint: function (which, opts) { ddRepaint(pg, which, opts); } };
+  }
   function wire(host, o) {
     host.addEventListener('click', function (e) {
       var t = e.target, b;
+      // The day's desk (desk-day.js): its blocks on Today and on a lifter's page handle their own clicks.
+      if ((o.today || o.desk) && window.DeskDay && DeskDay.onClick(e, host, ddCtx(host, t, o))) return;
+      // Several lifters picked: the box over a face (Shift for a range), ⌘ or Ctrl-click a row, Shift-click a row; the bar.
+      if (o.desk && (b = t.closest('[data-bulk]'))) { e.preventDefault(); if (b.getAttribute('data-bulk') === 'msg') bulkMessage(); else pickClear(); return; }
+      if (o.desk && (b = t.closest('.cl-row[data-id]')) && (t.closest('.cl-pick') || e.shiftKey || e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        pickToggle(b.dataset.id, { range: e.shiftKey });
+        return;
+      }
       // Lifters' tabs (a saved view each), Today's list tabs, and the cards that open Lifters on a tab.
       if ((b = t.closest('[data-tab]'))) {
         e.preventDefault();
@@ -1879,9 +1985,24 @@
       // that holds their people (data-golist: a view key, empty for All).
       if ((b = t.closest('[data-golist]'))) { e.preventDefault(); var gv = b.getAttribute('data-golist') || null; S.toGroup = b.getAttribute('data-gogroup') || null; if (typeof deskGo === 'function') deskGo('roster', { view: gv }); return; }
     });
+    if (o.desk && window.DeskDay) {
+      host.addEventListener('submit', function (e) { DeskDay.onSubmit(e, host, ddCtx(host, e.target, o)); });
+      host.addEventListener('input', DeskDay.onInput);
+      host.addEventListener('keydown', DeskDay.onKeydown);
+    }
     host.addEventListener('keydown', function (e) {
       var t = e.target;
       if (!(t && t.classList && t.classList.contains('cl-tab')) || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End')) return;
+      // The timeline's chips (desk-day.js) move among themselves.
+      if (t.hasAttribute('data-dd-tl')) {
+        var chips = [].slice.call(t.parentNode.querySelectorAll('.cl-tab')), ci = chips.indexOf(t);
+        var cn = e.key === 'Home' ? 0 : e.key === 'End' ? chips.length - 1 : (ci + (e.key === 'ArrowRight' ? 1 : -1) + chips.length) % chips.length;
+        e.preventDefault(); e.stopPropagation();
+        if (chips[cn] && chips[cn] !== t) chips[cn].click();
+        var fk = chips[cn] ? chips[cn].getAttribute('data-dd-tl') : '';
+        var nt = host.querySelector('.dd-tlc .cl-tab[data-dd-tl="' + fk + '"]'); if (nt) nt.focus({ preventScroll: true });
+        return;
+      }
       var row = [].slice.call(t.parentNode.querySelectorAll('.cl-tab')), i = row.indexOf(t);
       var n = e.key === 'Home' ? 0 : e.key === 'End' ? row.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + row.length) % row.length;
       e.preventDefault(); e.stopPropagation();
@@ -1923,7 +2044,7 @@
   function offDesk() { S.deskOn = false; }
   // The desk rail's Today count: the jobs still open, the same number as Today's header.
   function openCount() {
-    try { var R = rowsNow(true), dm = doneMap(R.q); return clJobs(R.rows, { today: todayIso(), done: dm, toWrite: toWriteOf(R.rows, dm), busy: busyOf(R.rows) }).filter(function (it) { return !it.done; }).length; } catch (e) { return null; }
+    try { var R = rowsNow(true), dm = doneMap(R.q); return clJobs(R.rows, { today: todayIso(), done: dm, toWrite: toWriteOf(R.rows, dm), busy: busyOf(R.rows), formChecksApart: isDeskNow() }).filter(function (it) { return !it.done; }).length; } catch (e) { return null; }
   }
 
   window.CoachLifters = { model: model, renderToday: renderToday, renderDesk: renderDesk, renderPhone: renderPhone, renderPane: renderPane, open: open, select: select, refresh: refresh, offDesk: offDesk, openCount: openCount,
