@@ -54,6 +54,24 @@ html[data-theme="light"] body.site {
 }
 html:has(> body.site) { background: #050506; }
 html[data-theme="light"]:has(> body.site) { background: #f4f4f6; }
+/* On the website the daylight is the visitor's own setting (prefers-color-scheme: light), as on the homepage, so moving
+   between them never changes the light; the theme above is an inside page's inside the iPhone app (the app's own). */
+@media (prefers-color-scheme: light) {
+  html:not(.native) body.site {
+    --bg: #f4f4f6; --bg-1: #ffffff; --bg-2: #ececf0; --bg-3: #e2e2e8;
+    --text: #0b0b0d; --text-2: #45454d; --text-3: #5f5f68; --text-4: #5f5f68;
+    --line: rgba(15, 15, 25, 0.1); --line-2: rgba(15, 15, 25, 0.18); --hair: rgba(15, 15, 25, 0.1);
+    --fill-1: rgba(11, 11, 13, 0.035); --fill-2: rgba(11, 11, 13, 0.06); --fill-3: rgba(11, 11, 13, 0.1);
+    --card: #ffffff;
+    --card-sh: 0 0 0 1px rgba(15, 15, 25, 0.08), 0 1px 2px rgba(15, 15, 25, 0.05);
+    --qi-bg: rgba(11, 11, 13, 0.06); --qi-bg-h: rgba(11, 11, 13, 0.1);
+    --up: #0f7d47; --gold: #8a6300; --warn: #b4530f; --soft-alert: #c63a24;
+    --sq: #0a7db0; --be: #6b4fd6; --dl: #946200;
+    color-scheme: light;
+  }
+  html:not(.native):has(> body.site) { background: #f4f4f6; }
+  html:not(.native) body.site .skip-link { background: #0b0b0d; color: #f4f4f6; }
+}
 
 /* ---------- Base. The app's reset, at no weight, for the page that loads without styles.css (404). */
 :where(body.site), :where(body.site) *, :where(body.site) *::before, :where(body.site) *::after { box-sizing: border-box; }
@@ -371,9 +389,11 @@ body.site .lb-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap
 /* A segmented control: the homepage calculator's kg | lb. */
 body.site .lb-seg { display: inline-flex; gap: 0; padding: 3px; border: 0; border-radius: 999px; background: var(--bg-2); }
 html[data-theme="light"] body.site .lb-seg { background: var(--bg-2); }
+@media (prefers-color-scheme: light) { html:not(.native) body.site .lb-seg { background: var(--bg-2); } }
 body.site :is(.lb-seg-btn, .lb-unit-btn) { height: 38px; min-width: 52px; padding: 0 16px; border: 0; border-radius: 999px; background: transparent; color: var(--text-2); font: 650 15px/1 var(--font-body); cursor: pointer; transition: background-color var(--t-state) ease, color var(--t-state) ease; }
 body.site :is(.lb-seg-btn, .lb-unit-btn).active { background: var(--bg-3); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
 html[data-theme="light"] body.site :is(.lb-seg-btn, .lb-unit-btn).active { background: #fff; color: var(--text); box-shadow: 0 1px 2px rgba(15, 15, 25, 0.16); }
+@media (prefers-color-scheme: light) { html:not(.native) body.site :is(.lb-seg-btn, .lb-unit-btn).active { background: #fff; color: var(--text); box-shadow: 0 1px 2px rgba(15, 15, 25, 0.16); } }
 body.site .lb-units { margin-left: auto; }
 body.site .lb-count { font: 550 15px/1.3 var(--font-body); font-variant-numeric: tabular-nums; color: var(--text-3); }
 body.site .lb-head { padding: 0 16px 10px; font: 650 13px/1.3 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--text-3); }
@@ -597,6 +617,7 @@ body.site .cp-apply-status { min-height: 20px; margin: 12px 0 0; font-size: 15px
 body.site .cp-apply-status.is-bad { color: var(--text); }
 body.site .cp-apply-status.is-bad::before { content: ''; display: inline-block; width: 0; height: 0; margin-right: 8px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #ff9f43; vertical-align: 0; }
 html[data-theme="light"] body.site .cp-apply-status.is-bad::before { border-bottom-color: #e06414; }
+@media (prefers-color-scheme: light) { html:not(.native) body.site .cp-apply-status.is-bad::before { border-bottom-color: #e06414; } }
 body.site .cp-sent { padding: clamp(20px, 3vw, 32px); border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); animation: cpSentIn 320ms cubic-bezier(0.23, 1, 0.32, 1) both; }
 body.site .cp-sent h3 { margin: 0 0 8px; font-size: 22px; letter-spacing: -0.02em; }
 body.site .cp-sent p { margin: 0; max-width: 34em; font-size: 17px; line-height: 1.5; color: var(--text-2); }

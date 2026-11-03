@@ -1580,7 +1580,19 @@ function _themeKey() {
   try { if (document.documentElement.classList.contains('desk')) return DESK_THEME_KEY; } catch {}
   return THEME_KEY;
 }
+// The website (the homepage, body.home, and every public page, body.site), outside the iPhone app, wears the visitor's
+// own setting (prefers-color-scheme; the page's head script follows it live) and never stores it: powa-theme stays the
+// dashboards' own choice. null anywhere else.
+function _siteTheme() {
+  try {
+    const h = document.documentElement, b = document.body;
+    if (!b || h.classList.contains('native') || h.classList.contains('desk') || !(b.classList.contains('site') || b.classList.contains('home'))) return null;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  } catch { return null; }
+}
 function getTheme() {
+  const site = _siteTheme();
+  if (site) return site;
   try {
     const stored = localStorage.getItem(_themeKey());
     if (stored === 'light' || stored === 'dark') return stored;
@@ -1607,7 +1619,7 @@ function getTheme() {
 function applyTheme(theme) {
   const t = (theme === 'light') ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', t);
-  try { localStorage.setItem(_themeKey(), t); } catch {}
+  if (!_siteTheme()) { try { localStorage.setItem(_themeKey(), t); } catch {} }
   // Update theme-color meta so mobile chrome/safari status bar matches.
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', t === 'light' ? '#ffffff' : '#0b0b0c');

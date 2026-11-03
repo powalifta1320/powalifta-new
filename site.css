@@ -31,9 +31,10 @@ body.site { --font-display: 'Archivo', 'Archivo Fallback', 'Arial Black', system
 .bar *, .bar *::before, .bar *::after, .foot *, .foot *::before, .foot *::after { box-sizing: border-box; }
 .bar :focus-visible, .foot :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 6px; }
 
-/* The bar: the app's glass. Dark on the homepage (all dark, whatever the theme) and on inside pages in the dark theme;
-   daylight glass on inside pages in the light theme. The homepage floats it over its opening (transparent at the very
-   top, home.css); every other page keeps it at the top of the page (sticky). */
+/* The bar: the app's glass. Dark on every page in the dark (the default); daylight glass on the website when the visitor's
+   setting is light, and on an inside page shown in the iPhone app in the app's light theme (both below). The homepage
+   floats it over its opening (transparent at the very top, home.css); every other page keeps it at the top of the page
+   (sticky). */
 .bar {
   position: fixed; z-index: 40; top: 0; left: 0; right: 0; height: 64px; display: flex; align-items: center; justify-content: space-between;
   padding: 0 calc(var(--bar-fx) + var(--bar-gut)); color: #f4f4f6;
@@ -67,6 +68,27 @@ html[data-theme="light"] body.site .bar .bar-pill { background: #0b0b0d; color: 
 @media (prefers-reduced-transparency: reduce) {
   .bar { background-color: #0b0b0c; -webkit-backdrop-filter: none; backdrop-filter: none; }
   html[data-theme="light"] body.site .bar { background-color: #f4f4f6; }
+}
+/* The website in daylight (3 Nov): the visitor's own setting (prefers-color-scheme: light) dresses the homepage and every
+   public page alike, the bar in the inside pages' daylight glass and the footer on the floor's light graphite. Never inside
+   the iPhone app (html.native), where an inside page keeps the app's own theme (data-theme, above). */
+@media (prefers-color-scheme: light) {
+  html:not(.native) .bar { background-color: rgba(246, 246, 248, 0.94); color: #0b0b0d; box-shadow: inset 0 -1px 0 rgba(15, 15, 25, 0.08); }
+  html:not(.native) .bar .bar-link { color: #3d3d45; }
+  html:not(.native) .bar .bar-toc .bar-link[aria-current] { color: #0b0b0d; }
+  html:not(.native) .bar .bar-pill { background: #0b0b0d; color: #f4f4f6; }
+  html:not(.native) .bar-skip { background: #0b0b0d; color: #f4f4f6; }
+  html:not(.native) .foot { background: #ebebef; color: #0b0b0d; box-shadow: inset 0 1px 0 rgba(15, 15, 25, 0.08); }
+  html:not(.native) .foot-brand p { color: #45454d; }
+  html:not(.native) .foot .fc-h { color: #5f5f68; }
+  html:not(.native) .foot .foot-cols a { color: #34343c; }
+  html:not(.native) .foot .foot-c { border-top-color: rgba(15, 15, 25, 0.1); color: #5f5f68; }
+}
+@media (prefers-color-scheme: light) and (hover: hover) and (pointer: fine) {
+  html:not(.native) .bar .bar-link:hover, html:not(.native) .foot .foot-cols a:hover { color: #0b0b0d; }
+}
+@media (prefers-color-scheme: light) and (prefers-reduced-transparency: reduce) {
+  html:not(.native) .bar { background-color: #f4f4f6; }
 }
 /* An inside page shown inside the iPhone app: the bar clears the status bar. */
 html.native body.site .bar { height: auto; min-height: calc(56px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); }
