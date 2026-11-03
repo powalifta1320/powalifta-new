@@ -4,11 +4,12 @@
 //   prog-lifted.png   week 2 as he lifted it: bench written 152.5 x 3 @8, lifted @9.5 (the coral dot), "Take 1 suggestion";
 //   prog-taken.png    Take 1 suggestion: the editor moves to week 3, his rule's 145 written in beside what week 2 lifted,
 //                     "Send the changes to Marcus".
-// The editor's crimson action is drawn quiet (the homepage draws its own over it: one crimson per screen); the day name the
-// jump focuses is let go (no focus ring). prog.json: the editor's parts and where the page rings, lands and draws (desk px),
+// The editor's crimson action is left out of the picture, its place kept (the homepage draws its own there, one crimson per
+// screen, at each label's width: the two labels' widths differ, so a quiet copy under it would show beside the narrower
+// one as the pictures cross); the day name the jump focuses is let go (no focus ring). prog.json: the editor's parts and where the page rings, lands and draws (desk px),
 // and the action's own type. -> mkimg.py program.
 import { writeFileSync } from 'node:fs';
-import { launch, deskCtx, patchDemo, arjunTopSet, BASE, CAP as OUT, THEME } from './lib.mjs';
+import { launch, deskCtx, patchDemo, arjunTopSet, BASE, CAP as OUT } from './lib.mjs';
 const b = await launch();
 const ctx = await deskCtx(b, { dpr: 2 }); await patchDemo(ctx);
 const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message.slice(0, 160)));
@@ -19,7 +20,7 @@ const R = (r) => [r.x, r.y, r.width, r.height].map((v) => Math.round(v * 10) / 1
 const boxOf = (re, sel) => p.evaluate(({ src, sel }) => { const e = [...document.querySelectorAll(sel)].filter((x) => x.offsetParent).find((x) => new RegExp(src).test(x.textContent.replace(/\s+/g, ' ').trim())); if (!e) return null; const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map((v) => Math.round(v * 10) / 10); }, { src: re.source, sel });
 // The action's own type and shape (the page draws its crimson in the editor's px).
 const styleOf = (re) => p.evaluate((src) => { const e = [...document.querySelectorAll('#programArea button')].filter((x) => x.offsetParent).find((x) => new RegExp(src).test(x.textContent.trim())); if (!e) return null; const c = getComputedStyle(e); return ['font-family', 'font-size', 'font-weight', 'font-stretch', 'letter-spacing', 'padding-left', 'padding-right', 'height', 'border-radius', 'background-image', 'background-color', 'color'].reduce((o, k) => { o[k] = c.getPropertyValue(k); return o; }, {}); }, re.source);
-const quiet = async () => { await p.evaluate((Q) => [...document.querySelectorAll('button')].filter((x) => x.offsetParent && /Take 1 suggestion|Send the changes to Marcus/.test(x.textContent)).forEach((x) => { ['background', 'background-image', 'box-shadow', 'border'].forEach((k) => x.style.setProperty(k, 'none', 'important')); x.style.setProperty('background-color', 'transparent', 'important'); x.style.setProperty('color', Q, 'important'); }), THEME === 'light' ? '#34343c' : '#c2c2cb'); await p.mouse.move(1430, 890); await p.waitForTimeout(250); };
+const leaveOut = async () => { await p.evaluate(() => [...document.querySelectorAll('button')].filter((x) => x.offsetParent && /Take 1 suggestion|Send the changes to Marcus/.test(x.textContent)).forEach((x) => x.style.setProperty('visibility', 'hidden', 'important'))); await p.mouse.move(1430, 890); await p.waitForTimeout(250); };
 // The Bench Day by its chip (the editor scrolls it up under the sticky head and chips), the name's focus let go.
 const toBench = async () => {
   const ok = await p.evaluate(() => { const c = [...document.querySelectorAll('.dp-dchip')].find((x) => x.offsetParent && /Bench/.test(x.textContent)); if (c) c.click(); return !!c; });
@@ -52,7 +53,7 @@ g.take = await boxOf(/^Take 1 suggestion$/, 'button');
 g.takeStyle = await styleOf(/^Take 1 suggestion$/);
 if (!g.take || !g.lifted2.load || g.lifted2.load.value !== '152.5 kg' || !g.lifted2.lifted || !/^152\.5 × 3 @9\.5/.test(g.lifted2.lifted.text) || !g.lifted2.stuck)
   throw new Error('site-capture: week 2 as lifted changed: ' + JSON.stringify(g));
-await quiet(); await p.screenshot({ path: OUT + 'prog-lifted.png' });
+await leaveOut(); await p.screenshot({ path: OUT + 'prog-lifted.png' });
 // Take: the suggestion written into week 3 (the editor stays on the bench day; its chip again marks where it is).
 await click(/^Take 1 suggestion$/); await p.waitForTimeout(900);
 await p.evaluate(() => document.querySelectorAll('.toast, [class*="toast"]').forEach((t) => t.remove()));
@@ -63,7 +64,7 @@ g.send = await boxOf(/^Send the changes to Marcus$/, 'button');
 g.sendStyle = await styleOf(/^Send the changes to Marcus$/);
 if (!g.send || !g.taken3.load || !/^145/.test(g.taken3.load.value) || !g.taken3.lifted || g.taken3.scrollTop !== g.lifted2.scrollTop || JSON.stringify(g.taken3.card) !== JSON.stringify(g.lifted2.card))
   throw new Error('site-capture: Take did not write 145 in the same frame: ' + JSON.stringify(g));
-await quiet(); await p.screenshot({ path: OUT + 'prog-taken.png' });
+await leaveOut(); await p.screenshot({ path: OUT + 'prog-taken.png' });
 // What the page draws (desk px): a ring round what week 2 lifted (its dot and line) and one round the 145 where it lands
 // (the cell's words), each 10 px either side and the row's own 32 px; the action in its two states.
 const pad = (bx, k) => [Math.round((bx[0] - k) * 10) / 10, bx[1], Math.round((bx[2] + 2 * k) * 10) / 10, bx[3]];
