@@ -1,6 +1,6 @@
 # Cuts the captures (test/site-capture/cap-*.mjs) into the homepage's pictures: AVIF + WebP at the widths index.html
 # asks for, into site-img/home/. Run the capture first, then: python3 test/site-capture/mkimg.py [desk phone thread
-# brand week clients import lifter] (all by default). CAP as for the captures; OUT defaults to <repo>/site-img/home/.
+# brand program clients import lifter] (all by default). CAP as for the captures; OUT defaults to <repo>/site-img/home/.
 # After a desk re-take, desk-values.json says where index.html's live numbers, rings and pins go (mkimg prints them).
 import json, os, sys
 from PIL import Image
@@ -23,7 +23,7 @@ def one(im, name, q=88):   # a small layer: WebP only, at the capture's own 2x o
 def crop2(im, x, y, w, h):   # desk px (1440 x 900) to the 2x capture
     return im.crop((round(x * 2), round(y * 2), round((x + w) * 2), round((y + h) * 2)))
 
-what = sys.argv[1:] or ['desk', 'phone', 'thread', 'brand', 'week', 'clients', 'import', 'lifter']
+what = sys.argv[1:] or ['desk', 'phone', 'thread', 'brand', 'program', 'clients', 'import', 'lifter']
 
 # --- Sam's laptop (cap-desk.mjs): the opening's screen, the camera's window, the list, what the window showed before.
 if 'desk' in what:
@@ -80,11 +80,6 @@ if 'thread' in what:
 if 'brand' in what:
     save(Image.open(CAP + 'brand-train.png').crop((0, 0, 393 * 3, 520 * 3)), 'brand', [640, 960])
 
-# --- Marcus's week as lifted, before and after Sam's rule is taken (cap-more.mjs).
-if 'week' in what:
-    save(crop2(Image.open(CAP + 'week-before.png'), 256, 325, 1160, 387), 'week-before', [1160, 2320], q_avif=60)
-    save(crop2(Image.open(CAP + 'week-after.png'), 256, 325, 1160, 387), 'week-after', [1160, 2320], q_avif=60)
-
 # --- Clients (cap-clients.mjs): the laptop's summary, and for phones its two cards that prove "who has paid", stacked.
 if 'clients' in what:
     cl = crop2(Image.open(CAP + 'cl-before.png'), 256, 100, 992, 358).convert('RGB')
@@ -116,3 +111,17 @@ if 'lifter' in what:
         print('   PR %-6s' % key, g['pr'][key])
     print('   PR number', g['pr']['num']['box'], g['pr']['num']['type'])
     print('   PR jump  ', g['pr']['delta']['box'], g['pr']['delta']['type'])
+
+# --- Next week: Marcus's week in the Programs editor (cap-program.mjs, 2x): the editor's top 560 px (desk 616..1416 x
+# 12..572), his week 2 as lifted and, after Take 1 suggestion, week 3 with his rule's 145 (prog.json says where the
+# page rings and draws: mkimg prints it in the crop's per cent).
+if 'program' in what:
+    X0, Y0, W, H = 616, 12, 800, 560
+    for n in ('prog-lifted', 'prog-taken'):
+        save(crop2(Image.open(CAP + n + '.png'), X0, Y0, W, H), n, [800, 1600], q_webp=86, q_avif=62)
+    g = json.load(open(CAP + 'prog.json'))['g']
+    for k in ('lifted', 'take', 'send'):
+        x, y, w, h = g[k]
+        print('   %-6s left %.3f%%  top %.3f%%  width %.3f%%  height %.3f%%  right %.3f%%' % (k, (x - X0) / W * 100, (y - Y0) / H * 100, w / W * 100, h / H * 100, (X0 + W - x - w) / W * 100))
+    x, y, w, h = g['cell145']['box']
+    print('   145    left %.3f%%  top %.3f%%  width %.3f%%  height %.3f%%' % ((x - X0) / W * 100, (y - Y0) / H * 100, w / W * 100, h / H * 100))

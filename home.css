@@ -379,27 +379,22 @@ html.m .tl-bub img { width: 100%; aspect-ratio: 393 / 852; }
 .next-head { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: end; }
 .next-head .h2 { grid-column: 1 / span 6; }
 .next-head .lead { grid-column: 7 / span 6; max-width: 36em; }
-.wk { margin-top: var(--s4); width: 100%; }   /* the grid's full width: its edges are the header's */
-/* What each column is, pinned above it: what Sam wrote, what Marcus lifted (and how it felt), next week. */
-.wk-cols { position: relative; height: 34px; margin: 0 16px; }
-.wk-cols span { position: absolute; left: calc(var(--x) / 1160 * 100%); top: 2px; padding-left: 12px; font-size: 14px; font-weight: 650; color: var(--text); white-space: nowrap; }
-.wk-cols span::before { content: ''; position: absolute; left: 0; top: 4px; height: 28px; width: 1.5px; border-radius: 1px; background: var(--up); }
-.wk-port { position: relative; overflow: hidden; padding: 14px 16px 4px; border-radius: 18px; outline-offset: 4px; background: var(--screen); box-shadow: var(--pane); }
-.wk-in { position: relative; aspect-ratio: 1160 / 387; }
+.wk { margin-top: var(--s4); width: min(100%, 880px); }
+/* A window onto Sam's Programs editor (the crop is 800 x 560 desk px): the still is the editor after Take; with motion
+   week 2 as lifted lies on it first. 1cqw here is 8 desk px, so the page's own parts are drawn in the editor's px. */
+.wk-port { position: relative; overflow: hidden; border-radius: 18px; outline-offset: 4px; background: var(--screen); box-shadow: var(--pane); }
+.wk-in { position: relative; aspect-ratio: 800 / 560; container-type: inline-size; }
 .wk-in picture, .wk-in img { position: absolute; inset: 0; width: 100%; height: 100%; }
 .wk-before { display: none; }
 html.m .wk-before { display: block; }
-/* What the take changes, and nothing else: the suggestion's row (1) and the week's header (2). */
-html.m .wk-b1 { clip-path: inset(calc(286 / 387 * 100%) calc(4 / 1160 * 100%) calc(52 / 387 * 100%) calc(776 / 1160 * 100%)); }
-html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 100%)); }
-.tap { position: absolute; left: calc(959 / 1160 * 100%); top: calc(294.8 / 387 * 100%); width: calc(184 / 1160 * 100%); height: calc(32 / 387 * 100%); border-radius: 999px; box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
-/* The reason the rule moved the load: Marcus's bench as he lifted it, 1.5 over (motion only). */
-.why { position: absolute; left: calc(390 / 1160 * 100%); top: calc(295 / 387 * 100%); width: calc(162 / 1160 * 100%); height: calc(32 / 387 * 100%); border-radius: 9px; box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; visibility: hidden; pointer-events: none; }
-.wk-foot { display: flex; align-items: center; justify-content: flex-end; margin-top: var(--s3); }
-.wk-pub { display: inline-flex; align-items: center; gap: 14px; font-size: 16px; font-weight: 650; color: var(--text); }
-/* The app's own Publish (desk.css .dk-btn primary): the one crimson on this screen. */
-.pub { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 999px; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; font-size: 15px; font-weight: 650; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.45); }
-.pub svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+/* The bench as lifted (@9.5 where Sam wrote 8), then week 3's bench where his rule's 145 lands. */
+.why { position: absolute; left: 75%; top: 77.143%; width: 16.5%; height: 5.714%; border-radius: calc(9 / 8 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; visibility: hidden; pointer-events: none; }
+.tap { position: absolute; left: 40.75%; top: 77.143%; width: 15.5%; height: 5.714%; border-radius: calc(9 / 8 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
+/* The editor's own action (desk-program.js, the crimson primary), drawn by the page so one crimson per screen holds:
+   Take 1 suggestion, then Send the changes to Marcus. Right-aligned where the editor has it. */
+.pub { position: absolute; right: 0; top: 16.607%; min-width: 28.3%; height: calc(36 / 8 * 1cqw); display: inline-flex; align-items: center; justify-content: center; padding: 0 calc(16 / 8 * 1cqw); border-radius: 999px;
+  background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; font-size: calc(13.5 / 8 * 1cqw); font-weight: 650; letter-spacing: -0.005em; white-space: nowrap; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.45); }
+.pub .swap > span { display: inline-flex; align-items: center; justify-content: center; }
 
 /* =====================================================================
    MEET DAY: the striking moment. A black stage: Tom's phone (left), the platform (three lights, then the minute),
@@ -829,11 +824,10 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .next-head .h2, .next-head .lead { grid-column: 1 / -1; }
   .next-head .lead { margin-top: 14px; }
   /* The week: a true-size strip the reader's scroll pans across (without motion it scrolls sideways). */
-  .wk-cols { display: none; }
-  .wk-port { margin-inline: -16px; padding: 10px 16px 2px; border-radius: 0; overflow-x: auto; overflow-y: hidden; }
-  .wk-in { width: calc(1160px * 0.78); }
-  html.m .wk-port { overflow: hidden; }
-  .wk-foot { justify-content: flex-start; margin-top: var(--s2); }
+  /* The editor's right part at 0.7 (desk 900..1416): the written load, the RPE, what he lifted, the action. */
+  .wk { width: auto; margin-inline: -16px; }
+  .wk-port { border-radius: 0; aspect-ratio: 516 / 560; }
+  .wk-in { width: calc(800 / 516 * 100%); translate: calc(-284 / 800 * 100%) 0; }
   .meet-lead { margin-top: 14px; margin-bottom: var(--s3); }
   .scene { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "phone" "board"; row-gap: 22px; }
   .mid { padding-bottom: 0; }

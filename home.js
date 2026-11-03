@@ -625,43 +625,28 @@
   onState(threadTl, { trigger: '#thread', start: function () { return small() ? 'top 62%' : 'top 70%'; } });
 
   /* =====================================================================
-     NEXT WEEK: the week rises; Sam takes the suggestion his own rule wrote (bench 155 to 145): the row turns to
-     "Took 145", the week's header to "Suggestions taken"; then Publish week 3 arrives, the one crimson here. On a
-     phone the reader's scroll first pans along the true-size row.
+     NEXT WEEK: Sam's Programs editor, Marcus's week (cap-program.mjs). As it arrives a ring finds why: his bench as
+     lifted, @9.5 where Sam wrote 8. His rule's suggestion is ready: Take 1 suggestion arrives, the one crimson here; Take
+     presses; week 3 comes up with the 145 his rule wrote, ringed as it lands; the action becomes Send the changes to
+     Marcus. (The editor takes the suggestion from the lifted week, so there is no card to show between.)
      ===================================================================== */
   words($('#next-h'));
   rise([$('.next-head .lead')], { start: 'top 92%' });
-  rise($$('.wk-cols span'), { trigger: $('#wk'), start: 'top 88%', stagger: 0.09 });
-  var wkPort = $('#wkPort'), wkIn = $('#wkIn'), wkTap = $('#wkTap'), wkWhy = $('#wkWhy'), wkB1 = $('.wk-b1'), wkB2 = $('.wk-b2'), pub = $('#pub');
+  var wkPort = $('#wkPort'), wkTap = $('#wkTap'), wkWhy = $('#wkWhy'), wkB = $('.wk-before'), pub = $('#pub'), pubSw = $('.swap', pub);
   rise([wkPort], { y: 30, start: 'top 94%', dur: 0.8 });
-  gsap.set(pub, { autoAlpha: 0, scale: 0.94, transformOrigin: '50% 50%' });
-  var b1From = 'inset(73.902% 0.345% 13.437% 66.897%)', b1To = 'inset(73.902% 0.345% 13.437% 99.655%)';
-  /* Why, then the take (what the caption used to say): a ring on Marcus's bench as he lifted it, 1.5 over what Sam wrote;
-     then Sam taps Take on the load his own rule wrote, the row turns to "Took 145", the week's header to "Suggestions
-     taken", and Publish week 3 arrives. */
-  function takeTl(why) {
-    var T = why ? 0.62 : 0, tl = gsap.timeline({ paused: true });
-    if (why) tl.fromTo(wkWhy, { autoAlpha: 0, scale: 1.05 }, { autoAlpha: 1, scale: 1, duration: 0.34, ease: ENTER, immediateRender: false }, 0)
-      .to(wkWhy, { autoAlpha: 0, duration: 0.4, ease: OUT }, T + 0.5);
-    return tl.fromTo(wkTap, { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.2, ease: OUT }, T)
-      .fromTo(wkB1, { clipPath: b1From }, { clipPath: b1To, duration: 0.6, ease: INOUT, immediateRender: false }, T + 0.22)
-      .to(wkTap, { opacity: 0, duration: 0.4, ease: OUT }, T + 0.5)
-      .fromTo(wkB2, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.4, ease: OUT, immediateRender: false }, T + 0.9)
-      .to(pub, { autoAlpha: 1, scale: 1, duration: 0.36, ease: ENTER }, T + 1.2);
-  }
-  mm.add({ phoneW: '(max-width: 759px)', wideW: '(min-width: 760px)' }, function (ctx) {
-    if (ctx.conditions.phoneW) {
-      /* On a phone the why ring rides the pan: it lights as Marcus's bench, as lifted, passes the middle of the strip. */
-      var pan = gsap.timeline({ scrollTrigger: { trigger: wkPort, start: 'top 82%', end: 'top 30%', scrub: 0.5, invalidateOnRefresh: true } })
-        .fromTo(wkIn, { x: 0 }, { x: function () { var cs = getComputedStyle(wkPort); return -(wkIn.offsetWidth - (wkPort.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight))); }, ease: 'none', duration: 1 })
-        .fromTo(wkWhy, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.12, ease: 'none', immediateRender: false }, 0.28)
-        .to(wkWhy, { autoAlpha: 0, duration: 0.12, ease: 'none' }, 0.74);
-      var tp = takeTl(false), a = onState(tp, { trigger: wkPort, start: 'top 30%' });
-      return function () { a.kill(); tp.kill(); pan.scrollTrigger.kill(); pan.kill(); gsap.set(wkIn, { clearProps: 'transform' }); };
-    }
-    var tw = takeTl(true), b = onState(tw, { trigger: wkPort, start: 'bottom 88%' });
-    return function () { b.kill(); tw.kill(); };
-  });
+  swapStart(pubSw);
+  gsap.set(pub, { autoAlpha: 0, y: 6, transformOrigin: '100% 50%' });
+  var takeTl = gsap.timeline({ paused: true })
+    .fromTo(wkWhy, { autoAlpha: 0, scale: 1.05 }, { autoAlpha: 1, scale: 1, duration: 0.34, ease: ENTER, immediateRender: false }, 0)
+    .to(pub, { autoAlpha: 1, y: 0, duration: 0.4, ease: ENTER }, 0.45)
+    .to(wkWhy, { autoAlpha: 0, duration: 0.4, ease: OUT }, 1.0)
+    .to(pub, { scale: 0.97, duration: 0.11, ease: OUT }, 1.25)
+    .to(pub, { scale: 1, duration: 0.28, ease: OUT }, 1.37)
+    .fromTo(wkB, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.45, ease: OUT, immediateRender: false }, 1.4)
+    .fromTo(wkTap, { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.3, ease: OUT, immediateRender: false }, 1.7)
+    .to(wkTap, { opacity: 0, duration: 0.5, ease: OUT }, 2.5);
+  swapIn(takeTl, pubSw, 1.6);
+  onState(takeTl, { trigger: wkPort, start: function () { return small() ? 'bottom 92%' : 'bottom 88%'; } });
 
   /* =====================================================================
      MEET DAY: a chapter like the others. As the platform arrives the three lights come on one by one: good lift. Tom's
