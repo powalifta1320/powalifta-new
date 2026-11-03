@@ -2082,54 +2082,184 @@ html.desk :is(.dk-set-back, .dk-set-link, .dk-set-open, button.dk-set-card):focu
 /* Set fields on the desk: inspector boxes. */
 /* (The builder header's Fields entry is in its meta line and in ⋯.) */
 
-/* ---------- Club keeps the phone's feed, at a column's width, on v2 surfaces ---------- */
-html.desk .dash-main > section[data-pane="club"] { padding: var(--page-top) var(--gut) 72px; }
-html.desk .dash-main > section[data-pane="club"] > * { max-width: 680px; margin-inline: 0; }
-/* One badge style: the PR as a gold dot and ink word, the effort as ink "@9" in the lift line. */
-html.desk body.powa-app section[data-pane="club"] .cp-pr { display: inline-flex; align-items: center; gap: 6px; height: auto; padding: 0; background: none !important; box-shadow: none !important; color: var(--text) !important; font-weight: var(--fw-3); }
-html.desk body.powa-app section[data-pane="club"] .cp-pr svg { display: none; }
-html.desk body.powa-app section[data-pane="club"] .cp-pr::before { content: ''; width: 6px; height: 6px; border-radius: var(--r-round); background: var(--dk-gold); }
-html.desk body.powa-app section[data-pane="club"] .cp-rpe { display: inline-flex; gap: 0 !important; padding: 0; background: none !important; box-shadow: none !important; font-size: 0 !important; color: var(--text-2); }
-html.desk body.powa-app section[data-pane="club"] .cp-rpe::before { content: '@'; font-size: var(--fs-3); }
-html.desk body.powa-app section[data-pane="club"] .cp-rpe b { font-size: var(--fs-3); font-weight: var(--fw-2); color: var(--text-2); }
-/* The invite icon: a plain quiet icon button (gold is for PRs and meets). */
-html.desk body.powa-app section[data-pane="club"] .club-invite-icon { background: var(--dk-fill) !important; color: var(--text) !important; box-shadow: none !important; }
-@media (hover: hover) and (pointer: fine) { html.desk body.powa-app section[data-pane="club"] .club-invite-icon:hover { background: var(--dk-fill-2) !important; } }
-html.desk body.powa-app section[data-pane="club"] .dash-header { margin-bottom: var(--s-5); padding: 0; }
-html.desk body.powa-app section[data-pane="club"] .ui-hero.club-hero,
-html.desk body.powa-app section[data-pane="club"] :is(.club-buddy, .club-compose, .cp-card) {
-  background-color: var(--dk-card) !important; background-image: var(--dk-card-sheen) !important; border: 1px solid var(--dk-card-edge) !important;
-  box-shadow: var(--dk-card-lit) !important; border-radius: var(--r-3) !important;
-}
-html.desk body.powa-app section[data-pane="club"] .ui-hero.club-hero::before,
-html.desk body.powa-app section[data-pane="club"] .ui-hero.club-hero::after { display: none !important; }
-html.desk body.powa-app section[data-pane="club"] .cp-card.is-pr { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-gold) 30%, transparent) !important; }
-html.desk body.powa-app section[data-pane="club"] .club-compose { min-height: 52px; font-size: var(--fs-3); }
-html.desk body.powa-app section[data-pane="club"] .club-compose .cc-plus { width: var(--ctl-h); height: var(--ctl-h); border-radius: var(--r-1); background: var(--dk-fill) !important; box-shadow: none !important; color: var(--text); }
-html.desk body.powa-app section[data-pane="club"] .club-compose .cc-plus svg { width: var(--ic-2); height: var(--ic-2); }
-@media (hover: hover) and (pointer: fine) { html.desk body.powa-app section[data-pane="club"] .club-compose:hover .cc-plus { background: var(--dk-fill-2) !important; } }
-/* The club on the desk's steps: one page title like every screen, controls at 6, chips as status
-   words, the PR in gold on its badge only (no gold frame round the card). */
-html.desk body.powa-app section[data-pane="club"] .dash-header h2 { margin: 0; font-family: var(--font-display); font-stretch: var(--display-stretch, 100%); font-size: var(--fs-7) !important; font-weight: 800; letter-spacing: -0.025em; line-height: 1.05; }
-html.desk body.powa-app section[data-pane="club"] .club-hero-name { font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-6); font-weight: var(--fw-4); }
-html.desk body.powa-app section[data-pane="club"] .club-crest { border-radius: var(--r-2); font-size: var(--fs-4); }
-html.desk body.powa-app section[data-pane="club"] :is(.club-desc, .cp-cap, .cp-ex-name) { font-size: var(--fs-3); }
-html.desk body.powa-app section[data-pane="club"] :is(.cs-av, .cp-role, .cp-pr, .cp-rpe) { font-size: var(--fs-1); }
-html.desk body.powa-app section[data-pane="club"] .cp-card.is-pr { box-shadow: none !important; }
-html.desk body.powa-app section[data-pane="club"] :is(.cp-pr, .cp-rpe, .cp-role, .react-chip, .react-add, .club-invite-icon, .cp-more) { border-radius: var(--r-1) !important; }
-html.desk body.powa-app section[data-pane="club"] :is(.react-chip, .react-add) { height: 28px; min-height: 28px; box-shadow: none; }
-html.desk body.powa-app section[data-pane="club"] .react-add { background: var(--dk-fill); }
-html.desk body.powa-app section[data-pane="club"] .rc-e { font-size: var(--fs-3); }
-html.desk body.powa-app section[data-pane="club"] .btn { min-height: var(--ctl-h); height: var(--ctl-h); padding: 0 var(--s-3); font-size: var(--fs-2); }
-html.desk body.powa-app section[data-pane="club"] .club-invite-icon { width: var(--ctl-h); height: var(--ctl-h); }
-html.desk body.powa-app section[data-pane="club"] .ui-seg.club-view-seg { display: inline-flex; width: auto; height: auto; padding: 2px; gap: 2px; border-radius: var(--r-1); background: var(--dk-fill); font-size: var(--fs-2); }
-html.desk body.powa-app section[data-pane="club"] .ui-seg.club-view-seg > button { flex: none; height: 28px; min-height: 28px; padding: 0 var(--s-3); border-radius: calc(var(--r-1) - 2px); font-size: var(--fs-2); font-weight: var(--fw-2); box-shadow: none; }
-html.desk body.powa-app section[data-pane="club"] .ui-seg.club-view-seg > button.on { background: var(--dk-seg-on); }
-html.desk[data-theme="light"] body.powa-app section[data-pane="club"] .ui-seg.club-view-seg > button.on { background: #fff; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1); }
-html.desk body.powa-app section[data-pane="club"] .cp-card b { font-variant-numeric: tabular-nums; }
-html.desk body.powa-app section[data-pane="club"] .cp-nums b { font-size: var(--fs-6); }
-html.desk body.powa-app section[data-pane="club"] .cp-nums :is(small, i) { font-size: var(--fs-3); }
-html.desk body.powa-app section[data-pane="club"] .cp-rpe b { font-size: var(--fs-2); }
+/* ---------- Club on the laptop (desk v3 drop 2): a header card, then the feed beside a sticky column ----------
+   clubs.js draws .cb-desk on the desk only; the phone's club is untouched. Four sizes: 28 the title, 20 the club's name,
+   the sections and a post's numbers, 15 body, 13 captions. Gold is the club's (its crest, Lift of the week, PRs, first
+   place); the week's ring is green; a post's lift wears its lift colour. Cards radius 20, 24 inside. */
+/* the page frame: the shared rule caps single-column screens at --page-w; the club's two columns take up to 1240 */
+html.desk .dash-main > section[data-pane="club"] { --page-w: calc(1240px + 2 * var(--gut)); }
+html.desk body.powa-app section[data-pane="club"] > .dash-header { margin: 0; padding: 0; }
+html.desk body.powa-app section[data-pane="club"] > .dash-header h2 { margin: 0; font-family: var(--font-display); font-stretch: var(--display-stretch, 100%); font-size: var(--fs-7); font-weight: 800; letter-spacing: -0.025em; line-height: 1.05; text-transform: none; }
+html.desk section[data-pane="club"] > #challengeArea:empty { display: none; }
+.cb-desk { --cb-gold: #ffbf3c; --cb-green: #34d982; --cb-silver: #c3cbd6; --cb-bronze: #d89c6c; min-width: 0; }
+html.desk[data-theme="light"] .cb-desk { --cb-gold: #8a5a00; --cb-green: #0f7d47; --cb-silver: #5d6673; --cb-bronze: #8a4f22; }
+.cb-sub { margin: 6px 0 var(--s-5); font-size: var(--fs-3); line-height: 1.4; color: var(--text-3); }
+.cb-card, .cb-head { position: relative; min-width: 0; padding: var(--s-5); box-sizing: border-box; border: 1px solid var(--dk-card-edge); border-radius: var(--r-3);
+  background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); color: var(--text); }
+html.desk body.powa-app :is(.cb-h, .cb-name) { margin: 0; font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-5); font-weight: var(--fw-4); line-height: 1.2; letter-spacing: -0.01em; text-transform: none; color: var(--text); }
+.cb-fine { margin: var(--s-3) 0 0; font-size: var(--fs-1); line-height: 1.45; color: var(--text-3); text-wrap: pretty; }
+/* the header card: the club, the week's pulse, Invite and the one crimson */
+.cb-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--s-5); }
+.cb-head-id { display: flex; align-items: center; gap: var(--s-4); min-width: 0; }
+.cb-crest { flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; color: var(--cb-gold); background: color-mix(in srgb, var(--cb-gold) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cb-gold) 26%, transparent); font: 800 var(--fs-5)/1 var(--font-display); font-stretch: var(--display-stretch, 100%); letter-spacing: 0.01em; }
+.cb-head-t { min-width: 0; }
+.cb-meta { margin: 3px 0 0; font-size: var(--fs-3); line-height: 1.35; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-sep { color: var(--text-4); }
+.cb-desc { margin: 6px 0 0; font-size: var(--fs-3); line-height: 1.4; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-pulse { display: flex; align-items: center; gap: 14px; min-width: 0; padding-left: var(--s-5); border-left: 1px solid var(--line); }
+.cb-ring { position: relative; flex: none; display: grid; place-items: center; width: 52px; height: 52px; }
+.cb-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.cb-ring-t { fill: none; stroke: var(--dk-fill-2); stroke-width: 5; }
+.cb-ring-v { fill: none; stroke: var(--cb-green); stroke-width: 5; stroke-linecap: round; }
+.cb-ring b { position: relative; font: var(--fw-3) var(--fs-1)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--text); }
+.cb-pulse-t { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
+.cb-pulse-t > b { font-size: var(--fs-3); font-weight: var(--fw-3); line-height: 20px; color: var(--text); white-space: nowrap; }
+.cb-faces { display: inline-flex; align-items: center; }
+html.desk body.powa-app .cb-av.ui-av { width: 26px; height: 26px; font-size: 10px; letter-spacing: 0; font-weight: 700; box-shadow: 0 0 0 2px var(--dk-card); }
+.cb-faces .cb-av + .cb-av { margin-left: -4px; }
+.cb-faces-n { margin-left: 6px; font-size: var(--fs-1); font-weight: var(--fw-3); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.cb-acts { display: flex; align-items: center; gap: var(--s-2); }
+/* two columns that fill the pane: the feed, and a column that stays in view (clubs.js deskStick keeps its foot reachable) */
+.cb-cols { display: grid; grid-template-columns: minmax(0, 1fr) clamp(300px, 34%, 420px); gap: var(--s-6); align-items: start; margin-top: var(--s-6); }
+.cb-sec { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
+.cb-feed { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
+.cb-side { position: sticky; top: 24px; display: flex; flex-direction: column; gap: var(--s-4); min-width: 0; }
+.cb-feed > .cb-h { margin-bottom: 2px; }
+.cb-more { display: flex; align-items: center; justify-content: center; width: 100%; height: 40px; margin-top: var(--s-2); border: 0; border-radius: var(--r-2); background: none; cursor: pointer;
+  color: var(--text-2); font: var(--fw-3) var(--fs-3)/1 var(--font-body); transition: background-color 0.14s var(--dk-ease), color 0.14s var(--dk-ease); }
+@media (hover: hover) and (pointer: fine) { .cb-more:hover { background: var(--dk-hover); color: var(--text); } }
+/* a post: the card, the lifter, the lift in its colour and its numbers on the scale, the reactions as small buttons */
+html.desk .cb-desk .club-feed { display: flex; flex-direction: column; gap: var(--s-3); }
+html.desk body.powa-app .cb-desk .cp-card { padding: 20px var(--s-5); border: 1px solid var(--dk-card-edge); border-radius: var(--r-3); background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); }
+html.desk body.powa-app .cb-desk .cp-card::before { display: none; }
+html.desk body.powa-app .cb-desk .cp-card.is-pr { border-color: color-mix(in srgb, var(--cb-gold) 30%, var(--dk-card-edge)); }
+html.desk body.powa-app .cb-desk .cp-head { gap: var(--s-3); }
+html.desk body.powa-app .cb-desk .cp-av { width: 36px; height: 36px; font-size: var(--fs-1); }
+html.desk body.powa-app .cb-desk .cp-who b { font-size: var(--fs-3); font-weight: var(--fw-3); }
+html.desk body.powa-app .cb-desk .cp-who span, html.desk body.powa-app .cb-desk .cp-card.is-pr .cp-who span { font-size: var(--fs-1); color: var(--text-3); }
+html.desk body.powa-app .cb-desk .cp-who b .cp-role { margin-left: 6px; padding: 2px 6px; border-radius: var(--r-1); background: var(--dk-fill); color: var(--text-2); font-size: var(--fs-1); font-weight: var(--fw-2); vertical-align: 1px; }
+html.desk body.powa-app .cb-desk .cp-more { width: 32px; height: 32px; border-radius: var(--r-1); background: none; color: var(--text-3); }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app .cb-desk .cp-more:hover { background: var(--dk-hover); color: var(--text); } }
+html.desk body.powa-app .cb-desk .cp-lift { margin-top: 14px; padding: 0; border-radius: 0; background: none; box-shadow: none; }
+html.desk body.powa-app .cb-desk .cp-lift.has-bar { padding-right: 112px; }
+html.desk body.powa-app .cb-desk .cp-ex-name { font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); }
+html.desk body.powa-app .cb-desk .cp-lift:is(.lift-squat, .lift-bench, .lift-deadlift) .cp-ex-name { color: var(--lc-ink, var(--lc)); }
+html.desk .cb-desk .cp-lift.lift-squat { --lc: #38c6ff; } html.desk .cb-desk .cp-lift.lift-bench { --lc: #a98bff; } html.desk .cb-desk .cp-lift.lift-deadlift { --lc: #ffbf3c; }
+html.desk[data-theme="light"] .cb-desk .cp-lift.lift-squat { --lc: #19a9e6; --lc-ink: #0a6e9a; } html.desk[data-theme="light"] .cb-desk .cp-lift.lift-bench { --lc: #8b6cf0; --lc-ink: #5b3fd0; } html.desk[data-theme="light"] .cb-desk .cp-lift.lift-deadlift { --lc: #e5a51c; --lc-ink: #8a5a00; }
+html.desk body.powa-app .cb-desk .cp-ex .lift-dot { width: 8px; height: 8px; background: var(--lc); }
+html.desk body.powa-app .cb-desk .cp-pr { display: inline-flex; align-items: center; gap: 6px; height: auto; margin-left: 8px; padding: 0; background: none; box-shadow: none; color: var(--text); font-size: var(--fs-1); font-weight: var(--fw-3); }
+html.desk body.powa-app .cb-desk .cp-pr svg { display: none; }
+html.desk body.powa-app .cb-desk .cp-pr::before { content: ''; width: 7px; height: 7px; border-radius: var(--r-round); background: var(--cb-gold); }
+html.desk body.powa-app .cb-desk .cp-nums { margin-top: 6px; gap: 0 6px; }
+html.desk body.powa-app .cb-desk .cp-nums b { font-family: var(--font-num); font-size: var(--fs-5); font-weight: var(--fw-4); letter-spacing: -0.01em; color: var(--text); }
+html.desk body.powa-app .cb-desk .cp-nums small { font-size: var(--fs-1); font-weight: var(--fw-2); color: var(--text-3); text-transform: none; letter-spacing: 0; }
+html.desk body.powa-app .cb-desk .cp-nums i { font-size: var(--fs-3); color: var(--text-4); }
+html.desk body.powa-app .cb-desk .cp-rpe { display: inline-flex; align-items: baseline; gap: 0; margin-left: 6px; padding: 0; background: none; box-shadow: none; color: var(--text-2); font-size: var(--fs-3); }
+html.desk body.powa-app .cb-desk .cp-rpe b { font-family: var(--font-body); font-size: var(--fs-3); font-weight: var(--fw-2); color: var(--text-2); }
+html.desk body.powa-app .cb-desk .cp-e1 { margin-top: 4px; font-size: var(--fs-1); font-weight: var(--fw-2); color: var(--text-3); }
+html.desk body.powa-app .cb-desk .cp-cap { margin: 12px 0 0; font-size: var(--fs-3); color: var(--text-2); }
+html.desk body.powa-app .cb-desk .cp-reacts { margin-top: 14px; }
+html.desk body.powa-app .cb-desk :is(.react-chip, .react-add) { height: 30px; min-height: 30px; padding: 0 10px; border-radius: var(--r-round); background: var(--dk-fill); box-shadow: none; font-size: var(--fs-1); }
+html.desk body.powa-app .cb-desk .react-chip .rc-e { font-size: var(--fs-3); }
+html.desk body.powa-app .cb-desk .react-chip.mine { background: color-mix(in srgb, var(--cb-gold) 18%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cb-gold) 40%, transparent); color: var(--text); }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app .cb-desk :is(.react-chip, .react-add):hover { background: var(--dk-fill-2); } }
+/* Lift of the week: the club's gold, one slim card that takes you to the post */
+html.desk body.powa-app .cb-desk .club-spot { display: flex; align-items: center; gap: var(--s-3); width: 100%; margin: 0; padding: 14px var(--s-5); border: 1px solid color-mix(in srgb, var(--cb-gold) 26%, var(--dk-card-edge)); border-radius: var(--r-3);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--cb-gold) 9%, var(--dk-card)), var(--dk-card) 60%); box-shadow: var(--dk-card-lit); cursor: pointer; text-align: left; color: var(--text); }
+html.desk body.powa-app .cb-desk .club-spot .cs-ic { width: 36px; height: 36px; border-radius: 12px; color: var(--cb-gold); background: color-mix(in srgb, var(--cb-gold) 16%, transparent); }
+html.desk body.powa-app .cb-desk .club-spot .cs-k { font-size: var(--fs-1); color: var(--cb-gold); font-weight: var(--fw-3); }
+html.desk body.powa-app .cb-desk .club-spot .cs-t { font-size: var(--fs-3); font-weight: var(--fw-3); }
+html.desk body.powa-app .cb-desk .club-spot .cs-n { font-size: var(--fs-1); color: var(--text-2); }
+/* who's waiting to get in, and a training buddy: slim cards */
+html.desk body.powa-app .cb-desk :is(.club-req-row, .club-buddy) { margin: 0; padding: 14px var(--s-5); border: 1px solid var(--dk-card-edge); border-radius: var(--r-3); background: var(--dk-card); box-shadow: var(--dk-card-lit); }
+html.desk body.powa-app .cb-desk .club-buddy .cbud-t b { font-size: var(--fs-3); }
+html.desk body.powa-app .cb-desk .club-buddy .cbud-t span { font-size: var(--fs-1); }
+html.desk body.powa-app .cb-desk .club-buddy .btn { min-height: var(--ctl-h); height: var(--ctl-h); padding: 0 var(--s-3); border-radius: var(--r-round); font-size: var(--fs-2); }
+/* the board: three ways to rank (one switch style), places 1 to 3 in their medals, the top 5 then everyone in place */
+.cb-seg { display: flex; width: 100%; }
+.cb-seg .dk-seg-btn { flex: 1 1 0; min-width: 0; padding: 0 var(--s-2); }
+.cb-rows { list-style: none; margin: var(--s-3) 0 0; padding: 0; }
+.cb-row { position: relative; animation: cbRise 0.32s var(--dk-ease) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
+@keyframes cbRise { from { opacity: 0.45; transform: translateY(4px); } }
+.cb-row + .cb-row::before { content: ''; position: absolute; top: 0; left: 72px; right: 8px; height: 1px; background: var(--line); }
+.cb-row-b { display: grid; grid-template-columns: 20px 28px minmax(0, 1fr) auto; align-items: center; column-gap: var(--s-3); width: 100%; min-height: 52px; padding: 6px 8px 6px 4px; border: 0; border-radius: 12px;
+  background: none; cursor: pointer; color: inherit; font: inherit; text-align: left; transition: background-color 0.14s var(--dk-ease); }
+@media (hover: hover) and (pointer: fine) { .cb-row-b:hover { background: var(--dk-hover); } }
+.cb-row-b:focus-visible, .cb-more:focus-visible, .cb-opt:focus-visible, .cb-link:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
+.cb-row-b .cb-av.ui-av { width: 28px; height: 28px; font-size: 11px; box-shadow: none; }
+.cb-rank { font: var(--fw-4) var(--fs-3)/1 var(--font-num); font-variant-numeric: tabular-nums; text-align: center; color: var(--text-3); }
+.cb-row.is-r1 .cb-rank { color: var(--cb-gold); } .cb-row.is-r2 .cb-rank { color: var(--cb-silver); } .cb-row.is-r3 .cb-rank { color: var(--cb-bronze); }
+.cb-row.is-me .cb-row-b { background: color-mix(in srgb, var(--cb-gold) 10%, transparent); }
+.cb-row-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cb-row-n { font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-row-m { font-size: var(--fs-1); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-row-v { font: var(--fw-4) var(--fs-3)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+.cb-row-v small { font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); }
+.cb-row-v.is-up { color: var(--cb-green); }
+.cb-board .cb-more { border-top: 1px solid var(--line); border-radius: 0; margin-top: 2px; }
+/* the club's records: each lift's best, a quiet wash of its colour */
+html.desk .cb-recs .club-records { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); }
+html.desk body.powa-app .cb-recs .crec { padding: 14px; border: 0; border-radius: 14px; background: color-mix(in srgb, var(--lc, var(--cb-gold)) 9%, var(--dk-raise-2)); box-shadow: none; }
+html.desk .cb-recs .crec.lift-total { --lc: var(--cb-gold); }
+html.desk body.powa-app .cb-recs .crec-lbl { font-size: var(--fs-1); font-weight: var(--fw-3); color: var(--lc-ink, var(--lc)); }
+html.desk[data-theme="light"] .cb-recs .crec.lift-squat { --lc-ink: #0a6e9a; } html.desk[data-theme="light"] .cb-recs .crec.lift-bench { --lc-ink: #5b3fd0; } html.desk[data-theme="light"] .cb-recs .crec:is(.lift-deadlift, .lift-total) { --lc-ink: #8a5a00; }
+html.desk body.powa-app .cb-recs .crec-val { font: var(--fw-4) var(--fs-5)/1.1 var(--font-num); letter-spacing: -0.01em; }
+html.desk body.powa-app .cb-recs .crec-val small { font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); margin-left: 3px; }
+html.desk body.powa-app .cb-recs .crec-who { margin-top: 8px; font-size: var(--fs-1); color: var(--text-2); }
+html.desk body.powa-app .cb-recs .crec-av { width: 20px; height: 20px; font-size: 9px; }
+/* the coach's challenge, in the side column: the card system, places 1 to 3 in their medals, the days left in gold */
+html.desk .cb-side #challengeArea .chl { margin: 0; }
+html.desk body.powa-app .cb-side .chl-h { margin: 0 0 var(--s-3); font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-5); font-weight: var(--fw-4); line-height: 1.2; letter-spacing: -0.01em; text-transform: none; color: var(--text); }
+html.desk body.powa-app .cb-side .chl-card { padding: 20px var(--s-5) var(--s-3); border: 1px solid var(--dk-card-edge); border-radius: var(--r-3); background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); }
+html.desk body.powa-app .cb-side .chl-top { padding: 0; }
+html.desk body.powa-app .cb-side .chl-title { font-size: var(--fs-3); font-weight: var(--fw-3); }
+html.desk body.powa-app .cb-side .chl-when { font-size: var(--fs-1); color: var(--cb-gold); }
+html.desk body.powa-app .cb-side .chl-meta { padding: 0; font-size: var(--fs-1); }
+html.desk body.powa-app .cb-side .chl-row { min-height: 48px; }
+html.desk body.powa-app .cb-side .chl-row .chl-av.ui-av { width: 28px; height: 28px; font-size: 11px; }
+html.desk body.powa-app .cb-side .chl-row { grid-template-columns: 20px 28px minmax(0, 1fr) auto; }
+html.desk body.powa-app .cb-side .chl-row + .chl-row::before { left: 68px; }
+html.desk body.powa-app .cb-side .chl-row.is-r1 .chl-rank { color: var(--cb-gold); } html.desk body.powa-app .cb-side .chl-row.is-r2 .chl-rank { color: var(--cb-silver); } html.desk body.powa-app .cb-side .chl-row.is-r3 .chl-rank { color: var(--cb-bronze); }
+html.desk body.powa-app .cb-side .chl-all { min-height: 40px; font-size: var(--fs-3); }
+html.desk body.powa-app .cb-side .chl-acts { margin-top: var(--s-3); }
+html.desk body.powa-app .cb-side .chl-btn { height: var(--ctl-h); padding: 0 var(--s-4); border-radius: var(--r-round); background: var(--dk-fill); font-size: var(--fs-2); font-weight: var(--fw-3); }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app .cb-side .chl-btn:hover { background: var(--dk-fill-2); } }
+html.desk body.powa-app .cb-side .chl-past { margin-top: var(--s-2); }
+html.desk body.powa-app .cb-side .chl-past-btn { min-height: 40px; font-size: var(--fs-3); }
+html.desk body.powa-app .cb-side .chl-past-list { border-color: var(--dk-card-edge); background: var(--dk-card); }
+html.desk body.powa-app .cb-side :is(.chl-empty-main b) { font-size: var(--fs-3); }
+html.desk body.powa-app .cb-side :is(.chl-empty-main span) { font-size: var(--fs-3); color: var(--text-3); }
+/* the club's own links and the fine print, under the side column */
+.cb-foot { padding: 0 4px; }
+.cb-links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: var(--fs-1); color: var(--text-3); }
+.cb-code { font-variant-numeric: tabular-nums; }
+.cb-link { min-height: 28px; padding: 0 6px; border: 0; border-radius: var(--r-1); background: none; cursor: pointer; color: var(--text-2); font: var(--fw-3) var(--fs-1)/1 var(--font-body); }
+@media (hover: hover) and (pointer: fine) { .cb-link:hover { background: var(--dk-hover); color: var(--text); } }
+/* not in a club: the three ways in, then the clubs to join */
+.cb-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); }
+.cb-opt { display: flex; align-items: center; gap: var(--s-4); min-height: 96px; cursor: pointer; text-align: left; font: inherit; transition: border-color 0.15s var(--dk-ease), transform 0.16s var(--dk-ease); }
+@media (hover: hover) and (pointer: fine) { .cb-opt:hover { border-color: var(--line-2); } }
+.cb-opt:active { transform: scale(0.985); }
+.cb-tile { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; color: var(--tc); background: color-mix(in srgb, var(--tc) 15%, transparent); }
+.cb-tile svg { width: 22px; height: 22px; }
+.cb-tile.is-gold { --tc: var(--cb-gold); } .cb-tile.is-green { --tc: var(--cb-green); } .cb-tile.is-violet { --tc: #a98bff; }
+html.desk[data-theme="light"] .cb-tile.is-violet { --tc: #6d4fe0; }
+.cb-opt-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cb-opt-t b { font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); }
+.cb-opt-t span { font-size: var(--fs-3); color: var(--text-3); }
+.cb-search { display: flex; align-items: center; gap: var(--s-2); height: 44px; padding: 0 var(--s-4); border-radius: 12px; background: var(--dk-fill); color: var(--text-3); cursor: text; transition: box-shadow 0.14s var(--dk-ease); }
+.cb-search:focus-within { box-shadow: 0 0 0 2px var(--dk-focus); }
+.cb-search svg { width: 18px; height: 18px; flex: none; }
+html.desk body.powa-app .cb-search input { flex: 1; min-width: 0; height: 40px !important; margin: 0; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; outline: none; color: var(--text); font: var(--fw-1) var(--fs-3) var(--font-body); }
+html.desk body.powa-app .cb-dir { border: 1px solid var(--dk-card-edge); border-radius: var(--r-3); background: var(--dk-card); box-shadow: var(--dk-card-lit); overflow: hidden; }
+html.desk body.powa-app .cb-dir .club-dir-row { min-height: 64px; padding: 10px var(--s-5); }
+html.desk body.powa-app .cb-dir .ui-row-title { font-size: var(--fs-3); font-weight: var(--fw-3); }
+html.desk body.powa-app .cb-dir .ui-row-sub { font-size: var(--fs-1); }
+html.desk body.powa-app .cb-dir .cd-crest { width: 40px; height: 40px; border-radius: 12px; font-size: var(--fs-1); }
+html.desk body.powa-app .cb-dir .btn { min-height: var(--ctl-h); height: var(--ctl-h); padding: 0 var(--s-4); border-radius: var(--r-round); font-size: var(--fs-2); }
+@media (max-width: 1180px) { .cb-head { grid-template-columns: minmax(0, 1fr) auto; } .cb-pulse { grid-column: 1 / -1; grid-row: 2; padding: var(--s-4) 0 0; border-left: 0; border-top: 1px solid var(--line); } .cb-three { gap: var(--s-3); } .cb-opt { padding: 20px; } }
+@media (prefers-reduced-motion: reduce) { .cb-row { animation: none; } .cb-opt:active { transform: none; } }
 
 /* ---------- threads on the desk (Messages and the side card): the desk's type and radii ---------- */
 html.desk body.powa-app :is(#messagesArea, #deskCtx) .msg-body { font-size: var(--fs-3); line-height: var(--lh-2); }

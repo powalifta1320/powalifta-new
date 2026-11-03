@@ -519,8 +519,8 @@ function dkOnResize() {
   var act = document.querySelector('.sidebar-tab.active');
   _dk.pbInfo = null;
   if ((t && !t.classList.contains('hidden')) || (ap && !ap.classList.contains('hidden')) || (mp && !mp.classList.contains('hidden'))) { if (tab) tab.click(); }
-  // Programs, Messages and Settings were drawn as desk screens: draw them again as the phone's.
-  else if (act && /^(program|messages|you)$/.test(act.dataset.tab)) act.click();
+  // Programs, Messages, Settings and Club were drawn as desk screens: draw them again as the phone's.
+  else if (act && /^(program|messages|you|club)$/.test(act.dataset.tab)) act.click();
   else {
     var ra = document.querySelector('[data-pane="athletes"]');
     if (ra && !ra.classList.contains('hidden') && typeof renderRoster === 'function') { try { renderRoster(); } catch (e) {} }

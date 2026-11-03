@@ -293,7 +293,7 @@ var Challenges = (function () {
 
   // ---------- one board row: place, face, name, value ----------
   function rowEl(r, ch, i) {
-    var li = E('li', { class: 'chl-row' + (r.mine ? ' is-me' : '') + (r.rank === 1 ? ' is-first' : ''), style: '--i:' + Math.min(i, 7) });
+    var li = E('li', { class: 'chl-row' + (r.mine ? ' is-me' : '') + (r.rank === 1 ? ' is-first' : '') + (r.rank && r.rank <= 3 ? ' is-r' + r.rank : ''), style: '--i:' + Math.min(i, 7) });
     li.appendChild(E('span', { class: 'chl-rank', 'aria-label': r.rank ? ordinal(r.rank) + ' place' : 'No place yet' }, r.rank ? String(r.rank) : ''));
     li.appendChild(avatar(r.name, r.avatarUrl));
     li.appendChild(E('span', { class: 'chl-name' }, r.mine ? 'You' : (r.name || 'Lifter')));

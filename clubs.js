@@ -528,10 +528,277 @@
     });
   }
 
+
+  // ---- THE LAPTOP (coach.html at a desk's width: html.desk) ------------------------------------------------------
+  // One header card (the club, the week's pulse as a green ring with the faces who trained, Share a lift: the screen's one
+  // crimson), then two columns that fill the pane: the feed, and beside it a sticky column with the coach's challenge
+  // (challenges.js draws it into #challengeArea, which the laptop moves here), the board (This week, Most improved,
+  // Strongest) and the club's records. The same data and builders as the phone's; the phone's club draws as before.
+  const deskOn = () => typeof document !== 'undefined' && document.documentElement.classList.contains('desk') && !!document.getElementById('challengeArea');
+  // The coach's challenges go home (before #clubArea) before the club is drawn again, so a redraw never takes them along.
+  function chlHome() {
+    const c = typeof document !== 'undefined' ? document.getElementById('challengeArea') : null, a = document.getElementById('clubArea');
+    if (c && a && a.contains(c) && a.parentNode) a.parentNode.insertBefore(c, a);
+    return c;
+  }
+  let _deskBoard = null;   // the laptop board's mode: 'week' | 'improved' | 'dots'
+  let _deskAll = false;    // the laptop board showing everyone, not the top 5
+  let _deskStick = null;   // the side column's sticky top, kept in view however tall it is
+  const deskBtn = (label, cls, icon) => {
+    const b = el('button', { class: 'dk-btn' + (cls ? ' ' + cls : ''), type: 'button' });
+    if (icon) b.insertAdjacentHTML('beforeend', icon);
+    b.appendChild(el('span', { class: 'dk-btn-l' }, label));
+    return b;
+  };
+  const deskFace = (name, cls) => el('span', { class: 'ui-av cb-av av-h' + (typeof avatarHue === 'function' ? avatarHue(name || '?') : 0) + (cls ? ' ' + cls : ''), 'aria-hidden': 'true' }, initials(name || '?'));
+  // A ring that fills as the week does: green, the share inside.
+  function deskRing(n, of) {
+    const R = 21, C = 2 * Math.PI * R, f = of ? Math.min(1, n / of) : 0;
+    const w = el('span', { class: 'cb-ring', role: 'img', 'aria-label': n + ' of ' + of + ' trained this week' });
+    w.innerHTML = '<svg viewBox="0 0 50 50" aria-hidden="true"><circle class="cb-ring-t" cx="25" cy="25" r="' + R + '"/>' +
+      (n ? '<circle class="cb-ring-v" cx="25" cy="25" r="' + R + '" stroke-dasharray="' + C.toFixed(2) + '" stroke-dashoffset="' + (C * (1 - f)).toFixed(2) + '"/>' : '') + '</svg>';
+    w.appendChild(el('b', {}, Math.round(f * 100) + '%'));
+    return w;
+  }
+  function deskSub(page, text) { page.appendChild(el('p', { class: 'cb-sub' }, text)); }
+  function renderClubDesk(root) {
+    const { club, role, members } = _data;
+    const staff = role === 'owner' || role === 'admin';
+    const wk = mondayISO();
+    const chl = chlHome();
+    root.innerHTML = '';
+    const page = el('div', { class: 'cb-desk' });
+    deskSub(page, 'Your lifters share their lifts here and race the board. Separate from coaching.');
+
+    // The header card: who the club is, how its week is going, and the one thing to do here.
+    const head = el('div', { class: 'cb-head' });
+    const id = el('div', { class: 'cb-head-id' });
+    id.appendChild(el('span', { class: 'cb-crest', 'aria-hidden': 'true' }, initials(club.name || 'Club')));
+    const t = el('div', { class: 'cb-head-t' });
+    t.appendChild(el('h2', { class: 'cb-name' }, club.name));
+    const meta = el('p', { class: 'cb-meta' });
+    [club.city || '', members.length + (members.length === 1 ? ' member' : ' members'), club.visibility === 'private' ? 'Private' : ''].filter(Boolean).forEach((x, i) => {
+      if (i) meta.appendChild(el('span', { class: 'cb-sep', 'aria-hidden': 'true' }, ' · '));
+      meta.appendChild(el('span', {}, x));
+    });
+    t.appendChild(meta);
+    if (club.description) t.appendChild(el('p', { class: 'cb-desc' }, maskUserText(club.description)));
+    id.appendChild(t);
+    head.appendChild(id);
+    const trained = members.filter(m => m.weekStart === wk && (m.weekSessions || 0) > 0).sort((a, b) => (b.weekSessions || 0) - (a.weekSessions || 0));
+    const pulse = el('div', { class: 'cb-pulse' });
+    pulse.appendChild(deskRing(trained.length, members.length));
+    const pt = el('div', { class: 'cb-pulse-t' });
+    pt.appendChild(el('b', {}, !trained.length ? 'Nobody has trained yet this week' : trained.length === members.length ? 'All ' + members.length + ' trained this week' : trained.length + ' of ' + members.length + ' trained this week'));
+    if (trained.length) {
+      const faces = el('span', { class: 'cb-faces' });
+      trained.slice(0, 8).forEach(m => faces.appendChild(deskFace(m.displayName)));
+      if (trained.length > 8) faces.appendChild(el('span', { class: 'cb-faces-n' }, '+' + (trained.length - 8)));
+      faces.setAttribute('title', trained.map(m => firstName(m.displayName)).join(', '));
+      pt.appendChild(faces);
+    }
+    pulse.appendChild(pt);
+    head.appendChild(pulse);
+    const acts = el('div', { class: 'cb-acts' });
+    const inv = deskBtn('Invite', 'is-quiet', IC.share);
+    inv.setAttribute('aria-label', 'Invite lifters to ' + club.name);
+    inv.addEventListener('click', () => openInviteSheet(club));
+    acts.appendChild(inv);
+    const share = deskBtn('Share a lift', 'is-primary', IC.plus);
+    share.setAttribute('aria-label', 'Share a lift with ' + club.name);
+    share.addEventListener('click', () => openShareSheet());
+    acts.appendChild(share);
+    head.appendChild(acts);
+    page.appendChild(head);
+
+    const cols = el('div', { class: 'cb-cols' });
+    // The feed: who is waiting to get in (owner/admin), the lift of the week, then the posts.
+    const feed = el('div', { class: 'cb-feed' });
+    feed.appendChild(el('h2', { class: 'cb-h' }, 'Feed'));
+    if (staff && _requests.length) feed.appendChild(requestsRow());
+    deskFeed(feed);
+    cols.appendChild(feed);
+    // The side: the coach's challenge, the board, the records, a training buddy, the club's own links.
+    const side = el('aside', { class: 'cb-side', 'aria-label': 'Challenge, board and records' });
+    if (chl) side.appendChild(chl);
+    side.appendChild(deskBoard(members, wk));
+    const recs = clubRecords(members);
+    if (recs) {
+      const rc = el('div', { class: 'cb-sec cb-recs' });
+      rc.appendChild(el('h2', { class: 'cb-h' }, 'Club records'));
+      const rcc = el('div', { class: 'cb-card' });
+      rcc.appendChild(recs);
+      rcc.appendChild(el('p', { class: 'cb-fine' }, 'Best estimated maxes, competition equivalent.'));
+      rc.appendChild(rcc);
+      side.appendChild(rc);
+    }
+    const bud = buddyRow();
+    if (bud) side.appendChild(bud);
+    const foot = el('div', { class: 'cb-foot' });
+    const links = el('div', { class: 'cb-links' });
+    links.appendChild(el('span', { class: 'cb-code' }, 'Code ' + club.code));
+    if (staff) { const mg = el('button', { class: 'cb-link', type: 'button' }, 'Manage club'); mg.addEventListener('click', () => openManageModal()); links.appendChild(mg); }
+    if (role !== 'owner') {
+      const lv = el('button', { class: 'cb-link', type: 'button' }, 'Leave'); lv.addEventListener('click', () => leaveClub()); links.appendChild(lv);
+      const rp = el('button', { class: 'cb-link', type: 'button' }, 'Report'); rp.addEventListener('click', () => reportClub(club)); links.appendChild(rp);
+    }
+    foot.appendChild(links);
+    foot.appendChild(el('p', { class: 'cb-fine' }, 'Your club sees your name, class, best lifts, DOTS and how often you train, plus anything you post. Never your program or logs.'));
+    side.appendChild(foot);
+    cols.appendChild(side);
+    page.appendChild(cols);
+    root.appendChild(page);
+    deskStick(side);
+  }
+  // The side column stays in view as the feed scrolls: stuck at the top when it fits the window, else at its foot (a
+  // column taller than the window scrolls with the page until its end shows). Never a scroller of its own.
+  function deskStick(side) {
+    const fit = () => { if (!side.isConnected) return; const top = Math.min(24, window.innerHeight - side.offsetHeight - 24); side.style.top = top + 'px'; };
+    fit();
+    if (_deskStick) { try { _deskStick.disconnect(); } catch (e) {} }
+    if (typeof ResizeObserver === 'function') { _deskStick = new ResizeObserver(fit); _deskStick.observe(side); }
+    if (!deskStick._wired) { deskStick._wired = true; window.addEventListener('resize', () => { const s = document.querySelector('.cb-side'); if (s) s.style.top = Math.min(24, window.innerHeight - s.offsetHeight - 24) + 'px'; }); }
+  }
+  // The feed on the laptop: the phone's, without its composer (Share a lift is the header's crimson).
+  function deskFeed(root) {
+    if (_posts === null) {
+      root.appendChild(uiEmpty({ icon: IC.feed, title: 'The club feed is almost here', text: 'Sharing lifts switches on with the next update. The board works now.' }));
+      return;
+    }
+    if (!_posts.length) {
+      root.appendChild(uiEmpty({ icon: IC.feed, title: 'No posts yet', text: 'Share your best set this week and get the club going.' }));
+      return;
+    }
+    const spot = liftOfTheWeek();
+    if (spot) root.appendChild(spot);
+    const list = el('div', { class: 'club-feed' });
+    _posts.forEach((p, i) => { const c = postCard(p); c.style.setProperty('--i', String(Math.min(i, 8))); list.appendChild(c); });
+    root.appendChild(list);
+    if (!isDemo() && _posts.length >= 40 && _morePosts !== false) {
+      const more = el('button', { class: 'cb-more club-more-posts', type: 'button' }, 'Show older posts');
+      more.addEventListener('click', async () => {
+        more.disabled = true; more.textContent = 'Loading…';
+        const last = _posts[_posts.length - 1];
+        const older = await DB.listClubPosts(_data.club.id, { before: last.createdAt, limit: 40 }).catch(() => null);
+        if (!older) { more.disabled = false; more.textContent = 'Show older posts'; toast('Couldn\'t load more. Try again'); return; }
+        const seen = new Set(_posts.map(p => p.id));
+        older.filter(p => !seen.has(p.id)).forEach(p => { _posts.push(p); list.appendChild(postCard(p)); });
+        if (older.length < 40) { _morePosts = false; more.remove(); }
+        else { more.disabled = false; more.textContent = 'Show older posts'; }
+      });
+      root.appendChild(more);
+    }
+  }
+  // The board on the laptop: three ways to rank, the top 5 (everyone a click away, in place), places 1 to 3 in their medals.
+  const DESK_BOARD = [['week', 'This week'], ['improved', 'Most improved'], ['dots', 'Strongest']];
+  function deskBoard(members, wk) {
+    const u = me();
+    const keys = DESK_BOARD.map(x => x[0]);
+    if (keys.indexOf(_deskBoard) < 0) _deskBoard = keys.indexOf(_mode) >= 0 ? _mode : 'week';
+    const mode = _deskBoard;
+    const box = el('div', { class: 'cb-sec cb-board' });
+    box.appendChild(el('h2', { class: 'cb-h' }, 'Board'));
+    const card = el('div', { class: 'cb-card' });
+    box.appendChild(card);
+    const seg = el('div', { class: 'dk-seg cb-seg', role: 'tablist', 'aria-label': 'Rank the club by' });
+    DESK_BOARD.forEach(([k, label]) => {
+      const on = k === mode;
+      const b = el('button', { type: 'button', class: 'dk-seg-btn' + (on ? ' on' : ''), role: 'tab', 'aria-selected': on ? 'true' : 'false' }, label);
+      b.addEventListener('click', () => {
+        if (on) return;
+        _deskBoard = k; _deskAll = false; _mode = k;
+        try { localStorage.setItem('powa-club-board', k); } catch (e) {}
+        const nb = deskBoard(members, wk);
+        box.replaceWith(nb);
+        const f = nb.querySelector('.dk-seg-btn.on'); if (f) f.focus({ preventScroll: true });
+      });
+      seg.appendChild(b);
+    });
+    card.appendChild(seg);
+    const ranked = rankClubMembers(members, mode, wk);
+    const list = el('ol', { class: 'cb-rows', 'aria-label': 'Places' });
+    (_deskAll ? ranked : ranked.slice(0, 5)).forEach((m, i) => {
+      const isMe = !!(u && m.userId === u.id);
+      const li = el('li', { class: 'cb-row' + (isMe ? ' is-me' : '') + (m.rank && m.rank <= 3 ? ' is-r' + m.rank : ''), style: '--i:' + Math.min(i, 8) });
+      const b = el('button', { type: 'button', class: 'cb-row-b' });
+      b.addEventListener('click', () => openLifterCard(m));
+      b.appendChild(el('span', { class: 'cb-rank' }, m.rank == null ? '–' : String(m.rank)));
+      b.appendChild(deskFace(m.displayName));
+      const idd = el('span', { class: 'cb-row-id' });
+      idd.appendChild(el('span', { class: 'cb-row-n' }, isMe ? 'You' : (m.displayName || 'Lifter')));
+      idd.appendChild(el('span', { class: 'cb-row-m' }, boardMeta(m, mode, wk)));
+      b.appendChild(idd);
+      const bv = boardValue(m, mode, wk);
+      const v = el('span', { class: 'cb-row-v' + (mode === 'improved' && /^\+/.test(bv.num) ? ' is-up' : '') }, bv.num);
+      if (bv.unit) v.appendChild(el('small', {}, ' ' + bv.unit));
+      b.appendChild(v);
+      b.setAttribute('aria-label', (m.rank ? 'Place ' + m.rank + ', ' : '') + (isMe ? 'you' : (m.displayName || 'Lifter')) + ', ' + bv.num + (bv.unit ? ' ' + bv.unit : '') + '. Open their lifter card');
+      li.appendChild(b);
+      list.appendChild(li);
+    });
+    card.appendChild(list);
+    if (ranked.length > 5) {
+      const more = el('button', { type: 'button', class: 'cb-more' }, _deskAll ? 'Show the top 5' : 'Show all ' + ranked.length);
+      more.addEventListener('click', () => { _deskAll = !_deskAll; box.replaceWith(deskBoard(members, wk)); });
+      card.appendChild(more);
+    }
+    card.appendChild(el('p', { class: 'cb-fine' }, BOARD_NOTE[mode]));
+    return box;
+  }
+  // Not in a club, on the laptop: the three ways in as cards, then the clubs to join beside the coach's challenge.
+  function renderJoinDesk(root) {
+    const chl = chlHome();
+    root.innerHTML = '';
+    const page = el('div', { class: 'cb-desk is-join' });
+    deskSub(page, 'Share lifts and race a board with the lifters you train with. Free, and separate from coaching.');
+    const three = el('div', { class: 'cb-three' });
+    const opt = (tone, icon, title, line, run) => {
+      const b = el('button', { type: 'button', class: 'cb-card cb-opt' });
+      b.appendChild(el('span', { class: 'cb-tile is-' + tone, html: icon }));
+      const tx = el('span', { class: 'cb-opt-t' });
+      tx.appendChild(el('b', {}, title));
+      tx.appendChild(el('span', {}, line));
+      b.appendChild(tx);
+      b.addEventListener('click', run);
+      return b;
+    };
+    three.appendChild(opt('gold', IC.search, 'Find a club', 'Search clubs by name or city', () => { const i = page.querySelector('.cb-search input'); if (i) { i.focus({ preventScroll: true }); i.scrollIntoView({ block: 'center', behavior: 'smooth' }); } }));
+    three.appendChild(opt('green', IC.key, 'Got a code?', 'Join a club straight away', () => openCodeSheet()));
+    three.appendChild(opt('violet', IC.plus, 'Start a club', 'Free. Public or private, your call', () => openCreateModal()));
+    page.appendChild(three);
+    const cols = el('div', { class: 'cb-cols' });
+    const main = el('div', { class: 'cb-feed' });
+    main.appendChild(el('h2', { class: 'cb-h' }, 'Clubs'));
+    const search = el('label', { class: 'cb-search' });
+    search.insertAdjacentHTML('beforeend', IC.search);
+    const input = el('input', { type: 'search', placeholder: 'Search clubs or cities', 'aria-label': 'Search clubs or cities', autocomplete: 'off', spellcheck: 'false' });
+    search.appendChild(input);
+    main.appendChild(search);
+    const list = el('div', { class: 'ui-list club-dir cb-dir' });
+    list.innerHTML = '<div class="ui-skel club-dir-skel"><i></i><i></i><i></i></div>';
+    main.appendChild(list);
+    let tm = null;
+    input.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(() => fetchDir(list, input.value.trim()), 250); });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(tm); fetchDir(list, input.value.trim()); } });
+    main.appendChild(el('p', { class: 'cb-fine' }, 'Joining shares your name, class, best lifts, DOTS and how often you train with that club only. Never your program or logs.'));
+    cols.appendChild(main);
+    const side = el('aside', { class: 'cb-side', 'aria-label': 'Your challenge' });
+    if (chl) side.appendChild(chl);
+    cols.appendChild(side);
+    page.appendChild(cols);
+    root.appendChild(page);
+    fetchDir(list, '');
+    deskStick(side);
+    let pre = new URLSearchParams(location.search).get('club');
+    if (!pre) { try { pre = localStorage.getItem('powa-club-code'); } catch (e) {} }
+    if (pre && !_codeSheetShown) { _codeSheetShown = true; setTimeout(() => openCodeSheet(pre), 250); }
+  }
+
   // ---- render ----------------------------------------------------------------
   async function renderClubTab(container) {
     _container = container || _container || document.getElementById('clubArea');
     if (!_container) return;
+    chlHome();   // the laptop's challenge column goes home before anything is drawn over it
     if (!_loaded) _container.innerHTML = '<div class="ui-skel"><i style="height:190px"></i><i style="height:46px"></i><i style="height:120px"></i><i style="height:120px"></i></div>';
     await load();
     if (_data && _data.club) renderClub(_container); else renderJoin(_container);
@@ -573,8 +840,10 @@
   }
 
   function renderClub(root) {
-    const { club, role, members } = _data;
     try { localStorage.removeItem('powa-club-code'); } catch (e) {}   // already in a club
+    if (deskOn()) { renderClubDesk(root); return; }
+    chlHome();
+    const { club, role, members } = _data;
     const staff = role === 'owner' || role === 'admin';
     const wk = mondayISO();
     root.innerHTML = '';
@@ -836,7 +1105,8 @@
     nums.innerHTML =
       (p.weightKg != null ? '<b>' + escHtml(w1(p.weightKg)) + '</b><small>' + unitLabel() + '</small>' : '') +
       (p.reps != null ? '<i>×</i><b>' + escHtml(String(p.reps)) + '</b>' : '') +
-      (p.rpe ? '<span class="cp-rpe">RPE <b>' + escHtml(String(p.rpe)) + '</b></span>' : '');
+      // The laptop writes effort as every desk screen does: "@9" (the phone's chip says "RPE 9").
+      (p.rpe ? '<span class="cp-rpe">' + (deskOn() ? '@' : 'RPE ') + '<b>' + escHtml(String(p.rpe)) + '</b></span>' : '');
     b.appendChild(nums);
     if (p.e1rmKg) b.appendChild(el('div', { class: 'cp-e1' }, 'e1RM ' + formatWeight(p.e1rmKg, 0)));
     if (p.weightKg > 0 && typeof uiBarbell === 'function') {
@@ -1303,6 +1573,8 @@
 
   // ---- FIND (not in a club) -----------------------------------------------------
   function renderJoin(root) {
+    if (deskOn()) { renderJoinDesk(root); return; }
+    chlHome();
     root.innerHTML = '';
     const hero = el('div', { class: 'ui-hero club-hero club-hero-join' });
     const top = el('div', { class: 'club-hero-top' });
