@@ -34,6 +34,7 @@
 <link rel="stylesheet" href="coach-app.css"><!-- the iPhone app's coach screens (28 Oct): Home, Lifters, a lifter, Programs (coach-app.js, coach-program.js); never the laptop desk -->
 <link rel="stylesheet" href="notify.css"><!-- ALLOW NOTIFICATIONS: the card for coach Home (notify.js) -->
 <link rel="stylesheet" href="coach-you.css"><!-- the iPhone app's You and every tab's first run (29 Oct, coach-you.js); never the laptop desk -->
+<link rel="stylesheet" href="feedback.css"><!-- FEEDBACK: the idea / problem sheet (feedback.js), the phone and the laptop -->
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 </head>
@@ -414,6 +415,7 @@
 <script src="meetday.js"></script><!-- MEET DAY hook: attempt planner + meet-day board (openAttemptPlanner, openMeetDayBoard, renderMeetsScreen) -->
 <script src="program-photo.js"></script><!-- Program from a photo: the AI reads a picture or PDF into the builder's cells; the coach checks every one (PhotoImport) -->
 <script src="notify.js"></script><!-- ALLOW NOTIFICATIONS: PowaNotify.coachCard() returns the ask for coach Home (where it goes: notify.js header) -->
+<script src="feedback.js"></script><!-- FEEDBACK: an idea or a problem to the founder (PowaFeedback): You › Help on the phone; the rail, Settings › Help & account and ⌘K on the laptop (desk.js) -->
 <script>
 // The desk's hooks, guarded: if desk.js ever fails to load (offline, a stale bundle), the phone
 // dashboard still boots. Function declarations, so the first render can call them.
@@ -735,9 +737,10 @@ function renderCoachYou() {
       ] },
       { title: 'Settings', rows: settings.concat([{ label: 'Refer a lifter', onClick: () => openReferralSheet() }]) },
       { title: 'Help', rows: [
-        { label: 'Help & support', onClick: () => openAIAssistant('support') },
+        { label: 'Help & support', onClick: () => openAIAssistant('support') }
+      ].concat(window.PowaFeedback ? PowaFeedback.youRows() : [], [
         { label: 'Replay the tour', onClick: () => window.replayCoachTour && window.replayCoachTour() }
-      ] },
+      ]) },
       { title: '', rows: [
         { label: 'Log out', tone: 'plain', onClick: () => logout() },
         { label: 'Delete account', tone: 'plain', icon: svg('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>'), tint: 'gray', onClick: () => deleteMyAccount() }

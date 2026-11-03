@@ -696,6 +696,8 @@ function dkBuildRail() {
   foot.appendChild(dkRailItem('club', 'Club', DK_IC.club, function () { deskGo('club'); }, { go: true }));
   foot.appendChild(dkRailItem('settings', 'Settings', DK_IC.gear, function () { deskGo('settings', { sec: null }); }, { go: true }));
   foot.appendChild(dkRailItem('ai', 'Ask AI', DK_IC.ai, function () { if (typeof openAIAssistant === 'function') openAIAssistant(); }, { cls: 'dk-item-quiet' }));
+  // The Feedback box (feedback.js): an idea or a problem, straight to the founder. Not a screen: the sheet opens here.
+  if (window.PowaFeedback) foot.appendChild(dkRailItem('feedback', 'Feedback', DK_IC.send, function (e) { PowaFeedback.open({ from: e && e.currentTarget }); }, { cls: 'dk-item-quiet' }));
   var theme = dkRailItem('theme', 'Light mode', DK_IC.sun, function () { toggleTheme(); }, { cls: 'dk-item-quiet dk-theme' });
   foot.appendChild(theme);
   if (window._demoMode) {
@@ -2189,6 +2191,10 @@ function dkCommands() {
   cmds.push({ group: 'Actions', label: 'Open or close the side card', hint: ']', keys: 'thread notes pane', run: dkToggleCtx });
   cmds.push({ group: 'Actions', label: 'Keyboard shortcuts', hint: '?', run: openDeskKeys });
   cmds.push({ group: 'Actions', label: 'Ask AI', keys: 'assistant help', run: function () { if (typeof openAIAssistant === 'function') openAIAssistant(); } });
+  if (window.PowaFeedback) {
+    cmds.push({ group: 'Actions', label: 'Send feedback', keys: 'idea suggestion feature request', run: function () { PowaFeedback.open(); } });
+    cmds.push({ group: 'Actions', label: 'Report a problem', keys: 'bug broken issue error feedback', run: function () { PowaFeedback.open({ kind: 'problem' }); } });
+  }
   return cmds;
 }
 function dkMatch(cmds, q) {
@@ -6114,6 +6120,8 @@ function dkSetHelp(p) {
   p.appendChild(dkSetGroup([
     dkSetRow('Ask AI', 'Questions about a lifter, a block, or the app', dkBtn('Ask', { cls: 'dk-btn-sm is-quiet', onClick: function () { openAIAssistant(); } })),
     dkSetRow('Help and support', 'How things work, and a person when you need one', dkBtn('Open', { cls: 'dk-btn-sm is-quiet', onClick: function () { openAIAssistant('support'); } })),
+    // The Feedback box (feedback.js) on a problem, with the technical details switched on.
+    window.PowaFeedback ? dkSetRow('Report a problem', 'Something broken or confusing? It goes to the founder with the screen it happened on', dkBtn('Report', { cls: 'dk-btn-sm is-quiet', onClick: function (e) { PowaFeedback.open({ kind: 'problem', from: e && e.currentTarget }); } })) : null,
     dkSetRow('Log out', null, dkBtn('Log out', { cls: 'dk-btn-sm is-quiet', onClick: function () { logout(); } }))
   ]));
 }

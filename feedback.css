@@ -1,0 +1,90 @@
+/* feedback.css: the Feedback sheet (feedback.js), 3 Nov 2026. One sheet: a bottom sheet in the apps (styles.css
+   .ui-sheet-form) and the desk's centred dialog on a laptop (desk.css html.desk .ui-sheet). The app's own parts: the
+   segmented control, a field like the intake's (a fill, no border, a neutral ring on focus), a switch row, the crimson
+   Send. A status is ink with its mark: the amber triangle on a failed send, the green check once it's sent. Light and
+   dark from the shared tokens; the amber and green take a deeper shade on light (3:1 and more on white). */
+
+.fb-sheet .fb-seg { margin: 2px 0 18px; }
+.fb-sheet .fb-label { display: block; margin: 0 4px 8px; font-size: 15px; font-weight: 600; line-height: 1.3; letter-spacing: -0.005em; text-transform: none; color: var(--text); }
+/* The title takes focus on a touch screen so VoiceOver starts there: no ring on a heading nobody tabs to. */
+.fb-sheet :is(.ui-sheet-h, .fb-done-h):focus { outline: none; }
+.fb-sheet .fb-field { position: relative; }
+.fb-sheet .fb-text {
+  display: block; width: 100%; min-height: 156px; max-height: 42vh; margin: 0; padding: 14px 16px; box-sizing: border-box;
+  border: 0; border-radius: var(--r-inner, 14px); background: var(--fill-2); box-shadow: none; outline: none;
+  color: var(--text); font: inherit; font-size: 16px; line-height: 1.5; resize: none;
+  transition: background-color var(--t-press, 150ms) ease-out, box-shadow var(--t-press, 150ms) ease-out;
+}
+.fb-sheet .fb-text::placeholder { color: var(--text-3); opacity: 1; }
+body.powa-app .fb-sheet .fb-text:focus, .fb-sheet .fb-text:focus { border: 0; background: var(--fill-3); box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 45%, transparent); }
+.fb-sheet .fb-text[readonly] { color: var(--text-2); }
+.fb-sheet .fb-text[aria-invalid="true"] { box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn, #ff9f43) 70%, transparent); }
+.fb-sheet .fb-meta { display: flex; align-items: baseline; gap: 12px; min-height: 18px; margin: 8px 4px 18px; font-size: 13px; line-height: 1.35; color: var(--text-3); }
+.fb-sheet .fb-hint:empty { display: none; }
+.fb-sheet .fb-count { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fb-sheet .fb-count.is-near { color: var(--warn, #ff9f43); font-weight: 600; }
+
+/* A problem's technical details: the switch row, then "See what's sent" folding the exact lines open. */
+.fb-sheet .fb-tech { margin: 0 0 16px; overflow: hidden; }
+.fb-sheet .fb-tech[hidden] { display: none; }
+.fb-sheet .fb-tech-row { display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 12px 14px; }
+.fb-sheet .fb-tech-row .ui-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.fb-sheet .fb-tech-row .ui-row-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.fb-sheet .fb-tech-row .ui-row-sub { font-size: 13px; line-height: 1.4; color: var(--text-3); white-space: normal; }
+.fb-sheet .fb-peek {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 44px; margin: 0; padding: 0 14px;
+  border: 0; border-top: 1px solid var(--hair, var(--line)); border-radius: 0; background: none; color: var(--text-2);
+  font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.fb-sheet .fb-peek[hidden] { display: none; }
+.fb-sheet .fb-peek svg { width: 16px; height: 16px; flex: none; transition: transform var(--t-state, 220ms) cubic-bezier(0.22, 1, 0.36, 1); }
+.fb-sheet .fb-peek[aria-expanded="true"] svg { transform: rotate(90deg); }
+.fb-sheet .fb-peek:focus-visible { outline: 2px solid color-mix(in srgb, var(--text) 55%, transparent); outline-offset: -2px; }
+@media (hover: hover) and (pointer: fine) { .fb-sheet .fb-peek:hover { color: var(--text); } }
+.fb-sheet .fb-peek-body { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 0; padding: 2px 14px 14px; font-size: 13px; line-height: 1.4; }
+.fb-sheet .fb-peek-body[hidden] { display: none; }
+.fb-sheet .fb-peek-body dt { color: var(--text-3); }
+.fb-sheet .fb-peek-body dd { margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
+
+/* The line above Send: "Sending…", or what went wrong (and that the words are kept) with the amber triangle. */
+.fb-sheet .fb-status { display: flex; align-items: flex-start; gap: 8px; margin: 0 4px 14px; font-size: 14px; line-height: 1.45; color: var(--text-2); }
+.fb-sheet .fb-status:empty { display: none; }
+.fb-sheet .fb-status.is-error { color: var(--text); }
+.fb-sheet .fb-status-ic { flex: none; display: inline-grid; place-items: center; width: 18px; height: 20px; color: var(--warn, #ff9f43); }
+.fb-sheet .fb-status-ic svg { width: 18px; height: 18px; }
+.fb-sheet .fb-send { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.fb-sheet .fb-send[disabled] { opacity: 1; cursor: progress; }
+.fb-spin { flex: none; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #fff; animation: fbSpin 0.8s linear infinite; }
+@keyframes fbSpin { to { transform: rotate(360deg); } }
+
+/* Sent (and the demo's "nothing is sent"): the mark, one line, Done. */
+.fb-sheet .fb-done { padding: 22px 4px 2px; text-align: center; }
+.fb-sheet .fb-done[hidden] { display: none; }
+.fb-sheet .fb-done-mark { display: inline-grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--ok, #34d982) 16%, transparent); color: var(--ok, #34d982); }
+.fb-sheet .fb-done-mark svg { width: 28px; height: 28px; }
+.fb-sheet .fb-done-mark.is-demo { background: var(--fill-3); color: var(--text-2); }
+.fb-sheet .fb-done-h { margin: 16px 0 6px; font-family: var(--font-body); font-stretch: 100%; font-size: 20px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; color: var(--text); outline: none; }
+.fb-sheet .fb-done-sub { max-width: 34ch; margin: 0 auto 22px; font-size: 15px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
+.fb-sheet .fb-done.is-in { animation: fbIn var(--t-state, 220ms) cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes fbIn { from { opacity: 0.45; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Light: the amber and green one step deeper (text and marks on white). */
+[data-theme="light"] .fb-sheet { --warn: color-mix(in srgb, #ff9f43 56%, #000); --ok: color-mix(in srgb, #34d982 56%, #000); }
+
+/* The laptop: the desk's dialog (desk.css) sets the sheet's fields and buttons; the text box keeps the desk's own fill
+   and ring, a little taller, and the switch row and the details sit on the desk's raised list. */
+html.desk body.powa-app .fb-sheet .fb-label { font-size: var(--fs-2, 14px); margin-bottom: var(--s-2, 8px); }
+html.desk body.powa-app .fb-sheet .fb-text { min-height: 168px; padding: var(--s-3, 12px) var(--s-4, 16px); border-radius: var(--r-2, 10px); font-size: var(--fs-3, 15px); resize: vertical; }
+html.desk body.powa-app .fb-sheet .fb-text:focus { box-shadow: 0 0 0 2px var(--dk-focus); }
+html.desk body.powa-app .fb-sheet .fb-meta { margin-bottom: var(--s-4, 16px); }
+html.desk body.powa-app .fb-sheet .fb-tech-row { min-height: 56px; }
+html.desk body.powa-app .fb-sheet .fb-tech-row .ui-row-title { font-size: var(--fs-3, 15px); }
+html.desk body.powa-app .fb-sheet .fb-send { margin-left: 0; width: 100%; }
+html.desk body.powa-app .fb-sheet .fb-close { display: flex; width: 100%; margin: 0; }
+html.desk body.powa-app .fb-sheet .fb-done { padding-top: var(--s-4, 16px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fb-sheet .fb-text, .fb-sheet .fb-peek svg { transition: none; }
+  .fb-sheet .fb-done.is-in { animation: none; }
+  .fb-spin { animation: none; border-color: rgba(255, 255, 255, 0.85); border-right-color: rgba(255, 255, 255, 0.35); }
+}

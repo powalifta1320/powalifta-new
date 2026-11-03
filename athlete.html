@@ -27,6 +27,7 @@
 <link rel="stylesheet" href="ai-chat.css"><!-- AI assistant (ai-chat branch, localhost only) -->
 <link rel="stylesheet" href="challenges.css"><!-- COACH CHALLENGES: the coach's challenge at the top of Club (challenges.js) -->
 <link rel="stylesheet" href="notify.css"><!-- ALLOW NOTIFICATIONS: the card after a finished session (notify.js) -->
+<link rel="stylesheet" href="feedback.css"><!-- FEEDBACK: the idea / problem sheet (feedback.js) -->
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
@@ -353,6 +354,7 @@
 <script src="career.js"></script><!-- CAREER: the lifelong record (careerEvents) and its screen, You › Career -->
 <script src="busy-week.js"></script><!-- BUSY WEEKS: the days you can train this week, the plan, sent to your coach (BusyWeekUI: Train's row, the sheet, the picker's entry) -->
 <script src="notify.js"></script><!-- ALLOW NOTIFICATIONS: one calm ask after a finished session, with the reason that fits (PowaNotify.lifterCard) -->
+<script src="feedback.js"></script><!-- FEEDBACK: an idea or a problem to the founder, from You › Help (PowaFeedback: the sheet, the rows, the details) -->
 <script>
 let user;
 // The full program's selected week number (survives re-renders) and its opened day ids. Up here because
@@ -6142,7 +6144,7 @@ function renderAthleteYou() {
         { label: 'Lifting words, explained', onClick: () => openGlossary() },
         { label: 'Replay the tour', onClick: () => window.replayAthleteTour && window.replayAthleteTour() },
         { label: 'Help & support', onClick: () => openAIAssistant('support') }
-      ] },
+      ].concat(window.PowaFeedback ? PowaFeedback.youRows() : []) },
       { title: '', rows: [ { label: 'Log out', tone: 'plain', onClick: () => logout() } ] }
     ]
   });
