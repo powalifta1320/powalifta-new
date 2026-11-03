@@ -220,7 +220,7 @@ await t('the email: every admin, "Problem from Sarah Kim (lifter)", the words es
   ok(m.html.includes('It says &lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; then crashes') && !m.html.includes('<script>'), 'the words are escaped');
   ok(m.html.includes('sarah.kim@example.com') && m.html.includes('Sarah Kim') && m.html.includes('(lifter)'), 'who: name, role, email');
   ok(m.html.includes('iPhone app bundle 1a2b3c4') && m.html.includes('TypeError: x is undefined') && m.html.includes('393×852 @3x'), 'the details');
-  ok(m.text.includes('Problem from Sarah Kim · lifter · sarah.kim@example.com') && m.text.includes('  Screen: Train (/athlete.html)') && m.text.includes('10:42 UTC TypeError'), 'the text part: ' + m.text.slice(0, 200));
+  ok(m.text.includes('Problem from Sarah Kim · lifter · sarah.kim@example.com') && m.text.includes('  Screen: Train\n  Page: /athlete.html') && m.text.includes('  Theme: Dark') && m.text.includes('10:42 UTC TypeError'), 'the text part: ' + m.text.slice(0, 200));
   ok(m.html.includes('https://www.powalifta.com/admin.html#feedback'), 'a link to the admin page');
   eq(W.tables.feedback.length, 1);
 });

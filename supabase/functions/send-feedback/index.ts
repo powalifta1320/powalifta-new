@@ -137,12 +137,12 @@ const APP_WORD: Record<string, string> = { web: 'Web', iphone: 'iPhone app', and
 // The details as lines for the email: [label, value].
 export function contextLines(c: Record<string, unknown>): [string, string][] {
   const L: [string, string][] = [];
-  if (c.screen) L.push(['Screen', String(c.screen) + (c.route ? ' (' + c.route + ')' : '')]);
-  else if (c.route) L.push(['Screen', String(c.route)]);
+  if (c.screen) L.push(['Screen', String(c.screen)]);
+  if (c.route) L.push(['Page', String(c.route)]);
   if (c.app || c.version) L.push(['App', [APP_WORD[String(c.app)] || '', c.version ? String(c.version) : ''].filter(Boolean).join(' ')]);
   if (c.device) L.push(['Device', String(c.device)]);
   if (c.viewport || c.layout) L.push(['Screen size', [c.viewport, c.layout === 'desk' ? 'laptop layout' : c.layout === 'phone' ? 'phone layout' : ''].filter(Boolean).join(', ')]);
-  if (c.theme) L.push(['Theme', String(c.theme)]);
+  if (c.theme) L.push(['Theme', c.theme === 'light' ? 'Light' : 'Dark']);
   if (c.ua) L.push(['Browser', String(c.ua)]);
   return L;
 }
