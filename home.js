@@ -633,17 +633,19 @@
   onState(threadTl, { trigger: '#thread', start: function () { return small() ? 'top 62%' : 'top 70%'; } });
 
   /* =====================================================================
-     NEXT WEEK: Sam's Programs editor, Marcus's week (cap-program.mjs). As it arrives a ring finds why: his bench as
-     lifted, @9.5 where Sam wrote 8. His rule's suggestion is ready: Take 1 suggestion arrives, the one crimson here; Take
-     presses; week 3 comes up with the 145 his rule wrote, ringed as it lands; the action becomes Send the changes to
-     Marcus. (The editor takes the suggestion from the lifted week, so there is no card to show between.)
+     NEXT WEEK: Sam's Programs editor, Marcus's week at his Bench Day (cap-program.mjs). As it arrives a ring finds why:
+     his bench as lifted, @9.5 where Sam wrote 8. His rule's suggestion is ready: Take 1 suggestion arrives in the head,
+     the one crimson here; Take presses; week 3 comes up with the 145 his rule wrote beside what week 2 lifted, ringed as
+     it lands; the action becomes Send the changes to Marcus, at its own width as the editor's is. (The editor takes the
+     suggestion from the lifted week, so there is no card to show between.)
      ===================================================================== */
   words($('#next-h'));
   rise([$('.next-head .lead')], { start: 'top 92%' });
   var wkPort = $('#wkPort'), wkTap = $('#wkTap'), wkWhy = $('#wkWhy'), wkB = $('.wk-before'), pub = $('#pub'), pubSw = $('.swap', pub);
   rise([wkPort], { y: 30, start: 'top 94%', dur: 0.8 });
   swapStart(pubSw);
-  gsap.set(pub, { autoAlpha: 0, y: 6, transformOrigin: '100% 50%' });
+  var pubW = function (k) { return function () { return getComputedStyle(pub).getPropertyValue(k).trim(); }; };   // home.css --w-take, --w-send
+  gsap.set(pub, { autoAlpha: 0, y: 6, transformOrigin: '100% 50%', width: pubW('--w-take') });
   var takeTl = gsap.timeline({ paused: true })
     .fromTo(wkWhy, { autoAlpha: 0, scale: 1.05 }, { autoAlpha: 1, scale: 1, duration: 0.34, ease: ENTER, immediateRender: false }, 0)
     .to(pub, { autoAlpha: 1, y: 0, duration: 0.4, ease: ENTER }, 0.45)
@@ -652,7 +654,8 @@
     .to(pub, { scale: 1, duration: 0.28, ease: OUT }, 1.37)
     .fromTo(wkB, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.45, ease: OUT, immediateRender: false }, 1.4)
     .fromTo(wkTap, { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.3, ease: OUT, immediateRender: false }, 1.7)
-    .to(wkTap, { opacity: 0, duration: 0.5, ease: OUT }, 2.5);
+    .to(wkTap, { opacity: 0, duration: 0.5, ease: OUT }, 2.5)
+    .fromTo(pub, { width: pubW('--w-take') }, { width: pubW('--w-send'), duration: 0.3, ease: OUT, immediateRender: false }, 1.6);
   swapIn(takeTl, pubSw, 1.6);
   onState(takeTl, { trigger: wkPort, start: function () { return small() ? 'bottom 92%' : 'bottom 88%'; } });
 

@@ -112,16 +112,23 @@ if 'lifter' in what:
     print('   PR number', g['pr']['num']['box'], g['pr']['num']['type'])
     print('   PR jump  ', g['pr']['delta']['box'], g['pr']['delta']['type'])
 
-# --- Next week: Marcus's week in the Programs editor (cap-program.mjs, 2x): the editor's top 560 px (desk 616..1416 x
-# 12..572), his week 2 as lifted and, after Take 1 suggestion, week 3 with his rule's 145 (prog.json says where the
-# page rings and draws: mkimg prints it in the crop's per cent).
+# --- Next week: Marcus's week in the Programs editor (cap-program.mjs, 2x), jumped to his Bench Day: the sticky head (its
+# action), the days' chips, the bench day and the top of the next (desk 548.5..1423.5 x 0..612.5: the editor's 860 px with
+# 7.5 either side, at the page's 10:7, so it is cut at 800 x 560 and 1600 x 1120 as before); his week 2 as lifted and,
+# after Take 1 suggestion, week 3 with his rule's 145 beside what week 2 lifted. prog.json says where the page rings and
+# draws: mkimg prints it in the crop's per cent (1cqw = W / 100 desk px), and the phones' window onto it (from the load
+# column, desk PX0, to the crop's right edge).
 if 'program' in what:
-    X0, Y0, W, H = 616, 12, 800, 560
+    X0, Y0, W, H = 548.5, 0, 875, 612.5
     for n in ('prog-lifted', 'prog-taken'):
         save(crop2(Image.open(CAP + n + '.png'), X0, Y0, W, H), n, [800, 1600], q_webp=86, q_avif=62)
     g = json.load(open(CAP + 'prog.json'))['g']
-    for k in ('lifted', 'take', 'send'):
+    pc = lambda v, d: '%.3f%%' % (v / d * 100)
+    for k, cls in (('lifted', '.why'), ('cell145', '.tap')):
+        x, y, w, h = g[k]['box'] if isinstance(g[k], dict) else g[k]
+        print('   %-5s left: %s; top: %s; width: %s; height: %s' % (cls, pc(x - X0, W), pc(y - Y0, H), pc(w, W), pc(h, H)))
+    for k in ('take', 'send'):
         x, y, w, h = g[k]
-        print('   %-6s left %.3f%%  top %.3f%%  width %.3f%%  height %.3f%%  right %.3f%%' % (k, (x - X0) / W * 100, (y - Y0) / H * 100, w / W * 100, h / H * 100, (X0 + W - x - w) / W * 100))
-    x, y, w, h = g['cell145']['box']
-    print('   145    left %.3f%%  top %.3f%%  width %.3f%%  height %.3f%%' % ((x - X0) / W * 100, (y - Y0) / H * 100, w / W * 100, h / H * 100))
+        print('   .pub (%s) right: %s; top: %s; width: %s; height: calc(%g / %g * 1cqw)' % (k, pc(X0 + W - x - w, W), pc(y - Y0, H), pc(w, W), h, W / 100))
+    PX0 = 772
+    print('   phones: .wk-port aspect-ratio: %g / %g; .wk-in width: calc(%g / %g * 100%%); translate: calc(-%g / %g * 100%%) 0' % (X0 + W - PX0, H, W, X0 + W - PX0, PX0 - X0, W))
