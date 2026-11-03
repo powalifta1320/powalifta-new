@@ -95,8 +95,7 @@
 .fb-adm-none { margin: 0 0 14px; font-size: 0.86rem; color: var(--text-3); }
 .fb-adm-note { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; margin: 0 0 12px; }
 .fb-adm-note label { grid-column: 1 / -1; margin: 0; }
-.fb-adm-note textarea { min-height: 42px; height: 42px; resize: vertical; }
-.fb-adm-note textarea:focus { height: auto; min-height: 84px; }
+.fb-adm-note textarea { min-height: 42px; max-height: 240px; resize: vertical; overflow-y: auto; }
 .fb-adm-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .fb-adm-empty { padding: 28px; text-align: center; }
 @media (max-width: 560px) {
@@ -945,7 +944,11 @@ function fbAdmCard(r) {
   note.appendChild(el('label', { for: nid }, 'Your note'));
   const ta = el('textarea', { id: nid, rows: '1', maxlength: '2000', placeholder: 'Only admins see this' });
   ta.value = r.adminNote || '';
+  // The box grows with the note as it's written (never on focus: a box that shrank on blur moved Save note mid-click).
+  const fit = () => { ta.style.height = 'auto'; ta.style.height = Math.min(240, Math.max(42, ta.scrollHeight + 2)) + 'px'; };
+  ta.addEventListener('input', fit);
   note.appendChild(ta);
+  requestAnimationFrame(fit);
   const saveNote = el('button', { type: 'button', class: 'btn btn-sm' }, 'Save note');
   saveNote.addEventListener('click', () => fbAdmSet(r, { adminNote: ta.value }, saveNote, 'Note saved'));
   note.appendChild(saveNote);
