@@ -3073,7 +3073,7 @@ html.desk[data-theme="light"] body.powa-app:is([data-dhue="cyan"], [data-dhue="g
 html.desk :is(.dp-tab.on, .dp-wk.is-sel) { background: var(--dh-fill); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dh) 36%, transparent); }
 html.desk .dp-tab.on .dp-tab-n { color: var(--dh-ink); }
 html.desk .dp-wk.is-now .dp-wk-m { color: var(--dh-ink); font-weight: var(--fw-3); }
-html.desk #messagesArea .dk-msg-row.is-sel { background: var(--dh-wash); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--dh) 70%, transparent); }
+html.desk #messagesArea .dk-msg-row.is-sel { background: var(--dh-wash); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dh) 30%, transparent); }
 html.desk #messagesArea .dk-tab.on { background: var(--dh-fill); }
 html.desk #messagesArea .dk-tab.on .dk-tab-n { color: var(--dh-ink); }
 html.desk .cb-desk .cb-seg .dk-seg-btn.on { background: var(--dh-fill); color: var(--text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dh) 40%, transparent); }
