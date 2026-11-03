@@ -231,6 +231,15 @@ with checks(n, migration, applied) as (values
         and exists (select 1 from pg_constraint where conname = 'email_preferences_report_day_check')
         and exists (select 1 from pg_constraint where conname = 'email_preferences_report_hour_check')
         and exists (select 1 from pg_constraint where conname = 'email_preferences_tz_check')
-        and exists (select 1 from pg_trigger where tgname = 'trg_guard_email_prefs_report_week'))
+        and exists (select 1 from pg_trigger where tgname = 'trg_guard_email_prefs_report_week')),
+  (65, 'migration-feedback-2026-11-03.sql  (the Feedback box: ideas and problem reports from every signed-in coach and lifter; the send-feedback edge function inserts with the service role, admins read them on admin.html; run it before deploying send-feedback; it adds its own two-factor policy when row 60 is in)',
+        to_regclass('public.feedback') is not null
+        and exists (select 1 from pg_trigger where tgname = 'trg_feedback_guard')
+        and exists (select 1 from pg_constraint where conname = 'feedback_body_check')
+        and exists (select 1 from pg_constraint where conname = 'feedback_context_check')
+        and (select count(*) from pg_policies where schemaname = 'public' and tablename = 'feedback'
+              and policyname in ('feedback_insert', 'feedback_select', 'feedback_update', 'feedback_delete')) = 4
+        and coalesce(not has_table_privilege('anon', to_regclass('public.feedback'), 'insert'), false)
+        and coalesce(not has_table_privilege('anon', to_regclass('public.feedback'), 'select'), false))
 )
 select n, migration, applied from checks order by n;
