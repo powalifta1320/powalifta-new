@@ -9369,6 +9369,19 @@ test('moving an exercise to another place or day; clearing a day or a week', () 
   eq(w[0].days[0].name, 'Squat Day');
   assert(!DPg.mutate(w, { t: 'clearWeek', wi: 0 }), 'nothing left to clear: no change');
 });
+test('+ Set: one more set like the last, every prescription field with it; refused on a lifted exercise', () => {
+  const w = [dpWeek(1, [dpDay('Squat Day', [dpEx('squat', [dpSet({ id: 'a', weight: 152.5, reps: 4, rpe: null, pct: 72.5, pause: 2 }), dpSet({ id: 'b', weight: 152.5, reps: 4, rpe: null, pct: 72.5, pause: 2 })], { id: 'E1' }),
+    dpEx('bench', [dpSet({ id: 'c', weight: 100, reps: 5, rpe: 7, rpeHi: 8 }), dpSet({ id: 'x', weight: 90, reps: 8, extra: true })], { id: 'E2' }), dpEx('bench', [dpSet({ id: 'd', completed: true, actualRpe: 8 })], { id: 'E3' })])])];
+  assert(DPg.mutate(w, { t: 'addSet', wi: 0, di: 0, ei: 0, exId: 'E1' }));
+  const s3 = w[0].days[0].exercises[0].sets[2];
+  eq(w[0].days[0].exercises[0].sets.length, 3); eq(s3.weight + ' ' + s3.reps + ' ' + s3.pct + ' ' + s3.pause, '152.5 4 72.5 2', 'the load, reps, % and pause carried (rxOf)');
+  assert(s3.id !== 'b' && !s3.completed, 'a fresh set, nothing logged');
+  eq(DPg.exLines(w[0].days[0].exercises[0]).lines.length, 1, 'still one line: 3 × 4');
+  assert(DPg.mutate(w, { t: 'addSet', wi: 0, di: 0, ei: 1, exId: 'E2' }));
+  const b3 = w[0].days[0].exercises[1].sets[2];
+  eq(b3.weight + ' ' + b3.rpe + '-' + b3.rpeHi, '100 7-8', 'like the last written set (not the extra the lifter added), its RPE range too');
+  eq(DPg.refuse(w, { t: 'addSet', wi: 0, di: 0, ei: 2, exId: 'E3' }), 'logged', 'a lifted exercise takes no more sets here');
+});
 DRAFTS_ON = DP_DRAFTS_WAS;
 
 /* ===========================================================

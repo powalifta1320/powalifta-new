@@ -512,11 +512,12 @@
   // variant that day), 'only' (the last block of an exercise), or '' when it can.
   function refuse(weeks, op, o) {
     o = o || {};
-    if (LINE_OPS[op.t] || op.t === 'addGroup' || op.t === 'sets') {
+    if (LINE_OPS[op.t] || op.t === 'addGroup' || op.t === 'addSet' || op.t === 'sets') {
       var at = exAt(weeks, op);
       if (!at) return 'stale';
       if (!o.team && swapOf(at.ex)) return 'swapped';
       if (op.t === 'addGroup') return '';
+      if (op.t === 'addSet') return !o.team && (at.ex.sets || []).some(isLogged) ? 'logged' : '';
       if (op.t === 'sets') return !o.team && (at.ex.sets || []).some(isLogged) ? 'logged' : '';
       var ln = lineAt(at.ex, op);
       if (!ln) return 'stale';
@@ -542,6 +543,7 @@
     D.exercises = (D.exercises || []).filter(function (e) { return (e.sets || []).some(isLogged); });
     return before - D.exercises.length;
   }
+  function planWeightOf(s) { return typeof planWeight === 'function' ? planWeight(s) : s.weight; }
   function cloneEx(ex) {
     var uidF = typeof uid === 'function' ? uid : function (p) { return p + Math.random().toString(36).slice(2); };
     return { id: uidF('ex'), lift: ex.lift, variant: ex.variant || '', exerciseName: ex.exerciseName || '', note: ex.note || '',
@@ -556,13 +558,22 @@
     o = o || {};
     if (!op || refuse(weeks, op, o)) return false;
     var at, ln;
-    if (LINE_OPS[op.t] || op.t === 'addGroup' || op.t === 'sets' || /^(note|removeEx|moveEx|moveExTo|dupEx|variant)$/.test(op.t)) at = exAt(weeks, op);
+    if (LINE_OPS[op.t] || op.t === 'addGroup' || op.t === 'addSet' || op.t === 'sets' || /^(note|removeEx|moveEx|moveExTo|dupEx|variant)$/.test(op.t)) at = exAt(weeks, op);
     switch (op.t) {
       case 'patch': ln = lineAt(at.ex, op); blockPatch(at.ex.sets, ln.line.start, ln.line.count, op.patch); break;
       case 'resize': ln = lineAt(at.ex, op); blockResize(at.ex.sets, ln.line.start, ln.line.count, op.to); break;
       case 'fields': ln = lineAt(at.ex, op); for (var i = ln.line.start; i < ln.line.start + ln.line.count; i++) applySetFieldPatch(at.ex.sets[i], op.patch); break;
       case 'removeGroup': ln = lineAt(at.ex, op); blockRemove(at.ex.sets, ln.line.start, ln.line.count); break;
       case 'addGroup': blockAppend(at.ex.sets = at.ex.sets || []); break;
+      // + Set: one more set like the last one written, every prescription field with it (3 × 4 → 4 × 4)
+      case 'addSet': {
+        var ss = at.ex.sets = at.ex.sets || [], lastW = null;
+        for (var k = ss.length - 1; k >= 0 && !lastW; k--) if (!ss[k].extra) lastW = ss[k];
+        if (!lastW) { blockAppend(ss); break; }
+        var nw = Object.assign(typeof newSet === 'function' ? newSet(planWeightOf(lastW), lastW.plannedReps || lastW.reps, lastW.rpe, lastW.tempo) : { weight: planWeightOf(lastW), reps: lastW.reps, rpe: lastW.rpe, tempo: lastW.tempo || '', completed: false }, typeof rxOf === 'function' ? rxOf(lastW) : {});
+        ss.push(nw);
+        break;
+      }
       case 'sets': at.ex.sets = typedLineSets(at.ex.sets, op.sets); break;
       case 'note': at.ex.note = String(op.text || '').slice(0, 300); break;
       case 'variant': at.ex.variant = op.variant; break;
@@ -1488,11 +1499,11 @@
       as.insertAdjacentHTML('beforeend', IC.plus);
       as.appendChild(E('span', {}, 'Set'));
       as.setAttribute('aria-label', 'Add a set to ' + (x.title || 'the exercise'));
-      tip(as, 'A line of sets under the last one. Enter on the last notes does it too');
+      tip(as, 'One more set like the last one. Enter in the last notes starts a new line below');
       hold(as);
       as.addEventListener('click', function () {
         if (!commitOpen()) return;
-        var op = { t: 'addGroup', wi: wi, di: d.idx, ei: x.idx, exId: x.key, label: 'Add a set to ' + x.title };
+        var op = { t: 'addSet', wi: wi, di: d.idx, ei: x.idx, exId: x.key, label: 'Add a set to ' + x.title };
         if (team) teamRun(team.T, op, null, 'last:' + x.key); else run(op, { scope: 'ex', ex: x.key, focus: 'last' });
       });
       foot.appendChild(as);
@@ -1680,7 +1691,8 @@
       if (nx) items.push({ label: 'Change week ' + wn(prog, nx.wi) + ' instead', run: function () { pickWeek(nx.wi, false); focusExercise(nx.wi, nx.di, nx.ei); } });
     }
     if (!X.lock) {
-      items.push({ label: 'Add a set', hint: 'A back-off', run: function () { run(Object.assign({ t: 'addGroup', label: 'Add a set to ' + X.title }, base), { scope: 'ex', ex: X.key, focus: 'last' }); } });
+      items.push({ label: 'Add a set', hint: 'Like the last', run: function () { run(Object.assign({ t: 'addSet', label: 'Add a set to ' + X.title }, base), { scope: 'ex', ex: X.key, focus: 'last' }); } });
+      items.push({ label: 'Add a line', hint: 'A back-off', run: function () { run(Object.assign({ t: 'addGroup', label: 'Add a line to ' + X.title }, base), { scope: 'ex', ex: X.key, focus: 'last' }); } });
       if (X.lines.length > 1) X.lines.forEach(function (ln) {
         if (ln.lock) return;
         if (lineKey && ln.key !== lineKey) return;
@@ -1920,6 +1932,7 @@
           var rows = nb.querySelectorAll('.dp-line');
           var lr = rows[rows.length - 1];
           if (rows.length > before) arrive(lr);
+          else if (lr && !reduced()) { var cnt = lr.querySelector('.dp-cell.dp-n'); if (cnt && cnt.animate) cnt.animate([{ backgroundColor: 'color-mix(in srgb, var(--dh) 30%, transparent)' }, { backgroundColor: 'transparent' }], { duration: 600, easing: 'ease-out' }); }
           var c = lr && lr.querySelector('.dp-cell.dp-n');
           if (c) { c.focus(); c.select(); }
         } else if (want) restoreFocus(want);
@@ -2796,7 +2809,8 @@
   }
   function teamExMenu(T, W, wi, d, x) {
     var base = { wi: wi, di: d.idx, ei: x.idx, exId: x.key }, items = [];
-    items.push({ label: 'Add a set', hint: 'A back-off', run: function () { teamRun(T, Object.assign({ t: 'addGroup', label: 'Add a set' }, base), null, 'last:' + x.key); } });
+    items.push({ label: 'Add a set', hint: 'Like the last', run: function () { teamRun(T, Object.assign({ t: 'addSet', label: 'Add a set' }, base), null, 'last:' + x.key); } });
+    items.push({ label: 'Add a line', hint: 'A back-off', run: function () { teamRun(T, Object.assign({ t: 'addGroup', label: 'Add a line' }, base), null, 'last:' + x.key); } });
     if (x.lines.length > 1) x.lines.forEach(function (ln) { items.push({ label: 'Remove ' + roleWord(ln.role).toLowerCase() + ' ' + ln.sets + ' × ' + ln.reps, run: function () { teamRun(T, Object.assign({ t: 'removeGroup', start: ln.start, sid: ln.sid, label: 'Remove a line' }, base)); } }); });
     items.push('-', { label: 'Remove from week ' + d.weekN, danger: true, run: function () { teamRun(T, Object.assign({ t: 'removeEx', label: 'Remove ' + x.title }, base)); } });
     return items;
