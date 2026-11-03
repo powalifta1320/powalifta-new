@@ -688,7 +688,7 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "Lifters: Progress → Tools → **Import history** (or You → Your data → **Import your training history**). Choose the CSV your app exports (Strong, Hevy, FitNotes), a spreadsheet (.xlsx, .ods or .csv), or paste the cells. Columns POWALIFTA knows are matched; any it can't place gets a dropdown, and it remembers your choice. You see every set, the PRs it makes and the rows it leaves out (with why) before anything is saved, and the same file twice adds nothing. Weigh-ins in the file come in too. Coaches: **Bring your coaching in** (Settings → Your data, or ⌘K on a laptop), or **Import their history** from a lifter, then pick whose sets they are.",
   "app": "Lifters: Progress → Tools → **Import history** (or You → Your data → **Import your training history**). Choose the CSV your app exports (Strong, Hevy, FitNotes), a spreadsheet (.xlsx, .ods or .csv), or paste the cells. Columns POWALIFTA knows are matched; any it can't place gets a dropdown, and it remembers your choice. You see every set, the PRs it makes and the rows it leaves out (with why) before anything is saved, and the same file twice adds nothing. Weigh-ins in the file come in too. Coaches: You → Your data → **Bring your coaching in**, then pick whose sets they are."
- },,
+ },
  {
   "id": "clubs",
   "q": "What are clubs, and how do the boards work?",
@@ -2039,6 +2039,21 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "Your public coach profile has an **Apply** form for people who aren't on POWALIFTA yet: name, email, training age, best lifts, bodyweight, next meet, goals and a note. They get an email to confirm it, and you see nothing until they do, so nobody can apply in someone else's name. Then you get a push and an email, and the application waits on **Lifters** under **New lifters**, with the join requests from lifters already in the app (the tab shows how many, and Home has a row while anyone waits). The one with the soonest meet comes first, then whoever has waited longest. Tap one to read it, then **Send <name> an invite** (it emails them your invite link, with a code tied to their email, and takes a seat like any invite), **Decline** (nothing is sent, and you can undo it), or **Delete as spam**. Tap their email to write to them yourself. A signed-in lifter who opens your profile gets **Request to join** instead. Applications are deleted 90 days after you decide, or after 180 days unanswered."
   },
+ {
+  "id": "feedback-box",
+  "q": "How do I suggest a feature or report a problem?",
+  "t": [
+   "suggest a feature",
+   "feature request",
+   "suggestion",
+   "send feedback",
+   "feedback",
+   "report a problem",
+   "an idea for the app",
+   "request a feature"
+  ],
+  "a": "Use **Feedback**. In the app: **You** → **Help** → **Feedback** for an idea, or **Report a problem** when something isn't working. On a laptop: **Feedback** at the bottom of the sidebar, or **Settings** → **Help & account** → **Report a problem**. Pick **Idea** or **Problem**, say it in your own words (up to 4,000 characters) and tap **Send**: it goes straight to the founder, and every one is read. For a problem, **Include technical details** is on: it adds the screen you were on, the app version, web or iPhone app, your device and browser, the screen size, the theme and the last few error messages, never your training data. **See what's sent** shows exactly what goes, and you can switch it off. If it can't send (no connection), your words stay on your device for next time. Up to 20 a day."
+ },
  {
   "id": "name-on-coach-posts",
   "q": "Can I keep my name off my coach's posts?",
