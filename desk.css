@@ -1956,20 +1956,68 @@ html.desk #messagesArea.dk-msgs { display: grid; grid-template-columns: var(--li
 .dk-ses-top.lift-squat { --lc: var(--dk-sq); } .dk-ses-top.lift-bench { --lc: var(--dk-bp); } .dk-ses-top.lift-deadlift { --lc: var(--dk-dl); }
 .dk-ses-top .dk-lift-dot { width: 6px; height: 6px; margin: 0; background: var(--lc); }
 
-/* ---------- Settings ---------- */
+/* ---------- Settings (desk v3 drop 2): an overview of cards; a section opens in place under ‹ Settings ----------
+   Four sizes: 28 the title, 20 the two top cards' names and the groups, 15 every card's title and line, 13 captions. Cards
+   radius 20 with 24 inside; each section's tile wears its hue quietly (15% behind the icon), the plan's seats ring violet. */
 html.desk section[data-pane="you"] { overflow-y: auto; }
 html.desk section[data-pane="you"] > .dash-header { display: none; }
-html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
-.dk-set-nav { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 2px; height: 100vh; padding: var(--page-top) var(--s-4) var(--s-5); box-sizing: border-box; border-right: 1px solid var(--line); }
-.dk-set-nav .dk-h1 { padding: 0 var(--s-2) var(--s-4); }
-.dk-set-panel { width: 100%; max-width: 760px; padding: var(--page-top) var(--s-7) 72px; box-sizing: border-box; }
-.dk-set-title { margin: 0 0 var(--s-4); font-size: var(--fs-5); font-weight: var(--fw-3); line-height: var(--lh-1); letter-spacing: -0.01em; color: var(--text); }
-.dk-set-lead { margin: calc(-1 * var(--s-2)) 0 var(--s-4); max-width: 62ch; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--text-3); text-wrap: pretty; }
+html.desk #youArea.dk-set { display: block; min-height: 100vh; padding: var(--page-top) var(--gut) 72px; box-sizing: border-box; }
+.dk-set-ov { max-width: 1040px; }
+.dk-set-ovh { margin-bottom: var(--s-5); }
+.dk-set-ovsub { margin: 6px 0 0; font-size: var(--fs-3); line-height: 1.4; color: var(--text-3); }
+.dk-set-top { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-4); }
+.dk-set-card { position: relative; display: flex; flex-direction: column; min-width: 0; padding: var(--s-5); box-sizing: border-box; border: 1px solid var(--dk-card-edge); border-radius: var(--r-3);
+  background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); color: var(--text); text-align: left; font: inherit; }
+button.dk-set-card { cursor: pointer; transition: border-color 0.15s var(--dk-ease), transform 0.16s var(--dk-ease); }
+@media (hover: hover) and (pointer: fine) { button.dk-set-card:hover, .dk-set-card:has(> .dk-set-open:hover) { border-color: var(--line-2); } }
+button.dk-set-card:active { transform: scale(0.985); }
+.dk-set-open { display: flex; align-items: center; gap: var(--s-4); width: 100%; min-width: 0; padding: 0; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.dk-set-t { display: flex; flex-direction: column; gap: 3px; flex: 1 1 auto; min-width: 0; }
+.dk-set-t > b { font-size: var(--fs-3); font-weight: var(--fw-3); line-height: 20px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dk-set-t > b.dk-set-name2 { font-size: var(--fs-5); font-weight: var(--fw-4); line-height: 24px; letter-spacing: -0.01em; }
+.dk-set-line { font-size: var(--fs-3); line-height: 20px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.dk-set-chev { display: grid; flex: none; color: var(--text-4); transition: transform 0.16s var(--dk-ease), color 0.15s var(--dk-ease); }
+.dk-set-chev svg { width: 16px; height: 16px; }
+@media (hover: hover) and (pointer: fine) { button.dk-set-card:hover .dk-set-chev, .dk-set-open:hover .dk-set-chev { color: var(--text-2); transform: translateX(2px); } }
+.dk-set-links { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); margin: var(--s-4) calc(-1 * var(--s-2)) 0; padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.dk-set-link { display: inline-flex; align-items: center; height: 32px; padding: 0 var(--s-2); border: 0; border-radius: var(--r-1); background: none; cursor: pointer; color: var(--text-2); font: var(--fw-3) var(--fs-3)/1 var(--font-body); text-decoration: none; transition: background-color 0.14s var(--dk-ease), color 0.14s var(--dk-ease); }
+@media (hover: hover) and (pointer: fine) { .dk-set-link:hover { background: var(--dk-hover); color: var(--text); } }
+.dk-set-me2 .dk-av.is-lg { width: 56px; height: 56px; font-size: var(--fs-5); }
+.dk-set-grp { margin-top: 40px; }
+html.desk body.powa-app .dk-set-gh { margin: 0 0 var(--s-3); font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-5); font-weight: var(--fw-4); line-height: 1.2; letter-spacing: -0.01em; text-transform: none; color: var(--text); }
+.dk-set-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
+.dk-set-sc { flex-direction: row; align-items: center; gap: var(--s-4); min-height: 88px; padding: 20px var(--s-5); }
+/* a section's icon tile: its hue at 15% behind the icon, the icon in the hue */
+.dk-set-tile { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: var(--tc); background: color-mix(in srgb, var(--tc) 15%, transparent); }
+.dk-set-tile svg { width: 20px; height: 20px; }
+.dk-set-tile.is-violet { --tc: #a98bff; } .dk-set-tile.is-green { --tc: #34d982; } .dk-set-tile.is-cyan { --tc: #38c6ff; } .dk-set-tile.is-gold { --tc: #ffbf3c; } .dk-set-tile.is-steel { --tc: #9fb0c6; }
+html.desk[data-theme="light"] .dk-set-tile.is-violet { --tc: #6d4fe0; } html.desk[data-theme="light"] .dk-set-tile.is-green { --tc: #0f7d47; } html.desk[data-theme="light"] .dk-set-tile.is-cyan { --tc: #0b6f9e; }
+html.desk[data-theme="light"] .dk-set-tile.is-gold { --tc: #8a5a00; } html.desk[data-theme="light"] .dk-set-tile.is-steel { --tc: #4f5d71; }
+/* the plan's seats: a violet ring, the seats taken inside it */
+.dk-set-ring { position: relative; flex: none; display: grid; place-items: center; width: 60px; height: 60px; }
+.dk-set-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.dk-set-ring-t { fill: none; stroke: var(--dk-fill-2); stroke-width: 6; }
+.dk-set-ring-v { fill: none; stroke: #a98bff; stroke-width: 6; stroke-linecap: round; }
+html.desk[data-theme="light"] .dk-set-ring-v { stroke: #7a5cf0; }
+.dk-set-ring b { position: relative; font: var(--fw-4) var(--fs-3)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--text); }
+/* a section, in place: ‹ Settings, its tile and title, then its rows (the renderers below) */
+.dk-set-panel { width: 100%; max-width: 760px; }
+.dk-set-back { display: inline-flex; align-items: center; gap: 2px; height: 28px; margin: -6px 0 var(--s-3) -8px; padding: 0 var(--s-2) 0 2px; border: 0; border-radius: var(--r-1); background: none; cursor: pointer; color: var(--text-3); font: var(--fw-3) var(--fs-3)/1 var(--font-body); transition: background-color 0.14s var(--dk-ease), color 0.14s var(--dk-ease); }
+.dk-set-back svg { width: 16px; height: 16px; }
+@media (hover: hover) and (pointer: fine) { .dk-set-back:hover { background: var(--dk-hover); color: var(--text); } }
+.dk-set-back:active { transform: scale(0.97); }
+.dk-set-h { display: flex; align-items: center; gap: 14px; margin-bottom: var(--s-5); }
+.dk-set-lead { margin: calc(-1 * var(--s-2)) 0 var(--s-4); max-width: 62ch; font-size: var(--fs-3); line-height: var(--lh-2); color: var(--text-3); text-wrap: pretty; }
 .dk-set-group { margin-bottom: var(--s-5); border-radius: var(--r-2); background: var(--dk-raise); overflow: hidden; }
-.dk-set-row { display: flex; align-items: center; gap: var(--s-4); min-height: 56px; padding: var(--s-2) var(--s-4); box-sizing: border-box; }
+.dk-set-seats2 { flex-direction: row; align-items: center; gap: var(--s-4); margin-bottom: var(--s-4); }
+.dk-set-panel .dk-sec-title { margin-top: var(--s-2); font-size: var(--fs-3); }
+html.desk :is(.dk-set-back, .dk-set-link, .dk-set-open, button.dk-set-card):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
+@media (max-width: 1180px) { .dk-set-top, .dk-set-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .dk-set-sc { padding: 18px 20px; } }
+@media (prefers-reduced-motion: reduce) { button.dk-set-card:active, .dk-set-back:active { transform: none; } .dk-set-chev { transition: none; } }
+.dk-set-row { display: flex; align-items: center; gap: var(--s-4); min-height: 64px; padding: var(--s-3) var(--s-5); box-sizing: border-box; }
 .dk-set-row + .dk-set-row { border-top: 1px solid var(--line); }
 .dk-set-txt { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-.dk-set-label { font-size: var(--fs-2); font-weight: var(--fw-3); color: var(--text); }
+.dk-set-label { font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); }
 .dk-set-val { font-size: var(--fs-1); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .dk-set-row > .dk-btn, .dk-set-row > a.dk-btn { flex: none; text-decoration: none; }
 .dk-set-me { display: flex; align-items: center; gap: var(--s-4); margin-bottom: var(--s-5); }
@@ -1977,10 +2025,6 @@ html.desk #youArea.dk-set { display: grid; grid-template-columns: 232px minmax(0
 .dk-set-name { display: flex; align-items: center; gap: var(--s-2); }
 .dk-set-name b { font-size: var(--fs-4); font-weight: var(--fw-4); color: var(--text); }
 .dk-set-bio { margin: var(--s-1) 0 0; max-width: 60ch; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--text-2); }
-.dk-set-seats { margin-bottom: var(--s-4); padding: var(--s-3) var(--s-4); border-radius: var(--r-2); background: var(--dk-raise); }
-.dk-set-seats-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); }
-.dk-set-seats-top b { font-size: var(--fs-4); font-weight: var(--fw-4); color: var(--text); }
-.dk-set-seats-top span { font-size: var(--fs-2); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .dk-meter { height: 4px; margin-top: var(--s-3); border-radius: var(--r-round); background: var(--dk-fill); overflow: hidden; }
 .dk-meter i { display: block; height: 100%; background: var(--text); transform-origin: left center; }
 .dk-swatch { width: 16px; height: 16px; flex: none; border-radius: var(--r-round); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); }
@@ -2413,7 +2457,7 @@ html.desk body.powa-app .ds-pick-note { font-weight: var(--fw-1); }
    run, Club and the meet-day board wear the card Today and Lifters wear: the app's 20 px radius, a
    hairline edge, light from above (a lit top edge and a soft sheen). No hue washes anywhere.
    ===================================================================== */
-html.desk :is(.dk-bxd, .dk-sess, .dk-pg-lift, .dk-set-group, .dk-set-seats, .dk-reasons, .dk-fr-steps, .dk-fr-sample, .dk-bl, .dk-mt-next, .dk-mtc, .dk-wk-empty, .dk-asks, .ds-end) {
+html.desk :is(.dk-bxd, .dk-sess, .dk-pg-lift, .dk-set-group, .dk-reasons, .dk-fr-steps, .dk-fr-sample, .dk-bl, .dk-mt-next, .dk-mtc, .dk-wk-empty, .dk-asks, .ds-end) {
   border-radius: var(--r-3); background-color: var(--dk-card); background-image: var(--dk-card-sheen); border: 1px solid var(--dk-card-edge); box-shadow: var(--dk-card-lit);
 }
 

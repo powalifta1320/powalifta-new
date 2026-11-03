@@ -1412,7 +1412,7 @@
   }
   function bizGo(k) {
     if (k === 'apps') { if (typeof openNewLifters === 'function') openNewLifters(); return; }
-    if (k === 'seats') { try { localStorage.setItem('powa-desk-set', 'plan'); } catch (e) {} if (typeof _dk !== 'undefined') _dk.setSec = 'plan'; if (typeof deskGo === 'function') deskGo('settings'); return; }
+    if (k === 'seats') { if (typeof deskGo === 'function') deskGo('settings', { sec: 'plan' }); return; }
     if (typeof deskGo !== 'function') return;
     deskGo('clients');
     var f = document.querySelector('#clientsArea [data-cs="filter"][data-f="' + (k === 'overdue' ? 'overdue' : 'all') + '"]');
