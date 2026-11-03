@@ -1,9 +1,9 @@
 // -> brand-train.png: site-img/home/brand-* (mkimg.py brand).
 // The lifter app wearing the coach's branding (athlete.html?demo=1&brand=1: Pro and Premium), iPhone app layout,
-// dark, 393x852 at 3x. The same day and set as the opening's phone (182.5 kg x 5, written @8, the coach's note).
-import { launch, phoneCtx, safeAreas, patchDemo, BASE, CAP as OUT } from './lib.mjs';
+// dark (THEME=light for a light version), 393x852 at 3x. The same day and set as the opening's phone (182.5 kg x 5, written @8, the coach's note).
+import { launch, phoneCtx, safeAreas, patchDemo, BASE, CAP as OUT, THEME } from './lib.mjs';
 const b = await launch();
-const ctx = await phoneCtx(b, { theme: 'dark', dpr: 3 }); await patchDemo(ctx);
+const ctx = await phoneCtx(b, { theme: THEME, dpr: 3 }); await patchDemo(ctx);
 const p = await ctx.newPage(); await safeAreas(ctx, p);
 const errs = []; p.on('pageerror', (e) => errs.push(e.message.slice(0, 160)));
 await p.goto(BASE + 'athlete.html?demo=1&brand=1', { waitUntil: 'load' }); await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(1800);

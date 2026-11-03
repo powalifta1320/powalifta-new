@@ -1,12 +1,12 @@
 // -> thread-before.png, thread-after.png: site-img/home/thread-*, thread-reply, thread-seen, thread-sent (mkimg.py thread).
-// Arjun's thread with his coach (the real lifter app, Coach tab, iPhone app layout, dark, 393x852 at 3x):
+// Arjun's thread with his coach (the real lifter app, Coach tab, iPhone app layout, dark (THEME=light for a light version), 393x852 at 3x):
 // his top set sent as a card at 10:42, then (after) "Seen · 10:43" and Sam's reply at 10:44.
 import { writeFileSync } from 'node:fs';
-import { launch, phoneCtx, safeAreas, patchDemo, BASE, CAP as OUT } from './lib.mjs';
+import { launch, phoneCtx, safeAreas, patchDemo, BASE, CAP as OUT, THEME } from './lib.mjs';
 const DPR = Number(process.env.DPR || 3);
 const b = await launch();
 async function shoot(stage) {
-  const ctx = await phoneCtx(b, { theme: 'dark', dpr: DPR }); await patchDemo(ctx);
+  const ctx = await phoneCtx(b, { theme: THEME, dpr: DPR }); await patchDemo(ctx);
   const p = await ctx.newPage(); await safeAreas(ctx, p);
   const errs = []; p.on('pageerror', (e) => errs.push(e.message.slice(0, 160)));
   await p.goto(BASE + 'athlete.html?demo=1', { waitUntil: 'load' }); await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(1800);

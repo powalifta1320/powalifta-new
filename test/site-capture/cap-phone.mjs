@@ -1,10 +1,10 @@
 // -> phone-train.png, phone-logged.png: site-img/home/lifter-train-*, lifter-logged-* (mkimg.py phone).
-// Arjun's phone (the real lifter app in the iPhone app layout, dark, 393x852 at 3x): Train with his top set
+// Arjun's phone (the real lifter app in the iPhone app layout, dark (THEME=light for a light version), 393x852 at 3x): Train with his top set
 // (182.5 kg x 5, the coach wrote @8, he picks 8), then the same screen once Log set is pressed and the PR sheet is done.
 import { writeFileSync } from 'node:fs';
-import { launch, phoneCtx, safeAreas, patchDemo, BASE, CAP as OUT } from './lib.mjs';
+import { launch, phoneCtx, safeAreas, patchDemo, BASE, CAP as OUT, THEME } from './lib.mjs';
 const b = await launch();
-const ctx = await phoneCtx(b, { theme: 'dark', dpr: 3 }); await patchDemo(ctx);
+const ctx = await phoneCtx(b, { theme: THEME, dpr: 3 }); await patchDemo(ctx);
 const p = await ctx.newPage(); await safeAreas(ctx, p);
 const errs = []; p.on('pageerror', (e) => errs.push(e.message.slice(0, 160)));
 await p.goto(BASE + 'athlete.html?demo=1', { waitUntil: 'load' }); await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(1800);
