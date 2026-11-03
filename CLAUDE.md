@@ -95,13 +95,14 @@ Every other public page is `<body class="site">`: `styles.css`, `site.css` (Arch
 - `messages` — coach↔athlete direct messages. `(coach_id, athlete_id)` is the thread; `sender_id` is who wrote it; `read_at` drives unread badges. Member-only RLS; insert gated on a live coach→athlete link.
 - `client_billing` + `client_payments` — the coach's own ledger (package, price, next due; payments taken elsewhere). Coach-only RLS, the athlete never reads them; no money moves in the app.
 - `intake` — the lifter's answers to their coach's intake (one JSON object); the lifter writes, their current coach reads.
+- `feedback` — the Feedback box (feedback.js): ideas and problem reports; send-feedback inserts, admins read them on admin.html › Feedback.
 - `form_checks` — athlete form-check video requests + coach reply. Video bytes live in the private `form-checks` Storage bucket (not this table); `storage_path` points at them.
 
 All tables have RLS. Anon key in `db.js` is intentionally public (Supabase pattern). **Security depends entirely on RLS policies being correct.**
 
 ## Edge functions
 
-`supabase/functions/<name>/index.ts`, deployed with `./deploy.sh` (it also pushes the secrets from `.env` and knows each function's Verify-JWT setting). Billing: `apple-iap`, `apple-notifications`, `ls-webhook`, `ls-marketplace-webhook`, `ls-portal`. Email: `send-welcome`, `send-invite`, `send-program-assigned`, `send-weekly-digest` (cron), `unsubscribe`. Other: `send-push`, `send-client-error`, `ai-chat`, `program-read` (Program from a photo: Gemini reads a picture/PDF into builder cells, stores nothing), `delete-account`. Functions acting for a user take the user from the JWT only; webhooks check a signature in constant time. What each does, its env and auth: vault `Code/Edge functions.md`.
+`supabase/functions/<name>/index.ts`, deployed with `./deploy.sh` (it also pushes the secrets from `.env` and knows each function's Verify-JWT setting). Billing: `apple-iap`, `apple-notifications`, `ls-webhook`, `ls-marketplace-webhook`, `ls-portal`. Email: `send-welcome`, `send-invite`, `send-program-assigned`, `send-weekly-digest` (cron), `unsubscribe`. Other: `send-push`, `send-client-error`, `ai-chat`, `program-read` (Program from a photo: Gemini reads a picture/PDF into builder cells, stores nothing), `delete-account`, `send-feedback` (the Feedback box: saves an idea or problem report, emails every admin). Functions acting for a user take the user from the JWT only; webhooks check a signature in constant time. What each does, its env and auth: vault `Code/Edge functions.md`.
 
 ## SQL migrations
 

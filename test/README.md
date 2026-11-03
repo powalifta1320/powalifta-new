@@ -81,7 +81,7 @@ node test/apply-to-coach.test.mjs
 
 ## Two-factor in the edge functions (no dependencies)
 
-The eight functions that act for a signed-in user, run for real under Node with the supabase client,
+The nine functions that act for a signed-in user, run for real under Node with the supabase client,
 web-push, jose and fetch faked: an account with a verified authenticator gets 403 `aal2_required` at
 aal1 (or with no or unreadable claims) and nothing else happens; at aal2, and for accounts without a
 verified factor, every function answers exactly as it does without the guard.
@@ -89,6 +89,32 @@ verified factor, every function answers exactly as it does without the guard.
 ```bash
 node test/edge-aal.test.mjs
 ```
+
+## The Feedback box (3 Nov 2026)
+
+The send-feedback edge function end to end under Node, its supabase client and fetch faked (no Deno, no network): who
+sent it comes from the token only, two-factor, the kind, the words and a problem's technical details (allow-listed,
+scrubbed of emails and tokens, at most 8 KB; an idea keeps none), the cap of 20 a day counted before any insert, the
+table's own cap for two sends at once, the admins' email (subject, escaping, reply-to, the details) and that a failed
+email still answers 200 with the row saved, 503 before the migration. It also checks the app's details (feedback.js)
+against the server's: the same keys, the same scrubbing.
+
+```bash
+node test/send-feedback.test.mjs
+```
+
+The table, its policies and its guard (`sql/migration-feedback-2026-11-03.sql`, STATUS-check row 65) in PGlite, with
+Supabase's default grants: runs twice; a user inserts and reads only their own and can't update or delete; an admin
+reads, updates and deletes all and the guard keeps the words; anon has nothing; the checks; the cap at 20 in 24 hours
+for a user and the service role; an account's deletion takes its rows; with two-factor (row 60) in either order the
+table gets `powa_mfa_aal2` and row 60 stays true.
+
+```bash
+PGLITE=/path/to/@electric-sql/pglite/dist/index.js node test/feedback-sql.test.mjs
+```
+
+The sheet's pure parts (the details, the scrub, the device in words, the words as sent, the draft) are in tests.html,
+"feedback (feedback.js)"; its screens are in the small-stuff scanner (`UISCAN_ONLY='^(sh-fb|w-fb)'`).
 
 ## Mobile overflow check (needs puppeteer)
 
