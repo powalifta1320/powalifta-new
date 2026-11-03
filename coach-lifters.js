@@ -1730,6 +1730,7 @@
   function pickToggle(id, o) {
     o = o || {};
     if (!id) return;
+    S.pickKey = !!o.key;
     var anchor = S.pickAnchor || S.sel;
     if (o.range && anchor && anchor !== id && window.DeskDay && DeskDay.pickRange) DeskDay.pickRange(S.order, anchor, id).forEach(function (x) { S.picked[x] = true; });
     else if (S.picked[id]) delete S.picked[id];
@@ -1760,6 +1761,7 @@
         bar.innerHTML = '<span class="cl-bulk-t"><b>' + n + ' picked</b><span>' + esc(namesList(names, 3)) + '</span></span>' +
           '<button type="button" class="cl-btn cl-bulk-msg" data-bulk="msg">' + ic('msg') + 'Message ' + (n === 1 ? esc(names[0] || '1') : n) + '</button>' +
           '<button type="button" class="cl-ibtn cl-bulk-x" data-bulk="clear" aria-label="Clear the picks" data-tip="Clear the picks" data-kbd="Esc">' + ic('x', 2.2) + '</button>';
+        if (bar.hidden) bar.classList.toggle('is-key', !!S.pickKey);
         bar.hidden = false;
       }
     }
@@ -1784,7 +1786,7 @@
       return;
     }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (low === 'x' && S.sel) { pickToggle(S.sel, { range: e.shiftKey }); e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if (low === 'x' && S.sel) { pickToggle(S.sel, { range: e.shiftKey, key: true }); e.preventDefault(); e.stopImmediatePropagation(); return; }
     if (k === 'Escape' && pickCount() && !document.querySelector('.dk-modal, .dk-veil, .ui-sheet, .dk-menu')) { pickClear(); e.preventDefault(); e.stopImmediatePropagation(); return; }
     if (low === 'j' || k === 'ArrowDown') move(1);
     else if (low === 'k' || k === 'ArrowUp') move(-1);

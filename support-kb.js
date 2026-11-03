@@ -2061,6 +2061,56 @@ window.POWA_SUPPORT_KB = [
   "a": "Your public coach profile has an **Apply** form for people who aren't on POWALIFTA yet: name, email, training age, best lifts, bodyweight, next meet, goals and a note. They get an email to confirm it, and you see nothing until they do, so nobody can apply in someone else's name. Then you get a push and an email, and the application waits on **Lifters** under **New lifters**, with the join requests from lifters already in the app (the tab shows how many, and Home has a row while anyone waits). The one with the soonest meet comes first, then whoever has waited longest. Tap one to read it, then **Send <name> an invite** (it emails them your invite link, with a code tied to their email, and takes a seat like any invite), **Decline** (nothing is sent, and you can undo it), or **Delete as spam**. Tap their email to write to them yourself. A signed-in lifter who opens your profile gets **Request to join** instead. Applications are deleted 90 days after you decide, or after 180 days unanswered."
   },
  {
+  "id": "desk-today-day",
+  "q": "What's on Today on the coach laptop: Training today, This week, Wins and Check-ins?",
+  "t": [
+   "training today",
+   "who trained today",
+   "still to come",
+   "missed yesterday",
+   "this week agenda",
+   "wins this week",
+   "nice lift",
+   "check-ins card",
+   "remind to check in",
+   "form check waiting"
+  ],
+  "a": "On a laptop, Today opens on **Do first** (pain first), then: **Training today**: who trained today, who is lifting right now, who is still to come and who missed yesterday. \"Still to come\" is only what the app knows: a session the lifter pinned to today, a day of a busy week you approved, or the weekday they've trained on in 3 of the last 4 weeks. **Message the 2 who missed** writes to each in their own thread. **This week**: the next 7 days: meets and weigh-ins, a week to publish or a block ending, the weekly check-in, payments due (overdue first). **Wins this week**: each PR as a card with the set and the e1RM; **Nice lift** sends the lifter a one-line well done. Under **Your team**, **Check-ins** shows who checked in this week, what their answers flag (pain, under 6 hours' sleep, soreness 7+, stress) and **Remind** for the rest. The header counts form checks waiting; each is also a job on Your list.",
+  "app": "Training today, This week, Wins and the Check-ins card are on Today in the coach dashboard on a laptop or desktop browser at powalifta.com. In the iPhone app, Home keeps its own layout."
+ },
+ {
+  "id": "desk-lifter-page",
+  "q": "What's on a lifter's page on the coach laptop: the week, the meet plan, readiness and the timeline?",
+  "t": [
+   "lifter's page",
+   "session by session",
+   "written vs lifted",
+   "meet plan",
+   "attempts not set",
+   "projected total",
+   "readiness and pain",
+   "pain history",
+   "notes and history",
+   "private note"
+  ],
+  "a": "On a laptop, open **Lifters** and pick someone. Under their total, lifts and tiles: **Week N of M**, session by session: each day's status (Done, Today, Planned, Missed) and date, and each main lift's top set as written and as lifted, with a dot for how hard it felt against the RPE you wrote (green as written, amber harder, red a point or more over). Click a day to open it in Programs. The **meet plan**: the attempts per lift (set or not), their weight against the class with the trend's verdict, and the total their current e1RMs add up to with the meet's score (DOTS or IPF GL); **Plan attempts** opens the planner. **Readiness and pain**: each daily check-in question as a small trend over up to 6 weeks, then every pain report. **Notes and history**: one timeline of your private notes (add one in the box, ⌘Enter saves; only you see them), their session notes, messages, form checks, PRs and blocks, with chips to filter. In the Meet and Pain views the meet plan, or readiness and pain, comes first.",
+  "app": "A lifter's week session by session, the meet plan, readiness and pain and the notes timeline are on the coach dashboard in a laptop or desktop browser at powalifta.com. In the iPhone app, tap a lifter on Lifters for their card."
+ },
+ {
+  "id": "desk-message-several",
+  "q": "How do I message several lifters at once from the laptop?",
+  "t": [
+   "message several lifters",
+   "select lifters",
+   "pick lifters",
+   "bulk message",
+   "message a few lifters",
+   "shift click"
+  ],
+  "a": "On a laptop, open **Lifters** and point at a face: a box appears in its place. Click it to pick that lifter (the page stays on whoever is open); **Shift**-click another box to pick everyone between, or **⌘**-click (Ctrl on Windows) a row. With the keyboard, **X** picks the lifter you're on and **Shift X** picks a range. Picks stay while you switch tabs. The bar at the bottom says who's picked: **Message** writes one message that each gets in their own thread, as if you wrote to them alone. **Esc** or **×** clears the picks. To message everyone, use Messages.",
+  "app": "Picking several lifters is on the coach dashboard in a laptop or desktop browser at powalifta.com. In the iPhone app, Messages → Message everyone writes to your whole roster or a team."
+ },
+ {
   "id": "feedback-box",
   "q": "How do I suggest a feature or report a problem?",
   "t": [

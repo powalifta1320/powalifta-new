@@ -16,7 +16,8 @@ html.desk .dd-sh-m { min-width: 0; font-size: 15px; line-height: 20px; color: va
 html.desk .dd-sh-btn { margin-left: auto; align-self: center; }
 html.desk .dd-sh-btn svg { width: 14px; height: 14px; margin: 0 -4px 0 -2px; }
 html.desk .dd-none { font-size: 13px; line-height: 32px; color: var(--text-3); white-space: nowrap; }
-html.desk .dd-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 0; font-size: 13px; line-height: 18px; color: var(--text-3); }
+html.desk .dd-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 0; font-size: 13px; line-height: 18px; color: var(--text-3); text-wrap: pretty; }
+html.desk :is(.dd-nice, .dd-add-b)[aria-busy="true"] { opacity: 0.6; cursor: progress; }
 html.desk .dd-foot > span:last-child { margin-left: auto; }
 html.desk .dd-foot > span:only-child { margin-left: 0; }
 html.desk .dd-more { display: inline-grid; place-items: center; height: 32px; padding: 0 10px; border-radius: var(--r-round, 999px); background: var(--dk-fill); font: 600 13px/1 var(--font-body); font-variant-numeric: tabular-nums; color: var(--text-2); }
@@ -75,6 +76,7 @@ html.desk .dd-ag-w, html.desk .dd-ag-x { display: block; max-width: 100%; paddin
 html.desk .dd-ag-x { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); }
 html.desk .dd-ag-x i { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--cl-down); }
 html.desk .dd-ag-it:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 0; }
+html.desk :is(.dd-ag-it, .dd-s):active { background: var(--dk-fill-2); }   /* a wide row answers the press with a fill (too wide to scale) */
 @media (hover: hover) and (pointer: fine) { html.desk .dd-ag-it:hover { background: var(--dk-hover); } }
 
 /* Wins this week: a small card a PR */
@@ -122,6 +124,10 @@ html.desk .cl-ring.dd-ring .cl-ring-v { stroke: var(--cl-up); }
 html.desk .dd-fcbit { display: inline; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: text-decoration-color 150ms var(--cl-ease), color 150ms var(--cl-ease); }
 html.desk .dd-fcbit:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; border-radius: 4px; }
 @media (hover: hover) and (pointer: fine) { html.desk .dd-fcbit:hover { color: var(--text); text-decoration-color: currentColor; } }
+
+/* The notify card on Today, on the desk's scale (15 for its line, 13 for its buttons, as Do first's rows and buttons) */
+html.desk .cl-today .pn-line { font-size: 15px; font-weight: 600; }
+html.desk body.powa-app .cl-today .pn-acts :is(.pn-on, .pn-later) { font-size: 13px; }
 
 /* ---------------------------------------------------------------- a lifter's page: the cards under the three tiles */
 html.desk .dd-card { position: relative; display: flex; flex-direction: column; gap: 16px; min-width: 0; padding: 22px 24px 24px; border: 1px solid var(--dk-card-edge); border-radius: var(--cl-r);
@@ -205,7 +211,10 @@ html.desk .dd-mp-s { font-size: 13px; line-height: 18px; color: var(--text-3); }
 html.desk .dd-mp-s b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 html.desk .dd-mp-s.is-behind { color: var(--text-2); }
 html.desk .dd-mp-s.is-behind::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--cl-down); vertical-align: 1px; }
+html.desk .dd-bwbox { position: relative; }
 html.desk .dd-bw { display: block; width: 100%; height: 44px; overflow: visible; }
+html.desk .dd-bw-lab { position: absolute; left: 0; transform: translateY(-115%); font-size: 13px; line-height: 16px; color: var(--text-3); font-variant-numeric: tabular-nums; pointer-events: none; }
+html.desk .dd-bw-lab.is-below { transform: translateY(15%); }   /* over the class: the line is above the limit, the word under it */
 html.desk .dd-bw-ref { stroke: color-mix(in srgb, var(--cl-meet) 70%, transparent); stroke-width: 1; stroke-dasharray: 3 3; }
 html.desk .dd-bw-ln { fill: none; stroke: var(--cl-bw); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 html.desk .dd-bw-pt { fill: var(--cl-bw); stroke: var(--dk-card); stroke-width: 2; }
@@ -285,7 +294,7 @@ html.desk .dd-tl-b { display: flex; flex-direction: column; gap: 2px; min-width:
 html.desk .dd-tl-b > b { display: flex; align-items: baseline; gap: 10px; font-size: 15px; line-height: 20px; font-weight: 600; color: var(--text); }
 html.desk .dd-tl-b > b em { font-style: normal; font-size: 13px; font-weight: 500; color: var(--text-2); }
 html.desk .dd-tl-it.is-open .dd-tl-b > b em::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--cl-msg); vertical-align: 1px; }
-html.desk .dd-tl-t { font-size: 15px; line-height: 21px; color: var(--text-2); overflow-wrap: anywhere; max-width: 64ch; }
+html.desk .dd-tl-t { font-size: 15px; line-height: 21px; color: var(--text-2); overflow-wrap: anywhere; max-width: 64ch; text-wrap: pretty; }
 html.desk .dd-tl-it.k-mine .dd-tl-t { color: var(--text-3); }
 html.desk .dd-tl-reply { font-size: 13px; line-height: 18px; color: var(--text-3); overflow-wrap: anywhere; max-width: 72ch; }
 html.desk .dd-tl-act { margin-top: 2px; }
@@ -302,11 +311,12 @@ html.desk .cl-pick svg { position: relative; width: 13px; height: 13px; color: v
 html.desk .cl-row.is-picked .cl-pick::before { background: var(--text); box-shadow: none; }
 html.desk .cl-row.is-picked .cl-pick svg { opacity: 1; }
 @media (hover: hover) and (pointer: fine) { html.desk .cl-desk .cl-row:hover .cl-pick { opacity: 1; pointer-events: auto; } html.desk .cl-desk .cl-row:hover .cl-face { opacity: 0; } }
-html.desk .cl-desk .cl-row:focus-visible .cl-pick, html.desk .cl-desk.has-picks .cl-pick, html.desk .cl-desk .cl-row.is-picked .cl-pick { opacity: 1; pointer-events: auto; }
-html.desk .cl-desk .cl-row:focus-visible .cl-face, html.desk .cl-desk.has-picks .cl-face, html.desk .cl-desk .cl-row.is-picked .cl-face { opacity: 0; }
+/* A face keeps its ring (pain, quiet) until it's picked or pointed at: picking never hides who needs you */
+html.desk .cl-desk .cl-row:focus-visible .cl-pick, html.desk .cl-desk .cl-row.is-picked .cl-pick { opacity: 1; pointer-events: auto; }
+html.desk .cl-desk .cl-row:focus-visible .cl-face, html.desk .cl-desk .cl-row.is-picked .cl-face { opacity: 0; }
 html.desk .cl-desk .cl-row.is-picked:not(.is-sel) { background: var(--dk-hover); }
-html.desk .cl-desk .cl-side { position: relative; }
-html.desk .cl-bulk { position: absolute; left: var(--gut, 24px); right: var(--gut, 24px); bottom: 16px; z-index: 3; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 8px 8px 16px; border-radius: var(--r-3, 20px);
+/* The bar sits under the list in the column's flow: the list's window gets shorter, no row is covered or moves */
+html.desk .cl-bulk { flex: none; display: flex; align-items: center; gap: 10px; min-height: 56px; margin: 0 var(--gut, 24px) 16px; padding: 8px 8px 8px 16px; border-radius: var(--r-3, 20px);
   background: var(--bg-2); box-shadow: var(--dk-pop); animation: clBulkIn 200ms var(--cl-ease); }
 html.desk .cl-bulk[hidden] { display: none; }
 html.desk .cl-bulk-t { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -317,6 +327,7 @@ html.desk .cl-bulk-msg svg { width: 15px; height: 15px; }
 html.desk .cl-bulk-x { flex: none; width: 36px; height: 36px; border-radius: 50%; background: none; }
 html.desk .cl-bulk-x:focus-visible, html.desk .cl-bulk-msg:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
 @keyframes clBulkIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+html.desk .cl-bulk.is-key { animation: none; }   /* picked from the keys (X): no entrance, it's a repeated action */
 
 /* ---------------------------------------------------------------- narrower pages */
 /* Today's blocks follow their own width (the folded rail gives them more; the side card less) */

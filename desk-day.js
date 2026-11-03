@@ -705,6 +705,12 @@
     return ml.verdict === 'on weight' ? 'On weight' : ml.verdict === 'on pace' ? 'On pace for the ' + c : ml.verdict === 'hold' ? 'Hold this weight' : ml.verdict === 'behind' ? 'Behind the pace for the ' + c
       : ml.parts && ml.parts[2] ? cap(ml.parts[2]) : '';
   }
+  // The verdict, and when they last weighed in once that's more than two days ago (an old weigh-in says less).
+  function weighText(P) {
+    var v = verdictText(P), age = daysBetween(P.bw.date, todayIso()), when = 'weighed ' + whenText(P.bw.date).toLowerCase();
+    if (!v) return cap(when);
+    return age > 2 ? v + ' · ' + when : v;
+  }
   function bwSparkSvg(P) {
     var pts = (P.bw && P.bw.pts) || [];
     if (pts.length < 2) return '';
@@ -716,11 +722,13 @@
     var X = function (d) { return x1 === x0 ? W / 2 : pl + (Date.parse(d + 'T12:00:00Z') - x0) / (x1 - x0) * (W - pl - pr); };
     var Y = function (v) { return pt + (hi - v) / (hi - lo) * (H - pt - pb); };
     var d = pts.map(function (p, i) { return (i ? 'L' : 'M') + X(p.date).toFixed(1) + ' ' + Y(kgShow(p.kg)).toFixed(1); }).join(' ');
-    var last = pts[pts.length - 1];
-    return '<svg class="dd-bw" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+    var last = pts[pts.length - 1], refPct = ref != null ? (Y(ref) / H * 100).toFixed(1) : null;
+    var title = pts.map(function (p) { return dayMonth(p.date) + ' ' + n2(kgShow(p.kg)); }).join(', ') + (ref != null ? '; the class limit ' + n2(ref) : '');
+    return '<span class="dd-bwbox" role="img" aria-label="' + esc('Weigh-ins: ' + title) + '" title="' + esc(title) + '">' + (refPct != null ? '<span class="dd-bw-lab' + (kgShow(last.kg) >= ref ? ' is-below' : '') + '" style="top:' + refPct + '%" aria-hidden="true">' + esc('limit ' + n2(ref)) + '</span>' : '') +
+      '<svg class="dd-bw" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
       (ref != null ? '<line class="dd-bw-ref" x1="0" x2="' + W + '" y1="' + Y(ref).toFixed(1) + '" y2="' + Y(ref).toFixed(1) + '" vector-effect="non-scaling-stroke"/>' : '') +
       '<path class="dd-bw-ln" d="' + d + '" vector-effect="non-scaling-stroke"/>' +
-      '<circle class="dd-bw-pt" cx="' + X(last.date).toFixed(1) + '" cy="' + Y(kgShow(last.kg)).toFixed(1) + '" r="3.5" vector-effect="non-scaling-stroke"/></svg>';
+      '<circle class="dd-bw-pt" cx="' + X(last.date).toFixed(1) + '" cy="' + Y(kgShow(last.kg)).toFixed(1) + '" r="3.5" vector-effect="non-scaling-stroke"/></svg></span>';
   }
   function meetPlanHtml(P, o) {
     o = o || {};
@@ -731,7 +739,7 @@
     }).join('');
     var bw = P.bw ? '<div class="dd-mp-col dd-mp-bw"><span class="dd-mp-k">' + esc(P.cls ? P.cls + ' class' : 'Bodyweight') + '</span>' +
       '<span class="dd-mp-v"><b>' + esc(n2(kgShow(P.bw.last))) + '</b><span>' + esc(unit()) + '</span>' + (P.bw.over != null ? '<span class="dd-mp-o' + (P.bw.over > 0 ? ' is-over' : ' is-ok') + '"><i aria-hidden="true"></i>' + esc(P.bw.over > 0 ? n2(kgShow(P.bw.over)) + ' ' + unit() + ' over' : P.bw.over === 0 ? 'on the limit' : n2(kgShow(-P.bw.over)) + ' ' + unit() + ' under') + '</span>' : '') + '</span>' +
-      bwSparkSvg(P) + '<span class="dd-mp-s' + (P.bw.line && P.bw.line.warn ? ' is-behind' : '') + '">' + esc(verdictText(P) ? verdictText(P) + ' · weighed ' + whenText(P.bw.date).toLowerCase() : 'Weighed ' + whenText(P.bw.date).toLowerCase()) + '</span></div>'
+      bwSparkSvg(P) + '<span class="dd-mp-s' + (P.bw.line && P.bw.line.warn ? ' is-behind' : '') + '">' + esc(weighText(P)) + '</span></div>'
       : '<div class="dd-mp-col dd-mp-bw"><span class="dd-mp-k">' + esc(P.cls ? P.cls + ' class' : 'Bodyweight') + '</span><span class="dd-none">No weigh-in yet</span></div>';
     var proj = P.proj ? '<div class="dd-mp-col dd-mp-proj"><span class="dd-mp-k">Total at today’s e1RMs</span><span class="dd-mp-v"><b>' + Math.round(kgShow(P.proj.total)) + '</b><span>' + esc(unit()) + '</span></span>' +
       (P.proj.points ? '<span class="dd-mp-s"><b>' + esc(n2(P.proj.points)) + '</b> ' + esc(P.proj.label) + (P.proj.bw ? ' at ' + esc(n2(kgShow(P.proj.bw))) + ' ' + esc(unit()) : '') + '</span>' : '') +
