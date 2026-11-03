@@ -18606,10 +18606,13 @@ function seedTeamDemo(store, h) {
   const start = _monISO(daysAgo(7));
   const at = (wi, di) => _addDaysISO(start, wi * 7 + di * 2);
   const set = (id, reps, pct, rpe) => ({ id, weight: 0, reps, rpe, pct, completed: false });
+  // Accessories by feel (reps at an RPE, the lifter picks the load): a team's week reads like a real one.
+  const acc = (key, lift, name, reps, rpe) => ({ id: key, lift, variant: '', exerciseName: name, note: '', sets: [1, 2, 3].map(k => ({ id: key + k, weight: 0, reps, rpe, completed: false })) });
+  const ACC = [[['legs', 'Leg press', 10, 8]], [['pull', 'Pull-ups', 8, 8], ['push', 'DB shoulder press', 10, 8]], [['pull', 'Romanian deadlift', 8, 7], ['other', 'Ab wheel', 10, 8]]];
   const dayOf = (wn, di, lift, name, pct, reps) => ({ id: 'demo-tm-w' + wn + 'd' + di, name, exercises: [
     { id: 'demo-tm-w' + wn + 'e' + di, lift, variant: 'Competition', exerciseName: '', note: '', sets: [1, 2, 3].map(k => set('demo-tm-w' + wn + 'e' + di + 's' + k, reps, pct, 8)) },
     di === 0 ? { id: 'demo-tm-w' + wn + 'acc', lift: 'pull', variant: '', exerciseName: 'Barbell row', note: '', sets: [1, 2, 3].map(k => ({ id: 'demo-tm-w' + wn + 'acc' + k, weight: 60, reps: 10, rpe: 8, completed: false })) } : null
-  ].filter(Boolean) });
+  ].filter(Boolean).concat(ACC[di].map((a, ai) => acc('demo-tm-w' + wn + 'x' + di + ai, a[0], a[1], a[2], a[3]))) });
   const master = [1, 2, 3, 4].map(wn => ({ id: 'demo-tm-w' + wn, number: wn, days: [
     dayOf(wn, 0, 'squat', 'Squat Day', 72.5 + wn * 2.5, 5 - Math.min(2, wn - 1)),
     dayOf(wn, 1, 'bench', 'Bench Day', 72.5 + wn * 2.5, 5 - Math.min(2, wn - 1)),
@@ -18636,7 +18639,8 @@ function seedTeamDemo(store, h) {
     weeks.forEach((w, wi) => w.days.forEach((d, di) => {
       const done = trains && (wi === 0 || (aid === 'demo-d11' && wi === 1 && di === 0));
       if (!done || !d.exercises.length) return;
-      d.exercises.forEach(e => e.sets.forEach(s => Object.assign(s, { completed: true, actualRpe: s.rpe, completedAt: at(wi, di), plannedWeight: s.weight })));
+      d.exercises.filter(e => !ACC.some(list => list.some(a => a[1] === e.exerciseName)))   // the lifted week: the main work, as before
+        .forEach(e => e.sets.forEach(s => Object.assign(s, { completed: true, actualRpe: s.rpe, completedAt: at(wi, di), plannedWeight: s.weight })));
     }));
     if (aid === 'demo-d9') {   // Kofi: his own W2 squat
       weeks = teamOverrideExercise(weeks, weeks[1].days[0].exercises[0].id);

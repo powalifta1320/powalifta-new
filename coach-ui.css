@@ -2592,8 +2592,8 @@ html.desk .cl-pchip:focus-visible { outline: 2px solid var(--dk-focus); outline-
 
 /* ==================== colour with a job on Today and Lifters (desk v3 drop 2, 3 Nov) ====================
    The warm light of Today and Lifters (desk.css --dh, never red paint), Your list's jobs in their kind's colour (Answer
-   green, Check amber, Meet prep gold, Write cyan; pain coral, a status), a block in its phase's colour on Where everyone
-   is (volume cyan, strength violet, peak gold), meets counting down in gold, a change in strength green or amber. */
+   green, Check amber, Meet prep gold, Write cyan; pain coral, a status), meets counting down in gold, a change in strength
+   green or amber. A block's phases stay neutral: cyan, violet and gold are the three lifts. */
 html.desk .cl-today::before { background: radial-gradient(55% 70% at 30% 0%, color-mix(in srgb, var(--dh-light, #ffa64d) 11%, transparent), transparent 72%); }
 html.desk[data-theme="light"] .cl-today::before { display: block; background: radial-gradient(55% 70% at 30% 0%, color-mix(in srgb, var(--dh-light, #f0901f) 6%, transparent), transparent 72%); }
 /* Your list: a job's icon on a soft tile in its kind's colour; a chosen kind's tab wears it too */
@@ -2604,6 +2604,8 @@ html.desk .cl-jr .cl-jr-ic { flex: none; width: 28px; height: 28px; border-radiu
 html.desk .cl-jr .cl-jr-ic svg { width: 16px; height: 16px; }
 /* amber and gold as a dark tint read brown: their tiles are a raised fill with the hue on the icon and a hairline */
 html.desk:not([data-theme="light"]) .cl-jr:is(.k-check, .k-meet, .k-meetday):not(.tone-pain) .cl-jr-ic { background: var(--dk-fill-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kc) 30%, transparent); }
+html.desk:not([data-theme="light"]) .cl-job:is(.tone-meet, .tone-warn) > .cl-jic,
+html.desk:not([data-theme="light"]) .cl-tile:is(.t-effort, .t-meets) .cl-tic { background: var(--dk-fill-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tc) 30%, transparent); }
 html.desk .cl-yl .cl-tab.on[data-tab="answer"] { --kc: var(--cl-msg); } html.desk .cl-yl .cl-tab.on[data-tab="check"] { --kc: var(--cl-down); }
 html.desk .cl-yl .cl-tab.on[data-tab="meet"] { --kc: var(--cl-meet); } html.desk .cl-yl .cl-tab.on[data-tab="write"] { --kc: var(--cl-write); }
 html.desk .cl-yl .cl-tab.on[data-tab]:not([data-tab=""]) { background: var(--dk-seg-on); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kc) 45%, transparent); }
@@ -2615,12 +2617,7 @@ html.desk .cl-desk .cl-tab.on em, html.desk .cl-yl .cl-tab.on[data-tab=""] em { 
 html.desk .cl-desk .cl-list .cl-n.t-up b { color: var(--cl-up); }
 html.desk .cl-desk .cl-list .cl-n.t-down b { color: var(--cl-down); }
 html.desk .cl-lbar-v.is-up { color: var(--cl-up); } html.desk .cl-lbar-v.is-down { color: var(--cl-down); }
-/* Where everyone is: each block in its phase's colour (lifted weeks dimmer, this week solid, the rest faint); the meet's days in gold */
-html.desk .cl-sn-w.ph-volume { --ph: var(--ph-build, #38c6ff); } html.desk .cl-sn-w.ph-strength { --ph: var(--ph-heavy, #a98bff); }
-html.desk .cl-sn-w.ph-peak { --ph: var(--ph-peak, #ffbf3c); } html.desk .cl-sn-w.ph-deload { --ph: var(--ph-deload, #8b8b96); }
-html.desk .cl-sn-w[class*="ph-"].is-past { background: color-mix(in srgb, var(--ph) 42%, transparent); }
-html.desk .cl-sn-w[class*="ph-"].is-now { background: var(--ph); }
-html.desk .cl-sn-w[class*="ph-"].is-next { background: color-mix(in srgb, var(--ph) 20%, transparent); }
+/* Where everyone is: the meet's days in gold (the bars stay ink: lifted weeks dim, this week solid, the rest faint) */
 html.desk .cl-sn-d:not(.is-none) { color: var(--cl-meet); }
 html.desk .cl-sn-now { background: color-mix(in srgb, var(--dh-light, #ffa64d) 55%, transparent); }
 html.desk .cl-sn-ax span.is-now { color: var(--dh-ink, #ffcb94); }

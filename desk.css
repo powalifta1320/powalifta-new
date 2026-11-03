@@ -2199,7 +2199,7 @@ html.desk body.powa-app .cb-desk .club-buddy .btn { min-height: var(--ctl-h); he
 .cb-row-v small { font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); }
 .cb-row-v.is-up { color: var(--cb-green); }
 .cb-board .cb-more { border-top: 1px solid var(--line); margin-top: 2px; }
-.cb-card > .cb-h { margin-bottom: var(--s-3); }
+html.desk body.powa-app .cb-card > .cb-h { margin-bottom: var(--s-3); }
 /* the club's records: each lift's best, a quiet wash of its colour */
 /* the club's records: one row a lift, its dot, who holds it, the number (the total in gold) */
 html.desk .cb-recs .club-records { display: flex; flex-direction: column; }
@@ -2731,12 +2731,12 @@ html.desk body.powa-app :is(.dk-btn, .cl-btn, .cl-sbtn, .md-btn, .btn, .cl-quiet
    ===================================================================== */
 /* --dh: the hue for washes and tints; --dh-light: the light at the top of the page; --dh-ink: the hue as text. Warm is a
    cream for what's chosen (an amber wash reads as brown on the dark) and an amber light at the top. */
-html.desk body.powa-app { --dh: #ffd6ad; --dh-light: #ffa64d; --dh-ink: #ffcb94; --ph-build: #38c6ff; --ph-heavy: #a98bff; --ph-peak: #ffbf3c; --ph-deload: #8b8b96; }
+html.desk body.powa-app { --dh: #ffd6ad; --dh-light: #ffa64d; --dh-ink: #ffcb94; }
 html.desk body.powa-app[data-dhue="cyan"] { --dh: #38c6ff; --dh-light: #38c6ff; --dh-ink: #6fd5ff; }
 html.desk body.powa-app[data-dhue="gold"] { --dh: #ffbf3c; --dh-light: #ffbf3c; --dh-ink: #ffcb5e; }
 html.desk body.powa-app[data-dhue="green"] { --dh: #34d982; --dh-light: #34d982; --dh-ink: #5ee39c; }
 html.desk body.powa-app[data-dhue="violet"] { --dh: #a98bff; --dh-light: #a98bff; --dh-ink: #bba3ff; }
-html.desk[data-theme="light"] body.powa-app { --dh: #c98a4b; --dh-light: #f0901f; --dh-ink: #8a4a10; --ph-build: #0b8fcc; --ph-heavy: #7a5cf0; --ph-peak: #c98d00; --ph-deload: #8a8a94; }
+html.desk[data-theme="light"] body.powa-app { --dh: #c98a4b; --dh-light: #f0901f; --dh-ink: #8a4a10; }
 html.desk[data-theme="light"] body.powa-app[data-dhue="cyan"] { --dh: #0b8fcc; --dh-light: #0b8fcc; --dh-ink: #0a6a94; }
 html.desk[data-theme="light"] body.powa-app[data-dhue="gold"] { --dh: #d39b00; --dh-light: #d39b00; --dh-ink: #855700; }
 html.desk[data-theme="light"] body.powa-app[data-dhue="green"] { --dh: #16a05c; --dh-light: #16a05c; --dh-ink: #0f7a45; }
@@ -2777,10 +2777,11 @@ html.desk .dp-ex:is(.lift-squat, .lift-bench, .lift-deadlift) .dp-exn { color: v
 html.desk[data-theme="light"] .dp-ex.lift-squat { --lc-ink: #0a6e9a; } html.desk[data-theme="light"] .dp-ex.lift-bench { --lc-ink: #5b3fd0; } html.desk[data-theme="light"] .dp-ex.lift-deadlift { --lc-ink: #8a5a00; }
 /* (Teams' load chips stay neutral: the lift's dot carries its colour, the number stays ink.) */
 
-/* 4. a team block's shape under its weeks: build cyan, heavy violet, peak gold, a deload grey (app.js teamWeekPhases) */
+/* 4. a team block's shape under its weeks (app.js teamWeekPhases), in ink that gets brighter as it gets heavier, like the
+   season calendar's phases: cyan, violet and gold are the three lifts, named just below */
 html.desk #deskTeams .dp-wk { position: relative; }
-html.desk #deskTeams .dp-wk.ph-build { --ph: var(--ph-build); } html.desk #deskTeams .dp-wk.ph-heavy { --ph: var(--ph-heavy); }
-html.desk #deskTeams .dp-wk.ph-peak { --ph: var(--ph-peak); } html.desk #deskTeams .dp-wk.ph-deload { --ph: var(--ph-deload); }
+html.desk #deskTeams .dp-wk.ph-build { --ph: color-mix(in srgb, var(--text) 26%, transparent); } html.desk #deskTeams .dp-wk.ph-heavy { --ph: color-mix(in srgb, var(--text) 52%, transparent); }
+html.desk #deskTeams .dp-wk.ph-peak { --ph: color-mix(in srgb, var(--text) 86%, transparent); } html.desk #deskTeams .dp-wk.ph-deload { --ph: color-mix(in srgb, var(--text) 12%, transparent); }
 html.desk #deskTeams .dp-wk[class*="ph-"]::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 3px; height: 3px; border-radius: 2px; background: var(--ph); }
 
 /* 5. the screen you're on, in the rail: its icon in the screen's hue */

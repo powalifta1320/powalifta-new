@@ -289,7 +289,7 @@ function dsTeamHead(team, members, preview) {
   var strip = el('div', { class: 'dp-wks', role: 'tablist', 'aria-label': 'Weeks of the team’s block' });
   bar.appendChild(strip);
   var short = weeks.length > 6;
-  // The block's shape as colour under each week (app.js teamWeekPhases): build cyan, heavy violet, peak gold, a deload grey.
+  // The block's shape under each week (app.js teamWeekPhases): an ink line that brightens from build to heavy to peak, a deload faint.
   var phases = teamWeekPhases(weeks), PH = { build: 'build', heavy: 'heavy', peak: 'peak (the heaviest)', deload: 'deload' };
   weeks.forEach(function (w, i) {
     var on = i === _ds.wk;
