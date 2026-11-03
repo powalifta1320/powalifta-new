@@ -1,7 +1,7 @@
 // Two-factor in the edge functions (supabase/functions/_shared/aal.ts; sql/migration-mfa-aal2-2026-10-28.sql).
 // Under Node, no Deno and no network: Deno.env / Deno.serve are stubbed, the supabase client and web-push are
 // in-memory fakes (an Auth that knows a few tokens and users, a small PostgREST, Storage), and fetch answers for
-// Resend, Lemon Squeezy and Gemini. Then the eight functions that act for a signed-in user run for real:
+// Resend, Lemon Squeezy and Gemini. Then the nine functions that act for a signed-in user run for real:
 //   - an account with a verified authenticator and a token at aal1 / without aal / with unreadable claims gets
 //     403 { code: 'aal2_required' } and NOTHING happens after Auth's check (no rate-limit bump, no read, no
 //     email, no push, no deletion, no call to a model);
@@ -41,8 +41,9 @@ function orMatch(r, expr) {                 // a,b  |  and(a,b),and(c,d)
 }
 class Q {
   constructor(W, t) { this.W = W; this.t = t; this.f = []; this.op = 'select'; this.lim = null; this.one = false; }
-  select() { return this; }
+  select(cols, o) { if (this.op === 'select' && o && o.count) this.count = true; return this; }
   eq(c, v) { this.f.push((r) => cell(r, c) === v); return this; }
+  gte(c, v) { this.f.push((r) => String(cell(r, c)) >= String(v)); return this; }
   in(c, vs) { this.f.push((r) => vs.includes(cell(r, c))); return this; }
   ilike(c, p) { const lit = String(p).replace(/\\\\([\\\\%_])/g, '$1').toLowerCase(); this.f.push((r) => String(cell(r, c) || '').toLowerCase() === lit); return this; }
   or(expr) { this.f.push((r) => orMatch(r, expr)); return this; }
@@ -59,6 +60,7 @@ class Q {
     this.W.effects.push('from:' + this.t + ':' + this.op);
     const rows = (this.W.db[this.t] || []).filter((r) => this.f.every((fn) => fn(r)));
     if (this.op !== 'select') { this.W.effects.push('write:' + this.t + ':' + JSON.stringify(this.patch || null)); return { data: null, error: null }; }
+    if (this.count) return { data: null, count: rows.length, error: null };
     let list = this.lim ? rows.slice(0, this.lim) : rows;
     list = JSON.parse(JSON.stringify(list));
     if (this.one === 'single') return list.length === 1 ? { data: list[0], error: null } : { data: null, error: { code: 'PGRST116', message: 'not one row' } };
@@ -153,7 +155,7 @@ function world(factors) {
       invites: [{ code: 'ABCDEF', coach_id: COACH, email: 'new.lifter@example.com', used: false, created_at: '2026-10-28T08:00:00Z' }],
       messages: [{ id: 'm1', coach_id: COACH, athlete_id: LIFTER, meta: { type: 'voice', path: `${COACH}/${LIFTER}/${COACH}/v1.m4a` } }],
       push_subscriptions: [{ id: 's1', user_id: COACH, endpoint: 'https://fcm.googleapis.com/fcm/send/abc', p256dh: 'k', auth: 'a', platform: 'web' }],
-      email_preferences: [], club_buddies: [], club_members: [],
+      email_preferences: [], club_buddies: [], club_members: [], feedback: [],
     },
     storage: { 'form-checks': [`${COACH}/1-squat.mp4`], avatars: [`${COACH}/avatar.png`] },
   };
@@ -167,6 +169,7 @@ const CALLS = {
   'send-push': { toUserId: COACH, title: 'Test', body: 'Hello' },
   'program-read': { file: Buffer.from('a tiny picture').toString('base64'), mime: 'image/png' },
   'ai-chat': { role: 'coach', system: 'You help coaches.', messages: [{ role: 'user', content: 'Who is stalled?' }] },
+  'send-feedback': { kind: 'problem', body: 'The Log set button did nothing on my second set.', context: { screen: 'Train', app: 'web', theme: 'dark' } },
 };
 const NAMES = Object.keys(CALLS);
 
@@ -260,6 +263,6 @@ await t('delete-account: the gap was real, and is closed', async () => {
   ok(ok2.status === 200 && ok2.effects.includes('auth:deleteUser:' + COACH), 'at aal2 the account is erased as asked');
 });
 
-console.log(`edge two-factor: ${pass} passed, ${fail} failed (8 functions x 10 cases + the shared check)` + (process.env.EDGE_BASELINE_DIR ? `; baseline ${baselineDir}` : ''));
+console.log(`edge two-factor: ${pass} passed, ${fail} failed (${NAMES.length} functions x 10 cases + the shared check)` + (process.env.EDGE_BASELINE_DIR ? `; baseline ${baselineDir}` : ''));
 if (fail && LOGS.length) console.log('function logs:\n  ' + LOGS.slice(-20).join('\n  '));
 process.exit(fail ? 1 : 0);

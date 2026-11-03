@@ -42,3 +42,5 @@ verify_jwt = true
 verify_jwt = true
 [functions.program-read]
 verify_jwt = true
+[functions.send-feedback]
+verify_jwt = true

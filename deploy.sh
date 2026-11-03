@@ -29,7 +29,7 @@ if command -v supabase >/dev/null 2>&1; then SB=(supabase); else SB=(npx --yes s
 # apply-to-coach: people who apply to a coach aren't signed in (its own limits per IP, per email and overall).
 NO_JWT=(ls-webhook ls-marketplace-webhook send-welcome send-client-error send-weekly-digest unsubscribe apple-notifications apply-to-coach)
 # Require a logged-in caller's JWT.
-WITH_JWT=(send-program-assigned send-push ai-chat send-invite delete-account ls-portal apple-iap program-read)
+WITH_JWT=(send-program-assigned send-push ai-chat send-invite delete-account ls-portal apple-iap program-read send-feedback)
 
 deploy_functions() {
   for fn in "${NO_JWT[@]}"; do
