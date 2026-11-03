@@ -207,10 +207,17 @@
   window.addEventListener('hashchange', openCalc);
   if (location.hash === '#e1rm') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', openCalc); else openCalc(); }
 
-  /* --- The browser's bar stays the page's dark: the app (loaded for the account windows) sets theme-color by the
-     visitor's theme (white for light), but this page is dark whatever the theme. The stored theme is never touched,
-     so the inside pages keep following the visitor's setting. --- */
-  window.addEventListener('themechange', function () { var m = $('meta[name="theme-color"]'); if (m) m.setAttribute('content', '#0b0b0c'); });
+  /* --- The page follows the visitor's setting (prefers-color-scheme), live: home.css by its media queries, each
+     <picture> by its sources, and here the browser's bar (the floor's own colour; the app, loaded for the account
+     windows, would set white) and the few pictures this script sets itself (the light captures sit in
+     site-img/home-light/ under the same names). The stored theme is never touched. --- */
+  var lightMQ = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+  var isLight = function () { return !!(lightMQ && lightMQ.matches); };
+  function themed(s) { return isLight() ? String(s).replace(/\/site-img\/home\//g, '/site-img/home-light/') : String(s).replace(/\/site-img\/home-light\//g, '/site-img/home/'); }
+  function barColour() { var m = $('meta[name="theme-color"]'); if (m) m.setAttribute('content', isLight() ? '#f4f4f6' : '#0b0b0c'); }
+  var retheme = [];   // pictures set by script: each re-picks its source when the setting changes
+  window.addEventListener('themechange', barColour);
+  if (lightMQ && lightMQ.addEventListener) lightMQ.addEventListener('change', function () { barColour(); retheme.forEach(function (f) { f(); }); });
 
   /* --- Try it: Log set on Arjun's phone is a real button (clear, over the app's own Log set). With the score running it
      plays the set's moment (the score's tap.fx: it logs on the phone and lands on Sam's laptop, his numbers counting up);
@@ -226,7 +233,7 @@
   function logStill() {
     if (tap.still) return;
     tap.still = true;
-    if (heroNext && !heroNext.getAttribute('srcset')) heroNext.srcset = heroNext.dataset.fallback;
+    if (heroNext && !heroNext.getAttribute('srcset')) heroNext.srcset = themed(heroNext.dataset.fallback);
     var shown = function () { heroPh.classList.add('is-logged'); };
     if (heroNext && heroNext.decode) heroNext.decode().then(shown, shown); else shown();
     var lt = $('#ltBody');
@@ -234,11 +241,12 @@
     var after = document.createElement('img');
     after.className = 'lt-after'; after.alt = ''; after.setAttribute('aria-hidden', 'true'); after.decoding = 'async';
     after.sizes = '(min-width: 1100px) 26vw, 48vw';
-    after.srcset = '/site-img/home/win-after-756.webp 756w, /site-img/home/win-after-1512.webp 1512w';
-    after.src = '/site-img/home/win-after-756.webp';
+    var pick = function () { after.srcset = themed('/site-img/home/win-after-756.webp 756w, /site-img/home/win-after-1512.webp 1512w'); after.src = themed('/site-img/home/win-after-756.webp'); };
+    pick(); retheme.push(pick);
     var put = function () { if (tap.still) lt.appendChild(after); };
     if (after.decode) after.decode().then(put, put); else put();
   }
+  if (heroNext) retheme.push(function () { var s = heroNext.getAttribute('srcset'); if (s) heroNext.srcset = themed(s); });
   if (logTap) logTap.addEventListener('click', function () {
     S.tapped = true; paintReds();   // its moment has begun: Log set is this screen's crimson now
     if (tap.fx ? tap.fx() !== false : (logStill(), true)) saidLogged();
@@ -342,7 +350,7 @@
   var clipR = $('#maxClipR'), maxEnd = $('#maxEnd'), maxChart = $('.max-chart', max);
   var fly = $('#fly'), ring = $('#fwRing');
   /* The phone a moment later is only ever seen with motion: fetched once the score starts (decoded off the main thread). */
-  avif(function (ok) { next.srcset = ok ? next.dataset.srcset : next.dataset.fallback; if (next.decode) next.decode().catch(function () {}); });
+  avif(function (ok) { next.srcset = themed(ok ? next.dataset.srcset : next.dataset.fallback); if (next.decode) next.decode().catch(function () {}); });
   /* The next chapters' pictures, decoded ahead so no frame waits on one mid-scroll. On a laptop they are fetched now; on a
      phone (often a slow line, and data) the browser's own lazy loading fetches each as the reader nears it. */
   function warm() { var eager = !small(); $$('#thread img, #wk img, #imp img, .cl img, .brand-ph img, #fwA img, .fw-b img, #lifters .lf-base img, #lifters .lf-line').forEach(function (i) { if (eager && i.loading === 'lazy') i.loading = 'eager'; if (i.complete && i.decode) i.decode().catch(function () {}); }); }
@@ -666,6 +674,8 @@
   var red = document.createElement('span'); red.className = 'dec-red'; red.setAttribute('aria-hidden', 'true'); dec.insertBefore(red, dec.firstChild);
   gsap.set(red, { opacity: 0 });
   gsap.set(mpOn, { autoAlpha: 0 });
+  /* The slab's edge and the ring it takes as the call lands: home.css's, in the visitor's setting (read as the moment plays). */
+  var slabShadow = function (k) { return function () { return getComputedStyle($('#slab')).getPropertyValue(k).trim(); }; };
   function clockText(s) { s = Math.max(0, Math.ceil(s - 1e-6)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
   function setClock(s) { var t = clockText(s); if (clockN.textContent !== t) clockN.textContent = t; }
   var minute = { s: 60 };
@@ -693,8 +703,8 @@
     .to(dec, { scale: 1, duration: 0.28, ease: OUT }, C + 0.12)
     .to(red, { opacity: 0, duration: 0.24, ease: OUT }, C + 0.08)
     .add(function () { S.decRed = meetTl.reversed(); paintReds(); }, C + 0.2)
-    .fromTo('#slab', { boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.07)' }, { boxShadow: '0 0 0 2px rgba(52, 217, 130, 0.85)', duration: 0.3, ease: OUT, immediateRender: false }, C + 0.3)
-    .to('#slab', { boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.07)', duration: 0.8, ease: INOUT }, C + 1.1);
+    .fromTo('#slab', { boxShadow: slabShadow('--slab-edge') }, { boxShadow: slabShadow('--slab-on'), duration: 0.3, ease: OUT, immediateRender: false }, C + 0.3)
+    .to('#slab', { boxShadow: slabShadow('--slab-edge'), duration: 0.8, ease: INOUT }, C + 1.1);
   swapIn(meetTl, $('.swap', dec), C + 0.08);
   swapIn(meetTl, cell2, C + 0.16);
   swapIn(meetTl, $('#slabDec'), C + 0.3);

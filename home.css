@@ -139,7 +139,7 @@ html.js .bar:not(.has-pill) .bar-pill { opacity: 0; transform: translateY(-4px);
 .ph { position: relative; width: var(--pw); }
 .ph-scr { position: relative; overflow: hidden; border-radius: calc(var(--pw) * 0.142); background: #050506; isolation: isolate;
   box-shadow: 0 0 0 calc(var(--pw) * 0.0305) #0b0b0d, 0 0 0 calc(var(--pw) * 0.0305 + 1px) #3c3c42, 0 0 0 calc(var(--pw) * 0.0305 + 2px) #141417, 0 50px 90px -40px rgba(0, 0, 0, 0.9); }
-.ph-scr > picture img, .ph-img, .ph-next, .thread-img { width: 100%; aspect-ratio: 393 / 852; }
+.ph-scr > picture:where(:not(.layer)) img, .ph-img, .ph-next, .thread-img { width: 100%; aspect-ratio: 393 / 852; }   /* a .layer is a small picture of its own (its light twin), placed by its img */
 .ph-btn { position: absolute; width: 3px; border-radius: 2px; background: linear-gradient(90deg, #2e2e33, #47474d); }
 .ph-btn-a { left: calc(var(--pw) * -0.0305 - 3px); top: 17%; height: 3.6%; }
 .ph-btn-b { left: calc(var(--pw) * -0.0305 - 3px); top: 24.5%; height: 7%; }
@@ -211,7 +211,7 @@ html.js .log-tap:focus-visible { outline: 2px solid #f4f4f6; outline-offset: 3px
 .lt-after { position: absolute; z-index: 1; left: 648em; top: 16em; width: 756em; height: 576em; max-width: none; pointer-events: none; }
 /* With motion, Sam's laptop live: the Today window's own screen (home.js clones it), scaled onto this laptop (--ltk). */
 .lt-live { position: absolute; z-index: 1; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; transform: scale(var(--ltk, 0.49)); border-radius: 14px; overflow: hidden; opacity: 0; will-change: opacity; pointer-events: none; }   /* drawn ahead, clear: a tap shows it without painting it */
-.lt-live picture { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; }
+.lt-live picture:where(:not(.layer)) { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; }
 
 /* The set card's anatomy, shown rather than labelled: with motion a light ring travels from the load and reps to how hard
    it felt to Log set, and stays there until the set is logged (home.js). The rings sit in the screen's own points (out
@@ -270,7 +270,7 @@ html.m .hl { display: block; position: absolute; z-index: 2; left: calc(var(--x)
 html.m .fw-a .fw-still { display: none; }
 html.m .fw-a .fw-live { display: block; }
 .fw-desk { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; transform: translate(calc(-648px * var(--fk, 1)), calc(-16px * var(--fk, 1))) scale(var(--fk, 1)); }
-.fw-desk picture, .fw-base { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; max-width: none; }
+.fw-desk picture:where(:not(.layer)), .fw-base { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; max-width: none; }
 /* The list, with the chain's numbers beside its rows (a margin keeps them clear of the screen's own edge). Cut under
    the sixth group (Ines): every lifter the chain names is in view. */
 .fw-port-list { width: 420px; aspect-ratio: auto; padding-left: 34px; overflow: visible; background: transparent; box-shadow: none; border-radius: 0; }
@@ -444,7 +444,9 @@ html.m .wk-before { display: block; }
 .mp-total { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
 .mp-total b { font-family: var(--font-num); font-size: 1em; font-weight: 700; font-variant-numeric: tabular-nums; }
 .mp-total small { font-size: 0.8125em; color: #8c8c96; }
-.slab { position: relative; margin: 0.25em 0 0.75em; padding: 1.125em 1.125em 1em; border-radius: 0.25em; background: #0b0b0c; color: #f4f4f6; overflow: hidden; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07); }
+/* --slab-edge / --slab-on: the card's edge at rest and the ring it takes as the call lands (home.js plays between them). */
+.slab { --slab-edge: 0 0 0 1px rgba(255, 255, 255, 0.07); --slab-on: 0 0 0 2px rgba(52, 217, 130, 0.85);
+  position: relative; margin: 0.25em 0 0.75em; padding: 1.125em 1.125em 1em; border-radius: 0.25em; background: #0b0b0c; color: #f4f4f6; overflow: hidden; box-shadow: var(--slab-edge); }
 .slab-rule { position: absolute; left: 0; right: 0; top: 0; height: 0.25em; background: #e5262f; }
 .slab-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75em; font-size: 0.9375em; font-weight: 800; letter-spacing: 0.01em; }
 .slab-top b { font-family: var(--font-num); font-size: 1.4667em; font-weight: 700; letter-spacing: 0; font-variant-numeric: tabular-nums; }
@@ -528,7 +530,7 @@ html.m .wk-before { display: block; }
 /* The crop ends 740 pt down the screen (under Done; under Progress's chart), on a hairline. */
 .lf-crop { height: calc(var(--pw) * 740 / 393 + var(--pw) * 0.0305 + 2px); overflow: hidden; padding: calc(var(--pw) * 0.0305 + 2px) calc(var(--pw) * 0.0305 + 5px) 0; margin: 0 calc((var(--pw) * 0.0305 + 5px) * -1); box-shadow: inset 0 -1px 0 var(--hair); }
 .lf .ph-scr { font-size: calc(16 * var(--u)); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-.lf .ph-scr > picture img { aspect-ratio: 393 / 740; }
+.lf .ph-scr > picture:where(:not(.layer)) img { aspect-ratio: 393 / 740; }
 /* With motion the base screen is drawn and what moves sits on it, placed in the screen's points. */
 .lf-base, .lf-l { display: none; }
 html.m .lf-still { display: none; }
@@ -955,6 +957,186 @@ body.home .foot { padding: 48px 0 32px; }
   .mx .mx-unit { margin-left: 0; }
   .mx .mx-n { font-size: 48px; }
   .mx .mx-share { min-height: 44px; }   /* a thumb's tap target */
+}
+
+/* =====================================================================
+   THE LIGHT VERSION (3 Nov): the visitor's own setting (prefers-color-scheme: light) turns the page to daylight, as it
+   does every public page (pages.css, site.css): the app's light theme, the same story, the same motion. The floors keep
+   their meaning: the gym by day (#f4f4f6, the lifter's side, the public pages' floor), the coach's desk as white paper
+   (his chapters), the platform a step darker (meet day). Cards are white or the light graphite, edged by a hairline;
+   shadows are few and soft. Red stays the logo and the one crimson action per screen; gold, green and the lift colours
+   turn to the light theme's deep inks wherever they are words. The pictures are the light captures (site-img/home-light/,
+   the same names, chosen by each <picture>'s sources and, for the few the script sets, by home.js); everything drawn over
+   them wears the light app's own colours (measured from the same captures). What reads light-on-dark in the dark (the
+   numbered discs, the rings, a stepped-back action) reads ink-on-light here. Never inside the iPhone app: this file never
+   loads there, and every rule is scoped to html:not(.native) besides.
+   ===================================================================== */
+@media (prefers-color-scheme: light) {
+  :root:not(.native) {
+    --sq: #0a86c9; --be: #6a4fe0; --dl: #a86f00; --c-gold: #8a5a00;   /* the app's light lift colours (liftColors); the desk's PR gold */
+    --c-green: #0f7d47; --up: #0f7d47;
+    --floor: #f4f4f6; --desk: #ffffff; --raised: #f4f4f6; --screen: #f4f4f6; --black: #ececf0;
+    --rim: inset 0 1px 0 rgba(11, 11, 13, 0.07);
+    color-scheme: light;
+  }
+  html:not(.native) .t-dark, html:not(.native) .t-desk {
+    --bg-1: #ffffff; --bg-2: #ececf0;
+    --text: #0b0b0d; --text-2: #45454d; --text-3: #5f5f68;
+    --edge: rgba(11, 11, 13, 0.08); --hair: rgba(11, 11, 13, 0.1);
+    color-scheme: light;
+  }
+  html:not(.native) .t-desk { --bg-1: var(--raised); --lit: 0 0 0 1px rgba(11, 11, 13, 0.07); }
+  html:not(.native) body.home { color: #0b0b0d; }
+
+  /* The iPhone: the light app's ground under its screen, the status bar in ink. Its frame without the drop shadow (every
+     phone here is cut by its crop, which would cut a shadow into a hard edge on the light; the opening's phone has its
+     own shadow on the floor). */
+  html:not(.native) .ph-scr { background: #f7f7f9; box-shadow: 0 0 0 calc(var(--pw) * 0.0305) #0b0b0d, 0 0 0 calc(var(--pw) * 0.0305 + 1px) #3c3c42, 0 0 0 calc(var(--pw) * 0.0305 + 2px) #141417; }
+  html:not(.native) .ph-shadow { background: radial-gradient(closest-side, rgba(15, 15, 25, 0.26), rgba(15, 15, 25, 0)); }
+  html:not(.native) .sb { color: #0b0b0d; }
+  html:not(.native) .sb-bat { box-shadow: inset 0 0 0 0.09em rgba(11, 11, 13, 0.45); }
+  html:not(.native) .sb-bat::before { background: #0b0b0d; }
+  html:not(.native) .sb-bat::after { background: rgba(11, 11, 13, 0.45); }
+
+  /* Act one: daylight from the top (no colour), the laptop's shadow soft; the ring that reads the set card in ink. */
+  html:not(.native) .glow-top { background: radial-gradient(42% 46% at 36% -16%, rgba(255, 255, 255, 0.9), transparent 70%); }
+  html:not(.native) .lt-shadow { background: radial-gradient(closest-side, rgba(15, 15, 25, 0.22), rgba(15, 15, 25, 0)); }
+  html.js:not(.native) .log-tap:focus-visible { outline-color: #0b0b0d; }
+  html.m:not(.native) .hl { box-shadow: 0 0 0 1.5px rgba(11, 11, 13, 0.85), 0 0 0 5px rgba(11, 11, 13, 0.06); }
+  html:not(.native) .up-tag { background: rgba(15, 125, 71, 0.1); color: #0c6b3c; }
+  html:not(.native) #maxGrad stop { stop-color: var(--sq); }
+
+  /* Today: white paper with hairlines; Sam's light desk set into it as panes; his list's numbers and the rings in ink;
+     the live numbers in the light desk's own colours (cap-desk's desk-values.json, THEME=light). */
+  html:not(.native) .land { box-shadow: inset 0 1px 0 rgba(11, 11, 13, 0.07); background-image: none; }
+  html:not(.native) .who { box-shadow: inset 0 1px 0 var(--hair), inset 0 -1px 0 rgba(11, 11, 13, 0.06); }
+  html:not(.native) .fw-port, html:not(.native) .fw-port-list picture, html:not(.native) .wk-port, html:not(.native) .sheet-crop {
+    --pane: 0 0 0 1px rgba(11, 11, 13, 0.08), 0 1px 2px rgba(11, 11, 13, 0.04), 0 24px 48px -32px rgba(15, 15, 25, 0.22); }
+  html:not(.native) .fpin, html:not(.native) .chain li::before, html:not(.native) .sn { background: #0b0b0d; color: #f4f4f6; }
+  html:not(.native) .ring rect { stroke: rgba(15, 125, 71, 0.85); }
+  html:not(.native) .ov { color: #0b0b0d; }
+  html:not(.native) .ov-chip, html:not(.native) .ov-d, html:not(.native) .ov-row { color: #0f7d47; }
+  html:not(.native) .ov-pr { color: #34343c; }
+  html:not(.native) .ov-pr i { background: #8a5a00; }
+  html:not(.native) .ov-foot, html:not(.native) .ov-trf { color: #55555e; }
+  html.m:not(.native) .grp { box-shadow: inset 0 0 0 1.5px rgba(11, 11, 13, 0.8); }
+  html.m:not(.native) .mk { background: #0b0b0d; color: #f4f4f6; }
+  /* Avatars as the light desk draws them (a pale ground, a deep ink, AA on each other). */
+  html:not(.native) .av-h0 { background: #ece8e2; color: #4d463f; } html:not(.native) .av-h1 { background: #fcebde; color: #93380a; }
+  html:not(.native) .av-h2 { background: #f8efd3; color: #6f4c00; } html:not(.native) .av-h3 { background: #e0f2e6; color: #155f36; }
+  html:not(.native) .av-h4 { background: #dcf1ee; color: #0e5f59; } html:not(.native) .av-h5 { background: #e1ebfb; color: #1c4f9c; }
+  html:not(.native) .av-h6 { background: #e9e5fb; color: #4a37a6; } html:not(.native) .av-h7 { background: #f6e3f4; color: #86287d; }
+
+  /* Answers and next week: no tinted light; the thread's own ground under its messages; the rings in ink. */
+  html:not(.native) .answers::before, html:not(.native) .lifter::before { background: none; }
+  html.m:not(.native) .tl-patch { background: #f7f7f9; }
+  html:not(.native) .why, html:not(.native) .tap { box-shadow: 0 0 0 2px rgba(11, 11, 13, 0.8); }
+
+  /* Meet day: the platform a step darker than the floor. The three lights are white lamps raised off it (unlit, a
+     recessed disc); the minute in ink. Tom's phone is the lifter app's meet day in its light theme, the next attempt
+     still on the app's black slab; Sam's board is the light desk's (white cards, ink, the deep green for a good lift). */
+  html:not(.native) .meet { color: #0b0b0d; --text: #0b0b0d; --text-2: #45454d; --text-3: #5f5f68; --hair: rgba(11, 11, 13, 0.1); color-scheme: light; }
+  html:not(.native) .scene { border-bottom-color: rgba(11, 11, 13, 0.12); }
+  html:not(.native) .stage-meta { color: #5f5f68; }
+  html:not(.native) .judges i { background: #ffffff; box-shadow: 0 0 0 1px rgba(11, 11, 13, 0.08), 0 14px 28px -14px rgba(15, 15, 25, 0.35), inset 0 -6px 14px rgba(11, 11, 13, 0.05); }
+  html:not(.native) .judges i.is-off { background: rgba(11, 11, 13, 0.05); box-shadow: inset 0 0 0 1px rgba(11, 11, 13, 0.1); }
+  html:not(.native) .clock-l { color: #45454d; }
+  html:not(.native) .clock-bar { background: rgba(11, 11, 13, 0.09); }
+  html:not(.native) .clock-bar i { background: #0b0b0d; }
+  html:not(.native) .mp-on { color: #16161a; }
+  html:not(.native) .mp-x { background: rgba(15, 15, 25, 0.06); }
+  html:not(.native) .mp-x svg { stroke: #16161a; }
+  html:not(.native) .mp-titles small, html:not(.native) .mp-total small, html:not(.native) .mp-kg small { color: #5d5d67; }
+  html:not(.native) .slab { --slab-edge: 0 0 0 1px rgba(11, 11, 13, 0.07); --slab-on: 0 0 0 2px rgba(15, 125, 71, 0.85); }
+  html:not(.native) .mp-tab { background: rgba(15, 15, 25, 0.035); color: #45454d; }
+  html:not(.native) .mp-tab.on { background: rgba(15, 15, 25, 0.08); color: #16161a; }
+  html:not(.native) .mp-marks i { background: rgba(15, 15, 25, 0.1); }
+  html:not(.native) .mp-marks i.good { background: #16161a; }
+  html:not(.native) .mp-att { color: #45454d; }
+  html:not(.native) .bd-row, html:not(.native) .dec { background: #ffffff; box-shadow: 0 0 0 1px rgba(11, 11, 13, 0.07), 0 1px 2px rgba(11, 11, 13, 0.04); }
+  html:not(.native) .bd-who small, html:not(.native) .cell > span, html:not(.native) .cell.is-plan, html:not(.native) .dec-k { color: #55555e; }
+  html:not(.native) .cell .is-dec { color: #0b0b0d; }
+  html:not(.native) .cell .is-dec i { background: #0b0b0d; }
+  html:not(.native) .cell .is-good { color: #0c6b3c; background: rgba(15, 125, 71, 0.1); }
+  html:not(.native) .cell .is-tgt { color: #0b0b0d; box-shadow: inset 0 0 0 1.5px rgba(11, 11, 13, 0.4); }
+  html:not(.native) .dec-sub { color: #34343c; }
+  html:not(.native) .dstep { background: rgba(11, 11, 13, 0.055); color: #0b0b0d; }
+  html:not(.native) .dec-odds, html:not(.native) .dec-aim { color: #55555e; }
+  html:not(.native) .dec-odds b { color: #34343c; }
+  html:not(.native) .dec-opts { background: rgba(11, 11, 13, 0.055); }
+  html:not(.native) .dec-opts button { color: #34343c; }
+  html:not(.native) .dec-opts button.on { background: #ffffff; color: #0b0b0d; box-shadow: 0 1px 2px rgba(11, 11, 13, 0.1), 0 0 0 1px rgba(11, 11, 13, 0.05); }
+  html:not(.native) .dec-opts button:focus-visible { outline-color: #0a7fd0; }
+  html:not(.native) .dec-opts button > b { color: #0b0b0d; }
+  html:not(.native) .dec-opts em, html:not(.native) .dec-opts button.on em { color: #55555e; }
+  html:not(.native) .dec-opts em b { color: #34343c; }
+  html:not(.native) .dec-btn { background: #ffffff; color: #0b0b0d; box-shadow: inset 0 0 0 1px rgba(11, 11, 13, 0.14); }
+
+  /* For lifters: the PR moment's number and jump in the light app's own type (cap-lifter's lifter-geo.json, THEME=light). */
+  html:not(.native) .s-home .lifter, html:not(.native) .s-home .solo, html:not(.native) .s-home .moving, html:not(.native) .s-home .teaser { box-shadow: inset 0 1px 0 rgba(11, 11, 13, 0.07); }
+  html:not(.native) .lf-n { color: #16161a; }
+  html:not(.native) .lf-d { background: rgba(26, 127, 75, 0.1); color: #1a7f4b; }
+
+  /* Moving over and the money: the import sheet's white; the month's patches the light card's own ground and paid bar. */
+  html:not(.native) .sheet-crop { background: #ffffff; }
+  html:not(.native) .sheet-desk { background: var(--screen); }
+  html:not(.native) .cl-patch { background: rgb(254, 254, 254); }
+  html:not(.native) .cl-pb { background: rgb(236, 236, 236); }
+  html:not(.native) .cl-n { color: #0b0b0d; }
+
+  /* Pricing: Sam's lifters as pale avatars on white, each with a hairline; the plan in force ruled in ink. */
+  html:not(.native) .s-home .prices { box-shadow: inset 0 1px 0 rgba(11, 11, 13, 0.07); background-image: none; }
+  html:not(.native) .f[class*="av-h"] { box-shadow: inset 0 0 0 1px rgba(15, 15, 25, 0.05); }
+  html:not(.native) .f-open, html:not(.native) .f.is-open { box-shadow: inset 0 0 0 1.5px rgba(11, 11, 13, 0.16); }
+  html:not(.native) .band-k { border-top-color: rgba(11, 11, 13, 0.12); }
+  html:not(.native) .band.is-on .band-k, html:not(.native) .b-pro .band-k { border-top-color: #0b0b0d; }
+  html.m:not(.native) .b-pro:not(.is-on) .band-k { border-top-color: rgba(11, 11, 13, 0.12); }
+
+  /* Questions, the close, the max calculator. */
+  html:not(.native) .s-home .faq { box-shadow: inset 0 -1px 0 rgba(11, 11, 13, 0.06); }
+  html:not(.native) .qi { background: rgba(11, 11, 13, 0.06); }
+  html:not(.native) .glow-close { background: radial-gradient(38% 60% at 30% -10%, rgba(255, 255, 255, 0.9), transparent 70%); }
+  html:not(.native) .mx .mx-f input { background: #ffffff; box-shadow: inset 0 0 0 1px rgba(11, 11, 13, 0.14), inset 0 1px 2px rgba(11, 11, 13, 0.04); }
+  html:not(.native) .mx .mx-unit { background: rgba(118, 118, 128, 0.12); box-shadow: none; }
+  html:not(.native) .mx .mx-unit button.active { background: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(0, 0, 0, 0.04); }
+
+  /* The set in flight: the light app's set card, tinted by its lift. */
+  html:not(.native) .fy { background: color-mix(in srgb, var(--lc) 8%, #ffffff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) 30%, transparent); color: #16161a; }
+  html:not(.native) .fy-n small, html:not(.native) .fy-n em { color: #5d5d67; }
+  html:not(.native) .fy-rpe { background: rgba(207, 203, 76, 0.2); color: #6c6a28; }
+  html:not(.native) .fy-fly { background: color-mix(in srgb, var(--sq) 9%, #ffffff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sq) 34%, transparent), 0 30px 60px -24px rgba(15, 15, 25, 0.3), 0 8px 18px -8px rgba(15, 15, 25, 0.14); }
+
+  /* One crimson per screen: an action that steps back steps back to ink. */
+  html:not(.native) .act-btn.is-quiet, html:not(.native) .pub.is-quiet { background: #0b0b0d; color: #f4f4f6; }
+  html:not(.native) .log.is-quiet { background: #0b0b0d; color: #f4f4f6; box-shadow: 0 0 0 1px #0b0b0d, 0 1px 2px rgba(0, 0, 0, 0.3); }
+
+  /* The account windows: the app's light theme on the windows, as the page (the app's dark one in the dark, above). */
+  html:not(.native) body.home .modal-backdrop {
+    --bg: #f7f7f9; --bg-1: #ffffff; --bg-2: #f0f0f4; --bg-3: #e6e6ec; --line: #e1e1e8; --line-2: #cccfd6;
+    --text: #16161a; --text-2: #45454d; --text-3: #5d5d67; --text-4: #6a6a72;
+    --brand-red: #d81e30; --brand-red-2: #b71629; --red: #d81e30; --red-2: #b71629; --gold: #8a6300; --green: #0c7340; --blue: #1d70d8;
+    --grad-card: linear-gradient(180deg, rgba(0, 0, 0, 0.014), rgba(0, 0, 0, 0) 42%);
+    --card-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    --elev-card: var(--card-edge), 0 1px 2px rgba(15, 15, 25, 0.05), 0 16px 32px -18px rgba(15, 15, 25, 0.14);
+    --shadow-sm: 0 1px 2px rgba(15, 15, 25, 0.06), 0 2px 6px rgba(15, 15, 25, 0.04); --shadow: 0 12px 28px rgba(15, 15, 25, 0.1), 0 2px 6px rgba(15, 15, 25, 0.04);
+    --ring: 0 0 0 3px rgba(216, 30, 48, 0.18); --modal-veil: rgba(15, 15, 25, 0.45); --card-sheen: rgba(15, 15, 25, 0.06); --hover-tint: rgba(15, 15, 25, 0.025);
+    --scheme: light; color-scheme: light;
+  }
+  html:not(.native) body.home .modal-backdrop .sa-apple { background: #000; color: #fff; }   /* Apple's mark in black on the light */
+}
+@media (prefers-color-scheme: light) and (min-width: 1100px) {
+  html.m:not(.native) .today-ch { background: var(--desk); box-shadow: inset 0 1px 0 rgba(11, 11, 13, 0.07), inset 0 -1px 0 rgba(11, 11, 13, 0.06); }
+}
+@media (prefers-color-scheme: light) and (max-width: 759px) {
+  html:not(.native) .mp-crop { border-bottom-color: rgba(11, 11, 13, 0.12); }
+  html:not(.native):not(.js) .log { background: #0b0b0d; color: #f4f4f6; box-shadow: 0 0 0 1px #0b0b0d, 0 1px 2px rgba(0, 0, 0, 0.3); }
+}
+@media (prefers-color-scheme: light) and (hover: hover) and (pointer: fine) {
+  html:not(.native) .q summary:hover { color: #000; }
+  html:not(.native) .q summary:hover .qi { background: rgba(11, 11, 13, 0.1); }
+  html:not(.native) .dec-opts button:not(.on):not([aria-disabled="true"]):hover { background: rgba(11, 11, 13, 0.04); }
+  html:not(.native) .bar .bar-pill:hover { filter: none; background-color: #2a2a30; }
+  html:not(.native) body.home .modal-backdrop .sa-apple:hover { filter: brightness(1.25); }
 }
 
 /* ---------- Reduced motion: the designed still. No settle, no scroll play; every chapter at its last frame. */

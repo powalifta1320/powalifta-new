@@ -58,10 +58,13 @@
       '<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">');
     return;
   }
-  var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#0b0b0c');   // the page is dark, whatever the theme (home.js keeps it so)
+  // The page follows the visitor's setting: in light, its pictures are the light captures (site-img/home-light/, the same
+  // names) and the browser's bar takes the light floor (home.js keeps it so as the setting changes).
+  var light = !!(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches), img = light ? '/site-img/home-light/' : '/site-img/home/';
+  var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', light ? '#f4f4f6' : '#0b0b0c');
   document.write('<link rel="preload" href="/fonts/archivo-tw.woff2" as="font" type="font/woff2" crossorigin>' +
-    '<link rel="preload" as="image" type="image/avif" imagesrcset="/site-img/home/desk-before-960.avif 960w, /site-img/home/desk-before-1440.avif 1440w, /site-img/home/desk-before-1920.avif 1920w" imagesizes="(min-width: 1100px) 49vw, 92vw" media="(min-width: 760px)" fetchpriority="high">' +
-    '<link rel="preload" as="image" type="image/avif" imagesrcset="/site-img/home/lifter-train-590.avif 590w, /site-img/home/lifter-train-786.avif 786w, /site-img/home/lifter-train-1179.avif 1179w" imagesizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" fetchpriority="high">' +
+    '<link rel="preload" as="image" type="image/avif" imagesrcset="' + img + 'desk-before-960.avif 960w, ' + img + 'desk-before-1440.avif 1440w, ' + img + 'desk-before-1920.avif 1920w" imagesizes="(min-width: 1100px) 49vw, 92vw" media="(min-width: 760px)" fetchpriority="high">' +
+    '<link rel="preload" as="image" type="image/avif" imagesrcset="' + img + 'lifter-train-590.avif 590w, ' + img + 'lifter-train-786.avif 786w, ' + img + 'lifter-train-1179.avif 1179w" imagesizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" fetchpriority="high">' +
     '<link rel="stylesheet" href="/site.css"><link rel="stylesheet" href="/home.css">' +
     '<script defer src="/home.js"><\/script>');
   h.classList.add('js');
@@ -304,6 +307,8 @@
           <div class="lt-base" aria-hidden="true"></div>
           <picture class="lt-screen" id="ltScreen">
             <source media="(max-width: 759px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk-before-960.avif 960w, /site-img/home-light/desk-before-1440.avif 1440w, /site-img/home-light/desk-before-1920.avif 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk-before-960.webp 960w, /site-img/home-light/desk-before-1440.webp 1440w, /site-img/home-light/desk-before-1920.webp 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
             <source type="image/avif" srcset="/site-img/home/desk-before-960.avif 960w, /site-img/home/desk-before-1440.avif 1440w, /site-img/home/desk-before-1920.avif 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
             <img src="/site-img/home/desk-before-1440.webp" srcset="/site-img/home/desk-before-960.webp 960w, /site-img/home/desk-before-1440.webp 1440w, /site-img/home/desk-before-1920.webp 1920w" sizes="(min-width: 1100px) 49vw, 92vw" width="1440" height="900" fetchpriority="high" loading="lazy" decoding="async"
               alt="The coach app on Sam’s laptop. Left, his lifters, the ones who need him first: Priya Shah, pain on her check-in; Sarah Kim, low back 6 of 10; Tom Boyle, meet today; Elena Rossi, 1.4 kg over the 57 class; Marcus Doyle, bench at RPE 9.5 where Sam wrote 8; Arjun Mehta, wrote you a day ago. Right, Arjun Mehta’s page: total estimated max 651 kg, squat 223 kg, bench 150 kg, deadlift 278 kg.">
@@ -318,6 +323,8 @@
       <div class="ph-body" id="phBody">
         <div class="ph-scr">
           <picture>
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/lifter-train-590.avif 590w, /site-img/home-light/lifter-train-786.avif 786w, /site-img/home-light/lifter-train-1179.avif 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-train-590.webp 590w, /site-img/home-light/lifter-train-786.webp 786w, /site-img/home-light/lifter-train-1179.webp 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw">
             <source type="image/avif" srcset="/site-img/home/lifter-train-590.avif 590w, /site-img/home/lifter-train-786.avif 786w, /site-img/home/lifter-train-1179.avif 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw">
             <img class="ph-img" src="/site-img/home/lifter-train-786.webp" srcset="/site-img/home/lifter-train-590.webp 590w, /site-img/home/lifter-train-786.webp 786w, /site-img/home/lifter-train-1179.webp 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" width="393" height="852" fetchpriority="high" loading="lazy" decoding="async"
               alt="The lifter app on Arjun’s phone, Train: Squat Day, Wednesday 28 October, week 3. Competition squat, set 1 of 3: 182.5 kg for 5, belt on, RPE 8 picked on the scale (two reps left in the tank), and the Log set button. Below it, his coach Sam’s note: top set today is 182.5 for 5 at 8.">
@@ -378,6 +385,8 @@
       <figure class="fw fw-a" id="fwA">
         <div class="fw-port">
           <picture class="fw-still">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/win-after-756.avif 756w, /site-img/home-light/win-after-1512.avif 1512w" sizes="(min-width: 760px) 756px, 92vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/win-after-756.webp 756w, /site-img/home-light/win-after-1512.webp 1512w" sizes="(min-width: 760px) 756px, 92vw">
             <source type="image/avif" srcset="/site-img/home/win-after-756.avif 756w, /site-img/home/win-after-1512.avif 1512w" sizes="(min-width: 760px) 756px, 92vw">
             <img src="/site-img/home/win-after-756.webp" srcset="/site-img/home/win-after-756.webp 756w, /site-img/home/win-after-1512.webp 1512w" sizes="(min-width: 760px) 756px, 92vw" width="756" height="576" loading="lazy" decoding="async"
               alt="The coach app on Sam’s laptop, Arjun Mehta’s page: total estimated max 656 kg, up 21 kg in 4 weeks. Squat 228 kg, a PR, from 182.5 kg for 5 at RPE 8 today. Bench 150 kg and deadlift 278 kg, both PRs.">
@@ -387,12 +396,14 @@
           <div class="fw-live" id="fwLive" aria-hidden="true">
             <div class="fw-desk" id="fwDesk">
               <picture>
+                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk-live-1440.avif 1440w, /site-img/home-light/desk-live-2880.avif 2880w" sizes="1440px">
+                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk-live-1440.webp 1440w, /site-img/home-light/desk-live-2880.webp 2880w" sizes="1440px">
                 <source type="image/avif" srcset="/site-img/home/desk-live-1440.avif 1440w, /site-img/home/desk-live-2880.avif 2880w" sizes="1440px">
                 <img class="fw-base" src="/site-img/home/desk-live-1440.webp" srcset="/site-img/home/desk-live-1440.webp 1440w, /site-img/home/desk-live-2880.webp 2880w" sizes="1440px" width="1440" height="900" alt="" loading="lazy" decoding="async">
               </picture>
-              <img class="was" src="/site-img/home/was-hero2.webp" style="left:905px;top:194.5px;width:482px;height:188.2px" alt="" loading="lazy" decoding="async">
-              <img class="was" src="/site-img/home/was-sq2.webp" style="left:679px;top:494.8px;width:210px;height:44px" alt="" loading="lazy" decoding="async">
-              <img class="was" src="/site-img/home/was-tr2.webp" style="left:679px;top:679.5px;width:210px;height:60px" alt="" loading="lazy" decoding="async">
+              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/was-hero2.webp"><img class="was" src="/site-img/home/was-hero2.webp" style="left:905px;top:194.5px;width:482px;height:188.2px" alt="" loading="lazy" decoding="async"></picture>
+              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/was-sq2.webp"><img class="was" src="/site-img/home/was-sq2.webp" style="left:679px;top:494.8px;width:210px;height:44px" alt="" loading="lazy" decoding="async"></picture>
+              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/was-tr2.webp"><img class="was" src="/site-img/home/was-tr2.webp" style="left:679px;top:679.5px;width:210px;height:60px" alt="" loading="lazy" decoding="async"></picture>
               <svg class="ring" id="fwRing" style="left:664px;top:411.8px;width:240px;height:166.8px" viewBox="0 0 240 166.8" preserveAspectRatio="none"><rect x="1" y="1" width="238" height="164.8" rx="21" ry="21" pathLength="100"/></svg>
               <span class="ov ov-total" style="left:687px;top:230.5px"><span class="num" data-from="651" data-to="656">656</span></span>
               <span class="ov ov-chip" style="left:687px;top:294.5px"><svg viewBox="0 0 24 24"><path d="m4 16 5-5 4 3 7-7"/><path d="M15 7h5v5"/></svg><span><span class="num" data-from="16" data-to="21" data-fmt="plus">+21</span> kg in 4 weeks</span></span>
@@ -437,6 +448,8 @@
       <figure class="fw fw-b">
         <div class="fw-port fw-port-list">
           <picture>
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/win-list-386.avif 386w, /site-img/home-light/win-list-772.avif 772w, /site-img/home-light/win-list-1158.avif 1158w" sizes="(min-width: 760px) 386px, 92vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/win-list-386.webp 386w, /site-img/home-light/win-list-772.webp 772w, /site-img/home-light/win-list-1158.webp 1158w" sizes="(min-width: 760px) 386px, 92vw">
             <source type="image/avif" srcset="/site-img/home/win-list-386.avif 386w, /site-img/home/win-list-772.avif 772w, /site-img/home/win-list-1158.avif 1158w" sizes="(min-width: 760px) 386px, 92vw">
             <img src="/site-img/home/win-list-772.webp" srcset="/site-img/home/win-list-386.webp 386w, /site-img/home/win-list-772.webp 772w, /site-img/home/win-list-1158.webp 1158w" sizes="(min-width: 760px) 386px, 92vw" width="386" height="700" loading="lazy" decoding="async"
               alt="The coach app’s list of lifters, Need you: 12, worst first: Priya Shah, pain on her check-in; Sarah Kim, low back 6 of 10 on deadlift; Tom Boyle, meet today at the Autumn Open; Elena Rossi, 1.4 kg over the 57 class; Marcus Doyle, bench at RPE 9.5 where Sam wrote 8; Arjun Mehta and Kofi Mensah, wrote you a day ago; Ines Duarte, RPE half a point over what was written.">
@@ -460,6 +473,8 @@
       <div class="ph ph-true">
         <div class="ph-scr">
           <picture>
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/thread-786.avif 786w, /site-img/home-light/thread-1179.avif 1179w" sizes="(min-width: 760px) 360px, 74vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/thread-786.webp 786w, /site-img/home-light/thread-1179.webp 1179w" sizes="(min-width: 760px) 360px, 74vw">
             <source type="image/avif" srcset="/site-img/home/thread-786.avif 786w, /site-img/home/thread-1179.avif 1179w" sizes="(min-width: 760px) 360px, 74vw">
             <img class="thread-img" src="/site-img/home/thread-786.webp" srcset="/site-img/home/thread-786.webp 786w, /site-img/home/thread-1179.webp 1179w" sizes="(min-width: 760px) 360px, 74vw" width="393" height="852" loading="lazy" decoding="async"
               alt="The lifter app on Arjun’s phone, his thread with his coach Sam. Sam’s note from 8:30: top set today is 182.5 for 5 at 8, film it. Arjun’s set, sent at 10:42 as a card: New PR, competition squat, 182.5 kg × 5 at RPE 8, e1RM 228 kg. Seen at 10:43. Sam’s reply at 10:44: PR by 5, and right on the 8 I wrote. Same weight next week, then we push.">
@@ -468,16 +483,20 @@
                each message, over the thread's own ground; they arrive the way messages do. -->
           <i class="tl-patch tl-p-note" aria-hidden="true"></i><i class="tl-patch tl-p-set" aria-hidden="true"></i>
           <picture class="tl-bub tl-note" aria-hidden="true">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/thread-786.avif 786w, /site-img/home-light/thread-1179.avif 1179w" sizes="(min-width: 760px) 360px, 74vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/thread-786.webp 786w, /site-img/home-light/thread-1179.webp 1179w" sizes="(min-width: 760px) 360px, 74vw">
             <source type="image/avif" srcset="/site-img/home/thread-786.avif 786w, /site-img/home/thread-1179.avif 1179w" sizes="(min-width: 760px) 360px, 74vw">
             <img src="/site-img/home/thread-786.webp" srcset="/site-img/home/thread-786.webp 786w, /site-img/home/thread-1179.webp 1179w" sizes="(min-width: 760px) 360px, 74vw" width="393" height="852" alt="" loading="lazy" decoding="async">
           </picture>
           <picture class="tl-bub tl-set" aria-hidden="true">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/thread-786.avif 786w, /site-img/home-light/thread-1179.avif 1179w" sizes="(min-width: 760px) 360px, 74vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/thread-786.webp 786w, /site-img/home-light/thread-1179.webp 1179w" sizes="(min-width: 760px) 360px, 74vw">
             <source type="image/avif" srcset="/site-img/home/thread-786.avif 786w, /site-img/home/thread-1179.avif 1179w" sizes="(min-width: 760px) 360px, 74vw">
             <img src="/site-img/home/thread-786.webp" srcset="/site-img/home/thread-786.webp 786w, /site-img/home/thread-1179.webp 1179w" sizes="(min-width: 760px) 360px, 74vw" width="393" height="852" alt="" loading="lazy" decoding="async">
           </picture>
-          <img class="tl tl-sent" src="/site-img/home/thread-sent.webp" width="300" height="78" alt="" loading="lazy" decoding="async">
-          <img class="tl tl-seen" src="/site-img/home/thread-seen.webp" width="300" height="78" alt="" loading="lazy" decoding="async">
-          <img class="tl tl-reply" id="reply" src="/site-img/home/thread-reply.webp" width="1179" height="348" alt="" loading="lazy" decoding="async">
+          <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/thread-sent.webp"><img class="tl tl-sent" src="/site-img/home/thread-sent.webp" width="300" height="78" alt="" loading="lazy" decoding="async"></picture>
+          <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/thread-seen.webp"><img class="tl tl-seen" src="/site-img/home/thread-seen.webp" width="300" height="78" alt="" loading="lazy" decoding="async"></picture>
+          <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/thread-reply.webp"><img class="tl tl-reply" id="reply" src="/site-img/home/thread-reply.webp" width="1179" height="348" alt="" loading="lazy" decoding="async"></picture>
           <span class="sb" aria-hidden="true"><b data-t="10:44"></b><i class="sb-isl"></i><i class="sb-bat"></i></span>
         </div>
         <i class="ph-btn ph-btn-a" aria-hidden="true"></i><i class="ph-btn ph-btn-b" aria-hidden="true"></i><i class="ph-btn ph-btn-c" aria-hidden="true"></i><i class="ph-btn ph-btn-p" aria-hidden="true"></i>
@@ -508,11 +527,15 @@
       <div class="wk-port" id="wkPort" tabindex="0" role="region" aria-label="Marcus’s week in Sam’s program editor">
         <div class="wk-in" id="wkIn">
           <picture>
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/prog-taken-800.avif 800w, /site-img/home-light/prog-taken-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/prog-taken-800.webp 800w, /site-img/home-light/prog-taken-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
             <source type="image/avif" srcset="/site-img/home/prog-taken-800.avif 800w, /site-img/home/prog-taken-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
             <img src="/site-img/home/prog-taken-800.webp" srcset="/site-img/home/prog-taken-800.webp 800w, /site-img/home/prog-taken-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px" width="800" height="560" loading="lazy" decoding="async"
               alt="Sam’s program editor on his laptop, Marcus Doyle, Strength Block, week 2 of 4. His week 2 bench was written 152.5 kg for 3 at RPE 8 and lifted at 9.5; Sam’s rule took one suggestion into week 3: bench 145 kg for 3 at 8, back-offs 140 for 5 at 7, squat 215 for 3 at 8 and 200 for 5 at 7. The action now reads Send the changes to Marcus.">
           </picture>
           <picture class="wk-before" aria-hidden="true">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/prog-lifted-800.avif 800w, /site-img/home-light/prog-lifted-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/prog-lifted-800.webp 800w, /site-img/home-light/prog-lifted-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
             <source type="image/avif" srcset="/site-img/home/prog-lifted-800.avif 800w, /site-img/home/prog-lifted-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
             <img src="/site-img/home/prog-lifted-800.webp" srcset="/site-img/home/prog-lifted-800.webp 800w, /site-img/home/prog-lifted-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px" width="800" height="560" alt="" loading="lazy" decoding="async">
           </picture>
@@ -626,12 +649,16 @@
           <div class="ph">
             <div class="ph-scr">
               <picture class="lf-still">
+                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/lifter-pr-640.avif 640w, /site-img/home-light/lifter-pr-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-pr-640.webp 640w, /site-img/home-light/lifter-pr-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
                 <source type="image/avif" srcset="/site-img/home/lifter-pr-640.avif 640w, /site-img/home/lifter-pr-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
                 <img src="/site-img/home/lifter-pr-640.webp" srcset="/site-img/home/lifter-pr-640.webp 640w, /site-img/home/lifter-pr-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw" width="393" height="740" loading="lazy" decoding="async"
                   alt="The lifter app on Arjun’s phone as he logs that set: a gold PR plate, New PR, 228 kg, up 5 kg, his squat’s estimated max, from 182.5 kg for 5 at RPE 8. Under it: Share to Story, Share with Iron Temple Barbell, Send to coach and Done.">
               </picture>
               <!-- With motion: the same screen without the plate, the number and the jump, which arrive on top as the app's do (it says what the still says). -->
               <picture class="lf-base">
+                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/lifter-pr-base-640.avif 640w, /site-img/home-light/lifter-pr-base-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-pr-base-640.webp 640w, /site-img/home-light/lifter-pr-base-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
                 <source type="image/avif" srcset="/site-img/home/lifter-pr-base-640.avif 640w, /site-img/home/lifter-pr-base-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
                 <img src="/site-img/home/lifter-pr-base-640.webp" srcset="/site-img/home/lifter-pr-base-640.webp 640w, /site-img/home/lifter-pr-base-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw" width="393" height="740" loading="lazy" decoding="async"
                   alt="The lifter app on Arjun’s phone as he logs that set: a gold PR plate, New PR, 228 kg, up 5 kg, his squat’s estimated max, from 182.5 kg for 5 at RPE 8. Under it: Share to Story, Share with Iron Temple Barbell, Send to coach and Done.">
@@ -651,17 +678,21 @@
           <div class="ph">
             <div class="ph-scr">
               <picture class="lf-still">
+                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/lifter-prog-640.avif 640w, /site-img/home-light/lifter-prog-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-prog-640.webp 640w, /site-img/home-light/lifter-prog-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
                 <source type="image/avif" srcset="/site-img/home/lifter-prog-640.avif 640w, /site-img/home/lifter-prog-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
                 <img src="/site-img/home/lifter-prog-640.webp" srcset="/site-img/home/lifter-prog-640.webp 640w, /site-img/home/lifter-prog-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw" width="393" height="740" loading="lazy" decoding="async"
                   alt="Arjun’s Progress a moment later: e1RM total 656 kg, up 21 kg in 4 weeks; 580 kg in best singles, 416.8 DOTS; stronger than 88% of 74 kg raw men. His strength chart climbs from July 13 to 656 kg.">
               </picture>
               <!-- With motion: the same screen without the line, which draws up to his new total on top (it says what the still says). -->
               <picture class="lf-base">
+                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/lifter-prog-base-640.avif 640w, /site-img/home-light/lifter-prog-base-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-prog-base-640.webp 640w, /site-img/home-light/lifter-prog-base-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
                 <source type="image/avif" srcset="/site-img/home/lifter-prog-base-640.avif 640w, /site-img/home/lifter-prog-base-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
                 <img src="/site-img/home/lifter-prog-base-640.webp" srcset="/site-img/home/lifter-prog-base-640.webp 640w, /site-img/home/lifter-prog-base-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw" width="393" height="740" loading="lazy" decoding="async"
                   alt="Arjun’s Progress a moment later: e1RM total 656 kg, up 21 kg in 4 weeks; 580 kg in best singles, 416.8 DOTS; stronger than 88% of 74 kg raw men. His strength chart climbs from July 13 to 656 kg.">
               </picture>
-              <img class="lf-l lf-line" style="--x: 27.3; --y: 520.7; --w: 339; --h: 161.8" src="/site-img/home/lifter-line.webp" width="1017" height="485" alt="" loading="lazy" decoding="async">
+              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-line.webp"><img class="lf-l lf-line" style="--x: 27.3; --y: 520.7; --w: 339; --h: 161.8" src="/site-img/home/lifter-line.webp" width="1017" height="485" alt="" loading="lazy" decoding="async"></picture>
               <span class="sb" aria-hidden="true"><b data-t="10:43"></b><i class="sb-isl"></i><i class="sb-bat"></i></span>
             </div>
             <i class="ph-btn ph-btn-a" aria-hidden="true"></i><i class="ph-btn ph-btn-b" aria-hidden="true"></i><i class="ph-btn ph-btn-c" aria-hidden="true"></i><i class="ph-btn ph-btn-p" aria-hidden="true"></i>
@@ -702,6 +733,8 @@
       <figure class="imp" id="imp">
         <div class="sheet-crop">
           <picture>
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/import-496.avif 496w, /site-img/home-light/import-992.avif 992w" sizes="(min-width: 760px) 592px, 100vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/import-496.webp 496w, /site-img/home-light/import-992.webp 992w" sizes="(min-width: 760px) 592px, 100vw">
             <source type="image/avif" srcset="/site-img/home/import-496.avif 496w, /site-img/home/import-992.avif 992w" sizes="(min-width: 760px) 592px, 100vw">
             <img src="/site-img/home/import-496.webp" srcset="/site-img/home/import-496.webp 496w, /site-img/home/import-992.webp 992w" sizes="(min-width: 760px) 592px, 100vw" width="496" height="270" loading="lazy" decoding="async"
               alt="The history import’s preview for Nina Petrova, before anything is saved: 720 sets and 240 sessions read, March 3, 2025 to October 19. Squat best 169.5 kg e1RM with 15 PRs, bench 94.5 kg with 14 PRs, deadlift 204.2 kg with 14 PRs, each a new best. 4 rows skipped.">
@@ -719,8 +752,12 @@
       <figure class="cl">
         <div class="sheet-crop sheet-desk">
           <picture>
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/clients-ph-251.avif 251w, /site-img/home-light/clients-ph-502.avif 502w" sizes="251px" width="251" height="328">
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/clients-ph-251.webp 251w, /site-img/home-light/clients-ph-502.webp 502w" sizes="251px" width="251" height="328">
             <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/clients-ph-251.avif 251w, /site-img/home/clients-ph-502.avif 502w" sizes="251px" width="251" height="328">
             <source media="(max-width: 759px)" srcset="/site-img/home/clients-ph-251.webp 251w, /site-img/home/clients-ph-502.webp 502w" sizes="251px" width="251" height="328">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/clients-992.avif 992w, /site-img/home-light/clients-1984.avif 1984w" sizes="(min-width: 1240px) 860px, 92vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/clients-992.webp 992w, /site-img/home-light/clients-1984.webp 1984w" sizes="(min-width: 1240px) 860px, 92vw">
             <source type="image/avif" srcset="/site-img/home/clients-992.avif 992w, /site-img/home/clients-1984.avif 1984w" sizes="(min-width: 1240px) 860px, 92vw">
             <img src="/site-img/home/clients-992.webp" srcset="/site-img/home/clients-992.webp 992w, /site-img/home/clients-1984.webp 1984w" sizes="(min-width: 1240px) 860px, 92vw" width="992" height="358" loading="lazy" decoding="async"
               alt="Clients on the coach’s laptop. This month, October: $2,650 of $3,240 in, 82%, $590 to come. Overdue: 2, $370, Tomas 12 days and Tom 5 days. Due this week: 2, $440. Recurring: $3,248 a month. Tomas Novak, online coaching at $150 a month, overdue 12 days, with Mark paid and Remind; Tom Boyle, meet prep at $220 a month, overdue 5 days.">
@@ -753,6 +790,8 @@
           <div class="ph">
             <div class="ph-scr">
               <picture>
+                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/brand-640.avif 640w, /site-img/home-light/brand-960.avif 960w" sizes="(min-width: 760px) 300px, 72vw">
+                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/brand-640.webp 640w, /site-img/home-light/brand-960.webp 960w" sizes="(min-width: 760px) 300px, 72vw">
                 <source type="image/avif" srcset="/site-img/home/brand-640.avif 640w, /site-img/home/brand-960.avif 960w" sizes="(min-width: 760px) 300px, 72vw">
                 <img src="/site-img/home/brand-640.webp" srcset="/site-img/home/brand-640.webp 640w, /site-img/home/brand-960.webp 960w" sizes="(min-width: 760px) 300px, 72vw" width="393" height="520" loading="lazy" decoding="async"
                   alt="The lifter app on Arjun’s phone, wearing his coach’s branding: Squat Day, the team name Iron Temple Barbell with its logo under the title, and Log set in the team’s blue.">

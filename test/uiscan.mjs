@@ -195,7 +195,7 @@ for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
 }
 screens.push({ name: 'w-index-l', page: 'index.html', mode: 'web', theme: 'light' }, { name: 'w-index-m-l', page: 'index.html', mode: 'web', w: 390, h: 844, theme: 'light' });
 // Every other public page (29 Oct: pages.css carries the homepage's look to them), and every public page in the light
-// theme too (they follow it; the homepage's floors don't). Offline, the shop is empty, a coach's profile says the coach
+// theme too (the website follows the visitor's setting, the homepage too since 3 Nov: the screens set it, below). Offline, the shop is empty, a coach's profile says the coach
 // isn't found, email preferences say the link isn't valid; the leaderboard's demo board is local.
 const MORE_PUBLIC = ['data.html', 'switch.html', 'guide-e1rm.html', 'guide-dots.html', 'guide-peaking.html', 'coach-profile.html?id=none', 'unsubscribe.html', 'leaderboard.html?demo=1', '404.html'];
 const ALL_PUBLIC = ['about.html', 'faq.html', 'guides.html', 'guide-rpe.html', 'marketplace.html', 'leaderboard.html', 'exercises.html', 'join.html?code=ABC234', 'reset-password.html', 'privacy.html', 'terms.html'].concat(MORE_PUBLIC);
@@ -520,7 +520,10 @@ for (const s of run) {
   const ctx = await browser.newContext(app
     ? { viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
         userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148' }
-    : { viewport: { width: s.w || 1440, height: s.h || 900 }, deviceScaleFactor: 1, isMobile: (s.w || 1440) < 600, hasTouch: (s.w || 1440) < 600 });
+    : Object.assign({ viewport: { width: s.w || 1440, height: s.h || 900 }, deviceScaleFactor: 1, isMobile: (s.w || 1440) < 600, hasTouch: (s.w || 1440) < 600 },
+      // The website (the homepage and every public page) follows the visitor's setting, not the stored theme: its screens
+      // set the colour scheme they scan (3 Nov). The dashboards keep the browser's default, as before.
+      /^(athlete|coach)\.html/.test(s.page) ? {} : { colorScheme: s.theme || 'dark' }));
   await ctx.route(LIVE_URL, (route) => { liveRefused++; return route.abort('blockedbyclient'); });
   await ctx.routeWebSocket(LIVE_URL, (ws) => { liveRefused++; ws.close(); });
   await ctx.addInitScript(([theme, native, deskTheme]) => {
