@@ -83,11 +83,11 @@ html.desk :is(.dd-ag-it, .dd-s):active { background: var(--dk-fill-2); }   /* a 
 html.desk .dd-wins { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 html.desk .dd-win { --lc: var(--text-3); display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 18px 18px 14px; border: 1px solid var(--dk-card-edge); border-radius: var(--cl-r);
   background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); }
-html.desk .dd-win.l-sq { --lc: var(--dk-sq); } html.desk .dd-win.l-be { --lc: var(--dk-bp); } html.desk .dd-win.l-dl { --lc: var(--dk-dl); }
+html.desk .dd-win.dl-sq { --lc: var(--dk-sq); } html.desk .dd-win.dl-be { --lc: var(--dk-bp); } html.desk .dd-win.dl-dl { --lc: var(--dk-dl); }
 html.desk .dd-win-h { display: flex; align-items: center; gap: 10px; min-width: 0; }
 html.desk .dd-lt { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: var(--r-1, 6px); background: color-mix(in srgb, var(--lc) 17%, transparent); color: var(--lc); font: 800 13px/1 var(--font-body); }
-html.desk:not([data-theme="light"]) .dd-win.l-dl .dd-lt { background: var(--dk-fill-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) 34%, transparent); }
-html.desk[data-theme="light"] .dd-win.l-sq .dd-lt { color: #0a6e9a; } html.desk[data-theme="light"] .dd-win.l-be .dd-lt { color: #5b3fd0; } html.desk[data-theme="light"] .dd-win.l-dl .dd-lt { color: #8a5a00; }
+html.desk:not([data-theme="light"]) .dd-win.dl-dl .dd-lt { background: var(--dk-fill-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) 34%, transparent); }
+html.desk[data-theme="light"] .dd-win.dl-sq .dd-lt { color: #0a6e9a; } html.desk[data-theme="light"] .dd-win.dl-be .dd-lt { color: #5b3fd0; } html.desk[data-theme="light"] .dd-win.dl-dl .dd-lt { color: #8a5a00; }
 html.desk .dd-win-h b { min-width: 0; font-size: 15px; line-height: 20px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html.desk .dd-when { margin-left: auto; font-size: 13px; color: var(--text-3); white-space: nowrap; }
 html.desk .dd-win-n { display: flex; align-items: baseline; gap: 6px; margin-top: 6px; min-width: 0; white-space: nowrap; }
@@ -130,6 +130,8 @@ html.desk .cl-today .pn-line { font-size: 15px; font-weight: 600; }
 html.desk body.powa-app .cl-today .pn-acts :is(.pn-on, .pn-later) { font-size: 13px; }
 
 /* ---------------------------------------------------------------- a lifter's page: the cards under the three tiles */
+/* the Client card's package name on the page's scale (15, as every other row title here; the phone keeps its 16) */
+html.desk .cl-page .cs-pk b { font-size: 15px; }
 html.desk .dd-card { position: relative; display: flex; flex-direction: column; gap: 16px; min-width: 0; padding: 22px 24px 24px; border: 1px solid var(--dk-card-edge); border-radius: var(--cl-r);
   background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); }
 html.desk .dd-card-h { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 32px; }
@@ -161,7 +163,7 @@ html.desk .dd-badge.t-missed { color: var(--text); background: var(--dk-raise-2)
 html.desk .dd-badge.t-missed > i { background: var(--dk-warn); }
 html.desk .dd-s-ls { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 html.desk .dd-s-l { --lc: var(--text-4); display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-html.desk .dd-s-l.l-sq { --lc: var(--dk-sq); } html.desk .dd-s-l.l-be { --lc: var(--dk-bp); } html.desk .dd-s-l.l-dl { --lc: var(--dk-dl); }
+html.desk .dd-s-l.dl-sq { --lc: var(--dk-sq); } html.desk .dd-s-l.dl-be { --lc: var(--dk-bp); } html.desk .dd-s-l.dl-dl { --lc: var(--dk-dl); }
 html.desk .dd-s-n { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 13px; line-height: 18px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html.desk .dd-s-n em { font-style: normal; color: var(--text-3); }
 html.desk .dd-ldot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--lc, var(--text-4)); }
@@ -195,7 +197,7 @@ html.desk .dd-mp-col + .dd-mp-col { border-left: 1px solid var(--line); }
 html.desk .dd-mp-k { font-size: 13px; line-height: 18px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html.desk .dd-atts { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
 html.desk .dd-att { --lc: var(--text-4); display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; min-height: 24px; }
-html.desk .dd-att.l-sq { --lc: var(--dk-sq); } html.desk .dd-att.l-be { --lc: var(--dk-bp); } html.desk .dd-att.l-dl { --lc: var(--dk-dl); }
+html.desk .dd-att.dl-sq { --lc: var(--dk-sq); } html.desk .dd-att.dl-be { --lc: var(--dk-bp); } html.desk .dd-att.dl-dl { --lc: var(--dk-dl); }
 html.desk .dd-att-n { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; line-height: 20px; color: var(--text-2); white-space: nowrap; }
 html.desk .dd-att-v { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; font-size: 15px; line-height: 20px; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 html.desk .dd-att-v .is-third { font-weight: 700; color: var(--text); }

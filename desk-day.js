@@ -25,7 +25,7 @@
   'use strict';
   var LIFTS = ['squat', 'bench', 'deadlift'];
   var LIFT = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
-  var LCLS = { squat: 'l-sq', bench: 'l-be', deadlift: 'l-dl' };
+  var LCLS = { squat: 'dl-sq', bench: 'dl-be', deadlift: 'dl-dl' };   // the lift's colour on these blocks (never the app's .l-sq: other code finds lift cards by it)
   var IC = {
     check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
     chev: '<path d="m9 6 6 6-6 6"/>',
@@ -591,7 +591,8 @@
         '<div class="dd-tt-h" aria-hidden="true"><span class="dd-st k-' + c.k + '"><i>' + (c.k === 'done' ? ic('check', 2.6) : '') + '</i>' + esc(c.label) + '</span><b class="dd-n">' + list.length + '</b></div>' +
         '<div class="dd-faces">' + faces + '</div>' + act + '</div>';
     }).join('');
-    var meet = T.meet.length ? '<span class="dd-tt-meet"><i aria-hidden="true">' + ic('trophy') + '</i>' + esc(plural(T.meet.length, 'lifter') + ' competing today: ' + T.meet.map(function (x) { return first(x.r.athlete.name); }).join(', ')) + '</span>' : '';
+    var mn = T.meet.map(function (x) { return first(x.r.athlete.name); });
+    var meet = T.meet.length ? '<span class="dd-tt-meet"><i aria-hidden="true">' + ic('trophy') + '</i>' + esc(plural(T.meet.length, 'lifter') + ' competing today: ' + mn.slice(0, 4).join(', ') + (mn.length > 4 ? ' +' + (mn.length - 4) : '')) + '</span>' : '';
     return '<div class="cl-sh dd-sh"><h2>Training today</h2><span class="dd-sh-m">' + esc(dateLong(T.today)) + '</span></div>' +
       '<div class="cl-card dd-tt' + (o.rise || '') + '"><div class="dd-tt-cols">' + cols + '</div>' +
       '<p class="dd-foot">' + meet + '<span>Still to come counts a session pinned to today, or the day they have trained on 3 of the last 4 weeks.</span></p></div>';
@@ -599,7 +600,7 @@
   // This week: the next 7 days, a column a day.
   function agItemHtml(it) {
     var who = it.who.length ? '<span class="dd-ag-w">' + esc(it.who.slice(0, 3).map(function (r) { return first(r.athlete.name); }).join(', ') + (it.who.length > 3 ? ' +' + (it.who.length - 3) : '')) + '</span>' : '';
-    var warn = it.warn && it.warn.length ? '<span class="dd-ag-x"><i aria-hidden="true"></i>' + esc(it.warn.map(function (r) { return first(r.athlete.name) + ' ' + n2(kgShow(r.bw.over)) + ' ' + unit() + ' over'; }).join(', ')) + '</span>' : '';
+    var warn = it.warn && it.warn.length ? '<span class="dd-ag-x"><i aria-hidden="true"></i>' + esc(it.warn.slice(0, 1).map(function (r) { return first(r.athlete.name) + ' ' + n2(kgShow(r.bw.over)) + ' ' + unit() + ' over'; }).join('') + (it.warn.length > 1 ? ' +' + (it.warn.length - 1) : '')) + '</span>' : '';
     var label = it.text + (it.who.length ? ': ' + it.who.map(function (r) { return r.athlete.name; }).join(', ') : '') + (it.warn && it.warn.length ? '. ' + it.warn.map(function (r) { return first(r.athlete.name) + ' is ' + n2(kgShow(r.bw.over)) + ' ' + unit() + ' over the class'; }).join('; ') : '');
     return '<button type="button" class="dd-ag-it t-' + it.tone + ' k-' + it.kind + '" data-dd-ag="' + esc(it.kind) + '" data-ids="' + esc((it.ids || []).join(',')) + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
       '<span class="dd-ag-t"><i aria-hidden="true"></i><b>' + esc(it.text) + '</b></span>' + who + warn + '</button>';
