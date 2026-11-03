@@ -1,6 +1,6 @@
 # Cuts the captures (test/site-capture/cap-*.mjs) into the homepage's pictures: AVIF + WebP at the widths index.html
 # asks for, into site-img/home/. Run the capture first, then: python3 test/site-capture/mkimg.py [desk phone thread
-# brand week clients import] (all by default). CAP as for the captures; OUT defaults to <repo>/site-img/home/.
+# brand program clients import lifter] (all by default). CAP as for the captures; OUT defaults to <repo>/site-img/home/.
 # After a desk re-take, desk-values.json says where index.html's live numbers, rings and pins go (mkimg prints them).
 import json, os, sys
 from PIL import Image
@@ -23,7 +23,7 @@ def one(im, name, q=88):   # a small layer: WebP only, at the capture's own 2x o
 def crop2(im, x, y, w, h):   # desk px (1440 x 900) to the 2x capture
     return im.crop((round(x * 2), round(y * 2), round((x + w) * 2), round((y + h) * 2)))
 
-what = sys.argv[1:] or ['desk', 'phone', 'thread', 'brand', 'week', 'clients', 'import']
+what = sys.argv[1:] or ['desk', 'phone', 'thread', 'brand', 'program', 'clients', 'import', 'lifter']
 
 # --- Sam's laptop (cap-desk.mjs): the opening's screen, the camera's window, the list, what the window showed before.
 if 'desk' in what:
@@ -39,15 +39,16 @@ if 'desk' in what:
         x, y, w, h = d['before']['regions'][key]['rect']; pad = 2
         one(crop2(before, x - pad, y - pad, w + 2 * pad, h + 2 * pad), nm, q=90)
         print('   index.html #win .was:', 'left:%gpx;top:%gpx;width:%gpx;height:%gpx' % (round(x - pad, 1), round(y - pad, 1), round(w + 2 * pad, 1), round(h + 2 * pad, 1)))
-    # Small screens: a true-size window onto Arjun's page (desk 668..1424 x 16..592), after and live, and the list.
-    X0, Y0, W, H = 668, 16, 756, 576
+    # Small screens: a true-size window onto Arjun's page (desk 648..1404 x 16..592: his page starts at 632 since the v3
+    # desk's 400 px list), after and live, and the list.
+    X0, Y0, W, H = 648, 16, 756, 576
     save(crop2(after, X0, Y0, W, H), 'win-after', [756, 1512], q_webp=86, q_avif=62)
     save(crop2(blank, X0, Y0, W, H), 'win-live', [756, 1512], q_webp=86, q_avif=62)
     for key, nm in (('heroViz', 'was-hero'), ('sqViz', 'was-sq')):
         x, y, w, h = d['before']['regions'][key]['rect']
         one(crop2(before, x, y, w, h), nm)
         print('   index.html #fwLive .was:', 'left:%gpx;top:%gpx;width:%gpx;height:%gpx' % (round(x - X0, 1), round(y - Y0, 1), round(w, 1), round(h, 1)))
-    LX, LY = 248, 186
+    LX, LY = 246, 186   # the v3 list: rows 257..606, 64 px tall from 211; its column ends where Arjun's page starts (632)
     save(crop2(after, LX, LY, 386, 700), 'win-list', [386, 772, 1158], q_avif=60)
     # Where the list's rows are: index.html's .grp / .mk (desk px) and .fpin (--y, list-crop px) follow them.
     for i, row in enumerate(d['after']['list'][:10]):
@@ -79,11 +80,6 @@ if 'thread' in what:
 if 'brand' in what:
     save(Image.open(CAP + 'brand-train.png').crop((0, 0, 393 * 3, 520 * 3)), 'brand', [640, 960])
 
-# --- Marcus's week as lifted, before and after Sam's rule is taken (cap-more.mjs).
-if 'week' in what:
-    save(crop2(Image.open(CAP + 'week-before.png'), 256, 325, 1160, 387), 'week-before', [1160, 2320], q_avif=60)
-    save(crop2(Image.open(CAP + 'week-after.png'), 256, 325, 1160, 387), 'week-after', [1160, 2320], q_avif=60)
-
 # --- Clients (cap-clients.mjs): the laptop's summary, and for phones its two cards that prove "who has paid", stacked.
 if 'clients' in what:
     cl = crop2(Image.open(CAP + 'cl-before.png'), 256, 100, 992, 358).convert('RGB')
@@ -98,3 +94,34 @@ if 'clients' in what:
 # --- The history import's preview (cap-import.mjs, Nina's old log pasted in).
 if 'import' in what:
     save(crop2(Image.open(CAP + 'import.png'), 472, 506, 496, 270), 'import', [496, 992], q_webp=86, q_avif=62)
+
+# --- The chapter for lifters (cap-lifter.mjs, 3x): Arjun's PR moment and his Progress, the top 740 pt of each (the moment
+# down to Done, Progress down to its strength chart), as they are (the still) and without what the page moves (motion);
+# Progress's line, its plot cut out, as a layer of its own. lifter-geo.json says where the page draws the plate, the
+# number and the jump (mkimg prints them in the screen's points, out of 393 x 852).
+if 'lifter' in what:
+    k, H = 3, 740
+    for src, nm in (('lifter-pr', 'lifter-pr'), ('lifter-pr-base', 'lifter-pr-base'), ('lifter-progress', 'lifter-prog'), ('lifter-progress-base', 'lifter-prog-base')):
+        save(Image.open(CAP + src + '.png').crop((0, 0, 393 * k, H * k)), nm, [640, 960])
+    g = json.load(open(CAP + 'lifter-geo.json'))
+    x, y, w, h = g['prog']['plot']
+    one(Image.open(CAP + 'lifter-progress.png').crop((round(x * k), round(y * k), round((x + w) * k), round((y + h) * k))), 'lifter-line', q=90)
+    print('   index.html .lf-line: --x %g; --y %g; --w %g; --h %g' % (x, y, w, h))
+    for key in ('plate', 'unit', 'tag', 'sub', 'set', 'acts', 'done'):
+        print('   PR %-6s' % key, g['pr'][key])
+    print('   PR number', g['pr']['num']['box'], g['pr']['num']['type'])
+    print('   PR jump  ', g['pr']['delta']['box'], g['pr']['delta']['type'])
+
+# --- Next week: Marcus's week in the Programs editor (cap-program.mjs, 2x): the editor's top 560 px (desk 616..1416 x
+# 12..572), his week 2 as lifted and, after Take 1 suggestion, week 3 with his rule's 145 (prog.json says where the
+# page rings and draws: mkimg prints it in the crop's per cent).
+if 'program' in what:
+    X0, Y0, W, H = 616, 12, 800, 560
+    for n in ('prog-lifted', 'prog-taken'):
+        save(crop2(Image.open(CAP + n + '.png'), X0, Y0, W, H), n, [800, 1600], q_webp=86, q_avif=62)
+    g = json.load(open(CAP + 'prog.json'))['g']
+    for k in ('lifted', 'take', 'send'):
+        x, y, w, h = g[k]
+        print('   %-6s left %.3f%%  top %.3f%%  width %.3f%%  height %.3f%%  right %.3f%%' % (k, (x - X0) / W * 100, (y - Y0) / H * 100, w / W * 100, h / H * 100, (X0 + W - x - w) / W * 100))
+    x, y, w, h = g['cell145']['box']
+    print('   145    left %.3f%%  top %.3f%%  width %.3f%%  height %.3f%%' % ((x - X0) / W * 100, (y - Y0) / H * 100, w / W * 100, h / H * 100))

@@ -131,6 +131,8 @@ body.home::before, body.home::after { content: none; display: none; }   /* the a
 html.js .bar:not(.is-on) { background-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 html.js .bar:not(.is-on) .bar-mk { opacity: 0; }
 html.js .bar:not(.has-pill) .bar-pill { opacity: 0; transform: translateY(-4px); visibility: hidden; pointer-events: none; transition: opacity var(--t-state) var(--ease-out), transform var(--t-state) var(--ease-out), visibility 0s linear var(--t-state); }
+/* The lifters' chapter in the contents on a laptop; on a tablet the bar keeps its five (they only just fit). */
+@media (max-width: 1099px) { .bar-toc .bar-link[data-ch="lifters"] { display: none; } }
 
 /* ---------- The iPhone: the screen at its true size inside a black-titanium frame drawn round it (rings, so the
    screen keeps its own geometry), side buttons, the status bar drawn live. --pw is the screen's width. */
@@ -190,14 +192,30 @@ html.js .bar:not(.has-pill) .bar-pill { opacity: 0; transform: translateY(-4px);
 .ph-shadow { position: absolute; left: 8%; right: 8%; bottom: -3%; height: 10%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0)); pointer-events: none; }
 .ph-next { position: absolute; inset: 0; height: 100%; display: none; }
 html.m .ph-next { display: block; visibility: hidden; opacity: 0; }
-/* Log set over the capture, in the one-action crimson (the app's geometry: 35, 409 / 323 x 52). */
+/* Log set over the capture, in the one-action crimson (the app's geometry: 35, 409 / 323 x 52). With motion it has a layer
+   of its own (its press and its colour change repaint only itself). */
 .log { position: absolute; left: 2.1875em; top: 25.575em; width: 20.1875em; height: 3.25em; display: flex; align-items: center; justify-content: center; border-radius: 999px;
   background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.45); }
+html.m .log { will-change: transform; }
 .log-in { display: inline-flex; align-items: center; gap: 0.5em; font: 650 1.0625em/1 var(--font-body); letter-spacing: -0.005em; }
 .log svg { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 
+/* Try it: Log set is a real button (home.js), clear over the app's own Log set, so the page's one crimson stays its Start
+   free; a focus ring the button's shape. With JavaScript only. Logged without motion, the phone simply shows the moment
+   after (set 2 up, the rest timer docked) and Sam's laptop Arjun's page with the set in it. */
+.log-tap { display: none; }
+html.js .log-tap { display: block; position: absolute; z-index: 4; left: 2.1875em; top: 25.575em; width: 20.1875em; height: 3.25em; margin: 0; padding: 0; border: 0; border-radius: 999px; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+html.js .log-tap:focus-visible { outline: 2px solid #f4f4f6; outline-offset: 3px; border-radius: 999px; }
+@media (hover: hover) and (pointer: fine) { .ph-scr:has(> .log-tap:hover) .log { filter: brightness(1.07); } }
+.hphone.is-logged .ph-next { display: block; visibility: visible; opacity: 1; }
+.lt-after { position: absolute; z-index: 1; left: 648em; top: 16em; width: 756em; height: 576em; max-width: none; pointer-events: none; }
+/* With motion, Sam's laptop live: the Today window's own screen (home.js clones it), scaled onto this laptop (--ltk). */
+.lt-live { position: absolute; z-index: 1; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; transform: scale(var(--ltk, 0.49)); border-radius: 14px; overflow: hidden; opacity: 0; will-change: opacity; pointer-events: none; }   /* drawn ahead, clear: a tap shows it without painting it */
+.lt-live picture { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; }
+
 /* The set card's anatomy, shown rather than labelled: with motion a light ring travels from the load and reps to how hard
-   it felt to Log set, which presses (home.js). The rings sit in the screen's own points (out of 393 x 852). */
+   it felt to Log set, and stays there until the set is logged (home.js). The rings sit in the screen's own points (out
+   of 393 x 852). */
 .hl { display: none; }
 html.m .hl { display: block; position: absolute; z-index: 2; left: calc(var(--x) / 393 * 100%); top: calc(var(--y) / 852 * 100%); width: calc(var(--w) / 393 * 100%); height: calc(var(--h) / 852 * 100%);
   border-radius: calc(var(--r) / 16 * 1em); box-shadow: 0 0 0 1.5px rgba(244, 244, 246, 0.92), 0 0 0 5px rgba(244, 244, 246, 0.08); opacity: 0; visibility: hidden; pointer-events: none; }
@@ -251,15 +269,15 @@ html.m .hl { display: block; position: absolute; z-index: 2; left: calc(var(--x)
 .fw-live { display: none; position: absolute; inset: 0; overflow: hidden; background: var(--screen); }
 html.m .fw-a .fw-still { display: none; }
 html.m .fw-a .fw-live { display: block; }
-.fw-desk { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; transform: translate(calc(-668px * var(--fk, 1)), calc(-16px * var(--fk, 1))) scale(var(--fk, 1)); }
+.fw-desk { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; transform: translate(calc(-648px * var(--fk, 1)), calc(-16px * var(--fk, 1))) scale(var(--fk, 1)); }
 .fw-desk picture, .fw-base { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; max-width: none; }
 /* The list, with the chain's numbers beside its rows (a margin keeps them clear of the screen's own edge). Cut under
-   the sixth group (Arjun and Kofi): every lifter the chain names is in view. */
+   the sixth group (Ines): every lifter the chain names is in view. */
 .fw-port-list { width: 420px; aspect-ratio: auto; padding-left: 34px; overflow: visible; background: transparent; box-shadow: none; border-radius: 0; }
-.fw-port-list picture { display: block; overflow: hidden; aspect-ratio: 386 / 572; border-radius: 16px; background: var(--screen); box-shadow: var(--pane); }
+.fw-port-list picture { display: block; overflow: hidden; aspect-ratio: 386 / 540; border-radius: 16px; background: var(--screen); box-shadow: var(--pane); }
 .fw-port-list img { width: 100%; }
-/* The pins beside the list's rows: light discs with ink numbers, as the phone's (the rows' own geometry, out of 572). */
-.fpin { position: absolute; left: 0; top: calc(var(--y) / 572 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); }
+/* The pins beside the list's rows: light discs with ink numbers, as the phone's (the rows' own geometry, out of 540). */
+.fpin { position: absolute; left: 0; top: calc(var(--y) / 540 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); }
 .fpin::before { content: attr(data-n); }
 .fw-b .cap { margin-top: 14px; padding-left: 34px; }
 .was { position: absolute; max-width: none; opacity: 0; pointer-events: none; }
@@ -279,7 +297,7 @@ html.m .fw-a .fw-live { display: block; }
 .ov-d { font: 700 15px/24px var(--font-body); letter-spacing: -0.08px; color: #34d982; }
 .ov-foot, .ov-trf { font: 400 13px/20.8px var(--font-body); letter-spacing: -0.08px; color: #9a9aa5; }
 .ov-trf { line-height: 17.55px; }
-.ov-tr { font-size: 22px; font-weight: 800; font-stretch: 104%; letter-spacing: -0.44px; line-height: 23.1px; }
+.ov-tr { font-size: 28px; font-weight: 800; font-stretch: 104%; letter-spacing: -0.84px; line-height: 28px; }
 .ov-row { font: 600 15px/20px var(--font-body); font-stretch: 104%; color: #c2c2cb; }
 /* Two-state words: the still shows the last state; with motion the script plays the first to the last. */
 .swap { display: inline-grid; }
@@ -361,27 +379,22 @@ html.m .tl-bub img { width: 100%; aspect-ratio: 393 / 852; }
 .next-head { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: end; }
 .next-head .h2 { grid-column: 1 / span 6; }
 .next-head .lead { grid-column: 7 / span 6; max-width: 36em; }
-.wk { margin-top: var(--s4); width: 100%; }   /* the grid's full width: its edges are the header's */
-/* What each column is, pinned above it: what Sam wrote, what Marcus lifted (and how it felt), next week. */
-.wk-cols { position: relative; height: 34px; margin: 0 16px; }
-.wk-cols span { position: absolute; left: calc(var(--x) / 1160 * 100%); top: 2px; padding-left: 12px; font-size: 14px; font-weight: 650; color: var(--text); white-space: nowrap; }
-.wk-cols span::before { content: ''; position: absolute; left: 0; top: 4px; height: 28px; width: 1.5px; border-radius: 1px; background: var(--up); }
-.wk-port { position: relative; overflow: hidden; padding: 14px 16px 4px; border-radius: 18px; outline-offset: 4px; background: var(--screen); box-shadow: var(--pane); }
-.wk-in { position: relative; aspect-ratio: 1160 / 387; }
+.wk { margin-top: var(--s4); width: min(100%, 880px); }
+/* A window onto Sam's Programs editor (the crop is 800 x 560 desk px): the still is the editor after Take; with motion
+   week 2 as lifted lies on it first. 1cqw here is 8 desk px, so the page's own parts are drawn in the editor's px. */
+.wk-port { position: relative; overflow: hidden; border-radius: 18px; outline-offset: 4px; background: var(--screen); box-shadow: var(--pane); }
+.wk-in { position: relative; aspect-ratio: 800 / 560; container-type: inline-size; }
 .wk-in picture, .wk-in img { position: absolute; inset: 0; width: 100%; height: 100%; }
 .wk-before { display: none; }
 html.m .wk-before { display: block; }
-/* What the take changes, and nothing else: the suggestion's row (1) and the week's header (2). */
-html.m .wk-b1 { clip-path: inset(calc(286 / 387 * 100%) calc(4 / 1160 * 100%) calc(52 / 387 * 100%) calc(776 / 1160 * 100%)); }
-html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 100%)); }
-.tap { position: absolute; left: calc(959 / 1160 * 100%); top: calc(294.8 / 387 * 100%); width: calc(184 / 1160 * 100%); height: calc(32 / 387 * 100%); border-radius: 999px; box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
-/* The reason the rule moved the load: Marcus's bench as he lifted it, 1.5 over (motion only). */
-.why { position: absolute; left: calc(390 / 1160 * 100%); top: calc(295 / 387 * 100%); width: calc(162 / 1160 * 100%); height: calc(32 / 387 * 100%); border-radius: 9px; box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; visibility: hidden; pointer-events: none; }
-.wk-foot { display: flex; align-items: center; justify-content: flex-end; margin-top: var(--s3); }
-.wk-pub { display: inline-flex; align-items: center; gap: 14px; font-size: 16px; font-weight: 650; color: var(--text); }
-/* The app's own Publish (desk.css .dk-btn primary): the one crimson on this screen. */
-.pub { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 999px; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; font-size: 15px; font-weight: 650; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.45); }
-.pub svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+/* The bench as lifted (@9.5 where Sam wrote 8), then week 3's bench where his rule's 145 lands. */
+.why { position: absolute; left: 75%; top: 77.143%; width: 16.5%; height: 5.714%; border-radius: calc(9 / 8 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; visibility: hidden; pointer-events: none; }
+.tap { position: absolute; left: 40.75%; top: 77.143%; width: 15.5%; height: 5.714%; border-radius: calc(9 / 8 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
+/* The editor's own action (desk-program.js, the crimson primary), drawn by the page so one crimson per screen holds:
+   Take 1 suggestion, then Send the changes to Marcus. Right-aligned where the editor has it. */
+.pub { position: absolute; right: 0; top: 16.607%; min-width: 28.3%; height: calc(36 / 8 * 1cqw); display: inline-flex; align-items: center; justify-content: center; padding: 0 calc(16 / 8 * 1cqw); border-radius: 999px;
+  background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; font-size: calc(13.5 / 8 * 1cqw); font-weight: 650; letter-spacing: -0.005em; white-space: nowrap; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.45); }
+.pub .swap > span { display: inline-flex; align-items: center; justify-content: center; }
 
 /* =====================================================================
    MEET DAY: the striking moment. A black stage: Tom's phone (left), the platform (three lights, then the minute),
@@ -496,6 +509,44 @@ html.m .wk-b2 { clip-path: inset(0 0 calc(345 / 387 * 100%) calc(640 / 1160 * 10
 .dec-btn svg { width: 18px; height: 18px; fill: none; stroke: var(--up); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 /* Before the call the button is the board's one crimson action; the script lays this layer over the ink ground. */
 .dec-red { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2); }
+
+/* =====================================================================
+   FOR LIFTERS (dark, the lifter's side): Arjun's own app after that set, two phones beside the words (the PR moment,
+   then Progress), each the top 740 pt of its screen, ending on the chapter's hairline. One light at the top: the PR's
+   gold, low. With motion the PR moment plays as the app plays it and Progress draws its line (home.js); the still is
+   each screen as captured.
+   ===================================================================== */
+.s-home .lifter { position: relative; padding: var(--sec) 0; isolation: isolate; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.lifter::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(34% 46% at 78% -8%, rgba(242, 194, 91, 0.07), transparent 70%); }   /* over the words, never behind a phone */
+.lifter-in { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: center; }
+.lf-phones { grid-column: 1 / span 7; display: flex; gap: clamp(28px, 3.34vw, 48px); --pw: clamp(260px, 21vw, 300px); }
+.lifter-copy { grid-column: 8 / span 5; padding-left: clamp(0px, 2.2vw, 32px); }
+.lifter-copy .lead { margin-top: var(--s3); max-width: 26em; }
+.lf-try { margin-top: var(--s4); }
+/* --u: one of the screen's points (out of 393 x 852), in px. */
+.lf { position: relative; margin: 0; width: var(--pw); flex: none; --u: calc(var(--pw) / 393); }
+/* The crop ends 740 pt down the screen (under Done; under Progress's chart), on a hairline. */
+.lf-crop { height: calc(var(--pw) * 740 / 393 + var(--pw) * 0.0305 + 2px); overflow: hidden; padding: calc(var(--pw) * 0.0305 + 2px) calc(var(--pw) * 0.0305 + 5px) 0; margin: 0 calc((var(--pw) * 0.0305 + 5px) * -1); box-shadow: inset 0 -1px 0 var(--hair); }
+.lf .ph-scr { font-size: calc(16 * var(--u)); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.lf .ph-scr > picture img { aspect-ratio: 393 / 740; }
+/* With motion the base screen is drawn and what moves sits on it, placed in the screen's points. */
+.lf-base, .lf-l { display: none; }
+html.m .lf-still { display: none; }
+html.m .lf-base { display: block; }
+html.m .lf-l { display: block; position: absolute; z-index: 2; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); pointer-events: none; }
+.lf-plate { width: calc(128 * var(--u)); height: calc(128 * var(--u)); filter: drop-shadow(0 calc(18 * var(--u)) calc(30 * var(--u)) rgba(242, 194, 91, 0.25)); will-change: transform; }
+.lf-plate svg { width: 100%; height: 100%; }
+/* The number and the jump in the app's own type (styles.css .prm-num, .prm-delta). */
+.lf-n { font-family: var(--font-num); font-size: calc(88 * var(--u)); font-weight: 800; font-stretch: 104%; line-height: 1; letter-spacing: -0.04em; color: #f4f4f6; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lf-d { padding: 0.3333em 0.8em; border-radius: 999px; background: rgba(52, 217, 130, 0.14); color: #34d982; font-family: var(--font-body); font-size: calc(15 * var(--u)); font-weight: 750; line-height: 1.6; letter-spacing: -0.005em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lf-line { width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u)); max-width: none; }
+
+/* FREE FOR SOLO LIFTERS: one calm band, the line and its link side by side. */
+.s-home .solo { padding: 26px 0 28px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.solo-in { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; }
+.solo-in p { font-size: clamp(17px, 0.9rem + 0.32vw, 19px); line-height: 1.5; color: var(--text-2); text-wrap: pretty; }
+.solo-in b { font-weight: 700; color: var(--text); }
+.solo-in .quiet { font-size: clamp(16px, 0.9rem + 0.22vw, 17px); }
 
 /* =====================================================================
    MOVING OVER, AND THE MONEY (dark).
@@ -674,7 +725,10 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
 .dec-opts button, .mx .mx-unit button, .mx .mx-share { transition: background-color var(--t-state) ease, color var(--t-state) ease, transform var(--t-press) var(--ease-out); }
 /* One crimson per screen: when two page actions share the screen, the one further from the middle steps back to ink. */
 .act-btn.is-quiet, .pub.is-quiet { background: #f4f4f6; color: #0b0b0d; box-shadow: none; }
-.log.is-quiet { background: #f4f4f6; color: #0b0b0d; }
+.log.is-quiet { background: #f4f4f6; color: #0b0b0d; box-shadow: 0 0 0 1px #f4f4f6, 0 1px 2px rgba(0, 0, 0, 0.45); }   /* the spread covers the app's own Log set's edge under it */
+/* Without JavaScript on a phone, Arjun's phone sits under Start free on the first screen: Log set steps back, as the page
+   layer would have it. */
+@media (max-width: 759px) { html:not(.js) .log { background: #f4f4f6; color: #0b0b0d; box-shadow: 0 0 0 1px #f4f4f6, 0 1px 2px rgba(0, 0, 0, 0.45); } }
 .dec-btn.is-quiet .dec-red { visibility: hidden; }
 
 /* =====================================================================
@@ -711,6 +765,11 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .next-head .lead { margin-top: 16px; }
   .scene { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "mid mid" "phone board"; row-gap: 32px; }
   .side-phone { --pw: min(272px, 34vw); }
+  /* For lifters: the words, then the two phones side by side under them. */
+  .lifter-in { grid-template-columns: minmax(0, 1fr); row-gap: var(--s5); }
+  .lifter-copy, .lf-phones { grid-column: 1; }
+  .lifter-copy { grid-row: 1; padding-left: 0; }
+  .lf-phones { grid-row: 2; --pw: min(280px, 36vw); }
   /* The four plans as a 2 x 2, each reading as one block (its rule and name, its price, then the lifters it seats). */
   .bands { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--s4); row-gap: var(--s4); }
   .band { padding-right: 0; display: flex; flex-direction: column; }
@@ -765,11 +824,10 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .next-head .h2, .next-head .lead { grid-column: 1 / -1; }
   .next-head .lead { margin-top: 14px; }
   /* The week: a true-size strip the reader's scroll pans across (without motion it scrolls sideways). */
-  .wk-cols { display: none; }
-  .wk-port { margin-inline: -16px; padding: 10px 16px 2px; border-radius: 0; overflow-x: auto; overflow-y: hidden; }
-  .wk-in { width: calc(1160px * 0.78); }
-  html.m .wk-port { overflow: hidden; }
-  .wk-foot { justify-content: flex-start; margin-top: var(--s2); }
+  /* The editor's right part at 0.7 (desk 900..1416): the written load, the RPE, what he lifted, the action. */
+  .wk { width: auto; margin-inline: -16px; }
+  .wk-port { border-radius: 0; aspect-ratio: 516 / 560; }
+  .wk-in { width: calc(800 / 516 * 100%); translate: calc(-284 / 800 * 100%) 0; }
   .meet-lead { margin-top: 14px; margin-bottom: var(--s3); }
   .scene { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "phone" "board"; row-gap: 22px; }
   .mid { padding-bottom: 0; }
@@ -779,6 +837,15 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .scene { border-bottom: 0; }
   .side-phone { --pw: min(220px, 56vw); }
   .mp-crop { flex: none; height: calc(var(--pw) * 0.9); min-height: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
+  /* For lifters: the words, then the PR moment and Progress, one under the other. */
+  .lifter-in { grid-template-columns: minmax(0, 1fr); row-gap: var(--s4); }
+  .lifter-copy, .lf-phones { grid-column: 1; }
+  .lifter-copy { grid-row: 1; padding-left: 0; }
+  .lifter-copy .lead { margin-top: var(--s2); }
+  .lf-try { margin-top: var(--s3); }
+  .lf-phones { grid-row: 2; flex-direction: column; align-items: center; gap: var(--s5); --pw: min(250px, 64vw); }
+  .s-home .solo { padding: 22px 0 24px; }
+  .solo-in p { font-size: 16px; }
   .mp { margin: 0 auto; }
   .side-board { padding-bottom: 0; }
   .step-i { grid-template-columns: 34px minmax(0, 1fr); column-gap: 14px; padding: 14px 0 16px; }
