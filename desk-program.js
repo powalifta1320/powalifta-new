@@ -315,7 +315,9 @@
     var W = weeks[wi] || null;
     var out = { weeks: weeks.map(function (w, i) { return { idx: i, n: Number(w.number) || i + 1, state: weekState(w, i, nowIdx), draft: isDraft(w) }; }), week: null, days: [] };
     if (!W) return out;
-    out.week = Object.assign({}, out.weeks[wi], { empty: !weekSets(W).length, lifted: !env.team && weekSets(W).some(isLogged) });
+    out.week = Object.assign({}, out.weeks[wi], { empty: !weekSets(W).length, lifted: !env.team && weekSets(W).some(isLogged), prevLifted: false });
+    // A week nothing's been lifted in yet shows, beside each line, what the same line lifted the week before.
+    var PW = !env.team && !out.week.lifted && wi > 0 ? weeks[wi - 1] : null;
     var start = env.starts && isIso(env.starts[wi]) ? env.starts[wi] : null;
     (W.days || []).forEach(function (D, di) {
       var exs = D.exercises || [];
@@ -326,8 +328,10 @@
       var day = { key: String(D.id != null ? D.id : 'd' + di), idx: di, name: D.name || '', rest: isRest(D), empty: !exs.length, total: all.length,
         done: all.filter(function (s) { return s.completed; }).length, skipped: all.filter(function (s) { return s.skipped || s.missed; }).length, doneOn: doneOn,
         sum: daySummary(D, { today: env.team ? '' : env.today, start: env.team ? null : start, live: live }), exercises: [] };
+      var pd = PW && (PW.days || [])[di];
       exs.forEach(function (ex, ei) {
         var sw = env.team ? null : swapOf(ex), wx = sw && typeof exAsWritten === 'function' ? exAsWritten(ex) : ex;
+        var pm = pd ? matchIn(pd, ex, ei) : -1, prevL = pm >= 0 ? exLines(pd.exercises[pm]).lines : [];
         var L = exLines(wx), anyDone = (ex.sets || []).some(function (s) { return s.completed; });
         var main = isMain(ex.lift), vr = main && wx.variant && wx.variant !== 'Competition' ? String(wx.variant) : '';
         var X = { key: String(ex.id != null ? ex.id : 'e' + ei), idx: ei, cell: wi + '.' + di + '.' + ei, title: titleOf(wx), full: typeof exTitle === 'function' ? exTitle(wx) : titleOf(wx),
@@ -343,7 +347,8 @@
           X.lines.push({ key: X.key + ':' + String(s0.id != null ? s0.id : ln.start), idx: li, start: ln.start, count: ln.count, sid: s0.id != null ? String(s0.id) : '',
             role: roleOf(L.lines, li), sets: String(ln.count), reps: g.reps != null && g.reps !== '' ? String(n2(g.reps)) : '', g: g,
             load: loadCell(g, ex, env), effort: effortCell(g), fields: fieldsCell(g, env.unit), lock: lockd,
-            lifted: env.team ? null : liftedOf(ln, env) });
+            lifted: env.team ? null : liftedOf(ln, env), prev: prevL[li] ? liftedOf(prevL[li], env) : null });
+          if (X.lines[X.lines.length - 1].prev) out.week.prevLifted = true;
         });
         day.exercises.push(X);
       });
@@ -542,6 +547,13 @@
     var before = (D.exercises || []).length;
     D.exercises = (D.exercises || []).filter(function (e) { return (e.sets || []).some(isLogged); });
     return before - D.exercises.length;
+  }
+  // The same exercise in another week's day: at its place, else the same lift, variant and name (desk.js _dkPbMatch).
+  function matchIn(day, src, ei) {
+    var same = function (e) { return !!e && e.lift === src.lift && (e.variant || '') === (src.variant || '') && String(e.exerciseName || '') === String(src.exerciseName || ''); };
+    var exs = (day && day.exercises) || [];
+    if (same(exs[ei])) return ei;
+    return exs.findIndex(same);
   }
   function planWeightOf(s) { return typeof planWeight === 'function' ? planWeight(s) : s.weight; }
   function cloneEx(ex) {
@@ -1334,14 +1346,14 @@
   }
   /* ---------- the week: one card per day ---------- */
   function weekEl(prog, aid, wi, m, env) {
-    var lifted = !!(m.week && m.week.lifted);
-    var wrap = E('div', { class: 'dp-week' + (lifted ? ' has-lifted' : '') + (isDraft(prog.weeks[wi]) ? ' is-draft' : ''), 'data-wi': String(wi) });
+    var lifted = !!(m.week && m.week.lifted), prevCol = !lifted && !!(m.week && m.week.prevLifted) ? 'Week ' + wn(prog, wi - 1) + ' lifted' : '';
+    var wrap = E('div', { class: 'dp-week' + (lifted || prevCol ? ' has-lifted' : '') + (prevCol ? ' has-prev' : '') + (isDraft(prog.weeks[wi]) ? ' is-draft' : ''), 'data-wi': String(wi) });
     if (m.week && m.week.empty) {
       var src = writeSource(prog.weeks, wi);
       wrap.appendChild(E('p', { class: 'dp-note-line' }, src >= 0 ? 'Nothing written for week ' + m.week.n + ' yet. Write week ' + m.week.n + ' copies week ' + wn(prog, src) + (draftsOn() ? ' as a draft' : '') + ', or add exercises to the days below.' : 'Nothing written for week ' + m.week.n + ' yet. Add exercises to the days below, or start from a template.'));
     }
     var days = E('div', { class: 'dp-days' });
-    m.days.forEach(function (d) { d.weekN = wn(prog, wi); days.appendChild(dayEl(prog, aid, wi, d, env, lifted)); });
+    m.days.forEach(function (d) { d.weekN = wn(prog, wi); days.appendChild(dayEl(prog, aid, wi, d, env, lifted ? 'Lifted' : prevCol)); });
     wrap.appendChild(days);
     var add = E('div', { class: 'dp-adddays' });
     add.appendChild(dkBtn('Training day', { icon: IC.plus, cls: 'is-quiet dp-tool', onClick: function () { if (!commitOpen()) return; dkPbRemember(progOf(aid), 'Add a day'); addDay(wi); } }));
@@ -1415,7 +1427,7 @@
   // The columns' names, once at the top of the day (the lines under every exercise sit on this grid).
   function colsEl(lifted) {
     var c = E('div', { class: 'dp-cols', 'aria-hidden': 'true' });
-    ['', 'Sets × reps', 'Load', 'Effort', 'Notes', lifted ? 'Lifted' : ''].forEach(function (t, i) { c.appendChild(E('span', { class: 'dp-col dp-col-' + i }, t)); });
+    ['', 'Sets × reps', 'Load', 'Effort', 'Notes', typeof lifted === 'string' ? lifted : lifted ? 'Lifted' : ''].forEach(function (t, i) { c.appendChild(E('span', { class: 'dp-col dp-col-' + i }, t)); });
     return c;
   }
   function dayMenu(aid, wi, di) {
@@ -1586,7 +1598,7 @@
     if (tags.length) { var tg = E('span', { class: 'dp-ftags', 'aria-hidden': 'true' }); tags.forEach(function (t) { tg.appendChild(E('span', { class: 'dp-ftag' }, t)); }); fc.appendChild(tg); if (tags.join(' ').length > 18) tip(fc, tags.join(' · ')); }
     row.appendChild(fc);
     wire(cf, ln);
-    row.appendChild(team ? E('div', { class: 'dp-c-lift' }) : liftedEl(ln, li === x.lines.length - 1 ? x.extras : 0));
+    row.appendChild(team ? E('div', { class: 'dp-c-lift' }) : ln.lifted || !ln.prev ? liftedEl(ln, li === x.lines.length - 1 ? x.extras : 0) : prevEl(ln.prev, d.weekN - 1));
     var canRm = x.lines.length > 1 && (team || !ln.lock);
     var rm = E('button', { type: 'button', class: 'dp-rmline', tabindex: '-1', 'aria-label': 'Remove these sets: ' + roleWord(ln.role) + ', ' + ln.sets + ' × ' + ln.reps, html: IC.x });
     if (canRm) {
@@ -1628,6 +1640,17 @@
       c.appendChild(t);
     }
     if (extras) c.appendChild(E('span', { class: 'dp-extra' }, (L ? ' · ' : '') + '+' + extras + ' extra'));
+    return c;
+  }
+  // Last week's on a week nothing's been lifted in yet: the same line, muted, its dot (how hard it went) kept.
+  function prevEl(L, n) {
+    var c = E('div', { class: 'dp-c-lift is-prev' }), tone = liftedTone(L);
+    var t = E('span', { class: 'dp-lifted t-' + tone });
+    if (tone !== 'missed') t.appendChild(E('i', { class: 'dp-gap t-' + tone, 'aria-hidden': 'true' }));
+    t.appendChild(document.createTextNode(L.text));
+    t.appendChild(E('span', { class: 'dk-nil' }, ', lifted in week ' + n + (L.gapN != null && Math.abs(L.gapN) >= 0.5 ? ', ' + (L.gapN > 0 ? n2(L.gapN) + ' RPE over' : n2(Math.abs(L.gapN)) + ' RPE under') + ' what was written' : '')));
+    tip(c, 'Week ' + n + ', the same line: ' + L.text + (L.gapN != null && Math.abs(L.gapN) >= 0.5 ? ' (' + (L.gapN > 0 ? '+' : '−') + n2(Math.abs(L.gapN)) + ' RPE on what was written)' : ''));
+    c.appendChild(t);
     return c;
   }
   // The cue: one line under the exercise, typed in place; their note from the day beside it.

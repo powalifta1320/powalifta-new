@@ -1805,9 +1805,9 @@ button.dp-tile:active { transform: scale(0.985); }
 .dp-tile-n { font-weight: var(--fw-3); color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 .dp-tile-ns { display: none; }
 /* a narrow tile says less: the phase goes to its tooltip, then "Week 2" becomes "W2" */
-@container dptile (max-width: 150px) { .dp-tile-ph { display: none; } }
-@container dptile (max-width: 134px) { .dp-tile-nl { display: none; } .dp-tile-ns { display: inline; } }
-@container dptile (max-width: 150px) { .dp-tile-gtx { display: none; } }
+@container dptile (max-width: 114px) { .dp-tile-ph { display: none; } }
+@container dptile (max-width: 104px) { .dp-tile-nl { display: none; } .dp-tile-ns { display: inline; } }
+@container dptile (max-width: 128px) { .dp-tile-gtx { display: none; } }
 .dp-tile-m { color: var(--text-3); font-weight: var(--fw-2); }
 .dp-tile-m.is-now { color: var(--dh-ink); font-weight: var(--fw-3); }
 .dp-tile-m.is-draft { color: var(--text-2); }
@@ -1972,6 +1972,8 @@ html.desk body.powa-app input.dp-day-name:focus { background: var(--bg) !importa
 .dp-gap.t-alert { background: var(--dk-alert); }
 .dp-gap.t-easy, .dp-gap.t-done { background: var(--text-3); }
 .dp-extra { color: var(--text-3); font-family: var(--font-body); font-size: var(--fs-1); }
+.dp-c-lift.is-prev { color: var(--text-3); }
+.dp-week.has-prev .dp-col-5 { color: var(--text-3); }
 .dp-rmline { width: 24px; height: 24px; color: var(--text-3); }
 .dp-rmline svg { width: 12px; height: 12px; }
 @media (hover: hover) and (pointer: fine) { .dp-line .dp-rmline { opacity: 0; } .dp-line:hover .dp-rmline, .dp-line:focus-within .dp-rmline { opacity: 1; } }
@@ -2140,6 +2142,7 @@ html.desk[data-theme="light"] .dp-pv-phone { background: #f2f2f5; }
 .dp-pv-load { font: var(--fw-2) var(--fs-1)/1 var(--font-num); color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dp-pv-load b { font: var(--fw-4) 20px/1 var(--font-num); color: var(--text); }
 .dp-pv-load i { font-style: normal; color: var(--text-3); }
+.dp-pv-load small { font-size: inherit; }
 .dp-pv-f { font: var(--fw-2) var(--fs-1)/1.2 var(--font-body); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dp-pv-rpe { min-width: 24px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--dk-fill-2); color: var(--text); font: var(--fw-4) var(--fs-1)/28px var(--font-num); text-align: center; }   /* as Train draws it: neutral */
 .dp-pv-o { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--line-2); color: var(--bg); }
@@ -2673,7 +2676,7 @@ html.desk #deskTeams.ds-split.is-empty .ds-tlist { display: none; }
 /* a team's row: its faces (three, then +N) where a lifter's face sits, its name, the block and the week, the next meet in gold */
 .dp-lrow.ds-trow { grid-template-columns: auto minmax(0, 1fr) auto; min-height: 64px; }
 .ds-faces { display: inline-flex; align-items: center; flex: none; }
-.dp-lrow.ds-trow .ds-faces .dk-av { width: 28px; height: 28px; font-size: 11px; letter-spacing: 0; box-shadow: 0 0 0 2px var(--bg); }
+.dp-lrow.ds-trow .ds-faces .dk-av { width: 28px; height: 28px; font-size: var(--fs-1); letter-spacing: -0.02em; box-shadow: 0 0 0 2px var(--bg); }
 .dp-lrow.ds-trow.is-sel .ds-faces .dk-av { box-shadow: 0 0 0 2px var(--dk-sel); }
 .ds-faces .dk-av + .dk-av { margin-left: -6px; }
 .ds-faces-n { margin-left: 6px; font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); font-variant-numeric: tabular-nums; }

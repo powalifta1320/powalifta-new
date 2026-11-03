@@ -9369,6 +9369,20 @@ test('moving an exercise to another place or day; clearing a day or a week', () 
   eq(w[0].days[0].name, 'Squat Day');
   assert(!DPg.mutate(w, { t: 'clearWeek', wi: 0 }), 'nothing left to clear: no change');
 });
+test('a week nothing\'s been lifted in yet: each line shows what the same line lifted the week before', () => {
+  const lifted = (o) => dpSet(Object.assign({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 8.5, completedAt: '2026-10-28T18:00:00Z' }, o));
+  const W1 = dpWeek(1, [dpDay('Squat Day', [dpEx('squat', [lifted(), lifted({ weight: 150, reps: 5, rpe: 7, actualRpe: 7 })]), dpEx('legs', [dpSet({ reps: 10 })], { exerciseName: 'Leg Press' })])]);
+  const W2 = dpWeek(2, [dpDay('Squat Day', [dpEx('legs', [dpSet({ reps: 10 })], { exerciseName: 'Leg Press' }), dpEx('squat', [dpSet({ weight: 182.5, reps: 3, rpe: 8 }), dpSet({ weight: 152.5, reps: 5, rpe: 7 })])])]);
+  const m = DPg.model([W1, W2], 1, dpEnv({ nowIdx: 1 }));
+  const sq = m.days[0].exercises[1];
+  eq(sq.lines[0].prev && sq.lines[0].prev.text, '180 × 3 @8.5', 'the top set, matched by lift (not by place)');
+  eq(DPg.liftedTone(sq.lines[0].prev), 'warn', 'how hard it went comes with it');
+  eq(sq.lines[1].prev && sq.lines[1].prev.text, '150 × 5 @7', 'the back-off');
+  eq(m.days[0].exercises[0].lines[0].prev, null, 'nothing lifted: nothing said');
+  assert(m.week.prevLifted, 'the week says it has some');
+  const m1 = DPg.model([W1, W2], 0, dpEnv({ nowIdx: 1 }));
+  eq(m1.days[0].exercises[0].lines[0].prev, null, 'a lifted week shows its own');
+});
 test('+ Set: one more set like the last, every prescription field with it; refused on a lifted exercise', () => {
   const w = [dpWeek(1, [dpDay('Squat Day', [dpEx('squat', [dpSet({ id: 'a', weight: 152.5, reps: 4, rpe: null, pct: 72.5, pause: 2 }), dpSet({ id: 'b', weight: 152.5, reps: 4, rpe: null, pct: 72.5, pause: 2 })], { id: 'E1' }),
     dpEx('bench', [dpSet({ id: 'c', weight: 100, reps: 5, rpe: 7, rpeHi: 8 }), dpSet({ id: 'x', weight: 90, reps: 8, extra: true })], { id: 'E2' }), dpEx('bench', [dpSet({ id: 'd', completed: true, actualRpe: 8 })], { id: 'E3' })])])];
