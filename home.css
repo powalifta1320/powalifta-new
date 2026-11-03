@@ -298,7 +298,7 @@ html.m .fw-a .fw-live { display: block; }
 .ov-foot, .ov-trf { font: 400 13px/20.8px var(--font-body); letter-spacing: -0.08px; color: #9a9aa5; }
 .ov-trf { line-height: 17.55px; }
 .ov-tr { font-size: 28px; font-weight: 800; font-stretch: 104%; letter-spacing: -0.84px; line-height: 28px; }
-.ov-row { font: 600 15px/20px var(--font-body); font-stretch: 104%; color: #c2c2cb; }
+.ov-row { font: 600 15px/20px var(--font-body); font-stretch: 104%; color: #34d982; }
 /* Two-state words: the still shows the last state; with motion the script plays the first to the last. */
 .swap { display: inline-grid; }
 .swap > * { grid-area: 1 / 1; }

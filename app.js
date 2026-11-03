@@ -18639,8 +18639,7 @@ function seedTeamDemo(store, h) {
     weeks.forEach((w, wi) => w.days.forEach((d, di) => {
       const done = trains && (wi === 0 || (aid === 'demo-d11' && wi === 1 && di === 0));
       if (!done || !d.exercises.length) return;
-      d.exercises.filter(e => !ACC.some(list => list.some(a => a[1] === e.exerciseName)))   // the lifted week: the main work, as before
-        .forEach(e => e.sets.forEach(s => Object.assign(s, { completed: true, actualRpe: s.rpe, completedAt: at(wi, di), plannedWeight: s.weight })));
+      d.exercises.forEach(e => e.sets.forEach(s => Object.assign(s, { completed: true, actualRpe: s.rpe, completedAt: at(wi, di), plannedWeight: s.weight })));
     }));
     if (aid === 'demo-d9') {   // Kofi: his own W2 squat
       weeks = teamOverrideExercise(weeks, weeks[1].days[0].exercises[0].id);
