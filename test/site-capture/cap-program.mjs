@@ -6,8 +6,9 @@
 //                     "Send the changes to Marcus".
 // The editor's crimson action is left out of the picture, its place kept (the homepage draws its own there, one crimson per
 // screen, at each label's width: the two labels' widths differ, so a quiet copy under it would show beside the narrower
-// one as the pictures cross); the day name the jump focuses is let go (no focus ring). prog.json: the editor's parts and where the page rings, lands and draws (desk px),
-// and the action's own type. -> mkimg.py program.
+// one as the pictures cross); the day name the jump focuses is let go (no focus ring).
+// prog.json: the editor's parts and where the page rings, lands and draws (desk px), and the action's own type.
+// -> mkimg.py program.
 import { writeFileSync } from 'node:fs';
 import { launch, deskCtx, patchDemo, arjunTopSet, BASE, CAP as OUT } from './lib.mjs';
 const b = await launch();
