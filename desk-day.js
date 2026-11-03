@@ -859,9 +859,11 @@
       if (!byDay[k] || Number(l.e1rmComp) > Number(byDay[k].e1rm)) byDay[k] = { lift: l.lift, date: d10(l.date), weight: Number(l.weight) || 0, reps: Number(l.reps) || 0, rpe: numOr(l.rpe), e1rm: Number(l.e1rmComp) };
     });
     var prog = r.status && r.status.program;
+    // The block started on its first date (its own, or a pin's), or the first set lifted in it if that came sooner.
+    var start = prog && typeof programStartsOn === 'function' ? programStartsOn(prog, t) : null;
+    if (prog && typeof programLoggedSets === 'function') programLoggedSets(prog).forEach(function (x) { if (isIso(x.date) && (!start || x.date < start)) start = x.date; });
     return timeline({ athleteId: aid, coachId: coachId(), today: t, since: since, notes: s.coachNotes || [], sessionNotes: s.sessionNotes || [], messages: s.messages || [],
-      formChecks: formChecks(), prs: Object.keys(byDay).map(function (k) { return byDay[k]; }), blocks: s.programBlocks || [], program: prog,
-      programStart: prog && typeof programStartsOn === 'function' ? programStartsOn(prog, t) : null });
+      formChecks: formChecks(), prs: Object.keys(byDay).map(function (k) { return byDay[k]; }), blocks: s.programBlocks || [], program: prog, programStart: start });
   }
   // The blocks for a lifter's page on the desk, in order (the Meet view's page puts the meet plan first itself).
   function lifterBlocks(r, o) {
