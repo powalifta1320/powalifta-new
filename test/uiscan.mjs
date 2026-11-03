@@ -325,6 +325,27 @@ for (const [w, h, sz] of [[1280, 720, '-1280'], [1100, 800, '-1100']]) screens.p
 screens.push({ name: 'w-teams-list-railmin', page: C, mode: 'web', deskTheme: true, eval: "if (!document.documentElement.classList.contains('rail-min')) dkToggleRail(); deskGo('teams')" },
   { name: 'w-club-desk-railmin', page: C, mode: 'web', deskTheme: true, eval: "if (!document.documentElement.classList.contains('rail-min')) dkToggleRail(); deskGo('club')" },
   { name: 'w-set-overview-railmin', page: C, mode: 'web', deskTheme: true, eval: "if (!document.documentElement.classList.contains('rail-min')) dkToggleRail(); deskGo('settings', { sec: null })" });
+// The Feedback box (feedback.js, 3 Nov), dark and light: the sheet on an idea, a problem with its details open, sending,
+// sent (the demo's "nothing is sent"), and a send that failed (the demo switched off for the eval, the send refused):
+// in the lifter app and the coach phone (the iPhone layout), and on the laptop's dialog at 1440×800.
+const FB_TEXT = "const t = document.querySelector('.fb-text'); t.value = 'The Log set button did nothing on my second set. I tapped it three times, then it logged all three at once.'; t.dispatchEvent(new Event('input'));";
+const FB = (kind, then) => "PowaFeedback.open(" + (kind ? "{ kind: '" + kind + "' }" : '') + "); new Promise((r) => setTimeout(() => { " + (then || '') + " setTimeout(() => r(true), 500); }, 500))";
+const FB_PEEK = FB_TEXT + " document.querySelector('.fb-peek').click();";
+const FB_SEND = FB_TEXT + " document.querySelector('.fb-send').click();";
+const FB_FAIL = "window._demoMode = false; DB.sendFeedback = async () => ({ ok: false, status: 500, error: 'save_failed' }); ";
+const FB_HANG = "window._demoMode = false; DB.sendFeedback = () => new Promise(() => {}); ";
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
+  for (const [page, tag] of [[A, 'a'], [C, 'c']]) screens.push(
+    { name: 'sh-fb-' + tag + '-idea' + suf, page, theme, t44: '.fb-sheet', eval: FB() },
+    { name: 'sh-fb-' + tag + '-problem' + suf, page, theme, t44: '.fb-sheet', eval: FB('problem', FB_PEEK) },
+    { name: 'sh-fb-' + tag + '-sending' + suf, page, theme, t44: '.fb-sheet', eval: FB_HANG + FB('problem', FB_SEND) },
+    { name: 'sh-fb-' + tag + '-sent' + suf, page, theme, t44: '.fb-sheet', eval: FB('idea', FB_SEND) },
+    { name: 'sh-fb-' + tag + '-error' + suf, page, theme, t44: '.fb-sheet', eval: FB_FAIL + FB('problem', FB_SEND) });
+  screens.push({ name: 'sh-fb-solo' + suf, page: SO, theme, t44: '.fb-sheet', eval: FB('problem') });
+  for (const [st, js] of [['idea', FB()], ['problem', FB('problem', FB_PEEK)], ['sending', FB_HANG + FB('problem', FB_SEND)], ['sent', FB('problem', FB_SEND)], ['error', FB_FAIL + FB('problem', FB_SEND)]])
+    screens.push({ name: 'w-fb-' + st + suf, page: C, mode: 'web', w: 1440, h: 800, theme, deskTheme: true, eval: js });
+  screens.push({ name: 'w-fb-rail' + suf, page: C, mode: 'web', w: 1440, h: 800, theme, deskTheme: true });
+}
 // Never the live services: the screens are demos and public pages, but a public page still calls Supabase (the
 // coach list, the leaderboard, join.html's invite_preview, which counts toward a rate limit) and Plausible (a
 // pageview per screen). Both are refused before they leave this machine: by name in the browser (nothing resolves)

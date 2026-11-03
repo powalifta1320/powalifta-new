@@ -5,6 +5,8 @@
    dark from the shared tokens; the amber and green take a deeper shade on light (3:1 and more on white). */
 
 .fb-sheet .fb-seg { margin: 2px 0 18px; }
+/* The phone: the two kinds are full 44 pt targets (the app's control is 34 with a hit area around it). */
+html:not(.desk) body.powa-app .fb-sheet .fb-seg button { min-height: 44px; }
 .fb-sheet .fb-label { display: block; margin: 0 4px 8px; font-size: 15px; font-weight: 600; line-height: 1.3; letter-spacing: -0.005em; text-transform: none; color: var(--text); }
 /* The title takes focus on a touch screen so VoiceOver starts there: no ring on a heading nobody tabs to. */
 .fb-sheet :is(.ui-sheet-h, .fb-done-h):focus { outline: none; }
