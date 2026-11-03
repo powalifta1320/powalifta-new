@@ -624,12 +624,10 @@
     side.appendChild(deskBoard(members, wk));
     const recs = clubRecords(members);
     if (recs) {
-      const rc = el('div', { class: 'cb-sec cb-recs' });
+      const rc = el('div', { class: 'cb-card cb-recs' });
       rc.appendChild(el('h2', { class: 'cb-h' }, 'Club records'));
-      const rcc = el('div', { class: 'cb-card' });
-      rcc.appendChild(recs);
-      rcc.appendChild(el('p', { class: 'cb-fine' }, 'Best estimated maxes, competition equivalent.'));
-      rc.appendChild(rcc);
+      rc.appendChild(recs);
+      rc.appendChild(el('p', { class: 'cb-fine' }, 'Best estimated maxes, competition equivalent.'));
       side.appendChild(rc);
     }
     const bud = buddyRow();
@@ -696,10 +694,9 @@
     const keys = DESK_BOARD.map(x => x[0]);
     if (keys.indexOf(_deskBoard) < 0) _deskBoard = keys.indexOf(_mode) >= 0 ? _mode : 'week';
     const mode = _deskBoard;
-    const box = el('div', { class: 'cb-sec cb-board' });
+    const box = el('div', { class: 'cb-card cb-board' });
     box.appendChild(el('h2', { class: 'cb-h' }, 'Board'));
-    const card = el('div', { class: 'cb-card' });
-    box.appendChild(card);
+    const card = box;
     const seg = el('div', { class: 'dk-seg cb-seg', role: 'tablist', 'aria-label': 'Rank the club by' });
     DESK_BOARD.forEach(([k, label]) => {
       const on = k === mode;
@@ -726,7 +723,8 @@
       b.appendChild(deskFace(m.displayName));
       const idd = el('span', { class: 'cb-row-id' });
       idd.appendChild(el('span', { class: 'cb-row-n' }, isMe ? 'You' : (m.displayName || 'Lifter')));
-      idd.appendChild(el('span', { class: 'cb-row-m' }, boardMeta(m, mode, wk)));
+      const meta = boardMeta(m, mode, wk);
+      idd.appendChild(el('span', { class: 'cb-row-m', title: meta }, meta));
       b.appendChild(idd);
       const bv = boardValue(m, mode, wk);
       const v = el('span', { class: 'cb-row-v' + (mode === 'improved' && /^\+/.test(bv.num) ? ' is-up' : '') }, bv.num);
@@ -738,7 +736,9 @@
     });
     card.appendChild(list);
     if (ranked.length > 5) {
-      const more = el('button', { type: 'button', class: 'cb-more' }, _deskAll ? 'Show the top 5' : 'Show all ' + ranked.length);
+      const more = el('button', { type: 'button', class: 'cb-more' }, el('span', {}, _deskAll ? 'Show the top 5' : 'See all ' + ranked.length));
+      more.insertAdjacentHTML('beforeend', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>');
+      if (_deskAll) more.classList.add('is-open');
       more.addEventListener('click', () => { _deskAll = !_deskAll; box.replaceWith(deskBoard(members, wk)); });
       card.appendChild(more);
     }

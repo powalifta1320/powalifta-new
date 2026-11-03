@@ -206,8 +206,8 @@ for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
 }
 // The desk's Settings › Plan & seats with Your coaching week (capacity.js), dark and light, with room and past 10 h.
 // The desk takes its theme from applyTheme (as w-ws-swap and the rest), not from the stored key alone.
-for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-capacity' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "localStorage.setItem('powa-desk-set', 'plan'); deskGo('settings')" },
-  { name: 'w-capacity-over' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "CoachSettings.set('capacity', { v: 2, hours: 10 }); localStorage.setItem('powa-desk-set', 'plan'); deskGo('settings')" });
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-capacity' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "deskGo('settings', { sec: 'plan' })" },
+  { name: 'w-capacity-over' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "CoachSettings.set('capacity', { v: 2, hours: 10 }); deskGo('settings', { sec: 'plan' })" });
 // The desk's Career panel (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-career-panel' + suf, page: C, mode: 'web', theme, eval: "Career.openPanel('demo-a1');document.querySelectorAll('.cv-modal .cv-more').forEach(b => b.click())" });
 // The desk's Club with the coach's challenge, its whole board, and the planner's Aim for a total, dark and light.
@@ -296,6 +296,35 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-coach-view-quiet' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster', { view: 'quiet' })" },
   { name: 'w-coach-lifters-card' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster'); setTimeout(() => dkOpenCard('notes'), 300)" },
   { name: 'w-newlifters-sheet' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster'); setTimeout(() => document.querySelector('.cl-newl').click(), 300)" });
+// The desk, v3 drop 2 (3 Nov), dark and light: Teams (list | week, each lifter's loads scrolled to, a load being changed,
+// the push preview, a coach with no team), Club (a member's, everyone on the board, a coach in no club), Settings (the
+// overview, each section in place, a brand-new coach's). Teams and Programs scroll inside their own pane, so the loads are
+// scrolled to by the eval.
+const TEAMS_AT = (js) => "deskGo('teams'); new Promise((r) => setTimeout(() => { " + (js || '') + " r(true); }, 400))";
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
+  screens.push(
+    { name: 'w-teams-list' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('teams')" },
+    { name: 'w-teams-loads' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: TEAMS_AT("const m = document.querySelector('#deskTeams .ds-main'), l = document.querySelector('.ds-loads'); if (m && l) m.scrollTop = l.offsetTop - 100;") },
+    { name: 'w-teams-chip' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: TEAMS_AT("const m = document.querySelector('#deskTeams .ds-main'), l = document.querySelector('.ds-loads'); if (m && l) m.scrollTop = l.offsetTop - 100; const c = document.querySelector('.ds-lrow .ds-lchip.lift-bench'); if (c) c.click();") },
+    { name: 'w-teams-push' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: TEAMS_AT("const b = document.querySelector('#deskTeams .dp-act .is-primary'); if (b) b.click();") },
+    { name: 'w-teams-empty' + suf, page: F, mode: 'web', theme, deskTheme: true, eval: "deskGo('teams')" },
+    { name: 'w-club-desk' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('club')" },
+    { name: 'w-club-board-all' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('club'); new Promise((r) => setTimeout(() => { const s = document.querySelectorAll('.cb-board .dk-seg-btn')[1]; if (s) s.click(); setTimeout(() => { const b = document.querySelector('.cb-board .cb-more'); if (b) b.click(); r(true); }, 200); }, 600))" },
+    { name: 'w-club-join' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "window._demoClubLeft = true; deskGo('club')" },
+    { name: 'w-set-overview' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('settings', { sec: null })" },
+    { name: 'w-set-fresh' + suf, page: F, mode: 'web', theme, deskTheme: true, eval: "deskGo('settings', { sec: null })" });
+  ['profile', 'plan', 'checkins', 'rules', 'brand', 'market', 'athletes', 'prefs', 'keys', 'help'].forEach((k) => screens.push(
+    { name: 'w-set-' + k + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('settings', { sec: '" + k + "' })" }));
+}
+// The same screens at the smaller laptop sizes and with the sidebar folded (dark).
+for (const [w, h, sz] of [[1280, 720, '-1280'], [1100, 800, '-1100']]) screens.push(
+  { name: 'w-teams-list' + sz, page: C, mode: 'web', w, h, deskTheme: true, eval: "deskGo('teams')" },
+  { name: 'w-club-desk' + sz, page: C, mode: 'web', w, h, deskTheme: true, eval: "deskGo('club')" },
+  { name: 'w-club-join' + sz, page: C, mode: 'web', w, h, deskTheme: true, eval: "window._demoClubLeft = true; deskGo('club')" },
+  { name: 'w-set-overview' + sz, page: C, mode: 'web', w, h, deskTheme: true, eval: "deskGo('settings', { sec: null })" });
+screens.push({ name: 'w-teams-list-railmin', page: C, mode: 'web', deskTheme: true, eval: "if (!document.documentElement.classList.contains('rail-min')) dkToggleRail(); deskGo('teams')" },
+  { name: 'w-club-desk-railmin', page: C, mode: 'web', deskTheme: true, eval: "if (!document.documentElement.classList.contains('rail-min')) dkToggleRail(); deskGo('club')" },
+  { name: 'w-set-overview-railmin', page: C, mode: 'web', deskTheme: true, eval: "if (!document.documentElement.classList.contains('rail-min')) dkToggleRail(); deskGo('settings', { sec: null })" });
 // Never the live services: the screens are demos and public pages, but a public page still calls Supabase (the
 // coach list, the leaderboard, join.html's invite_preview, which counts toward a rate limit) and Plausible (a
 // pageview per screen). Both are refused before they leave this machine: by name in the browser (nothing resolves)

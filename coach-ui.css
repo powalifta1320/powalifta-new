@@ -2602,14 +2602,15 @@ html.desk .cl-jr:is(.k-answer, .k-busy) { --kc: var(--cl-msg); } html.desk .cl-j
 html.desk .cl-jr:is(.k-meet, .k-meetday) { --kc: var(--cl-meet); } html.desk .cl-jr.k-write { --kc: var(--cl-write); } html.desk .cl-jr.tone-pain { --kc: var(--cl-pain); }
 html.desk .cl-jr .cl-jr-ic { flex: none; width: 28px; height: 28px; border-radius: 8px; color: var(--kc); background: color-mix(in srgb, var(--kc) 15%, transparent); }
 html.desk .cl-jr .cl-jr-ic svg { width: 16px; height: 16px; }
+/* amber and gold as a dark tint read brown: their tiles are a raised fill with the hue on the icon and a hairline */
+html.desk:not([data-theme="light"]) .cl-jr:is(.k-check, .k-meet, .k-meetday):not(.tone-pain) .cl-jr-ic { background: var(--dk-fill-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kc) 30%, transparent); }
 html.desk .cl-yl .cl-tab.on[data-tab="answer"] { --kc: var(--cl-msg); } html.desk .cl-yl .cl-tab.on[data-tab="check"] { --kc: var(--cl-down); }
 html.desk .cl-yl .cl-tab.on[data-tab="meet"] { --kc: var(--cl-meet); } html.desk .cl-yl .cl-tab.on[data-tab="write"] { --kc: var(--cl-write); }
-html.desk .cl-yl .cl-tab.on[data-tab]:not([data-tab=""]) { background: color-mix(in srgb, var(--kc) 16%, transparent); }
+html.desk .cl-yl .cl-tab.on[data-tab]:not([data-tab=""]) { background: var(--dk-seg-on); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kc) 45%, transparent); }
 html.desk .cl-yl .cl-tab.on[data-tab]:not([data-tab=""]) em { color: var(--kc); }
 /* the open lifter, and Lifters' chosen tab: the warm light, softly; the four weeks' change green when stronger, amber when weaker */
-html.desk .cl-desk .cl-row.is-sel { background: color-mix(in srgb, var(--dh, #ffd6ad) 10%, transparent); }
-@media (hover: hover) and (pointer: fine) { html.desk .cl-desk .cl-row.is-sel:hover { background: color-mix(in srgb, var(--dh, #ffd6ad) 14%, transparent); } }
-html.desk .cl-desk .cl-tab.on, html.desk .cl-yl .cl-tab.on[data-tab=""] { background: color-mix(in srgb, var(--dh, #ffd6ad) 14%, transparent); }
+html.desk .cl-desk .cl-row.is-sel { background: var(--dh-wash); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--dh-light, #ffa64d) 75%, transparent); }
+html.desk .cl-desk .cl-tab.on, html.desk .cl-yl .cl-tab.on[data-tab=""] { background: var(--dh-fill); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dh-light, #ffa64d) 40%, transparent); }
 html.desk .cl-desk .cl-tab.on em, html.desk .cl-yl .cl-tab.on[data-tab=""] em { color: var(--dh-ink, #ffcb94); }
 html.desk .cl-desk .cl-list .cl-n.t-up b { color: var(--cl-up); }
 html.desk .cl-desk .cl-list .cl-n.t-down b { color: var(--cl-down); }

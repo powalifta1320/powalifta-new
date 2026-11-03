@@ -1962,7 +1962,7 @@ html.desk #messagesArea.dk-msgs { display: grid; grid-template-columns: var(--li
 html.desk section[data-pane="you"] { overflow-y: auto; }
 html.desk section[data-pane="you"] > .dash-header { display: none; }
 html.desk #youArea.dk-set { display: block; min-height: 100vh; padding: var(--page-top) var(--gut) 72px; box-sizing: border-box; }
-.dk-set-ov { max-width: 1040px; }
+.dk-set-ov { max-width: 1240px; }
 .dk-set-ovh { margin-bottom: var(--s-5); }
 .dk-set-ovsub { margin: 6px 0 0; font-size: var(--fs-3); line-height: 1.4; color: var(--text-3); }
 .dk-set-top { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-4); }
@@ -1979,7 +1979,8 @@ button.dk-set-card:active { transform: scale(0.985); }
 .dk-set-chev { display: grid; flex: none; color: var(--text-4); transition: transform 0.16s var(--dk-ease), color 0.15s var(--dk-ease); }
 .dk-set-chev svg { width: 16px; height: 16px; }
 @media (hover: hover) and (pointer: fine) { button.dk-set-card:hover .dk-set-chev, .dk-set-open:hover .dk-set-chev { color: var(--text-2); transform: translateX(2px); } }
-.dk-set-links { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); margin: var(--s-4) calc(-1 * var(--s-2)) 0; padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.dk-set-links { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); margin: auto calc(-1 * var(--s-2)) 0; padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.dk-set-me2 > .dk-set-open, .dk-set-plan2 > .dk-set-open { margin-bottom: var(--s-4); }
 .dk-set-link { display: inline-flex; align-items: center; height: 32px; padding: 0 var(--s-2); border: 0; border-radius: var(--r-1); background: none; cursor: pointer; color: var(--text-2); font: var(--fw-3) var(--fs-3)/1 var(--font-body); text-decoration: none; transition: background-color 0.14s var(--dk-ease), color 0.14s var(--dk-ease); }
 @media (hover: hover) and (pointer: fine) { .dk-set-link:hover { background: var(--dk-hover); color: var(--text); } }
 .dk-set-me2 .dk-av.is-lg { width: 56px; height: 56px; font-size: var(--fs-5); }
@@ -2089,7 +2090,7 @@ html.desk :is(.dk-set-back, .dk-set-link, .dk-set-open, button.dk-set-card):focu
 /* the page frame: the shared rule caps single-column screens at --page-w; the club's two columns take up to 1240 */
 html.desk .dash-main > section[data-pane="club"] { --page-w: calc(1240px + 2 * var(--gut)); }
 html.desk body.powa-app section[data-pane="club"] > .dash-header { margin: 0; padding: 0; }
-html.desk body.powa-app section[data-pane="club"] > .dash-header h2 { margin: 0; font-family: var(--font-display); font-stretch: var(--display-stretch, 100%); font-size: var(--fs-7); font-weight: 800; letter-spacing: -0.025em; line-height: 1.05; text-transform: none; }
+html.desk body.powa-app section[data-pane="club"] > .dash-header h2 { margin: 0; font-family: var(--font-display); font-stretch: var(--display-stretch, 100%); font-size: var(--fs-7) !important; font-weight: 800; letter-spacing: -0.025em; line-height: 1.05; text-transform: none; }
 html.desk section[data-pane="club"] > #challengeArea:empty { display: none; }
 .cb-desk { --cb-gold: #ffbf3c; --cb-green: #34d982; --cb-silver: #c3cbd6; --cb-bronze: #d89c6c; min-width: 0; }
 html.desk[data-theme="light"] .cb-desk { --cb-gold: #8a5a00; --cb-green: #0f7d47; --cb-silver: #5d6673; --cb-bronze: #8a4f22; }
@@ -2116,24 +2117,24 @@ html.desk body.powa-app :is(.cb-h, .cb-name) { margin: 0; font-family: var(--fon
 .cb-pulse-t { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
 .cb-pulse-t > b { font-size: var(--fs-3); font-weight: var(--fw-3); line-height: 20px; color: var(--text); white-space: nowrap; }
 .cb-faces { display: inline-flex; align-items: center; }
-html.desk body.powa-app .cb-av.ui-av { width: 26px; height: 26px; font-size: 10px; letter-spacing: 0; font-weight: 700; box-shadow: 0 0 0 2px var(--dk-card); }
+html.desk body.powa-app .cb-av.ui-av { width: 26px; height: 26px; font-size: 11px; letter-spacing: 0; font-weight: 700; box-shadow: 0 0 0 2px var(--dk-card); }
 .cb-faces .cb-av + .cb-av { margin-left: -4px; }
 .cb-faces-n { margin-left: 6px; font-size: var(--fs-1); font-weight: var(--fw-3); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .cb-acts { display: flex; align-items: center; gap: var(--s-2); }
 /* two columns that fill the pane: the feed, and a column that stays in view (clubs.js deskStick keeps its foot reachable) */
 .cb-cols { display: grid; grid-template-columns: minmax(0, 1fr) clamp(300px, 34%, 420px); gap: var(--s-6); align-items: start; margin-top: var(--s-6); }
-.cb-sec { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
 .cb-feed { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
 .cb-side { position: sticky; top: 24px; display: flex; flex-direction: column; gap: var(--s-4); min-width: 0; }
 .cb-feed > .cb-h { margin-bottom: 2px; }
-.cb-more { display: flex; align-items: center; justify-content: center; width: 100%; height: 40px; margin-top: var(--s-2); border: 0; border-radius: var(--r-2); background: none; cursor: pointer;
-  color: var(--text-2); font: var(--fw-3) var(--fs-3)/1 var(--font-body); transition: background-color 0.14s var(--dk-ease), color 0.14s var(--dk-ease); }
-@media (hover: hover) and (pointer: fine) { .cb-more:hover { background: var(--dk-hover); color: var(--text); } }
+.cb-more { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 44px; margin-top: var(--s-2); padding: 0 4px; border: 0; border-radius: 0; background: none; cursor: pointer;
+  color: var(--text-2); font: var(--fw-3) var(--fs-3)/1 var(--font-body); transition: color 0.14s var(--dk-ease); }
+.cb-more svg { width: 18px; height: 18px; color: var(--text-3); transition: transform 0.2s var(--dk-ease); }
+.cb-more.is-open svg { transform: rotate(-90deg); }
+@media (hover: hover) and (pointer: fine) { .cb-more:hover { color: var(--text); } .cb-more:hover svg { transform: translateX(2px); } .cb-more.is-open:hover svg { transform: rotate(-90deg); } }
 /* a post: the card, the lifter, the lift in its colour and its numbers on the scale, the reactions as small buttons */
 html.desk .cb-desk .club-feed { display: flex; flex-direction: column; gap: var(--s-3); }
 html.desk body.powa-app .cb-desk .cp-card { padding: 20px var(--s-5); border: 1px solid var(--dk-card-edge); border-radius: var(--r-3); background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); }
 html.desk body.powa-app .cb-desk .cp-card::before { display: none; }
-html.desk body.powa-app .cb-desk .cp-card.is-pr { border-color: color-mix(in srgb, var(--cb-gold) 30%, var(--dk-card-edge)); }
 html.desk body.powa-app .cb-desk .cp-head { gap: var(--s-3); }
 html.desk body.powa-app .cb-desk .cp-av { width: 36px; height: 36px; font-size: var(--fs-1); }
 html.desk body.powa-app .cb-desk .cp-who b { font-size: var(--fs-3); font-weight: var(--fw-3); }
@@ -2183,7 +2184,7 @@ html.desk body.powa-app .cb-desk .club-buddy .btn { min-height: var(--ctl-h); he
 .cb-row { position: relative; animation: cbRise 0.32s var(--dk-ease) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
 @keyframes cbRise { from { opacity: 0.45; transform: translateY(4px); } }
 .cb-row + .cb-row::before { content: ''; position: absolute; top: 0; left: 72px; right: 8px; height: 1px; background: var(--line); }
-.cb-row-b { display: grid; grid-template-columns: 20px 28px minmax(0, 1fr) auto; align-items: center; column-gap: var(--s-3); width: 100%; min-height: 52px; padding: 6px 8px 6px 4px; border: 0; border-radius: 12px;
+.cb-row-b { display: grid; grid-template-columns: 20px 28px minmax(0, 1fr) auto; align-items: center; column-gap: var(--s-3); width: 100%; min-height: 48px; padding: 6px 8px 6px 4px; border: 0; border-radius: 12px;
   background: none; cursor: pointer; color: inherit; font: inherit; text-align: left; transition: background-color 0.14s var(--dk-ease); }
 @media (hover: hover) and (pointer: fine) { .cb-row-b:hover { background: var(--dk-hover); } }
 .cb-row-b:focus-visible, .cb-more:focus-visible, .cb-opt:focus-visible, .cb-link:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
@@ -2191,27 +2192,38 @@ html.desk body.powa-app .cb-desk .club-buddy .btn { min-height: var(--ctl-h); he
 .cb-rank { font: var(--fw-4) var(--fs-3)/1 var(--font-num); font-variant-numeric: tabular-nums; text-align: center; color: var(--text-3); }
 .cb-row.is-r1 .cb-rank { color: var(--cb-gold); } .cb-row.is-r2 .cb-rank { color: var(--cb-silver); } .cb-row.is-r3 .cb-rank { color: var(--cb-bronze); }
 .cb-row.is-me .cb-row-b { background: color-mix(in srgb, var(--cb-gold) 10%, transparent); }
-.cb-row-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.cb-row-n { font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cb-row-m { font-size: var(--fs-1); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-row-id { display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; }   /* one line: the name, then why */
+.cb-row-n { flex: 0 1 auto; font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-row-m { flex: 1 1 0; min-width: 0; font-size: var(--fs-1); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cb-row-v { font: var(--fw-4) var(--fs-3)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
 .cb-row-v small { font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); }
 .cb-row-v.is-up { color: var(--cb-green); }
-.cb-board .cb-more { border-top: 1px solid var(--line); border-radius: 0; margin-top: 2px; }
+.cb-board .cb-more { border-top: 1px solid var(--line); margin-top: 2px; }
+.cb-card > .cb-h { margin-bottom: var(--s-3); }
 /* the club's records: each lift's best, a quiet wash of its colour */
-html.desk .cb-recs .club-records { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); }
-html.desk body.powa-app .cb-recs .crec { padding: 14px; border: 0; border-radius: 14px; background: color-mix(in srgb, var(--lc, var(--cb-gold)) 9%, var(--dk-raise-2)); box-shadow: none; }
-html.desk .cb-recs .crec.lift-total { --lc: var(--cb-gold); }
-html.desk body.powa-app .cb-recs .crec-lbl { font-size: var(--fs-1); font-weight: var(--fw-3); color: var(--lc-ink, var(--lc)); }
-html.desk[data-theme="light"] .cb-recs .crec.lift-squat { --lc-ink: #0a6e9a; } html.desk[data-theme="light"] .cb-recs .crec.lift-bench { --lc-ink: #5b3fd0; } html.desk[data-theme="light"] .cb-recs .crec:is(.lift-deadlift, .lift-total) { --lc-ink: #8a5a00; }
-html.desk body.powa-app .cb-recs .crec-val { font: var(--fw-4) var(--fs-5)/1.1 var(--font-num); letter-spacing: -0.01em; }
+/* the club's records: one row a lift, its dot, who holds it, the number (the total in gold) */
+html.desk .cb-recs .club-records { display: flex; flex-direction: column; }
+html.desk body.powa-app .cb-recs .crec { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; column-gap: var(--s-3); min-height: 44px; padding: 0 4px; border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+html.desk body.powa-app .cb-recs .crec + .crec { border-top: 1px solid var(--line); }
+html.desk .cb-recs .crec.lift-squat { --lc: #38c6ff; } html.desk .cb-recs .crec.lift-bench { --lc: #a98bff; } html.desk .cb-recs .crec.lift-deadlift { --lc: #ffbf3c; } html.desk .cb-recs .crec.lift-total { --lc: var(--cb-gold); }
+html.desk[data-theme="light"] .cb-recs .crec.lift-squat { --lc: #1592c9; } html.desk[data-theme="light"] .cb-recs .crec.lift-bench { --lc: #7a5cf0; } html.desk[data-theme="light"] .cb-recs .crec.lift-deadlift { --lc: #b47f00; }
+html.desk body.powa-app .cb-recs .crec-lbl { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); }
+html.desk body.powa-app .cb-recs .crec-lbl::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--lc); }
+html.desk body.powa-app .cb-recs .crec-who { order: 2; display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-1); color: var(--text-3); }
+html.desk body.powa-app .cb-recs .crec-val { order: 3; min-width: 72px; margin: 0; text-align: right; font: var(--fw-4) var(--fs-3)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--text); }
+html.desk body.powa-app .cb-recs .crec.lift-total .crec-val { color: var(--cb-gold); }
 html.desk body.powa-app .cb-recs .crec-val small { font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); margin-left: 3px; }
-html.desk body.powa-app .cb-recs .crec-who { margin-top: 8px; font-size: var(--fs-1); color: var(--text-2); }
-html.desk body.powa-app .cb-recs .crec-av { width: 20px; height: 20px; font-size: 9px; }
+html.desk body.powa-app .cb-recs .crec-av { width: 22px; height: 22px; font-size: 11px; letter-spacing: 0; }
 /* the coach's challenge, in the side column: the card system, places 1 to 3 in their medals, the days left in gold */
-html.desk .cb-side #challengeArea .chl { margin: 0; }
+html.desk .cb-side #challengeArea .chl { margin: 0; padding: var(--s-5) var(--s-5) var(--s-3); border: 1px solid var(--dk-card-edge); border-radius: var(--r-3); background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); }
 html.desk body.powa-app .cb-side .chl-h { margin: 0 0 var(--s-3); font-family: var(--font-body); font-stretch: 100%; font-size: var(--fs-5); font-weight: var(--fw-4); line-height: 1.2; letter-spacing: -0.01em; text-transform: none; color: var(--text); }
-html.desk body.powa-app .cb-side .chl-card { padding: 20px var(--s-5) var(--s-3); border: 1px solid var(--dk-card-edge); border-radius: var(--r-3); background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); }
+html.desk body.powa-app .cb-side .chl-card { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; animation: none; }
+html.desk body.powa-app .cb-side .chl-card + .chl-card { margin-top: var(--s-4); padding-top: var(--s-4); border-top: 1px solid var(--line); }
+html.desk body.powa-app .cb-side .chl-empty { align-items: center; }
+html.desk body.powa-app .cb-side .chl-acts { margin: var(--s-3) 0 0; }
+html.desk body.powa-app .cb-side .chl-past { margin: var(--s-1) 0 0; border-top: 1px solid var(--line); }
+html.desk body.powa-app .cb-side .chl-past-btn { padding: 0 4px; }
+html.desk body.powa-app .cb-side .chl-past-list { margin-bottom: var(--s-2); border: 0; border-radius: 12px; background: var(--dk-fill); }
 html.desk body.powa-app .cb-side .chl-top { padding: 0; }
 html.desk body.powa-app .cb-side .chl-title { font-size: var(--fs-3); font-weight: var(--fw-3); }
 html.desk body.powa-app .cb-side .chl-when { font-size: var(--fs-1); color: var(--cb-gold); }
@@ -2225,9 +2237,7 @@ html.desk body.powa-app .cb-side .chl-all { min-height: 40px; font-size: var(--f
 html.desk body.powa-app .cb-side .chl-acts { margin-top: var(--s-3); }
 html.desk body.powa-app .cb-side .chl-btn { height: var(--ctl-h); padding: 0 var(--s-4); border-radius: var(--r-round); background: var(--dk-fill); font-size: var(--fs-2); font-weight: var(--fw-3); }
 @media (hover: hover) and (pointer: fine) { html.desk body.powa-app .cb-side .chl-btn:hover { background: var(--dk-fill-2); } }
-html.desk body.powa-app .cb-side .chl-past { margin-top: var(--s-2); }
 html.desk body.powa-app .cb-side .chl-past-btn { min-height: 40px; font-size: var(--fs-3); }
-html.desk body.powa-app .cb-side .chl-past-list { border-color: var(--dk-card-edge); background: var(--dk-card); }
 html.desk body.powa-app .cb-side :is(.chl-empty-main b) { font-size: var(--fs-3); }
 html.desk body.powa-app .cb-side :is(.chl-empty-main span) { font-size: var(--fs-3); color: var(--text-3); }
 /* the club's own links and the fine print, under the side column */
@@ -2257,7 +2267,8 @@ html.desk body.powa-app .cb-dir .club-dir-row { min-height: 64px; padding: 10px 
 html.desk body.powa-app .cb-dir .ui-row-title { font-size: var(--fs-3); font-weight: var(--fw-3); }
 html.desk body.powa-app .cb-dir .ui-row-sub { font-size: var(--fs-1); }
 html.desk body.powa-app .cb-dir .cd-crest { width: 40px; height: 40px; border-radius: 12px; font-size: var(--fs-1); }
-html.desk body.powa-app .cb-dir .btn { min-height: var(--ctl-h); height: var(--ctl-h); padding: 0 var(--s-4); border-radius: var(--r-round); font-size: var(--fs-2); }
+html.desk body.powa-app .cb-dir :is(.btn, .cd-act) { min-height: var(--ctl-h); height: var(--ctl-h); padding: 0 var(--s-4); border-radius: var(--r-round); font-size: var(--fs-2); }
+html.desk body.powa-app .cb-dir .club-priv { font-size: var(--fs-1); }
 @media (max-width: 1180px) { .cb-head { grid-template-columns: minmax(0, 1fr) auto; } .cb-pulse { grid-column: 1 / -1; grid-row: 2; padding: var(--s-4) 0 0; border-left: 0; border-top: 1px solid var(--line); } .cb-three { gap: var(--s-3); } .cb-opt { padding: 20px; } }
 @media (prefers-reduced-motion: reduce) { .cb-row { animation: none; } .cb-opt:active { transform: none; } }
 
@@ -2357,6 +2368,9 @@ html.desk body.powa-app .ds-sec-title { margin: 0; font-family: var(--font-body)
    same sticky head as Programs (the name 28, one quiet line, the tools, the weeks and the one crimson). Four sizes on the
    screen: 28 the team's name, 17 days, exercises and "Each lifter's loads", 15 body, names and loads, 13 captions. */
 html.desk #deskTeams.ds-split { --list-w: 360px; display: grid; grid-template-columns: var(--list-w) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100vh; max-width: none; padding: 0; }
+/* no team yet: the empty page takes the whole pane (a list column with nothing in it reads unfinished) */
+html.desk #deskTeams.ds-split.is-empty { grid-template-columns: minmax(0, 1fr); }
+html.desk #deskTeams.ds-split.is-empty .ds-tlist { display: none; }
 @media (max-width: 1360px) { html.desk #deskTeams.ds-split { --list-w: 300px; } }
 @media (max-width: 1180px) { html.desk #deskTeams.ds-split { --list-w: 264px; } }
 .ds-tlist { min-height: 0; }
@@ -2391,22 +2405,26 @@ html.desk body.powa-app .ds-loads .ds-sec-title { font-size: var(--dp-17); font-
 .ds-lcard.is-empty { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); padding: var(--s-5); }
 .ds-lcard.is-empty p { display: flex; flex-direction: column; gap: 2px; margin: 0; font-size: var(--fs-3); color: var(--text-3); }
 .ds-lcard.is-empty b { font-weight: var(--fw-3); color: var(--text); }
-.ds-lrow { position: relative; display: grid; grid-template-columns: minmax(140px, 200px) minmax(0, 1fr) 76px; align-items: center; gap: var(--s-4); min-height: 60px; padding: var(--s-2) var(--s-3) var(--s-2) var(--s-5); }
+.ds-lrow { position: relative; display: grid; grid-template-columns: minmax(120px, 170px) minmax(0, 1fr) 32px; align-items: center; gap: var(--s-4); min-height: 60px; padding: var(--s-2) var(--s-3) var(--s-2) var(--s-5); }
 .ds-lrow + .ds-lrow::before { content: ''; position: absolute; top: 0; left: var(--s-5); right: var(--s-5); height: 1px; background: var(--line); }
 .ds-lwho { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
 .ds-lwho .dk-av { width: 32px; height: 32px; font-size: var(--fs-1); }
 .ds-lname { min-width: 0; padding: 0; border: 0; border-radius: var(--r-1); background: none; cursor: pointer; color: var(--text); font: var(--fw-3) var(--fs-3)/1.25 var(--font-body); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (hover: hover) and (pointer: fine) { .ds-lname:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); } }
 .ds-lchips { display: grid; grid-template-columns: repeat(var(--ds-n, 3), minmax(0, 1fr)); gap: var(--s-2); min-width: 0; }
-.ds-lchip { display: flex; align-items: center; gap: 6px; min-width: 0; height: 40px; padding: 0 var(--s-3); box-sizing: border-box; border: 0; border-radius: var(--r-2); background: var(--dk-fill); cursor: pointer; color: var(--text); font: inherit; text-align: left;
+.ds-lchip { display: flex; align-items: center; gap: 6px; min-width: 0; height: 40px; padding: 0 10px; box-sizing: border-box; border: 0; border-radius: var(--r-2); background: var(--dk-fill); cursor: pointer; color: var(--text); font: inherit; text-align: left;
   transition: background-color 0.14s var(--dk-ease), transform 0.16s var(--dk-ease); }
 @media (hover: hover) and (pointer: fine) { .ds-lchip:not(.is-nomax):hover { background: var(--dk-fill-2); } }
 .ds-lchip:not(.is-nomax):active { transform: scale(0.98); }
 .ds-lchip .dk-lift-dot { width: 7px; height: 7px; }
 .ds-lchip-l { flex: 1 1 auto; min-width: 0; font-size: var(--fs-1); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.01em; }
-.ds-lchip-v { flex: none; font: var(--fw-3) var(--fs-3)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+.ds-lchip-v { flex: none; margin-left: auto; text-align: right; font: var(--fw-3) var(--fs-3)/1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+/* the marks (yours, lifted) sit in one fixed slot after the number, so every number lines up */
+.ds-lchip::after { content: ''; flex: none; width: 14px; }
+.ds-lchip:has(.ds-lchip-own, .ds-lchip-ok)::after { display: none; }
+.ds-lchip-own, .ds-lchip-ok { order: 9; }
 .ds-lchip-v small { font: var(--fw-1) var(--fs-1)/1 var(--font-body); color: var(--text-3); }
-.ds-lchip-own { flex: none; width: 6px; height: 6px; border-radius: var(--r-round); background: var(--text-2); }
+.ds-lchip-own { flex: none; width: 6px; height: 6px; margin: 0 4px; border-radius: var(--r-round); background: var(--text-2); }
 .ds-lchip-ok { display: grid; flex: none; color: var(--dk-ok); }
 .ds-lchip-ok svg { width: 14px; height: 14px; }
 .ds-lchip.is-over .ds-lchip-v { color: var(--dk-warn); }
@@ -2419,7 +2437,10 @@ html.desk body.powa-app input.ds-lchip-in { flex: none; width: 64px; height: 28p
 .ds-lend { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-width: 0; }
 @media (hover: hover) and (pointer: fine) { .ds-lrow:not(:hover):not(:focus-within) .ds-lend .dk-icon-btn:not([aria-expanded="true"]) { opacity: 0.4; } }
 /* a narrow centre: the lift's name steps aside for its dot (the tooltip and the screen reader keep it) */
-@container dsteam (max-width: 700px) { .ds-lchip-l { display: none; } .ds-lchip { justify-content: space-between; } .ds-lrow { grid-template-columns: minmax(120px, 160px) minmax(0, 1fr) 76px; } }
+@container dsteam (max-width: 760px) { .ds-lchip-l { display: none; } .ds-lrow { grid-template-columns: minmax(110px, 150px) minmax(0, 1fr) 32px; } }
+/* a lifter carrying your loads: their ⋯ (where Reset to the team is) wears a small ink dot */
+.ds-lend .dk-icon-btn.has-own { position: relative; opacity: 1; }
+.ds-lend .dk-icon-btn.has-own::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--text-2); }
 
 /* ---------- the push preview ---------- */
 .dk-modal.ds-pv { width: min(640px, 100%); max-height: calc(100vh - 2 * var(--s-6)); display: flex; flex-direction: column; }
@@ -2705,7 +2726,8 @@ html.desk body.powa-app :is(.dk-btn, .cl-btn, .cl-sbtn, .md-btn, .btn, .cl-quiet
    warm light (never red paint); Programs and Teams cyan; Meets and Club gold; Messages and Clients green; Settings
    violet (desk.js dkPaintHue sets body[data-dhue]). A main lift wears its colour where it's named; a real change is
    coloured (stronger green, weaker amber); neutral numbers stay ink. Red stays the logo and the one crimson; pain coral
-   is a status. Text on a tint keeps 4.5:1: --dh-ink is the hue a step lighter (dark) or deeper (light).
+   is a status. Text on a tint keeps 4.5:1: --dh-ink is the hue a step lighter (dark) or deeper (light). Gold and warm are
+   never a dark tint (brown): a raised fill with a hairline of the hue instead.
    ===================================================================== */
 /* --dh: the hue for washes and tints; --dh-light: the light at the top of the page; --dh-ink: the hue as text. Warm is a
    cream for what's chosen (an amber wash reads as brown on the dark) and an amber light at the top. */
@@ -2721,11 +2743,12 @@ html.desk[data-theme="light"] body.powa-app[data-dhue="green"] { --dh: #16a05c; 
 html.desk[data-theme="light"] body.powa-app[data-dhue="violet"] { --dh: #7a5cf0; --dh-light: #7a5cf0; --dh-ink: #5a3ecf; }
 
 /* 1. the light at the top of a page: the hue, faint, under the content; it scrolls away with the page's top */
-html.desk :is(#programArea, #deskTeams .ds-main, #youArea, #clPage, #clientsArea, .dash-main > section[data-pane="club"]) { position: relative; isolation: isolate; }
-html.desk :is(#programArea, #deskTeams .ds-main, #youArea, #clPage, #clientsArea, .dash-main > section[data-pane="club"])::before {
+html.desk :is(#programArea, #deskTeams .ds-main, #youArea, #clPage, #clientsArea, .dash-main > section[data-pane="club"], #messagesArea .dk-msg-list) { position: relative; isolation: isolate; }
+html.desk .cl-today { position: relative; isolation: isolate; }
+html.desk :is(#programArea, #deskTeams .ds-main, #youArea, #clPage, #clientsArea, .dash-main > section[data-pane="club"], #messagesArea .dk-msg-list)::before {
   content: ''; position: absolute; left: 0; right: 0; top: 0; height: 380px; z-index: -1; pointer-events: none;
   background: radial-gradient(64% 100% at 26% 0%, color-mix(in srgb, var(--dh-light) 11%, transparent), transparent 74%); }
-html.desk[data-theme="light"] :is(#programArea, #deskTeams .ds-main, #youArea, #clPage, #clientsArea, .dash-main > section[data-pane="club"])::before {
+html.desk[data-theme="light"] :is(#programArea, #deskTeams .ds-main, #youArea, #clPage, #clientsArea, .dash-main > section[data-pane="club"], #messagesArea .dk-msg-list)::before {
   background: radial-gradient(64% 100% at 26% 0%, color-mix(in srgb, var(--dh-light) 6%, transparent), transparent 74%); }
 /* the sticky weeks (Programs, Teams) let that light through until the week scrolls under them */
 html.desk .dp-head-b { background: transparent; }
@@ -2733,29 +2756,39 @@ html.desk .dp-head-b.is-stuck { background: color-mix(in srgb, var(--bg) 90%, tr
 
 /* 2. what's open and what's chosen: the hue, softly. A list's open row a wash; a chosen tab or week a tint with a hairline
    of the hue; "Now" in the hue's ink. */
-html.desk .dp-lrow.is-sel { background: color-mix(in srgb, var(--dh) 13%, transparent); }
-html.desk .dp-lrow.ds-trow.is-sel .ds-faces .dk-av { box-shadow: 0 0 0 2px color-mix(in srgb, var(--dh) 13%, var(--bg)); }
-@media (hover: hover) and (pointer: fine) { html.desk .dp-lrow.is-sel:hover { background: color-mix(in srgb, var(--dh) 17%, transparent); } }
-html.desk :is(.dp-tab.on, .dp-wk.is-sel) { background: color-mix(in srgb, var(--dh) 20%, var(--bg-2)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dh) 32%, transparent); }
-html.desk[data-theme="light"] :is(.dp-tab.on, .dp-wk.is-sel) { background: color-mix(in srgb, var(--dh) 13%, #fff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dh) 34%, transparent); }
+html.desk .dp-lrow.is-sel { background: var(--dh-wash); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--dh) 70%, transparent); }
+html.desk .dp-lrow.ds-trow.is-sel .ds-faces .dk-av { box-shadow: 0 0 0 2px var(--bg-2); }
+/* --dh-fill: a chosen thing's fill. Cyan, green and violet as a soft tint; warm and gold as the raised segment with a
+   hairline of the hue (gold or amber at low alpha on the dark reads brown, never rich). */
+html.desk body.powa-app { --dh-fill: var(--dk-seg-on); --dh-wash: color-mix(in srgb, var(--text) 7%, transparent); }
+html.desk body.powa-app:is([data-dhue="cyan"], [data-dhue="green"], [data-dhue="violet"]) { --dh-fill: color-mix(in srgb, var(--dh) 20%, var(--bg-2)); --dh-wash: color-mix(in srgb, var(--dh) 13%, transparent); }
+html.desk[data-theme="light"] body.powa-app:is([data-dhue="cyan"], [data-dhue="green"], [data-dhue="violet"]) { --dh-fill: color-mix(in srgb, var(--dh) 13%, #fff); --dh-wash: color-mix(in srgb, var(--dh) 10%, transparent); }
+html.desk :is(.dp-tab.on, .dp-wk.is-sel) { background: var(--dh-fill); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dh) 36%, transparent); }
 html.desk .dp-tab.on .dp-tab-n { color: var(--dh-ink); }
 html.desk .dp-wk.is-now .dp-wk-m { color: var(--dh-ink); font-weight: var(--fw-3); }
-html.desk #messagesArea .dk-msg-row.is-sel { background: color-mix(in srgb, var(--dh) 12%, transparent); }
-html.desk #messagesArea .dk-tab.on { background: color-mix(in srgb, var(--dh) 16%, transparent); }
+html.desk #messagesArea .dk-msg-row.is-sel { background: var(--dh-wash); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--dh) 70%, transparent); }
+html.desk #messagesArea .dk-tab.on { background: var(--dh-fill); }
 html.desk #messagesArea .dk-tab.on .dk-tab-n { color: var(--dh-ink); }
-html.desk .cb-desk .cb-seg .dk-seg-btn.on { background: color-mix(in srgb, var(--dh) 20%, var(--bg-2)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dh) 32%, transparent); }
-html.desk[data-theme="light"] .cb-desk .cb-seg .dk-seg-btn.on { background: color-mix(in srgb, var(--dh) 13%, #fff); }
+html.desk .cb-desk .cb-seg .dk-seg-btn.on { background: var(--dh-fill); color: var(--text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dh) 40%, transparent); }
 
-/* 3. a main lift wears its colour where it's named: a thin rule down its block in Programs and Teams (accessories stay ink),
-   and Teams' load chips carry their lift's tint */
-html.desk .dp-ex { position: relative; }
-html.desk .dp-ex:is(.lift-squat, .lift-bench, .lift-deadlift)::before { content: ''; position: absolute; left: -13px; top: 9px; bottom: 9px; width: 3px; border-radius: 3px; background: var(--lc); }
-html.desk[data-theme="light"] .dp-ex.lift-squat { --lc: #1592c9; } html.desk[data-theme="light"] .dp-ex.lift-bench { --lc: #7a5cf0; } html.desk[data-theme="light"] .dp-ex.lift-deadlift { --lc: #b47f00; }
-html.desk .ds-lchip:is(.lift-squat, .lift-bench, .lift-deadlift):not(.is-nomax) { background: color-mix(in srgb, var(--lc) 11%, var(--dk-fill)); }
-@media (hover: hover) and (pointer: fine) { html.desk .ds-lchip:is(.lift-squat, .lift-bench, .lift-deadlift):not(.is-nomax):hover { background: color-mix(in srgb, var(--lc) 18%, var(--dk-fill)); } }
+/* 3. a main lift wears its colour where it's named: its name in Programs and Teams (accessories stay ink); Teams' load
+   chips carry their lift's dot */
+html.desk .dp-ex:is(.lift-squat, .lift-bench, .lift-deadlift) .dp-exn { color: var(--lc-ink, var(--lc)); }
+html.desk[data-theme="light"] .dp-ex.lift-squat { --lc-ink: #0a6e9a; } html.desk[data-theme="light"] .dp-ex.lift-bench { --lc-ink: #5b3fd0; } html.desk[data-theme="light"] .dp-ex.lift-deadlift { --lc-ink: #8a5a00; }
+/* (Teams' load chips stay neutral: the lift's dot carries its colour, the number stays ink.) */
 
 /* 4. a team block's shape under its weeks: build cyan, heavy violet, peak gold, a deload grey (app.js teamWeekPhases) */
 html.desk #deskTeams .dp-wk { position: relative; }
 html.desk #deskTeams .dp-wk.ph-build { --ph: var(--ph-build); } html.desk #deskTeams .dp-wk.ph-heavy { --ph: var(--ph-heavy); }
 html.desk #deskTeams .dp-wk.ph-peak { --ph: var(--ph-peak); } html.desk #deskTeams .dp-wk.ph-deload { --ph: var(--ph-deload); }
 html.desk #deskTeams .dp-wk[class*="ph-"]::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 3px; height: 3px; border-radius: 2px; background: var(--ph); }
+
+/* 5. the screen you're on, in the rail: its icon in the screen's hue */
+html.desk .dk-rail .dk-item.on > svg { color: var(--dh-ink); }
+/* 6. Messages: your own words on a soft green, theirs on the graphite */
+html.desk:not([data-theme="light"]) body.powa-app .dk-thread .msg-row.mine .msg-bubble { background: color-mix(in srgb, #34d982 16%, var(--bg-2)); }
+/* 7. gold as a dark tint reads brown: the gold tiles and the club's crest are a raised fill with the gold on the glyph */
+html.desk:not([data-theme="light"]) :is(.dk-set-tile.is-gold, .cb-tile.is-gold) { background: var(--dk-fill-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tc) 30%, transparent); }
+html.desk:not([data-theme="light"]) .cb-crest { background: var(--dk-fill-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cb-gold) 40%, transparent); }
+html.desk:not([data-theme="light"]) body.powa-app .cb-desk .club-spot { background: var(--dk-card); border-color: color-mix(in srgb, var(--cb-gold) 34%, var(--dk-card-edge)); }
+html.desk:not([data-theme="light"]) body.powa-app .cb-desk .club-spot .cs-ic { background: var(--dk-fill-2); }

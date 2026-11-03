@@ -27,7 +27,8 @@ var _ds = { team: null, wk: null, cal: 0, focusBar: null, last: {}, moving: {}, 
 try { _ds.names = JSON.parse(localStorage.getItem('powa-ds-names') || '{}') || {}; } catch (e) { _ds.names = {}; }
 var DS_IC = {
   cal: _dkSvg('<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M7 14.5h6" stroke-width="2.6"/>'),
-  team: _dkSvg('<circle cx="8" cy="8.5" r="2.6"/><circle cx="16" cy="8.5" r="2.6"/><path d="M3.5 19a4.5 4.5 0 0 1 9 0M11.5 19a4.5 4.5 0 0 1 9 0"/>'),
+  // A group of three, one in front (Lifters is two people side by side).
+  team: _dkSvg('<circle cx="12" cy="7.5" r="3"/><path d="M6.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="5" cy="9.5" r="2.2"/><circle cx="19" cy="9.5" r="2.2"/><path d="M2 18.5a3.5 3.5 0 0 1 4.2-3.4M22 18.5a3.5 3.5 0 0 0-4.2-3.4"/>'),
   push: _dkSvg('<path d="M12 19V6"/><path d="M6.5 11.5 12 6l5.5 5.5"/><path d="M5 4h14"/>'),
   meetPlus: _dkSvg('<path d="M5 21V4M5 4h10l-2 4 2 4H5"/><path d="M18 15v6M15 18h6"/>'),
   flag: _dkSvg('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>')
@@ -135,6 +136,7 @@ function dsRenderTeams() {
   var keepScroll = oldMain ? oldMain.scrollTop : 0, keepList = oldList ? oldList.scrollTop : 0;
   host.innerHTML = '';
   host.classList.add('ds-split');
+  host.classList.toggle('is-empty', !teams.length);
   var team = teams.find(function (t) { return t.id === _ds.team; }) || teams[0] || null;
   if (team && _ds.team !== team.id) { _ds.team = team.id; _ds.wk = null; }
   var list = el('aside', { class: 'dk-list dp-list ds-tlist', 'aria-label': 'Teams' });
@@ -411,20 +413,18 @@ function dsLoadRows(team, members, W, wi) {
     var prog = mb.program && isTeamLinked(mb.program) ? mb.program : null;
     var own = 0;
     if (prog) _tmWalkEx(prog.weeks, function (x) { if (_tmExClaimed(x)) own++; });
-    if (own) {
-      var rs = dkBtn('Reset', { cls: 'is-quiet dk-btn-sm', onClick: function () { dsResetMember(team, mb); } });
-      dkTip(rs, first + ' has ' + own + (own === 1 ? ' change' : ' changes') + ' of yours: back to the team’s. Sets they lifted stay');
-      end.appendChild(rs);
-    }
-    var mb2 = dkIconBtn(DK_IC.more, 'More for ' + row.name, function (e) {
+    // Their own loads (yours) show as a dot on the chip; going back to the team's lives in ⋯ (a rare step, kept quiet).
+    var mb2 = dkIconBtn(DK_IC.more, 'More for ' + row.name + (own ? ', ' + own + (own === 1 ? ' change' : ' changes') + ' of yours' : ''), function (e) {
       e.stopPropagation();
       dkPopMenu(mb2, [
         { label: 'Open ' + first + '’s page', run: function () { openAthletePage(row.athleteId); } },
         { label: 'Open their program', run: function () { openAthleteProgram(row.athleteId); } },
+        own ? { label: 'Reset to the team', hint: own + (own === 1 ? ' change' : ' changes') + ' of yours · lifted sets stay', run: function () { dsResetMember(team, mb); } } : null,
         '-',
         { label: 'Remove from ' + (team.name || 'the team'), hint: 'Their program stays theirs', danger: true, run: function () { dsRemoveMember(team, row.athleteId, row.name); } }
-      ], { alignRight: true });
+      ].filter(Boolean), { alignRight: true });
     });
+    if (own) mb2.classList.add('has-own');
     end.appendChild(mb2);
     li.appendChild(end);
     card.appendChild(li);
