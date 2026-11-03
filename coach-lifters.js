@@ -1098,11 +1098,14 @@
     o.noMeet = !!(B && B.meet);
     // The laptop's Meet view: the meet first (its countdown, the weight against the class, the attempts).
     if (o.desk && o.view === 'meet' && r.meet && r.meet.days <= 112) html += B && B.meet ? B.meet : meetCardHtml(r, rz(1));
+    // The Pain view: their readiness and every pain report next, under the pain card.
+    var painFirst = !!(B && B.readiness && o.view === 'pain');
+    if (painFirst) html += B.readiness;
     // Nothing logged at all: one clear card instead of a page of dashes.
     var anyLog = D.total || D.lifts.some(function (L) { return L.e1 > 0; }) || D.weeks.some(function (x) { return x.done > 0; }) || D.bw.length;
     if (!anyLog) {
       html += '<div class="cl-empty' + rz(2) + '"><span class="cl-tic">' + ic('cal') + '</span><div><b>Nothing logged yet</b><p>Once ' + esc(first(a.name)) + ' logs a session, their total, the three lifts, training and bodyweight show here.</p>' + deskCareerBtn(a, o) + '</div></div>';
-      if (B) html += B.week + (o.view === 'meet' ? '' : B.meet) + B.readiness + B.history;
+      if (B) html += B.week + (o.view === 'meet' ? '' : B.meet) + (painFirst ? '' : B.readiness) + B.history;
       else if (D.words) html += '<div class="cl-words' + rz(3) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
       // The business side and their intake (clients-ui.js): a new lifter's About matters most here.
       if (window.ClientsUI) html += ClientsUI.sectionHtml(a.id, { phone: !!o.phone, rise: o.rise ? 4 : null });
@@ -1111,7 +1114,7 @@
     }
     html += chartsHtml(r, D, o);
     // The laptop: the week, the meet plan, readiness and pain, then one timeline (their words are its newest lines).
-    if (B) html += B.week + (o.view === 'meet' ? '' : B.meet) + B.readiness + B.history;
+    if (B) html += B.week + (o.view === 'meet' ? '' : B.meet) + (painFirst ? '' : B.readiness) + B.history;
     // Their words.
     else if (D.words) html += '<div class="cl-words' + rz(5) + '"><span class="cl-wq">“' + esc(clip(D.words.text, 220)) + '”</span><span class="cl-wm">' + esc(whenText(D.words.when)) + ' · ' + (D.words.kind === 'note' ? 'session note' : 'message') + ' · <button type="button" class="cl-link" data-reply>Reply</button></span></div>';
     // The phone: the week's note, drafted from what's above (weekly-note.js).

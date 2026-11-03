@@ -625,7 +625,7 @@
         '<div class="dd-win-h"><span class="dd-lt" aria-hidden="true">' + esc(LIFT[w.lift].charAt(0)) + '</span><b>' + esc(LIFT[w.lift]) + ' PR</b><span class="dd-when">' + esc(whenText(w.date)) + '</span></div>' +
         '<div class="dd-win-n"><b>' + esc(wt(w.weight)) + '</b><span>' + esc(unit()) + ' × ' + w.reps + '</span>' + rpe + '</div>' +
         '<p class="dd-win-m">e1RM ' + Math.round(kgShow(w.e1rm)) + ' ' + esc(unit()) + (w.delta != null && w.delta > 0 ? ' · <span class="dd-up">+' + esc(n2(kgShow(w.delta))) + ' ' + esc(unit()) + '</span>' : '') + '</p>' +
-        '<div class="dd-win-f">' + face(w.r, { full: true }) +
+        '<div class="dd-win-f">' + face(w.r, { title: a.name }) +
           (done ? '<span class="dd-sent" role="status">' + ic('check', 2.4) + 'Sent</span>' : '<button type="button" class="cl-sbtn dd-nice" data-dd-nice="' + esc(key) + '" aria-label="' + esc('Send ' + first(a.name) + ' a nice lift for the ' + LIFT[w.lift].toLowerCase() + ' PR') + '">Nice lift</button>') + '</div></div>';
     }).join('');
     var who = {}; W.forEach(function (w) { who[w.r.athlete.id] = 1; });
@@ -698,6 +698,13 @@
     return '<div class="dd-card dd-wk' + (o.rise || '') + '">' + head + '<div class="dd-ses n' + Math.min(W.days.length, 6) + '">' + cols + '</div>' +
       (W.note ? '<p class="dd-foot">' + esc(W.note) + '</p>' : '') + '</div>';
   }
+  // The bodyweight trend's verdict for the class (app.js meetWeighLine), in words, then when they last weighed in.
+  function verdictText(P) {
+    var ml = P.bw && P.bw.line, c = P.clsKg ? n2(P.clsKg) : '';
+    if (!ml || !ml.verdict) return '';
+    return ml.verdict === 'on weight' ? 'On weight' : ml.verdict === 'on pace' ? 'On pace for the ' + c : ml.verdict === 'hold' ? 'Hold this weight' : ml.verdict === 'behind' ? 'Behind the pace for the ' + c
+      : ml.parts && ml.parts[2] ? cap(ml.parts[2]) : '';
+  }
   function bwSparkSvg(P) {
     var pts = (P.bw && P.bw.pts) || [];
     if (pts.length < 2) return '';
@@ -724,7 +731,7 @@
     }).join('');
     var bw = P.bw ? '<div class="dd-mp-col dd-mp-bw"><span class="dd-mp-k">' + esc(P.cls ? P.cls + ' class' : 'Bodyweight') + '</span>' +
       '<span class="dd-mp-v"><b>' + esc(n2(kgShow(P.bw.last))) + '</b><span>' + esc(unit()) + '</span>' + (P.bw.over != null ? '<span class="dd-mp-o' + (P.bw.over > 0 ? ' is-over' : ' is-ok') + '"><i aria-hidden="true"></i>' + esc(P.bw.over > 0 ? n2(kgShow(P.bw.over)) + ' ' + unit() + ' over' : P.bw.over === 0 ? 'on the limit' : n2(kgShow(-P.bw.over)) + ' ' + unit() + ' under') + '</span>' : '') + '</span>' +
-      bwSparkSvg(P) + '<span class="dd-mp-s">' + esc(P.bw.line && P.bw.line.parts && P.bw.line.parts[2] ? cap(P.bw.line.parts[2]) + ' · weighed ' + whenText(P.bw.date).toLowerCase() : 'Weighed ' + whenText(P.bw.date).toLowerCase()) + '</span></div>'
+      bwSparkSvg(P) + '<span class="dd-mp-s' + (P.bw.line && P.bw.line.warn ? ' is-behind' : '') + '">' + esc(verdictText(P) ? verdictText(P) + ' · weighed ' + whenText(P.bw.date).toLowerCase() : 'Weighed ' + whenText(P.bw.date).toLowerCase()) + '</span></div>'
       : '<div class="dd-mp-col dd-mp-bw"><span class="dd-mp-k">' + esc(P.cls ? P.cls + ' class' : 'Bodyweight') + '</span><span class="dd-none">No weigh-in yet</span></div>';
     var proj = P.proj ? '<div class="dd-mp-col dd-mp-proj"><span class="dd-mp-k">Total at today’s e1RMs</span><span class="dd-mp-v"><b>' + Math.round(kgShow(P.proj.total)) + '</b><span>' + esc(unit()) + '</span></span>' +
       (P.proj.points ? '<span class="dd-mp-s"><b>' + esc(n2(P.proj.points)) + '</b> ' + esc(P.proj.label) + (P.proj.bw ? ' at ' + esc(n2(kgShow(P.proj.bw))) + ' ' + esc(unit()) : '') + '</span>' : '') +
@@ -779,7 +786,7 @@
     o = o || {};
     var f = o.filter || null, list = f ? items.filter(function (x) { return x.filter === f; }) : items;
     var cap = o.all ? list.length : 8, shown = list.slice(0, cap), more = list.length - shown.length;
-    var chips = '<div class="cl-tabs dd-chips" role="tablist" aria-label="Show">' + timelineChips(items).map(function (c) {
+    var chips = !items.length ? '' : '<div class="cl-tabs dd-chips" role="tablist" aria-label="Show">' + timelineChips(items).map(function (c) {
       var on = (c.key || null) === f;
       return '<button type="button" class="cl-tab' + (on ? ' on' : '') + '" role="tab" aria-selected="' + on + '" tabindex="' + (on ? '0' : '-1') + '" data-dd-tl="' + esc(c.key || '') + '"><span>' + esc(c.label) + '</span><em>' + c.n + '</em></button>';
     }).join('') + '</div>';
@@ -803,11 +810,12 @@
     var start = env.starts && env.starts[wi] ? env.starts[wi] : null, t = todayIso();
     var cur = start ? (t >= start && t < addDays(start, 7) ? 'this' : t >= addDays(start, 7) ? 'past' : 'next') : null;
     var behind = cur === 'past' && env.nowIdx > wi ? env.nowIdx - wi : 0;
-    var meta = [prog.name ? clip(prog.name, 30) : '', start ? dayMonth(start) + ' to ' + dayMonth(addDays(start, 6)) : '', behind ? (behind === 1 ? 'a week behind the dates' : behind + ' weeks behind the dates') : ''].filter(Boolean).join(' · ');
+    // The days carry their own dates (lifted, or pinned); the head says the block and whether they're behind its dates.
+    var meta = [prog.name ? clip(prog.name, 30) : '', behind ? (behind === 1 ? 'a week behind the dates' : behind + ' weeks behind the dates') : ''].filter(Boolean).join(' · ');
     var missed = days.filter(function (d) { return d.status === 'missed'; }).map(function (d) { return d.name; });
     var note = !missed.length ? '' : (missed.length === 1 ? missed[0] + ' wasn’t lifted' : missed.join(' and ') + ' weren’t lifted') + (cur === 'past' ? ' in its week' : '') +
       (behind ? (missed.length === 1 ? '. It’s still next on their Train.' : '. They’re still next on their Train.') : '.');
-    return { wi: wi, title: (cur === 'this' ? 'This week · ' : '') + 'Week ' + (Number(prog.weeks[wi].number) || wi + 1) + ' of ' + prog.weeks.length, meta: meta, days: days, note: note };
+    return { wi: wi, title: 'Week ' + (Number(prog.weeks[wi].number) || wi + 1) + ' of ' + prog.weeks.length, meta: meta, days: days, note: note };
   }
   function meetModel(r, D) {
     if (!r.meet || r.meet.days > 112 || r.meet.days < 0) return null;

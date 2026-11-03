@@ -6,7 +6,7 @@
    under reduced motion. */
 
 /* ---------------------------------------------------------------- Today: the blocks between Do first and Your team */
-html.desk .cl-today > .dd-day { display: flex; flex-direction: column; margin-top: 40px; }
+html.desk .cl-today > .dd-day { display: flex; flex-direction: column; margin-top: 40px; container: ddday / inline-size; }
 html.desk .cl-today > .pn-slot + .dd-day { margin-top: 32px; }
 html.desk .cl-today > .dd-day + .cl-team { margin-top: 40px; }
 html.desk .dd-day > .dd-sh { margin-top: 40px; }
@@ -140,8 +140,8 @@ html.desk .dd-s + .dd-s { position: relative; }
 html.desk .dd-s + .dd-s::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 1px; background: var(--line); }
 html.desk .dd-s:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: -2px; }
 @media (hover: hover) and (pointer: fine) { html.desk .dd-s:hover { background: var(--dk-hover); } html.desk .dd-s:hover::before, html.desk .dd-s:hover + .dd-s::before { opacity: 0; } }
-html.desk .dd-s-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
-html.desk .dd-s-h > b { min-width: 0; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.desk .dd-s-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 8px; min-width: 0; }
+html.desk .dd-s-h > b { min-width: 0; max-width: 100%; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html.desk .dd-s-d { margin-top: -6px; font-size: 13px; line-height: 18px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html.desk .dd-badge { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: var(--r-1, 6px); background: var(--dk-fill); color: var(--text-2); font: 600 13px/1 var(--font-body); white-space: nowrap; }
 html.desk .dd-badge > i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
@@ -203,6 +203,8 @@ html.desk .dd-mp-o i { width: 7px; height: 7px; border-radius: 50%; background: 
 html.desk .dd-mp-o.is-over i { background: var(--cl-down); }
 html.desk .dd-mp-s { font-size: 13px; line-height: 18px; color: var(--text-3); }
 html.desk .dd-mp-s b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+html.desk .dd-mp-s.is-behind { color: var(--text-2); }
+html.desk .dd-mp-s.is-behind::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--cl-down); vertical-align: 1px; }
 html.desk .dd-bw { display: block; width: 100%; height: 44px; overflow: visible; }
 html.desk .dd-bw-ref { stroke: color-mix(in srgb, var(--cl-meet) 70%, transparent); stroke-width: 1; stroke-dasharray: 3 3; }
 html.desk .dd-bw-ln { fill: none; stroke: var(--cl-bw); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
@@ -317,19 +319,19 @@ html.desk .cl-bulk-x:focus-visible, html.desk .cl-bulk-msg:focus-visible { outli
 @keyframes clBulkIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* ---------------------------------------------------------------- narrower pages */
-@container clteam (max-width: 900px) {
-  html.desk .dd-wins { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 1360px) {
+/* Today's blocks follow their own width (the folded rail gives them more; the side card less) */
+@container ddday (max-width: 1080px) {
   html.desk .dd-ag { padding-left: 20px; padding-right: 20px; }
   html.desk .dd-ag-day { padding: 0 8px; }
   html.desk .dd-ag-t b { font-size: 13px; line-height: 18px; font-weight: 600; }
 }
-@media (max-width: 1180px) {
+@container ddday (max-width: 860px) {
+  html.desk .dd-wins { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container ddday (max-width: 760px) {
   html.desk .dd-tt-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 20px; }
   html.desk .dd-tt-col:nth-child(3) { padding-left: 0; border-left: 0; }
   html.desk .dd-tt-col:nth-child(2) { padding-right: 0; }
-  html.desk .dd-wins { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container clpg (max-width: 719px) {
   html.desk .dd-mp-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); row-gap: 18px; }

@@ -317,6 +317,32 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-coach-view-quiet' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster', { view: 'quiet' })" },
   { name: 'w-coach-lifters-card' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster'); setTimeout(() => dkOpenCard('notes'), 300)" },
   { name: 'w-newlifters-sheet' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: "deskGo('roster'); setTimeout(() => document.querySelector('.cl-newl').click(), 300)" });
+// The coach's day on the laptop (desk-day.js, 3 Nov), dark and light: Today scrolled to Training today, This week, Wins and
+// the Check-ins card; a lifter's page scrolled to the week, the meet plan, readiness and pain and the timeline (Arjun; Sarah
+// in the Pain view; a brand-new lifter with nothing yet), the timeline on a chip, and three lifters picked on the list.
+const PAGE_AT = (id, sel, view) => "deskGo('roster'" + (view ? ", { view: '" + view + "' }" : '') + "); new Promise((r) => setTimeout(() => { CoachLifters.select('" + id + "'); setTimeout(() => { const pg = document.getElementById('clPage'), n = document.querySelector('" + sel + "'); if (pg && n) pg.scrollTop = n.offsetTop - 24; r(true); }, 300); }, 400))";
+const PICK3 = "deskGo('roster'); new Promise((r) => setTimeout(() => { const rows = document.querySelectorAll('.cl-desk .cl-row'); [1, 2, 3].forEach((i) => rows[i].querySelector('.cl-pick').dispatchEvent(new MouseEvent('click', { bubbles: true }))); r(true); }, 500))";
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
+  { name: 'w-coach-today-training' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: TODAY_AT('.dd-tt') },
+  { name: 'w-coach-today-week' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: TODAY_AT('.dd-ag') },
+  { name: 'w-coach-today-wins' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: TODAY_AT('.dd-wins') },
+  { name: 'w-coach-today-checkins' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: TODAY_AT('.cl-c-checkins') },
+  { name: 'w-coach-lifter-week' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: PAGE_AT('demo-a1', '.dd-wk') },
+  { name: 'w-coach-lifter-meet' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: PAGE_AT('demo-a1', '.dd-mp') },
+  { name: 'w-coach-lifter-ready' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: PAGE_AT('demo-a2', '.dd-rdc', 'pain') },
+  { name: 'w-coach-lifter-history' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: PAGE_AT('demo-a1', '.dd-tlc') },
+  { name: 'w-coach-lifter-history-msgs' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: PAGE_AT('demo-a1', '.dd-tlc') + ".then(() => { document.querySelector('.dd-tlc .cl-tab[data-dd-tl=\"messages\"]').click(); return true; })" },
+  { name: 'w-coach-lifter-new' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: PAGE_AT('demo-d10', '.dd-tlc') },
+  { name: 'w-coach-lifters-picked' + suf, page: C, mode: 'web', theme, deskTheme: true, eval: PICK3 });
+// …at a smaller laptop (1280 x 720) and the folded rail at 1100 x 800: the same blocks, composed for the width.
+for (const [w, h, sz] of [[1280, 720, '-1280'], [1100, 800, '-1100']]) screens.push(
+  { name: 'w-coach-today-training' + sz, page: C, mode: 'web', w, h, deskTheme: true, eval: TODAY_AT('.dd-tt') },
+  { name: 'w-coach-today-week' + sz, page: C, mode: 'web', w, h, deskTheme: true, eval: TODAY_AT('.dd-ag') },
+  { name: 'w-coach-today-wins' + sz, page: C, mode: 'web', w, h, deskTheme: true, eval: TODAY_AT('.dd-wins') },
+  { name: 'w-coach-lifter-week' + sz, page: C, mode: 'web', w, h, deskTheme: true, eval: PAGE_AT('demo-a1', '.dd-wk') },
+  { name: 'w-coach-lifter-meet' + sz, page: C, mode: 'web', w, h, deskTheme: true, eval: PAGE_AT('demo-a1', '.dd-mp') },
+  { name: 'w-coach-lifter-ready' + sz, page: C, mode: 'web', w, h, deskTheme: true, eval: PAGE_AT('demo-a2', '.dd-rdc') },
+  { name: 'w-coach-lifter-history' + sz, page: C, mode: 'web', w, h, deskTheme: true, eval: PAGE_AT('demo-a1', '.dd-tlc') });
 // The desk, v3 drop 2 (3 Nov), dark and light: Teams (list | week, each lifter's loads scrolled to, a load being changed,
 // the push preview, a coach with no team), Club (a member's, everyone on the board, a coach in no club), Settings (the
 // overview, each section in place, a brand-new coach's). Teams and Programs scroll inside their own pane, so the loads are
