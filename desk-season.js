@@ -287,15 +287,18 @@ function dsTeamHead(team, members, preview) {
   var strip = el('div', { class: 'dp-wks', role: 'tablist', 'aria-label': 'Weeks of the team’s block' });
   bar.appendChild(strip);
   var short = weeks.length > 6;
+  // The block's shape as colour under each week (app.js teamWeekPhases): build cyan, heavy violet, peak gold, a deload grey.
+  var phases = teamWeekPhases(weeks), PH = { build: 'build', heavy: 'heavy', peak: 'peak (the heaviest)', deload: 'deload' };
   weeks.forEach(function (w, i) {
     var on = i === _ds.wk;
     var start = _isoDay(team.startsOn) ? _addDaysISO(_monISO(team.startsOn), 7 * i) : null;
     var isNow = i === nowIdx && bl.state === 'now';
-    var b = el('button', { type: 'button', class: 'dp-wk' + (on ? ' is-sel' : '') + (isNow ? ' is-now' : ''), role: 'tab', 'aria-selected': String(on), tabindex: on ? '0' : '-1', 'data-wi': String(i) });
+    var ph = phases[i];
+    var b = el('button', { type: 'button', class: 'dp-wk' + (on ? ' is-sel' : '') + (isNow ? ' is-now' : '') + (ph ? ' ph-' + ph : ''), role: 'tab', 'aria-selected': String(on), tabindex: on ? '0' : '-1', 'data-wi': String(i) });
     b.appendChild(el('span', { class: 'dp-wk-n' }, short ? 'W' : 'Week ', String(w.number || i + 1)));
     if (isNow) b.appendChild(el('span', { class: 'dp-wk-m' }, 'Now'));
-    b.setAttribute('aria-label', 'Week ' + (w.number || i + 1) + (isNow ? ', this week' : '') + (start ? ', from ' + fmtDateShort(start) : ''));
-    if (start) dkTip(b, 'From ' + fmtDateShort(start));
+    b.setAttribute('aria-label', 'Week ' + (w.number || i + 1) + (ph ? ', ' + PH[ph] : '') + (isNow ? ', this week' : '') + (start ? ', from ' + fmtDateShort(start) : ''));
+    dkTip(b, [ph ? PH[ph].charAt(0).toUpperCase() + PH[ph].slice(1) : '', start ? 'from ' + fmtDateShort(start) : ''].filter(Boolean).join(' · '));
     b.addEventListener('click', function () { if (on) return; _ds.wk = i; dsRenderTeams(); var x = document.querySelector('#deskTeams .dp-wk.is-sel'); if (x) x.focus({ preventScroll: true }); });
     strip.appendChild(b);
   });

@@ -587,7 +587,7 @@
         progs.slice().sort(function (a, b) { return (b.from + b.weeks) - (a.from + a.weeks); })[0] || null;
       var mine = !!(wk && prog && own && own === bar);
       var cur = bar ? (mine && !wk.finished ? Math.min(wk.idx, bar.weeks - 1) : bar.current) : null;
-      var B = bar ? { x0: Math.max(0, bar.from / W), x1: Math.min(1, (bar.from + bar.weeks) / W), from: bar.from, weeks: bar.weeks, cur: cur, name: bar.name } : null;
+      var B = bar ? { x0: Math.max(0, bar.from / W), x1: Math.min(1, (bar.from + bar.weeks) / W), from: bar.from, weeks: bar.weeks, cur: cur, name: bar.name, phase: bar.phase || null } : null;
       var starts = bar && bar.from > back && (!mine || wk.idx === 0) ? 'Starts ' + (bar.from - back === 1 ? 'next week' : 'in ' + (bar.from - back) + ' weeks') : null;
       // A program with no dates yet (no set logged, no day pinned, no meet) has no place on the weeks: Not scheduled.
       var week = !bar ? (prog ? 'Not scheduled' : 'No block') : starts ? starts
@@ -1354,7 +1354,7 @@
     var max = Math.max.apply(null, [0.5].concat(vals.map(function (v) { return v == null ? 0 : Math.abs(v); })));
     return '<div class="cl-lbars">' + LIFTS.map(function (L, i) {
       var v = vals[i], txt = v == null ? '–' : (CA.caPct ? CA.caPct(v) : (v > 0 ? '+' : '') + (Math.round(v * 10) / 10) + '%');
-      return '<span class="cl-lbar lb-' + LIFT_CLS[L].slice(2) + '"><span class="cl-lbar-n">' + LIFT[L] + '</span><span class="cl-lbar-t"><i class="' + (v != null && v < 0 ? 'is-down' : '') + '" style="--w:' + (v == null ? 0 : Math.abs(v) / max).toFixed(3) + '"></i></span><span class="cl-lbar-v">' + esc(txt) + '</span></span>';
+      return '<span class="cl-lbar lb-' + LIFT_CLS[L].slice(2) + '"><span class="cl-lbar-n">' + LIFT[L] + '</span><span class="cl-lbar-t"><i class="' + (v != null && v < 0 ? 'is-down' : '') + '" style="--w:' + (v == null ? 0 : Math.abs(v) / max).toFixed(3) + '"></i></span><span class="cl-lbar-v' + (v != null && v > 0 ? ' is-up' : v != null && v < 0 ? ' is-down' : '') + '">' + esc(txt) + '</span></span>';
     }).join('') + '</div>';
   }
   function strengthCardHtml(T, lifts) {
@@ -1390,7 +1390,7 @@
         var w = L.bar.from + k;
         if (w < 0 || w >= S.weeks) continue;
         var cls = L.bar.cur == null ? (L.bar.from > S.back ? 'is-next' : 'is-past') : k < L.bar.cur ? 'is-past' : k === L.bar.cur ? 'is-now' : 'is-next';
-        segs += '<i class="cl-sn-w ' + cls + '" style="--x0:' + (w / S.weeks).toFixed(4) + ';--x1:' + ((w + 1) / S.weeks).toFixed(4) + '"></i>';
+        segs += '<i class="cl-sn-w ' + cls + (L.bar.phase ? ' ph-' + esc(L.bar.phase) : '') + '" style="--x0:' + (w / S.weeks).toFixed(4) + ';--x1:' + ((w + 1) / S.weeks).toFixed(4) + '"></i>';
       }
       var flag = L.meet ? '<i class="cl-sn-flag' + (L.meet.x > 1 ? ' is-out' : '') + '" style="--x:' + Math.min(1, L.meet.x).toFixed(4) + '">' + ic('flag', 2.2) + '</i>' : '';
       var days = L.meet ? (L.meet.days <= 0 ? 'Today' : L.meet.days === 1 ? 'Tomorrow' : L.meet.days + ' days') : '–';
@@ -1439,7 +1439,7 @@
     var name = it.r ? it.r.athlete.name : String(it.name || 'Meet');
     var title = (it.type === 'busy' && t.short) || t.title;
     var full = name + ': ' + title + (t.detail ? ' · ' + t.detail : '');
-    return '<div class="cl-jr tone-' + t.tone + (it.done ? ' is-done' : '') + '" data-job="' + esc(it.key) + '">' +
+    return '<div class="cl-jr tone-' + t.tone + ' k-' + esc(it.kind || 'check') + (it.done ? ' is-done' : '') + '" data-job="' + esc(it.key) + '">' +
       '<button type="button" class="cl-jr-main" data-open="' + esc(openId) + '" title="' + esc(full) + '">' + face + '<span class="cl-jr-n">' + esc(name) + '</span>' +
         '<span class="cl-jr-ic" aria-hidden="true">' + ic(t.icon) + '</span><span class="cl-jr-t"><b>' + esc(title) + '</b>' + (t.detail ? '<span>' + esc(t.detail) + '</span>' : '') + '</span></button>' +
       (it.done ? '<span class="cl-jr-done">' + ic('check', 2.4) + 'Done</span>'

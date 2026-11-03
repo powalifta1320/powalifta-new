@@ -10884,6 +10884,19 @@ test('planSeats: lifters plus unused invites against the plan, the same number a
   // the rail and the business line count the same way
   eq(planSeats(20, 1, 25).used, 20 + 1);
 });
+// The Teams page's coloured weeks (3 Nov, the colour pass): build cyan, heavy violet, peak gold, a deload grey.
+test('teamWeekPhases: each week placed by its heaviest main-lift set, build to peak, a deload after the peak', () => {
+  const wk = (pct, rpe, reps) => ({ days: [{ exercises: [
+    { lift: 'squat', sets: [{ pct: pct, rpe: rpe || 8, reps: reps || 5 }] },
+    { lift: 'pull', exerciseName: 'Barbell row', sets: [{ weight: 60, reps: 10, rpe: 8 }] }] }] });
+  eq(teamWeekPhases([wk(75), wk(77.5), wk(80), wk(82.5)]).join(), 'build,build,heavy,peak', 'the demo team\'s Strength block');
+  eq(teamWeekPhases([wk(70), wk(80), wk(90), wk(65)]).join(), 'build,heavy,peak,deload', 'lighter by 10% after the heaviest: a deload');
+  eq(teamWeekPhases([wk(75), wk(75)]).join(), 'build,build', 'a flat block is one colour');
+  eq(teamWeekPhases([wk(null, 7, 5), wk(null, 9, 3)]).join(), 'build,peak', 'RPE sets read through the RPE chart');
+  eq(teamWeekPhases([{ days: [{ exercises: [{ lift: 'pull', sets: [{ weight: 60, reps: 10 }] }] }] }, wk(80)]).join(), ',build', 'a week with no main-lift % or RPE has no shape');
+  eq(teamWeekPhases([]).length, 0); eq(teamWeekPhases(null).length, 0);
+  eq(teamWeekPhases([wk(80, 8, 5)].concat([{ days: [{ exercises: [{ lift: 'bench', sets: [{ pct: 85, reps: 3, extra: true }] }] }] }])).join(), 'build,', 'a lifter\'s own extra set never counts');
+});
 test('colorWord: a brand colour in a word', () => {
   eq(colorWord('#dc2637'), 'red'); eq(colorWord('#ff6b00'), 'orange'); eq(colorWord('#ffbf3c'), 'gold'); eq(colorWord('#34d982'), 'green');
   eq(colorWord('#2ec5ff'), 'blue'); eq(colorWord('#14b8a6'), 'teal'); eq(colorWord('#a98bff'), 'purple'); eq(colorWord('#ff4fa3'), 'pink');

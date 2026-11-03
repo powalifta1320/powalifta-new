@@ -732,7 +732,13 @@ function dkPaintSubnav(force) {
 }
 window.deskRepaintSubnav = function () { dkPaintSubnav(true); };
 function _dkTodayIsJobs() { return !!(window.CoachHome && window.CoachLifters && CoachLifters.renderToday && CoachLifters.openCount && !/\bold(today|home)=1\b/.test(location.search)); }
+// Each desk screen wears its destination's hue, as the phone does (styles.css --acc), quietly (desk.css "Colour with a
+// job"): Today and Lifters a warm light, Programs and Teams cyan, Meets and Club gold, Messages and Clients green,
+// Settings violet. A lifter's page belongs to Lifters.
+var DK_HUE = { today: 'warm', roster: 'warm', programs: 'cyan', teams: 'cyan', meets: 'gold', club: 'gold', messages: 'green', clients: 'green', settings: 'violet' };
+function dkPaintHue() { if (document.body) document.body.dataset.dhue = _dkOnPage() ? 'warm' : (DK_HUE[_dk.screen] || 'warm'); }
 function dkPaintRail() {
+  dkPaintHue();
   var rail = document.getElementById('deskRail');
   if (!rail) return;
   if (!_dk.rows) dkRowsFresh();

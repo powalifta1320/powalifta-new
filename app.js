@@ -18318,6 +18318,34 @@ function teamNextMeet(team, meets, todayIso) {
   const same = who(up.filter(m => _isoDay(m.date) === d && (m.name || '') === (first.name || '')));
   return { name: first.name || 'A meet', date: d, days: days(d), lifters: same.length, ids: same };
 }
+// A team block's shape, week by week, for the Teams page's coloured weeks: each week's heaviest main-lift set (its % of max,
+// or the RPE chart's % for an RPE set), placed across the block: the lighter third 'build', the middle 'heavy', the heaviest
+// 'peak'; after the heaviest, a week at least 10% lighter than the one before is a 'deload'; a flat block is all 'build'.
+// A week with no main-lift % or RPE has no shape (null). → ['build', 'heavy', 'peak', …], one per week
+function teamWeekPhases(weeks) {
+  const top = (weeks || []).map(w => {
+    let m = 0;
+    ((w && w.days) || []).forEach(d => ((d && d.exercises) || []).forEach(e => {
+      if (!e || MAIN_LIFTS.indexOf(e.lift) < 0) return;
+      (e.sets || []).forEach(st => {
+        if (!st || st.extra) return;
+        const p = Number(st.pct) > 0 ? Number(st.pct) : (Number(st.rpe) > 0 && Number(st.reps) > 0 ? rpePctOfMax(st.reps, st.rpe) : 0);
+        if (p > m) m = p;
+      });
+    }));
+    return m;
+  });
+  const vals = top.filter(v => v > 0);
+  if (!vals.length) return top.map(() => null);
+  const lo = Math.min(...vals), hi = Math.max(...vals), peakAt = top.indexOf(hi);
+  return top.map((v, i) => {
+    if (!(v > 0)) return null;
+    if (i > peakAt && top[i - 1] > 0 && v <= top[i - 1] * 0.9) return 'deload';
+    if (hi - lo < 1) return 'build';
+    const t = (v - lo) / (hi - lo);
+    return t < 0.34 ? 'build' : t < 0.67 ? 'heavy' : 'peak';
+  });
+}
 // "in 24 days", "tomorrow", "today": a meet's countdown in the coach's words.
 function meetInDays(days) { const n = Number(days); return n <= 0 ? 'today' : n === 1 ? 'tomorrow' : 'in ' + n + ' days'; }
 // The plan's seats, one number on every screen (the rail, Today's business line, Settings): lifters plus unused invites
@@ -18514,7 +18542,7 @@ function prWallLift(p, fmt) {
   const name = v === 'Competition' ? base : (VN[v] || v.charAt(0).toUpperCase() + v.slice(1).toLowerCase() + ' ' + String(base).toLowerCase());
   return name + ' ' + show(p.weight) + (p.reps > 1 ? ' × ' + p.reps : '');
 }
-if (typeof window !== 'undefined') Object.assign(window, { teamPushLabel, teamBlockLine, teamNextMeet, meetInDays, planSeats, colorWord, deskSettingsLines });
+if (typeof window !== 'undefined') Object.assign(window, { teamPushLabel, teamBlockLine, teamNextMeet, teamWeekPhases, meetInDays, planSeats, colorWord, deskSettingsLines });
 if (typeof window !== 'undefined') Object.assign(window, { rpePctOfMax, teamWeekLoads, teamPushPreview, teamStripOverrides, calendarBarMeet, calendarWarnings, calendarDragWeeks, moveBlockStart, blockAchieved, teamBlockGain, teamPrWall, cardName, cardRowName, prWallLift });
 
 // ----- Scoring per federation (brief §8: one number, the formula always named) -----

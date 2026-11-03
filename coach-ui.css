@@ -2589,3 +2589,37 @@ html.desk .cl-pchip:active { transform: scale(0.97); }
 html.desk .cl-pchip:focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) { html.desk .cl-pchip:hover { background: var(--dk-fill-2); } }
 @media (prefers-reduced-motion: reduce) { html.desk .cl-pchip { transition: none; } html.desk .cl-pchip:active { transform: none; } }
+
+/* ==================== colour with a job on Today and Lifters (desk v3 drop 2, 3 Nov) ====================
+   The warm light of Today and Lifters (desk.css --dh, never red paint), Your list's jobs in their kind's colour (Answer
+   green, Check amber, Meet prep gold, Write cyan; pain coral, a status), a block in its phase's colour on Where everyone
+   is (volume cyan, strength violet, peak gold), meets counting down in gold, a change in strength green or amber. */
+html.desk .cl-today::before { background: radial-gradient(55% 70% at 30% 0%, color-mix(in srgb, var(--dh-light, #ffa64d) 11%, transparent), transparent 72%); }
+html.desk[data-theme="light"] .cl-today::before { display: block; background: radial-gradient(55% 70% at 30% 0%, color-mix(in srgb, var(--dh-light, #f0901f) 6%, transparent), transparent 72%); }
+/* Your list: a job's icon on a soft tile in its kind's colour; a chosen kind's tab wears it too */
+html.desk .cl-jr { --kc: var(--text-3); }
+html.desk .cl-jr:is(.k-answer, .k-busy) { --kc: var(--cl-msg); } html.desk .cl-jr.k-check { --kc: var(--cl-down); }
+html.desk .cl-jr:is(.k-meet, .k-meetday) { --kc: var(--cl-meet); } html.desk .cl-jr.k-write { --kc: var(--cl-write); } html.desk .cl-jr.tone-pain { --kc: var(--cl-pain); }
+html.desk .cl-jr .cl-jr-ic { flex: none; width: 28px; height: 28px; border-radius: 8px; color: var(--kc); background: color-mix(in srgb, var(--kc) 15%, transparent); }
+html.desk .cl-jr .cl-jr-ic svg { width: 16px; height: 16px; }
+html.desk .cl-yl .cl-tab.on[data-tab="answer"] { --kc: var(--cl-msg); } html.desk .cl-yl .cl-tab.on[data-tab="check"] { --kc: var(--cl-down); }
+html.desk .cl-yl .cl-tab.on[data-tab="meet"] { --kc: var(--cl-meet); } html.desk .cl-yl .cl-tab.on[data-tab="write"] { --kc: var(--cl-write); }
+html.desk .cl-yl .cl-tab.on[data-tab]:not([data-tab=""]) { background: color-mix(in srgb, var(--kc) 16%, transparent); }
+html.desk .cl-yl .cl-tab.on[data-tab]:not([data-tab=""]) em { color: var(--kc); }
+/* the open lifter, and Lifters' chosen tab: the warm light, softly; the four weeks' change green when stronger, amber when weaker */
+html.desk .cl-desk .cl-row.is-sel { background: color-mix(in srgb, var(--dh, #ffd6ad) 10%, transparent); }
+@media (hover: hover) and (pointer: fine) { html.desk .cl-desk .cl-row.is-sel:hover { background: color-mix(in srgb, var(--dh, #ffd6ad) 14%, transparent); } }
+html.desk .cl-desk .cl-tab.on, html.desk .cl-yl .cl-tab.on[data-tab=""] { background: color-mix(in srgb, var(--dh, #ffd6ad) 14%, transparent); }
+html.desk .cl-desk .cl-tab.on em, html.desk .cl-yl .cl-tab.on[data-tab=""] em { color: var(--dh-ink, #ffcb94); }
+html.desk .cl-desk .cl-list .cl-n.t-up b { color: var(--cl-up); }
+html.desk .cl-desk .cl-list .cl-n.t-down b { color: var(--cl-down); }
+html.desk .cl-lbar-v.is-up { color: var(--cl-up); } html.desk .cl-lbar-v.is-down { color: var(--cl-down); }
+/* Where everyone is: each block in its phase's colour (lifted weeks dimmer, this week solid, the rest faint); the meet's days in gold */
+html.desk .cl-sn-w.ph-volume { --ph: var(--ph-build, #38c6ff); } html.desk .cl-sn-w.ph-strength { --ph: var(--ph-heavy, #a98bff); }
+html.desk .cl-sn-w.ph-peak { --ph: var(--ph-peak, #ffbf3c); } html.desk .cl-sn-w.ph-deload { --ph: var(--ph-deload, #8b8b96); }
+html.desk .cl-sn-w[class*="ph-"].is-past { background: color-mix(in srgb, var(--ph) 42%, transparent); }
+html.desk .cl-sn-w[class*="ph-"].is-now { background: var(--ph); }
+html.desk .cl-sn-w[class*="ph-"].is-next { background: color-mix(in srgb, var(--ph) 20%, transparent); }
+html.desk .cl-sn-d:not(.is-none) { color: var(--cl-meet); }
+html.desk .cl-sn-now { background: color-mix(in srgb, var(--dh-light, #ffa64d) 55%, transparent); }
+html.desk .cl-sn-ax span.is-now { color: var(--dh-ink, #ffcb94); }
