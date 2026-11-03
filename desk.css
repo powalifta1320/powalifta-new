@@ -1945,6 +1945,8 @@ html.desk body.powa-app input.dp-day-name:focus { background: var(--bg) !importa
 .dp-lt svg { width: 15px; height: 15px; }
 .dp-lt.lift-squat { --lc: var(--dk-sq); } .dp-lt.lift-bench { --lc: var(--dk-bp); } .dp-lt.lift-deadlift { --lc: var(--dk-dl); }
 .dp-lt.lift-acc { background: var(--dk-fill-2); color: var(--text-2); }
+/* gold as a dark tint reads brown: the deadlift tile is the raised fill with a hairline of its gold, the letter in gold */
+html.desk:not([data-theme="light"]) .dp-lt.lift-deadlift { background: var(--dk-fill-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) 34%, transparent); }
 .dp-lt.is-sm { width: 24px; height: 24px; border-radius: var(--r-1); }
 .dp-lt.is-sm svg { width: 13px; height: 13px; }
 .dp-exn { flex: 0 1 auto; min-width: 0; font: var(--fw-3) var(--fs-4)/22px var(--font-body); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
