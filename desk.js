@@ -2328,6 +2328,8 @@ function dkOnKey(e) {
   }
   // The builder: ⌘Z undoes the last change to the block (in a field, the field's own undo comes first).
   if (mod && !e.shiftKey && !e.altKey && (k === 'z' || k === 'Z') && _dk.screen === 'programs' && !_dkOnPage() && !_dkTyping(e.target) && !_dkBlocked() && _dkVis('#programArea .dk-bxv:not(.is-ro)')) { e.preventDefault(); dkPbUndo(); return; }
+  // ⇧⌘Z (or Ctrl Y): the change undone last comes back.
+  if (mod && !e.altKey && ((e.shiftKey && (k === 'z' || k === 'Z')) || (!e.shiftKey && !_dkMac() && (k === 'y' || k === 'Y'))) && _dk.screen === 'programs' && !_dkOnPage() && !_dkTyping(e.target) && !_dkBlocked() && _dkVis('#programArea .dk-bxv:not(.is-ro)')) { e.preventDefault(); dkPbRedo(); return; }
   // The team's program: ⌘Z undoes the last edit to it (desk-program.js, saved again with the team's compare-and-swap).
   if (mod && !e.shiftKey && !e.altKey && (k === 'z' || k === 'Z') && _dk.screen === 'teams' && !_dkTyping(e.target) && !_dkBlocked() && window.DeskProgram && document.querySelector('#deskTeams .dp-team')) { e.preventDefault(); DeskProgram.teamUndo(); return; }
   if (mod || e.altKey) return;
@@ -3886,6 +3888,7 @@ window.deskOnPersist = function (id) {
   var st = _dk.pbUndo = _dk.pbUndo || [], top = st[st.length - 1];
   if (top && top.id === id && top.auto && Date.now() - top.at < 1500) { top.at = Date.now(); return; }
   var o = JSON.parse(before);
+  _dk.pbRedo = (_dk.pbRedo || []).filter(function (x) { return x.id !== id; });
   st.push({ id: id, weeks: JSON.stringify(o.weeks), name: o.name, maxes: o.maxes, setFields: o.setFields, label: 'Edit', auto: true, at: Date.now() });
   if (st.length > 60) st.shift();
   dkPbPaintUndo();
@@ -4630,6 +4633,7 @@ function _dkPbLoggedSig(weeks) {
 function dkPbRemember(prog, label) {
   if (!prog) return;
   _dk.pbUndo = _dk.pbUndo || [];
+  _dk.pbRedo = (_dk.pbRedo || []).filter(function (x) { return x.id !== prog.id; });   // a new change: what was undone can't come back
   _dk.pbUndo.push({ id: prog.id, weeks: JSON.stringify(prog.weeks), name: prog.name, maxes: prog.maxes ? JSON.parse(JSON.stringify(prog.maxes)) : null,
     setFields: prog.setFields ? JSON.parse(JSON.stringify(prog.setFields)) : null, label: label || 'Edit', at: Date.now() });
   if (_dk.pbUndo.length > 60) _dk.pbUndo.shift();
@@ -4637,25 +4641,30 @@ function dkPbRemember(prog, label) {
   dkPbPaintUndo();
 }
 function dkPbPaintUndo() {
-  var b = document.querySelector('#programArea .dk-pb-undo, #programArea .dp-head .dp-undo');
-  if (!b) return;
   var prog = dkProgOf(dkPbAthleteId());
-  var top = (_dk.pbUndo || []).filter(function (u) { return prog && u.id === prog.id; }).pop();
-  b.disabled = !top;
-  dkTip(b, top ? 'Undo: ' + top.label : 'Nothing to undo', _dkMac() ? '⌘Z' : 'Ctrl Z');
+  var b = document.querySelector('#programArea .dk-pb-undo, #programArea .dp-undo');
+  if (b) {
+    var top = (_dk.pbUndo || []).filter(function (u) { return prog && u.id === prog.id; }).pop();
+    b.disabled = !top;
+    dkTip(b, top ? 'Undo: ' + top.label : 'Nothing to undo', _dkMac() ? '⌘Z' : 'Ctrl Z');
+  }
+  var r = document.querySelector('#programArea .dp-redo');
+  if (r) {
+    var nx = (_dk.pbRedo || []).filter(function (u) { return prog && u.id === prog.id; }).pop();
+    r.disabled = !nx;
+    dkTip(r, nx ? 'Redo: ' + nx.label : 'Nothing to redo', _dkMac() ? '⇧⌘Z' : 'Ctrl ⇧Z');
+  }
 }
-function dkPbUndo() {
-  var prog = dkProgOf(dkPbAthleteId());
-  var stack = _dk.pbUndo || [], i = -1;
-  for (var j = stack.length - 1; j >= 0; j--) if (prog && stack[j].id === prog.id) { i = j; break; }
-  if (i < 0) { toast('Nothing to undo'); return; }
-  var u = stack.splice(i, 1)[0];
-  var old = JSON.parse(u.weeks);
-  if (_dkPbLoggedSig(old) !== _dkPbLoggedSig(prog.weeks)) { toast('Sets were logged since then, so that stays as it is'); dkPbPaintUndo(); return; }
+// The block as it is now, for the other stack (undo feeds redo, redo feeds undo).
+function _dkPbEntry(prog, label) {
+  return { id: prog.id, weeks: JSON.stringify(prog.weeks), name: prog.name, maxes: prog.maxes ? JSON.parse(JSON.stringify(prog.maxes)) : null,
+    setFields: prog.setFields ? JSON.parse(JSON.stringify(prog.setFields)) : null, label: label || 'Edit', at: Date.now() };
+}
+function _dkPbRestore(prog, u) {
   Store.update(function (s) {
     var p = s.programs.find(function (x) { return x.id === prog.id; });
     if (!p) return;
-    p.weeks = old;
+    p.weeks = JSON.parse(u.weeks);
     if (u.name != null) p.name = u.name;
     if ('maxes' in u) p.maxes = u.maxes;
     if ('setFields' in u) p.setFields = u.setFields;
@@ -4665,6 +4674,33 @@ function dkPbUndo() {
   var n = dkProgOf(dkPbAthleteId()).weeks.length;
   if (_dk.pbWk && _dk.pbWk.prog === prog.id && _dk.pbWk.wi >= n) _dk.pbWk.wi = n - 1;
   loadProgram();
+}
+// ⇧⌘Z: the change undone last comes back (until a new change is made).
+function dkPbRedo() {
+  var prog = dkProgOf(dkPbAthleteId());
+  var stack = _dk.pbRedo || [], i = -1;
+  for (var j = stack.length - 1; j >= 0; j--) if (prog && stack[j].id === prog.id) { i = j; break; }
+  if (i < 0) { toast('Nothing to redo'); return; }
+  var u = stack[i];
+  if (_dkPbLoggedSig(JSON.parse(u.weeks)) !== _dkPbLoggedSig(prog.weeks)) { stack.splice(i, 1); toast('Sets were logged since then, so that stays as it is'); dkPbPaintUndo(); return; }
+  stack.splice(i, 1);
+  _dk.pbUndo = _dk.pbUndo || [];
+  _dk.pbUndo.push(_dkPbEntry(prog, u.label));
+  _dkPbRestore(prog, u);
+  toast('Redone: ' + u.label);
+}
+function dkPbUndo() {
+  var prog = dkProgOf(dkPbAthleteId());
+  var stack = _dk.pbUndo || [], i = -1;
+  for (var j = stack.length - 1; j >= 0; j--) if (prog && stack[j].id === prog.id) { i = j; break; }
+  if (i < 0) { toast('Nothing to undo'); return; }
+  var u = stack.splice(i, 1)[0];
+  var old = JSON.parse(u.weeks);
+  if (_dkPbLoggedSig(old) !== _dkPbLoggedSig(prog.weeks)) { toast('Sets were logged since then, so that stays as it is'); dkPbPaintUndo(); return; }
+  _dk.pbRedo = _dk.pbRedo || [];
+  _dk.pbRedo.push(_dkPbEntry(prog, u.label));
+  if (_dk.pbRedo.length > 60) _dk.pbRedo.shift();
+  _dkPbRestore(prog, u);
   toast('Undone: ' + u.label);
 }
 

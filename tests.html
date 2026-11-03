@@ -9235,19 +9235,166 @@ test('the lifter’s other screens never read a draft: busy week, challenges', (
   }
   if (window.Challenges && Challenges.sessionsPerWeek) eq(Challenges.sessionsPerWeek(prog), 2, 'challenges: the week they can see');
 });
-test('the crimson, in order: Publish, Take N suggestions, Write week N, Start the next block, else none', () => {
+test('the crimson, in order: Take N suggestions, Publish, Write week N, Start the next block, else none', () => {
   const set = (id, o) => Object.assign({ id, weight: 150, reps: 3, rpe: 8, completed: false, actualRpe: null, completedAt: null }, o || {});
   const wk = (n, st, felt, o) => Object.assign({ id: 'w' + n, number: n, days: st === 'empty' ? [{ id: 'd' + n, name: 'Squat Day', exercises: [] }] : [{ id: 'd' + n, name: 'Squat Day', exercises: [{ id: 'e' + n, lift: 'squat', variant: 'Competition', exerciseName: '', sets: [
     set('s' + n + 'a', st === 'done' ? { completed: true, actualRpe: felt == null ? 8 : felt, completedAt: '2026-10-28' } : {}),
     set('s' + n + 'b', Object.assign({ weight: 130, reps: 5, rpe: 7 }, st === 'done' ? { completed: true, actualRpe: 7, completedAt: '2026-10-28' } : {}))] }] }] }, o || {});
   const P = (weeks) => ({ id: 'P', athleteId: 'L', name: 'Strength', weeks });
   eq(DPg.crimson(P([wk(1, 'done'), wk(2, 'open'), wk(3, 'open', null, { draft: true })]), 'L', 2, { gap: 0 }).k, 'publish', 'a draft: Publish week 3 first');
+  // The redo's order (brief, 3 Nov): what's lifted next comes first, and a draft takes the suggestions before it goes out.
+  const both = P([wk(1, 'done', 9.5), wk(2, 'open'), wk(3, 'open', null, { draft: true })]);
+  eq(DPg.crimson(both, 'L', 2, { gap: 0 }).k, 'take', 'suggestions and a draft: Take first');
+  eq(DPg.crimson(both, 'L', 2, { sug: null, gap: 0 }).label, 'Publish week 3', 'then Publish week 3');
   const t = DPg.crimson(P([wk(1, 'done', 9.5), wk(2, 'open'), wk(3, 'open')]), 'L', 0, { gap: 0 });
   eq(t.k, 'take'); eq(t.label, 'Take 1 suggestion'); eq(t.wi, 1, 'for the week about to be trained');
   eq(DPg.crimson(P([wk(1, 'done'), wk(2, 'open'), wk(3, 'empty')]), 'L', 1, { sug: null, gap: 0 }).label, 'Write week 3', 'an unwritten week in the block');
   eq(DPg.crimson(P([wk(1, 'done'), wk(2, 'open')]), 'L', 1, { sug: null, gap: 2 }).label, 'Write week 3', 'up to the meet');
   eq(DPg.crimson(P([wk(1, 'done'), wk(2, 'done')]), 'L', 1, { sug: null, gap: 0 }).k, 'block', 'a finished block: the next block');
   eq(DPg.crimson(P([wk(1, 'done'), wk(2, 'open'), wk(3, 'open')]), 'L', 1, { sug: null, gap: 0 }).k, 'none', 'written ahead: no red');
+});
+// The redo (3 Nov): the block strip, a day at a glance, what was lifted against what was written, the picker's search.
+test('a day at a glance: its status, the date we know, its size and length', () => {
+  const T = '2026-11-04';
+  const s1 = (o) => dpSet(Object.assign({ weight: 150, reps: 3, rpe: 8 }, o));
+  const day = (exs, o) => Object.assign(dpDay('Squat Day', exs), o || {});
+  const sq = (sets) => dpEx('squat', sets);
+  eq(DPg.daySummary(dpDay('Rest', []), { today: T }).status, 'rest', 'a rest day');
+  eq(DPg.daySummary(dpDay('Day 4', []), { today: T }).status, 'empty', 'nothing written');
+  const done = DPg.daySummary(day([sq([s1({ completed: true, completedAt: '2026-11-02T18:00:00Z' }), s1({ completed: true, completedAt: '2026-11-02T18:20:00Z' })])]), { today: T, start: '2026-11-02' });
+  eq(done.status, 'done'); eq(done.date, '2026-11-02', 'the day it was lifted'); eq(done.dateKind, 'done');
+  eq(DPg.daySummary(day([sq([s1({ completed: true, completedAt: '2026-11-04T10:00:00Z' }), s1()])]), { today: T, start: '2026-11-02' }).status, 'today', 'started today, not finished');
+  eq(DPg.daySummary(day([sq([s1({ completed: true, completedAt: '2026-11-02T10:00:00Z' }), s1({ skipped: true })])]), { today: T, start: '2026-11-02' }).status, 'part', 'some lifted, the rest skipped');
+  eq(DPg.daySummary(day([sq([s1(), s1()])]), { today: T, start: '2026-11-02' }).status, 'planned', 'this week, still to come: no guessed date');
+  eq(DPg.daySummary(day([sq([s1(), s1()])]), { today: T, start: '2026-11-02' }).date, '', 'no date we know');
+  eq(DPg.daySummary(day([sq([s1(), s1()])]), { today: T, start: '2026-10-26' }).status, 'missed', 'its week is over');
+  eq(DPg.daySummary(day([sq([s1({ skipped: true }), s1({ skipped: true })])]), { today: T, start: '2026-11-02' }).status, 'missed', 'skipped');
+  const pin = DPg.daySummary(day([sq([s1()])], { scheduledDate: T }), { today: T, start: '2026-11-02' });
+  eq(pin.status, 'today', 'pinned to today'); eq(pin.dateKind, 'pinned');
+  eq(DPg.daySummary(day([sq([s1()])]), { today: T, start: '2026-11-02', live: true }).status, 'live');
+  const mix = DPg.daySummary(day([sq([s1(), s1({ weight: 130, reps: 5, rpe: 7 })]), dpEx('bench', [s1()]), dpEx('legs', [dpSet({ reps: 10 }), dpSet({ reps: 10, extra: true })], { exerciseName: 'Leg Press' })]), { today: T });
+  eq(mix.lifts, 3); eq(mix.sets, 4, 'sets as written (an extra one the lifter added isn\'t counted)'); eq(mix.liftsIn.join(','), 'squat,bench', 'the main lifts, for the chip\'s dots');
+});
+test('a session\'s length as written', () => {
+  eq(DPg.dayMinutes(dpDay('Rest', [])), 0, 'nothing written: no length');
+  // 15 to warm up + a heavy top single (5) + 3 back-offs (4 each) = 32 → 30
+  eq(DPg.dayMinutes(dpDay('Squat', [dpEx('squat', [dpSet({ weight: 180, reps: 3, rpe: 8.5 }), dpSet({ weight: 150, reps: 5, rpe: 7 }), dpSet({ weight: 150, reps: 5, rpe: 7 }), dpSet({ weight: 150, reps: 5, rpe: 7 })])])), 30);
+  // + bench (5 more to warm up, 3 sets of 4) + 3 accessory sets (2.5 each): 32 + 5 + 12 + 7.5 = 56.5 → 55
+  eq(DPg.dayMinutes(dpDay('Mixed', [dpEx('squat', [dpSet({ weight: 180, reps: 3, rpe: 8.5 }), dpSet({ weight: 150, reps: 5, rpe: 7 }), dpSet({ weight: 150, reps: 5, rpe: 7 }), dpSet({ weight: 150, reps: 5, rpe: 7 })]),
+    dpEx('bench', [dpSet({ weight: 100, reps: 5, rpe: 7 }), dpSet({ weight: 100, reps: 5, rpe: 7 }), dpSet({ weight: 100, reps: 5, rpe: 7 })]), dpEx('pull', [dpSet({ reps: 10 }), dpSet({ reps: 10 }), dpSet({ reps: 10 })], { exerciseName: 'Barbell Row' })])), 55);
+  eq(DPg.dayMinutes(dpDay('Acc', [dpEx('legs', [dpSet({ reps: 12 })], { exerciseName: 'Leg Curl' })])), 15, 'at least 15');
+});
+test('what was lifted against what was written: the line\'s tone', () => {
+  const line = (sets, g) => ({ real: sets, g: Object.assign({ rpe: 8, reps: 3 }, g || {}), count: sets.length });
+  const env = { show: (v) => v };
+  const tone = (sets, g) => DPg.liftedTone(DPg.liftedOf(line(sets, g), env));
+  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 8 })]), 'ok', 'on the RPE written');
+  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 8.5 })]), 'warn', 'half a point harder');
+  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 9.5 })]), 'alert', 'a point or more over');
+  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 7 })]), 'easy', 'easier');
+  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: null })]), 'done', 'lifted, no RPE to compare');
+  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, skipped: true })]), 'missed', 'skipped');
+  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8 })]), '', 'not lifted yet');
+  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, rpeHi: 9, completed: true, actualRpe: 9 })], { rpeHi: 9 }), 'ok', 'inside a range');
+});
+test('the block strip: sessions done, the week\'s effort, its phase, the countdown to the meet', () => {
+  const T = '2026-11-04';
+  const done = (o) => dpSet(Object.assign({ weight: 150, reps: 3, rpe: 8, completed: true, actualRpe: 8, completedAt: '2026-10-28T18:00:00Z' }, o));
+  const open = (o) => dpSet(Object.assign({ weight: 150, reps: 3, rpe: 8 }, o));
+  const W1 = dpWeek(1, [dpDay('Squat Day', [dpEx('squat', [done(), done({ rpe: 7, reps: 5 })])]), dpDay('Bench Day', [dpEx('bench', [done(), dpSet({ weight: 100, reps: 5, rpe: 7, skipped: true })])]), dpDay('Deadlift Day', [dpEx('deadlift', [open()])]), dpDay('Rest', [])]);
+  const W2 = dpWeek(2, [dpDay('Squat Day', [dpEx('squat', [open({ rpe: 8.5 }), open({ rpe: 7.5, reps: 5 })])]), dpDay('Bench Day', [dpEx('bench', [open({ rpe: 9, rir: true })])])]);
+  const W3 = dpWeek(3, [dpDay('Squat Day', [dpEx('squat', [open({ pct: 90, rpe: null, reps: 2 })])])], { draft: true });
+  const W4 = dpWeek(4, [dpDay('Squat Day', [])]);
+  const m = DPg.stripModel([W1, W2, W3, W4], { today: T, starts: ['2026-10-26', '2026-11-02', '2026-11-09', '2026-11-16'], nowIdx: 1, meet: { date: '2026-12-26', name: 'Fall Nationals' }, gap: 1 });
+  const t = m.tiles;
+  eq(t.length, 4);
+  eq(t[0].sessions.map((x) => x.state).join(','), 'done,part,missed', 'week 1: done, part done, missed (its week is over); the rest day isn\'t a session');
+  eq(t[0].done + '/' + t[0].planned, '2/3');
+  eq(t[1].sessions.map((x) => x.state).join(','), 'todo,todo', 'this week: still to come');
+  assert(t[1].now && !t[0].now, 'Now on the week they\'re in');
+  eq(t[0].effort.text, '@8', 'the top sets\' average as written'); eq(t[1].effort.text, '@8.8', '@8.5 and @9 (a RIR counts as its RPE)');
+  eq(t[2].effort.text, '90%', 'a week written in % says its top %');
+  eq(t[3].effort.text, '', 'nothing written: nothing said'); assert(!t[3].written, 'week 4 is to write');
+  assert(t[2].draft && !t[1].draft, 'the draft flag');
+  eq(t[0].wOut, 8, 'W-8 from Oct 26 to the meet\'s week'); eq(t[3].wOut, 5);
+  eq(t[0].end, '2026-11-01');
+  eq(JSON.stringify(m.gap), JSON.stringify({ from: 5, to: 5, n: 1 }), 'the week between the block\'s end and the meet');
+  eq(m.meet.name, 'Fall Nationals'); eq(m.meet.date, '2026-12-26');
+  assert(t.some((x) => x.phase), 'a block with a shape says its phases');
+  const flat = DPg.stripModel([dpWeek(1, [dpDay('A', [dpEx('squat', [open()])])]), dpWeek(2, [dpDay('A', [dpEx('squat', [open()])])])], { today: T, starts: [], nowIdx: -1 });
+  assert(flat.tiles.every((x) => !x.phase), 'a flat block says nothing'); eq(flat.gap, null); eq(flat.meet, null);
+  eq(flat.tiles[0].wOut, null, 'no meet, no countdown'); eq(flat.tiles[0].start, null, 'no start date');
+});
+test('the add-exercise picker: this block first, then the lifts and the accessories; its search', () => {
+  const items = DPg.pickerItems({ recent: [{ lift: 'bench', variant: 'Close Grip' }, { lift: 'squat', variant: 'Competition' }, { lift: 'bench', variant: 'Close Grip' }, { lift: 'legs', exerciseName: 'Leg Press' }],
+    variants: (L) => ({ squat: ['Competition', 'Paused'], bench: ['Competition', 'Close Grip'], deadlift: ['Competition', 'RDL'] })[L], accessories: { push: ['Overhead Press', 'Dips'], pull: ['Dumbbell Row', 'Lat Pulldown'], legs: ['Leg Press'] } });
+  eq(items.filter((x) => x.group === 'recent').map((x) => x.title).join(' | '), 'Close Grip Bench | Squat | Leg Press', 'this block\'s own, latest first, once each');
+  eq(items.filter((x) => x.group === 'squat').map((x) => x.title).join(' | '), 'Squat | Paused Squat');
+  const top = (q) => (DPg.pickerSearch(items, q)[0] || {}).title;
+  eq(top('squat'), 'Squat', 'a name that starts with it first');
+  eq(top('pause squat'), 'Paused Squat', 'pause means paused');
+  eq(top('cg bench'), 'Close Grip Bench', 'cg means close grip');
+  eq(top('ohp'), 'Overhead Press', 'ohp');
+  eq(top('db row'), 'Dumbbell Row', 'db means dumbbell');
+  eq(top('rdl'), 'RDL Deadlift', 'rdl');
+  eq(top('lat'), 'Lat Pulldown');
+  eq(DPg.pickerSearch(items, 'zercher').length, 0, 'not offered: the picker adds it as written');
+  const once = DPg.pickerSearch(items, 'close grip').map((x) => x.title);
+  eq(once.filter((x) => x === 'Close Grip Bench').length, 1, 'one entry per exercise');
+  eq(DPg.pickerSearch(items, '').length, new Set(items.map((x) => x.title.toLowerCase())).size, 'no query: everything, once');
+  eq(JSON.stringify(DPg.splitTyped('Pause squat 3x4 @7')), JSON.stringify({ name: 'Pause squat', rx: '3x4 @7' }));
+  eq(JSON.stringify(DPg.splitTyped('Leg press')), JSON.stringify({ name: 'Leg press', rx: '' }));
+  eq(DPg.normQ('CG-Bench!'), 'close grip bench');
+});
+test('moving an exercise to another place or day; clearing a day or a week', () => {
+  const mk = () => [dpWeek(1, [dpDay('Squat Day', [dpEx('squat', [dpSet({ id: 'a' })], { id: 'X1' }), dpEx('squat', [dpSet({ id: 'b' })], { id: 'X2', variant: 'Paused' })]),
+    dpDay('Bench Day', [dpEx('bench', [dpSet({ id: 'c', completed: true, actualRpe: 8 })], { id: 'X3' }), dpEx('pull', [dpSet({ id: 'd' })], { id: 'X4', exerciseName: 'Row' })]), dpDay('Rest', [])])];
+  let w = mk();
+  const D = w[0].days;
+  assert(DPg.mutate(w, { t: 'moveExTo', wi: 0, di: 0, ei: 0, exId: 'X1', toDi: 0, toDayId: D[0].id, toEi: 1 }), 'down a place in its day');
+  eq(w[0].days[0].exercises.map((e) => e.id).join(','), 'X2,X1');
+  assert(!DPg.mutate(w, { t: 'moveExTo', wi: 0, di: 0, ei: 1, exId: 'X1', toDi: 0, toDayId: D[0].id, toEi: 1 }), 'the same place is no change');
+  assert(DPg.mutate(w, { t: 'moveExTo', wi: 0, di: 0, ei: 1, exId: 'X1', toDi: 1, toDayId: D[1].id, toEi: 1 }), 'to another day');
+  eq(w[0].days[0].exercises.map((e) => e.id).join(',') + ' | ' + w[0].days[1].exercises.map((e) => e.id).join(','), 'X2 | X3,X1,X4');
+  eq(DPg.refuse(w, { t: 'moveExTo', wi: 0, di: 1, ei: 0, exId: 'X3', toDi: 0, toDayId: D[0].id, toEi: 0 }), 'logged', 'lifted stays on the day it was lifted');
+  eq(DPg.refuse(w, { t: 'moveExTo', wi: 0, di: 0, ei: 0, exId: 'X2', toDi: 2, toDayId: D[2].id, toEi: 0 }), 'rest', 'a rest day takes nothing');
+  eq(DPg.refuse(w, { t: 'moveExTo', wi: 0, di: 0, ei: 0, exId: 'X2', toDi: 1, toDayId: 'nope', toEi: 0 }), 'stale');
+  eq(DPg.refuse(w, { t: 'moveExTo', wi: 0, di: 0, ei: 0, exId: 'X2', toDi: 2, toDayId: D[2].id, toEi: 0 }, { team: true }), 'rest');
+  w = mk();
+  assert(DPg.mutate(w, { t: 'clearDay', wi: 0, di: 1, dayId: w[0].days[1].id }), 'clear a day');
+  eq(w[0].days[1].exercises.map((e) => e.id).join(','), 'X3', 'what was lifted stays');
+  w = mk();
+  assert(DPg.mutate(w, { t: 'clearWeek', wi: 0 }), 'clear the week');
+  eq(w[0].days.map((d) => d.exercises.length).join(','), '0,1,0', 'every day emptied but what was lifted; the days and their names stay');
+  eq(w[0].days[0].name, 'Squat Day');
+  assert(!DPg.mutate(w, { t: 'clearWeek', wi: 0 }), 'nothing left to clear: no change');
+});
+test('a week nothing\'s been lifted in yet: each line shows what the same line lifted the week before', () => {
+  const lifted = (o) => dpSet(Object.assign({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 8.5, completedAt: '2026-10-28T18:00:00Z' }, o));
+  const W1 = dpWeek(1, [dpDay('Squat Day', [dpEx('squat', [lifted(), lifted({ weight: 150, reps: 5, rpe: 7, actualRpe: 7 })]), dpEx('legs', [dpSet({ reps: 10 })], { exerciseName: 'Leg Press' })])]);
+  const W2 = dpWeek(2, [dpDay('Squat Day', [dpEx('legs', [dpSet({ reps: 10 })], { exerciseName: 'Leg Press' }), dpEx('squat', [dpSet({ weight: 182.5, reps: 3, rpe: 8 }), dpSet({ weight: 152.5, reps: 5, rpe: 7 })])])]);
+  const m = DPg.model([W1, W2], 1, dpEnv({ nowIdx: 1 }));
+  const sq = m.days[0].exercises[1];
+  eq(sq.lines[0].prev && sq.lines[0].prev.text, '180 × 3 @8.5', 'the top set, matched by lift (not by place)');
+  eq(DPg.liftedTone(sq.lines[0].prev), 'warn', 'how hard it went comes with it');
+  eq(sq.lines[1].prev && sq.lines[1].prev.text, '150 × 5 @7', 'the back-off');
+  eq(m.days[0].exercises[0].lines[0].prev, null, 'nothing lifted: nothing said');
+  assert(m.week.prevLifted, 'the week says it has some');
+  const m1 = DPg.model([W1, W2], 0, dpEnv({ nowIdx: 1 }));
+  eq(m1.days[0].exercises[0].lines[0].prev, null, 'a lifted week shows its own');
+});
+test('+ Set: one more set like the last, every prescription field with it; refused on a lifted exercise', () => {
+  const w = [dpWeek(1, [dpDay('Squat Day', [dpEx('squat', [dpSet({ id: 'a', weight: 152.5, reps: 4, rpe: null, pct: 72.5, pause: 2 }), dpSet({ id: 'b', weight: 152.5, reps: 4, rpe: null, pct: 72.5, pause: 2 })], { id: 'E1' }),
+    dpEx('bench', [dpSet({ id: 'c', weight: 100, reps: 5, rpe: 7, rpeHi: 8 }), dpSet({ id: 'x', weight: 90, reps: 8, extra: true })], { id: 'E2' }), dpEx('bench', [dpSet({ id: 'd', completed: true, actualRpe: 8 })], { id: 'E3' })])])];
+  assert(DPg.mutate(w, { t: 'addSet', wi: 0, di: 0, ei: 0, exId: 'E1' }));
+  const s3 = w[0].days[0].exercises[0].sets[2];
+  eq(w[0].days[0].exercises[0].sets.length, 3); eq(s3.weight + ' ' + s3.reps + ' ' + s3.pct + ' ' + s3.pause, '152.5 4 72.5 2', 'the load, reps, % and pause carried (rxOf)');
+  assert(s3.id !== 'b' && !s3.completed, 'a fresh set, nothing logged');
+  eq(DPg.exLines(w[0].days[0].exercises[0]).lines.length, 1, 'still one line: 3 × 4');
+  assert(DPg.mutate(w, { t: 'addSet', wi: 0, di: 0, ei: 1, exId: 'E2' }));
+  const b3 = w[0].days[0].exercises[1].sets[2];
+  eq(b3.weight + ' ' + b3.rpe + '-' + b3.rpeHi, '100 7-8', 'like the last written set (not the extra the lifter added), its RPE range too');
+  eq(DPg.refuse(w, { t: 'addSet', wi: 0, di: 0, ei: 2, exId: 'E3' }), 'logged', 'a lifted exercise takes no more sets here');
 });
 DRAFTS_ON = DP_DRAFTS_WAS;
 

@@ -215,7 +215,7 @@ function dsTeamRow(t, on) {
   var bl = teamBlockLine(t, today), nm = teamNextMeet(t, Store.get().meets || [], today);
   var ids = (t.members || []).map(function (m) { return m.athleteId; });
   var r = el('button', { type: 'button', class: 'dp-lrow ds-trow' + (on ? ' is-sel' : '') + (nm ? ' has-stat' : ''), 'aria-current': on ? 'true' : 'false' });
-  r.appendChild(dsFaces(ids, 3));
+  r.appendChild(dsFaces(ids, 2));   // two faces and +N: the team's name keeps its room in the 300 px list
   var main = el('span', { class: 'dp-lmain' });
   main.appendChild(el('span', { class: 'dp-lname' }, t.name || 'Team'));
   main.appendChild(el('span', { class: 'dp-lline' }, bl.line));
