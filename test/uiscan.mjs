@@ -230,13 +230,34 @@ const CP_DRAFT = "DRAFTS_ON = true; Store.update(s => { const p = s.programs.fin
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'w-pb-week' + suf, page: C, mode: 'web', theme, eval: PB(theme) },
   { name: 'w-pb-edit' + suf, page: C, mode: 'web', theme, eval: PB(theme, "new Promise(r => setTimeout(() => { const c = document.querySelector('.dp-cell.dp-l:not([readonly])'); if (c) c.focus(); r(true); }, 300))") },
-  { name: 'w-pb-write' + suf, page: C, mode: 'web', theme, eval: "DRAFTS_ON = true; " + PB(theme, "new Promise(r => setTimeout(() => { const g = document.querySelector('.dp-wk-gap'); if (g) g.click(); r(true); }, 300))") },
+  { name: 'w-pb-write' + suf, page: C, mode: 'web', theme, eval: "DRAFTS_ON = true; " + PB(theme, "new Promise(r => setTimeout(() => { const g = document.querySelector('.dp-tile-gap'); if (g) g.click(); r(true); }, 300))") },
   { name: 'w-pb-marcus' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "deskGo('programs'); DeskProgram.openLifter('demo-d3'); setTimeout(() => DeskProgram.pickWeek(0, false), 300)" },
-  { name: 'w-pb-progress' + suf, page: C, mode: 'web', theme, eval: PB(theme, "new Promise(r => setTimeout(() => { const b = [...document.querySelectorAll('.dp-head .dp-tool')].find(x => /Progress/.test(x.getAttribute('aria-label'))); if (b) b.click(); r(true); }, 300))") },
+  { name: 'w-pb-progress' + suf, page: C, mode: 'web', theme, eval: PB(theme, "new Promise(r => setTimeout(() => { const b = [...document.querySelectorAll('.dp-rebuild .dp-tool')].find(x => /Progress/.test(x.getAttribute('aria-label'))); if (b) b.click(); r(true); }, 300))") },
   { name: 'w-teams-week' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "deskGo('teams')" },
   { name: 'c-program-draft' + suf, page: C, theme, t44: T44P, eval: CP_DRAFT + tab('program') },
   { name: 'sh-program-menu-draft' + suf, page: C, theme, t44: '.cp-menu', eval: CP_DRAFT + tab('program') + ";setTimeout(() => document.querySelector('.cp-more').click(), 400)" });
 screens.push({ name: 'w-pb-v1', page: C + '&pb=v1', mode: 'web', eval: "deskGo('programs'); const s = document.getElementById('progAthlete'); if (s) { s.value = 'demo-a1'; loadProgram(); }" });
+// The Programs redo (3 Nov): week 1 as lifted, the week scrolled under the sticky head and days, the add-exercise picker
+// (empty and searched), the suggestions popover, Progress's preview, a day's ⋯, Preview as the lifter, the Block view, a
+// lifter with no program, a long block of drafts, Teams scrolled, dark and light; 1280 x 720, 1100 x 800 and the folded rail.
+const PBW = (theme, js) => PB(theme, "new Promise(r => setTimeout(() => { " + js + "; setTimeout(() => r(true), 350); }, 350))");
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
+  { name: 'w-pb-week1' + suf, page: C, mode: 'web', theme, eval: PBW(theme, "DeskProgram.pickWeek(0, false)") },
+  { name: 'w-pb-scroll' + suf, page: C, mode: 'web', theme, eval: PBW(theme, "document.getElementById('programArea').scrollTop = 620") },
+  { name: 'w-pb-picker' + suf, page: C, mode: 'web', theme, eval: PBW(theme, "document.querySelector('.dp-addex').click()") },
+  { name: 'w-pb-picker-q' + suf, page: C, mode: 'web', theme, eval: PBW(theme, "document.querySelector('.dp-addex').click(); const i = document.querySelector('.dp-pick-in'); i.value = 'pause bench 3x4 @7'; i.dispatchEvent(new Event('input'))") },
+  { name: 'w-pb-sug' + suf, page: C, mode: 'web', theme, eval: PBW(theme, "document.querySelector('.dp-sugchip').click()") },
+  { name: 'w-pb-progpreview' + suf, page: C, mode: 'web', theme, eval: PBW(theme, "DeskProgram.pickWeek(2, false); document.querySelector('.dp-rebuild .dp-tool[aria-label=\"Progress the week\"]').click(); setTimeout(() => { const it = [...document.querySelectorAll('.dk-menu-item')].find(x => /RPE/.test(x.textContent)); if (it) it.click(); }, 150)") },
+  { name: 'w-pb-daymenu' + suf, page: C, mode: 'web', theme, eval: PBW(theme, "document.querySelector('.dp-day-more').click()") },
+  { name: 'w-pb-preview' + suf, page: C, mode: 'web', theme, eval: PBW(theme, "DeskProgram.preview(true)") },
+  { name: 'w-pb-block' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "deskSetPbView('progress'); deskGo('programs'); DeskProgram.openLifter('demo-a1')" },
+  { name: 'w-pb-none' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "deskGo('programs'); DeskProgram.openLifter('demo-d10')" },
+  { name: 'w-pb-drafts' + suf, page: C, mode: 'web', theme, eval: "DRAFTS_ON = true; " + PBW(theme, "document.querySelector('.dp-tile-gap').click()") },
+  { name: 'w-teams-scroll' + suf, page: C, mode: 'web', theme, eval: (theme === 'light' ? "applyTheme('light'); " : '') + "deskGo('teams'); setTimeout(() => { const m = document.querySelector('#deskTeams .ds-main'); if (m) m.scrollTop = 420; }, 300)" });
+for (const [w, h] of [[1280, 720], [1100, 800]]) screens.push(
+  { name: 'w-pb-week-' + w, page: C, mode: 'web', w, h, eval: PB('dark') },
+  { name: 'w-pb-marcus-' + w, page: C, mode: 'web', w, h, eval: "deskGo('programs'); DeskProgram.openLifter('demo-d3'); setTimeout(() => DeskProgram.pickWeek(0, false), 300)" });
+screens.push({ name: 'w-pb-week-railmin', page: C, mode: 'web', eval: "if (!document.documentElement.classList.contains('rail-min')) dkToggleRail(); " + PB('dark') });
 // The desk's Last week report (coach.html at laptop width), dark and light.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push({ name: 'w-report' + suf, page: C, mode: 'web', theme, eval: 'CoachReportUI.open()' });
 // Imports on the desk (coach.html at laptop width): the intake, a client list, a lifter's history, a guide, dark and light.
