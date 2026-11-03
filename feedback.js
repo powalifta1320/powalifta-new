@@ -405,7 +405,7 @@
         }
         ta.removeAttribute('aria-invalid');
         if (window._demoMode) { finish(true); return; }
-        S.state = 'sending'; paintSend(); say('Sending…');
+        S.state = 'sending'; paintSend(); say('Sending…', 'sr');
         var r;
         try {
           if (S.kind === 'problem' && S.include) await appVersion();

@@ -51,6 +51,8 @@ body.powa-app .fb-sheet .fb-text:focus, .fb-sheet .fb-text:focus { border: 0; ba
 /* The line above Send: "Sending…", or what went wrong (and that the words are kept) with the amber triangle. */
 .fb-sheet .fb-status { display: flex; align-items: flex-start; gap: 8px; margin: 0 4px 14px; font-size: 14px; line-height: 1.45; color: var(--text-2); }
 .fb-sheet .fb-status:empty { display: none; }
+/* While sending, the button shows it (spinner and words); the line still says it to VoiceOver. */
+.fb-sheet .fb-status.is-sr { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .fb-sheet .fb-status.is-error { color: var(--text); }
 .fb-sheet .fb-status-ic { flex: none; display: inline-grid; place-items: center; width: 18px; height: 20px; color: var(--warn, #ff9f43); }
 .fb-sheet .fb-status-ic svg { width: 18px; height: 18px; }
