@@ -23,7 +23,7 @@ def one(im, name, q=88):   # a small layer: WebP only, at the capture's own 2x o
 def crop2(im, x, y, w, h):   # desk px (1440 x 900) to the 2x capture
     return im.crop((round(x * 2), round(y * 2), round((x + w) * 2), round((y + h) * 2)))
 
-what = sys.argv[1:] or ['desk', 'phone', 'thread', 'brand', 'program', 'clients', 'import', 'lifter']
+what = sys.argv[1:] or ['desk', 'phone', 'thread', 'brand', 'program', 'program-phone', 'clients', 'import', 'lifter']
 
 # --- Sam's laptop (cap-desk.mjs): the opening's screen, the camera's window, the list, what the window showed before.
 if 'desk' in what:
@@ -130,3 +130,25 @@ if 'program' in what:
         x, y, w, h = g[k]
         print('   .pub (%s) right: %s; top: %s; width: %s; height: calc(%g / %g * 1cqw)' % (k, pc(X0 + W - x - w, W), pc(y - Y0, H), pc(w, W), h, W / 100))
     print('   phones: the whole frame (no narrower window keeps every word and day chip whole in both weeks)')
+
+# --- Next week on phones (cap-program.mjs PHONE=1, 3x): the app's own narrow layout, a 1024 px laptop window with the sidebar
+# held open, jumped to Marcus's Bench Day: the editor (480 px) with 8 either side, from the top to just under the bench day
+# (the next day starts 16 px lower), so nothing is cut at an edge. Served to phones only (index.html <source media>), at a
+# phone's 1.5x, 2x and 3x; mkimg prints the phone overlays in the frame's per cent (1cqw = W / 100 desk px).
+if 'program-phone' in what:
+    g = json.load(open(CAP + 'prog-phone.json'))['g']
+    ed, card = g['lifted2']['editor'], g['lifted2']['card']
+    X0, Y0 = ed[0] - 8, 0
+    W, H = ed[2] + 16, round(card[1] + card[3] + 8)
+    k = 3
+    for n in ('lifted', 'taken'):
+        im = Image.open(CAP + 'prog-' + n + '-phone.png').crop((round(X0 * k), round(Y0 * k), round((X0 + W) * k), round((Y0 + H) * k)))
+        save(im, 'prog-bench-' + n + '-phone', [590, 786, 1179], q_webp=86, q_avif=62)
+    pc = lambda v, d: '%.3f%%' % (v / d * 100)
+    print('   phones: the frame desk %g..%g x %g..%g (%g x %g): .wk-in aspect-ratio: %g / %g' % (X0, X0 + W, Y0, Y0 + H, W, H, W, H))
+    for kk, cls in (('lifted', '.why'), ('cell145', '.tap')):
+        x, y, w, h = g[kk]['box'] if isinstance(g[kk], dict) else g[kk]
+        print('   %-5s left: %s; top: %s; width: %s; height: %s; border-radius: calc(9 / %g * 1cqw)' % (cls, pc(x - X0, W), pc(y - Y0, H), pc(w, W), pc(h, H), W / 100))
+    for kk in ('take', 'send'):
+        x, y, w, h = g[kk]
+        print('   .pub (%s) right: %s; top: %s; width: %s; height: calc(%g / %g * 1cqw)' % (kk, pc(X0 + W - x - w, W), pc(y - Y0, H), pc(w, W), h, W / 100))
