@@ -116,8 +116,7 @@ if 'lifter' in what:
 # action), the days' chips, the bench day and the top of the next (desk 548.5..1423.5 x 0..612.5: the editor's 860 px with
 # 7.5 either side, at the page's 10:7, so it is cut at 800 x 560 and 1600 x 1120 as before); his week 2 as lifted and,
 # after Take 1 suggestion, week 3 with his rule's 145 beside what week 2 lifted. prog.json says where the page rings and
-# draws: mkimg prints it in the crop's per cent (1cqw = W / 100 desk px), and the phones' window onto it (from the load
-# column, desk PX0, to the crop's right edge).
+# draws: mkimg prints it in the crop's per cent (1cqw = W / 100 desk px). Phones show the whole frame.
 if 'program' in what:
     X0, Y0, W, H = 548.5, 0, 875, 612.5
     for n in ('lifted', 'taken'):   # prog-bench-*: new names with the new frame, so a cached prog-* never meets the new positions
@@ -130,5 +129,4 @@ if 'program' in what:
     for k in ('take', 'send'):
         x, y, w, h = g[k]
         print('   .pub (%s) right: %s; top: %s; width: %s; height: calc(%g / %g * 1cqw)' % (k, pc(X0 + W - x - w, W), pc(y - Y0, H), pc(w, W), h, W / 100))
-    PX0 = 772
-    print('   phones: .wk-port aspect-ratio: %g / %g; .wk-in width: calc(%g / %g * 100%%); translate: calc(-%g / %g * 100%%) 0' % (X0 + W - PX0, H, W, X0 + W - PX0, PX0 - X0, W))
+    print('   phones: the whole frame (no narrower window keeps every word and day chip whole in both weeks)')

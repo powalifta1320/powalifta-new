@@ -827,11 +827,11 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .answers-copy .lead { margin-top: var(--s2); }
   .next-head .h2, .next-head .lead { grid-column: 1 / -1; }
   .next-head .lead { margin-top: 14px; }
-  /* The week: a true-size strip the reader's scroll pans across (without motion it scrolls sideways). */
-  /* The editor's right part at 0.6 (desk 772..1423.5): the load his rule writes, the RPE, what week 2 lifted, the action. */
+  /* The week: the whole frame, edge to edge. Every narrower window cuts a word or a day chip at its edge in one of the two weeks
+     (the load column sits under the head's name and the chips), and the app's own narrower layout fits his lifted set
+     only at 0.59. */
   .wk { width: auto; margin-inline: -16px; }
-  .wk-port { border-radius: 0; aspect-ratio: 651.5 / 612.5; }
-  .wk-in { width: calc(875 / 651.5 * 100%); translate: calc(-223.5 / 875 * 100%) 0; }
+  .wk-port { border-radius: 0; }
   .meet-lead { margin-top: 14px; margin-bottom: var(--s3); }
   .scene { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "phone" "board"; row-gap: 22px; }
   .mid { padding-bottom: 0; }
