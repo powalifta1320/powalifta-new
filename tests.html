@@ -9487,6 +9487,33 @@ test('a session\'s length as written', () => {
     dpEx('bench', [dpSet({ weight: 100, reps: 5, rpe: 7 }), dpSet({ weight: 100, reps: 5, rpe: 7 }), dpSet({ weight: 100, reps: 5, rpe: 7 })]), dpEx('pull', [dpSet({ reps: 10 }), dpSet({ reps: 10 }), dpSet({ reps: 10 })], { exerciseName: 'Barbell Row' })])), 55);
   eq(DPg.dayMinutes(dpDay('Acc', [dpEx('legs', [dpSet({ reps: 12 })], { exerciseName: 'Leg Curl' })])), 15, 'at least 15');
 });
+test('the day card (4 Nov): the gap in a word and a circle a set, one colour a meaning', () => {
+  // over is amber however far over (red is only the logo and the one action): no third tone past +1
+  eq(DPg.gapTone(1.5), 'over', 'a point and a half over'); eq(DPg.gapTone(0.5), 'over', 'half a point over');
+  eq(DPg.gapTone(0), 'ok', 'on it'); eq(DPg.gapTone(-0.5), 'under', 'half a point under'); eq(DPg.gapTone(-2), 'under', 'two under');
+  eq(DPg.gapTone(null), 'done', 'nothing written to compare with');
+  eq(DPg.gapWord(1.5), '+1.5', 'the badge says it'); eq(DPg.gapWord(0.5), '+0.5'); eq(DPg.gapWord(-1), '−1', 'a real minus');
+  eq(DPg.gapWord(0), 'ok', 'a check'); eq(DPg.gapWord(null), '', 'nothing to say');
+  const g = { rpe: 8, rpeHi: null, reps: 3 };
+  eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3, completed: true, actualRpe: 9.5 }), g), 'over', 'a set lifted over');
+  eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3, completed: true, actualRpe: 8 }), g), 'ok', 'a set on the RPE written');
+  eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3, completed: true, actualRpe: 7 }), g), 'under', 'a set under');
+  eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3, completed: true, actualRpe: null }), g), 'done', 'lifted, no RPE logged');
+  eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3, completed: true, actualRpe: 9 }), { rpe: 8, rpeHi: 9, reps: 3 }), 'ok', 'inside a range written (@8–9)');
+  eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3, completed: true, actualRpe: 8 }), { rpe: 2, rir: true, reps: 3 }), 'done', 'reps in reserve written: no RPE to compare');
+  eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3, skipped: true }), g), 'todo', 'skipped: a hollow circle');
+  eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3 }), g), 'todo', 'not logged yet: a hollow circle');
+  // the model hands every line its own sets (a circle each) and every day whether its week has been lifted in
+  const top = dpSet({ weight: 150, reps: 3, rpe: 8, completed: true, actualRpe: 9 }), bo = [dpSet({ weight: 135, reps: 5, rpe: 7, completed: true, actualRpe: 7 }), dpSet({ weight: 135, reps: 5, rpe: 7 })];
+  const m = DPg.model([dpWeek(1, [dpDay('Bench', [dpEx('bench', [top].concat(bo))]), dpDay('Squat', [dpEx('squat', [dpSet({ weight: 160, reps: 5, rpe: 7 })])])])], 0, dpEnv());
+  const ls = m.days[0].exercises[0].lines;
+  eq(ls.length, 2, 'two lines'); eq(ls[0].real.length, 1, 'the top set\'s own set'); eq(ls[1].real.length, 2, 'the back-offs\' two');
+  eq(ls[1].real.map((s) => DPg.setTone(s, ls[1].g)).join(','), 'ok,todo', 'one on it, one still to come');
+  eq(DPg.gapWord(ls[0].lifted.gapN), '+1', 'the top set\'s badge');
+  eq(m.days[0].wkLifted && m.days[1].wkLifted, true, 'every day of a week that has been lifted in knows it (the circles go on every line)');
+  eq(DPg.model([dpWeek(1, [dpDay('Squat', [dpEx('squat', [dpSet({ weight: 160, reps: 5, rpe: 7 })])])])], 0, dpEnv()).days[0].wkLifted, false, 'a week to come has no circles');
+  eq(typeof DPg.oldCard === 'function' && DPg.oldCard(), false, 'the new card by default (?daycard=old brings the card before it back)');
+});
 test('what was lifted against what was written: the line\'s tone', () => {
   const line = (sets, g) => ({ real: sets, g: Object.assign({ rpe: 8, reps: 3 }, g || {}), count: sets.length });
   const env = { show: (v) => v };
