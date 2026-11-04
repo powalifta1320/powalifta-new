@@ -165,14 +165,31 @@
         <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
       </array>
     </dict>
+    <!-- Feedback (feedback.js → the send-feedback edge function, table feedback): an idea or a
+         problem report the user writes and sends from You › Help, kept with their account so we
+         can follow up. Linked, not tracking. -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeCustomerSupport</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+      </array>
+    </dict>
     <!-- Crash / error diagnostics: error-log.js posts an uncaught error's message, stack, page
-         (no query or hash) and user agent to the send-client-error edge function. No account id,
-         not linked, not tracking. -->
+         (no query or hash) and user agent to the send-client-error edge function, with no account
+         id. A problem report from Feedback can carry technical details (screen, app version, device
+         and browser, screen size, theme, the last few error messages; the user sees them and can
+         switch them off) with the account, so this type is declared linked. Not tracking. -->
     <dict>
       <key>NSPrivacyCollectedDataType</key>
       <string>NSPrivacyCollectedDataTypeOtherDiagnosticData</string>
       <key>NSPrivacyCollectedDataTypeLinked</key>
-      <false/>
+      <true/>
       <key>NSPrivacyCollectedDataTypeTracking</key>
       <false/>
       <key>NSPrivacyCollectedDataTypePurposes</key>

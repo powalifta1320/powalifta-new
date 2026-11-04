@@ -94,6 +94,7 @@ For lifters
 
 And
 - A set logged while you were offline is never lost
+- Send us an idea or report a problem from You › Help: it comes straight to us
 ```
 
 **What's New** (version notes, ≤4000) — v1.2:
@@ -147,7 +148,8 @@ Source of truth is `privacy.html`. Declare:
 | Usage data (analytics) | No | — | — | Plausible is disabled inside the app (native-bridge.js; the bundle carries no analytics tag) |
 | Purchases (coach subscription status) | Yes | Yes | No | App functionality — Apple in-app subscription, from Apple's signed transaction; no card data |
 | User ID (account id) | Yes | Yes | No | App functionality — the account the data belongs to |
-| Diagnostics (Other diagnostic data: an uncaught error's message, stack, page and user agent) | Yes | No | No | App functionality — `error-log.js` posts it to the `send-client-error` edge function (table `client_errors`), with no account id. Declared in `PrivacyInfo.xcprivacy` as `NSPrivacyCollectedDataTypeOtherDiagnosticData` (not linked, no tracking). In App Store Connect tick **Diagnostics → Other Diagnostic Data**: not linked, not tracking, App Functionality |
+| Customer support (1.3: Feedback, an idea or a problem report the user writes in You › Help) | Yes | Yes | No | App functionality — `feedback.js` → the `send-feedback` edge function (table `feedback`), kept with the account so we can follow up; emailed only to us (privacy.html "Feedback and problem reports"). Declared in `PrivacyInfo.xcprivacy` as `NSPrivacyCollectedDataTypeCustomerSupport`. In App Store Connect tick **Customer Support**: linked, not tracking, App Functionality |
+| Diagnostics (Other diagnostic data: an uncaught error's message, stack, page and user agent; in 1.3 also a problem report's technical details) | Yes | Yes (1.3) | No | App functionality — `error-log.js` posts errors to the `send-client-error` edge function (table `client_errors`) with no account id, but a Feedback problem report can carry technical details (screen, app version, device and browser, screen size, theme, the last few error messages; shown before sending, can be switched off) with the account, so from 1.3 the type is linked. Declared in `PrivacyInfo.xcprivacy` as `NSPrivacyCollectedDataTypeOtherDiagnosticData` (linked, no tracking). In App Store Connect tick **Diagnostics → Other Diagnostic Data**: linked, not tracking, App Functionality |
 
 ### Apple Health (1.3, branch feat/apple-health)
 Checked against the code on 22 Oct 2026: `native/ios-native/App/HealthPlugin.swift`, `health.js`, `db.js` (APPLE HEALTH SHARING), `sql/migration-health-2026-10-22.sql`, `sql/migration-readiness-cut-2026-10-22.sql` (both live), `native/scripts/inject-health.rb`. If any of those change, re-check this list, `privacy.html` → Apple Health and `data.html` → What we keep.
