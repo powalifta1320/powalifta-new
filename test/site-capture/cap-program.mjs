@@ -13,7 +13,7 @@
 // prog.json: the editor's parts and where the page rings, lands and draws (desk px), and the action's own type.
 // -> mkimg.py program.
 // Phones (PHONE=1): the same story from the app's own narrow layout, a 1024 px laptop window with the sidebar held open
-// (an editor of 480 px: the notes fold away, what was lifted sits after the effort, Preview, the crimson and ⋯ take a
+// (an editor of 480 px: the notes fold under the load, what was lifted sits under each line, Preview, the crimson and ⋯ take a
 // line under the name), at 3x: prog-lifted-phone.png, prog-taken-phone.png, prog-phone.json -> mkimg.py program-phone.
 import { writeFileSync } from 'node:fs';
 import { launch, deskCtx, patchDemo, arjunTopSet, BASE, CAP as OUT } from './lib.mjs';
