@@ -2582,6 +2582,9 @@ var MeetDay = (function () {
         var d = new Date(g.date + 'T12:00:00');
         li.appendChild(E('div', { class: 'md-meet-date', 'aria-hidden': 'true' }, E('b', {}, String(d.getDate())), E('small', {}, d.toLocaleDateString(undefined, { month: 'short' }))));
         var weigh = g.weighIn ? (g.weighIn === '2h' ? '2 h weigh-in' : '24 h weigh-in') + (g.weighInAt ? ' ' + clock(Date.parse(g.weighInAt)) : '') : '';
+        // The phone's narrow line never breaks "weigh-in" at its hyphen ("2 h weigh-" / "in 07:00"): "2 h", "weigh-in"
+        // and its time hold together (no-break spaces, a no-break hyphen). The desk's line is as it was.
+        if (weigh && !onDesk()) weigh = weigh.replace(/ h /, '\u00a0h ').replace('weigh-in', 'weigh\u2011in').replace(/in (\d)/, 'in\u00a0$1');
         var metaTxt = [g.federation, g.division, weigh].filter(Boolean).join(' · ') || dayText(g.date);
         var whoTxt = g.rows.map(function (r) { return r.name; }).join(', ');
         li.appendChild(E('div', { class: 'md-meet-main' }, E('b', { class: 'md-meet-name' }, g.name),

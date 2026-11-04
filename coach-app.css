@@ -2668,3 +2668,12 @@ html:not(.desk) body.powa-app .vn-wave::after { content: ''; position: absolute;
 /* last week's report, in light: a lifter's weight over their class is the darker shade of the warn colour (the bright
    one was 3.4:1 on white) */
 html[data-theme="light"]:not(.desk) body.powa-app .mr-phone .mr-ml em.mr-over { color: color-mix(in srgb, var(--ca-warn) 72%, #000); }
+
+/* ---------------------------------------------------------------- details (4 Nov, before iPhone 1.3) */
+/* Home's Strength card on a small iPhone (375): its three lift changes overran their line by 2 pt and touched, the
+   gap between two lifts (4) barely wider than a key's gap to its number (3), so "+3.0 B" read as one. A key sits
+   2 pt from its number and two lifts are at least 6 apart, on the line. */
+@media (max-width: 400px) {
+  html:not(.desk) .ca-g-st .ca-lchips { gap: 6px; }
+  html:not(.desk) .ca-g-st .ca-lchip { gap: 2px; }
+}

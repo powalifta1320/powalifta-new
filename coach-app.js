@@ -1852,21 +1852,21 @@
      SHEETS: find anything (Home's search), check-ins
      ==================================================================================================== */
   var SCREENS = [
-    ['Clients', 'packages payments money overdue billing', function () { tab('clients'); }],
-    ['Meets', 'competition attempts meet day weigh-in', function () { if (window.MeetDay) MeetDay.openMeetsScreen(); }],
-    ['Check-ins', 'answers questions readiness', function () { openCheckins(); }],
-    ['Check-in questions', 'ask edit questions', function () { if (typeof openCheckinQuestionsSheet === 'function') openCheckinQuestionsSheet(); }],
-    ['Challenges', 'competition most sessions prs board', function () { tab('challenges'); }],
-    ['Club', 'feed board posts members', function () { tab('club'); }],
-    ['Templates', 'saved programs blocks', function () { tab('templates'); }],
-    ['Programs', 'builder block week day exercise', function () { tab('program'); }],
-    ['Messages', 'chat reply thread inbox', function () { tab('messages'); }],
-    ['Last week’s report', 'monday summary weekly', function () { if (window.CoachReportUI) CoachReportUI.open(); }],
-    ['Invite a lifter', 'add new code link', function () { if (typeof openInviteModal === 'function') openInviteModal(); }],
-    ['Lifter progress', 'charts e1rm trends roster', function () { tab('progress'); }],
-    ['Progression rules', 'rules next week loads', function () { tab('rules'); }],
-    ['Your coaching week', 'capacity hours seats time minutes lifters standard', function () { tab('capacity'); }],
-    ['Settings', 'profile notifications units security you account', function () { tab('you'); }]
+    ['Clients', 'packages payments money overdue billing', function () { tab('clients'); }, 'wallet'],
+    ['Meets', 'competition attempts meet day weigh-in', function () { if (window.MeetDay) MeetDay.openMeetsScreen(); }, 'trophy'],
+    ['Check-ins', 'answers questions readiness', function () { openCheckins(); }, 'clip'],
+    ['Check-in questions', 'ask edit questions', function () { if (typeof openCheckinQuestionsSheet === 'function') openCheckinQuestionsSheet(); }, 'list'],
+    ['Challenges', 'competition most sessions prs board', function () { tab('challenges'); }, 'flag'],
+    ['Club', 'feed board posts members', function () { tab('club'); }, 'shield'],
+    ['Templates', 'saved programs blocks', function () { tab('templates'); }, 'copy'],
+    ['Programs', 'builder block week day exercise', function () { tab('program'); }, 'cal'],
+    ['Messages', 'chat reply thread inbox', function () { tab('messages'); }, 'msg'],
+    ['Last week’s report', 'monday summary weekly', function () { if (window.CoachReportUI) CoachReportUI.open(); }, 'chart'],
+    ['Invite a lifter', 'add new code link', function () { if (typeof openInviteModal === 'function') openInviteModal(); }, 'plus'],
+    ['Lifter progress', 'charts e1rm trends roster', function () { tab('progress'); }, 'trend'],
+    ['Progression rules', 'rules next week loads', function () { tab('rules'); }, 'steps'],
+    ['Your coaching week', 'capacity hours seats time minutes lifters standard', function () { tab('capacity'); }, 'gauge'],
+    ['Settings', 'profile notifications units security you account', function () { tab('you'); }, 'user']
   ];
   function openSearch() {
     if (typeof uiSheet !== 'function') return;
@@ -1893,7 +1893,8 @@
           if (msgs.length) groups.push(['Messages', msgs.map(function (m) { var a = roster.find(function (x) { return x.id === m.athleteId; }) || {}; return { icon: 'msg', title: a.name || 'Message', sub: '“' + clip(m.body, 60) + '”', run: function () { if (typeof openAthleteMessages === 'function') openAthleteMessages(a.id, a.name, ''); } }; })]);
         }
         var screens = SCREENS.filter(function (x) { return !q || (x[0] + ' ' + x[1]).toLowerCase().indexOf(q) >= 0; }).slice(0, q ? 5 : 15);
-        if (screens.length) groups.push([q ? 'Screens' : 'Go to', screens.map(function (x) { return { icon: 'chev', title: x[0], run: x[2] }; })]);
+        // each screen wears its own icon (the one Home's Coaching and You give it); a chevron on both sides read as a placeholder
+        if (screens.length) groups.push([q ? 'Screens' : 'Go to', screens.map(function (x) { return { icon: x[3] || 'chev', title: x[0], run: x[2] }; })]);
         res.innerHTML = '';
         if (!groups.length) { res.appendChild(el('p', { class: 'ca-none' }, 'Nothing called “' + inp.value.trim() + '”')); return; }
         groups.forEach(function (g) {
