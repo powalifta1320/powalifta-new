@@ -644,8 +644,10 @@
   var wkPort = $('#wkPort'), wkTap = $('#wkTap'), wkWhy = $('#wkWhy'), wkB = $('.wk-before'), pub = $('#pub'), pubSw = $('.swap', pub);
   rise([wkPort], { y: 30, start: 'top 94%', dur: 0.8 });
   swapStart(pubSw);
-  var pubW = function (k) { return function () { return getComputedStyle(pub).getPropertyValue(k).trim(); }; };   // home.css --w-take, --w-send
-  gsap.set(pub, { autoAlpha: 0, y: 6, transformOrigin: '100% 50%', width: pubW('--w-take') });
+  // home.css --w-take, --w-send: the crimson is cut from the left by Take's share of the box (--pub-k), then opens to Send's
+  // width; the box never changes size, so the page never shifts.
+  var pubK = function () { var cs = getComputedStyle(pub); return 1 - parseFloat(cs.getPropertyValue('--w-take')) / parseFloat(cs.getPropertyValue('--w-send')); };
+  gsap.set(pub, { autoAlpha: 0, y: 6, transformOrigin: '100% 50%', '--pub-k0': pubK, '--pub-k': pubK });
   var takeTl = gsap.timeline({ paused: true })
     .fromTo(wkWhy, { autoAlpha: 0, scale: 1.05 }, { autoAlpha: 1, scale: 1, duration: 0.34, ease: ENTER, immediateRender: false }, 0)
     .to(pub, { autoAlpha: 1, y: 0, duration: 0.4, ease: ENTER }, 0.45)
@@ -655,7 +657,7 @@
     .fromTo(wkB, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.45, ease: OUT, immediateRender: false }, 1.4)
     .fromTo(wkTap, { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.3, ease: OUT, immediateRender: false }, 1.7)
     .to(wkTap, { opacity: 0, duration: 0.5, ease: OUT }, 2.5)
-    .fromTo(pub, { width: pubW('--w-take') }, { width: pubW('--w-send'), duration: 0.3, ease: OUT, immediateRender: false }, 1.6);
+    .fromTo(pub, { '--pub-k': pubK }, { '--pub-k': 0, duration: 0.3, ease: OUT, immediateRender: false }, 1.6);
   swapIn(takeTl, pubSw, 1.6);
   onState(takeTl, { trigger: wkPort, start: function () { return small() ? 'bottom 92%' : 'bottom 88%'; } });
 

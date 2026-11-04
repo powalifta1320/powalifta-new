@@ -393,10 +393,17 @@ html.m .wk-before { display: block; }
 .tap { position: absolute; left: 27.143%; top: 48.653%; width: 8.08%; height: 5.224%; border-radius: calc(9 / 8.75 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
 /* The editor's own action (desk-program.js, the crimson primary in its sticky head), drawn by the page so one crimson per
    screen holds: Take 1 suggestion, then Send the changes to Marcus, each at the editor's width (Preview sits just left of
-   the first; home.js widens it as the label changes; the still is the second). Right-aligned where the editor has it. */
-.pub { position: absolute; right: 5.429%; top: 2.286%; --w-take: 16.446%; --w-send: 23.371%; width: var(--w-send); height: calc(36 / 8.75 * 1cqw); display: inline-flex; align-items: center; justify-content: center; padding: 0 calc(18 / 8.75 * 1cqw); border-radius: 999px;
-  background: linear-gradient(180deg, var(--act-top), var(--act-bot)); color: #fff; font-size: calc(13 / 8.75 * 1cqw); font-weight: 600; white-space: nowrap; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.45); }
-.pub .swap > span { display: inline-flex; align-items: center; justify-content: center; }
+   the first; the still is the second). Right-aligned where the editor has it. The box is always Send's width: its crimson
+   (::before) is cut from the left to Take's width by --pub-k (1 - take / send, set by home.js) and opens as the label
+   changes, so nothing on the page moves (a widening box is a layout shift). Each label is centred in its own part of the
+   box: Send in all of it, Take in the part right of --pub-k0 (Take's cut). The drop shadow is a filter, so it follows
+   the cut. */
+.pub { position: absolute; right: 5.429%; top: 2.286%; --w-take: 16.446%; --w-send: 23.371%; --pub-k: 0; --pub-k0: 0; width: var(--w-send); height: calc(36 / 8.75 * 1cqw); display: inline-flex; align-items: center; justify-content: center; padding: 0 calc(18 / 8.75 * 1cqw); border-radius: 999px;
+  color: #fff; font-size: calc(13 / 8.75 * 1cqw); font-weight: 600; white-space: nowrap; isolation: isolate; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45)); }
+.pub::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2); clip-path: inset(0 0 0 calc(var(--pub-k) * 100%) round 999px); }
+.pub .swap { position: absolute; inset: 0; display: block; }
+.pub .swap > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.pub .swap > :first-child { left: calc(var(--pub-k0) * 100%); }
 
 /* =====================================================================
    MEET DAY: the striking moment. A black stage: Tom's phone (left), the platform (three lights, then the minute),
@@ -729,6 +736,8 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
 .dec-opts button, .mx .mx-unit button, .mx .mx-share { transition: background-color var(--t-state) ease, color var(--t-state) ease, transform var(--t-press) var(--ease-out); }
 /* One crimson per screen: when two page actions share the screen, the one further from the middle steps back to ink. */
 .act-btn.is-quiet, .pub.is-quiet { background: #f4f4f6; color: #0b0b0d; box-shadow: none; }
+.pub.is-quiet { background: none; filter: none; }
+.pub.is-quiet::before { background: #f4f4f6; box-shadow: none; }
 .log.is-quiet { background: #f4f4f6; color: #0b0b0d; box-shadow: 0 0 0 1px #f4f4f6, 0 1px 2px rgba(0, 0, 0, 0.45); }   /* the spread covers the app's own Log set's edge under it */
 /* Without JavaScript on a phone, Arjun's phone sits under Start free on the first screen: Log set steps back, as the page
    layer would have it. */
@@ -1081,6 +1090,8 @@ body.home .foot { padding: 48px 0 32px; }
 
   /* One crimson per screen: an action that steps back steps back to ink. */
   html:not(.native) .act-btn.is-quiet, html:not(.native) .pub.is-quiet { background: #0b0b0d; color: #f4f4f6; }
+  html:not(.native) .pub.is-quiet { background: none; }
+  html:not(.native) .pub.is-quiet::before { background: #0b0b0d; }
   html:not(.native) .log.is-quiet { background: #0b0b0d; color: #f4f4f6; box-shadow: 0 0 0 1px #0b0b0d, 0 1px 2px rgba(0, 0, 0, 0.3); }
 
   /* The account windows: the app's light theme on the windows, as the page (the app's dark one in the dark, above). */
