@@ -800,7 +800,11 @@ function _buildCoachDemoData() {
   const arjunMax = { squat: 210, bench: 140, deadlift: 255 };
   const pctKg = (p, max) => Math.round(max * p / 100 / 2.5) * 2.5;
   const rxSets = (n, reps, kg, rpe, extra) => Array.from({ length: n }, () => Object.assign({ id: uid('set'), weight: kg, reps, rpe, completed: false, actualRpe: null, completedAt: null }, extra || {}));
-  const did = (sets, actual) => sets.map((s, i) => Object.assign(s, { completed: true, actualRpe: s.rpe, completedAt: daysAgo(3) }, (actual || [])[i] || {}));
+  // Week 1's logged sets carry one date, never before this Monday: from Monday to Wednesday three days ago is last week,
+  // and the block (its start snaps to that Monday) would read a week behind its dates with deadlift day missed.
+  // Thursday to Sunday it is three days ago, as before.
+  const wk1 = daysAgo(3) > _monISO(daysAgo(0)) ? daysAgo(3) : _monISO(daysAgo(0));
+  const did = (sets, actual) => sets.map((s, i) => Object.assign(s, { completed: true, actualRpe: s.rpe, completedAt: wk1 }, (actual || [])[i] || {}));
   const ex2 = (lift, variant, sets, extra) => Object.assign({ id: uid('ex'), lift, variant, exerciseName: '', note: '', sets }, extra || {});
   const arjunWeeks = [0, 1, 2].map(wi => {
     const w1 = wi === 0;
@@ -826,7 +830,7 @@ function _buildCoachDemoData() {
   });
   // Arjun's block has dates (brief M3): it began this week and counts down to his planned meet.
   const programs = roster.map((r, ri) => ri === 0 ? { id: 'demo-cprog-0', athleteId: r.id, coachId: DC, name: 'Strength Block', maxes: arjunMax, weeks: arjunWeeks,
-    startsOn: _monISO(daysAgo(3)), meetDate: daysAgo(-53), setFields: { on: ['tempo', 'pause', 'acc'], cols: ['Belt'] } } : ({
+    startsOn: _monISO(wk1), meetDate: daysAgo(-53), setFields: { on: ['tempo', 'pause', 'acc'], cols: ['Belt'] } } : ({
     id: 'demo-cprog-' + ri, athleteId: r.id, coachId: DC, name: ['Strength Block', 'Hypertrophy Wave', 'Meet Prep', 'Foundation'][ri],
     weeks: [1, 2, 3].map(wn => ({
       id: uid('wk'), number: wn, days: [
