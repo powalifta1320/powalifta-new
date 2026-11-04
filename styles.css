@@ -13195,3 +13195,42 @@ html:not([data-theme="light"]):not(.desk) body.powa-app .club-invite-icon { back
 html:not([data-theme="light"]):not(.desk) body.powa-app .cp-pr { background: rgba(255, 255, 255, 0.07); }
 html:not([data-theme="light"]):not(.desk) body.powa-app :is(.chl-mine-ic, .chl-empty-ic) { background: rgba(255, 255, 255, 0.07); }
 html:not([data-theme="light"]):not(.desk) body.powa-app .cv-ev.k-meet .cv-ic { background: var(--bg-2); }
+
+/* ======================================================================================================== 12 PX FLOOR
+   The apps (4 Nov, before iPhone 1.3): no text under 12 px. The tab bar's names, the Train ring's "/3", a club post's
+   PR chip, its RPE word and the Owner tag, the coach thread's times and Seen, Program's tags and the club's faces
+   were 11 (11.5 for Seen). The laptop keeps its own sizes. */
+html.native:not(.desk) body.powa-app .bottom-tab { font-size: 12px; }
+html:not(.desk) body.powa-app .tx-card .tx-ring .ui-ring-label small { font-size: 12px; }
+html:not(.desk) body.powa-app :is(.cp-pr, .cp-rpe, .cp-who b .cp-role, .pb-badge, .cs-av, .cs-av.more) { font-size: 12px; }
+html:not(.desk) body.powa-app :is(.msg-meta, .msg-note-meta, .msg-status) { font-size: 12px; }
+
+/* ======================================================================================================== 44 PT TO THE TOUCH
+   The lifter app's small controls get the hit area the coach phone's already have (coach-app.css "44 pt to the
+   touch"), drawn as they were (4 Nov): the bell, the voice note's play, speed and wave, a club post's face, its ⋯, its
+   reactions, the club's invite and Leave / Report, a buddy's face and Nudge, a segment, the strength chart's lift chips,
+   Program's weeks and ⋯ buttons, a section's History or Edit, the back link and the social chips. Train's set rows
+   keep their approved sizes (listed for the owner). */
+html:not(.desk) body.powa-app :is(.sig-bell, .vn-play, .vn-speed, .vn-wave, button.cbud-av, button.cp-av, .cp-more, .club-invite-icon, .react-chip, .react-add, .ig-chip, .ui-label-end, .ui-seg button, .cbud-nudge, .club-link, .sc-chip, .week-tab, .pane-back, .ui-icon-btn) { position: relative; }
+html:not(.desk) body.powa-app :is(.sig-bell, .ig-chip, .cp-more)::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+html:not(.desk) body.powa-app .vn-play::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; }
+html:not(.desk) body.powa-app .vn-speed::after { content: ''; position: absolute; inset: -7px -2px; }
+html:not(.desk) body.powa-app .vn-wave::after { content: ''; position: absolute; inset: -8px 0; }
+html:not(.desk) body.powa-app :is(button.cbud-av, button.cp-av, .club-invite-icon, .ui-icon-btn)::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; }
+html:not(.desk) body.powa-app :is(.react-chip, .react-add)::after { content: ''; position: absolute; inset: -6px -3px; }
+html:not(.desk) body.powa-app .msg-react::after { content: ''; position: absolute; inset: -8px -6px; }
+html:not(.desk) body.powa-app .ui-label-end::after { content: ''; position: absolute; inset: -2px 0; }
+html:not(.desk) body.powa-app :is(.ui-seg button, .cbud-nudge)::after { content: ''; position: absolute; inset: -5px 0; }
+html:not(.desk) body.powa-app .club-link::after { content: ''; position: absolute; inset: -6px -5px; }
+html:not(.desk) body.powa-app .sc-chip::after { content: ''; position: absolute; inset: -6px 0; }
+html:not(.desk) body.powa-app :is(.week-tab, .pane-back)::after { content: ''; position: absolute; inset: -4px 0; }
+/* three rows clip what's beyond their box (a sideways scroller, a hidden overflow): each gets the room its chips' hit
+   areas need inside it, with the same room taken back outside, so nothing moves (the strength chart's lift chips,
+   Program's weeks, the social chips on You); the PR moment's Done is a 44 pt target too */
+html:not(.desk) body.powa-app .sc-chips { padding-block: 6px; margin-block: -6px; }
+html:not(.desk) body.powa-app .builder-aside .week-nav { padding-block: 4px 6px; margin-block: -4px; }
+html:not(.desk) body.powa-app .you-head .social-chips { padding: 4px; margin: 4px -4px -4px; }
+html:not(.desk) body.powa-app .prm-done { position: relative; }
+html:not(.desk) body.powa-app .prm-done::after { content: ''; position: absolute; inset: -2px 0; }
+/* a sheet's switch (51 x 31, iOS's own size) answers a tap 7 pt above and below it, in both apps */
+html:not(.desk) body.powa-app label.ui-switch::after { content: ''; position: absolute; inset: -7px -4px; }
