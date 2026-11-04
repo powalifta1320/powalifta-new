@@ -2239,6 +2239,8 @@ html.desk body.powa-app input.dp-mem-in { width: 88px; font-size: var(--fs-4); f
 }
 @container dpw (max-width: 680px) {
   .dp-cols, .dp-line, .dp-week:not(.has-lifted) :is(.dp-cols, .dp-line), .dp.is-team :is(.dp-cols, .dp-line) { --c-ind: 0px; --c-role: 54px; --c-sr: 76px; --c-eff: 50px; --c-gap: 6px; }
+  /* what hangs off the lines loses the indent with them: the cue stays under Top set, the set buttons under the lines */
+  .dp-cue, .dp-ex-foot, .dp-ghost-sub, .dp-mems { --c-ind: 0px; }
 }
 @container dpw (max-width: 544px) {
   .dp-cols, .dp-line, .dp-week:not(.has-lifted) :is(.dp-cols, .dp-line), .dp.is-team :is(.dp-cols, .dp-line) { --c-load: 86px; }
