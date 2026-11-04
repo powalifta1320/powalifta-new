@@ -13195,6 +13195,9 @@ html:not([data-theme="light"]):not(.desk) body.powa-app[data-accent="gold"] .ui-
   border-color: var(--edge);
 }
 html:not([data-theme="light"]):not(.desk) body.powa-app .club-crest { background: #262629; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+/* the lifter's club crest in light was the night's dark brown tile on white: a pale gold tile with deep gold initials,
+   as the coach's crest is in light */
+html[data-theme="light"]:not(.desk) body.powa-app .club-crest { background: color-mix(in srgb, #8a5d00 12%, #fff); color: #6f4c00; box-shadow: inset 0 0 0 1px rgba(138, 93, 0, 0.16); }
 html:not([data-theme="light"]):not(.desk) body.powa-app .club-invite-icon { background: rgba(255, 255, 255, 0.07); }
 html:not([data-theme="light"]):not(.desk) body.powa-app .cp-pr { background: rgba(255, 255, 255, 0.07); }
 html:not([data-theme="light"]):not(.desk) body.powa-app :is(.chl-mine-ic, .chl-empty-ic) { background: rgba(255, 255, 255, 0.07); }
