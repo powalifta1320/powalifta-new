@@ -503,6 +503,9 @@ html.desk #rosterArea.cl-on > .dk-rhead, html.desk #rosterArea.cl-on > .dk-rbody
 .cl-band { fill: color-mix(in srgb, var(--cl-up) 10%, transparent); }
 .cl-edot { stroke: var(--cl-surface); stroke-width: 2; }
 .cl-edot.on { fill: var(--cl-up); } .cl-edot.half { fill: color-mix(in srgb, var(--cl-down) 70%, var(--cl-surface)); } .cl-edot.over { fill: var(--cl-down); } .cl-edot.under { fill: var(--cl-bw); }
+html.desk .cl-edot.half { fill: var(--cl-surface); stroke: var(--dk-over); stroke-width: 1.5; }   /* the laptop's one amber: half a point a ring */
+html.desk .cl-edot.over { fill: var(--dk-over-fill); }
+html.desk[data-theme="light"] .cl-edot.over { stroke: var(--dk-over-edge); stroke-width: 1.5; }
 .cl-ref { stroke: var(--cl-down); stroke-width: 1; opacity: 0.55; }
 .cl-reft { fill: var(--cl-down); }
 .cl-area { fill: currentColor; opacity: 0.08; }
@@ -1158,6 +1161,9 @@ html body.powa-app textarea.wn-ta:focus { outline: none; border: 0; background: 
 .wn-te small { font-size: 13px; color: var(--text-3); }
 .wn-sd { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--sd, transparent); }
 .wn-sd.t-warn { --sd: var(--cl-down); } .wn-sd.t-alert { --sd: var(--cl-pain); } .wn-sd.t-cool { --sd: var(--cl-bw); }
+/* the laptop: a top set's effort over what was written is amber (pain, in the facts, keeps its red) */
+html.desk .wn-te .wn-sd.t-warn { --sd: transparent; box-shadow: inset 0 0 0 1.5px var(--dk-over); }
+html.desk .wn-te .wn-sd.t-alert { --sd: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); }
 .wn-facts { display: flex; flex-direction: column; margin: 0; }
 .wn-fact { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; padding: 10px 0; }
 .wn-fact + .wn-fact { box-shadow: inset 0 1px 0 var(--line); }
@@ -2483,8 +2489,9 @@ html.desk .cl-bin i { width: 100%; max-width: 32px; height: calc(var(--h) * 100%
 html.desk .cl-bin i.is-easier { background: color-mix(in srgb, var(--ch-bw) 22%, var(--text-4)); opacity: 0.7; }
 html.desk .cl-bin i.is-under { background: color-mix(in srgb, var(--ch-bw) 22%, var(--text-4)); }
 html.desk .cl-bin i.is-at { background: var(--cl-up); }
-html.desk .cl-bin i.is-half { background: var(--cl-down); }
-html.desk .cl-bin i.is-over { background: var(--cl-pain); }
+/* over what was written: amber, never the pain red (desk.css --dk-over): +0.5 an outlined bar, +1 solid */
+html.desk .cl-bin i.is-half { background: none; box-shadow: inset 0 0 0 1.5px var(--dk-over); }
+html.desk .cl-bin i.is-over { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); }
 html.desk .cl-bin i.is-zero { height: 3px; min-height: 0; background: var(--ch-fill-4); }
 html.desk .cl-bins-x { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; font-size: 13px; line-height: 16px; color: var(--text-3); text-align: center; white-space: nowrap; }
 html.desk .cl-bins-x .b-under { grid-column: 1 / 3; }

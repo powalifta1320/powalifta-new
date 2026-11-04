@@ -93,6 +93,9 @@ html.desk:not([data-theme="light"]) body.powa-app {
   --dk-focus: rgba(243, 243, 245, 0.55);
   --dk-sq: #38c6ff; --dk-bp: #a98bff; --dk-dl: #ffbf3c;
   --dk-gold: #ffbf3c; --dk-alert: #ff6f7d; --dk-warn: #ff9f45; --dk-ok: #3fd99a; --dk-cool: #6cb8ff;
+  /* over what was written (RPE): amber, never the alert red. Half a point: an outline in --dk-over; a full point or more:
+     solid --dk-over-fill with --dk-over-on on it. Pain keeps --dk-alert. */
+  --dk-over: #ff9f45; --dk-over-fill: #ff9f45; --dk-over-edge: transparent; --dk-over-on: #1a1206;
   --dk-pop: 0 16px 40px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.07);
   --dk-cb-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%230a0a0c' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --dk-cb-dash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6h6' stroke='%230a0a0c' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
@@ -125,6 +128,9 @@ html.desk[data-theme="light"] body.powa-app {
   --dk-focus: rgba(11, 11, 13, 0.5);
   --dk-sq: #19a9e6; --dk-bp: #8b6cf0; --dk-dl: #e5a51c;
   --dk-gold: #8a5a00; --dk-alert: #c4162a; --dk-warn: #b4410c; --dk-ok: #0f7d47; --dk-cool: #036f9c;
+  /* light: the text and outlines a deep amber (5.5:1 on white); a solid one a bright amber edged in it (the edge 5.2:1 on a
+     band; a solid deep amber reads brown), its words in near-black ink (9:1) */
+  --dk-over: #9a5a00; --dk-over-fill: #f5a524; --dk-over-edge: #9a5a00; --dk-over-on: #1a1206;
   --dk-pop: 0 16px 40px -14px rgba(20, 20, 40, 0.22), 0 0 0 1px rgba(11, 11, 13, 0.08);
   /* avatar hues (light): tint and ink pairs, AA on each other */
   --av-1-bg: #ece8e2; --av-1-ink: #4d463f; --av-2-bg: #fcebde; --av-2-ink: #93380a; --av-3-bg: #f8efd3; --av-3-ink: #6f4c00; --av-4-bg: #e0f2e6; --av-4-ink: #155f36; --av-5-bg: #dcf1ee; --av-5-ink: #0e5f59; --av-6-bg: #e1ebfb; --av-6-ink: #1c4f9c; --av-7-bg: #e9e5fb; --av-7-ink: #4a37a6; --av-8-bg: #f6e3f4; --av-8-ink: #86287d;
@@ -180,7 +186,7 @@ html.desk body.powa-app :is(.dk-h1, .md-screen-title, .cl-h1, .cl-h1x) {
 .dk-sp { flex: 1; min-width: 8px; }
 .dk-num { font-weight: var(--fw-3); color: var(--text); font-variant-numeric: tabular-nums; }
 .dk-num.t-warn { color: var(--dk-warn); }
-.dk-num.t-alert { color: var(--dk-alert); }
+html.desk .dk-num.t-alert { color: var(--dk-over); }   /* the RPE drift, a point or more over (desk.js dkBoardRow) */
 .dk-num.is-up, .dk-num.is-live { color: var(--dk-ok); }
 .dk-num.is-calm { color: var(--text-3); font-weight: var(--fw-2); }
 .dk-quiet-p { margin: 0; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--text-3); text-wrap: pretty; }
@@ -506,6 +512,9 @@ html.desk body.powa-app .dk-wins .dk-qrow input.dk-cb { position: absolute; left
 .dk-qline-dot { width: 6px; height: 6px; border-radius: var(--r-round); flex: none; background: var(--dk-tone, var(--text-4)); }
 .dk-qline.t-alert { --dk-tone: var(--dk-alert); }
 .dk-qline.t-warn { --dk-tone: var(--dk-warn); }
+html.desk .dk-qline.t-over { --dk-tone: var(--dk-over-fill); }
+html.desk .dk-qline.t-over .dk-qline-dot { box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); }
+html.desk .dk-qline.t-half .dk-qline-dot { background: none; box-shadow: inset 0 0 0 1.5px var(--dk-over); }
 .dk-qline.t-meet, .dk-qline.t-win { --dk-tone: var(--dk-gold); }
 .dk-qline.t-info { --dk-tone: var(--text-4); }
 .dk-qline.t-live { --dk-tone: var(--dk-ok); }
@@ -768,8 +777,8 @@ html.desk #rosterArea.is-board > div:not([class]) { padding: 0 var(--gut); }
 .dk-om { display: flex; align-items: center; gap: 6px; }
 .dk-om-mark { display: block; width: 12px; height: 12px; flex: none; box-sizing: border-box; border-radius: var(--r-round); background: var(--text-3); }
 .dk-om-mark.t-on { background: var(--dk-ok); }
-.dk-om-mark.t-over { background: var(--dk-warn); }
-.dk-om-mark.t-hard { background: var(--dk-alert); }
+html.desk .dk-om-mark.t-over { background: none; box-shadow: inset 0 0 0 2px var(--dk-over); }   /* half a point over */
+html.desk .dk-om-mark.t-hard { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); }                                 /* a point or more */
 .dk-om-mark.t-under { background: var(--dk-cool); }
 .dk-om-mark.t-done { background: var(--text-3); }
 .dk-om-mark.t-miss { background: none; box-shadow: inset 0 0 0 2px var(--dk-alert); }
@@ -781,6 +790,8 @@ html.desk #rosterArea.is-board > div:not([class]) { padding: 0 var(--gut); }
 .dk-dot.t-ok { --dk-tone: var(--dk-ok); } .dk-dot.t-live { --dk-tone: var(--dk-ok); animation: dkLive 2s ease-in-out infinite; }
 .dk-dot.t-warn { --dk-tone: var(--dk-warn); } .dk-dot.t-alert { --dk-tone: var(--dk-alert); } .dk-dot.t-cool { --dk-tone: var(--dk-cool); }
 .dk-dot.t-gold { --dk-tone: var(--dk-gold); }
+html.desk .dk-dot.t-over { --dk-tone: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); }
+html.desk .dk-dot.t-half { --dk-tone: transparent; box-shadow: inset 0 0 0 1.5px var(--dk-over); }
 .dk-flags { display: flex; flex-direction: column; gap: var(--s-2); margin: var(--s-4) 0 0; padding: 0; list-style: none; }
 .dk-flags li { display: flex; align-items: center; gap: var(--s-2); font-size: var(--fs-2); color: var(--text-2); }
 .dk-flags .dk-rich b { font-weight: var(--fw-2); color: var(--text); }
@@ -794,7 +805,9 @@ html.desk #rosterArea.is-board > div:not([class]) { padding: 0 var(--gut); }
 .dk-dv, .dk-bwt { position: relative; flex: none; width: 36px; height: 4px; border-radius: var(--r-round); background: var(--dk-fill-2); }
 .dk-dv::before { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--text-4); }
 .dk-dv i { position: absolute; top: 0; bottom: 0; border-radius: var(--r-round); background: var(--text-3); }
-.dk-dv.t-warn i { background: var(--dk-warn); } .dk-dv.t-alert i { background: var(--dk-alert); } .dk-dv.t-cool i { background: var(--dk-cool); }
+.dk-dv.t-cool i { background: var(--dk-cool); }
+html.desk .dk-dv.t-warn i { background: none; box-shadow: inset 0 0 0 1.5px var(--dk-over); }   /* half a point over */
+html.desk .dk-dv.t-alert i { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1px var(--dk-over-edge); }                                 /* a point or more */
 /* On target: no track and no number, one faint tick at zero. */
 .dk-dv.is-on { background: none; }
 .dk-dv.is-on::before { opacity: 0.6; }
@@ -873,6 +886,8 @@ html.desk #rosterArea .dk-empty { position: static; width: auto; }
 .dk-ask-dot { width: 6px; height: 6px; border-radius: var(--r-round); flex: none; background: var(--text-4); }
 .dk-ask.t-alert .dk-ask-dot { background: var(--dk-alert); }
 .dk-ask.t-warn .dk-ask-dot { background: var(--dk-warn); }
+html.desk .dk-ask.t-over .dk-ask-dot { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); }
+html.desk .dk-ask.t-half .dk-ask-dot { background: none; box-shadow: inset 0 0 0 1.5px var(--dk-over); }
 .dk-ask.t-meet .dk-ask-dot, .dk-ask.t-win .dk-ask-dot { background: var(--dk-gold); }
 .dk-ask-t { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--s-2); font-size: var(--fs-3); }
 .dk-ask-t b { font-weight: var(--fw-3); color: var(--text); }
@@ -913,7 +928,9 @@ html.desk body.powa-app .dk-ls-big b { font-stretch: var(--num-stretch, 100%); }
 .dk-wk-key > span { display: inline-flex; align-items: center; gap: 6px; }
 .dk-key-line { display: block; width: 14px; height: 2px; border-radius: var(--r-round); background: var(--text); }
 .dk-key-bar { display: block; width: 6px; height: 12px; border-radius: var(--r-round); background: color-mix(in srgb, var(--text) 46%, transparent); }
-.dk-key-bar.t-warn { background: var(--dk-warn); } .dk-key-bar.t-alert { background: var(--dk-alert); } .dk-key-bar.t-cool { background: var(--dk-cool); }
+.dk-key-bar.t-cool { background: var(--dk-cool); }
+html.desk .dk-key-bar.t-warn { background: none; box-shadow: inset 0 0 0 1.5px var(--dk-over); }
+html.desk .dk-key-bar.t-alert { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); }
 .dk-sessions { display: flex; flex-direction: column; gap: var(--s-3); }
 .dk-sess {
   /* What was written, then its bars right beside it, then what they lifted; next week on the right. */
@@ -955,8 +972,8 @@ html.desk body.powa-app .dk-ls-big b { font-stretch: var(--num-stretch, 100%); }
 .dk-sb-c { position: relative; display: block; width: 8px; height: 100%; border-radius: var(--r-round); background: var(--dk-fill); overflow: hidden; }
 .dk-sb-c b { position: absolute; left: 0; right: 0; bottom: 0; border-radius: var(--r-round); background: color-mix(in srgb, var(--text) 46%, transparent); transform-origin: bottom; }
 .dk-sb-c.t-done b { background: color-mix(in srgb, var(--text) 26%, transparent); }
-.dk-sb-c.t-warn b { background: var(--dk-warn); }
-.dk-sb-c.t-alert b { background: var(--dk-alert); }
+html.desk .dk-sb-c.t-warn b { background: none; box-shadow: inset 0 0 0 1.5px var(--dk-over); }
+html.desk .dk-sb-c.t-alert b { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); }
 .dk-sb-c.t-cool b { background: var(--dk-cool); }
 .dk-sb-c.is-todo { background: none; box-shadow: inset 0 0 0 1px var(--line-2); }
 .dk-sb-c.is-miss { background: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-alert) 70%, transparent); }
@@ -966,7 +983,9 @@ html.desk body.powa-app .dk-ls-big b { font-stretch: var(--num-stretch, 100%); }
 .dk-sb-t.is-range { margin-bottom: 0; border-radius: 0; background: color-mix(in srgb, var(--text) 12%, transparent); box-shadow: inset 0 1.5px 0 var(--text), inset 0 -1.5px 0 var(--text); }
 /* The gap: a word in its colour, only when off. */
 .dk-gap { display: inline-flex; align-items: center; height: 20px; font-size: var(--fs-1); font-weight: var(--fw-3); font-variant-numeric: tabular-nums; color: var(--text-3); }
-.dk-gap.t-warn { color: var(--dk-warn); } .dk-gap.t-alert { color: var(--dk-alert); } .dk-gap.t-cool { color: var(--dk-cool); }
+.dk-gap.t-cool { color: var(--dk-cool); }
+html.desk .dk-gap.t-warn { color: var(--dk-over); }
+html.desk .dk-gap.t-alert { padding: 0 6px; border-radius: var(--r-1); background: var(--dk-over-fill); box-shadow: inset 0 0 0 1px var(--dk-over-edge); color: var(--dk-over-on); }
 /* Attached where it happened: a video, pain. */
 .dk-att {
   display: inline-flex; align-items: center; gap: var(--s-2); max-width: 100%; height: 28px; padding: 0 var(--s-2); box-sizing: border-box;
@@ -1468,7 +1487,9 @@ html.desk body.powa-app input.dk-bx-addin.is-bad { color: var(--dk-alert); }
 .dk-pg-key { margin: 0; }
 .dk-pg-k-line { display: block; width: 14px; height: 2px; border-radius: var(--r-round); background: var(--text-2); }
 .dk-pg-k-dot { display: block; width: 8px; height: 8px; border-radius: var(--r-round); background: var(--text); }
-.dk-pg-k-dot.t-warn { background: var(--dk-warn); } .dk-pg-k-dot.t-alert { background: var(--dk-alert); } .dk-pg-k-dot.t-cool { background: var(--dk-cool); }
+.dk-pg-k-dot.t-cool { background: var(--dk-cool); }
+html.desk .dk-pg-k-dot.t-warn { background: none; box-shadow: inset 0 0 0 1.5px var(--dk-over); }
+html.desk .dk-pg-k-dot.t-alert { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); }
 .dk-pg-k-hint { margin-left: auto; color: var(--text-4); }
 .dk-pg-lift { padding: var(--s-3) var(--s-4) var(--s-2); border-radius: var(--r-2); background: var(--dk-raise); }
 .dk-pg-head { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
@@ -1485,7 +1506,10 @@ html.desk body.powa-app input.dk-bx-addin.is-bad { color: var(--dk-alert); }
 .dk-pg-line { fill: none; stroke: var(--lc); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .dk-pg-plan { fill: var(--dk-raise); stroke: var(--lc); stroke-width: 2; }
 .dk-pg-got { fill: var(--text); stroke: var(--dk-raise); stroke-width: 2; }
-.dk-pg-got.t-warn { fill: var(--dk-warn); } .dk-pg-got.t-alert { fill: var(--dk-alert); } .dk-pg-got.t-cool { fill: var(--dk-cool); }
+.dk-pg-got.t-cool { fill: var(--dk-cool); }
+html.desk .dk-pg-got.t-warn { fill: var(--dk-raise); stroke: var(--dk-over); stroke-width: 2.5; }   /* half a point over: a ring */
+html.desk .dk-pg-got.t-alert { fill: var(--dk-over-fill); }
+html.desk[data-theme="light"] .dk-pg-got.t-alert { stroke: var(--dk-over-edge); stroke-width: 1.5; }
 .dk-pg-hit { fill: transparent; cursor: pointer; outline: none; }
 @media (hover: hover) and (pointer: fine) { .dk-pg-hit:hover { fill: color-mix(in srgb, var(--text) 3%, transparent); } }
 .dk-pg-hit:focus-visible { stroke: var(--dk-focus); stroke-width: 2; }
@@ -1558,7 +1582,7 @@ html.desk body.powa-app .pg-grid .pg-alt + .pg-cell { padding-top: 0; }
 html.desk body.powa-app .pg-grid .pg-alt ~ .pg-disp { padding-top: 2px; }
 /* What was lifted: under the writing, smaller, in the secondary ink; colour only where it deviates. */
 html.desk body.powa-app .pg-grid .pg-actual { position: relative; margin: 0; padding: 0 var(--s-3) 11px; font-family: var(--font-num); font-size: var(--fs-1); font-weight: var(--fw-1); line-height: 16px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: normal; }
-html.desk body.powa-app .pg-grid .pg-actual .is-over { color: var(--dk-alert); font-weight: var(--fw-2); }
+html.desk body.powa-app .pg-grid .pg-actual .is-over { color: var(--dk-over); font-weight: var(--fw-2); }
 html.desk body.powa-app .pg-grid .pg-actual s { color: var(--text-4); }
 html.desk body.powa-app .pg-grid .pg-actual i { color: var(--text-4); font-weight: var(--fw-1); }
 html.desk body.powa-app .pg-grid .pg-anote { position: relative; margin: 0; padding: 0 var(--s-3) var(--s-2); font-size: var(--fs-1); line-height: 16px; color: var(--text-3); max-width: none; }
@@ -1629,7 +1653,7 @@ html.desk body.powa-app #programArea .ui-btn-soft { height: var(--ctl-h); min-he
 .dk-insp-v { color: var(--text); font-variant-numeric: tabular-nums; }
 .dk-insp-sets { display: flex; flex-direction: column; gap: var(--s-1); }
 .dk-insp-set { display: grid; grid-template-columns: 44px 70px minmax(0, 1fr); gap: 6px; font-size: var(--fs-1); color: var(--text-2); font-variant-numeric: tabular-nums; }
-.dk-insp-set.is-over { color: var(--dk-alert); }
+html.desk .dk-insp-set.is-over { color: var(--dk-over); }
 .dk-insp-fill { padding: var(--s-4); border-top: 1px solid var(--line); }
 .dk-insp-btns { display: flex; flex-wrap: wrap; gap: 6px; }
 .dk-insp-keys { padding: var(--s-3) var(--s-4) var(--s-4); border-top: 1px solid var(--line); }
@@ -1975,8 +1999,8 @@ html.desk:not([data-theme="light"]) .dp-lt.lift-deadlift { background: var(--dk-
 .dp-lifted.t-missed { color: var(--text-3); font-family: var(--font-body); font-size: var(--fs-1); }
 .dp-gap { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--text-3); }
 .dp-gap.t-ok { background: var(--dk-ok); }
-.dp-gap.t-warn { background: var(--dk-warn); }
-.dp-gap.t-alert { background: var(--dk-alert); }
+html.desk .dp-gap.t-warn { background: none; box-shadow: inset 0 0 0 1.5px var(--dk-over); }
+html.desk .dp-gap.t-alert { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); }
 .dp-gap.t-easy, .dp-gap.t-done { background: var(--text-3); }
 .dp-extra { color: var(--text-3); font-family: var(--font-body); font-size: var(--fs-1); }
 .dp-c-lift.is-prev { color: var(--text-3); }
@@ -3130,15 +3154,16 @@ html.desk:not([data-theme="light"]) body.powa-app .cb-desk .club-spot .cs-ic { b
    a quiet band (a surface, no edge, no shadow: not a card in the card); each line leads with its load as Train does (20 px),
    the effort is Train's neutral pill and a circle a set sits right after it (so the circles are read with their sets, at
    every width); what was lifted is under the line in small type, its gap one word in its colour. One colour a meaning, and
-   red is only the logo and the one crimson action (the owner's rule): over what was written is amber (a raised fill with a
-   hairline of the hue, never a dark tint, which reads brown), under is blue, on it a soft green, a set not logged or skipped
-   a quiet hollow circle. Light inks pass 4.5:1 as text and 3:1 as a circle's edge against the band.
+   red is only the logo and the one crimson action (the owner's rule): over what was written is the laptop's one amber
+   (--dk-over), in two steps a colour-blind eye can tell apart: half a point an outline (a raised fill with an amber
+   hairline, never a dark tint, which reads brown), a point or more solid amber; under is blue, on it a soft green, a set
+   not logged or skipped a quiet hollow circle. Light inks pass 4.5:1 as text and 3:1 as a circle's edge against the band.
    The card before it stays for one release behind ?daycard=old (desk-program.js sets html[data-daycard="old"]): every rule
    here is under html.desk:not([data-daycard="old"]), over the shared .dp rules above. Same cells, same order, same edits.
    Widths (the editor, container dpw): 860 px at 1440 with the sidebar open, 700 at 1280, 645 at 1225, 620 at 1200, 606 at
    1150, 556 at 1100, 480 at 1024; tiers at 830 (the notes go under the line), 680 (the lines lose their indent) and 544. */
-html.desk:not([data-theme="light"]) body.powa-app { --dp-over: var(--dk-warn); --dp-hollow: #6e6e78; }
-html.desk[data-theme="light"] body.powa-app { --dp-over: #9a5a00; --dp-hollow: #8a8a93; }
+html.desk:not([data-theme="light"]) body.powa-app { --dp-hollow: #6e6e78; }
+html.desk[data-theme="light"] body.powa-app { --dp-hollow: #8a8a93; }
 html.desk:not([data-daycard="old"]) :is(.dp-week, .dp-line, .dp-cue, .dp-ex-foot, .dp-mems) { --c-ind: 44px; --c-role: 70px; --c-sr: 76px; --c-load: 150px; --c-eff: 64px; --c-sets: 112px; --c-gap: 10px; }
 /* the day's head: its name, its status, then its date and size as one unit that wraps whole (no "·" left hanging); ⋯ */
 html.desk:not([data-daycard="old"]) .dp-day-head { gap: 10px; margin-bottom: 12px; }
@@ -3218,22 +3243,25 @@ html.desk:not([data-daycard="old"]) .dp-c-lift.is-prev .dp-lifted { color: var(-
 html.desk:not([data-daycard="old"]) .dp-extra { flex: none; margin-left: 8px; }
 html.desk:not([data-daycard="old"]) .dp-dev { display: inline-flex; align-items: center; justify-content: center; flex: none; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: var(--r-1);
   font: var(--fw-4) var(--fs-1)/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0; white-space: nowrap; }
-html.desk:not([data-daycard="old"]) .dp-dev.t-over { color: var(--dp-over); background: var(--dk-raise-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dp-over) 45%, transparent); }
-html.desk[data-theme="light"]:not([data-daycard="old"]) .dp-dev.t-over { background: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dp-over) 55%, transparent); }
+html.desk:not([data-daycard="old"]) .dp-dev.t-half { color: var(--dk-over); background: var(--dk-raise-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-over) 45%, transparent); }
+html.desk[data-theme="light"]:not([data-daycard="old"]) .dp-dev.t-half { background: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-over) 55%, transparent); }
+html.desk:not([data-daycard="old"]) .dp-dev.t-over { color: var(--dk-over-on); background: var(--dk-over-fill); box-shadow: inset 0 0 0 1px var(--dk-over-edge); }   /* a point or more: solid */
 html.desk:not([data-daycard="old"]) .dp-dev.t-under { color: var(--dk-cool); background: color-mix(in srgb, var(--dk-cool) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-cool) 32%, transparent); }
 html.desk[data-theme="light"]:not([data-daycard="old"]) .dp-dev.t-under { background: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-cool) 50%, transparent); }   /* 5.6:1 (on the tint it was 4.4) */
 html.desk:not([data-daycard="old"]) .dp-dev.t-ok { width: 18px; padding: 0; color: var(--dk-ok); background: none; }
 html.desk:not([data-daycard="old"]) .dp-dev.t-ok svg { width: 14px; height: 14px; }
 html.desk:not([data-daycard="old"]) .dp-c-lift.is-prev .dp-dev { opacity: 0.75; }
-/* a circle a set, right after the effort (Train's set circles): on it a soft green with its check, over it amber (a raised
-   fill with an amber ring), under it blue, lifted with nothing written to compare grey, not logged or skipped a hollow ring.
+/* a circle a set, right after the effort (Train's set circles): on it a soft green with its check, half a point over an
+   amber ring on a raised fill, a point or more over solid amber, under it blue, lifted with nothing written to compare
+   grey, not logged or skipped a hollow ring.
    Up to four at full size; five a little smaller; six or more smaller still, two rows past six (the tooltip says each). */
 html.desk:not([data-daycard="old"]) .dp-c-sets { display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 6px; min-width: 0; padding-left: 2px; }
 html.desk:not([data-daycard="old"]) .dp-set { display: grid; place-items: center; flex: none; width: 22px; height: 22px; box-sizing: border-box; border-radius: var(--r-round); box-shadow: inset 0 0 0 1.5px var(--dp-hollow); }
 html.desk:not([data-daycard="old"]) .dp-set svg { width: 12px; height: 12px; }
 html.desk:not([data-daycard="old"]) .dp-set.t-ok { background: color-mix(in srgb, var(--dk-ok) 16%, transparent); box-shadow: inset 0 0 0 1.5px var(--dk-ok); color: var(--dk-ok); }
-html.desk:not([data-daycard="old"]) .dp-set.t-over { background: var(--dk-raise-2); box-shadow: inset 0 0 0 1.5px var(--dp-over); color: var(--dp-over); }
-html.desk[data-theme="light"]:not([data-daycard="old"]) .dp-set.t-over { background: #fff; }
+html.desk:not([data-daycard="old"]) .dp-set.t-half { background: var(--dk-raise-2); box-shadow: inset 0 0 0 1.5px var(--dk-over); color: var(--dk-over); }
+html.desk[data-theme="light"]:not([data-daycard="old"]) .dp-set.t-half { background: #fff; }
+html.desk:not([data-daycard="old"]) .dp-set.t-over { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); color: var(--dk-over-on); }   /* a point or more: solid */
 html.desk:not([data-daycard="old"]) .dp-set.t-under { background: color-mix(in srgb, var(--dk-cool) 16%, transparent); box-shadow: inset 0 0 0 1.5px var(--dk-cool); color: var(--dk-cool); }
 html.desk:not([data-daycard="old"]) .dp-set.t-done { background: var(--dk-fill); box-shadow: inset 0 0 0 1.5px var(--text-3); color: var(--text-3); }
 html.desk:not([data-daycard="old"]) .dp-c-sets[data-n="5"] { gap: 5px; }
@@ -3241,7 +3269,8 @@ html.desk:not([data-daycard="old"]) .dp-c-sets[data-n="5"] .dp-set { width: 18px
 html.desk:not([data-daycard="old"]) .dp-c-sets[data-n="5"] .dp-set svg { width: 10px; height: 10px; }
 html.desk:not([data-daycard="old"]) .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) { gap: 4px; }
 html.desk:not([data-daycard="old"]) .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set { width: 14px; height: 14px; box-shadow: inset 0 0 0 1.25px var(--dp-hollow); }
-html.desk:not([data-daycard="old"]) .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set:is(.t-ok, .t-over, .t-under, .t-done) { box-shadow: inset 0 0 0 1.25px currentColor; }
+html.desk:not([data-daycard="old"]) .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set:is(.t-ok, .t-half, .t-under, .t-done) { box-shadow: inset 0 0 0 1.25px currentColor; }
+html.desk:not([data-daycard="old"]) .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set.t-over { box-shadow: inset 0 0 0 1.25px var(--dk-over-edge); }
 html.desk:not([data-daycard="old"]) .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set svg { display: none; }
 /* + Set and + Cue sit on the band's foot; the cue under the role */
 html.desk:not([data-daycard="old"]) .dp-ex-foot { bottom: -14px; }

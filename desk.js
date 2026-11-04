@@ -1222,10 +1222,20 @@ function dkRowMain(r, lane, handledVia) {
   main.appendChild(dkQLine(r, lane, sentence));
   return main;
 }
+// A reason's colour on the laptop: its tone, except over what was written, which is amber however far over (the owner:
+// red is only the logo and the one crimson action): an overshoot (a top set a point or more over) solid ('over'), a week
+// drifting over an outline under a point ('half'). Pain keeps its alert red. The tones themselves (app.js deskReasons)
+// still order the list.
+function dkToneOf(x) {
+  if (!x) return '';
+  if (x.type === 'overshoot') return 'over';
+  if (x.type === 'drift') { var m = /\+([\d.]+)/.exec(String(x.text || '')); return m && Number(m[1]) >= 1 ? 'over' : 'half'; }
+  return x.tone || 'info';
+}
 // The row's one line: a dot in the status colour, the status itself in ink, the rest in the
 // secondary ink; one line with an ellipsis, the whole sentence in the tooltip.
 function dkQLine(r, lane, sentence) {
-  var tone = lane === 'w' ? 'win' : r.reasons.length ? (r.reasons[0].tone || 'info') : r.live ? 'live' : '';
+  var tone = lane === 'w' ? 'win' : r.reasons.length ? dkToneOf(r.reasons[0]) : r.live ? 'live' : '';
   var line = el('div', { class: 'dk-qline' + (tone ? ' t-' + tone : '') });
   if (tone) line.appendChild(el('i', { class: 'dk-qline-dot', 'aria-hidden': 'true' }));
   var t = el('span', { class: 'dk-qline-t' });
@@ -2759,7 +2769,7 @@ function dkWsNeeds(r, lane) {
   var replied = false;   // one Reply per box: every thread-type reason opens the same thread
   var CAP = 2;
   items.forEach(function (x, i) {
-    var row = el('div', { class: 'dk-ask t-' + (x.tone || 'info') + (i >= CAP ? ' is-more' : '') });
+    var row = el('div', { class: 'dk-ask t-' + (dkToneOf(x) || 'info') + (i >= CAP ? ' is-more' : '') });
     row.appendChild(el('i', { class: 'dk-ask-dot', 'aria-hidden': 'true' }));
     var t = el('div', { class: 'dk-ask-t' });
     t.appendChild(el('b', {}, x.text));
@@ -5723,7 +5733,7 @@ function dkPaintMsgCtx() {
   var a = r.athlete;
   host.dataset.aid = 'msg:' + a.id;
   var pv = el('div', { class: 'dk-pv dk-msgctx' });
-  var flags = r.reasons.map(function (x) { return { text: x.text, tone: x.tone }; }).concat(r.wins.map(function (w) { return { text: w.text, tone: 'win' }; }));
+  var flags = r.reasons.map(function (x) { return { text: x.text, tone: dkToneOf(x) }; }).concat(r.wins.map(function (w) { return { text: w.text, tone: 'win' }; }));
   var blk = el('div', { class: 'dk-msgctx-block' });
   blk.appendChild(el('b', {}, dkBlockText(r.status)));
   blk.appendChild(el('span', {}, r.live ? 'Training now' : r.status.ago == null ? 'Not started' : 'Last trained ' + agoText(r.status.ago).toLowerCase() + (r.status.sessions.planned ? ' · ' + r.status.sessions.done + ' of ' + r.status.sessions.planned + ' this week' : '')));
@@ -5731,7 +5741,7 @@ function dkPaintMsgCtx() {
   // What's going on with them, one status per line: the dot in its colour, the words in ink.
   if (flags.length) {
     var ch = el('ul', { class: 'dk-flags' });
-    flags.forEach(function (x) { ch.appendChild(el('li', {}, el('i', { class: 'dk-dot t-' + ({ alert: 'alert', warn: 'warn', meet: 'gold', win: 'gold' }[x.tone] || 'none'), 'aria-hidden': 'true' }), dkRich(x.text))); });
+    flags.forEach(function (x) { ch.appendChild(el('li', {}, el('i', { class: 'dk-dot t-' + ({ alert: 'alert', warn: 'warn', over: 'over', half: 'half', meet: 'gold', win: 'gold' }[x.tone] || 'none'), 'aria-hidden': 'true' }), dkRich(x.text))); });
     pv.appendChild(ch);
   }
   var ses = dkLastSessions(a.id, 3);

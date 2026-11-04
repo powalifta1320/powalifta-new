@@ -9488,14 +9488,17 @@ test('a session\'s length as written', () => {
   eq(DPg.dayMinutes(dpDay('Acc', [dpEx('legs', [dpSet({ reps: 12 })], { exerciseName: 'Leg Curl' })])), 15, 'at least 15');
 });
 test('the day card (4 Nov): the gap in a word and a circle a set, one colour a meaning', () => {
-  // over is amber however far over (red is only the logo and the one action): no third tone past +1
-  eq(DPg.gapTone(1.5), 'over', 'a point and a half over'); eq(DPg.gapTone(0.5), 'over', 'half a point over');
+  // over is amber however far over (red is only the logo and the one action), in two steps a colour-blind eye can tell
+  // apart: half a point an outline ('half'), a point or more solid ('over')
+  eq(DPg.gapTone(1.5), 'over', 'a point and a half over'); eq(DPg.gapTone(1), 'over', 'a full point over');
+  eq(DPg.gapTone(0.5), 'half', 'half a point over'); eq(DPg.gapTone(0.9), 'half', 'under a point over');
   eq(DPg.gapTone(0), 'ok', 'on it'); eq(DPg.gapTone(-0.5), 'under', 'half a point under'); eq(DPg.gapTone(-2), 'under', 'two under');
   eq(DPg.gapTone(null), 'done', 'nothing written to compare with');
-  eq(DPg.gapWord(1.5), '+1.5', 'the badge says it'); eq(DPg.gapWord(0.5), '+0.5'); eq(DPg.gapWord(-1), '−1', 'a real minus');
+  eq(DPg.gapWord(1.5), '+1.5', 'the badge says it'); eq(DPg.gapWord(0.5), '+0.5', 'and half a point'); eq(DPg.gapWord(-1), '−1', 'a real minus');
   eq(DPg.gapWord(0), 'ok', 'a check'); eq(DPg.gapWord(null), '', 'nothing to say');
   const g = { rpe: 8, rpeHi: null, reps: 3 };
-  eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3, completed: true, actualRpe: 9.5 }), g), 'over', 'a set lifted over');
+  eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3, completed: true, actualRpe: 9.5 }), g), 'over', 'a set lifted a point and a half over');
+  eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3, completed: true, actualRpe: 8.5 }), g), 'half', 'a set lifted half a point over');
   eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3, completed: true, actualRpe: 8 }), g), 'ok', 'a set on the RPE written');
   eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3, completed: true, actualRpe: 7 }), g), 'under', 'a set under');
   eq(DPg.setTone(dpSet({ weight: 152.5, reps: 3, completed: true, actualRpe: null }), g), 'done', 'lifted, no RPE logged');

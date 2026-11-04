@@ -101,11 +101,12 @@
   function gapCls(gap) { return gap == null ? '' : gap >= 1 ? 'alert' : gap >= 0.5 ? 'warn' : gap <= -0.5 ? 'cool' : ''; }
   function rangeText(lo, hi, show, sep) { return show(lo) + (Number(hi) > Number(lo) ? (sep || '–') + show(hi) : ''); }
   // The day card's gap and circles (one colour a meaning, the owner's rule: red is only the logo and the one action).
-  // gapTone: over (half a point or more over what was written: amber) · under (half a point or more under: blue) · ok (on
-  // it: green) · done (lifted, nothing written to compare with: grey) · todo (not logged, or skipped: a hollow circle).
-  function gapTone(gap) { return gap == null ? 'done' : gap >= 0.5 ? 'over' : gap <= -0.5 ? 'under' : 'ok'; }
-  // The gap as its badge says it: "+1.5", "−1", 'ok' (a check), '' (nothing to say).
-  function gapWord(gap) { var t = gapTone(gap); return t === 'over' ? '+' + n2(gap) : t === 'under' ? '−' + n2(-gap) : t === 'ok' ? 'ok' : ''; }
+  // gapTone: over (a point or more over what was written: solid amber) · half (half a point over: an amber outline) ·
+  // under (half a point or more under: blue) · ok (on it: green) · done (lifted, nothing written to compare with: grey) ·
+  // todo (not logged, or skipped: a hollow circle).
+  function gapTone(gap) { return gap == null ? 'done' : gap >= 1 ? 'over' : gap >= 0.5 ? 'half' : gap <= -0.5 ? 'under' : 'ok'; }
+  // The gap as its badge says it: "+1.5", "+0.5", "−1", 'ok' (a check), '' (nothing to say).
+  function gapWord(gap) { var t = gapTone(gap); return t === 'over' || t === 'half' ? '+' + n2(gap) : t === 'under' ? '−' + n2(-gap) : t === 'ok' ? 'ok' : ''; }
   // A set's circle: its own RPE against its block's (g).
   function setTone(s, g) { return s && s.completed ? gapTone(setGap(s, g)) : 'todo'; }
   // The load cell. env: { unit, show(kg), maxKg(lift), estKg(ex, g), team }.
