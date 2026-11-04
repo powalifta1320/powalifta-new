@@ -2665,3 +2665,6 @@ html:not(.desk) body.powa-app .prg-root.is-phone .prg-tok::after { content: ''; 
 html:not(.desk) body.powa-app .rs-seg button::after { inset: -5px 0; }
 html:not(.desk) body.powa-app .rs-hour select { min-height: 44px; }
 html:not(.desk) body.powa-app .vn-wave::after { content: ''; position: absolute; inset: -8px 0; }
+/* last week's report, in light: a lifter's weight over their class is the darker shade of the warn colour (the bright
+   one was 3.4:1 on white) */
+html[data-theme="light"]:not(.desk) body.powa-app .mr-phone .mr-ml em.mr-over { color: color-mix(in srgb, var(--ca-warn) 72%, #000); }

@@ -221,7 +221,7 @@ body::before {
 }
 
 a { color: var(--red); text-decoration: none; transition: color 0.15s; }
-a:hover { color: #ff5868; }
+@media (hover: hover) { a:hover { color: #ff5868; } }
 
 ::selection { background: rgba(255,45,63,0.4); color: #fff; }
 
@@ -398,10 +398,12 @@ h4 { font-size: 1.05rem; letter-spacing: 0.04em; }
   white-space: nowrap;
   position: relative;
 }
-.btn:hover {
-  border-color: var(--red);
-  background: var(--bg-3);
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .btn:hover {
+    border-color: var(--red);
+    background: var(--bg-3);
+    transform: translateY(-1px);
+  }
 }
 .btn:active { transform: translateY(0); }
 .btn-primary {
@@ -420,14 +422,16 @@ h4 { font-size: 1.05rem; letter-spacing: 0.04em; }
   transition: transform 0.55s ease;
   pointer-events: none;
 }
-.btn-primary:hover {
-  box-shadow: var(--shadow-red), inset 0 1px 0 rgba(255,255,255,0.22);
-  filter: brightness(1.08);
-  border-color: transparent;
+@media (hover: hover) {
+  .btn-primary:hover {
+    box-shadow: var(--shadow-red), inset 0 1px 0 rgba(255,255,255,0.22);
+    filter: brightness(1.08);
+    border-color: transparent;
+  }
 }
-.btn-primary:hover::after { transform: translateX(120%); }
+@media (hover: hover) { .btn-primary:hover::after { transform: translateX(120%); } }
 .btn-ghost { background: transparent; border-color: var(--line); }
-.btn-ghost:hover { background: var(--bg-2); border-color: var(--line-2); transform: none; }
+@media (hover: hover) { .btn-ghost:hover { background: var(--bg-2); border-color: var(--line-2); transform: none; } }
 .btn-danger {
   background: transparent;
   border-color: var(--line-2);
@@ -542,7 +546,7 @@ select {
   color: var(--text-3);
   transition: color 0.15s, background 0.15s;
 }
-.input-toggle:hover { color: var(--text); background: var(--bg-3); }
+@media (hover: hover) { .input-toggle:hover { color: var(--text); background: var(--bg-3); } }
 .input-toggle svg { width: 18px; height: 18px; }
 
 /* ============================================ CARDS */
@@ -1975,7 +1979,7 @@ th {
   background: var(--bg-2);
 }
 tr:last-child td { border-bottom: none; }
-tbody tr:hover td { background: var(--hover-tint); }
+@media (hover: hover) { tbody tr:hover td { background: var(--hover-tint); } }
 
 /* ============================================ MODAL */
 .modal-backdrop {
@@ -2186,7 +2190,7 @@ tbody tr:hover td { background: var(--hover-tint); }
   align-items: center;
   justify-content: center;
 }
-.modal-close:hover { color: var(--text); border-color: var(--red); }
+@media (hover: hover) { .modal-close:hover { color: var(--text); border-color: var(--red); } }
 
 /* ============================================ TABS / SEGMENTED */
 .seg {
@@ -2255,7 +2259,7 @@ tbody tr:hover td { background: var(--hover-tint); }
   transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
   -webkit-tap-highlight-color: transparent;
 }
-.prog-subtab:hover { color: var(--text-2); }
+@media (hover: hover) { .prog-subtab:hover { color: var(--text-2); } }
 .prog-subtab.active {
   color: var(--text);
   background: var(--bg-3);
@@ -2348,7 +2352,7 @@ tbody tr:hover td { background: var(--hover-tint); }
   align-items: center;
   justify-content: space-between;
 }
-.week-tab:hover { background: var(--bg-2); color: var(--text); }
+@media (hover: hover) { .week-tab:hover { background: var(--bg-2); color: var(--text); } }
 .week-tab.active { background: rgba(255,45,63,0.1); border-color: rgba(255,45,63,0.3); color: var(--text); }
 .week-tab .ct {
   font-size: 0.74rem;
@@ -4531,7 +4535,7 @@ footer .footer-base {
   cursor: pointer;
   transition: color .15s ease, border-color .15s ease, transform .15s ease;
 }
-.sig-bell:hover { color: var(--text); border-color: rgba(255,45,63,0.4); transform: translateY(-1px); }
+@media (hover: hover) { .sig-bell:hover { color: var(--text); border-color: rgba(255,45,63,0.4); transform: translateY(-1px); } }
 .sig-bell svg { width: 18px; height: 18px; }
 .sig-badge {
   position: absolute;
@@ -7172,7 +7176,7 @@ body.powa-app .btn-primary {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 10px 24px -12px rgba(255, 45, 63, 0.75);
 }
 body.powa-app .btn-primary::after { display: none; }   /* no sheen sweep — calm chrome */
-body.powa-app .btn-primary:hover { filter: brightness(1.07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 12px 28px -12px rgba(255, 45, 63, 0.85); }
+@media (hover: hover) { body.powa-app .btn-primary:hover { filter: brightness(1.07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 12px 28px -12px rgba(255, 45, 63, 0.85); } }
 @media (hover: hover) and (pointer: fine) {
   body.powa-app .btn:active { transform: scale(0.97); }
 }
@@ -9875,7 +9879,7 @@ body.powa-app .plan-meter .pm-up { background: rgba(255, 255, 255, 0.08); }
 body.powa-app .plan-meter.cap .pm-up { background: var(--fire); }
 /* v4: the marketing hover (lift + red glow + ripple) sticks after a tap on
    touch screens and reads as a website button. The app keeps it still. */
-body.powa-app .btn.btn-primary:hover { transform: none; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.45); }
+@media (hover: hover) { body.powa-app .btn.btn-primary:hover { transform: none; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.45); } }
 body.powa-app .btn.btn-primary::before { display: none; }
 @media (hover: none) { body.powa-app .btn:hover { transform: none; } }
 body.powa-app .btn-primary:hover { filter: none; }
@@ -13204,6 +13208,10 @@ html.native:not(.desk) body.powa-app .bottom-tab { font-size: 12px; }
 html:not(.desk) body.powa-app .tx-card .tx-ring .ui-ring-label small { font-size: 12px; }
 html:not(.desk) body.powa-app :is(.cp-pr, .cp-rpe, .cp-who b .cp-role, .pb-badge, .cs-av, .cs-av.more) { font-size: 12px; }
 html:not(.desk) body.powa-app :is(.msg-meta, .msg-note-meta, .msg-status) { font-size: 12px; }
+/* the coach thread's times sat at 72% of their colour (4.0:1 on the night surface): full, as the coach's own are */
+html:not(.desk) body.powa-app .msg-meta { opacity: 1; }
+/* the PR moment's gain, in light: a deeper green on its tint (4.2:1 was under 4.5) */
+html[data-theme="light"]:not(.desk) body.powa-app .pr-moment .prm-delta { color: #146c3f; }
 
 /* ======================================================================================================== 44 PT TO THE TOUCH
    The lifter app's small controls get the hit area the coach phone's already have (coach-app.css "44 pt to the

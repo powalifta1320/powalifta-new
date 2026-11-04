@@ -5391,7 +5391,7 @@ async function renderEmailPrefs(container) {
         'A Monday recap of your last 7 days. Sessions, tonnage, best e1RMs.', prefs.weeklyDigest)) +
     emailPrefRow('epProduct', 'Product tips & announcements',
       'Occasional notes on new features. No spam, unsubscribe anytime.', prefs.productEmails) +
-    (demo ? '<p class="dim text-xs mt-8" style="opacity:.7">Preview only in demo mode.</p>' : '') +
+    (demo ? '<p class="dim text-xs mt-8">Preview only in demo mode.</p>' : '') +
     '<p class="dim text-xs mt-8" style="line-height:1.5">Every email has a one-click unsubscribe link in the footer too.</p>' +
     (isCoach && window.CoachReportUI ? '<button type="button" class="np-example" id="npExample"><span>See an example of the weekly report</span>' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>' : '');
@@ -5472,7 +5472,7 @@ async function renderNotifPrefs(container) {
       '<p class="dim text-sm mb-8">Push notifications</p>' +
       '<p class="dim text-xs mb-8" style="line-height:1.5">Get alerts even when POWALIFTA is closed.' + (coachLinked ? ' Choose what gets pushed:' : '') + '</p>' +
       catRows({ pushMessages: true, pushFormChecks: true, pushProgram: true, pushAlerts: true }) +
-      '<p class="dim text-xs mt-8" style="opacity:.7">Preview only in demo mode.</p>';
+      '<p class="dim text-xs mt-8">Preview only in demo mode.</p>';
     ['npMsg', 'npForm', 'npProg', 'npAlerts'].forEach(id => {
       const b = document.getElementById(id);
       if (b) b.addEventListener('change', () => toast('Preview only in demo mode.'));

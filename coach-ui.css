@@ -1383,7 +1383,8 @@ html.desk body.powa-app .ui-sheet.bd-sheet { width: min(600px, calc(100vw - 48px
 /* Lifters: the header's + is a quiet circle like the assistant and the bell beside it once anyone is on
    the roster (renderRoster sets .is-quiet); with nobody yet it stays the screen's one red action. */
 html:not(.desk) body.powa-app #btn-invite.is-quiet { background: rgba(255, 255, 255, 0.07); color: var(--text-2); box-shadow: none; border: 0; }
-html:not(.desk) body.powa-app #btn-invite.is-quiet:hover, html:not(.desk) body.powa-app #btn-invite.is-quiet:active { filter: none; color: var(--text); }
+html:not(.desk) body.powa-app #btn-invite.is-quiet:active { filter: none; color: var(--text); }
+@media (hover: hover) { html:not(.desk) body.powa-app #btn-invite.is-quiet:hover { filter: none; color: var(--text); } }
 
 /* A row's reason under the name: a span that ellipsises (the flex line cut it mid-word, no "…");
    on a phone it takes two lines, so "Low back 6/10 · deadlift" reads whole. */
