@@ -20,6 +20,14 @@
    "desk program (desk-program.js)"; no top-level function declarations (test/run-unit-tests.js checks names). */
 (function () {
   'use strict';
+  // The day card's three prototypes (4 Nov 2026, phase 1, for the owner's board): ?daycard=a|b|c draws the card another
+  // way (desk-daycard.css; every rule under html.desk[data-daycard]); no flag draws today's card. Presentation only: the
+  // same cells in the same order, the same edit paths.
+  var DC = (function () { try { var m = /[?&]daycard=([abc])(?:&|#|$)/.exec(String((typeof location !== 'undefined' && location.search) || '')); return m ? m[1] : ''; } catch (e) { return ''; } })();
+  if (DC && typeof document !== 'undefined' && document.documentElement && document.head) {
+    document.documentElement.setAttribute('data-daycard', DC);
+    var dcCss = document.createElement('link'); dcCss.rel = 'stylesheet'; dcCss.href = 'desk-daycard.css'; document.head.appendChild(dcCss);
+  }
   var MAIN = ['squat', 'bench', 'deadlift'];
   var REST_RX = /\b(rest|off|recovery)\b/i;   // the builder's isRestDay heuristic (coach.html, critical fix #1)
   var RX_KEYS = ['weight', 'reps', 'rpe', 'rpeHi', 'rir', 'pct', 'pctHi', 'weightHi', 'pctFeel'];
@@ -347,7 +355,9 @@
           X.lines.push({ key: X.key + ':' + String(s0.id != null ? s0.id : ln.start), idx: li, start: ln.start, count: ln.count, sid: s0.id != null ? String(s0.id) : '',
             role: roleOf(L.lines, li), sets: String(ln.count), reps: g.reps != null && g.reps !== '' ? String(n2(g.reps)) : '', g: g,
             load: loadCell(g, ex, env), effort: effortCell(g), fields: fieldsCell(g, env.unit), lock: lockd,
-            lifted: env.team ? null : liftedOf(ln, env), prev: prevL[li] ? liftedOf(prevL[li], env) : null });
+            lifted: env.team ? null : liftedOf(ln, env), prev: prevL[li] ? liftedOf(prevL[li], env) : null,
+            // the line's own sets, and last week's (the day-card prototypes draw each set's effort from them)
+            real: env.team ? null : ln.real, prevReal: prevL[li] ? prevL[li].real : null, prevG: prevL[li] ? prevL[li].g : null });
           if (X.lines[X.lines.length - 1].prev) out.week.prevLifted = true;
         });
         day.exercises.push(X);
@@ -1402,7 +1412,7 @@
     nm.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); if (e.key === 'Escape') { var c0 = storeName(); nm.value = c0 == null ? d.name : c0; } nm.blur(); } });
     nm.addEventListener('change', function () { if (nm.isConnected) saveName(); });
     idw.appendChild(nm);
-    idw.appendChild(badgeEl(s));
+    if (!(DC && d.rest && /^rest$/i.test(String(d.name || '').trim()))) idw.appendChild(badgeEl(s));
     if (s.date) { var dt = E('span', { class: 'dp-day-date' }, fmtDay(s.date)); tip(dt, s.dateKind === 'done' ? 'The day it was lifted' : 'The day ' + first((athleteOf(aid) || {}).name) + ' pinned it to'); idw.appendChild(dt); }
     hd.appendChild(idw);
     if (!d.rest && s.sets) hd.appendChild(sumEl(s, aid));
@@ -1419,15 +1429,20 @@
       card.appendChild(rb);
       return card;
     }
-    if (d.exercises.length) card.appendChild(colsEl(lifted));
-    d.exercises.forEach(function (x) { card.appendChild(exEl(prog, aid, wi, d, x, env)); });
-    card.appendChild(addExBtn({ aid: aid, wi: wi, di: d.idx, dayId: D.id, dayName: d.name || 'Day ' + (d.idx + 1), dayKey: d.key }));
+    // the prototypes hold the day's body in one box under the head (b tints its lifted half from it)
+    var bodyEl = DC ? card.appendChild(E('div', { class: 'dp-day-body' + (d.exercises.length ? '' : ' is-empty') })) : card;
+    if (d.exercises.length) bodyEl.appendChild(colsEl(lifted, s));
+    d.exercises.forEach(function (x) { bodyEl.appendChild(exEl(prog, aid, wi, d, x, env)); });
+    bodyEl.appendChild(addExBtn({ aid: aid, wi: wi, di: d.idx, dayId: D.id, dayName: d.name || 'Day ' + (d.idx + 1), dayKey: d.key }));
     return card;
   }
   // The columns' names, once at the top of the day (the lines under every exercise sit on this grid).
-  function colsEl(lifted) {
+  function colsEl(lifted, s) {
     var c = E('div', { class: 'dp-cols', 'aria-hidden': 'true' });
-    ['', 'Sets × reps', 'Load', 'Effort', 'Notes', typeof lifted === 'string' ? lifted : lifted ? 'Lifted' : ''].forEach(function (t, i) { c.appendChild(E('span', { class: 'dp-col dp-col-' + i }, t)); });
+    var lt = typeof lifted === 'string' ? lifted : lifted ? 'Lifted' : '';
+    // b: the lifted half's head says when ("Lifted · Mon, Oct 26")
+    if (DC === 'b' && lt === 'Lifted' && s && s.date && s.dateKind === 'done') lt = 'Lifted · ' + fmtDay(s.date);
+    ['', 'Sets × reps', 'Load', 'Effort', 'Notes', lt].forEach(function (t, i) { c.appendChild(E('span', { class: 'dp-col dp-col-' + i }, t)); });
     return c;
   }
   function dayMenu(aid, wi, di) {
@@ -1598,7 +1613,8 @@
     if (tags.length) { var tg = E('span', { class: 'dp-ftags', 'aria-hidden': 'true' }); tags.forEach(function (t) { tg.appendChild(E('span', { class: 'dp-ftag' }, t)); }); fc.appendChild(tg); if (tags.join(' ').length > 18) tip(fc, tags.join(' · ')); }
     row.appendChild(fc);
     wire(cf, ln);
-    row.appendChild(team ? E('div', { class: 'dp-c-lift' }) : ln.lifted || !ln.prev ? liftedEl(ln, li === x.lines.length - 1 ? x.extras : 0) : prevEl(ln.prev, d.weekN - 1));
+    row.appendChild(team ? E('div', { class: 'dp-c-lift' }) : ln.lifted || !ln.prev ? liftedEl(ln, li === x.lines.length - 1 ? x.extras : 0) : prevEl(ln.prev, d.weekN - 1, ln));
+    if (DC === 'c' && !team) row.appendChild(setsDc(ln));
     var canRm = x.lines.length > 1 && (team || !ln.lock);
     var rm = E('button', { type: 'button', class: 'dp-rmline', tabindex: '-1', 'aria-label': 'Remove these sets: ' + roleWord(ln.role) + ', ' + ln.sets + ' × ' + ln.reps, html: IC.x });
     if (canRm) {
@@ -1625,9 +1641,54 @@
     selectOnFocus(inp);
     return inp;
   }
+  // The prototypes' lifted cell: what they lifted, then the gap as a word in its colour ("+1.5" over, "−1" under, a
+  // check on the RPE written; nothing when there's nothing written to compare with); b adds a bar a set (desk.js dkSetBars).
+  function devEl(L, tone) {
+    var g = L && L.gapN;
+    if (!L || L.top == null || g == null) return null;
+    if (tone === 'ok') { var ok = E('span', { class: 'dp-dev t-ok', html: IC.check }); ok.setAttribute('aria-hidden', 'true'); return ok; }
+    return E('span', { class: 'dp-dev t-' + tone, 'aria-hidden': 'true' }, (g > 0 ? '+' : '−') + n2(Math.abs(g)));
+  }
+  function liftedDc(L, real, g, o) {
+    var c = E('div', { class: 'dp-c-lift' + (o.prev ? ' is-prev' : '') + (L ? '' : ' is-none') });
+    var tone = liftedTone(L);
+    if (L) {
+      var t = E('span', { class: 'dp-lifted t-' + tone });
+      if (tone !== 'missed') t.appendChild(E('span', { class: 'dp-lk' }, o.prev ? 'Week ' + o.prev : 'Lifted'));
+      t.appendChild(E('span', { class: 'dp-lv' }, L.text));
+      var dv = devEl(L, tone); if (dv) t.appendChild(dv);
+      var gp = L.gapN, off = gp != null && Math.abs(gp) >= 0.5;
+      t.appendChild(E('span', { class: 'dk-nil' }, (o.prev ? ', lifted in week ' + o.prev : '') + (off ? ', ' + (gp > 0 ? n2(gp) + ' RPE over' : n2(Math.abs(gp)) + ' RPE under') + ' what ' + (o.prev ? 'was' : 'you') + ' wrote' : gp != null ? ', on the RPE written' : '')));
+      tip(c, o.prev ? 'Week ' + o.prev + ', the same line: ' + L.text + (off ? ' (' + (gp > 0 ? '+' : '−') + n2(Math.abs(gp)) + ' RPE on what was written)' : '') : tone === 'missed' ? L.text : off ? 'Their top set ' + (gp > 0 ? '+' + n2(gp) + ' RPE over' : '−' + n2(Math.abs(gp)) + ' RPE under') + ' what you wrote' : gp != null ? 'Lifted on the RPE you wrote' : 'Lifted');
+      c.appendChild(t);
+      if (DC === 'b' && real && real.length && typeof dkSetBars === 'function' && real.some(function (s) { return s && s.completed; })) {
+        try { var bars = dkSetBars(real.filter(function (s) { return s && !s.extra; }), g); bars.classList.add('dp-bars'); c.appendChild(bars); } catch (e) {}
+      }
+    }
+    if (o.extras) c.appendChild(E('span', { class: 'dp-extra' }, '+' + o.extras + ' extra'));
+    return c;
+  }
+  // c: a circle a set at the line's end, as Train draws them (desk-daycard.css colours them by the set's gap).
+  function setsDc(ln) {
+    var c = E('div', { class: 'dp-c-sets', 'aria-hidden': 'true' });
+    var real = (ln.real || []).filter(function (s) { return s && !s.extra; }), words = [];
+    if (!real.length) return c;
+    if (!real.some(isLogged)) c.classList.add('is-todo');
+    real.forEach(function (s, i) {
+      var gp = s.completed ? setGap(s, ln.g) : null;
+      var t = s.completed ? (gp == null ? 'done' : gapCls(gp) || 'ok') : (s.skipped || s.missed) ? 'miss' : 'todo';
+      var o = E('i', { class: 'dp-set t-' + t });
+      if (s.completed) o.innerHTML = IC.check;
+      c.appendChild(o);
+      words.push('Set ' + (i + 1) + ': ' + (s.completed ? (Number(s.weight) > 0 ? showKg(Number(s.weight)) + ' × ' : '') + (Number(s.reps) || 0) + (s.actualRpe != null && s.actualRpe !== '' ? ' @' + n2(s.actualRpe) : '') : s.skipped ? 'skipped' : s.missed ? 'missed' : 'to come'));
+    });
+    tip(c, words.join(' · '));
+    return c;
+  }
   // What they lifted on a line: the top set and a dot (green on the RPE written, amber harder, a point over in the
   // roster's coral, grey easier); "Missed" in muted ink.
   function liftedEl(ln, extras) {
+    if (DC) return liftedDc(ln.lifted, ln.real, ln.g, { extras: extras });
     var c = E('div', { class: 'dp-c-lift' });
     var L = ln.lifted, tone = liftedTone(L);
     if (L) {
@@ -1643,7 +1704,8 @@
     return c;
   }
   // Last week's on a week nothing's been lifted in yet: the same line, muted, its dot (how hard it went) kept.
-  function prevEl(L, n) {
+  function prevEl(L, n, ln) {
+    if (DC) return liftedDc(L, ln && ln.prevReal, ln && ln.prevG, { prev: n });
     var c = E('div', { class: 'dp-c-lift is-prev' }), tone = liftedTone(L);
     var t = E('span', { class: 'dp-lifted t-' + tone });
     if (tone !== 'missed') t.appendChild(E('i', { class: 'dp-gap t-' + tone, 'aria-hidden': 'true' }));
@@ -2800,15 +2862,16 @@
       if (!d.rest && d.sum.sets) h.appendChild(sumEl(d.sum, null));
       card.appendChild(h);
       if (d.rest) { card.appendChild(E('p', { class: 'dp-rest' }, 'No training. Recovery is part of the plan.')); days.appendChild(card); return; }
-      if (d.exercises.length) card.appendChild(colsEl(false));
+      var bodyEl = DC ? card.appendChild(E('div', { class: 'dp-day-body' + (d.exercises.length ? '' : ' is-empty') })) : card;
+      if (d.exercises.length) bodyEl.appendChild(colsEl(false));
       d.exercises.forEach(function (x) {
         var blk = exEl(null, null, wi, d, x, env, { team: { T: T, W: W } });
         var dayId = _tmKey(D, d.idx), exId = _tmKey(D.exercises[x.idx], x.idx);
         var ci = loads.cols.findIndex(function (c) { return c.dayId === dayId && c.exId === exId; });
         if (!opts.noLoads && ci >= 0 && loads.rows.length) blk.appendChild(membersEl(T, members, W, wi, loads, ci));
-        card.appendChild(blk);
+        bodyEl.appendChild(blk);
       });
-      card.appendChild(addExBtn({ team: { T: T, W: W }, wi: wi, di: d.idx, dayId: D.id, dayName: 'the team’s ' + (d.name || 'day'), dayKey: d.key }));
+      bodyEl.appendChild(addExBtn({ team: { T: T, W: W }, wi: wi, di: d.idx, dayId: D.id, dayName: 'the team’s ' + (d.name || 'day'), dayKey: d.key }));
       days.appendChild(card);
     });
     if (!(W.days || []).length) wk.appendChild(E('p', { class: 'dp-note-line' }, 'Week ' + (W.number || wi + 1) + ' has no sessions yet.'));
