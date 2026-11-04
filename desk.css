@@ -2204,6 +2204,9 @@ html.desk body.powa-app input.dp-mem-in { width: 88px; font-size: var(--fs-4); f
 @container dkpb (max-width: 820px) { #programArea .dp-pvbtn .dp-tool-l { display: none; } #programArea .dp-pvbtn { width: 32px; padding: 0; justify-content: center; } .dp-rebuild .dp-tool-l { display: none; } .dp-rebuild .dp-tool-s { display: inline; } }
 @container dkpb (max-width: 600px) { .dp-rebuild .dp-tool-s { display: none; } .dp-rebuild .dp-tool { width: 32px; padding: 0; justify-content: center; } .dp-rebuild .dp-tool-caret { display: none; } }
 @container dkpb (max-width: 1000px) { #programArea .dp-head-a .dp-tool-l { display: none; } #programArea .dp-head-a .dp-tool-s { display: inline; } }
+/* a narrow editor: Preview, the crimson and ⋯ take a line of their own under the name, in every state, so the name and
+   the block's chip are never cut ("Send the changes to Marcus" is 60 px wider than "Take 1 suggestion") */
+@container dkpb (max-width: 600px) { #programArea .dp-h1 { flex-wrap: wrap; row-gap: 6px; } #programArea .dp-h1 > .dp-hact { flex: 1 0 100%; justify-content: flex-end; } }
 @container dpw (max-width: 830px) {
   /* the notes take a line of their own under the cells; what was lifted keeps its column (to 830 px: wider, a set's
      notes, "tempo 3s down · Belt: off", fit their own column beside the lifted one) */
@@ -2224,7 +2227,7 @@ html.desk body.powa-app input.dp-mem-in { width: 88px; font-size: var(--fs-4); f
   .dp-day { padding-left: 16px; padding-right: 16px; }
   .dp-cols, .dp-line { --c-role: 60px; --c-ind: 0px; }
   .dp-exmax { display: none; }
-  .dp-day-sum .dp-day-min { display: none; }
+  .dp-day-sum :is(.dp-day-sep, .dp-day-min) { display: none; }
 }
 /* What was lifted is never cut (sets × reps @RPE and its dot) down to a 480 px editor: under 680 px the lines lose their
    indent and the role, sets × reps, effort and gap columns come down to their longest real values (Back-off, 1 × 3, the

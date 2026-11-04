@@ -1377,7 +1377,7 @@
       var has = aid ? intakeMinutes(aid) : 0, over = has && s.minutes > has + 10;
       var mn = E('span', { class: 'dp-day-min' + (over ? ' is-over' : '') }, '≈ ' + s.minutes + ' min');
       tip(mn, 'About ' + s.minutes + ' min as written: 15 to warm up, about 5 a heavy set, 4 a main-lift set, 2½ an accessory set' + (over ? '. Over the ' + has + ' min ' + first((athleteOf(aid) || {}).name) + ' said a session can take' : ''));
-      w.appendChild(document.createTextNode(' · '));
+      w.appendChild(E('span', { class: 'dp-day-sep' }, ' · '));   // its own span: a narrow editor hides it with the minutes
       w.appendChild(mn);
     }
     return w;
