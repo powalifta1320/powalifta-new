@@ -3173,6 +3173,16 @@ html.desk:not([data-daycard="old"]) .dp-week:not(.has-lifted) .dp-line .dp-c-f, 
 html.desk:not([data-daycard="old"]) .dp-line .dp-rmline { grid-column: 7; }
 html.desk:not([data-daycard="old"]) .dp-line .dp-c-lift { grid-row: 2; grid-column: 2 / 7; margin: -4px 0 8px 6px; font: var(--fw-2) var(--fs-1)/1.3 var(--font-body); color: var(--text-2); }
 html.desk:not([data-daycard="old"]) .dp-line .dp-c-lift.is-none:empty, html.desk:not([data-daycard="old"]) .dp.is-team .dp-line .dp-c-lift { display: none; }
+/* the set row reads on the load's first line: each of its cells is a 40 px box at the top of the line, its content
+   centred in it, so when the load wraps (its est. tag or % chip under it, in a narrow editor) the label, sets × reps, the
+   pill, the circles and × stay on the load's line and only the wrapped part hangs below. The line's spare height still
+   splits above and below the row (align-content), so a line that doesn't wrap sits exactly where it did. */
+html.desk:not([data-daycard="old"]) .dp-line:not(.is-write) { align-items: start; align-content: center; }
+html.desk:not([data-daycard="old"]) .dp-line .dp-c-role { height: 40px; line-height: 40px; }
+html.desk:not([data-daycard="old"]) .dp-line :is(.dp-c-sr, .dp-c-eff, .dp-c-f) { display: flex; align-items: center; height: 40px; }
+html.desk:not([data-daycard="old"]) .dp-line .dp-c-load { min-height: 40px; align-content: flex-start; }
+html.desk:not([data-daycard="old"]) .dp-line .dp-c-sets { min-height: 40px; }
+html.desk:not([data-daycard="old"]) .dp-line .dp-rmline { margin-top: 8px; }
 html.desk:not([data-daycard="old"]) .dp-line.is-write > * { grid-column: 1 / -1; }
 html.desk:not([data-daycard="old"]) .dp-line + .dp-line::before { content: ''; position: absolute; left: 8px; right: 0; top: 0; height: 1px; background: var(--line); pointer-events: none; }
 html.desk:not([data-daycard="old"]) :is(.dp-line:hover, .dp-line:focus-within)::before, html.desk:not([data-daycard="old"]) :is(.dp-line:hover, .dp-line:focus-within) + .dp-line::before { opacity: 0; }
@@ -3249,20 +3259,20 @@ html.desk:not([data-daycard="old"]) .dp.is-team .dp-day.is-rest > .dp-rest { ord
 /* ≤ 830: the notes go under the load (as Train has them), what was lifted under those; the circles keep their place */
 @container dpw (max-width: 830px) {
   html.desk:not([data-daycard="old"]) .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-rm); }
-  html.desk:not([data-daycard="old"]) .dp-line .dp-c-f { grid-row: 2; grid-column: 2 / 6; margin: 0 0 2px; }
+  html.desk:not([data-daycard="old"]) .dp-line .dp-c-f { grid-row: 2; grid-column: 2 / 6; height: auto; margin: 0 0 2px; }
   html.desk:not([data-daycard="old"]) .dp-line .dp-c-f.is-empty:not(:focus-within) { display: none; }
   html.desk:not([data-daycard="old"]) .dp-line .dp-c-lift { grid-column: 2 / 6; }
   html.desk:not([data-daycard="old"]) .dp-line:has(.dp-c-f.has-tags) .dp-c-lift, html.desk:not([data-daycard="old"]) .dp-line:has(.dp-c-f:focus-within) .dp-c-lift { grid-row: 3; }
   html.desk:not([data-daycard="old"]) .dp-line .dp-rmline { grid-column: 6; }
   html.desk:not([data-daycard="old"]) .dp-week:not(.has-lifted) .dp-line, html.desk:not([data-daycard="old"]) .dp.is-team .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-rm); }
-  html.desk:not([data-daycard="old"]) .dp-week:not(.has-lifted) .dp-line .dp-c-f, html.desk:not([data-daycard="old"]) .dp.is-team .dp-line .dp-c-f { grid-row: 1; grid-column: 5; margin: 0 0 0 calc(-1 * var(--c-gap)); }
-  html.desk:not([data-daycard="old"]) .dp-week:not(.has-lifted) .dp-line .dp-c-f.is-empty, html.desk:not([data-daycard="old"]) .dp.is-team .dp-line .dp-c-f.is-empty { display: block; }
+  html.desk:not([data-daycard="old"]) .dp-week:not(.has-lifted) .dp-line .dp-c-f, html.desk:not([data-daycard="old"]) .dp.is-team .dp-line .dp-c-f { grid-row: 1; grid-column: 5; height: 40px; margin: 0 0 0 calc(-1 * var(--c-gap)); }
+  html.desk:not([data-daycard="old"]) .dp-week:not(.has-lifted) .dp-line .dp-c-f.is-empty, html.desk:not([data-daycard="old"]) .dp.is-team .dp-line .dp-c-f.is-empty { display: flex; }
 }
 /* ≤ 680: the lines lose their indent with what hangs off them (the cue stays under the role: a013d77) */
 @container dpw (max-width: 680px) {
   html.desk:not([data-daycard="old"]) :is(.dp-week, .dp-line, .dp-cue, .dp-ex-foot, .dp-mems) { --c-ind: 0px; --c-role: 54px; --c-sr: 76px; --c-load: 116px; --c-eff: 58px; --c-gap: 6px; }
   html.desk:not([data-daycard="old"]) .dp-ex { margin: 0 -8px; padding: 6px 8px 8px; }
-  html.desk:not([data-daycard="old"]) .dp-c-load.has-tag { flex-wrap: wrap; align-content: center; row-gap: 2px; padding: 4px 0; }
+  html.desk:not([data-daycard="old"]) .dp-c-load.has-tag { flex-wrap: wrap; align-content: flex-start; row-gap: 0; padding: 0 0 6px; }
   html.desk:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-l:focus { min-width: 0; }
   html.desk:not([data-daycard="old"]) .dp-c-lift { white-space: normal; }
   html.desk:not([data-daycard="old"]) .dp-lifted { flex-wrap: wrap; row-gap: 2px; overflow: visible; }
