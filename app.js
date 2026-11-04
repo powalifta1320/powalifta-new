@@ -11050,7 +11050,8 @@ function openSignalSheet() {
       sheet.appendChild(uiList(sigs.map(sg => {
         const row = uiRow({
           lead: el('span', { class: 'sig-ic', html: _SIG_ICON[sg.type] || _SIG_ICON.alert }),
-          title: sg.title,
+          // a hyphen never breaks a title ("check-" then "in" on its own line): a non-breaking hyphen (4 Nov)
+          title: String(sg.title || '').replace(/-/g, '‑'),
           sub: (sg.body || '').slice(0, 160),
           end: _sigTimeAgo(sg.ts),
           onClick: () => { _sigMarkSeen(u.id, [sg.id]); refreshSignalBadge(); close(); setTimeout(() => _sigGo(sg.tab), 220); }

@@ -9032,6 +9032,8 @@ body.powa-app .yg-list { border-radius: var(--u-r, 20px); }
 body.powa-app .you-row { display: flex; align-items: center; gap: 14px; min-height: 56px; padding: 10px 16px; font-size: 16px; font-weight: 600; transition: background-color 0.12s ease; }
 body.powa-app .you-row:active { background: color-mix(in srgb, var(--acc) 12%, var(--bg-2)); }
 body.powa-app .you-row.tone-plain .yr-label { color: var(--brand-red); }
+/* the lifter's Log out is ink, as the coach's is (coach-you.css): red is the logo and the one action, never a word (4 Nov) */
+html:not(.desk) body.powa-app .you-row.tone-plain .yr-label { color: var(--text); }
 .yr-ic {
   width: 32px; height: 32px; border-radius: 9px; flex: none; display: grid; place-items: center; color: #fff;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 6px 14px -8px rgba(0, 0, 0, 0.9);
@@ -11807,6 +11809,13 @@ body.powa-app .tx-set.is-skipped .tx-set-sub { color: var(--text-3); }
 .sig-sheet .ui-row-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .sig-sheet .ui-row-end { font-size: 13px; color: var(--text-3); white-space: nowrap; }
 .sig-sheet .sig-unread .ui-row-title::after { content: ''; display: inline-block; width: 7px; height: 7px; margin-left: 7px; border-radius: 50%; background: var(--acc, #ff3b4a); vertical-align: 2px; }
+/* the bell's list in the apps (4 Nov): the unread dot is ink in both (it wore the screen's hue: red on Train), and it
+   rides with the title's last word. As a box it could wrap alone onto its own line ("Arjun Mehta submitted a
+   check-in" then a lone dot); now it is a no-break space with the dot painted at its end. */
+html:not(.desk) body.powa-app .sig-sheet .sig-unread .ui-row-title::after {
+  content: '\00a0'; display: inline; width: auto; height: auto; margin-left: 0; padding-right: 13px; border-radius: 0; vertical-align: baseline;
+  background: radial-gradient(circle closest-side, var(--text) 86%, transparent 100%) no-repeat right 0 center / 7px 7px;
+}
 .sig-sheet .sig-sheet-empty { text-align: center; padding: 18px 0 8px; }
 .sig-sheet .sig-sheet-done { margin-top: 16px; }
 [data-theme="light"] .sig-sheet .sig-ic { background: rgba(15, 15, 25, 0.05); }
@@ -13165,3 +13174,24 @@ html[data-theme="light"] body.powa-app .ui-hero .ui-up { color: #11733f; }
 .meet-date input[type=date] { padding: 8px 0 !important; margin: -8px 0; min-height: 44px; }
 .ml-warm:not([open]) > :not(summary) { display: none; }
 @media (prefers-reduced-motion: reduce) { .pg-pct, .lc-pct { animation: none; } }
+
+/* ======================================================================================================== NO BROWN
+   The apps on the dark theme (4 Nov, before iPhone 1.3). Gold and amber are never a dark tint: under 20% over the
+   near-black surfaces they read brown (the Wrapped card, the club's crest and hero, a PR chip, a deadlift's letter
+   tile, a career meet's trophy tile, an avatar). A warm hue keeps its colour on the mark (the letter, the glyph, the
+   initials, the word) and its surface is the neutral one its neighbours wear. The light theme's warm tints are pale
+   and stay. The laptop (html.desk) keeps its own look. */
+html:not([data-theme="light"]):not(.desk) body.powa-app .av-h1,
+html:not([data-theme="light"]):not(.desk) body.powa-app .av-h2 { background: #2b2926; }
+html:not([data-theme="light"]):not(.desk) body.powa-app .lift-deadlift .tx-tile { background: color-mix(in srgb, var(--text-3) 17%, transparent); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .today-wrap { background: var(--bg-1); box-shadow: inset 0 0 0 1px var(--edge); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .tw-ic { background: rgba(255, 255, 255, 0.07); }
+html:not([data-theme="light"]):not(.desk) body.powa-app[data-accent="gold"] .ui-hero {
+  background: radial-gradient(120% 140% at 0% 0%, rgba(201, 206, 214, 0.07) 0%, transparent 55%), var(--bg-1);
+  border-color: var(--edge);
+}
+html:not([data-theme="light"]):not(.desk) body.powa-app .club-crest { background: #262629; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .club-invite-icon { background: rgba(255, 255, 255, 0.07); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .cp-pr { background: rgba(255, 255, 255, 0.07); }
+html:not([data-theme="light"]):not(.desk) body.powa-app :is(.chl-mine-ic, .chl-empty-ic) { background: rgba(255, 255, 255, 0.07); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .cv-ev.k-meet .cv-ic { background: var(--bg-2); }

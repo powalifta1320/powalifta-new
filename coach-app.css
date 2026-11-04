@@ -2307,12 +2307,15 @@ html[data-theme="light"]:not(.desk) body.powa-app .btn-primary { box-shadow: ins
 
 /* Ask: a plain sheet, the same on the coach phone and the lifter app: ai-chat.css ("ASK, ONE LOOK ON BOTH APPS"). */
 
-/* the bell's list: an unread row's dot is ink, as the bell's own dot is (it wore the screen's hue: fire on Home) */
-html:not(.desk) body.powa-app .sig-sheet .sig-unread .ui-row-title::after { background: var(--text); }
+/* the bell's list: an unread row's dot is ink, as the bell's own dot is (styles.css "the bell's list", both apps) */
 /* Use for another lifter (a lifter's Blocks): the picked lifter's tick is ink and a row presses neutral (both wore
    the screen's hue, the fire red of a lifter's page) */
 html:not(.desk) body.powa-app .rb-sheet .rb-ck { color: var(--text); }
 html:not(.desk) body.powa-app .rb-sheet .rb-prow:active { background: var(--ca-press); }
+/* Progression rules and Clients the same way (4 Nov): opened from Home's Coaching list they wear Home's fire, so
+   "POWALIFTA's suggestion" was ticked in red and their rows pressed red. The tick is ink, a row presses neutral. */
+html:not(.desk) body.powa-app .prg-root .prg-ck { color: var(--text); }
+html:not(.desk) body.powa-app .prg-root :is(.prg-opt, .prg-pvr):active, html:not(.desk) body.powa-app .cs-r.is-phone:active { background: var(--ca-press); }
 
 /* the first-run tour: the spotlight without a red halo; the tip a card (20) on the scale (its step a 13 caption,
    its title 20), Skip and Back quiet words, Next the crimson (52, 17), all three 52 tall in their row: the page
@@ -2605,3 +2608,36 @@ html:not(.desk) .wnd-faces .wnd-more { display: grid; place-items: center; width
   html:not(.desk) .wnd.is-leaving { animation: wndFadeOut 160ms ease-out forwards; }
   html:not(.desk) :is(.wnd-x, .wnd-back):active { transform: none; }
 }
+
+/* ---------------------------------------------------------------- no brown (4 Nov, before iPhone 1.3)
+   Gold and amber are never a dark tint: on the dark theme a warm light under 20% reads brown (Sarah's pain card, Tom's
+   late payment, his olive ring, the deadlift's tile, the meet tile, a trophy's tile, the club's hero). A warm family
+   keeps its colour on the mark (the triangle, a ring's done segments, the dot, the line, the glyph, the number) and its
+   surface takes the quiet steel light the routine cards wear, a neutral edge and a graphite tile. styles.css "NO BROWN"
+   does the same for what both apps share. The light theme's warm tints are pale and stay; the laptop keeps its own. */
+html:not([data-theme="light"]):not(.desk) :is(.pf-alert, .pf-watch, .pf-down, .pf-meet),
+html:not([data-theme="light"]):not(.desk) :is(.ca-focal, .ca-flag):is(.tone-pain, .tone-warn, .tone-meet, .tone-bw),
+html:not([data-theme="light"]):not(.desk) :is(.cs-lead, .cs-scard).is-late,
+html:not([data-theme="light"]):not(.desk) .ca-charts .cl-hero:has(.cl-chip.down),
+html:not([data-theme="light"]):not(.desk) .cp-blk.is-top.lift-deadlift { --pfl: #c9ced6; }
+html:not([data-theme="light"]):not(.desk) :is(.cs-lead, .cs-scard).is-late { --pl-light: 7%; }
+html:not([data-theme="light"]):not(.desk) body.powa-app[data-screen="lifter"]:is([data-pf="meet"], [data-pf="alert"], [data-pf="watch"]) .dash-shell::before {
+  background: radial-gradient(75% 60% at 50% -14%, rgba(255, 255, 255, 0.045), transparent 72%);
+}
+/* the ring: the sessions still to come are the neutral track (a warm one at a third was olive and brown) */
+html:not([data-theme="light"]):not(.desk) .ca-face:is(.pf-alert, .pf-watch, .pf-down, .pf-meet) .ca-ring-track,
+html:not([data-theme="light"]):not(.desk) .ca-ring-track.is-behind { stroke: var(--pl-inset-2); }
+/* the deadlift's and the meet's tiles on a lifter's Progress and their page's Everything: plain surfaces, the gold on
+   the dot, the line and the trophy */
+html:not([data-theme="light"]):not(.desk) .ca-charts :is(.cl-lift.l-dl, .cl-tile.cl-meet, .cl-tile.t-meets),
+html:not([data-theme="light"]):not(.desk) body.powa-app .athlete-sheet .aq-lift.lift-deadlift { background: var(--ca-card); border-color: var(--ca-edge); }
+html:not([data-theme="light"]):not(.desk) .ca-charts .cl-tile:is(.cl-meet, .t-meets) .cl-tic { background: var(--pl-inset-2); }
+/* tiles: a warm glyph on the graphite tile (a flag's triangle, last week's report's trophy and deadlift dot) */
+html:not([data-theme="light"]):not(.desk) .ca-flag:is(.tone-pain, .tone-warn, .tone-meet, .tone-bw) .ca-flag-ic { background: var(--pl-inset-2); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .mr-phone :is(.mr-tic.t-meet, .mr-tic.t-warn, .mr-lt.l-dl) { background: var(--pl-inset-2); }
+/* the club: the crest and a PR's chip are graphite with gold ink, the hero is lit steel */
+html:not([data-theme="light"]):not(.desk) body.powa-app #clubArea .club-hero {
+  border-color: var(--ca-edge);
+  background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, #c9ced6 7%, transparent) 0%, transparent 58%), var(--ca-card);
+}
+html:not([data-theme="light"]):not(.desk) body.powa-app #clubArea :is(.club-crest, .cp-pr) { background: var(--pl-inset-2); }
