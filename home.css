@@ -388,9 +388,10 @@ html.m .tl-bub img { width: 100%; aspect-ratio: 393 / 852; }
 .wk-in picture, .wk-in img { position: absolute; inset: 0; width: 100%; height: 100%; }
 .wk-before { display: none; }
 html.m .wk-before { display: block; }
-/* What week 2 lifted on his bench (@9.5 where Sam wrote 8), then week 3's bench, beside it, where his rule's 145 lands. */
-.why { position: absolute; left: 74.686%; top: 48.653%; width: 16.377%; height: 5.224%; border-radius: calc(9 / 8.75 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; visibility: hidden; pointer-events: none; }
-.tap { position: absolute; left: 27.143%; top: 48.653%; width: 8.08%; height: 5.224%; border-radius: calc(9 / 8.75 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
+/* What week 2 lifted on his bench (the line under its top set: @9.5 where Sam wrote 8, +1.5), then week 3's bench, where
+   his rule's 145 lands over what week 2 lifted. */
+.why { position: absolute; left: 17.086%; top: 51.429%; width: 22.434%; height: 4.898%; border-radius: calc(9 / 8.75 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; visibility: hidden; pointer-events: none; }
+.tap { position: absolute; left: 26.914%; top: 46.367%; width: 9.371%; height: 6.531%; border-radius: calc(9 / 8.75 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
 /* The editor's own action (desk-program.js, the crimson primary in its sticky head), drawn by the page so one crimson per
    screen holds: Take 1 suggestion, then Send the changes to Marcus, each at the editor's width (Preview sits just left of
    the first; the still is the second). Right-aligned where the editor has it. The box is always Send's width: its crimson
@@ -837,15 +838,15 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .next-head .h2, .next-head .lead { grid-column: 1 / -1; }
   .next-head .lead { margin-top: 14px; }
   /* The week on a phone: its own pictures (index.html's phone sources), the app's own narrow layout (a 1024 px laptop
-     window with the sidebar open: an editor of 480 px, what was lifted right after the effort, Preview, the crimson and
+     window with the sidebar open: an editor of 480 px, what was lifted under each line, Preview, the crimson and
      ⋯ on a line under the name), the whole frame edge to edge at 0.79. Its rings and action where that layout has them
      (cap-program.mjs PHONE=1, mkimg.py program-phone): 1cqw here is 4.96 desk px. */
   .wk { width: auto; margin-inline: -16px; }
   .wk-port { border-radius: 0; }
-  .wk-in { aspect-ratio: 496 / 546; }
-  .why { left: 61.29%; top: 68.132%; width: 28.891%; height: 5.861%; border-radius: calc(9 / 4.96 * 1cqw); }
-  .tap { left: 32.661%; top: 68.132%; width: 14.254%; height: 5.861%; border-radius: calc(9 / 4.96 * 1cqw); }
-  .pub { right: 9.677%; top: 10.623%; --w-take: 29.012%; --w-send: 41.23%; height: calc(36 / 4.96 * 1cqw); padding: 0 calc(18 / 4.96 * 1cqw); font-size: calc(13 / 4.96 * 1cqw); }
+  .wk-in { aspect-ratio: 496 / 572; }
+  .why { left: 16.129%; top: 67.657%; width: 39.577%; height: 5.245%; border-radius: calc(9 / 4.96 * 1cqw); }
+  .tap { left: 32.661%; top: 62.238%; width: 16.532%; height: 6.993%; border-radius: calc(9 / 4.96 * 1cqw); }
+  .pub { right: 9.677%; top: 10.140%; --w-take: 29.012%; --w-send: 41.23%; height: calc(36 / 4.96 * 1cqw); padding: 0 calc(18 / 4.96 * 1cqw); font-size: calc(13 / 4.96 * 1cqw); }
   .meet-lead { margin-top: 14px; margin-bottom: var(--s3); }
   .scene { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "phone" "board"; row-gap: 22px; }
   .mid { padding-bottom: 0; }

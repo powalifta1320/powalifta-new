@@ -635,8 +635,8 @@
   /* =====================================================================
      NEXT WEEK: Sam's Programs editor, Marcus's week at his Bench Day (cap-program.mjs). As it arrives a ring finds why:
      his bench as lifted, @9.5 where Sam wrote 8. His rule's suggestion is ready: Take 1 suggestion arrives in the head,
-     the one crimson here; Take presses; week 3 comes up with the 145 his rule wrote beside what week 2 lifted, ringed as
-     it lands; the action becomes Send the changes to Marcus, at its own width as the editor's is. (The editor takes the
+     the one crimson here; Take presses; week 3 comes up with the 145 his rule wrote, what week 2 lifted under it, ringed
+     as it lands; the action becomes Send the changes to Marcus, at its own width as the editor's is. (The editor takes the
      suggestion from the lifted week, so there is no card to show between.)
      ===================================================================== */
   words($('#next-h'));

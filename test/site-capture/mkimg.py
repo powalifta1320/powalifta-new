@@ -119,8 +119,8 @@ if 'lifter' in what:
 # draws: mkimg prints it in the crop's per cent (1cqw = W / 100 desk px). Phones show the whole frame.
 if 'program' in what:
     X0, Y0, W, H = 548.5, 0, 875, 612.5
-    for n in ('lifted', 'taken'):   # prog-bench-*: new names with the new frame, so a cached prog-* never meets the new positions
-        save(crop2(Image.open(CAP + 'prog-' + n + '.png'), X0, Y0, W, H), 'prog-bench-' + n, [800, 1600], q_webp=86, q_avif=62)
+    for n in ('lifted', 'taken'):   # prog-card-*: new names with the new day card (4 Nov), so a cached picture never meets new positions
+        save(crop2(Image.open(CAP + 'prog-' + n + '.png'), X0, Y0, W, H), 'prog-card-' + n, [800, 1600], q_webp=86, q_avif=62)
     g = json.load(open(CAP + 'prog.json'))['g']
     pc = lambda v, d: '%.3f%%' % (v / d * 100)
     for k, cls in (('lifted', '.why'), ('cell145', '.tap')):
@@ -143,7 +143,7 @@ if 'program-phone' in what:
     k = 3
     for n in ('lifted', 'taken'):
         im = Image.open(CAP + 'prog-' + n + '-phone.png').crop((round(X0 * k), round(Y0 * k), round((X0 + W) * k), round((Y0 + H) * k)))
-        save(im, 'prog-bench-' + n + '-phone', [590, 786, 1179], q_webp=86, q_avif=62)
+        save(im, 'prog-card-' + n + '-phone', [590, 786, 1179], q_webp=86, q_avif=62)
     pc = lambda v, d: '%.3f%%' % (v / d * 100)
     print('   phones: the frame desk %g..%g x %g..%g (%g x %g): .wk-in aspect-ratio: %g / %g' % (X0, X0 + W, Y0, Y0 + H, W, H, W, H))
     for kk, cls in (('lifted', '.why'), ('cell145', '.tap')):

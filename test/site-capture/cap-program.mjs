@@ -1,9 +1,12 @@
 // Marcus's week in the Programs editor (desk-program.js, rebuilt 3 Nov), the desk at 1440 x 900, 2x, dark (THEME=light for a
 // light version), the fixed day (lib.mjs). The editor jumps to his Bench Day by its day chip (the app's own jump: the sticky
 // head and the days' chips stay, the card comes up under them), so the frame is the head plus the bench day:
-//   prog-lifted.png   week 2 as he lifted it: bench written 152.5 x 3 @8, lifted @9.5 (the coral dot), "Take 1 suggestion";
+//   prog-lifted.png   week 2 as he lifted it: bench written 152.5 x 3 @8, lifted @9.5 ("+1.5" in amber under the line, its
+//                     set's circle amber), "Take 1 suggestion";
 //   prog-taken.png    Take 1 suggestion: the editor moves to week 3, his rule's 145 written in beside what week 2 lifted,
 //                     "Send the changes to Marcus".
+// The day card is the one the owner picked on 4 Nov ("C · Like the lifter app"): what was lifted sits under each line ("Lifted
+// 152.5 × 3 @9.5 +1.5"; on week 3 "Week 2 …"), a circle a set right after the effort.
 // The editor's crimson action is left out of the picture, its place kept (the homepage draws its own there, one crimson per
 // screen, at each label's width: the two labels' widths differ, so a quiet copy under it would show beside the narrower
 // one as the pictures cross); the day name the jump focuses is let go (no focus ring).
@@ -36,7 +39,7 @@ const toBench = async () => {
   await p.mouse.move(W - 10, 890); await p.waitForTimeout(300);
 };
 // The frame's parts, where they are now: the scroll, the stuck head and chips, the bench card, its top set's load and
-// what it lifted (the line's own text and dot).
+// what it lifted (the line under it: its key word, its words, its gap; the top set's circles).
 const parts = (week) => p.evaluate(({ week, label }) => {
   const R = (e) => { if (!e) return null; const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map((v) => Math.round(v * 10) / 10); };
   const sc = document.getElementById('programArea'), q = (s) => document.querySelector(s);
@@ -44,12 +47,13 @@ const parts = (week) => p.evaluate(({ week, label }) => {
   const textBox = (i) => { const c = getComputedStyle(i), r = i.getBoundingClientRect(), t = document.createElement('span'); ['font-family', 'font-size', 'font-weight', 'font-stretch', 'font-style', 'letter-spacing', 'font-variant-numeric', 'font-feature-settings', 'font-variation-settings', 'text-transform'].forEach((k) => t.style.setProperty(k, c.getPropertyValue(k))); t.style.cssText += ';position:fixed;left:0;top:0;white-space:pre;visibility:hidden'; t.textContent = i.value; document.body.appendChild(t); const w = t.getBoundingClientRect().width; t.remove(); const l = r.x + parseFloat(c.borderLeftWidth) + parseFloat(c.paddingLeft) + parseFloat(c.textIndent || 0); return [l, r.y, w, r.height].map((v) => Math.round(v * 10) / 10); };
   const card = [...document.querySelectorAll('.dp-day')].find((d) => /^Bench/.test((d.querySelector('.dp-day-name') || {}).value || ''));
   const inp = [...document.querySelectorAll('input')].find((x) => x.offsetParent && x.getAttribute('aria-label') === label);
-  const row = inp && inp.closest('.dp-line'), lift = row && row.querySelector('.dp-lifted');
+  const row = inp && inp.closest('.dp-line'), lift = row && row.querySelector('.dp-lifted'), dev = lift && lift.querySelector('.dp-dev');
   const name = [...document.querySelectorAll('#programArea *')].find((x) => x.offsetParent && x.children.length === 0 && x.textContent.trim() === 'Marcus Doyle');
   const next = card && card.nextElementSibling && card.nextElementSibling.classList.contains('dp-day') ? card.nextElementSibling : null;
   return { scrollTop: sc && sc.scrollTop, head: R(q('.dp-head.is-pb')), stuck: !!q('.dp-head.is-pb.is-stuck'), name: R(name), chips: R(q('.dp-dchips')), card: R(card), editor: R(q('.dp')), next: R(next),
-    load: inp ? { box: R(inp), value: inp.value, text: textBox(inp) } : null, row: R(row), lifted: lift ? { box: R(lift), text: lift.textContent.replace(/\s+/g, ' ').trim() } : null,
-    liftHead: card ? [...card.querySelectorAll('*')].filter((x) => x.children.length === 0 && /lifted$/i.test(x.textContent.trim())).map((x) => x.textContent.trim())[0] : null };
+    load: inp ? { box: R(inp), value: inp.value, text: textBox(inp) } : null, row: R(row),
+    lifted: lift ? { box: R(lift), key: ((lift.querySelector('.dp-lk') || {}).textContent || '').trim(), text: ((lift.querySelector('.dp-lv') || {}).textContent || '').trim(), gap: dev ? (dev.querySelector('svg') ? 'ok' : dev.textContent.trim()) : '' } : null,
+    sets: row ? [...row.querySelectorAll('.dp-set')].map((c) => c.className.replace(/.*\bt-/, '')) : [] };
 }, { week, label: 'Bench, top set, load, week ' + week });
 if (!(await click(/^MD ?Marcus Doyle/, 'button, li, [role="button"], a'))) throw new Error('site-capture: Marcus is not in the Programs list');
 await p.waitForTimeout(1500);
@@ -58,7 +62,7 @@ await toBench();
 g.lifted2 = await parts(2);
 g.take = await boxOf(/^Take 1 suggestion$/, 'button');
 g.takeStyle = await styleOf(/^Take 1 suggestion$/);
-if (!g.take || !g.lifted2.load || g.lifted2.load.value !== '152.5 kg' || !g.lifted2.lifted || !/^152\.5 × 3 @9\.5/.test(g.lifted2.lifted.text) || !g.lifted2.stuck)
+if (!g.take || !g.lifted2.load || g.lifted2.load.value !== '152.5 kg' || !g.lifted2.lifted || g.lifted2.lifted.key !== 'Lifted' || g.lifted2.lifted.text !== '152.5 × 3 @9.5' || g.lifted2.lifted.gap !== '+1.5' || g.lifted2.sets.join() !== 'over' || !g.lifted2.stuck)
   throw new Error('site-capture: week 2 as lifted changed: ' + JSON.stringify(g));
 await leaveOut(); await p.screenshot({ path: OUT + 'prog-lifted' + SUF + '.png' });
 // Take: the suggestion written into week 3 (the editor stays on the bench day; its chip again marks where it is).
@@ -69,16 +73,17 @@ await p.evaluate(() => document.querySelectorAll('.toast, [class*="toast"]').for
 g.taken3 = await parts(3);
 g.send = await boxOf(/^Send the changes to Marcus$/, 'button');
 g.sendStyle = await styleOf(/^Send the changes to Marcus$/);
-if (!g.send || !g.taken3.load || !/^145/.test(g.taken3.load.value) || !g.taken3.lifted || g.taken3.scrollTop !== g.lifted2.scrollTop || JSON.stringify(g.taken3.card) !== JSON.stringify(g.lifted2.card))
+if (!g.send || !g.taken3.load || !/^145/.test(g.taken3.load.value) || !g.taken3.lifted || g.taken3.lifted.key !== 'Week 2' || g.taken3.lifted.text !== '152.5 × 3 @9.5' || g.taken3.lifted.gap !== '+1.5' || g.taken3.scrollTop !== g.lifted2.scrollTop || JSON.stringify(g.taken3.card) !== JSON.stringify(g.lifted2.card))
   throw new Error('site-capture: Take did not write 145 in the same frame: ' + JSON.stringify(g));
 await leaveOut(); await p.screenshot({ path: OUT + 'prog-taken' + SUF + '.png' });
-// What the page draws (desk px): a ring round what week 2 lifted (its dot and line) and one round the 145 where it lands
-// (the cell's words), each 10 px either side and the row's own 32 px; the action in its two states.
+// What the page draws (desk px): a ring round what week 2 lifted (the line under the top set: "Lifted 152.5 × 3 @9.5 +1.5",
+// 10 px either side, 5 above and below) and one round the 145 where it lands
+// (the cell's words, 10 px either side, the load's own 40 px); the action in its two states.
 const pad = (bx, k) => [Math.round((bx[0] - k) * 10) / 10, bx[1], Math.round((bx[2] + 2 * k) * 10) / 10, bx[3]];
-g.lifted = pad([g.lifted2.lifted.box[0], g.lifted2.load.box[1], g.lifted2.lifted.box[2], g.lifted2.load.box[3]], 10);
+g.lifted = pad([g.lifted2.lifted.box[0], Math.round((g.lifted2.lifted.box[1] - 5) * 10) / 10, g.lifted2.lifted.box[2], Math.round((g.lifted2.lifted.box[3] + 10) * 10) / 10], 10);
 g.cell145 = { box: pad([g.taken3.load.text[0], g.taken3.load.box[1], g.taken3.load.text[2], g.taken3.load.box[3]], 10), value: g.taken3.load.value, input: g.taken3.load.box };
 writeFileSync(OUT + 'prog' + SUF + '.json', JSON.stringify({ g, errs }, null, 1));
-console.log(JSON.stringify({ window: W, lifted: g.lifted, cell145: g.cell145, take: g.take, send: g.send, scroll: g.lifted2.scrollTop, card: g.lifted2.card, editor: g.lifted2.editor, next: g.lifted2.next, name: g.lifted2.name, chips: g.lifted2.chips, liftHead: [g.lifted2.liftHead, g.taken3.liftHead], liftText: [g.lifted2.lifted.text, g.taken3.lifted.text] }));
+console.log(JSON.stringify({ window: W, lifted: g.lifted, cell145: g.cell145, take: g.take, send: g.send, scroll: g.lifted2.scrollTop, card: g.lifted2.card, editor: g.lifted2.editor, next: g.lifted2.next, name: g.lifted2.name, chips: g.lifted2.chips, lifted2: g.lifted2.lifted, taken3: g.taken3.lifted, sets: g.lifted2.sets }));
 console.log('take style', JSON.stringify(g.takeStyle));
 console.log(errs.join(' | ') || 'clean');
 await b.close(); process.exit(0);
