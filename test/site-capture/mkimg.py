@@ -120,8 +120,8 @@ if 'lifter' in what:
 # column, desk PX0, to the crop's right edge).
 if 'program' in what:
     X0, Y0, W, H = 548.5, 0, 875, 612.5
-    for n in ('prog-lifted', 'prog-taken'):
-        save(crop2(Image.open(CAP + n + '.png'), X0, Y0, W, H), n, [800, 1600], q_webp=86, q_avif=62)
+    for n in ('lifted', 'taken'):   # prog-bench-*: new names with the new frame, so a cached prog-* never meets the new positions
+        save(crop2(Image.open(CAP + 'prog-' + n + '.png'), X0, Y0, W, H), 'prog-bench-' + n, [800, 1600], q_webp=86, q_avif=62)
     g = json.load(open(CAP + 'prog.json'))['g']
     pc = lambda v, d: '%.3f%%' % (v / d * 100)
     for k, cls in (('lifted', '.why'), ('cell145', '.tap')):
