@@ -95,6 +95,7 @@ For lifters
 And
 - A set logged while you were offline is never lost
 - Send us an idea or report a problem from You › Help: it comes straight to us
+- Easier to read and tap: no tiny text, bigger tap targets and calmer colours
 ```
 
 **What's New** (version notes, ≤4000) — v1.2:
