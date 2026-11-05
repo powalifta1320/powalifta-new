@@ -186,7 +186,7 @@ html.native .ai-launcher::after { display: none; }
   cursor: pointer;
   transition: background 0.18s ease, color 0.18s ease;
 }
-.ai-close:hover { background: var(--bg-2, #1c1c20); color: var(--text, #f4f4f5); }
+@media (hover: hover) { .ai-close:hover { background: var(--bg-2, #1c1c20); color: var(--text, #f4f4f5); } }
 .ai-close svg { width: 18px; height: 18px; }
 
 /* ---- Messages --------------------------------------------------------- */
@@ -340,10 +340,12 @@ html.native .ai-launcher::after { display: none; }
   cursor: pointer;
   transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
 }
-.ai-chip:hover {
-  border-color: rgba(255, 45, 63, 0.5);
-  color: var(--text, #fff);
-  background: var(--bg-3, #25252b);
+@media (hover: hover) {
+  .ai-chip:hover {
+    border-color: rgba(255, 45, 63, 0.5);
+    color: var(--text, #fff);
+    background: var(--bg-3, #25252b);
+  }
 }
 
 /* ---- Program preview card (AI-designed program) ---------------------- */
@@ -478,7 +480,7 @@ html.native .ai-launcher::after { display: none; }
   cursor: pointer;
   transition: transform 0.16s ease, opacity 0.16s ease;
 }
-.ai-send:hover { transform: translateY(-1px); }
+@media (hover: hover) { .ai-send:hover { transform: translateY(-1px); } }
 .ai-send:active { transform: scale(0.94); }
 .ai-send:disabled { opacity: 0.4; cursor: default; transform: none; }
 .ai-send svg { width: 18px; height: 18px; }
@@ -567,7 +569,7 @@ html.native .ai-launcher::after { display: none; }
   background: #25d366;
   box-shadow: 0 0 8px rgba(37, 211, 102, 0.6);
 }
-.ai-human-btn:hover { border-color: rgba(52, 217, 130, 0.55); }
+@media (hover: hover) { .ai-human-btn:hover { border-color: rgba(52, 217, 130, 0.55); } }
 .ai-human-btn:active { transform: scale(0.96); }
 .ai-human.is-lit { animation: ai-human-lit 1.3s ease-out; }
 @keyframes ai-human-lit {
@@ -745,7 +747,7 @@ html:not(.desk) body.powa-app .ai-panel .ai-bubble .ai-who:focus-visible { outli
 html:not(.desk) body.powa-app .ai-panel .ai-chips { gap: 8px; padding: 8px 16px 8px; }
 html:not(.desk) body.powa-app .ai-panel .ai-chip { position: relative; min-height: 38px; padding: 0 14px; background: var(--ask-inset-2); color: var(--text); font-size: 15px; font-weight: 600; }
 html:not(.desk) body.powa-app .ai-panel .ai-chip::after { content: ''; position: absolute; inset: -3px 0; }
-html:not(.desk) body.powa-app .ai-panel .ai-chip:hover { border-color: transparent; background: var(--ask-inset-2); color: var(--text); }
+@media (hover: hover) { html:not(.desk) body.powa-app .ai-panel .ai-chip:hover { border-color: transparent; background: var(--ask-inset-2); color: var(--text); } }
 /* a drafted program: a card on the answer's fill, in sentence case; Insert into builder graphite (Send is the red) */
 html:not(.desk) body.powa-app .ai-panel .ai-prog-card { margin-top: 12px; padding: 14px 14px 12px; border: 0; border-radius: 14px; background: var(--ask-inset-2); }
 html:not(.desk) body.powa-app .ai-panel .ai-prog-name { font-family: var(--font-body); font-stretch: 100%; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; text-transform: none; }
@@ -765,7 +767,7 @@ html:not(.desk) body.powa-app .ai-panel .ai-send {
   transition: transform var(--ask-press) var(--ask-spring), background-color 150ms ease-out, color 150ms ease-out;
 }
 html:not(.desk) body.powa-app .ai-panel .ai-send svg { width: 20px; height: 20px; }
-html:not(.desk) body.powa-app .ai-panel .ai-send:hover { transform: none; }
+@media (hover: hover) { html:not(.desk) body.powa-app .ai-panel .ai-send:hover { transform: none; } }
 html:not(.desk) body.powa-app .ai-panel .ai-send:active:not(:disabled) { transform: scale(0.92); filter: brightness(0.92); transition-duration: 90ms; }
 html:not(.desk) body.powa-app .ai-panel :is(.ai-input-row:has(.ai-input:placeholder-shown) .ai-send, .ai-send:disabled) { background: var(--ask-inset-2); color: var(--text-3); box-shadow: none; opacity: 1; }
 html:not(.desk) body.powa-app .ai-panel .ai-foot-note { margin-top: 8px; font-size: 13px; }

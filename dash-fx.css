@@ -267,7 +267,7 @@ input[type=date], select, textarea {
   cursor: pointer;
   transition: background-color 0.14s var(--ease-out-quart);
 }
-.msg-inbox-row:hover { background: var(--bg-2); }
+@media (hover: hover) { .msg-inbox-row:hover { background: var(--bg-2); } }
 .msg-inbox-row.active { background: var(--red-glow-2); }
 .msg-inbox-row .av {
   width: 40px; height: 40px;

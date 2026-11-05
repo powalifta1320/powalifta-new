@@ -2307,12 +2307,15 @@ html[data-theme="light"]:not(.desk) body.powa-app .btn-primary { box-shadow: ins
 
 /* Ask: a plain sheet, the same on the coach phone and the lifter app: ai-chat.css ("ASK, ONE LOOK ON BOTH APPS"). */
 
-/* the bell's list: an unread row's dot is ink, as the bell's own dot is (it wore the screen's hue: fire on Home) */
-html:not(.desk) body.powa-app .sig-sheet .sig-unread .ui-row-title::after { background: var(--text); }
+/* the bell's list: an unread row's dot is ink, as the bell's own dot is (styles.css "the bell's list", both apps) */
 /* Use for another lifter (a lifter's Blocks): the picked lifter's tick is ink and a row presses neutral (both wore
    the screen's hue, the fire red of a lifter's page) */
 html:not(.desk) body.powa-app .rb-sheet .rb-ck { color: var(--text); }
 html:not(.desk) body.powa-app .rb-sheet .rb-prow:active { background: var(--ca-press); }
+/* Progression rules and Clients the same way (4 Nov): opened from Home's Coaching list they wear Home's fire, so
+   "POWALIFTA's suggestion" was ticked in red and their rows pressed red. The tick is ink, a row presses neutral. */
+html:not(.desk) body.powa-app .prg-root .prg-ck { color: var(--text); }
+html:not(.desk) body.powa-app .prg-root :is(.prg-opt, .prg-pvr):active, html:not(.desk) body.powa-app .cs-r.is-phone:active { background: var(--ca-press); }
 
 /* the first-run tour: the spotlight without a red halo; the tip a card (20) on the scale (its step a 13 caption,
    its title 20), Skip and Back quiet words, Next the crimson (52, 17), all three 52 tall in their row: the page
@@ -2605,3 +2608,91 @@ html:not(.desk) .wnd-faces .wnd-more { display: grid; place-items: center; width
   html:not(.desk) .wnd.is-leaving { animation: wndFadeOut 160ms ease-out forwards; }
   html:not(.desk) :is(.wnd-x, .wnd-back):active { transform: none; }
 }
+
+/* ---------------------------------------------------------------- no brown (4 Nov, before iPhone 1.3)
+   Gold and amber are never a dark tint: on the dark theme a warm light under 20% reads brown (Sarah's pain card, Tom's
+   late payment, his olive ring, the deadlift's tile, the meet tile, a trophy's tile, the club's hero). A warm family
+   keeps its colour on the mark (the triangle, a ring's done segments, the dot, the line, the glyph, the number) and its
+   surface takes the quiet steel light the routine cards wear, a neutral edge and a graphite tile. styles.css "NO BROWN"
+   does the same for what both apps share. The light theme's warm tints are pale and stay; the laptop keeps its own. */
+html:not([data-theme="light"]):not(.desk) :is(.pf-alert, .pf-watch, .pf-down, .pf-meet),
+html:not([data-theme="light"]):not(.desk) :is(.ca-focal, .ca-flag):is(.tone-pain, .tone-warn, .tone-meet, .tone-bw),
+html:not([data-theme="light"]):not(.desk) :is(.cs-lead, .cs-scard).is-late,
+html:not([data-theme="light"]):not(.desk) .ca-charts .cl-hero:has(.cl-chip.down),
+html:not([data-theme="light"]):not(.desk) .cp-blk.is-top.lift-deadlift { --pfl: #c9ced6; }
+html:not([data-theme="light"]):not(.desk) :is(.cs-lead, .cs-scard).is-late { --pl-light: 7%; }
+html:not([data-theme="light"]):not(.desk) body.powa-app[data-screen="lifter"]:is([data-pf="meet"], [data-pf="alert"], [data-pf="watch"]) .dash-shell::before {
+  background: radial-gradient(75% 60% at 50% -14%, rgba(255, 255, 255, 0.045), transparent 72%);
+}
+/* the ring: the sessions still to come are the neutral track (a warm one at a third was olive and brown) */
+html:not([data-theme="light"]):not(.desk) .ca-face:is(.pf-alert, .pf-watch, .pf-down, .pf-meet) .ca-ring-track,
+html:not([data-theme="light"]):not(.desk) .ca-ring-track.is-behind { stroke: var(--pl-inset-2); }
+/* the meet's tile on a lifter's Progress: a plain surface, the gold on the trophy (the lift tiles: "the lift tiles" below) */
+html:not([data-theme="light"]):not(.desk) .ca-charts :is(.cl-tile.cl-meet, .cl-tile.t-meets) { background: var(--ca-card); border-color: var(--ca-edge); }
+html:not([data-theme="light"]):not(.desk) .ca-charts .cl-tile:is(.cl-meet, .t-meets) .cl-tic { background: var(--pl-inset-2); }
+/* tiles: a warm glyph on the graphite tile (a flag's triangle, last week's report's trophy and deadlift dot) */
+html:not([data-theme="light"]):not(.desk) .ca-flag:is(.tone-pain, .tone-warn, .tone-meet, .tone-bw) .ca-flag-ic { background: var(--pl-inset-2); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .mr-phone :is(.mr-tic.t-meet, .mr-tic.t-warn, .mr-lt.l-dl) { background: var(--pl-inset-2); }
+/* the club: the crest and a PR's chip are graphite with gold ink, the hero is lit steel */
+html:not([data-theme="light"]):not(.desk) body.powa-app #clubArea .club-hero {
+  border-color: var(--ca-edge);
+  background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, #c9ced6 7%, transparent) 0%, transparent 58%), var(--ca-card);
+}
+html:not([data-theme="light"]):not(.desk) body.powa-app #clubArea :is(.club-crest, .cp-pr) { background: var(--pl-inset-2); }
+
+/* ---------------------------------------------------------------- 12 px floor (4 Nov, before iPhone 1.3)
+   No text under 12 px on the coach phone: the tab bar's counts, a face's PR count, the lifter page's Message count,
+   the strength card's S B D keys, a PR chip on a lift tile, the club's faces and a meet's month were 11. */
+html.native:not(.desk) :is(.ca-tbadge, .ca-tbadge-nl) { font-size: 12px; }
+html:not(.desk) :is(.ca-prf-n, .ca-act-n, .ca-lchip-k) { font-size: 12px; }
+html:not(.desk) body.powa-app .ca-charts .cl-pr-b { font-size: 12px; }
+html:not(.desk) body.powa-app #clubArea .cs-av { font-size: 12px; }
+html:not(.desk) body.powa-app .md-meet-date small { font-size: 12px; }
+
+/* ---------------------------------------------------------------- 44 pt to the touch, more (4 Nov, before iPhone 1.3)
+   Lifters' + was a 36 pt target: its -4 pt hit area is the button's ::after, which the app hides on every crimson
+   (no sheen), and the button clips it. A note's Reply (38), the Meets screen's Open the board and Plan a lifter's
+   meet (40), a rule's words (36), Notifications' send-day segments (34 + 3) and hour (38) and a voice note's wave (28)
+   reach 44, drawn as they were (the hour's pill is 44 tall). A sheet's switch: styles.css. */
+html.native:not(.desk) body.powa-app #btn-invite { overflow: visible; }
+html.native:not(.desk) body.powa-app #btn-invite::after { display: block; background: none; animation: none; transform: none; pointer-events: auto; }
+html:not(.desk) body.powa-app :is(.fb-reply-btn, :is(.md-today, .md-sec-foot) .md-btn, .vn-wave) { position: relative; }
+html:not(.desk) body.powa-app .fb-reply-btn::after { content: ''; position: absolute; inset: -3px 0; }
+html:not(.desk) body.powa-app :is(.md-today, .md-sec-foot) .md-btn::after { content: ''; position: absolute; inset: -2px 0; }
+html:not(.desk) body.powa-app .prg-root.is-phone .prg-tok::after { content: ''; position: absolute; inset: -4px 0; }
+html:not(.desk) body.powa-app .rs-seg button::after { inset: -5px 0; }
+html:not(.desk) body.powa-app .rs-hour select { min-height: 44px; }
+html:not(.desk) body.powa-app .vn-wave::after { content: ''; position: absolute; inset: -8px 0; }
+/* last week's report, in light: a lifter's weight over their class is the darker shade of the warn colour (the bright
+   one was 3.4:1 on white) */
+html[data-theme="light"]:not(.desk) body.powa-app .mr-phone .mr-ml em.mr-over { color: color-mix(in srgb, var(--ca-warn) 72%, #000); }
+
+/* ---------------------------------------------------------------- details (4 Nov, before iPhone 1.3) */
+/* Home's Strength card on a small iPhone (375): its three lift changes overran their line by 2 pt and touched, the
+   gap between two lifts (4) barely wider than a key's gap to its number (3), so "+3.0 B" read as one. A key sits
+   2 pt from its number and two lifts are at least 6 apart, on the line. */
+@media (max-width: 400px) {
+  html:not(.desk) .ca-g-st .ca-lchips { gap: 6px; }
+  html:not(.desk) .ca-g-st .ca-lchip { gap: 2px; }
+}
+
+/* ---------------------------------------------------------------- the taste list, decided (4 Nov)
+   The lift tiles (a lifter's Progress and Everything): squat and bench were lit and the deadlift plain, which read as
+   a bug. All three take the laptop's house rule, gold and amber never a dark tint: the raised fill with a hairline of
+   the lift's own hue, strong enough to read as the hue (the gold stays gold, never brown) and close in weight on all
+   three (cyan 72%, violet 82%, gold 68% over the fill: luminance 0.27, 0.24, 0.29). The dot, the line and the PR chip
+   keep their colours; the meet tile stays plain; the light theme keeps its pale lights. */
+html:not([data-theme="light"]):not(.desk) .ca-charts .cl-lift,
+html:not([data-theme="light"]):not(.desk) body.powa-app .athlete-sheet .aq-lift { --lh: 72%; background: var(--pl-raise); border-color: color-mix(in srgb, var(--lc) var(--lh), var(--pl-raise)); }
+html:not([data-theme="light"]):not(.desk) .ca-charts .cl-lift.l-be,
+html:not([data-theme="light"]):not(.desk) body.powa-app .athlete-sheet .aq-lift.lift-bench { --lh: 82%; }
+html:not([data-theme="light"]):not(.desk) .ca-charts .cl-lift.l-dl,
+html:not([data-theme="light"]):not(.desk) body.powa-app .athlete-sheet .aq-lift.lift-deadlift { --lh: 68%; }
+/* Home's light: Home, Lifters, a lifter's page and the screens opened from them wore Home's hue at the top, a 9% red
+   haze; red is the logo and the one action (the owner, 30 Oct: "Yes, neutral"), so they wear the neutral light a
+   lifter's page has. A lifter's own family light (live, green) stays. styles.css does the lifter app and the light theme. */
+html:not([data-theme="light"]):not(.desk) body.powa-app[data-accent="fire"] .dash-shell::before { height: 380px; background: radial-gradient(75% 60% at 50% -14%, rgba(255, 255, 255, 0.045), transparent 72%); }
+/* Templates: Bring a program in is a row in its own card under the list (a tile, its words, a chevron), the other way in
+   the quiet line under it */
+html:not(.desk) .cp-tpl-implist { margin-top: 16px; }
+html:not(.desk) .cp-tpl-hint.cp-tpl-hint-or { margin: 10px 4px 0; }

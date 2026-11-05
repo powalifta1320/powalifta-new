@@ -651,7 +651,7 @@
             '<span class="bd-tx" role="cell">' + esc(r.text) + '</span>' + v(r.b) + v(r.a) + '</div>';
         }).join('') + '</div>';
     }
-    h += '<p class="bd-foot">Sessions count the ones that came round. e1RM is each block\'s best against the best in the 8 weeks before it' + (A.current ? '; ' + esc(A.name) + ' is still running' : '') + '.</p>';
+    h += '<p class="bd-foot">Sessions count only the days already due, not the ones still ahead. e1RM is each block\'s best against the best in the 8 weeks before it' + (A.current ? '; ' + esc(A.name) + ' is still running' : '') + '.</p>';
     // Give one of the two to someone else (reuse-block.js): a menu of the pair on the desk.
     if (!o.phone && window.ReuseBlock) h += '<div class="bd-acts"><button type="button" class="dk-btn" data-bd-use aria-haspopup="menu"><span class="dk-btn-l">Use for another lifter…</span></button></div>';
     return h;

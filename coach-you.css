@@ -213,6 +213,8 @@ html:not(.desk) body.powa-app #deleteAccountModal #delAcctError { color: var(--t
 html:not(.desk) .cy-rc-seg { margin: 4px 0 12px; }
 html:not(.desk) .cy-rc-seg button { min-height: 44px; }
 html:not(.desk) .cy-rc-say { margin: 0 0 14px; font-size: 15px; line-height: 1.4; color: var(--text-2); }
+/* the counting rule or who keeps their name off, when there is one: quieter, under the line (4 Nov) */
+html:not(.desk) .cy-rc-say .cy-rc-why { display: block; margin-top: 4px; font-size: 13px; line-height: 1.4; color: var(--text-3); }
 html:not(.desk) .cy-rc-frame { width: min(100%, 300px); aspect-ratio: 4 / 5; margin: 0 auto 18px; border-radius: 16px; background: #0b0b0c; box-shadow: 0 0 0 1px var(--line), 0 18px 40px -22px rgba(0, 0, 0, 0.6); overflow: hidden; }
 html:not(.desk) .cy-rc-frame.is-empty { display: none; }
 html:not(.desk) .cy-rc-img { display: block; width: 100%; height: 100%; animation: cyRcIn 280ms cubic-bezier(0.23, 1, 0.32, 1) both; }

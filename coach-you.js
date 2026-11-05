@@ -274,14 +274,21 @@
       : b.avg < 0 ? 'My lifters\u2019 e1RM totals are ' + kgText(-b.avg) + ' ' + unitOf() + ' down this block'
       : 'My lifters held their e1RM totals this block';
   }
-  // "Counted: 2 of 3 lifters with a block running (each needs all three lifts logged before the block and in it).
-  // 2 up, 0 down." Who's behind the average, and its spread. Pure: tested.
+  // "2 of 3 lifters counted: 1 up, 1 level." Who's behind the average and its spread, in one plain line; a count of
+  // none is left out (4 Nov: it read "Counted: 2 of 3 lifters with a block running (each needs…). 1 up, 0 down, 1
+  // level."). Why a lifter is left out is blockRule's quieter line. Pure: tested.
   function blockSay(b) {
     if (!b) return '';
     var up = b.rows.filter(function (r) { return r.delta > 0; }).length, down = b.rows.filter(function (r) { return r.delta < 0; }).length;
     var level = b.n - up - down, running = Math.max(b.running || 0, b.n);
-    return 'Counted: ' + (running > b.n ? b.n + ' of ' + running + ' lifters with a block running (each needs all three lifts logged before the block and in it).'
-      : (b.n === 1 ? 'the 1 lifter' : 'all ' + b.n + ' lifters') + ' with a block running.') + ' ' + up + ' up, ' + down + ' down' + (level ? ', ' + level + ' level' : '') + '.';
+    var who = running > b.n ? b.n + ' of ' + running + ' lifters' : b.n === 1 ? '1 lifter' : 'All ' + b.n + ' lifters';
+    var parts = [up ? up + ' up' : '', down ? down + ' down' : '', level ? level + ' level' : ''].filter(Boolean);
+    return who + ' counted' + (parts.length ? ': ' + parts.join(', ') : '') + '.';
+  }
+  // The counting rule, only when it left someone out: the line under blockSay. Pure: tested.
+  function blockRule(b) {
+    if (!b || Math.max(b.running || 0, b.n) <= b.n) return '';
+    return 'A lifter counts once all three lifts are logged before the block and in it.';
   }
   // Lifters who keep their name off their coach's posts (profiles.name_on_results; the owner, 31 Oct: "lifters can opt
   // out"): the block card says "A lifter" for them and the PR wall leaves them off. The sheet says so. Pure: tested.
@@ -328,10 +335,13 @@
         var model = pick === 'block' ? M.block : (M.prs.length ? M.prs : null);
         // What the card doesn't say: who counts and who doesn't, and the spread under the average (night C review m13).
         var off = pick === 'block' ? unnamedSay(M.block) : unnamedSay(null, store().athletes);
-        say.textContent = (pick === 'block'
+        say.textContent = pick === 'block'
           ? (M.block ? blockSay(M.block)
             : 'Nobody has all three lifts logged both before and in a block running now, so there\u2019s no average to show yet.')
-          : (M.prs.length ? plural(M.prs.length, 'PR') + ' this week, ' + weekText(M.today) + '.' : 'No PRs this week yet. The wall fills as your lifters set them.')) + (off ? ' ' + off : '');
+          : (M.prs.length ? plural(M.prs.length, 'PR') + ' this week, ' + weekText(M.today) + '.' : 'No PRs this week yet. The wall fills as your lifters set them.');
+        // the rule and who keeps their name off: a quieter second line, only when there is one
+        var why = [pick === 'block' ? blockRule(M.block) : '', off].filter(Boolean).join(' ');
+        if (why) say.appendChild(node('<span class="cy-rc-why">' + esc(why) + '</span>'));
         go.disabled = !model;
         frame.innerHTML = '';
         frame.classList.toggle('is-empty', !model);
@@ -341,7 +351,7 @@
           if (!c || mine !== ver) return;
           var img = document.createElement('img');
           img.className = 'cy-rc-img';
-          img.alt = say.textContent;
+          img.alt = [].map.call(say.childNodes, function (n) { return n.textContent; }).join(' ');
           img.src = c.toDataURL('image/png');
           frame.appendChild(img);
         });
@@ -362,7 +372,7 @@
   }
 
   var api = { planState: planState, planModel: planModel, planCard: planCard, openSetup: openSetup, liftersWelcome: liftersWelcome, messagesWelcome: messagesWelcome, programsWelcome: programsWelcome,
-    resultsModel: resultsModel, resultsRow: resultsRow, openResults: openResults, blockWords: blockWords, blockSay: blockSay, unnamedSay: unnamedSay, cardOpts: cardOpts };
+    resultsModel: resultsModel, resultsRow: resultsRow, openResults: openResults, blockWords: blockWords, blockSay: blockSay, blockRule: blockRule, unnamedSay: unnamedSay, cardOpts: cardOpts };
   if (typeof window !== 'undefined') window.CoachYou = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
