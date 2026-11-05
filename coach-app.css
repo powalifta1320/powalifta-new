@@ -2627,10 +2627,8 @@ html:not([data-theme="light"]):not(.desk) body.powa-app[data-screen="lifter"]:is
 /* the ring: the sessions still to come are the neutral track (a warm one at a third was olive and brown) */
 html:not([data-theme="light"]):not(.desk) .ca-face:is(.pf-alert, .pf-watch, .pf-down, .pf-meet) .ca-ring-track,
 html:not([data-theme="light"]):not(.desk) .ca-ring-track.is-behind { stroke: var(--pl-inset-2); }
-/* the deadlift's and the meet's tiles on a lifter's Progress and their page's Everything: plain surfaces, the gold on
-   the dot, the line and the trophy */
-html:not([data-theme="light"]):not(.desk) .ca-charts :is(.cl-lift.l-dl, .cl-tile.cl-meet, .cl-tile.t-meets),
-html:not([data-theme="light"]):not(.desk) body.powa-app .athlete-sheet .aq-lift.lift-deadlift { background: var(--ca-card); border-color: var(--ca-edge); }
+/* the meet's tile on a lifter's Progress: a plain surface, the gold on the trophy (the lift tiles: "the lift tiles" below) */
+html:not([data-theme="light"]):not(.desk) .ca-charts :is(.cl-tile.cl-meet, .cl-tile.t-meets) { background: var(--ca-card); border-color: var(--ca-edge); }
 html:not([data-theme="light"]):not(.desk) .ca-charts .cl-tile:is(.cl-meet, .t-meets) .cl-tic { background: var(--pl-inset-2); }
 /* tiles: a warm glyph on the graphite tile (a flag's triangle, last week's report's trophy and deadlift dot) */
 html:not([data-theme="light"]):not(.desk) .ca-flag:is(.tone-pain, .tone-warn, .tone-meet, .tone-bw) .ca-flag-ic { background: var(--pl-inset-2); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
@@ -2677,3 +2675,24 @@ html[data-theme="light"]:not(.desk) body.powa-app .mr-phone .mr-ml em.mr-over { 
   html:not(.desk) .ca-g-st .ca-lchips { gap: 6px; }
   html:not(.desk) .ca-g-st .ca-lchip { gap: 2px; }
 }
+
+/* ---------------------------------------------------------------- the taste list, decided (4 Nov)
+   The lift tiles (a lifter's Progress and Everything): squat and bench were lit and the deadlift plain, which read as
+   a bug. All three take the laptop's house rule, gold and amber never a dark tint: the raised fill with a hairline of
+   the lift's own hue, strong enough to read as the hue (the gold stays gold, never brown) and close in weight on all
+   three (cyan 72%, violet 82%, gold 68% over the fill: luminance 0.27, 0.24, 0.29). The dot, the line and the PR chip
+   keep their colours; the meet tile stays plain; the light theme keeps its pale lights. */
+html:not([data-theme="light"]):not(.desk) .ca-charts .cl-lift,
+html:not([data-theme="light"]):not(.desk) body.powa-app .athlete-sheet .aq-lift { --lh: 72%; background: var(--pl-raise); border-color: color-mix(in srgb, var(--lc) var(--lh), var(--pl-raise)); }
+html:not([data-theme="light"]):not(.desk) .ca-charts .cl-lift.l-be,
+html:not([data-theme="light"]):not(.desk) body.powa-app .athlete-sheet .aq-lift.lift-bench { --lh: 82%; }
+html:not([data-theme="light"]):not(.desk) .ca-charts .cl-lift.l-dl,
+html:not([data-theme="light"]):not(.desk) body.powa-app .athlete-sheet .aq-lift.lift-deadlift { --lh: 68%; }
+/* Home's light: Home, Lifters, a lifter's page and the screens opened from them wore Home's hue at the top, a 9% red
+   haze; red is the logo and the one action (the owner, 30 Oct: "Yes, neutral"), so they wear the neutral light a
+   lifter's page has. A lifter's own family light (live, green) stays. styles.css does the lifter app and the light theme. */
+html:not([data-theme="light"]):not(.desk) body.powa-app[data-accent="fire"] .dash-shell::before { height: 380px; background: radial-gradient(75% 60% at 50% -14%, rgba(255, 255, 255, 0.045), transparent 72%); }
+/* Templates: Bring a program in is a row in its own card under the list (a tile, its words, a chevron), the other way in
+   the quiet line under it */
+html:not(.desk) .cp-tpl-implist { margin-top: 16px; }
+html:not(.desk) .cp-tpl-hint.cp-tpl-hint-or { margin: 10px 4px 0; }

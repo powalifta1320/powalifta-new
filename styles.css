@@ -13250,3 +13250,24 @@ html:not(.desk) body.powa-app label.ui-switch::after { content: ''; position: ab
    A club post's lift on a small iPhone: "Competition Deadlift" was cut to "Competition Dea…" to keep its PR chip
    beside it; the chip goes under the name when both don't fit, and the name is whole. */
 @media (max-width: 400px) { html:not(.desk) body.powa-app .cp-ex { flex-wrap: wrap; row-gap: 6px; } }
+
+/* ======================================================================================================== THE TASTE LIST, DECIDED (4 Nov)
+   1. The screen's light on a red-lit screen (Train; the coach's Home, Lifters and a lifter's page, and what opens from
+      them) was a red haze at the top; it is the neutral light (dark) or none (light). Red is the logo and the one action. */
+html:not([data-theme="light"]):not(.desk) body.powa-app[data-accent="fire"] .dash-shell::before { height: 380px; background: radial-gradient(75% 60% at 50% -14%, rgba(255, 255, 255, 0.045), transparent 72%); }
+html[data-theme="light"]:not(.desk) body.powa-app[data-accent="fire"] .dash-shell::before { background: none; }
+/* 2. The PR moment's veil let Train show through at 6%: the Log set crimson made a dark-red band behind "Squat ·
+      estimated max". The veil is a touch denser and greys what it blurs, so nothing behind it has a colour; the
+      plate's gold glow stays (a celebration). */
+html:not([data-theme="light"]):not(.desk) body.powa-app .pr-toast.pr-moment { background: rgba(5, 5, 6, 0.975); -webkit-backdrop-filter: blur(14px) saturate(0); backdrop-filter: blur(14px) saturate(0); }
+html[data-theme="light"]:not(.desk) body.powa-app .pr-toast.pr-moment { background: rgba(250, 250, 252, 0.985); -webkit-backdrop-filter: blur(14px) saturate(0); backdrop-filter: blur(14px) saturate(0); }
+/* 3. A crimson that can't be pressed yet (Who gets it? before anyone is picked, Share the card with nothing to share)
+      was the crimson at 40%, a dark maroon. The iOS way: the quiet fill with a muted label until it can be pressed. */
+html:not(.desk) body.powa-app:not(#_) :is(.btn-primary, .ca-btn.is-red, .cl-btn.red, .ch-btn.red, .md-btn-primary, #goalBuildBtn):is(:disabled, [aria-disabled="true"]) {
+  background: rgba(255, 255, 255, 0.08); color: var(--text-3) !important; opacity: 1; box-shadow: none; filter: none; border-color: transparent;
+}
+html[data-theme="light"]:not(.desk) body.powa-app:not(#_) :is(.btn-primary, .ca-btn.is-red, .cl-btn.red, .ch-btn.red, .md-btn-primary, #goalBuildBtn):is(:disabled, [aria-disabled="true"]) { background: rgba(15, 15, 25, 0.06); }
+/* 4. The lifter's coach thread: a set card's RPE chip was its colour as a tint (gold on olive on the green bubble);
+      the raised neutral fill with the RPE colour as its text. The coach's thread keeps its plain words (coach-app.css). */
+html:not([data-theme="light"]):not(.desk) body.powa-app .mc-rpe { background: #232327; }
+html[data-theme="light"]:not(.desk) body.powa-app .mc-rpe { background: #f0f0f3; }

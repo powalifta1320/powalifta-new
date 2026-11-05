@@ -1373,12 +1373,16 @@
     var list = el('div', { class: 'ca-list cp-tpl-list ca-rise' });
     tpls.forEach(function (t) { list.appendChild(tplRow(t)); });
     root.appendChild(list);
-    var more = el('div', { class: 'cp-tpl-foot' });
-    var imp = el('button', { type: 'button', class: 'ca-link cp-tpl-imp' }, 'Bring a program in');
+    // Bring a program in: a row like its neighbours (a tile, its words, a chevron), as on a new coach's Programs; it was a
+    // bare text link under the list that read as a label (4 Nov). The other way in stays the quiet line under it.
+    var impList = el('div', { class: 'ca-list cp-tpl-implist ca-rise' });
+    var imp = el('button', { type: 'button', class: 'ca-lrow cp-tpl-imp', html:
+      '<span class="ca-tic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>' +
+      '<span class="ca-lrow-tx"><span class="ca-lrow-t">Bring a program in</span><span class="ca-lrow-s">A photo, a screenshot, a PDF or a paste. Nothing to retype.</span></span>' + ic('chev', 2.2) });
     imp.addEventListener('click', function () { openSheetImport(null); });
-    more.appendChild(imp);
-    more.appendChild(el('p', { class: 'cp-tpl-hint' }, 'Or save a lifter’s block from its ⋯ in Programs.'));
-    root.appendChild(more);
+    impList.appendChild(imp);
+    root.appendChild(impList);
+    root.appendChild(el('p', { class: 'cp-tpl-hint cp-tpl-hint-or' }, 'Or save a lifter’s block from its ⋯ in Programs.'));
     return true;
   }
   // A row: its name, its size, and Apply (who gets it). The rest of the row opens it (with when it was saved).

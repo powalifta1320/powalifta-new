@@ -9812,10 +9812,15 @@ group('you and the first run (coach-you.js)');
 
 // Night C review m13: the Results sheet repeated the card; it now says who's counted and the spread under the average.
 test('results: who the block\'s average counts, and how many went up and down', () => {
-  eq(CoachYou.blockSay({ n: 2, running: 3, rows: [{ delta: 7.5 }, { delta: 2.5 }] }), 'Counted: 2 of 3 lifters with a block running (each needs all three lifts logged before the block and in it). 2 up, 0 down.');
-  eq(CoachYou.blockSay({ n: 14, running: 14, rows: Array.from({ length: 14 }, (_, i) => ({ delta: i < 9 ? 5 : i < 13 ? -2.5 : 0 })) }), 'Counted: all 14 lifters with a block running. 9 up, 4 down, 1 level.');
-  eq(CoachYou.blockSay({ n: 1, running: 1, rows: [{ delta: -5 }] }), 'Counted: the 1 lifter with a block running. 0 up, 1 down.');
+  // one plain line, no count of none (4 Nov: "Counted: … (each needs …). 2 up, 0 down."); the rule is the quieter line
+  eq(CoachYou.blockSay({ n: 2, running: 3, rows: [{ delta: 7.5 }, { delta: 2.5 }] }), '2 of 3 lifters counted: 2 up.');
+  eq(CoachYou.blockSay({ n: 2, running: 3, rows: [{ delta: 13 }, { delta: 0 }] }), '2 of 3 lifters counted: 1 up, 1 level.');
+  eq(CoachYou.blockSay({ n: 14, running: 14, rows: Array.from({ length: 14 }, (_, i) => ({ delta: i < 9 ? 5 : i < 13 ? -2.5 : 0 })) }), 'All 14 lifters counted: 9 up, 4 down, 1 level.');
+  eq(CoachYou.blockSay({ n: 1, running: 1, rows: [{ delta: -5 }] }), '1 lifter counted: 1 down.');
   eq(CoachYou.blockSay(null), '');
+  eq(CoachYou.blockRule({ n: 2, running: 3, rows: [{ delta: 7.5 }, { delta: 2.5 }] }), 'A lifter counts once all three lifts are logged before the block and in it.');
+  eq(CoachYou.blockRule({ n: 14, running: 14, rows: [] }), '', 'everyone counted: no rule to explain');
+  eq(CoachYou.blockRule(null), '');
 });
 
 /* ===========================================================
