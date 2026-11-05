@@ -5552,6 +5552,22 @@ group('social sign-in (Apple, Google)');
   test('cleanName trims, collapses spaces and caps the length', () => {
     eq(S.cleanName('  Jane   Doe '), 'Jane Doe'); eq(S.cleanName(null), ''); eq(S.cleanName('x'.repeat(100)).length, 80);
   });
+  test('buttonRow: the website has Apple + Google; the app shows Google only when its plugin is in the build', () => {
+    const root = document.documentElement, wasNative = root.classList.contains('native'), wasCap = window.Capacitor;
+    const kinds = () => Array.prototype.map.call(S.buttonRow().querySelectorAll('.sa-btn'), (b) => b.getAttribute('data-provider')).join(',');
+    try {
+      root.classList.remove('native');
+      if (root.classList.contains('native') === false) eq(kinds(), 'apple,google');   // the headless runner's page is always "native"
+      root.classList.add('native');
+      window.Capacitor = { isPluginAvailable: (n) => n !== 'GoogleAuth', Plugins: {} };
+      eq(kinds(), 'apple');
+      window.Capacitor = { isPluginAvailable: () => true, Plugins: {} };
+      eq(kinds(), 'apple,google');
+    } finally {
+      root.classList.toggle('native', wasNative);
+      window.Capacitor = wasCap;
+    }
+  });
 }
 
 /* ===========================================================

@@ -59,8 +59,16 @@ cfg = File.exist?(CONFIG) ? JSON.parse(File.read(CONFIG)) : {}
 google = cfg["google"] || {}
 ios_id = google["iosClientId"].to_s.strip
 web_id = google["webClientId"].to_s.strip
-google_on = real_google_id?(ios_id)
-unless google_on
+# iPhone 1.4 (5 Nov 2026) ships without the Google plugin: @codetrix-studio/capacitor-google-auth pins Google's
+# SDK 6.2.4, which has no privacy manifest (Apple refuses the upload, ITMS-91061), and every SDK version that has
+# one declares phone number, coarse location and analytics data the app doesn't collect. With the plugin not
+# installed, Google is left out of the build (no URL scheme, no GoogleAuth config, POWA_SOCIAL.google null) and
+# social-auth.js hides its button in the app.
+google_plugin = File.exist?(File.join(HERE, "node_modules", "@codetrix-studio", "capacitor-google-auth", "package.json"))
+google_on = real_google_id?(ios_id) && google_plugin
+if !google_plugin
+  puts "[inject-social] Google plugin not installed: Google sign-in is left out of this build (Apple and email still work)."
+elsif !google_on
   warn "[inject-social] WARNING: native/social-sign-in.json still has a placeholder iOS client id — " \
        "Google sign-in is left OUT of this build (Apple still works). Fill it in (runbook part 2) and re-run."
 end

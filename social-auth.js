@@ -513,10 +513,19 @@
   // ------------------------------------------------------------------
   // The two buttons (website modals via mount(); the native sheets build their own row)
   // ------------------------------------------------------------------
+  // Inside the iPhone app Google shows only when its plugin is in the build: iPhone 1.4 ships without
+  // Google's SDK (Apple wants its privacy manifest, which declares data the app doesn't collect), so the
+  // app offers Apple and email. The website keeps both.
+  function googleInBuild() {
+    if (!isNativeShell()) return true;
+    var C = window.Capacitor;
+    if (C && typeof C.isPluginAvailable === 'function') return !!C.isPluginAvailable('GoogleAuth');
+    return !!plugin('GoogleAuth');
+  }
   function buttonRow(opts) {
     opts = opts || {};
     var row = opts.into || mk('div', 'sa-row');
-    ['apple', 'google'].forEach(function (p) {
+    (googleInBuild() ? ['apple', 'google'] : ['apple']).forEach(function (p) {
       var b = mk('button', 'sa-btn sa-' + p); b.type = 'button'; b.setAttribute('data-provider', p);
       b.innerHTML = ICONS[p] + '<span>Continue with ' + PROVIDERS[p] + '</span>';
       b.addEventListener('click', function () { if (typeof opts.onPick === 'function') opts.onPick(p, b, row); });
