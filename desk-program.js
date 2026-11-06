@@ -2161,19 +2161,25 @@
     say('Week ' + wn(prog, wi) + ' removed. ' + undoKey() + ' brings it back');
   }
   // Publish week wi (and every draft before it): saved, and the heads-up the desk's Notify always sent (dkPublish →
-  // notifyAthleteAssigned). The demo only says so. The week's tile turns Live for a moment. The phone's ⋯ calls this too.
-  // → how many weeks it published
+  // notifyAthleteAssigned), naming the first week they can now see ("Week 3 from Sam"). The demo only says so. The
+  // week's tile turns Live for a moment. The phone's ⋯ and Today's job call this too. → how many weeks it published
   function publishWeek(aid, wi) {
     var prog = progOf(aid);
     if (!prog) return 0;
-    var n = 0;
+    var n = 0, firstWk = null;
     if (typeof dkPbRemember === 'function' && isDeskNow()) dkPbRemember(prog, 'Publish week ' + wn(prog, wi));
-    Store.update(function (s) { var p = (s.programs || []).find(function (x) { return x.id === prog.id; }); if (p) n = publishDraftWeeks(p.weeks, wi); });
+    Store.update(function (s) {
+      var p = (s.programs || []).find(function (x) { return x.id === prog.id; });
+      if (!p) return;
+      var at = (p.weeks || []).findIndex(function (w, i) { return i <= wi && typeof weekIsDraft === 'function' && weekIsDraft(w); });
+      n = publishDraftWeeks(p.weeks, wi);
+      if (n && at >= 0) firstWk = wn(p, at);
+    });
     if (!n) { if (isDeskNow()) dropUndo(prog.id); say('Week ' + wn(prog, wi) + ' is already published'); return 0; }
     persistProgram(prog.id);
     var a = athleteOf(aid) || { name: '' };
-    if (isDeskNow() && typeof dkPublish === 'function') dkPublish(aid, { quietDemo: true });
-    else if (!window._demoMode && typeof notifyAthleteAssigned === 'function') { try { notifyAthleteAssigned(aid); } catch (e) {} }
+    if (isDeskNow() && typeof dkPublish === 'function') dkPublish(aid, { quietDemo: true, week: firstWk });
+    else if (!window._demoMode && typeof notifyAthleteAssigned === 'function') { try { notifyAthleteAssigned(aid, firstWk ? { week: firstWk } : undefined); } catch (e) {} }
     say(window._demoMode ? 'Week ' + wn(prog, wi) + ' published in the demo. Nothing leaves this page.' : 'Week ' + wn(prog, wi) + ' published. ' + first(a.name) + ' gets a heads-up.');
     if (isDeskNow() && S.root && S.root.isConnected && S.aid === aid) { S.pub = { prog: prog.id, wi: wi, at: Date.now() }; afterEdit({ scope: 'all' }); setTimeout(function () { if (S.pub && Date.now() - S.pub.at >= 3900 && S.root && S.root.isConnected) { S.pub = null; var st = S.root.querySelector('.dp-strip'), p2 = progOf(S.aid); if (st && p2) st.replaceWith(stripEl(p2, S.aid, S.wi, envFor(p2, S.aid))); } }, 4000); }
     return n;
