@@ -14,3 +14,4 @@ ruby inject-video-export.rb    # form-check clips exported to H.264 MP4 (video r
 ruby inject-social-sign-in.rb  # Continue with Apple / Google: the Sign in with Apple entitlement + capability, Google's ids + URL scheme (native/social-sign-in.json)
 ruby inject-push.rb            # push: aps-environment + the Push capability, and AppDelegate.swift handing Apple's token to Capacitor (without it Turn on can never work)
 ruby inject-pod-signing.rb      # CocoaPods resource bundles (AppAuth's privacy bundle...) need no signing team, or Archive stops
+ruby inject-ios-min.rb          # iOS 15.0 or later on the app and its extensions + the Podfile (Apple, ITMS-90068: required from April 2027)
