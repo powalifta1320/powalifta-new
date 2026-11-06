@@ -1393,10 +1393,16 @@ window.POWA_SUPPORT_KB = [
    "fill weeks",
    "progression",
    "inspector",
-   "weeks view"
+   "weeks view",
+   "edit program",
+   "write week",
+   "copy last week",
+   "progress the week",
+   "draft",
+   "drafts"
   ],
-  "a": "On a laptop, Programs opens on the Grid: weeks across, days and exercises down, typed like a sheet (3x5 @8, 4x6 75%, 1x3 180). Pick the lifter or a template in the list on the left (templates now live here, under the Templates tab). Click a cell and the pane on the right shows what was written, what they lifted, the RPE against what you wrote and what a % comes to, plus buttons to fill the weeks after it (+2.5 kg a week, RPE +0.5 a week, +2.5% a week or the same). Cmd Shift R picks a fill from the cell, Cmd D copies the cell above, Cmd Z undoes. Everything saves as you type; cells changed since you last published get a thin outline and the red button counts them: \"Publish to Arjun · 7 changes\" sends them a push and an email that their program changed. Weeks (one click away) shows a whole week's days side by side.",
-  "app": "The grid builder is part of the coach dashboard on a laptop or desktop browser at powalifta.com. In the iPhone app the program builder keeps its week-by-week layout."
+  "a": "On a laptop, **Programs** shows a lifter's week as their program. Pick the lifter in the list on the left: their block runs across the top as one tile a week (its dates, sessions done, the countdown to a meet), and each day of the week is a card with every exercise, its lines of sets (sets × reps, load, effort, notes) and what they lifted under each line. Click a number to change it: a load (160, a range like 140-145, or 75%), an RPE (@8 or @7-8) or reps in reserve (2 RIR). Tab or Enter saves it and moves on, the arrow keys step it, Esc puts it back and Cmd Z undoes. Drag an exercise to another day; **+ Add exercise** opens a picker. The tools under the weeks copy last week, progress it a step (you see the changes before they're written), open your templates or clear the week; **Preview** shows the week as they see it in the app. Everything saves as you type. The red button is always the next job: **Take N suggestions** (from how last week went), **Send the changes to** the lifter (a push and an email about what changed since the last heads-up) or **Write week N** (a copy of the week before it, to change).",
+  "app": "The program editor described here is on the coach dashboard in a laptop or desktop browser at powalifta.com. In the iPhone app, Programs shows one week at a time, a day per page: tap an exercise to change its sets, reps, load and effort; the ⋯ at the top has the block's and the week's tools."
  },
  {
   "id": "coach-desk-messages",
@@ -2139,3 +2145,17 @@ window.POWA_SUPPORT_KB = [
   "a": "Yes. Your coach can post a card of their lifters' results, for example on Instagram: the team's average gain this block, and this week's PRs. Each lifter shows as their first name and the first letter of their last name. To keep yours off: **You** → **Community** → **Name on your coach's posts** → Off. You still count in the team's average (the card says \"A lifter\" for you), and your PRs stay off the PR wall. Turn it back on any time; only you can change it."
  }
 ];
+
+// Drafts (app.js DRAFTS_ON, off until the iPhone build that hides a draft from the lifter is live in the App Store): the
+// Programs answer says what a draft and Publish week N are once they're on, and that they're coming until then, so
+// turning drafts on stays the one constant. support-kb.js loads after app.js (coach.html, athlete.html).
+(function () {
+  var on = typeof DRAFTS_ON !== 'undefined' && !!DRAFTS_ON;
+  (window.POWA_SUPPORT_KB || []).forEach(function (e) {
+    if (e.id !== 'coach-desk-programs') return;
+    e.a += on
+      ? ' A week you write or add before they start it is a **draft**: only you see it (its tile says Draft) until you press **Publish week N**, which shows it to them with a push and an email that week N is ready. Edits to a week they can see are live as you type.'
+      : ' Drafts are coming: a week you write will stay yours, out of their app, until you press Publish week N.';
+    if (on) e.app += ' A week you add there is a draft too, until ⋯ › Publish week N.';
+  });
+})();
