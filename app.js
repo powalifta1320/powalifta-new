@@ -8336,7 +8336,9 @@ function keepWeeksDraftsTrailing(weeks) {
 // one, the words as they always were. → { title, body, week (the number, or null) }
 function programHeadsUp(o) {
   o = o || {};
-  const coach = String(o.coachName || 'Your coach').split(' ')[0] || 'your coach';
+  // The coach's first name; a coach with no name (the app sends 'Your coach') is "your coach", never "Your".
+  const full = String(o.coachName || '').trim();
+  const coach = !full || /^your coach$/i.test(full) ? 'your coach' : full.split(/\s+/)[0];
   const name = o.programName || 'a new program';
   // The week as the email reads it (send-program-assigned weekOf): a number, or its digits; nothing else.
   const n = typeof o.week === 'number' ? o.week : typeof o.week === 'string' && /^\s*\d{1,2}\s*$/.test(o.week) ? Number(o.week) : NaN;

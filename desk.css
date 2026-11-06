@@ -1683,7 +1683,6 @@ html.desk body.powa-app .imp-file { display: inline-block; margin: var(--s-2) 0 
 html.desk section[data-pane="program"].dp-on { --list-w: 300px; }
 @media (max-width: 1180px) { html.desk section[data-pane="program"].dp-on { --list-w: 264px; } }
 html.desk body.powa-app {
-  --dp-17: 17px;   /* Teams' own sizes (desk-season.js) */
   --dp-ring: color-mix(in srgb, var(--dh, #38c6ff) 75%, transparent);
   /* the day's one column grid: role · sets × reps · load · effort · a circle a set · notes · remove (what was lifted
      under the line); the indent the lines, the cue and + Set share. ≤ 680 px they come down (the card's tiers). */

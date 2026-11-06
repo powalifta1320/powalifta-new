@@ -9526,6 +9526,10 @@ test('the heads-up’s words (coach.html notifyAthleteAssigned): a published wee
   eq(programHeadsUp({ coachName: 'Sam', programName: 'a new program', week: 2 }).body, 'Week 2 of your program is ready. Open it in Today.');
   [0, 100, 2.5, '', null, undefined, 'x', true, '1e1', '0x3', [3]].forEach((v) => eq(programHeadsUp({ coachName: 'Sam', programName: 'P', week: v }).week, null, 'no week for ' + JSON.stringify(v)));
   eq(programHeadsUp({ coachName: 'Sam', programName: 'P', week: '4' }).week, 4, 'its digits, as the email reads them');
+  // a coach with no name: notifyAthleteAssigned sends 'Your coach' (the email's words); the push said "New program from Your"
+  eq(programHeadsUp({ coachName: 'Your coach', programName: 'P' }).title, 'New program from your coach', 'a nameless coach');
+  eq(programHeadsUp({ programName: 'P', week: 3 }).title, 'Week 3 from your coach');
+  eq(programHeadsUp({ coachName: '  Sam   Ellis ', programName: 'P' }).title, 'New program from Sam', 'spaces around the name');
 });
 test('the phone’s Programs picker marks a draft as the laptop’s list does (behind the switch)', () => {
   const CPg = window.CoachProgram;
