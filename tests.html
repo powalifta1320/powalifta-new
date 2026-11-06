@@ -6735,6 +6735,21 @@ test('a quiet week: three lines, a question, what’s next, and no numbers at al
     eq(l2.length, 3); eq(l2[2], 'You said yes to pain on your check-in. Where is it, and how bad?');
   } finally { Store.set(saved); }
 });
+test('a week the coach hasn’t published is never “next on your program” (app.js weekIsDraft, switch on or off)', () => {
+  const saved = Store.get();
+  Store.set(wnStore());
+  try {
+    // Bo's week 1 done a fortnight ago; week 2 written as a draft: the lifter can't see it.
+    Store.update(s => { const p = s.programs.find(x => x.athleteId === 'wb');
+      p.weeks[0].days.forEach(d => d.exercises.forEach(e => e.sets.forEach(x => { x.completed = true; x.completedAt = '2026-10-12T18:00:00Z'; })));
+      p.weeks.push({ id: 'wbw2', number: 2, draft: true, days: [{ id: 'wbd2', name: 'Heavy Day', exercises: [{ id: 'wbe2', lift: 'squat', variant: 'Competition', exerciseName: '', note: '', sets: [{ id: 'wbs2', weight: 105, reps: 5, rpe: 7, completed: false }] }] }] }); });
+    eq(WN.facts('wb', { today: WT, unit: 'kg', applied: [] }).nextDay, null, 'no next session from a draft');
+    assert(!/Next on your program|Heavy Day/.test(weeklyNoteDraft('wb', { today: WT, unit: 'kg', applied: [] })), 'the note doesn’t name it');
+    Store.update(s => { delete s.programs.find(x => x.athleteId === 'wb').weeks[1].draft; });
+    eq(WN.facts('wb', { today: WT, unit: 'kg', applied: [] }).nextDay.name, 'Heavy Day', 'published: it is next');
+    assert(/Next on your program: Heavy Day\./.test(weeklyNoteDraft('wb', { today: WT, unit: 'kg', applied: [] })), 'and the note says so');
+  } finally { Store.set(saved); }
+});
 test('the lines: e1RM when it moved, sessions short of the plan, never more than six', () => {
   const base = { first: 'Cy', unit: 'kg', sessions: { done: 2, planned: 4, days: [] }, tops: [], prs: [], e1rm: null, pain: null, bw: null, meetNoWeighIn: null, next: [], words: null, nextDay: null };
   const L = (o) => WN.lines(Object.assign({}, base, o)).map(l => l.text);

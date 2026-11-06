@@ -166,9 +166,10 @@
       .map(function (n) { return { text: String(n.note), when: d10(n.date), at: d10(n.date) + 'T23:59:59', kind: 'note' }; });
     var all = msgs.concat(notes).sort(function (x, y) { return y.at.localeCompare(x.at); });
     if (all.length) words = all[0];
-    // The next session they have to do: the first day of the current week with open sets.
+    // The next session they have to do: the first day of the current week with open sets. Never a week the coach
+    // hasn't published (app.js weekIsDraft): the lifter can't see it, so the note doesn't name it.
     var nextDay = null;
-    if (wk && !wk.finished && prog.weeks && prog.weeks[wk.idx]) {
+    if (wk && !wk.finished && prog.weeks && prog.weeks[wk.idx] && !(typeof weekIsDraft === 'function' && weekIsDraft(prog.weeks[wk.idx]))) {
       var dd = (prog.weeks[wk.idx].days || []).filter(function (d) { return (d.exercises || []).some(function (e) { return (e.sets || []).some(function (x) { return !x.completed && !x.skipped; }); }); })[0];
       if (dd && dd.name) nextDay = { name: String(dd.name), week: wk.number };
     }
