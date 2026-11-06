@@ -2311,8 +2311,11 @@ html.desk #messagesArea.dk-msgs { display: grid; grid-template-columns: var(--li
 .dk-ses-top .dk-lift-dot { width: 6px; height: 6px; margin: 0; background: var(--lc); }
 
 /* ---------- Settings (desk v3 drop 2): an overview of cards; a section opens in place under ‹ Settings ----------
-   Four sizes: 28 the title, 20 the two top cards' names and the groups, 15 every card's title and line, 13 captions. Cards
-   radius 20 with 24 inside; each section's tile wears its hue quietly (15% behind the icon), the plan's seats ring violet. */
+   The overview on three sizes: 28 the title, 20 the two top cards' names and the groups, 15 every card's title and line; a
+   section adds 13 for its values and captions (the Profile's name is 20, as on its card; Plan & seats has one big number,
+   the coaching week's 40). Cards radius 20 with 24 inside; each section's tile wears its hue quietly (15% behind the icon;
+   gold, a tint of which reads brown, is a raised fill with a gold hairline in both themes), the plan's seats ring violet.
+   The keyboard's ring is the desk's one (--dk-focus); the two top cards ring as a card, as the mouse lights their edge. */
 html.desk section[data-pane="you"] { overflow-y: auto; }
 html.desk section[data-pane="you"] > .dash-header { display: none; }
 html.desk #youArea.dk-set { display: block; min-height: 100vh; padding: var(--page-top) var(--gut) 72px; box-sizing: border-box; }
@@ -2348,6 +2351,9 @@ html.desk body.powa-app .dk-set-gh { margin: 0 0 var(--s-3); font-family: var(--
 .dk-set-tile.is-violet { --tc: #a98bff; } .dk-set-tile.is-green { --tc: #34d982; } .dk-set-tile.is-cyan { --tc: #38c6ff; } .dk-set-tile.is-gold { --tc: #ffbf3c; } .dk-set-tile.is-steel { --tc: #9fb0c6; }
 html.desk[data-theme="light"] .dk-set-tile.is-violet { --tc: #6d4fe0; } html.desk[data-theme="light"] .dk-set-tile.is-green { --tc: #0f7d47; } html.desk[data-theme="light"] .dk-set-tile.is-cyan { --tc: #0b6f9e; }
 html.desk[data-theme="light"] .dk-set-tile.is-gold { --tc: #8a5a00; } html.desk[data-theme="light"] .dk-set-tile.is-steel { --tc: #4f5d71; }
+/* gold as a tint reads brown in light too (dark: "colour with a job" 7, below): the raised fill with a hairline of the bright
+   gold (--dk-gold-edge), the glyph in the deep gold that clears 4.5:1 */
+html.desk[data-theme="light"] .dk-set-tile.is-gold { background: var(--dk-fill); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-gold-edge) 55%, transparent); }
 /* the plan's seats: a violet ring, the seats taken inside it */
 .dk-set-ring { position: relative; flex: none; display: grid; place-items: center; width: 60px; height: 60px; }
 .dk-set-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
@@ -2367,6 +2373,13 @@ html.desk[data-theme="light"] .dk-set-ring-v { stroke: #7a5cf0; }
 .dk-set-seats2 { flex-direction: row; align-items: center; gap: var(--s-4); margin-bottom: var(--s-4); }
 .dk-set-panel .dk-sec-title { margin-top: var(--s-2); font-size: var(--fs-3); }
 html.desk :is(.dk-set-back, .dk-set-link, .dk-set-open, button.dk-set-card):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
+/* the two top cards: their open area is most of the card, so the keyboard rings the card the mouse lights, never the area
+   alone (its links ring themselves); every card's edge lights on focus as on hover */
+html.desk body.powa-app #youArea .dk-set-card:has(> .dk-set-open:focus-visible) { outline: 2px solid var(--dk-focus); outline-offset: 2px; border-color: var(--line-2); }
+html.desk body.powa-app #youArea .dk-set-card > .dk-set-open:focus-visible { outline: none; }
+html.desk body.powa-app #youArea button.dk-set-card:focus-visible { border-color: var(--line-2); }
+html.desk body.powa-app #youArea :is(button.dk-set-card, .dk-set-open):focus-visible .dk-set-chev { color: var(--text-2); }
+html.desk #youArea .dk-set-card { scroll-margin-block: 16px; }   /* Tab scrolls a card in with room for its ring */
 @media (max-width: 1180px) { .dk-set-top, .dk-set-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .dk-set-sc { padding: 18px 20px; } }
 @media (prefers-reduced-motion: reduce) { button.dk-set-card:active, .dk-set-back:active { transform: none; } .dk-set-chev { transition: none; } }
 .dk-set-row { display: flex; align-items: center; gap: var(--s-4); min-height: 64px; padding: var(--s-3) var(--s-5); box-sizing: border-box; }
@@ -2378,7 +2391,7 @@ html.desk :is(.dk-set-back, .dk-set-link, .dk-set-open, button.dk-set-card):focu
 .dk-set-me { display: flex; align-items: center; gap: var(--s-4); margin-bottom: var(--s-5); }
 .dk-set-who { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
 .dk-set-name { display: flex; align-items: center; gap: var(--s-2); }
-.dk-set-name b { font-size: var(--fs-4); font-weight: var(--fw-4); color: var(--text); }
+.dk-set-name b { font-size: var(--fs-5); font-weight: var(--fw-4); line-height: 24px; letter-spacing: -0.01em; color: var(--text); }   /* 20, as the overview's card names it */
 .dk-set-bio { margin: var(--s-1) 0 0; max-width: 60ch; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--text-2); }
 .dk-meter { height: 4px; margin-top: var(--s-3); border-radius: var(--r-round); background: var(--dk-fill); overflow: hidden; }
 .dk-meter i { display: block; height: 100%; background: var(--text); transform-origin: left center; }
