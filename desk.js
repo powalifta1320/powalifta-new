@@ -3405,8 +3405,9 @@ function dkWsApply(aid) {
   if (window.WeeklyNote) { try { WeeklyNote.noteApplied(aid, said, { week: wk }); } catch (e) {} }
   var r = dkRow(aid);
   dkNoteHandled(aid, 'apply');
-  // A week they couldn't see until now: the heads-up names it ("Week 3 from Sam").
-  dkPublish(aid, { quietDemo: true, week: res.published ? wk : null });
+  // The heads-up names the week, as publishing one does ("Week 3 from Sam": app.js programHeadsUp), whether it was a
+  // draft until now or a week they could already see.
+  dkPublish(aid, { quietDemo: true, week: wk });
   toast(window._demoMode ? 'Week ' + wk + ' published in the demo. Nothing leaves this page.' : 'Week ' + wk + ' published. ' + (r ? _dkFirst(r.athlete.name) : 'They') + ' gets a heads-up.');
   dkWsRepaint();
 }
