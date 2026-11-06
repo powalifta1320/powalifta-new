@@ -334,6 +334,10 @@ html.desk[data-theme="light"] body.powa-app .av-h4 { background: var(--av-5-bg);
 html.desk[data-theme="light"] body.powa-app .av-h5 { background: var(--av-6-bg); color: var(--av-6-ink); }
 html.desk[data-theme="light"] body.powa-app .av-h6 { background: var(--av-7-bg); color: var(--av-7-ink); }
 html.desk[data-theme="light"] body.powa-app .av-h7 { background: var(--av-8-bg); color: var(--av-8-ink); }
+/* gold and orange on a tinted tile read brown in light: a neutral tile, the initials in a legible deep shade (gold: the
+   app's PR gold) and a hairline of the hue (the house rule for gold and amber) */
+html.desk[data-theme="light"] body.powa-app .av-h1 { background: #f2f2f4; color: #b4440c; box-shadow: inset 0 0 0 1px color-mix(in srgb, #ff9f5a 70%, transparent); }   /* 5.0:1 */
+html.desk[data-theme="light"] body.powa-app .av-h2 { background: #f2f2f4; color: #8a5d00; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-gold-edge) 60%, transparent); }   /* 5.2:1 */
 html.desk[data-theme="light"] body.powa-app .dk-av:not([class*="av-h"]) { box-shadow: inset 0 0 0 1px rgba(15, 15, 25, 0.05); }
 /* B's compliance ring: this week's sessions around the face. */
 .dk-ring-av { position: relative; display: inline-grid; place-items: center; flex: none; width: 40px; height: 40px; }
@@ -2544,7 +2548,7 @@ html.desk body.powa-app section[data-pane="club"] > .dash-header { margin: 0; pa
 html.desk body.powa-app section[data-pane="club"] > .dash-header h2 { margin: 0; font-family: var(--font-display); font-stretch: var(--display-stretch, 100%); font-size: var(--fs-7) !important; font-weight: 800; letter-spacing: -0.025em; line-height: 1.05; text-transform: none; }
 html.desk section[data-pane="club"] > #challengeArea:empty { display: none; }
 .cb-desk { --cb-gold: #ffbf3c; --cb-green: #34d982; --cb-silver: #c3cbd6; --cb-bronze: #d89c6c; min-width: 0; }
-html.desk[data-theme="light"] .cb-desk { --cb-gold: #8a5a00; --cb-green: #0f7d47; --cb-silver: #5d6673; --cb-bronze: #8a4f22; }
+html.desk[data-theme="light"] .cb-desk { --cb-gold: #8a5d00; --cb-green: #0f7d47; --cb-silver: #5d6673; --cb-bronze: #5d6673; }   /* gold: the app's PR gold in light; bronze stands on steel (a deep bronze reads brown) and wears its hue as a hairline (below) */
 .cb-sub { margin: 6px 0 var(--s-5); font-size: var(--fs-3); line-height: 1.4; color: var(--text-3); }
 .cb-card, .cb-head { position: relative; min-width: 0; padding: var(--s-5); box-sizing: border-box; border: 1px solid var(--dk-card-edge); border-radius: var(--r-3);
   background-color: var(--dk-card); background-image: var(--dk-card-sheen); box-shadow: var(--dk-card-lit); color: var(--text); }
@@ -2658,6 +2662,12 @@ html.desk body.powa-app .cb-desk :is(button.cp-av, button.cbud-av) { transition:
 .cb-row-b .cb-av.ui-av { width: 28px; height: 28px; font-size: var(--fs-1); letter-spacing: -0.02em; box-shadow: none; }
 .cb-rank { font: var(--fw-4) var(--fs-3)/1 var(--font-num); font-variant-numeric: tabular-nums; text-align: center; color: var(--text-3); }
 .cb-row.is-r1 .cb-rank { color: var(--cb-gold); } .cb-row.is-r2 .cb-rank { color: var(--cb-silver); } .cb-row.is-r3 .cb-rank { color: var(--cb-bronze); }
+/* light: the podium by the house rule (a legible deep shade on the card, the hue as a hairline): first the PR gold, second
+   and third steel, each in a hairline ring of its medal (gold, silver, bronze), never a brown number */
+html.desk[data-theme="light"] body.powa-app :is(.cb-row:is(.is-r1, .is-r2, .is-r3) .cb-rank, .cb-side .chl-row:is(.is-r1, .is-r2, .is-r3) .chl-rank) { width: 20px; height: 20px; line-height: 20px; border-radius: var(--r-round); justify-self: center; }
+html.desk[data-theme="light"] body.powa-app :is(.cb-row.is-r1 .cb-rank, .cb-side .chl-row.is-r1 .chl-rank) { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-gold-edge) 65%, transparent); }
+html.desk[data-theme="light"] body.powa-app :is(.cb-row.is-r2 .cb-rank, .cb-side .chl-row.is-r2 .chl-rank) { box-shadow: inset 0 0 0 1px color-mix(in srgb, #9aa1ad 75%, transparent); }
+html.desk[data-theme="light"] body.powa-app :is(.cb-row.is-r3 .cb-rank, .cb-side .chl-row.is-r3 .chl-rank) { box-shadow: inset 0 0 0 1px color-mix(in srgb, #d89c6c 85%, transparent); }
 .cb-row.is-me .cb-row-b { background: var(--dk-fill); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-gold-edge) 40%, transparent); }
 .cb-row-id { display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; }   /* one line: the name, then why */
 .cb-row-n { flex: 0 1 auto; font-size: var(--fs-3); font-weight: var(--fw-3); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
