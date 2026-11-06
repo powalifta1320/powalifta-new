@@ -191,6 +191,16 @@
     if (t > 0) out.push(Math.round(Math.max(0, Math.min(t, Number(o.done) || 0)) / t * 100) + '% done');
     return out.join(' · ');
   }
+  // A week written and not published (drafts, behind app.js DRAFTS_ON), as the laptop's Programs list says it:
+  // "Week 3 draft"; '' with the switch off, no program, or no draft with sets in it.
+  function cpDraftWord(prog) {
+    if (typeof DRAFTS_ON === 'undefined' || !DRAFTS_ON || typeof weekIsDraft !== 'function' || !prog) return '';
+    var ws = prog.weeks || [];
+    for (var i = 0; i < ws.length; i++) {
+      if (weekIsDraft(ws[i]) && (ws[i].days || []).some(function (d) { return (d.exercises || []).some(function (e) { return (e.sets || []).length > 0; }); })) return 'Week ' + (Number(ws[i].number) || i + 1) + ' draft';
+    }
+    return '';
+  }
   // Where the week on show sits from the one they're in: 'this week', 'next week', 'in 2 weeks', 'last week',
   // '2 weeks ago'; '' when nobody knows which week they're in.
   function cpWeekWhen(view, now) {
@@ -471,7 +481,9 @@
             sev = window.CoachApp && CoachApp.caSev ? CoachApp.caSev(top) : (top.type === 'pain' ? 'alert' : 'watch');
           }
         }
-        var row = uiRow({ av: a.name, avUrl: a.avatarUrl, title: a.name, sub: line, endHtml: on ? '<span class="cp-pick-on" aria-label="Open now">' + ic('check', 2.6) + '</span>' : '', onClick: function () {
+        // A week they can't see yet (drafts on): said at the row's end, as the laptop's list says it.
+        var dw = cpDraftWord(progOf(a.id));
+        var row = uiRow({ av: a.name, avUrl: a.avatarUrl, title: a.name, sub: line, endHtml: (dw ? '<span class="cp-pick-draft">' + esc(dw) + '</span>' : '') + (on ? '<span class="cp-pick-on" aria-label="Open now">' + ic('check', 2.6) + '</span>' : ''), onClick: function () {
           close();
           if (on) return;
           select(a.id);
@@ -1649,6 +1661,6 @@
     cpSetLine: cpSetLine, cpSetText: cpSetText, cpDayMeta: cpDayMeta, cpNextDay: cpNextDay, cpIsRestDay: cpIsRestDay, cpLoadStep: cpLoadStep, cpExpectedLoad: cpExpectedLoad,
     openDeleteSheet: openDeleteSheet, deleteProgramSheet: deleteProgramSheet, deleteTemplateSheet: deleteTemplateSheet, cpDeleteProgramWords: cpDeleteProgramWords, cpDeleteTemplateWords: cpDeleteTemplateWords, cpNoBlockWords: cpNoBlockWords,
     cpBlockLine: cpBlockLine, cpWeekWhen: cpWeekWhen, cpDayShort: cpDayShort, cpDayLabels: cpDayLabels, cpWrittenText: cpWrittenText, cpNextWeekMatch: cpNextWeekMatch, cpBlockMenu: cpBlockMenu,
-    cpWantsHint: cpWantsHint, cpFitClass: cpFitClass, cpEveryChoices: cpEveryChoices, cpTplLine: cpTplLine, cpApplyLabel: cpApplyLabel, cpModePatch: cpModePatch, cpModePatches: cpModePatches, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm, cpSaveLine: cpSaveLine
+    cpWantsHint: cpWantsHint, cpFitClass: cpFitClass, cpEveryChoices: cpEveryChoices, cpTplLine: cpTplLine, cpApplyLabel: cpApplyLabel, cpModePatch: cpModePatch, cpModePatches: cpModePatches, cpMoreText: cpMoreText, cpPickGroups: cpPickGroups, cpNorm: cpNorm, cpSaveLine: cpSaveLine, cpDraftWord: cpDraftWord
   };
 })();

@@ -9443,6 +9443,21 @@ test('one way to add a week: after a draft, a draft; the trailing rule kept on s
   eq(Store.get().programs[0].weeks[2].draft, true, 'app.js duplicateWeek goes through it');
   resetState();
 });
+test('the phone starts a draft as the laptop does: Duplicate week (and Add a week) add a draft with drafts on, live with them off', () => {
+  const w = (n, o) => dpWeek(n, [dpDay('A', [dpEx('squat', [dpSet({ weight: 100 })])])], o);
+  const was = DRAFTS_ON;
+  try {
+    [true, false].forEach((on) => {
+      DRAFTS_ON = on;
+      resetState();
+      seed({ programs: [{ id: 'PY', athleteId: 'AY', coachId: 'C', name: 'Y', weeks: [w(1), w(2)] }] });
+      duplicateWeek('PY', 0);
+      eq(Store.get().programs[0].weeks[2].draft === true, on, on ? 'a copy at the end is a draft (only the coach sees it)' : 'drafts off: a live week, as before');
+      const W = [w(1), w(2)]; appendBlockWeek(W, w(3), { draft: true });   // coach.html addWeek: what the phone's Add a week asks for
+      eq(W[2].draft === true, on, on ? 'Add a week: a draft' : 'Add a week: live');
+    });
+  } finally { DRAFTS_ON = was; resetState(); }
+});
 test('Publish week N (publishWeek): saved, the heads-up names the week, one undo step taken before it, the demo sends nothing', () => {
   const w = (n, o) => dpWeek(n, [dpDay('A', [dpEx('squat', [dpSet({ id: 'pw' + n, weight: 100, reps: 5 })])])], o);
   const keys = ['notifyAthleteAssigned', 'isDesk', 'dkPbRemember', 'dkPublish', '_dk'];
@@ -9510,6 +9525,16 @@ test('the heads-up’s words (coach.html notifyAthleteAssigned): a published wee
   eq(h.week, 3); eq(h.title, 'Week 3 from Sam'); eq(h.body, 'Week 3 of "Strength Block" is ready. Open it in Today.');
   eq(programHeadsUp({ coachName: 'Sam', programName: 'a new program', week: 2 }).body, 'Week 2 of your program is ready. Open it in Today.');
   [0, 100, 2.5, '', null, undefined, 'x'].forEach((v) => eq(programHeadsUp({ coachName: 'Sam', programName: 'P', week: v }).week, null, 'no week for ' + JSON.stringify(v)));
+});
+test('the phone’s Programs picker marks a draft as the laptop’s list does (behind the switch)', () => {
+  const CPg = window.CoachProgram;
+  assert(CPg && CPg.cpDraftWord, 'CoachProgram.cpDraftWord is loaded');
+  const w = (n, o, has) => dpWeek(n, [dpDay('A', has === false ? [] : [dpEx('squat', [dpSet({ weight: 100 })])])], o);
+  eq(CPg.cpDraftWord({ weeks: [w(1), w(2), w(3, { draft: true })] }), 'Week 3 draft');
+  eq(CPg.cpDraftWord({ weeks: [w(1), w(2, { draft: true }, false)] }), '', 'an empty draft: nothing to say');
+  eq(CPg.cpDraftWord(null), '');
+  const was = DRAFTS_ON; DRAFTS_ON = false;
+  try { eq(CPg.cpDraftWord({ weeks: [w(1), w(2, { draft: true })] }), '', 'drafts off: no mark'); } finally { DRAFTS_ON = was; }
 });
 test('a team never carries a lifter’s draft; a pushed week is published', () => {
   const set = (id, o) => Object.assign({ id, weight: 150, reps: 5, rpe: 8, completed: false }, o || {});

@@ -9872,7 +9872,8 @@ function duplicateWeek(programId, weekIdx) {
         }))
       }))
     };
-    appendBlockWeek(p.weeks, cloned);   // after a draft, a draft (drafts stay trailing)
+    // A new week at the end: a draft while drafts are on (the laptop's Copy and + make one too), published otherwise.
+    appendBlockWeek(p.weeks, cloned, { draft: true });
   });
 }
 
