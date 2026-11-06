@@ -22,16 +22,8 @@
   'use strict';
   // The day card (4 Nov 2026, the owner's pick from the board, "C · Like the lifter app"): each exercise a quiet band, the
   // load the big number, the effort as Train's pill with a circle a set right after it, what was lifted under each line
-  // with its gap in a word. The card before it stays for one release behind ?daycard=old (or localStorage
-  // powa-desk-daycard=old), as ?oldbuilder=1 keeps the editor before this one: desk.css draws the new card under
-  // html.desk:not([data-daycard="old"]). The same cells in the same order, the same edit paths, on both.
-  var OLDCARD = (function () {
-    try {
-      if (/[?&]daycard=old(?:&|$)/.test(String((typeof location !== 'undefined' && location.search) || ''))) return true;
-      return typeof localStorage !== 'undefined' && localStorage.getItem('powa-desk-daycard') === 'old';
-    } catch (e) { return false; }
-  })();
-  if (OLDCARD && typeof document !== 'undefined' && document.documentElement) document.documentElement.setAttribute('data-daycard', 'old');
+  // with its gap in a word. The card before it (a column grid with its names over the lines, a dot for the gap) went with
+  // iPhone 1.4 and the website on the new one (6 Nov).
   var MAIN = ['squat', 'bench', 'deadlift'];
   var REST_RX = /\b(rest|off|recovery)\b/i;   // the builder's isRestDay heuristic (coach.html, critical fix #1)
   var RX_KEYS = ['weight', 'reps', 'rpe', 'rpeHi', 'rir', 'pct', 'pctHi', 'weightHi', 'pctFeel'];
@@ -151,16 +143,6 @@
     else if (done.length >= line.count) text = done.length + ' × ' + reps + rpe + (w && Math.abs(w - (Number(g.weight) || 0)) >= 0.05 ? ' · ' + show(w) : '');
     else text = done.length + ' of ' + line.count + ' × ' + (Number(g.reps) || reps) + rpe;
     return { text: text, gap: gapCls(setGap(top, g)), gapN: setGap(top, g), top: top };
-  }
-  // A line's lifted status, for its dot: ok (on the RPE written), warn (harder: half a point over), alert (a point or more
-  // over, as the roster marks it), easy (easier: half a point under), done (lifted, nothing written to compare with),
-  // missed (skipped or missed), '' (nothing logged). L: liftedOf's answer.
-  function liftedTone(L) {
-    if (!L) return '';
-    if (L.top == null) return 'missed';
-    var g = L.gapN;
-    if (g == null) return 'done';
-    return g >= 1 ? 'alert' : g >= 0.5 ? 'warn' : g <= -0.5 ? 'easy' : 'ok';
   }
   /* ---------- the week at a glance: each day's status, date, size and length ---------- */
   function d10(v) { return String(v == null ? '' : v).slice(0, 10); }
@@ -1375,7 +1357,7 @@
       wrap.appendChild(E('p', { class: 'dp-note-line' }, src >= 0 ? 'Nothing written for week ' + m.week.n + ' yet. Write week ' + m.week.n + ' copies week ' + wn(prog, src) + (draftsOn() ? ' as a draft' : '') + ', or add exercises to the days below.' : 'Nothing written for week ' + m.week.n + ' yet. Add exercises to the days below, or start from a template.'));
     }
     var days = E('div', { class: 'dp-days' });
-    m.days.forEach(function (d) { d.weekN = wn(prog, wi); days.appendChild(dayEl(prog, aid, wi, d, env, lifted ? 'Lifted' : prevCol)); });
+    m.days.forEach(function (d) { d.weekN = wn(prog, wi); days.appendChild(dayEl(prog, aid, wi, d, env)); });
     wrap.appendChild(days);
     var add = E('div', { class: 'dp-adddays' });
     add.appendChild(dkBtn('Training day', { icon: IC.plus, cls: 'is-quiet dp-tool', onClick: function () { if (!commitOpen()) return; dkPbRemember(progOf(aid), 'Add a day'); addDay(wi); } }));
@@ -1404,7 +1386,7 @@
     }
     return w;
   }
-  function dayEl(prog, aid, wi, d, env, lifted) {
+  function dayEl(prog, aid, wi, d, env) {
     var D = prog.weeks[wi].days[d.idx], s = d.sum;
     var card = E('article', { class: 'dp-day t-' + s.status + (d.rest ? ' is-rest' : ''), 'data-di': String(d.idx), 'data-day': d.key, 'aria-label': d.name || 'Day ' + (d.idx + 1) });
     var hd = E('header', { class: 'dp-day-head' });
@@ -1424,20 +1406,13 @@
     nm.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); if (e.key === 'Escape') { var c0 = storeName(); nm.value = c0 == null ? d.name : c0; } nm.blur(); } });
     nm.addEventListener('change', function () { if (nm.isConnected) saveName(); });
     idw.appendChild(nm);
-    if (OLDCARD || !(d.rest && /^rest$/i.test(String(d.name || '').trim()))) idw.appendChild(badgeEl(s));
-    var dt = null;
-    if (s.date) { dt = E('span', { class: 'dp-day-date' }, fmtDay(s.date)); tip(dt, s.dateKind === 'done' ? 'The day it was lifted' : 'The day ' + first((athleteOf(aid) || {}).name) + ' pinned it to'); }
-    if (OLDCARD) {
-      if (dt) idw.appendChild(dt);
-      hd.appendChild(idw);
-      if (!d.rest && s.sets) hd.appendChild(sumEl(s, aid));
-    } else {
-      var meta = E('span', { class: 'dp-day-meta' });
-      if (dt) meta.appendChild(dt);
-      if (!d.rest && s.sets) meta.appendChild(sumEl(s, aid));
-      if (meta.firstChild) idw.appendChild(meta);
-      hd.appendChild(idw);
-    }
+    if (!(d.rest && /^rest$/i.test(String(d.name || '').trim()))) idw.appendChild(badgeEl(s));   // a day named Rest says it once
+    // its date and size as one unit, after the status
+    var meta = E('span', { class: 'dp-day-meta' });
+    if (s.date) { var dt = E('span', { class: 'dp-day-date' }, fmtDay(s.date)); tip(dt, s.dateKind === 'done' ? 'The day it was lifted' : 'The day ' + first((athleteOf(aid) || {}).name) + ' pinned it to'); meta.appendChild(dt); }
+    if (!d.rest && s.sets) meta.appendChild(sumEl(s, aid));
+    if (meta.firstChild) idw.appendChild(meta);
+    hd.appendChild(idw);
     var more = E('button', { type: 'button', class: 'dp-day-more', 'aria-label': (d.name || 'Day') + ' options', 'aria-haspopup': 'menu', 'aria-expanded': 'false', html: IC.more });
     tip(more, 'Duplicate, move, rest day, clear');
     hold(more);
@@ -1451,16 +1426,9 @@
       card.appendChild(rb);
       return card;
     }
-    if (OLDCARD && d.exercises.length) card.appendChild(colsEl(lifted));
     d.exercises.forEach(function (x) { card.appendChild(exEl(prog, aid, wi, d, x, env)); });
     card.appendChild(addExBtn({ aid: aid, wi: wi, di: d.idx, dayId: D.id, dayName: d.name || 'Day ' + (d.idx + 1), dayKey: d.key }));
     return card;
-  }
-  // The columns' names, once at the top of the day (the lines under every exercise sit on this grid).
-  function colsEl(lifted) {
-    var c = E('div', { class: 'dp-cols', 'aria-hidden': 'true' });
-    ['', 'Sets × reps', 'Load', 'Effort', 'Notes', typeof lifted === 'string' ? lifted : lifted ? 'Lifted' : ''].forEach(function (t, i) { c.appendChild(E('span', { class: 'dp-col dp-col-' + i }, t)); });
-    return c;
   }
   function dayMenu(aid, wi, di) {
     var prog = progOf(aid), W = prog.weeks[wi], D = W.days[di], items = [];
@@ -1617,13 +1585,12 @@
     var ec = E('div', { class: 'dp-c-eff' });
     var top = topRpe(ln.g);
     var ce = cellIn('e', ln.effort.text, Object.assign(base('e', 'effort'), { edit: ln.effort.edit, ph: 'RPE' }));
-    if (top != null && typeof rpeColor === 'function') ce.style.setProperty('--rc', rpeColor(top));
-    if (top != null) ce.classList.add('has-rc');
+    if (top != null) ce.classList.add('has-rc');   // an effort written: Train's pill (desk.css); an empty cell is just a cell
     ec.appendChild(ce);
     if (!ln.lock) tip(ec, 'RPE like @8 or @7-8, or reps in reserve: 2 RIR. ↑ ↓ move it by half a step');
     row.appendChild(ec);
     wire(ce, ln);
-    if (!OLDCARD && !team && d.wkLifted) row.appendChild(setsEl(ln));
+    if (!team && d.wkLifted) row.appendChild(setsEl(ln));
     var tags = fieldTags(ln.g);
     var fc = E('div', { class: 'dp-c-f' + (tags.length ? ' has-tags' : ' is-empty') });
     var cf = cellIn('f', ln.fields.edit, Object.assign(base('f', 'notes'), { edit: ln.fields.edit, ph: li === 0 ? 'Tempo, pause, bands' : '' }));
@@ -1631,7 +1598,8 @@
     if (tags.length) { var tg = E('span', { class: 'dp-ftags', 'aria-hidden': 'true' }); tags.forEach(function (t) { tg.appendChild(E('span', { class: 'dp-ftag' }, t)); }); fc.appendChild(tg); if (tags.join(' ').length > 18) tip(fc, tags.join(' · ')); }
     row.appendChild(fc);
     wire(cf, ln);
-    row.appendChild(team ? E('div', { class: 'dp-c-lift' }) : ln.lifted || !ln.prev ? liftedEl(ln, li === x.lines.length - 1 ? x.extras : 0) : prevEl(ln.prev, d.weekN - 1));
+    // what they lifted on the line (+ the extras on its last), else last week's on a week to write
+    row.appendChild(team ? E('div', { class: 'dp-c-lift' }) : ln.lifted || !ln.prev ? liftedC(ln.lifted, { extras: li === x.lines.length - 1 ? x.extras : 0 }) : liftedC(ln.prev, { prev: d.weekN - 1 }));
     var canRm = x.lines.length > 1 && (team || !ln.lock);
     var rm = E('button', { type: 'button', class: 'dp-rmline', tabindex: '-1', 'aria-label': 'Remove these sets: ' + roleWord(ln.role) + ', ' + ln.sets + ' × ' + ln.reps, html: IC.x });
     if (canRm) {
@@ -1658,7 +1626,7 @@
     selectOnFocus(inp);
     return inp;
   }
-  // The new card's lifted line, under what was written: "Lifted" (or "Week 2", last week's on a week to write), the top set
+  // The lifted line, under what was written: "Lifted" (or "Week 2", last week's on a week to write), the top set
   // as liftedOf says it, then the gap as one word in its colour: "+1.5" amber over, "−1" blue under, a green check on it,
   // nothing when nothing was written to compare with. "Missed" / "Skipped" say themselves.
   function liftedC(L, o) {
@@ -1690,36 +1658,6 @@
     });
     c.setAttribute('data-n', String(real.length));
     if (words.length) tip(c, words.join(' · '));
-    return c;
-  }
-  // What they lifted on a line: the top set and a dot (green on the RPE written, amber harder, a point over in the
-  // roster's coral, grey easier); "Missed" in muted ink.
-  function liftedEl(ln, extras) {
-    if (!OLDCARD) return liftedC(ln.lifted, { extras: extras });
-    var c = E('div', { class: 'dp-c-lift' });
-    var L = ln.lifted, tone = liftedTone(L);
-    if (L) {
-      var t = E('span', { class: 'dp-lifted t-' + tone });
-      if (tone !== 'missed') t.appendChild(E('i', { class: 'dp-gap t-' + tone, 'aria-hidden': 'true' }));
-      t.appendChild(document.createTextNode(L.text));
-      var g = L.gapN;
-      if (g != null && Math.abs(g) >= 0.5) t.appendChild(E('span', { class: 'dk-nil' }, ', ' + (g > 0 ? n2(g) + ' RPE over' : n2(Math.abs(g)) + ' RPE under') + ' what you wrote'));
-      tip(c, tone === 'missed' ? L.text : g != null && Math.abs(g) >= 0.5 ? 'Their top set ' + (g > 0 ? '+' + n2(g) + ' RPE over' : '−' + n2(Math.abs(g)) + ' RPE under') + ' what you wrote' : g != null ? 'Lifted on the RPE you wrote' : 'Lifted');
-      c.appendChild(t);
-    }
-    if (extras) c.appendChild(E('span', { class: 'dp-extra' }, (L ? ' · ' : '') + '+' + extras + ' extra'));
-    return c;
-  }
-  // Last week's on a week nothing's been lifted in yet: the same line, muted, its dot (how hard it went) kept.
-  function prevEl(L, n) {
-    if (!OLDCARD) return liftedC(L, { prev: n });
-    var c = E('div', { class: 'dp-c-lift is-prev' }), tone = liftedTone(L);
-    var t = E('span', { class: 'dp-lifted t-' + tone });
-    if (tone !== 'missed') t.appendChild(E('i', { class: 'dp-gap t-' + tone, 'aria-hidden': 'true' }));
-    t.appendChild(document.createTextNode(L.text));
-    t.appendChild(E('span', { class: 'dk-nil' }, ', lifted in week ' + n + (L.gapN != null && Math.abs(L.gapN) >= 0.5 ? ', ' + (L.gapN > 0 ? n2(L.gapN) + ' RPE over' : n2(Math.abs(L.gapN)) + ' RPE under') + ' what was written' : '')));
-    tip(c, 'Week ' + n + ', the same line: ' + L.text + (L.gapN != null && Math.abs(L.gapN) >= 0.5 ? ' (' + (L.gapN > 0 ? '+' : '−') + n2(Math.abs(L.gapN)) + ' RPE on what was written)' : ''));
-    c.appendChild(t);
     return c;
   }
   // The cue: one line under the exercise, typed in place; their note from the day beside it.
@@ -2619,7 +2557,7 @@
           if (f.length || (!w && !est)) info.appendChild(E('span', { class: 'dp-pv-f' }, (!w && !est ? 'Load by feel' + (f.length ? ' · ' : '') : '') + f.join(' · ')));
           r.appendChild(info);
           var t = topRpe(s);
-          if (t != null) { var pill = E('span', { class: 'dp-pv-rpe' }, s.rir ? n2(10 - t) + ' RIR' : String(n2(t))); if (typeof rpeColor === 'function') pill.style.setProperty('--rc', rpeColor(t)); r.appendChild(pill); }
+          if (t != null) { r.appendChild(E('span', { class: 'dp-pv-rpe' }, s.rir ? n2(10 - t) + ' RIR' : String(n2(t)))); }
           r.appendChild(E('span', { class: 'dp-pv-o' + (s.completed ? ' is-done' : ''), html: s.completed ? IC.check : '' }));
           card.appendChild(r);
         });
@@ -2869,7 +2807,6 @@
       if (!d.rest && d.sum.sets) h.appendChild(sumEl(d.sum, null));
       card.appendChild(h);
       if (d.rest) { card.appendChild(E('p', { class: 'dp-rest' }, 'No training. Recovery is part of the plan.')); days.appendChild(card); return; }
-      if (OLDCARD && d.exercises.length) card.appendChild(colsEl(false));
       d.exercises.forEach(function (x) {
         var blk = exEl(null, null, wi, d, x, env, { team: { T: T, W: W } });
         var dayId = _tmKey(D, d.idx), exId = _tmKey(D.exercises[x.idx], x.idx);
@@ -3046,7 +2983,7 @@
     parseLoadCell: parseLoadCell, parseEffortCell: parseEffortCell, fieldsPatch: fieldsPatch, planCell: planCell, stepCell: stepCell, typedLineSets: typedLineSets,
     refuse: refuse, mutate: mutate, writeSource: writeSource, writeWeek: writeWeek, appendWeeks: appendWeeks, keepDraftsTrailing: keepDraftsTrailing,
     listStatus: listStatus, crimson: crimson, pendingSuggestions: pendingSuggestions, seedAccessories: seedAccessories, isRest: isRest,
-    liftedTone: liftedTone, gapTone: gapTone, gapWord: gapWord, setTone: setTone, oldCard: function () { return OLDCARD; }, dayMinutes: dayMinutes, daySummary: daySummary, weekEffort: weekEffort, stripModel: stripModel,
+    gapTone: gapTone, gapWord: gapWord, setTone: setTone, dayMinutes: dayMinutes, daySummary: daySummary, weekEffort: weekEffort, stripModel: stripModel,
     pickerItems: pickerItems, pickerSearch: pickerSearch, splitTyped: splitTyped, normQ: normQ
   };
 })();

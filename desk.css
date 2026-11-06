@@ -1747,7 +1747,7 @@ html.desk body.powa-app .dp-name { margin: 0; font: 800 24px/30px var(--font-bod
 .dp-head-b { position: sticky; top: 0; z-index: 6; display: flex; align-items: center; gap: var(--s-3); margin: 0 calc(-1 * var(--s-5)); padding: var(--s-4) var(--s-5) var(--s-3); background: var(--bg); }
 .dp-head-b::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 14px; background: linear-gradient(var(--bg), transparent); opacity: 0; pointer-events: none; transition: opacity 0.18s var(--dk-ease); }
 .dp-head-b.is-stuck::after { opacity: 1; }
-:is(.dp-c-role, .dp-day-meta, .dp-lline, .dp-lstat, .dp-lgrp, .dp-wk-m, .dp-tab-n, .dp-swap, .dp-mem-lifted, .dp-cols, .dp-fact, .dp-state) { letter-spacing: 0.01em; }
+:is(.dp-c-role, .dp-day-meta, .dp-lline, .dp-lstat, .dp-lgrp, .dp-wk-m, .dp-tab-n, .dp-swap, .dp-mem-lifted, .dp-fact, .dp-state) { letter-spacing: 0.01em; }
 /* Teams' weeks: tabs in a track (the Programs strip is tiles: below) */
 .dp-weeks { display: flex; align-items: center; gap: 2px; min-width: 0; flex: 0 1 auto; padding: 3px; border-radius: 12px; background: var(--dk-fill); }
 .dp-wks { display: flex; align-items: center; gap: 2px; min-width: 0; flex: 0 1 auto; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
@@ -1954,12 +1954,8 @@ html.desk body.powa-app input.dp-day-name:focus { background: var(--bg) !importa
 .dp-ex.is-lock .dp-grip { cursor: not-allowed; }
 .dp-restrow { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
 .dp-rest { margin: 0; font: var(--fw-1) var(--fs-1)/1.4 var(--font-body); color: var(--text-3); }
-/* the columns' names, once per day: on the lines' grid */
-.dp-cols, .dp-line { display: grid; grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-lift) var(--c-rm); column-gap: var(--c-gap); margin-left: var(--c-ind); align-items: center; }
-.dp-cols { min-height: 22px; margin-bottom: 2px; font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); }
-.dp-col { padding-left: 6px; white-space: nowrap; }
-.dp-col-1 { padding-left: 4px; }
-.dp-week:not(.has-lifted) :is(.dp-cols, .dp-line), .dp.is-team :is(.dp-cols, .dp-line) { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) 0 var(--c-rm); }
+/* a line of sets: on one column grid for the whole day */
+.dp-line { display: grid; grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-lift) var(--c-rm); column-gap: var(--c-gap); margin-left: var(--c-ind); align-items: center; }
 .dp-week:not(.has-lifted) .dp-c-lift, .dp.is-team .dp-c-lift { display: none; }
 /* an exercise: its title row, its lines, + Set, the cue; a hairline between exercises */
 .dp-ex { position: relative; padding: 6px 0 12px; }
@@ -1997,14 +1993,8 @@ html.desk:not([data-theme="light"]) .dp-lt.lift-deadlift { background: var(--dk-
 .dp-c-lift { display: flex; align-items: center; min-width: 0; font: var(--fw-2) var(--fs-4)/1.2 var(--font-num); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dp-lifted { display: inline-flex; align-items: center; gap: 7px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .dp-lifted.t-missed { color: var(--text-3); font-family: var(--font-body); font-size: var(--fs-1); }
-.dp-gap { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--text-3); }
-.dp-gap.t-ok { background: var(--dk-ok); }
-html.desk .dp-gap.t-warn { background: none; box-shadow: inset 0 0 0 1.5px var(--dk-over); }
-html.desk .dp-gap.t-alert { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); }
-.dp-gap.t-easy, .dp-gap.t-done { background: var(--text-3); }
 .dp-extra { color: var(--text-3); font-family: var(--font-body); font-size: var(--fs-1); }
 .dp-c-lift.is-prev { color: var(--text-3); }
-.dp-week.has-prev .dp-col-5 { color: var(--text-3); }
 .dp-rmline { width: 24px; height: 24px; color: var(--text-3); }
 .dp-rmline svg { width: 12px; height: 12px; }
 @media (hover: hover) and (pointer: fine) { .dp-line .dp-rmline { opacity: 0; } .dp-line:hover .dp-rmline, .dp-line:focus-within .dp-rmline { opacity: 1; } }
@@ -2028,12 +2018,9 @@ html.desk body.powa-app input.dp-cell.dp-f::placeholder { color: transparent; }
 /* the effort: a tag on the app's effort scale (easier green, harder red: styles.css RPE_COLORS) */
 html.desk body.powa-app input.dp-cell.dp-e { field-sizing: content; width: auto; min-width: 46px; max-width: 100%; height: 26px !important; padding: 0 8px !important; border-radius: var(--r-1);
   font: var(--fw-3) var(--fs-1)/26px var(--font-body); }
-html.desk body.powa-app input.dp-cell.dp-e.has-rc { background: var(--dk-fill) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rc) 42%, transparent) !important; color: var(--rc); }
-html.desk[data-theme="light"] body.powa-app input.dp-cell.dp-e.has-rc { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rc) 60%, transparent) !important; color: color-mix(in srgb, var(--rc) 46%, #000); }
 html.desk body.powa-app input.dp-cell.dp-e::placeholder { font: var(--fw-2) var(--fs-1)/26px var(--font-body); color: transparent; }
 @media (hover: hover) and (pointer: fine) { html.desk body.powa-app .dp-line:hover input.dp-cell.dp-e:not([readonly])::placeholder { color: var(--text-3); } }
 html.desk body.powa-app input.dp-cell.dp-e:focus::placeholder { color: var(--text-3); }
-html.desk body.powa-app input.dp-cell.dp-e.has-rc:focus { color: var(--text); }
 .dp-tag { flex: none; height: 22px; padding: 0 7px; border-radius: var(--r-1); background: var(--dk-fill); color: var(--text-2); font: var(--fw-3) var(--fs-1)/22px var(--font-body); font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
 .dp-tag.is-est { background: none; padding: 0; color: var(--text-3); font-weight: var(--fw-2); }
 .dp-tag.is-warn { background: var(--dk-raise-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-warn) 40%, transparent); color: var(--text-2); }
@@ -2045,7 +2032,6 @@ html.desk body.powa-app .dp-c-f.has-tags:not(:focus-within) input.dp-cell.dp-f {
 .dp-c-f:focus-within .dp-ftags { display: none; }
 @media (hover: hover) and (pointer: fine) {
   html.desk body.powa-app :is(input.dp-cell:not([readonly]), input.dp-note):hover { background: var(--dk-hover) !important; box-shadow: inset 0 0 0 1px var(--line-2) !important; }
-  html.desk body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rc) 75%, transparent) !important; }
   html.desk body.powa-app .dp-line:hover input.dp-cell.dp-f:not([readonly])::placeholder { color: var(--text-3); }
 }
 html.desk body.powa-app :is(input.dp-cell:not([readonly]), input.dp-note, input.dp-mem-in):focus { background: var(--bg) !important; box-shadow: 0 0 0 2px var(--dp-ring) !important; color: var(--text); }
@@ -2066,7 +2052,6 @@ html.desk body.powa-app input.dp-cell[readonly]:focus { box-shadow: inset 0 0 0 
   .dp-addset:hover { color: var(--text); box-shadow: inset 0 0 0 1px var(--text-4); }
 }
 .dp-ex.is-new .dp-ex-foot { position: static; margin: 4px 0 0 var(--c-ind); }
-.dp-ex:last-of-type .dp-ex-foot { bottom: -10px; }
 /* the cue */
 .dp-cue { display: flex; align-items: center; gap: var(--s-2); min-height: 30px; margin: 2px 0 0 var(--c-ind); }
 .dp-cue-k { flex: none; font: var(--fw-3) var(--fs-1)/1 var(--font-body); color: var(--text-3); }
@@ -2234,22 +2219,10 @@ html.desk body.powa-app input.dp-mem-in { width: 88px; font-size: var(--fs-4); f
 @container dpw (max-width: 830px) {
   /* the notes take a line of their own under the cells; what was lifted keeps its column (to 830 px: wider, a set's
      notes, "tempo 3s down · Belt: off", fit their own column beside the lifted one) */
-  .dp-cols, .dp-line, .dp-week:not(.has-lifted) :is(.dp-cols, .dp-line), .dp.is-team :is(.dp-cols, .dp-line) { --c-load: 136px; }
-  .dp-line:not(.is-write) { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-rm); }
-  .dp-cols { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-rm); }
-  .dp-week:not(.has-lifted) .dp-line:not(.is-write), .dp.is-team .dp-line:not(.is-write) { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-rm); }
-  .dp-col-4 { display: none; }
-  .dp-col-5 { grid-column: 5; }
-  .dp-line .dp-c-f { grid-row: 2; grid-column: 2 / 6; }
   .dp-line .dp-c-f.is-empty:not(:focus-within) { display: none; }
-  .dp-line .dp-c-lift { grid-row: 1; grid-column: 5; }
-  .dp-line .dp-rmline { grid-row: 1; grid-column: 6; }
-  .dp-week:not(.has-lifted) .dp-line .dp-c-f, .dp.is-team .dp-line .dp-c-f { grid-row: 1; grid-column: 5; }
-  .dp-week:not(.has-lifted) .dp-col-4, .dp.is-team .dp-col-4 { display: block; }
 }
 @container dpw (max-width: 600px) {
   .dp-day { padding-left: 16px; padding-right: 16px; }
-  .dp-cols, .dp-line { --c-role: 60px; --c-ind: 0px; }
   .dp-exmax { display: none; }
   .dp-day-sum :is(.dp-day-sep, .dp-day-min) { display: none; }
 }
@@ -2262,14 +2235,10 @@ html.desk body.powa-app input.dp-mem-in { width: 88px; font-size: var(--fs-4); f
   .dp-line .dp-lifted { overflow: visible; }
 }
 @container dpw (max-width: 680px) {
-  .dp-cols, .dp-line, .dp-week:not(.has-lifted) :is(.dp-cols, .dp-line), .dp.is-team :is(.dp-cols, .dp-line) { --c-ind: 0px; --c-role: 54px; --c-sr: 76px; --c-eff: 50px; --c-gap: 6px; }
   /* what hangs off the lines loses the indent with them: the cue stays under Top set, the set buttons under the lines */
   .dp-cue, .dp-ex-foot, .dp-ghost-sub, .dp-mems { --c-ind: 0px; }
 }
 @container dpw (max-width: 544px) {
-  .dp-cols, .dp-line, .dp-week:not(.has-lifted) :is(.dp-cols, .dp-line), .dp.is-team :is(.dp-cols, .dp-line) { --c-load: 86px; }
-  .dp-c-load.has-tag { flex-wrap: wrap; align-content: center; row-gap: 2px; padding: 4px 0; }
-  html.desk body.powa-app input.dp-cell.dp-l:focus { min-width: 0; }
 }
 /* reduced motion: colour changes stay (they say what changed), nothing moves or pulses */
 @media (prefers-reduced-motion: reduce) {
@@ -3159,158 +3128,158 @@ html.desk:not([data-theme="light"]) body.powa-app .cb-desk .club-spot .cs-ic { b
    hairline, never a dark tint, which reads brown), a point or more solid amber; under is blue, on it a soft green, a set
    not logged or skipped a quiet hollow circle. Light inks pass 4.5:1 as text and 3:1 as a circle's edge against the band.
    The card before it stays for one release behind ?daycard=old (desk-program.js sets html[data-daycard="old"]): every rule
-   here is under html.desk:not([data-daycard="old"]), over the shared .dp rules above. Same cells, same order, same edits.
+   here is under html.desk, over the shared .dp rules above. Same cells, same order, same edits.
    Widths (the editor, container dpw): 860 px at 1440 with the sidebar open, 700 at 1280, 645 at 1225, 620 at 1200, 606 at
    1150, 556 at 1100, 480 at 1024; tiers at 830 (the notes go under the line), 680 (the lines lose their indent) and 544. */
 html.desk:not([data-theme="light"]) body.powa-app { --dp-hollow: #6e6e78; }
 html.desk[data-theme="light"] body.powa-app { --dp-hollow: #8a8a93; }
-html.desk:not([data-daycard="old"]) :is(.dp-week, .dp-line, .dp-cue, .dp-ex-foot, .dp-mems) { --c-ind: 44px; --c-role: 70px; --c-sr: 76px; --c-load: 150px; --c-eff: 64px; --c-sets: 112px; --c-gap: 10px; }
+html.desk :is(.dp-week, .dp-line, .dp-cue, .dp-ex-foot, .dp-mems) { --c-ind: 44px; --c-role: 70px; --c-sr: 76px; --c-load: 150px; --c-eff: 64px; --c-sets: 112px; --c-gap: 10px; }
 /* the day's head: its name, its status, then its date and size as one unit that wraps whole (no "·" left hanging); ⋯ */
-html.desk:not([data-daycard="old"]) .dp-day-head { gap: 10px; margin-bottom: 12px; }
-html.desk:not([data-daycard="old"]) .dp-day-id { flex: 1 1 auto; flex-wrap: wrap; row-gap: 4px; }
-html.desk:not([data-daycard="old"]) .dp-day-meta { display: inline-flex; align-items: center; gap: 10px; flex: none; white-space: nowrap; }
-html.desk:not([data-daycard="old"]) .dp-day-meta .dp-day-sum { margin-left: 0; }
-html.desk:not([data-daycard="old"]) .dp-day-meta .dp-day-date + .dp-day-sum::before { content: '·'; margin-right: 10px; color: var(--text-4); }
-html.desk:not([data-daycard="old"]) .dp.is-team .dp-day-id { flex: 0 1 auto; }
-html.desk:not([data-daycard="old"]) .dp.is-team .dp-day-sum { flex: 0 1 auto; margin-left: 0; }
-html.desk:not([data-daycard="old"]) .dp-day-more { margin-left: auto; }
+html.desk .dp-day-head { gap: 10px; margin-bottom: 12px; }
+html.desk .dp-day-id { flex: 1 1 auto; flex-wrap: wrap; row-gap: 4px; }
+html.desk .dp-day-meta { display: inline-flex; align-items: center; gap: 10px; flex: none; white-space: nowrap; }
+html.desk .dp-day-meta .dp-day-sum { margin-left: 0; }
+html.desk .dp-day-meta .dp-day-date + .dp-day-sum::before { content: '·'; margin-right: 10px; color: var(--text-4); }
+html.desk .dp.is-team .dp-day-id { flex: 0 1 auto; }
+html.desk .dp.is-team .dp-day-sum { flex: 0 1 auto; margin-left: 0; }
+html.desk .dp-day-more { margin-left: auto; }
 /* an exercise: a quiet band; the max after the lift's name; ⋯ and the handle at the end */
-html.desk:not([data-daycard="old"]) .dp-ex { margin: 0 -12px; padding: 8px 12px 10px; border-radius: var(--r-2); background: color-mix(in srgb, var(--text) 2.6%, transparent); }
-html.desk[data-theme="light"]:not([data-daycard="old"]) .dp-ex { background: color-mix(in srgb, var(--text) 3%, transparent); }
-html.desk:not([data-daycard="old"]) .dp-ex + .dp-ex { border-top: 0; margin-top: 10px; }
-html.desk:not([data-daycard="old"]) .dp-ex-head { min-height: 44px; }
-html.desk:not([data-daycard="old"]) .dp-lt { width: 32px; height: 32px; border-radius: var(--r-2); font-size: var(--fs-4); }
-html.desk:not([data-daycard="old"]) .dp-lt svg { width: 16px; height: 16px; }
-html.desk:not([data-daycard="old"]) .dp-exmax { flex: 0 1 auto; text-align: left; }
-html.desk:not([data-daycard="old"]) .dp-exmax:empty { display: none; }
-html.desk:not([data-daycard="old"]) .dp-ex-head .dp-more { margin-left: auto; }
-html.desk:not([data-daycard="old"]) .dp-ghost .dp-ex-head .dp-more { margin-left: 0; }
-html.desk:not([data-daycard="old"]) .dp-ghost { --c-ind: 44px; padding: 8px 14px 10px; }
+html.desk .dp-ex { margin: 0 -12px; padding: 8px 12px 10px; border-radius: var(--r-2); background: color-mix(in srgb, var(--text) 2.6%, transparent); }
+html.desk[data-theme="light"] .dp-ex { background: color-mix(in srgb, var(--text) 3%, transparent); }
+html.desk .dp-ex + .dp-ex { border-top: 0; margin-top: 10px; }
+html.desk .dp-ex-head { min-height: 44px; }
+html.desk .dp-ex-head .dp-lt { width: 32px; height: 32px; border-radius: var(--r-2); font-size: var(--fs-4); }
+html.desk .dp-ex-head .dp-lt svg { width: 16px; height: 16px; }
+html.desk .dp-exmax { flex: 0 1 auto; text-align: left; }
+html.desk .dp-exmax:empty { display: none; }
+html.desk .dp-ex-head .dp-more { margin-left: auto; }
+html.desk .dp-ghost .dp-ex-head .dp-more { margin-left: 0; }
+html.desk .dp-ghost { --c-ind: 44px; padding: 8px 14px 10px; }
 /* a line: role · sets × reps · the load · the effort · a circle a set · notes · ×; what was lifted on its own row under it.
    A hairline between lines, and the line under the pointer (or being typed in) one band. */
-html.desk:not([data-daycard="old"]) .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) var(--c-sets) minmax(0, 1fr) var(--c-rm); row-gap: 0;
+html.desk .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) var(--c-sets) minmax(0, 1fr) var(--c-rm); row-gap: 0;
   max-width: 940px; min-height: 48px; margin-left: calc(var(--c-ind) - 8px); padding: 2px 0 2px 8px; border-radius: var(--r-2); transition: background-color 0.15s var(--dk-ease); }
-html.desk:not([data-daycard="old"]) .dp-week:not(.has-lifted) .dp-line, html.desk:not([data-daycard="old"]) .dp.is-team .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) 0 minmax(0, 1fr) var(--c-rm); }
-html.desk:not([data-daycard="old"]) .dp-line > * { grid-row: 1; }
-html.desk:not([data-daycard="old"]) .dp-line .dp-c-sets { grid-column: 5; }
-html.desk:not([data-daycard="old"]) .dp-line .dp-c-f { grid-column: 6; }
-html.desk:not([data-daycard="old"]) .dp-week:not(.has-lifted) .dp-line .dp-c-f, html.desk:not([data-daycard="old"]) .dp.is-team .dp-line .dp-c-f { margin-left: calc(-1 * var(--c-gap)); }
-html.desk:not([data-daycard="old"]) .dp-line .dp-rmline { grid-column: 7; }
-html.desk:not([data-daycard="old"]) .dp-line .dp-c-lift { grid-row: 2; grid-column: 2 / 7; margin: -4px 0 8px 6px; font: var(--fw-2) var(--fs-1)/1.3 var(--font-body); color: var(--text-2); }
-html.desk:not([data-daycard="old"]) .dp-line .dp-c-lift.is-none:empty, html.desk:not([data-daycard="old"]) .dp.is-team .dp-line .dp-c-lift { display: none; }
+html.desk .dp-week:not(.has-lifted) .dp-line, html.desk .dp.is-team .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) 0 minmax(0, 1fr) var(--c-rm); }
+html.desk .dp-line > * { grid-row: 1; }
+html.desk .dp-line .dp-c-sets { grid-column: 5; }
+html.desk .dp-line .dp-c-f { grid-column: 6; }
+html.desk .dp-week:not(.has-lifted) .dp-line .dp-c-f, html.desk .dp.is-team .dp-line .dp-c-f { margin-left: calc(-1 * var(--c-gap)); }
+html.desk .dp-line .dp-rmline { grid-column: 7; }
+html.desk .dp-line .dp-c-lift { grid-row: 2; grid-column: 2 / 7; margin: -4px 0 8px 6px; font: var(--fw-2) var(--fs-1)/1.3 var(--font-body); color: var(--text-2); }
+html.desk .dp-line .dp-c-lift.is-none:empty, html.desk .dp.is-team .dp-line .dp-c-lift { display: none; }
 /* the set row reads on the load's first line: each of its cells is a 40 px box at the top of the line, its content
    centred in it, so when the load wraps (its est. tag or % chip under it, in a narrow editor) the label, sets × reps, the
    pill, the circles and × stay on the load's line and only the wrapped part hangs below. The line's spare height still
    splits above and below the row (align-content), so a line that doesn't wrap sits exactly where it did. */
-html.desk:not([data-daycard="old"]) .dp-line:not(.is-write) { align-items: start; align-content: center; }
-html.desk:not([data-daycard="old"]) .dp-line .dp-c-role { height: 40px; line-height: 40px; }
-html.desk:not([data-daycard="old"]) .dp-line :is(.dp-c-sr, .dp-c-eff, .dp-c-f) { display: flex; align-items: center; height: 40px; }
-html.desk:not([data-daycard="old"]) .dp-line .dp-c-load { min-height: 40px; align-content: flex-start; }
-html.desk:not([data-daycard="old"]) .dp-line .dp-c-sets { min-height: 40px; }
-html.desk:not([data-daycard="old"]) .dp-line .dp-rmline { margin-top: 8px; }
-html.desk:not([data-daycard="old"]) .dp-line.is-write > * { grid-column: 1 / -1; }
-html.desk:not([data-daycard="old"]) .dp-line + .dp-line::before { content: ''; position: absolute; left: 8px; right: 0; top: 0; height: 1px; background: var(--line); pointer-events: none; }
-html.desk:not([data-daycard="old"]) :is(.dp-line:hover, .dp-line:focus-within)::before, html.desk:not([data-daycard="old"]) :is(.dp-line:hover, .dp-line:focus-within) + .dp-line::before { opacity: 0; }
-@media (hover: hover) and (pointer: fine) { html.desk:not([data-daycard="old"]) .dp-line:not(.is-write):hover { background: var(--dk-hover); } }
-html.desk:not([data-daycard="old"]) .dp-line:not(.is-write):focus-within { background: var(--dk-hover); }
+html.desk .dp-line:not(.is-write) { align-items: start; align-content: center; }
+html.desk .dp-line .dp-c-role { height: 40px; line-height: 40px; }
+html.desk .dp-line :is(.dp-c-sr, .dp-c-eff, .dp-c-f) { display: flex; align-items: center; height: 40px; }
+html.desk .dp-line .dp-c-load { min-height: 40px; align-content: flex-start; }
+html.desk .dp-line .dp-c-sets { min-height: 40px; }
+html.desk .dp-line .dp-rmline { margin-top: 8px; }
+html.desk .dp-line.is-write > * { grid-column: 1 / -1; }
+html.desk .dp-line + .dp-line::before { content: ''; position: absolute; left: 8px; right: 0; top: 0; height: 1px; background: var(--line); pointer-events: none; }
+html.desk :is(.dp-line:hover, .dp-line:focus-within)::before, html.desk :is(.dp-line:hover, .dp-line:focus-within) + .dp-line::before { opacity: 0; }
+@media (hover: hover) and (pointer: fine) { html.desk .dp-line:not(.is-write):hover { background: var(--dk-hover); } }
+html.desk .dp-line:not(.is-write):focus-within { background: var(--dk-hover); }
 /* the numbers: the load the big one, as Train shows it; sets × reps quieter */
-html.desk:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-l { height: 40px !important; font: var(--fw-4) 20px/40px var(--font-num); letter-spacing: -0.01em; }
-html.desk:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-l.is-est { font-weight: var(--fw-3); }
-html.desk:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-l::placeholder { font: var(--fw-2) var(--fs-1)/40px var(--font-body); }
-html.desk:not([data-daycard="old"]) body.powa-app :is(input.dp-cell.dp-n, input.dp-cell.dp-r) { height: 40px !important; font: var(--fw-3) var(--fs-4)/40px var(--font-num); color: var(--text-2); }
+html.desk body.powa-app input.dp-cell.dp-l { height: 40px !important; font: var(--fw-4) 20px/40px var(--font-num); letter-spacing: -0.01em; }
+html.desk body.powa-app input.dp-cell.dp-l.is-est { font-weight: var(--fw-3); }
+html.desk body.powa-app input.dp-cell.dp-l::placeholder { font: var(--fw-2) var(--fs-1)/40px var(--font-body); }
+html.desk body.powa-app :is(input.dp-cell.dp-n, input.dp-cell.dp-r) { height: 40px !important; font: var(--fw-3) var(--fs-4)/40px var(--font-num); color: var(--text-2); }
 /* the placeholder "Load" on a lift written without one (a hanging leg raise) shows when its line is pointed at */
-html.desk:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-l[placeholder="Load"]::placeholder { color: transparent; }
-@media (hover: hover) and (pointer: fine) { html.desk:not([data-daycard="old"]) body.powa-app .dp-line:hover input.dp-cell.dp-l[placeholder="Load"]:not([readonly])::placeholder { color: var(--text-3); } }
-html.desk:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-l[placeholder="Load"]:focus::placeholder { color: var(--text-3); }
+html.desk body.powa-app input.dp-cell.dp-l[placeholder="Load"]::placeholder { color: transparent; }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app .dp-line:hover input.dp-cell.dp-l[placeholder="Load"]:not([readonly])::placeholder { color: var(--text-3); } }
+html.desk body.powa-app input.dp-cell.dp-l[placeholder="Load"]:focus::placeholder { color: var(--text-3); }
 /* the effort: Train's pill, neutral (how it went is the gap's job); never an outlined chip coloured by the RPE */
-html.desk:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-e { height: 30px !important; min-width: 48px; padding: 0 12px !important; border-radius: var(--r-round); text-align: center; font: var(--fw-4) var(--fs-1)/30px var(--font-num); font-variant-numeric: tabular-nums; }
-html.desk:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-e.has-rc { background: var(--dk-fill-2) !important; box-shadow: none !important; color: var(--text); }
-html.desk:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-e::placeholder { font: var(--fw-2) var(--fs-1)/30px var(--font-body); }
-@media (hover: hover) and (pointer: fine) { html.desk:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):hover { background: var(--dk-fill-2) !important; box-shadow: inset 0 0 0 1px var(--line-2) !important; } }
-html.desk:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):focus { background: var(--bg) !important; box-shadow: 0 0 0 2px var(--dp-ring) !important; }
-html.desk[data-theme="light"]:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):focus { background: #fff !important; }
-html.desk:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-e.has-rc[readonly] { color: var(--text); }
+html.desk body.powa-app input.dp-cell.dp-e { height: 30px !important; min-width: 48px; padding: 0 12px !important; border-radius: var(--r-round); text-align: center; font: var(--fw-4) var(--fs-1)/30px var(--font-num); font-variant-numeric: tabular-nums; }
+html.desk body.powa-app input.dp-cell.dp-e.has-rc { background: var(--dk-fill-2) !important; box-shadow: none !important; color: var(--text); }
+html.desk body.powa-app input.dp-cell.dp-e::placeholder { font: var(--fw-2) var(--fs-1)/30px var(--font-body); }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):hover { background: var(--dk-fill-2) !important; box-shadow: inset 0 0 0 1px var(--line-2) !important; } }
+html.desk body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):focus { background: var(--bg) !important; box-shadow: 0 0 0 2px var(--dp-ring) !important; }
+html.desk[data-theme="light"] body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):focus { background: #fff !important; }
+html.desk body.powa-app input.dp-cell.dp-e.has-rc[readonly] { color: var(--text); }
 /* the notes: set fields as quiet words, a dot between */
-html.desk:not([data-daycard="old"]) .dp-ftags { gap: 6px; }
-html.desk:not([data-daycard="old"]) .dp-ftag { background: none; padding: 0 2px; color: var(--text-3); }
-html.desk:not([data-daycard="old"]) .dp-ftag + .dp-ftag::before { content: '·'; margin-right: 6px; color: var(--text-4); }
+html.desk .dp-ftags { gap: 6px; }
+html.desk .dp-ftag { background: none; padding: 0 2px; color: var(--text-3); }
+html.desk .dp-ftag + .dp-ftag::before { content: '·'; margin-right: 6px; color: var(--text-4); }
 /* what they lifted, under the line: "Lifted" (or "Week 2"), the numbers, the gap */
-html.desk:not([data-daycard="old"]) .dp-lifted { gap: 8px; min-width: 0; font: var(--fw-3) var(--fs-1)/1.3 var(--font-num); color: var(--text-2); }
-html.desk:not([data-daycard="old"]) .dp-lk { color: var(--text-3); font-weight: var(--fw-2); }
-html.desk:not([data-daycard="old"]) .dp-lv { min-width: 0; }
-html.desk:not([data-daycard="old"]) .dp-lifted.t-missed { color: var(--text-3); font-weight: var(--fw-2); }
-html.desk:not([data-daycard="old"]) .dp-c-lift.is-prev .dp-lifted { color: var(--text-3); }
-html.desk:not([data-daycard="old"]) .dp-extra { flex: none; margin-left: 8px; }
-html.desk:not([data-daycard="old"]) .dp-dev { display: inline-flex; align-items: center; justify-content: center; flex: none; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: var(--r-1);
+html.desk .dp-lifted { gap: 8px; min-width: 0; font: var(--fw-3) var(--fs-1)/1.3 var(--font-num); color: var(--text-2); }
+html.desk .dp-lk { color: var(--text-3); font-weight: var(--fw-2); }
+html.desk .dp-lv { min-width: 0; }
+html.desk .dp-lifted.t-missed { color: var(--text-3); font-weight: var(--fw-2); }
+html.desk .dp-c-lift.is-prev .dp-lifted { color: var(--text-3); }
+html.desk .dp-extra { flex: none; margin-left: 8px; }
+html.desk .dp-dev { display: inline-flex; align-items: center; justify-content: center; flex: none; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: var(--r-1);
   font: var(--fw-4) var(--fs-1)/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0; white-space: nowrap; }
-html.desk:not([data-daycard="old"]) .dp-dev.t-half { color: var(--dk-over); background: var(--dk-raise-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-over) 45%, transparent); }
-html.desk[data-theme="light"]:not([data-daycard="old"]) .dp-dev.t-half { background: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-over) 55%, transparent); }
-html.desk:not([data-daycard="old"]) .dp-dev.t-over { color: var(--dk-over-on); background: var(--dk-over-fill); box-shadow: inset 0 0 0 1px var(--dk-over-edge); }   /* a point or more: solid */
-html.desk:not([data-daycard="old"]) .dp-dev.t-under { color: var(--dk-cool); background: color-mix(in srgb, var(--dk-cool) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-cool) 32%, transparent); }
-html.desk[data-theme="light"]:not([data-daycard="old"]) .dp-dev.t-under { background: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-cool) 50%, transparent); }   /* 5.6:1 (on the tint it was 4.4) */
-html.desk:not([data-daycard="old"]) .dp-dev.t-ok { width: 18px; padding: 0; color: var(--dk-ok); background: none; }
-html.desk:not([data-daycard="old"]) .dp-dev.t-ok svg { width: 14px; height: 14px; }
-html.desk:not([data-daycard="old"]) .dp-c-lift.is-prev .dp-dev { opacity: 0.75; }
+html.desk .dp-dev.t-half { color: var(--dk-over); background: var(--dk-raise-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-over) 45%, transparent); }
+html.desk[data-theme="light"] .dp-dev.t-half { background: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-over) 55%, transparent); }
+html.desk .dp-dev.t-over { color: var(--dk-over-on); background: var(--dk-over-fill); box-shadow: inset 0 0 0 1px var(--dk-over-edge); }   /* a point or more: solid */
+html.desk .dp-dev.t-under { color: var(--dk-cool); background: color-mix(in srgb, var(--dk-cool) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-cool) 32%, transparent); }
+html.desk[data-theme="light"] .dp-dev.t-under { background: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-cool) 50%, transparent); }   /* 5.6:1 (on the tint it was 4.4) */
+html.desk .dp-dev.t-ok { width: 18px; padding: 0; color: var(--dk-ok); background: none; }
+html.desk .dp-dev.t-ok svg { width: 14px; height: 14px; }
+html.desk .dp-c-lift.is-prev .dp-dev { opacity: 0.75; }
 /* a circle a set, right after the effort (Train's set circles): on it a soft green with its check, half a point over an
    amber ring on a raised fill, a point or more over solid amber, under it blue, lifted with nothing written to compare
    grey, not logged or skipped a hollow ring.
    Up to four at full size; five a little smaller; six or more smaller still, two rows past six (the tooltip says each). */
-html.desk:not([data-daycard="old"]) .dp-c-sets { display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 6px; min-width: 0; padding-left: 2px; }
-html.desk:not([data-daycard="old"]) .dp-set { display: grid; place-items: center; flex: none; width: 22px; height: 22px; box-sizing: border-box; border-radius: var(--r-round); box-shadow: inset 0 0 0 1.5px var(--dp-hollow); }
-html.desk:not([data-daycard="old"]) .dp-set svg { width: 12px; height: 12px; }
-html.desk:not([data-daycard="old"]) .dp-set.t-ok { background: color-mix(in srgb, var(--dk-ok) 16%, transparent); box-shadow: inset 0 0 0 1.5px var(--dk-ok); color: var(--dk-ok); }
-html.desk:not([data-daycard="old"]) .dp-set.t-half { background: var(--dk-raise-2); box-shadow: inset 0 0 0 1.5px var(--dk-over); color: var(--dk-over); }
-html.desk[data-theme="light"]:not([data-daycard="old"]) .dp-set.t-half { background: #fff; }
-html.desk:not([data-daycard="old"]) .dp-set.t-over { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); color: var(--dk-over-on); }   /* a point or more: solid */
-html.desk:not([data-daycard="old"]) .dp-set.t-under { background: color-mix(in srgb, var(--dk-cool) 16%, transparent); box-shadow: inset 0 0 0 1.5px var(--dk-cool); color: var(--dk-cool); }
-html.desk:not([data-daycard="old"]) .dp-set.t-done { background: var(--dk-fill); box-shadow: inset 0 0 0 1.5px var(--text-3); color: var(--text-3); }
-html.desk:not([data-daycard="old"]) .dp-c-sets[data-n="5"] { gap: 5px; }
-html.desk:not([data-daycard="old"]) .dp-c-sets[data-n="5"] .dp-set { width: 18px; height: 18px; }
-html.desk:not([data-daycard="old"]) .dp-c-sets[data-n="5"] .dp-set svg { width: 10px; height: 10px; }
-html.desk:not([data-daycard="old"]) .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) { gap: 4px; }
-html.desk:not([data-daycard="old"]) .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set { width: 14px; height: 14px; box-shadow: inset 0 0 0 1.25px var(--dp-hollow); }
-html.desk:not([data-daycard="old"]) .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set:is(.t-ok, .t-half, .t-under, .t-done) { box-shadow: inset 0 0 0 1.25px currentColor; }
-html.desk:not([data-daycard="old"]) .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set.t-over { box-shadow: inset 0 0 0 1.25px var(--dk-over-edge); }
-html.desk:not([data-daycard="old"]) .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set svg { display: none; }
+html.desk .dp-c-sets { display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 6px; min-width: 0; padding-left: 2px; }
+html.desk .dp-set { display: grid; place-items: center; flex: none; width: 22px; height: 22px; box-sizing: border-box; border-radius: var(--r-round); box-shadow: inset 0 0 0 1.5px var(--dp-hollow); }
+html.desk .dp-set svg { width: 12px; height: 12px; }
+html.desk .dp-set.t-ok { background: color-mix(in srgb, var(--dk-ok) 16%, transparent); box-shadow: inset 0 0 0 1.5px var(--dk-ok); color: var(--dk-ok); }
+html.desk .dp-set.t-half { background: var(--dk-raise-2); box-shadow: inset 0 0 0 1.5px var(--dk-over); color: var(--dk-over); }
+html.desk[data-theme="light"] .dp-set.t-half { background: #fff; }
+html.desk .dp-set.t-over { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); color: var(--dk-over-on); }   /* a point or more: solid */
+html.desk .dp-set.t-under { background: color-mix(in srgb, var(--dk-cool) 16%, transparent); box-shadow: inset 0 0 0 1.5px var(--dk-cool); color: var(--dk-cool); }
+html.desk .dp-set.t-done { background: var(--dk-fill); box-shadow: inset 0 0 0 1.5px var(--text-3); color: var(--text-3); }
+html.desk .dp-c-sets[data-n="5"] { gap: 5px; }
+html.desk .dp-c-sets[data-n="5"] .dp-set { width: 18px; height: 18px; }
+html.desk .dp-c-sets[data-n="5"] .dp-set svg { width: 10px; height: 10px; }
+html.desk .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) { gap: 4px; }
+html.desk .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set { width: 14px; height: 14px; box-shadow: inset 0 0 0 1.25px var(--dp-hollow); }
+html.desk .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set:is(.t-ok, .t-half, .t-under, .t-done) { box-shadow: inset 0 0 0 1.25px currentColor; }
+html.desk .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set.t-over { box-shadow: inset 0 0 0 1.25px var(--dk-over-edge); }
+html.desk .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set svg { display: none; }
 /* + Set and + Cue sit on the band's foot; the cue under the role */
-html.desk:not([data-daycard="old"]) .dp-ex-foot { bottom: -14px; }
-html.desk:not([data-daycard="old"]) .dp-cue { margin-top: 0; }
+html.desk .dp-ex-foot { bottom: -14px; }
+html.desk .dp-cue { margin-top: 0; }
 /* + Add exercise: a small button at the foot of the day, where the lifts start */
-html.desk:not([data-daycard="old"]) .dp-addex { width: auto; height: 34px; margin-top: 12px; padding: 0 14px 0 11px; justify-content: flex-start; gap: 7px; border-radius: var(--r-2); }
-html.desk:not([data-daycard="old"]) .dp-addex svg { width: 14px; height: 14px; }
+html.desk .dp-addex { width: auto; height: 34px; margin-top: 12px; padding: 0 14px 0 11px; justify-content: flex-start; gap: 7px; border-radius: var(--r-2); }
+html.desk .dp-addex svg { width: 14px; height: 14px; }
 /* a rest day: one quiet line: its name, the words, Make it a training day, ⋯ */
-html.desk:not([data-daycard="old"]) .dp-day.is-rest { display: flex; align-items: center; flex-wrap: wrap; column-gap: 16px; padding-top: 10px; padding-bottom: 10px; }
-html.desk:not([data-daycard="old"]) .dp-day.is-rest .dp-day-head { display: contents; }
-html.desk:not([data-daycard="old"]) .dp-day.is-rest .dp-day-id { flex: 0 1 auto; order: 1; }
-html.desk:not([data-daycard="old"]) .dp-day.is-rest .dp-restrow { order: 2; flex: 1 1 auto; justify-content: space-between; }
-html.desk:not([data-daycard="old"]) .dp-day.is-rest .dp-day-more { order: 3; margin-left: 0; }
-html.desk:not([data-daycard="old"]) .dp.is-team .dp-day.is-rest > .dp-rest { order: 2; flex: 1 1 auto; }
+html.desk .dp-day.is-rest { display: flex; align-items: center; flex-wrap: wrap; column-gap: 16px; padding-top: 10px; padding-bottom: 10px; }
+html.desk .dp-day.is-rest .dp-day-head { display: contents; }
+html.desk .dp-day.is-rest .dp-day-id { flex: 0 1 auto; order: 1; }
+html.desk .dp-day.is-rest .dp-restrow { order: 2; flex: 1 1 auto; justify-content: space-between; }
+html.desk .dp-day.is-rest .dp-day-more { order: 3; margin-left: 0; }
+html.desk .dp.is-team .dp-day.is-rest > .dp-rest { order: 2; flex: 1 1 auto; }
 /* ≤ 830: the notes go under the load (as Train has them), what was lifted under those; the circles keep their place */
 @container dpw (max-width: 830px) {
-  html.desk:not([data-daycard="old"]) .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-rm); }
-  html.desk:not([data-daycard="old"]) .dp-line .dp-c-f { grid-row: 2; grid-column: 2 / 6; height: auto; margin: 0 0 2px; }
-  html.desk:not([data-daycard="old"]) .dp-line .dp-c-f.is-empty:not(:focus-within) { display: none; }
-  html.desk:not([data-daycard="old"]) .dp-line .dp-c-lift { grid-column: 2 / 6; }
-  html.desk:not([data-daycard="old"]) .dp-line:has(.dp-c-f.has-tags) .dp-c-lift, html.desk:not([data-daycard="old"]) .dp-line:has(.dp-c-f:focus-within) .dp-c-lift { grid-row: 3; }
-  html.desk:not([data-daycard="old"]) .dp-line .dp-rmline { grid-column: 6; }
-  html.desk:not([data-daycard="old"]) .dp-week:not(.has-lifted) .dp-line, html.desk:not([data-daycard="old"]) .dp.is-team .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-rm); }
-  html.desk:not([data-daycard="old"]) .dp-week:not(.has-lifted) .dp-line .dp-c-f, html.desk:not([data-daycard="old"]) .dp.is-team .dp-line .dp-c-f { grid-row: 1; grid-column: 5; height: 40px; margin: 0 0 0 calc(-1 * var(--c-gap)); }
-  html.desk:not([data-daycard="old"]) .dp-week:not(.has-lifted) .dp-line .dp-c-f.is-empty, html.desk:not([data-daycard="old"]) .dp.is-team .dp-line .dp-c-f.is-empty { display: flex; }
+  html.desk .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-rm); }
+  html.desk .dp-line .dp-c-f { grid-row: 2; grid-column: 2 / 6; height: auto; margin: 0 0 2px; }
+  html.desk .dp-line .dp-c-f.is-empty:not(:focus-within) { display: none; }
+  html.desk .dp-line .dp-c-lift { grid-column: 2 / 6; }
+  html.desk .dp-line:has(.dp-c-f.has-tags) .dp-c-lift, html.desk .dp-line:has(.dp-c-f:focus-within) .dp-c-lift { grid-row: 3; }
+  html.desk .dp-line .dp-rmline { grid-column: 6; }
+  html.desk .dp-week:not(.has-lifted) .dp-line, html.desk .dp.is-team .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-rm); }
+  html.desk .dp-week:not(.has-lifted) .dp-line .dp-c-f, html.desk .dp.is-team .dp-line .dp-c-f { grid-row: 1; grid-column: 5; height: 40px; margin: 0 0 0 calc(-1 * var(--c-gap)); }
+  html.desk .dp-week:not(.has-lifted) .dp-line .dp-c-f.is-empty, html.desk .dp.is-team .dp-line .dp-c-f.is-empty { display: flex; }
 }
 /* ≤ 680: the lines lose their indent with what hangs off them (the cue stays under the role: a013d77) */
 @container dpw (max-width: 680px) {
-  html.desk:not([data-daycard="old"]) :is(.dp-week, .dp-line, .dp-cue, .dp-ex-foot, .dp-mems) { --c-ind: 0px; --c-role: 54px; --c-sr: 76px; --c-load: 116px; --c-eff: 58px; --c-gap: 6px; }
-  html.desk:not([data-daycard="old"]) .dp-ex { margin: 0 -8px; padding: 6px 8px 8px; }
-  html.desk:not([data-daycard="old"]) .dp-c-load.has-tag { flex-wrap: wrap; align-content: flex-start; row-gap: 0; padding: 0 0 6px; }
-  html.desk:not([data-daycard="old"]) body.powa-app input.dp-cell.dp-l:focus { min-width: 0; }
-  html.desk:not([data-daycard="old"]) .dp-c-lift { white-space: normal; }
-  html.desk:not([data-daycard="old"]) .dp-lifted { flex-wrap: wrap; row-gap: 2px; overflow: visible; }
+  html.desk :is(.dp-week, .dp-line, .dp-cue, .dp-ex-foot, .dp-mems) { --c-ind: 0px; --c-role: 54px; --c-sr: 76px; --c-load: 116px; --c-eff: 58px; --c-gap: 6px; }
+  html.desk .dp-ex { margin: 0 -8px; padding: 6px 8px 8px; }
+  html.desk .dp-c-load.has-tag { flex-wrap: wrap; align-content: flex-start; row-gap: 0; padding: 0 0 6px; }
+  html.desk body.powa-app input.dp-cell.dp-l:focus { min-width: 0; }
+  html.desk .dp-c-lift { white-space: normal; }
+  html.desk .dp-lifted { flex-wrap: wrap; row-gap: 2px; overflow: visible; }
 }
 /* ≤ 544 (a 1024 window with the sidebar open): the circles a size down so four still sit after the pill */
 @container dpw (max-width: 544px) {
-  html.desk:not([data-daycard="old"]) .dp-c-sets { gap: 4px; }
-  html.desk:not([data-daycard="old"]) .dp-c-sets .dp-set { width: 18px; height: 18px; }
-  html.desk:not([data-daycard="old"]) .dp-c-sets .dp-set svg { width: 10px; height: 10px; }
-  html.desk:not([data-daycard="old"]) .dp-c-sets[data-n="5"] .dp-set { width: 15px; height: 15px; }
-  html.desk:not([data-daycard="old"]) .dp-c-sets[data-n="5"] .dp-set svg { display: none; }
+  html.desk .dp-c-sets { gap: 4px; }
+  html.desk .dp-c-sets .dp-set { width: 18px; height: 18px; }
+  html.desk .dp-c-sets .dp-set svg { width: 10px; height: 10px; }
+  html.desk .dp-c-sets[data-n="5"] .dp-set { width: 15px; height: 15px; }
+  html.desk .dp-c-sets[data-n="5"] .dp-set svg { display: none; }
 }
