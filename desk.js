@@ -3387,24 +3387,23 @@ function dkWsApply(aid) {
   // What changed, in words the week's note can say (weekly-note.js): "bench comes down to 112.5 × 3".
   var said = Object.keys(p.rows).map(function (k) { var x = p.rows[k], g = (x.row.next && x.row.next.group) || {}, s0 = (x.sets || [])[0] || {};
     return { lift: x.row.lift, title: x.row.title, fromKg: Number(g.weight) || 0, toKg: Number(s0.weight) || 0, reps: Number(s0.plannedReps || s0.reps) || 0, variant: x.variant || null }; });
-  var n = 0;
+  // The edits written in (a swap for pain changes the exercise itself, not only its sets), and Publish week N: a draft
+  // no more (with drafts on), once something was actually written into it (app.js deskPublishNextWeek).
+  var res = { n: 0, published: 0 };
   Store.update(function (s) {
     var pr = (s.programs || []).find(function (x) { return x.id === prog.id; });
-    if (!pr) return;
-    n = deskApplyNextWeek(pr.weeks, rev.nextIdx, edits);
-    // A swap (pain on the lift) changes the exercise itself, not only its sets.
-    edits.forEach(function (e) { var ex = e.variant && pr.weeks[rev.nextIdx].days[e.di] && pr.weeks[rev.nextIdx].days[e.di].exercises[e.ei]; if (ex && !(ex.sets || []).some(function (x) { return x.completed; })) { ex.variant = e.variant; n = Math.max(n, 1); } });
+    if (pr) res = deskPublishNextWeek(pr.weeks, rev.nextIdx, edits);
   });
+  var n = res.n;
   dkPendDrop(aid);
   if (!n) { toast('Nothing changed: those sets were logged meanwhile'); dkWsRepaint(); return; }
-  // Publish week N: a draft no more (with drafts on), once something was actually written into it.
-  if (typeof publishDraftWeeks === 'function') Store.update(function (s) { var pr = (s.programs || []).find(function (x) { return x.id === prog.id; }); if (pr) publishDraftWeeks(pr.weeks, rev.nextIdx); });
   persistProgram(prog.id);
-  if (window.WeeklyNote) { try { WeeklyNote.noteApplied(aid, said, { week: prog.weeks[rev.nextIdx].number || rev.nextIdx + 1 }); } catch (e) {} }
+  var wk = prog.weeks[rev.nextIdx].number || rev.nextIdx + 1;
+  if (window.WeeklyNote) { try { WeeklyNote.noteApplied(aid, said, { week: wk }); } catch (e) {} }
   var r = dkRow(aid);
   dkNoteHandled(aid, 'apply');
-  dkPublish(aid, { quietDemo: true });
-  var wk = prog.weeks[rev.nextIdx].number || rev.nextIdx + 1;
+  // A week they couldn't see until now: the heads-up names it ("Week 3 from Sam").
+  dkPublish(aid, { quietDemo: true, week: res.published ? wk : null });
   toast(window._demoMode ? 'Week ' + wk + ' published in the demo. Nothing leaves this page.' : 'Week ' + wk + ' published. ' + (r ? _dkFirst(r.athlete.name) : 'They') + ' gets a heads-up.');
   dkWsRepaint();
 }
@@ -4063,14 +4062,15 @@ function dkPbChanges(prog) {
   return out;
 }
 // Notify: the athlete hears (push + email, coach.html notifyAthleteAssigned) and the count resets.
-// Edits are live as typed; this is a heads-up, not a gate.
+// Edits are live as typed; this is a heads-up, not a gate. opts.week: a week published just now (a draft until then):
+// the heads-up names it.
 function dkPublish(aid, opts) {
   var prog = dkProgOf(aid);
   if (!prog) return;
   _dk.pbSnap = _dk.pbSnap || {};
   _dk.pbSnap[prog.id] = dkPbCells(prog);
   if (window._demoMode) { if (!(opts && opts.quietDemo)) toast('Heads-up sent in the demo. Nothing leaves this page.'); }
-  else { _dkLS(_dkPbKey(prog.id), JSON.stringify(_dk.pbSnap[prog.id])); if (typeof notifyAthleteAssigned === 'function') notifyAthleteAssigned(aid); }
+  else { _dkLS(_dkPbKey(prog.id), JSON.stringify(_dk.pbSnap[prog.id])); if (typeof notifyAthleteAssigned === 'function') notifyAthleteAssigned(aid, opts && opts.week ? { week: opts.week } : undefined); }
   dkPbMarkEdited();
   dkPaintPbHead();
   var list = document.getElementById('dkPbList');

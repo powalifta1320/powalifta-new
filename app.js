@@ -8329,6 +8329,19 @@ function keepWeeksDraftsTrailing(weeks) {
   });
   return n;
 }
+// The heads-up a lifter gets when their coach sends them a program (coach.html notifyAthleteAssigned): the push's words,
+// and the week the email names (send-program-assigned takes the same optional week; a deploy from before it ignores the
+// field and sends the program's email). o: { coachName, programName, week }. A week (a whole number from 1 to 99) is
+// publishing one week of the block, a draft (desk-program.js publishWeek, desk.js dkWsApply): its words say so. Without
+// one, the words as they always were. → { title, body, week (the number, or null) }
+function programHeadsUp(o) {
+  o = o || {};
+  const coach = String(o.coachName || 'Your coach').split(' ')[0] || 'your coach';
+  const name = o.programName || 'a new program';
+  const n = Number(o.week), week = o.week != null && o.week !== '' && Number.isInteger(n) && n >= 1 && n <= 99 ? n : null;
+  if (week) return { week, title: 'Week ' + week + ' from ' + coach, body: (name === 'a new program' ? 'Week ' + week + ' of your program' : 'Week ' + week + ' of "' + name + '"') + ' is ready. Open it in Today.' };
+  return { week: null, title: 'New program from ' + coach, body: name === 'a new program' ? 'Your coach assigned you a new program.' : ('"' + name + '" is ready. Open it in Today.') };
+}
 // The coach's week that's written and not published, and when it starts:
 // { idx, number, start ('YYYY-MM-DD' | null), days (until it starts; negative once it has) | null } or null.
 function programUnpublished(prog, todayIso) {
@@ -13780,6 +13793,19 @@ function deskApplyNextWeek(weeks, nextIdx, edits) {
     n++;
   });
   return n;
+}
+// The desk's Publish week N in a lifter's week (desk.js dkWsApply): the coach's edits written into week nextIdx
+// (deskApplyNextWeek; a swap for pain changes the exercise itself, never one with a logged set), then, once something
+// was written, the week published if it was a draft, with every draft before it (publishDraftWeeks). Nothing written
+// (the sets were logged meanwhile): nothing published. Mutates weeks. → { n: blocks changed, published: weeks published }
+function deskPublishNextWeek(weeks, nextIdx, edits) {
+  let n = deskApplyNextWeek(weeks, nextIdx, edits);
+  const W = (weeks || [])[nextIdx];
+  (edits || []).forEach(e => {
+    const ex = e.variant && W && W.days[e.di] && W.days[e.di].exercises[e.ei];
+    if (ex && !(ex.sets || []).some(x => x.completed)) { ex.variant = e.variant; n = Math.max(n, 1); }
+  });
+  return { n, published: n ? publishDraftWeeks(weeks, nextIdx) : 0 };
 }
 // Copy week: a week's sessions as fresh days for another week (fresh ids, nothing logged, the plan's
 // loads). On a team program the copies stay linked to the target week's own sessions (srcId), and

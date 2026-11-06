@@ -2311,9 +2311,10 @@ function openAthleteProgram(athleteId) {
   setTimeout(() => { document.getElementById('progAthlete').value = athleteId; loadProgram(); }, 50);
 }
 
-async function notifyAthleteAssigned(aidArg) {
+async function notifyAthleteAssigned(aidArg, opts) {
   if (window._demoMode) { toast('Preview only in demo mode'); return; }
-  // The desk's Publish and Apply next week pass whose program it is.
+  // The desk's Publish and Apply next week pass whose program it is; publishing a draft week passes its number
+  // (opts.week: the push and the email say "week 3"; app.js programHeadsUp).
   const aid = (typeof aidArg === 'string' && aidArg) || document.getElementById('progAthlete').value;
   if (!aid) { toast('Pick an athlete first'); return; }
   const s = Store.get();
@@ -2322,14 +2323,15 @@ async function notifyAthleteAssigned(aidArg) {
   const prog = (s.programs || []).find(p => p.athleteId === aid);
   const programName = (prog && prog.name) || 'a new program';
   const coachName = user.name || 'Your coach';
+  const hu = programHeadsUp({ coachName, programName, week: opts && opts.week });
 
   // Fire-and-forget push (independent of email — reaches athletes with no email
   // on file too, and never blocks the email path).
   if (DB && typeof DB.sendPush === 'function') {
     DB.sendPush({
       toUserId: aid,
-      title: 'New program from ' + (coachName.split(' ')[0] || 'your coach'),
-      body: programName === 'a new program' ? 'Your coach assigned you a new program.' : ('"' + programName + '" is ready. Open it in Today.'),
+      title: hu.title,
+      body: hu.body,
       url: '/athlete.html',
       tag: 'powa-prog-' + aid,
       category: 'program'
@@ -2356,12 +2358,13 @@ async function notifyAthleteAssigned(aidArg) {
     const res = await fetch(url, {
       method: 'POST',
       headers: headers,
-      body: JSON.stringify({
+      // week: send-program-assigned names it; a deploy from before it ignores the field (the program's email).
+      body: JSON.stringify(Object.assign({
         athleteEmail: athlete.email,
         athleteName: athlete.name,
         coachName: coachName,
         programName: programName
-      })
+      }, hu.week ? { week: hu.week } : {}))
     });
     if (!res.ok) {
       const txt = await res.text();
