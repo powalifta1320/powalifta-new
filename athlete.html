@@ -1783,7 +1783,11 @@ function buildTodayHero(cur) {
   const sfNow = isCardio ? null : setFieldsEl(setFieldBits(s), 'tx-sf');   // SET FIELDS hook: this set's tempo, pause, bands, columns
   if (sfNow) hero.appendChild(sfNow);
   if (smart) {
-    const sm = el('div', { class: 'tx-smart is-' + smart.dir });
+    // Down because the set before came in over what was written: the laptop's amber on the icon (a point or more
+    // over solid, half a point an outline); a readiness discount is not an over.
+    const pv = next.ex.sets[next.si - 1], kk = next.ex.id + '_' + next.si;
+    const overBy = smart.dir === 'down' && pv && pv.completed && pv.rpe != null && pv.rpe !== '' && !(_readyLoad[kk] && !_smartLoad[kk]) ? Number(pv.actualRpe) - Number(pv.rpe) : 0;
+    const sm = el('div', { class: 'tx-smart is-' + smart.dir + (overBy >= 1 ? ' is-over' : overBy >= 0.5 ? ' is-half' : '') });
     sm.appendChild(el('span', { class: 'tx-smart-ic', 'aria-hidden': 'true', html: smart.dir === 'down'
       ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>'
       : smart.dir === 'up'
@@ -4684,11 +4688,11 @@ function openYearWrapped(year) {
   const top = lifts.slice().sort((a, b) => y.best[b] - y.best[a])[0];
   const total = currentTotal(user.id), bwNow = latestBodyweight(user.id);
   const slides = [
-    { tint: '#ff4a55', kicker: 'Your ' + year + ' in lifting' + so, big: String(y.sessions), unit: y.sessions === 1 ? 'session' : 'sessions', line: y.sets.toLocaleString() + ' sets logged' },
+    { tint: '#c9ced6', kicker: 'Your ' + year + ' in lifting' + so, big: String(y.sessions), unit: y.sessions === 1 ? 'session' : 'sessions', line: y.sets.toLocaleString() + ' sets logged' },
     { tint: '#38c6ff', kicker: 'You moved', big: ton.big, unit: ton.unit, line: 'That\'s about ' + tonnageComparison(y.tonnageKg) },
-    { tint: '#f2c25b', kicker: 'Personal records', big: String(y.prs), unit: y.prs === 1 ? 'PR' : 'PRs',
+    { tint: '#f2c25b', glow: '#9a9aa6', kicker: 'Personal records', big: String(y.prs), unit: y.prs === 1 ? 'PR' : 'PRs',
       line: y.jump ? LIFT_LABELS[y.jump.lift] + ' went from ' + Math.round(kgToDisplay(y.jump.fromKg)) + ' to ' + Math.round(kgToDisplay(y.jump.toKg)) + ' ' + u : 'Every PR starts with showing up' },
-    top ? { tint: '#ffbf3c', kicker: 'Strongest lift', big: String(Math.round(kgToDisplay(y.best[top]))), unit: u + ' ' + LIFT_LABELS[top].toLowerCase(),
+    top ? { tint: '#ffbf3c', glow: '#9a9aa6', kicker: 'Strongest lift', big: String(Math.round(kgToDisplay(y.best[top]))), unit: u + ' ' + LIFT_LABELS[top].toLowerCase(),
       line: lifts.filter(l => l !== top).map(l => LIFT_LABELS[l] + ' ' + Math.round(kgToDisplay(y.best[l]))).join(' · ') || 'Best estimated max, competition equivalent', bar: y.best[top] } : null,
     { tint: '#34d982', kicker: y.topDay ? y.topDay + ' were your day' : 'Your habits', big: String(y.longestStreakWeeks), unit: y.longestStreakWeeks === 1 ? 'week streak' : 'weeks in a row',
       line: (y.topMonth ? 'Busiest month: ' + y.topMonth : '') + (y.bw ? ' · bodyweight ' + (y.bw.endKg - y.bw.startKg >= 0 ? '+' : '−') + kgToDisplay(Math.abs(y.bw.endKg - y.bw.startKg)).toFixed(1) + ' ' + u : '') },
@@ -4759,7 +4763,10 @@ function playWrap(slides, ctx) {
   const paint = () => {
     const sl = slides[i];
     root.innerHTML = '';
+    // A slide's light is its tint, but a warm one (gold, amber) is a neutral light: gold over black reads brown. Red
+    // is the logo and the one action, so the opening slide is steel (6 Nov).
     root.style.setProperty('--wt', sl.tint);
+    root.style.setProperty('--wg', sl.glow || sl.tint);
     const bars = el('div', { class: 'wrap-bars', 'aria-hidden': 'true' });
     slides.forEach((_, k) => bars.appendChild(el('i', { class: k < i ? 'done' : k === i ? 'now' + (slides[k].last ? ' done' : '') : '' })));
     root.appendChild(bars);
@@ -4824,7 +4831,7 @@ async function shareWrapSlide(sl, ctx) {
   try { await document.fonts.load('800 200px Archivo'); await document.fonts.load('600 48px Archivo'); } catch (e) {}
   x.fillStyle = '#050506'; x.fillRect(0, 0, W, H);
   const g = x.createRadialGradient(W / 2, H * 0.42, 40, W / 2, H * 0.42, 900);
-  g.addColorStop(0, sl.tint + '55'); g.addColorStop(1, sl.tint + '00');
+  g.addColorStop(0, (sl.glow || sl.tint) + '55'); g.addColorStop(1, (sl.glow || sl.tint) + '00');
   x.fillStyle = g; x.fillRect(0, 0, W, H);
   drawCardLogo(x, W / 2, 252, 46);
   x.textAlign = 'center';
@@ -8098,7 +8105,7 @@ async function exportProgramAsImage(weekNumber) {
           html += '<div style="margin-bottom: 10px; padding: 10px 12px; background: #1d1d22; border-radius: 8px;">';
           html +=   '<div style="font-weight: 700; font-size: 15px; color: #f4f4f6; margin-bottom: 6px;">' + escHtml(title) + '</div>';
           if (ex.note) {
-            html += '<div style="font-size: 13px; color: #ffb547; margin-bottom: 6px; padding: 6px 10px; background: rgba(255,181,71,0.07); border: 1px solid rgba(255,181,71,0.25); border-radius: 6px;"><strong>Coach:</strong> ' + escHtml(ex.note) + '</div>';
+            html += '<div style="font-size: 13px; color: #ffb547; margin-bottom: 6px; padding: 6px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,181,71,0.55); border-radius: 6px;"><strong>Coach:</strong> ' + escHtml(ex.note) + '</div>';
           }
           ex.sets.forEach((set, si) => {
             const w = (set.weight != null && set.weight !== '' && set.weight !== 0) ? (kgToDisplay(set.weight) + ' ' + unitLabel()) : '–';
@@ -8199,7 +8206,7 @@ async function renderGlobalClaimBanner() {
   _pendingClaimProgram = mp;
 
   const main = document.querySelector('main .container') || document.querySelector('main') || document.body;
-  const b = el('div', { id: 'globalClaimBanner', class: 'card mb-16', style: 'padding: 16px 20px; border: 2px solid #d4a017; background: linear-gradient(135deg, rgba(212,160,23,0.10), rgba(212,160,23,0.02));' });
+  const b = el('div', { id: 'globalClaimBanner', class: 'card mb-16', style: 'padding: 16px 20px; border: 1px solid rgba(242,194,91,0.55); background: var(--bg-1);' });   // gold as a hairline, never a dark tint
   const row = el('div', { class: 'flex-between gap-16', style: 'flex-wrap: wrap; align-items: center;' });
   const txt = el('div', { style: 'flex: 1 1 280px; min-width: 0' });
   txt.appendChild(el('div', { style: 'font-weight: 700; font-size: 16px; margin-bottom: 4px;' }, '✨ You purchased: ' + mp.title));
@@ -8382,7 +8389,7 @@ function updateLibraryBadge() {
     const badge = document.createElement('span');
     badge.className = 'lib-badge';
     badge.textContent = String(purchases.length);
-    badge.style.cssText = 'background: #d4a017; color: #000; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; margin-left: 8px;';
+    badge.style.cssText = 'background: var(--fill-3, rgba(255,255,255,0.1)); color: var(--text); border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 700; margin-left: 8px;';   // a count, in ink
     tab.appendChild(badge);
   }
 }

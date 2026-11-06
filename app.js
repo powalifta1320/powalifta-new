@@ -16838,7 +16838,9 @@ function monthWrapSlides(w, opts) {
   const n = (v, one, many) => v === 1 ? one : (many || one + 's');
   const ton = wrapTonnageText(w.tonnageKg);
   const out = [];
-  out.push({ key: 'open', tint: '#ff4a55', kicker: 'Your ' + mName + (w.partial ? ' so far' : ' in lifting'), big: String(w.sessions), unit: n(w.sessions, 'session'),
+  // A slide's tint is its word's colour and its light (athlete.html playWrap): the open and the summary are steel (red is
+  // the logo and the one action), a gold slide's light is neutral (gold over black reads brown).
+  out.push({ key: 'open', tint: '#c9ced6', kicker: 'Your ' + mName + (w.partial ? ' so far' : ' in lifting'), big: String(w.sessions), unit: n(w.sessions, 'session'),
     line: w.sets.toLocaleString() + ' ' + n(w.sets, 'set') + ' logged' });
   if (w.tonnageKg > 0) out.push({ key: 'tonnage', tint: '#38c6ff', kicker: 'You moved', big: ton.big, unit: ton.unit, line: 'That\'s about ' + tonnageComparison(w.tonnageKg) });
   const t = w.topSet;
@@ -16850,7 +16852,7 @@ function monthWrapSlides(w, opts) {
     const j = w.jump;
     const from = j ? kgToDisplay(j.fromKg) : 0, to = j ? kgToDisplay(j.toKg) : 0;
     const fmt = (v) => Math.round(from) === Math.round(to) ? v.toFixed(1) : String(Math.round(v));
-    out.push({ key: 'prs', tint: '#f2c25b', kicker: 'Personal records', big: String(w.prs), unit: n(w.prs, 'PR'),
+    out.push({ key: 'prs', tint: '#f2c25b', glow: '#9a9aa6', kicker: 'Personal records', big: String(w.prs), unit: n(w.prs, 'PR'),
       line: j ? LIFT_LABELS[j.lift] + ' e1RM went from ' + fmt(from) + ' to ' + fmt(to) + ' ' + u : '' });
   }
   if (w.runWeeks >= 2) {
@@ -16897,7 +16899,7 @@ function monthWrapSlides(w, opts) {
     weekly: (w.weekly || []).map(x => ({ label: 'W' + x.week, kg: x.tonnageKg, v: (Math.round(kgToDisplay(x.tonnageKg) / 100) / 10).toFixed(1) })),
     weeklyCaption: getUnit() === 'lbs' ? 'Thousand lb a week' : 'Tonnes a week'
   };
-  out.push({ key: 'summary', tint: '#ff6a3d', poster, last: true,
+  out.push({ key: 'summary', tint: '#c9ced6', poster, last: true,
     alt: mName + ' ' + w.year + (w.partial ? ', ' + poster.when : '') + ': ' + (t ? 'top set ' + poster.top.big + ' ' + poster.top.unit + ', ' + poster.top.label + '; ' : '') + stats.slice(0, 4).map(s => s.v + ' ' + s.l).join(', ') });
   return out;
 }
