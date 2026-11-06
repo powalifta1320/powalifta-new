@@ -1054,6 +1054,10 @@ body.home .foot { padding: 48px 0 32px; }
   /* Answers and next week: no tinted light; the thread's own ground under its messages; the rings in ink. */
   html:not(.native) .answers::before, html:not(.native) .lifter::before { background: none; }
   html.m:not(.native) .tl-patch { background: #f7f7f9; }
+  /* Arjun's set card glows green in the light app, 12 pt past its sides and 26 pt below: its patch and its cut take the
+     glow in, so nothing shows where it lands before it arrives, and it arrives with its glow (the dark card has none). */
+  html:not(.native) .tl-p-set { left: calc(117 / 393 * 100%); top: calc(288.5 / 852 * 100%); width: calc(272 / 393 * 100%); height: calc(201.5 / 852 * 100%); }
+  html:not(.native) .tl-set { clip-path: inset(calc(288.5 / 852 * 100%) calc(4 / 393 * 100%) calc(362 / 852 * 100%) calc(117 / 393 * 100%)); }
   html:not(.native) .why, html:not(.native) .tap { box-shadow: 0 0 0 2px rgba(11, 11, 13, 0.8); }
 
   /* Meet day stays the dark stage: the band, its three lights, the minute, Tom's phone (drawn, the lifter app's dark

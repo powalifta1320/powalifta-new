@@ -31,6 +31,13 @@ async function shoot(stage) {
   await p.evaluate(() => { document.querySelectorAll('.msg-list, [class*="msg-list"], .msgs').forEach((l) => { l.scrollTop = l.scrollHeight; }); window.scrollTo(0, document.body.scrollHeight); });
   await p.waitForTimeout(700);
   await p.screenshot({ path: OUT + 'thread-' + stage + '.png' });
+  // The same screen without the receipt (its place kept): mkimg's base, so what lies under "Seen" (the light theme's
+  // glow of the set card) is the app's own, not a flat fill.
+  if (stage === 'after') {
+    const st = await p.addStyleTag({ content: '.msg-status { visibility: hidden !important; }' }); await p.waitForTimeout(150);
+    await p.screenshot({ path: OUT + 'thread-after-bare.png' });
+    await st.evaluate((e) => e.remove()); await p.waitForTimeout(150);
+  }
   const geo = await p.evaluate(() => {
     const r = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return [b.x, b.y, b.width, b.height].map((v) => Math.round(v * 10) / 10); };
     const rows = [...document.querySelectorAll('.msg-row, .msg-status, .msg-daysep, .msg-note')].filter((e) => { const b = e.getBoundingClientRect(); return b.bottom > 0 && b.top < innerHeight; }).map((e) => ({ cls: e.className, t: e.innerText.replace(/\s+/g, ' ').slice(0, 60), rect: r(e) }));

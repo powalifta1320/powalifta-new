@@ -62,8 +62,8 @@ if 'phone' in what:
     save(Image.open(CAP + 'phone-train.png'), 'lifter-train', [590, 786, 1179])
     save(Image.open(CAP + 'phone-logged.png'), 'lifter-logged', [590, 786, 1179])
 
-# --- Arjun's thread (cap-thread.mjs, 3x): the screen after the reply with the reply and the receipt painted out, then
-# the reply, "Seen" and the earlier "Sent" as their own layers. "Sent" is shown where "Seen" is (home.css .tl-sent), so
+# --- Arjun's thread (cap-thread.mjs, 3x): the screen after the reply, taken without its receipt, with the reply painted
+# out, then the reply, "Seen" and the earlier "Sent" as their own layers. "Sent" is shown where "Seen" is (home.css .tl-sent), so
 # its cut starts as far above its words as Seen's does (1.1 pt: Sent 586.1, Seen 467.1). thread2-*: new names with the
 # taller bubbles (6 Nov: each 1.6 pt taller, the list 1.8 to 5.8 pt higher), so a cached picture never meets new cuts.
 if 'thread' in what:
@@ -71,8 +71,12 @@ if 'thread' in what:
     aft = Image.open(CAP + 'thread-after.png').convert('RGB'); bef = Image.open(CAP + 'thread-before.png').convert('RGB')
     bg = aft.getpixel((int(380 * k), int(640 * k)))
     rep = (0, 494, 393, 610); seen = (280, 466, 380, 492); sent = (280, 585, 380, 611)
-    base = aft.copy()
-    base.paste(bg, (rep[0] * k, rep[1] * k, rep[2] * k, rep[3] * k)); base.paste(bg, (seen[0] * k, seen[1] * k, seen[2] * k, seen[3] * k))
+    # The base: the screen without its receipt (cap-thread's thread-after-bare.png), so the light theme's glow under the
+    # set card runs on where "Seen" was; a flat fill there cut a notch in it until Seen arrived. Dark: the same pixels.
+    bare = CAP + 'thread-after-bare.png'
+    base = Image.open(bare).convert('RGB') if os.path.exists(bare) else aft.copy()
+    base.paste(bg, (rep[0] * k, rep[1] * k, rep[2] * k, rep[3] * k))
+    if not os.path.exists(bare): base.paste(bg, (seen[0] * k, seen[1] * k, seen[2] * k, seen[3] * k))
     save(base, 'thread2', [786, 1179])
     one(aft.crop(tuple(v * k for v in rep)), 'thread2-reply')
     one(aft.crop(tuple(v * k for v in seen)), 'thread2-seen')
