@@ -20,8 +20,8 @@ import UIKit
 // "standard" caps the picture at 720p (a 60 s set is about 25–40 MB, well under the 100 MB
 // upload limit); "high" at 1080p. Exports land in tmp/powa-form-checks/ and are swept after a day.
 //
-// Concurrency: the app target builds in Swift 5 mode with iOS 13 as the floor, so this uses
-// AVAssetExportSession's completion handler (not the iOS 18 async export) and hops every
+// Concurrency: the app target builds in Swift 5 mode with iOS 15 as the floor (inject-ios-min.rb),
+// so this uses AVAssetExportSession's completion handler (not the iOS 18 async export) and hops every
 // Capacitor call and UIKit touch back to the main queue. One export at a time.
 @objc(VideoExportPlugin)
 public class VideoExportPlugin: CAPPlugin, CAPBridgedPlugin, UIImagePickerControllerDelegate, UINavigationControllerDelegate {

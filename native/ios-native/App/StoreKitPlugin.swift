@@ -86,16 +86,25 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
     // Ask for an App Store rating (app.js maybeAskForRating calls this after a PR
     // or a plate milestone, at most once every four months). iOS decides whether
     // the prompt actually shows: three times a year at most, never in TestFlight.
+    // iOS 16+: StoreKit 2's AppStore.requestReview(in:); iOS 15: SKStoreReviewController's
+    // scene version (the scene-less one is deprecated since iOS 14). Both show in a window
+    // scene: the foreground-active one, else any connected one. With none (the app left the
+    // screen in the 3.5 s app.js waits) nothing is asked and it resolves { shown: false },
+    // so app.js keeps the ask for another day. Otherwise { requested: true }: iOS never says
+    // whether the prompt appeared.
     @objc func requestReview(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
-            if #available(iOS 14.0, *),
-               let scene = UIApplication.shared.connectedScenes
-                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
-                SKStoreReviewController.requestReview(in: scene)
-            } else {
-                SKStoreReviewController.requestReview()
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else {
+                call.resolve(["shown": false, "requested": false])
+                return
             }
-            call.resolve()
+            if #available(iOS 16.0, *) {
+                AppStore.requestReview(in: scene)
+            } else {
+                SKStoreReviewController.requestReview(in: scene)
+            }
+            call.resolve(["requested": true])
         }
     }
 
