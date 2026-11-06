@@ -58,8 +58,11 @@
   </header>
 
   <div class="exlib-main">
+    <!-- The chips are in the page itself, so the first paint has the toolbar's final height (drawn by the script, a
+         phone's two rows of chips came late and pushed the search and the cards down). buildChips() wires them, and
+         redraws them only if app.js's exerciseGroups() ever changes. -->
     <div class="exlib-toolbar">
-      <div class="exlib-chips" id="exlibChips" role="group" aria-label="Filter by movement"></div>
+      <div class="exlib-chips" id="exlibChips" role="group" aria-label="Filter by movement"><button class="exlib-chip active" type="button" data-group="all">All</button><button class="exlib-chip" type="button" data-group="squat">Squat</button><button class="exlib-chip" type="button" data-group="bench">Bench</button><button class="exlib-chip" type="button" data-group="deadlift">Deadlift</button><button class="exlib-chip" type="button" data-group="push">Push</button><button class="exlib-chip" type="button" data-group="pull">Pull</button><button class="exlib-chip" type="button" data-group="legs">Legs</button></div>
       <input type="search" class="exlib-search" id="exlibSearch" placeholder="Search cues, faults, lifts…" aria-label="Search the exercise library" autocomplete="off">
     </div>
     <p class="exlib-count" id="exlibCount"></p>
@@ -135,7 +138,8 @@ function renderExlib() {
 function buildChips() {
   const host = document.getElementById('exlibChips');
   const groups = ['all'].concat(exerciseGroups());
-  host.innerHTML = groups.map(g =>
+  const drawn = Array.from(host.querySelectorAll('.exlib-chip'), b => b.getAttribute('data-group'));
+  if (drawn.join(',') !== groups.join(',')) host.innerHTML = groups.map(g =>
     '<button class="exlib-chip' + (g === _exGroup ? ' active' : '') + '" type="button" data-group="' + g + '">' +
     (g === 'all' ? 'All' : exerciseGroupLabel(g)) + '</button>'
   ).join('');

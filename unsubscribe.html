@@ -39,13 +39,15 @@
 </header>
 
 <main id="main" class="unsub-wrap">
-  <div class="unsub-card">
+  <!-- Until the link is answered: one quiet line where the card will stand, then the card, whole, in its place. The
+       card that grew under its own heading, centred, slid up as it grew (layout shift 0.15 on a phone). -->
+  <p class="unsub-wait" id="unsubLoading" role="status">Updating your preferences…</p>
+
+  <div class="unsub-card" id="unsubCard" hidden>
     <h1>Email preferences</h1>
     <p class="unsub-sub">Manage which emails POWALIFTA sends you. Changes save instantly. No login needed.</p>
 
-    <div id="unsubBody">
-      <div class="unsub-loading" id="unsubLoading">Updating your preferences…</div>
-    </div>
+    <div id="unsubBody"></div>
 
     <p class="unsub-alt"><a href="index.html">Back to POWALIFTA</a></p>
   </div>
@@ -71,6 +73,11 @@
     if (params.has('token')) { params.delete('token'); history.replaceState(history.state, '', location.pathname + (params.toString() ? '?' + params.toString() : '') + location.hash); }
   } catch (e) {}
   const body = document.getElementById('unsubBody');
+  // The answer is drawn on the hidden card, then the card replaces the waiting line in one frame.
+  function showCard() {
+    document.getElementById('unsubLoading').hidden = true;
+    document.getElementById('unsubCard').hidden = false;
+  }
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -96,6 +103,7 @@
         '<span class="ur-body">' + esc(msg || 'The unsubscribe link is invalid or has expired. You can manage every email preference from Settings inside the app.') + '</span></span>' +
       '</div>' +
       '<a class="btn btn-primary btn-block" href="athlete.html">Manage preferences in Settings</a>';
+    showCard();
   }
 
   function renderPrefs(state, note) {
@@ -113,6 +121,7 @@
       prefRow('epProduct', 'Product tips & announcements',
         'Occasional notes on new features. No spam, ever.', product) +
       '<div class="unsub-saving" id="unsubSaving"></div>';
+    showCard();
 
     const saving = document.getElementById('unsubSaving');
     let hideTimer = null;

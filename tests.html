@@ -1728,7 +1728,7 @@ group('exercise library');
 test('exerciseGroups: six groups in lift/accessory order', () => {
   const g = exerciseGroups();
   eq(g.length, 6, 'six distinct groups');
-  eq(g.join(','), 'squat,bench,deadlift,push,pull,legs');
+  eq(g.join(','), 'squat,bench,deadlift,push,pull,legs', 'exercises.html draws these chips in its own HTML for the first paint: a new group gets its chip there too');
 });
 test('exerciseGroupLabel: known + fallback', () => {
   eq(exerciseGroupLabel('squat'), 'Squat');

@@ -418,8 +418,11 @@ body.site .exlib-body { padding-bottom: var(--end); }
 body.site .exlib-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 12px; }
 body.site .exlib-chips { display: inline-flex; flex-wrap: wrap; gap: 8px; }
 body.site input.exlib-search { flex: 1 1 220px; min-width: 0; max-width: 320px; height: 40px; margin-left: auto; padding: 0 16px; border-radius: 999px; }
-body.site .exlib-count { margin: 0 0 24px; font: 550 15px/1.3 var(--font-body); font-variant-numeric: tabular-nums; color: var(--text-3); }
+body.site .exlib-count { min-height: 1.3em; margin: 0 0 24px; font: 550 15px/1.3 var(--font-body); font-variant-numeric: tabular-nums; color: var(--text-3); }   /* its one line is kept from the first paint */
 body.site .exlib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: var(--cg); align-items: start; }
+/* Until the script draws the cards (app.js is the page's last and largest file), the grid holds a screen's height, so
+   the note and the footer never show first and then drop away under the cards (layout shift 0.18 to 0.45). */
+body.site .exlib-grid:empty { min-height: 100vh; }
 body.site .exlib-card { padding: 24px 24px 10px; border: 0; border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); transform: none; }
 body.site .exlib-card-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 12px; margin-bottom: 4px; }
 body.site .exlib-name { font-family: var(--font-display); font-size: 22px; font-weight: 750; line-height: 1.18; letter-spacing: -0.018em; text-transform: none; font-stretch: 100%; color: var(--text); }
@@ -482,6 +485,9 @@ body.site :is(.reset-card, .unsub-card) { width: 100%; max-width: 440px; padding
 body.site :is(.reset-card, .unsub-card, .jn-card) h1 { margin: 0 0 10px; font-size: clamp(30px, 1rem + 1.6vw, 38px); line-height: 1.06; letter-spacing: -0.03em; text-transform: none; max-width: none; }
 body.site :is(.reset-sub, .unsub-sub) { margin: 0 0 24px; font-size: 16px; line-height: 1.55; color: var(--text-2); }
 body.site .reset-sub b { color: var(--text); font-weight: 650; word-break: break-all; }
+/* Until the card knows what it holds (the reset link read, the email link answered): one quiet line where it will
+   stand, then the card whole in its place, so nothing on screen moves as the page loads. */
+body.site :is(.reset-wait, .unsub-wait) { margin: 0; font-size: 16px; line-height: 1.55; color: var(--text-3); text-align: center; }
 body.site .reset-status { margin-top: 14px; padding: 12px 14px; border: 0; border-radius: 14px; font-size: 15px; line-height: 1.5; }
 body.site .reset-status.err { background: rgba(255, 143, 128, 0.1); color: var(--soft-alert); }
 body.site .reset-status.ok { background: rgba(52, 217, 130, 0.1); color: var(--up); }
@@ -524,7 +530,6 @@ body.site .unsub-result.err .ur-ic { background: rgba(255, 143, 128, 0.16); colo
 body.site .unsub-result .ur-title { display: block; margin-bottom: 3px; font-weight: 700; }
 body.site .unsub-result .ur-body { display: block; color: var(--text-2); }
 body.site .unsub-prefs-head { margin: 6px 0 2px; font-size: 14px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--text-3); }
-body.site .unsub-loading { padding: 4px 0 18px; font-size: 15px; color: var(--text-3); }
 body.site .unsub-saving { min-height: 20px; margin-top: 10px; font-size: 14px; color: var(--text-3); transition: opacity 0.2s; }
 body.site .email-pref-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin: 0; padding: 14px 0; border-bottom: 1px solid var(--hair); cursor: pointer; text-transform: none; letter-spacing: normal; }
 body.site .email-pref-row:last-of-type { border-bottom: 0; }
