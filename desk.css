@@ -93,6 +93,7 @@ html.desk:not([data-theme="light"]) body.powa-app {
   --dk-focus: rgba(243, 243, 245, 0.55);
   --dk-sq: #38c6ff; --dk-bp: #a98bff; --dk-dl: #ffbf3c;
   --dk-gold: #ffbf3c; --dk-alert: #ff6f7d; --dk-warn: #ff9f45; --dk-ok: #3fd99a; --dk-cool: #6cb8ff;
+  --dk-gold-edge: #ffbf3c;   /* gold as a hairline on a raised fill: never a gold tint, which reads brown */
   /* over what was written (RPE): amber, never the alert red. Half a point: an outline in --dk-over; a full point or more:
      solid --dk-over-fill with --dk-over-on on it. Pain keeps --dk-alert. */
   --dk-over: #ff9f45; --dk-over-fill: #ff9f45; --dk-over-edge: transparent; --dk-over-on: #1a1206;
@@ -128,6 +129,7 @@ html.desk[data-theme="light"] body.powa-app {
   --dk-focus: rgba(11, 11, 13, 0.5);
   --dk-sq: #19a9e6; --dk-bp: #8b6cf0; --dk-dl: #e5a51c;
   --dk-gold: #8a5a00; --dk-alert: #c4162a; --dk-warn: #b4410c; --dk-ok: #0f7d47; --dk-cool: #036f9c;
+  --dk-gold-edge: #d39b00;   /* the hairline in the bright gold; the deep --dk-gold stays for words and glyphs (4.5:1) */
   /* light: the text and outlines a deep amber (5.5:1 on white); a solid one a bright amber edged in it (the edge 5.2:1 on a
      band; a solid deep amber reads brown), its words in near-black ink (9:1) */
   --dk-over: #9a5a00; --dk-over-fill: #f5a524; --dk-over-edge: #9a5a00; --dk-over-on: #1a1206;
@@ -2794,6 +2796,14 @@ html.desk body.powa-app input.ds-lchip-in { flex: none; width: 64px; height: 28p
 /* a lifter carrying your loads: their ⋯ (where Reset to the team is) wears a small ink dot */
 .ds-lend .dk-icon-btn.has-own { position: relative; opacity: 1; }
 .ds-lend .dk-icon-btn.has-own::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--text-2); }
+
+/* ---------- one focus ring on Teams, Club and Settings (polish, 6 Nov) ----------
+   The desk's ring (--dk-focus, 2 px, 2 px out) on every control of the three screens. The app's own rules for a button, a
+   link and [tabindex] (styles.css) paint their ring in ink, and win over a desk class rule (the board's rows, reactions,
+   the challenge's buttons, Teams' tabs, rows and New team wore ink beside the grey of the desk's buttons); :where() keeps
+   this rule as plain as the screen's own exceptions. A control in a list that clips (overflow) rings inside itself. */
+html.desk body.powa-app :where(#deskTeams, section[data-pane="club"], #youArea) :where(button, a[href], [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
+html.desk body.powa-app :where(#deskTeams .dp-wks, .cb-side .chl-past-list) :where(button):focus-visible { outline-offset: -2px; }
 
 /* ---------- the push preview ---------- */
 .dk-modal.ds-pv { width: min(640px, 100%); max-height: calc(100vh - 2 * var(--s-6)); display: flex; flex-direction: column; }
