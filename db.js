@@ -36,7 +36,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Anything else is refused and its tokens leave the address bar: a link someone sent, or an email
 // confirmation (the email is confirmed by then and the person logs in, as the sign-up toast says;
 // signed out, the log-in opens). Nothing else in the app puts a session in a URL: the iPhone app signs
-// in with Apple / Google tokens (signInWithIdToken), its links carry invite codes only.
+// in with Apple's token (signInWithIdToken), and its Google sign-in (1.5) comes back from the system's
+// sign-in sheet to powalifta://auth-callback, which the sheet hands to the native plugin, never to this
+// page's address (social-auth.js then calls DB.setSession). Its links carry invite codes only.
 // Pure (test/url-session.test.cjs): o = { params, path, pending, now } → 'none' (no session in the
 // URL) | 'adopt' | 'recovery' (reset-password.html's own client takes it) | 'forward' (routeRecoveryLink
 // above is moving it there) | 'refuse'.
@@ -1494,6 +1496,29 @@ const DB = {
     if (provider === 'google') options.queryParams = { prompt: 'select_account' };   // several Google accounts: pick one
     const { data, error } = await sb.auth.signInWithOAuth({ provider, options });
     if (error) throw error;
+    return data;
+  },
+  // iPhone app (1.5), Google without Google's SDK: the same Supabase sign-in as the website, opened in the
+  // system's sign-in sheet (native PowaWebAuth, social-auth.js). This only builds the address: the WebView
+  // never leaves (skipBrowserRedirect), and no request is made. The sheet comes back to redirectTo
+  // (powalifta://auth-callback, which must be on Supabase's Redirect URLs: docs/social-sign-in-runbook.md)
+  // with the session in the hash, for setSession below.
+  async oauthSignInUrl(provider, redirectTo) {
+    const options = { redirectTo: redirectTo || 'powalifta://auth-callback', skipBrowserRedirect: true };
+    if (provider === 'google') options.queryParams = { prompt: 'select_account' };   // several Google accounts: pick one
+    const { data, error } = await sb.auth.signInWithOAuth({ provider, options });
+    if (error) throw error;
+    if (!data || !data.url) throw new Error('Sign-in could not start.');
+    return data.url;
+  },
+  // The session the sign-in sheet came back with. supabase-js checks the access token with the server
+  // (or refreshes it) before it saves it, so a made-up token opens nothing.
+  async setSession(tokens) {
+    const t = tokens || {};
+    if (!t.access_token || !t.refresh_token) throw new Error('Sign-in did not return a session.');
+    const { data, error } = await sb.auth.setSession({ access_token: t.access_token, refresh_token: t.refresh_token });
+    if (error) throw error;
+    if (!data || !data.session) throw new Error('Sign-in did not return a session.');
     return data;
   },
   // iPhone app: the native Apple / Google sheet hands back an identity token and Supabase

@@ -399,6 +399,10 @@ html.native .nw2-slide { place-items: center; padding: 86px 26px 24px; }
 .ob-sheet input.ob-input.ob-code { font-size: 24px; font-weight: 800; }
 .ob-sheet input.ob-input:focus { border-color: rgba(255, 255, 255, 0.55); box-shadow: none; }
 .ob-sheet .ob-fine a { color: #c9c9d2; }
+/* The Terms and Privacy Policy links in the 16+ line are words in a sentence, 15 pt tall: a taller tap
+   area for a finger (padding an inline box doesn't move its line), 29 pt. (6 Nov: uiscan on sign-up step 3,
+   where Continue with Google shows again in 1.5.) */
+.ob-sheet .ob-check-text a { padding: 7px 0; }
 
 /* Continue with Apple / Google inside the sheets (social-auth.js, 2026-10-25): the red button's
    size and corners, white Apple (Apple's dark-background style), graphite Google, equal weight.

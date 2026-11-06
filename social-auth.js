@@ -12,13 +12,20 @@
    and reset-password.html (db.js routeRecoveryLink) run exactly as before.
 
    IPHONE (html.native, the native-onboard.js sheets): native(provider, state, ui) opens the
-   system sheet through the Capacitor plugins — SignInWithApple, GoogleAuth — trades the
-   identity token for a Supabase session (DB.signInWithIdToken) and hands over to finish().
-   Apple is given the SHA-256 of a random nonce and Supabase the raw one, so a token can be
-   used only by the sign-in that asked for it. Google's access token rides along so Supabase
-   can check the id token's at_hash. The Google client id comes from social-sign-in.js, which
-   native/scripts/inject-social-sign-in.rb writes into the app bundle from
-   native/social-sign-in.json; without it the Google button says so instead of crashing.
+   system sheet and hands the Supabase session it ends with to finish().
+   - Apple: the SignInWithApple plugin's sheet (Face ID); its identity token is traded for a
+     session (DB.signInWithIdToken). Apple is given the SHA-256 of a random nonce and Supabase
+     the raw one, so a token can be used only by the sign-in that asked for it.
+   - Google (1.5): no Google SDK (1.4 dropped it: Apple's ITMS-91061). The website's own Supabase
+     sign-in opens in the system's sign-in sheet (PowaWebAuth, native/ios-native/App/
+     WebAuthPlugin.swift, ASWebAuthenticationSession): DB.oauthSignInUrl() builds the address,
+     the sheet comes back to powalifta://auth-callback#access_token=…&refresh_token=…
+     (parseCallbackUrl) and DB.setSession() opens the session, which Supabase checks. The name,
+     email and picture come from the account's metadata, as on the website's return.
+   - A build that still carries the GoogleAuth plugin (none shipped) signs in through it instead
+     when PowaWebAuth isn't there: the id token plus its access token (for the at_hash check),
+     with the client id from social-sign-in.js (written by native/scripts/inject-social-sign-in.rb).
+   The Google button shows in the app only when one of the two is in the build (googleInBuild).
 
    finish(): a returning account goes straight to its dashboard. A first-time account — no
    role on record: no user_type in its metadata, no server marker — is asked what the sign-up
@@ -28,9 +35,10 @@
    on athlete.html / coach.html like any sign-up. Apple sends the lifter's name only the first
    time: it is captured from the credential and saved with the profile.
 
-   Pure helpers (sha256Hex, roleRoute, isFirstTime, profileFromIdentity, parseReturnHash, the
-   pending state) are unit-tested in tests.html ("social sign-in"). Browser proof with the
-   providers mocked: test/social-sign-in.browser.mjs. Owner setup: docs/social-sign-in-runbook.md.
+   Pure helpers (sha256Hex, roleRoute, isFirstTime, profileFromIdentity, parseReturnHash,
+   parseCallbackUrl, the pending state, googleInBuild) are unit-tested in tests.html ("social
+   sign-in"). Browser proof with the providers mocked: test/social-sign-in.browser.mjs. Owner
+   setup: docs/social-sign-in-runbook.md.
    Demo mode never reaches this file (the dashboards carry no sign-in buttons) and nothing
    here writes anywhere until a button is tapped or a sign-in returns.
    ===================================================================== */
@@ -43,6 +51,9 @@
   var APPLE_RELAY = /@privaterelay\.appleid\.com$/i;
   var WEBSITE = 'https://www.powalifta.com/';
   var BUNDLE_ID = 'com.powalifta.app';
+  // Where the app's sign-in sheet comes back to (Google, 1.5). On Supabase's Redirect URLs list.
+  var APP_SCHEME = 'powalifta';
+  var APP_CALLBACK = APP_SCHEME + '://auth-callback';
 
   // Apple's mark (their button rules: the logo beside "Continue with Apple", on black or
   // white) and Google's four-colour G (their rules: the G on a neutral button).
@@ -194,6 +205,35 @@
       recovery: p.get('type') === 'recovery'
     };
   }
+  // The address the app's sign-in sheet came back to (Google, 1.5): powalifta://auth-callback with the
+  // session in the hash (#access_token=…&refresh_token=…), or an error, which Supabase puts in the hash
+  // and the query. Split by hand: custom-scheme URLs parse differently from engine to engine. Anything
+  // that isn't `expected` (APP_CALLBACK by default) is foreign and carries nothing.
+  //   → { ok, accessToken, refreshToken, error, code, foreign }
+  function parseCallbackUrl(url, expected) {
+    var s = String(url == null ? '' : url).trim();
+    var want = String(expected || APP_CALLBACK).replace(/\/+$/, '').toLowerCase();
+    var out = { ok: false, accessToken: null, refreshToken: null, error: null, code: null, foreign: false };
+    var at = s.search(/[?#]/);
+    var base = (at < 0 ? s : s.slice(0, at)).replace(/\/+$/, '').toLowerCase();
+    if (!s || base !== want) { out.foreign = true; return out; }
+    var hashAt = s.indexOf('#');
+    var hash = hashAt < 0 ? '' : s.slice(hashAt + 1);
+    var beforeHash = hashAt < 0 ? s : s.slice(0, hashAt);
+    var qAt = beforeHash.indexOf('?');
+    var h = new URLSearchParams(hash), q = new URLSearchParams(qAt < 0 ? '' : beforeHash.slice(qAt + 1));
+    var pick = function (k) { return h.get(k) || q.get(k) || ''; };
+    var err = pick('error_description') || pick('error');
+    if (err) {
+      out.error = String(err).trim();
+      out.code = pick('error_code') || pick('error') || null;   // access_denied when the person said no at Google
+      return out;
+    }
+    out.accessToken = h.get('access_token') || null;
+    out.refreshToken = h.get('refresh_token') || null;
+    out.ok = !!(out.accessToken && out.refreshToken);
+    return out;
+  }
   function encodePending(state, now) {
     return JSON.stringify(Object.assign({}, state || {}, { v: 1, at: now || Date.now() }));
   }
@@ -225,6 +265,8 @@
   function friendlyError(e) {
     var m = String((e && e.message) || e || '');
     if (isCancel(e)) return '';
+    // The system sign-in sheet's own errors (Google in the app, 1.5) are not Apple's sign-in.
+    if (/WebAuthenticationSession/.test(m)) return 'Sign-in didn\'t finish. Try again, or use email.';
     if (/nonce/i.test(m)) return 'Apple sign-in didn\'t check out. Try again.';
     // Apple's own errors in plain words (AuthorizationError 1000 = no Apple Account on this iPhone, 1004 = it failed).
     if (/AuthorizationError error 1000\b/.test(m) || (e && (e.code === 1000 || e.code === '1000'))) return 'Sign in to your Apple Account in Settings to use Apple here, or use email.';
@@ -336,6 +378,48 @@
       (document.head || document.documentElement).appendChild(s);
     } catch (e) {}
   }
+  // The system sign-in sheet plugin (iPhone 1.5, inject-web-auth.rb), or null when this build hasn't it.
+  function webAuthPlugin() {
+    var C = window.Capacitor;
+    if (!C) return null;
+    if (typeof C.isPluginAvailable === 'function' && !C.isPluginAvailable('PowaWebAuth')) return null;
+    var p = plugin('PowaWebAuth');
+    return (p && typeof p.start === 'function') ? p : null;
+  }
+  function googleWebError(detail) {
+    if (detail) { try { console.warn('POWALIFTA Google sign-in:', detail); } catch (e) {} }   // the reason, for Safari's Web Inspector
+    var e = new Error('Google sign-in didn\'t finish. Try again, or use email.');
+    e.code = 'google_web';
+    return e;
+  }
+  // Google without Google's SDK: Supabase's web sign-in in the system sheet, back with a session.
+  async function startGoogleWeb(W) {
+    var url = await DB.oauthSignInUrl('google', APP_CALLBACK);
+    var res;
+    try { res = await W.start({ url: url, callbackScheme: APP_SCHEME }); }
+    catch (e) { if (isCancel(e)) throw e; throw googleWebError((e && e.message) || String(e)); }
+    if (res && res.cancelled) { var c = new Error('Google sign-in was cancelled.'); c.code = 'cancelled'; throw c; }
+    var back = parseCallbackUrl(res && res.url);
+    // Saying no at Google comes back as access_denied: as quiet as closing the sheet.
+    if (back.error) {
+      if (isCancel({ message: back.code }) || isCancel({ message: back.error })) { var d = new Error('Google sign-in was cancelled.'); d.code = 'cancelled'; throw d; }
+      throw googleWebError(back.error + (back.code ? ' (' + back.code + ')' : ''));
+    }
+    if (!back.ok) throw googleWebError(back.foreign ? 'came back somewhere else' : 'no session in the return');
+    var data;
+    try { data = await DB.setSession({ access_token: back.accessToken, refresh_token: back.refreshToken }); }
+    catch (e) {
+      // Offline says so (friendlyError); a session Supabase refused is this sign-in not finishing.
+      if ((e && e.transient) || /failed to fetch|network|load failed|timed? ?out/i.test(String((e && e.message) || e))) throw e;
+      throw googleWebError((e && e.message) || String(e));
+    }
+    var user = (data && (data.user || (data.session && data.session.user))) || null;
+    var who = profileFromIdentity(user, { provider: 'google' });
+    return {
+      session: data.session,
+      identity: { provider: 'google', name: who.name, email: who.email, avatarUrl: who.avatarUrl || '' }
+    };
+  }
   async function startNative(provider) {
     if (provider === 'apple') {
       var A = plugin('SignInWithApple');
@@ -350,6 +434,8 @@
         identity: { provider: 'apple', name: cleanName([r.givenName, r.familyName].filter(Boolean).join(' ')), email: String(r.email || '').toLowerCase() }
       };
     }
+    var W = webAuthPlugin();
+    if (W) return startGoogleWeb(W);
     var G = plugin('GoogleAuth');
     if (!G || typeof G.signIn !== 'function') throw new Error('Google sign-in isn\'t in this build yet. Update the app or use email for now.');
     var cfg = nativeGoogleConfig();
@@ -513,11 +599,13 @@
   // ------------------------------------------------------------------
   // The two buttons (website modals via mount(); the native sheets build their own row)
   // ------------------------------------------------------------------
-  // Inside the iPhone app Google shows only when its plugin is in the build: iPhone 1.4 ships without
-  // Google's SDK (Apple wants its privacy manifest, which declares data the app doesn't collect), so the
-  // app offers Apple and email. The website keeps both.
+  // Inside the iPhone app Google shows only when the build can sign in with it: iPhone 1.4 ships without
+  // Google's SDK (Apple wants its privacy manifest, which declares data the app doesn't collect), so it
+  // offers Apple and email; 1.5 brings Google back through the system sign-in sheet (PowaWebAuth). The
+  // website keeps both.
   function googleInBuild() {
     if (!isNativeShell()) return true;
+    if (webAuthPlugin()) return true;
     var C = window.Capacitor;
     if (C && typeof C.isPluginAvailable === 'function') return !!C.isPluginAvailable('GoogleAuth');
     return !!plugin('GoogleAuth');
@@ -564,16 +652,16 @@
     // pure
     sha256Hex: sha256Hex, utf8Bytes: utf8Bytes, randomHex: randomHex, makeNonce: makeNonce,
     normalizeRole: normalizeRole, userTypeOf: userTypeOf, roleRoute: roleRoute, knownUserType: knownUserType, isFirstTime: isFirstTime,
-    cleanName: cleanName, profileFromIdentity: profileFromIdentity, parseReturnHash: parseReturnHash,
+    cleanName: cleanName, profileFromIdentity: profileFromIdentity, parseReturnHash: parseReturnHash, parseCallbackUrl: parseCallbackUrl,
     encodePending: encodePending, decodePending: decodePending, redirectTarget: redirectTarget, consentNow: consentNow,
-    isCancel: isCancel, friendlyError: friendlyError,
+    isCancel: isCancel, friendlyError: friendlyError, googleInBuild: googleInBuild,
     // state
     savePending: savePending, loadPending: loadPending, clearPending: clearPending,
     // flows
     start: start, startWeb: startWeb, handleReturn: handleReturn, startNative: startNative, native: native, finish: finish,
     // ui
     buttonRow: buttonRow, setBusy: setBusy, mount: mount, webAskRole: webAskRole,
-    ICONS: ICONS, PROVIDERS: PROVIDERS, PENDING_KEY: PENDING_KEY, PENDING_TTL_MS: PENDING_TTL_MS
+    ICONS: ICONS, PROVIDERS: PROVIDERS, PENDING_KEY: PENDING_KEY, PENDING_TTL_MS: PENDING_TTL_MS, APP_CALLBACK: APP_CALLBACK
   });
   loadNativeConfig();
 })();
