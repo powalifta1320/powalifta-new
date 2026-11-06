@@ -2060,9 +2060,11 @@ html:not(.desk) .cap-head .cl-h1 { font-size: 32px; line-height: 1.08; text-wrap
 .cap-root.is-desk .cap-gh { margin-top: 0; }
 @media (max-width: 1180px) { .cap-dgrid, .cap-root.is-desk .cap-hero { grid-template-columns: minmax(0, 1fr); } }
 html.desk .cap-root .ui-stepper.cap-step .st-btn { width: 40px; height: 40px; }
-/* The laptop: the desk's card material (no hue wash), its number size (40) and 16 for body. */
+/* The laptop: the desk's card material (no hue wash), its number size (40) and the desk's 15 for body and row titles, as
+   Settings' own rows are (Plan & seats on one scale: the 40 number, 28 the title, 20 the sections, 15, 13). */
 html.desk .cap-root .cap-hero { background-color: var(--dk-card); background-image: var(--dk-card-sheen); border-color: var(--dk-card-edge); box-shadow: var(--dk-card-lit); }
 html.desk .cap-root .cap-big b { font-size: 40px; }
+html.desk .cap-root.is-desk :is(.cap-per, .cap-say, .cap-rt, .cap-tl, .cap-stx) { font-size: var(--fs-3, 15px); }
 @media (prefers-reduced-motion: reduce) { .cap-bar i, .cap-edit { transition: none; } .cap-edit:active { transform: none; } }
 
 /* ==================== Busy weeks on the coach side (busy-week.js, 2026-10-28) ====================
