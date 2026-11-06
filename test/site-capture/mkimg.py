@@ -63,18 +63,20 @@ if 'phone' in what:
     save(Image.open(CAP + 'phone-logged.png'), 'lifter-logged', [590, 786, 1179])
 
 # --- Arjun's thread (cap-thread.mjs, 3x): the screen after the reply with the reply and the receipt painted out, then
-# the reply, "Seen" and the earlier "Sent" as their own layers.
+# the reply, "Seen" and the earlier "Sent" as their own layers. "Sent" is shown where "Seen" is (home.css .tl-sent), so
+# its cut starts as far above its words as Seen's does (1.1 pt: Sent 586.1, Seen 467.1). thread2-*: new names with the
+# taller bubbles (6 Nov: each 1.6 pt taller, the list 1.8 to 5.8 pt higher), so a cached picture never meets new cuts.
 if 'thread' in what:
     k = 3
     aft = Image.open(CAP + 'thread-after.png').convert('RGB'); bef = Image.open(CAP + 'thread-before.png').convert('RGB')
     bg = aft.getpixel((int(380 * k), int(640 * k)))
-    rep = (0, 494, 393, 610); seen = (280, 466, 380, 492); sent = (280, 583, 380, 609)
+    rep = (0, 494, 393, 610); seen = (280, 466, 380, 492); sent = (280, 585, 380, 611)
     base = aft.copy()
     base.paste(bg, (rep[0] * k, rep[1] * k, rep[2] * k, rep[3] * k)); base.paste(bg, (seen[0] * k, seen[1] * k, seen[2] * k, seen[3] * k))
-    save(base, 'thread', [786, 1179])
-    one(aft.crop(tuple(v * k for v in rep)), 'thread-reply')
-    one(aft.crop(tuple(v * k for v in seen)), 'thread-seen')
-    one(bef.crop(tuple(v * k for v in sent)), 'thread-sent')
+    save(base, 'thread2', [786, 1179])
+    one(aft.crop(tuple(v * k for v in rep)), 'thread2-reply')
+    one(aft.crop(tuple(v * k for v in seen)), 'thread2-seen')
+    one(bef.crop(tuple(v * k for v in sent)), 'thread2-sent')
 
 # --- The lifter app wearing the coach's branding (cap-brand.mjs, 3x): its top 520 pt.
 if 'brand' in what:

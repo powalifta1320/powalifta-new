@@ -365,10 +365,10 @@ html.m .tl-sent { display: block; }
 html.m .tl-patch { display: block; position: absolute; z-index: 1; background: #050505; pointer-events: none; }
 html.m .tl-bub { display: block; position: absolute; z-index: 2; inset: 0; pointer-events: none; }
 html.m .tl-bub img { width: 100%; aspect-ratio: 393 / 852; }
-.tl-p-note { left: calc(17 / 393 * 100%); top: calc(175 / 852 * 100%); width: calc(309 / 393 * 100%); height: calc(108 / 852 * 100%); }
-.tl-p-set { left: calc(130 / 393 * 100%); top: calc(295 / 852 * 100%); width: calc(246 / 393 * 100%); height: calc(171 / 852 * 100%); }
-.tl-note { clip-path: inset(calc(176 / 852 * 100%) calc(68.3 / 393 * 100%) calc(570.7 / 852 * 100%) calc(18 / 393 * 100%) round calc(var(--pw) * 12 / 393)); }
-.tl-set { clip-path: inset(calc(296 / 852 * 100%) calc(18.3 / 393 * 100%) calc(387.3 / 852 * 100%) calc(131 / 393 * 100%) round calc(var(--pw) * 12 / 393)); }
+.tl-p-note { left: calc(17 / 393 * 100%); top: calc(169.2 / 852 * 100%); width: calc(309 / 393 * 100%); height: calc(109.6 / 852 * 100%); }
+.tl-p-set { left: calc(130 / 393 * 100%); top: calc(290.7 / 852 * 100%); width: calc(246 / 393 * 100%); height: calc(172.6 / 852 * 100%); }
+.tl-note { clip-path: inset(calc(170.2 / 852 * 100%) calc(68.3 / 393 * 100%) calc(574.9 / 852 * 100%) calc(18 / 393 * 100%) round calc(var(--pw) * 12 / 393)); }
+.tl-set { clip-path: inset(calc(291.7 / 852 * 100%) calc(18.3 / 393 * 100%) calc(390 / 852 * 100%) calc(131 / 393 * 100%) round calc(var(--pw) * 12 / 393)); }
 .tl { z-index: 3; }
 
 /* =====================================================================
@@ -690,7 +690,9 @@ details.q:not([open]) > .qa { display: none; }   /* closed: not laid out either 
    it carries the deeper shadow of something held above the phone. */
 .fly { position: fixed; z-index: 30; left: 0; top: 0; width: 268px; pointer-events: none; display: none; will-change: transform, opacity; }
 html.m .fly { display: block; visibility: hidden; }
-.fy { --lc: var(--sq); display: block; padding: 12px 12px 11px; border-radius: 14px; background: color-mix(in srgb, var(--lc) 13%, #121216); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) 28%, transparent); color: #f4f4f6; text-align: left; }
+/* The set card in flight: the app's message card (6 Nov: neutral, its lift's hairline at the lift's own strength, RPE in ink;
+   the light theme's pale tint stays, as in the app). */
+.fy { --lc: var(--sq); display: block; padding: 12px 12px 11px; border-radius: 14px; background: #121216; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) 72%, transparent); color: #f4f4f6; text-align: left; }
 .fy > span { display: block; }
 .fy-k { font-size: 13px; font-weight: 650; color: var(--c-gold); }
 .fy .fy-t { display: flex; align-items: center; gap: 8px; margin-top: 2px; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
@@ -698,8 +700,8 @@ html.m .fly { display: block; visibility: hidden; }
 .fy-n b { font-size: 26px; font-weight: 750; letter-spacing: -0.02em; line-height: 1; }
 .fy-n small { font-size: 13px; font-weight: 600; color: #c8c8d0; }
 .fy-n em { font-style: normal; color: #c8c8d0; margin: 0 4px; }
-.fy-rpe { align-self: center; margin-left: 8px; padding: 4px 9px; border-radius: 999px; background: rgba(207, 203, 76, 0.16); color: #e2de6c; font-family: var(--font-body); font-size: 13px; font-weight: 700; }
-.fy-fly { background: color-mix(in srgb, var(--sq) 14%, #101012); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sq) 32%, transparent), 0 30px 60px -20px rgba(0, 0, 0, 0.85), 0 8px 18px -6px rgba(0, 0, 0, 0.5); }
+.fy-rpe { align-self: center; margin-left: 8px; padding: 4px 9px; border-radius: 999px; background: #232327; color: #f4f4f6; font-family: var(--font-body); font-size: 13px; font-weight: 700; }
+.fy-fly { background: #101012; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sq) 72%, transparent), 0 30px 60px -20px rgba(0, 0, 0, 0.85), 0 8px 18px -6px rgba(0, 0, 0, 0.5); }
 
 /* ---------- The arrival (motion only, CSS from the first paint, so nothing waits on a script): the headline rises word
    by word, the two lines follow, Start free settles, then the laptop and the phone ease up 24 px. Text rises 12 px with
@@ -1062,7 +1064,7 @@ body.home .foot { padding: 48px 0 32px; }
   /* For lifters: the PR moment's number and jump in the light app's own type (cap-lifter's lifter-geo.json, THEME=light). */
   html:not(.native) .s-home .lifter, html:not(.native) .s-home .solo, html:not(.native) .s-home .moving, html:not(.native) .s-home .teaser { box-shadow: inset 0 1px 0 rgba(11, 11, 13, 0.07); }
   html:not(.native) .lf-n { color: #16161a; }
-  html:not(.native) .lf-d { background: rgba(26, 127, 75, 0.1); color: #1a7f4b; }
+  html:not(.native) .lf-d { background: rgba(26, 127, 75, 0.1); color: #146c3f; }   /* the app's light green since its 4.5:1 pass (4 Nov) */
 
   /* Moving over and the money: the import sheet's white; the month's patches the light card's own ground and paid bar. */
   html:not(.native) .sheet-crop { background: #ffffff; }
@@ -1090,7 +1092,7 @@ body.home .foot { padding: 48px 0 32px; }
   /* The set in flight: the light app's set card, tinted by its lift. */
   html:not(.native) .fy { background: color-mix(in srgb, var(--lc) 8%, #ffffff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) 30%, transparent); color: #16161a; }
   html:not(.native) .fy-n small, html:not(.native) .fy-n em { color: #5d5d67; }
-  html:not(.native) .fy-rpe { background: rgba(207, 203, 76, 0.2); color: #6c6a28; }
+  html:not(.native) .fy-rpe { background: #f0f0f3; color: #16161a; }
   html:not(.native) .fy-fly { background: color-mix(in srgb, var(--sq) 9%, #ffffff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sq) 34%, transparent), 0 30px 60px -24px rgba(15, 15, 25, 0.3), 0 8px 18px -8px rgba(15, 15, 25, 0.14); }
 
   /* One crimson per screen: an action that steps back steps back to ink. */

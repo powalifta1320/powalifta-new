@@ -1,4 +1,4 @@
-// -> thread-before.png, thread-after.png: site-img/home/thread-*, thread-reply, thread-seen, thread-sent (mkimg.py thread).
+// -> thread-before.png, thread-after.png: site-img/home/thread2-*, thread2-reply, thread2-seen, thread2-sent (mkimg.py thread).
 // Arjun's thread with his coach (the real lifter app, Coach tab, iPhone app layout, dark (THEME=light for a light version), 393x852 at 3x):
 // his top set sent as a card at 10:42, then (after) "Seen · 10:43" and Sam's reply at 10:44.
 import { writeFileSync } from 'node:fs';
