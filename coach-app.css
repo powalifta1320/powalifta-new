@@ -707,23 +707,25 @@ html:not(.desk) body.powa-app .ca-search input { flex: 1; min-width: 0; height: 
 html:not(.desk) .ca-search input::placeholder { color: var(--text-3); }
 html:not(.desk) .ca-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
 /* the filters: four counts you tap, Reminders-style (they fit a 375 pt screen, chips didn't) */
-html:not(.desk) .ca-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; margin: 0 0 16px; padding: 3px; border-radius: 16px; background: var(--pl-inset); }
+html:not(.desk) .ca-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; margin: 0 0 16px; padding: 3px; border-radius: 16px; background: var(--seg-track); }
 html:not(.desk) .ca-seg-b {
   display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; min-height: 56px; padding: 7px 2px 8px; border: 0; border-radius: 13px; background: none; cursor: pointer;
   transition: background-color 180ms ease-out, box-shadow 180ms ease-out, transform var(--pl-d-press) var(--pl-spring);
 }
 html:not(.desk) .ca-seg-b b { font-family: var(--font-num); font-stretch: 108%; font-size: 20px; font-weight: 800; line-height: 1.15; color: var(--text-2); font-variant-numeric: tabular-nums; }
-html:not(.desk) .ca-seg-b span { max-width: 100%; font-size: 13px; font-weight: 600; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html:not(.desk) .ca-seg-b.on { background: var(--pl-raise); box-shadow: var(--pl-raise-shade); }
-html:not(.desk) .ca-seg-b.on b { color: var(--text); }
-html:not(.desk) .ca-seg-b.on span { color: var(--text); }
+html:not(.desk) .ca-seg-b span { max-width: 100%; font-size: 13px; font-weight: 600; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html:not(.desk) .ca-seg-b.on { background: var(--seg-key); box-shadow: var(--seg-key-shade); }
+html:not(.desk) .ca-seg-b.on b { color: var(--seg-key-ink); }
+html:not(.desk) .ca-seg-b.on span { color: var(--seg-key-ink-2); }
 html:not(.desk) .ca-seg-b:active { transform: scale(0.97); transition-duration: 90ms; }
 html:not(.desk) .ca-seg-b:disabled { cursor: default; }
 html:not(.desk) .ca-seg-b:disabled b { color: var(--text-3); opacity: 0.6; }
-html:not(.desk) .ca-seg.is-hero { padding: 4px; border-radius: 20px; gap: 4px; background: var(--ca-card); border: 1px solid var(--ca-edge); box-shadow: var(--pl-lip); }
+/* the hero size of the one segmented control (6 Nov: it was a bordered card with a faint 7.5% thumb): the track and
+   the key the app's others wear, bigger */
+html:not(.desk) .ca-seg.is-hero { padding: 4px; border-radius: 20px; gap: 4px; background: var(--seg-track); border: 0; box-shadow: none; }
 html:not(.desk) .ca-seg.is-hero .ca-seg-b { min-height: 64px; border-radius: 16px; padding: 9px 2px 10px; }
 html:not(.desk) .ca-seg.is-hero .ca-seg-b b { font-size: 22px; }
-html:not(.desk) .ca-seg.is-hero .ca-seg-b.on { background: var(--pl-inset-2); box-shadow: none; }
+html:not(.desk) .ca-seg.is-hero .ca-seg-b.on { background: var(--seg-key); box-shadow: var(--seg-key-shade); }
 html:not(.desk) .ca-seg.is-hero + .ca-search { margin-top: 4px; }
 html:not(.desk) .ca-chips { display: flex; gap: 8px; margin: 0 -16px 16px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; }
 html:not(.desk) .ca-chips::-webkit-scrollbar { display: none; }
@@ -780,7 +782,7 @@ html:not(.desk) .ca-seg.has-thumb .ca-seg-b { position: relative; z-index: 1; }
 html:not(.desk) .ca-seg.has-thumb .ca-seg-b.on { background: none; box-shadow: none; }
 html:not(.desk) .ca-seg-thumb {
   position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 20px) / 4); border-radius: 16px;
-  background: var(--pl-inset-2); transform: translate3d(calc(var(--k, 0) * (100% + 4px)), 0, 0);
+  background: var(--seg-key); box-shadow: var(--seg-key-shade); transform: translate3d(calc(var(--k, 0) * (100% + 4px)), 0, 0);
   transition: transform var(--pl-d-press) var(--pl-spring);
 }
 @media (prefers-reduced-motion: reduce) { html:not(.desk) .ca-seg-thumb { transition: none; } }
@@ -1183,10 +1185,10 @@ html:not(.desk) body.powa-app .md-board-root .md-odds.is-reach::before { content
 
 /* the flight: chips like the app's (the chosen one raised graphite, not inverted), heads and names on the scale, a
    good lift an ink number on its green, a no lift its number struck through in ink */
-html:not(.desk) body.powa-app .md-board-root .md-flight { font-size: 15px; }
+html:not(.desk) body.powa-app .md-board-root .md-flight { font-size: 15px; background: var(--seg-track); }
 html:not(.desk) body.powa-app .md-board-root .md-flight small { font-size: 13px; }
-html:not(.desk) body.powa-app .md-board-root .md-flight.on { background: var(--pl-raise); color: var(--text); box-shadow: var(--pl-raise-shade); }
-html:not(.desk) body.powa-app .md-board-root .md-flight.on small { color: var(--text-2); }
+html:not(.desk) body.powa-app .md-board-root .md-flight.on { background: var(--seg-key); color: var(--seg-key-ink); box-shadow: var(--seg-key-shade); }
+html:not(.desk) body.powa-app .md-board-root .md-flight.on small { color: var(--seg-key-ink-2); }
 html:not(.desk) body.powa-app .md-board-root :is(.md-table th, .md-name small, .md-legend) { font-size: 13px; }
 html:not(.desk) body.powa-app .md-board-root .md-cell.is-good .md-cell-kg { color: var(--text); }
 html:not(.desk) body.powa-app .md-board-root .md-cell.is-no .md-cell-kg { color: var(--text-2); box-shadow: none; text-decoration-color: var(--text-2); }
@@ -1264,10 +1266,10 @@ html:not(.desk) .cp-wkwhen { font-size: 15px; color: var(--text-3); }
 html:not(.desk) .cp-wkwhen.is-now { color: var(--acc); font-weight: 600; }
 html[data-theme="light"]:not(.desk) .cp-wkwhen.is-now { color: color-mix(in srgb, var(--acc) 58%, #000); }
 html:not(.desk) .cp-segwrap { position: relative; }
-html:not(.desk) .cp-days { display: flex; gap: 2px; padding: 2px; border-radius: 14px; background: var(--pl-inset); }
+html:not(.desk) .cp-days { display: flex; gap: 2px; padding: 2px; border-radius: 14px; background: var(--seg-track); }
 html:not(.desk) .cp-day { position: relative; flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 6px; border: 0; border-radius: 12px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; letter-spacing: -0.005em; white-space: nowrap; cursor: pointer; transition: background-color 200ms ease-out, color 200ms ease-out, box-shadow 200ms ease-out; }
 html:not(.desk) .cp-day span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-html:not(.desk) .cp-day.on { background: var(--pl-raise); color: var(--text) !important; box-shadow: var(--pl-raise-shade); }
+html:not(.desk) .cp-day.on { background: var(--seg-key); color: var(--seg-key-ink) !important; box-shadow: var(--seg-key-shade); }
 html:not(.desk) .cp-day.is-rest:not(.on) { color: var(--text-3) !important; }
 html:not(.desk) .cp-day-add { flex: 0 0 44px; padding: 0; color: var(--text-3) !important; }
 html:not(.desk) .cp-day-add svg { width: 18px; height: 18px; }
@@ -1382,9 +1384,9 @@ html:not(.desk) .cp-ed-note { margin: 10px 0 0; font-size: 13px; line-height: 1.
 html:not(.desk) .cp-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
 @media (prefers-reduced-motion: reduce) { html:not(.desk) .cp-blkmore svg { transition: none; } }
 html:not(.desk) .cp-tg-l { display: block; margin: 0 2px 6px; font-size: 13px; font-weight: 600; color: var(--text-3); }
-html:not(.desk) .cp-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 2px; border-radius: 12px; background: var(--pl-inset); }
+html:not(.desk) .cp-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 2px; border-radius: 12px; background: var(--seg-track); }
 html:not(.desk) .cp-seg button { min-height: 36px; padding: 0 6px; border: 0; border-radius: 10px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 200ms ease-out, color 200ms ease-out, box-shadow 200ms ease-out; }
-html:not(.desk) .cp-seg button.on { background: var(--pl-raise); color: var(--text) !important; box-shadow: var(--pl-raise-shade); }
+html:not(.desk) .cp-seg button.on { background: var(--seg-key); color: var(--seg-key-ink) !important; box-shadow: var(--seg-key-shade); }
 html:not(.desk) .cp-blk { margin-top: 16px; padding: 12px 14px 16px; border-radius: 16px; background: var(--pl-inset); }
 html:not(.desk) .cp-blk.is-top {
   --pfl: #c9ced6;
@@ -2091,9 +2093,9 @@ html:not(.desk) body.powa-app #clubArea .club-buddy .btn::after { content: ''; p
 html:not(.desk) body.powa-app #clubArea .club-buddy .btn:disabled { color: var(--text-3); }
 
 /* -- Feed | Board, and the board's four: the app's segmented control */
-html:not(.desk) body.powa-app #clubArea .ui-seg:is(.club-view-seg, .club-rank-seg) { margin-top: 20px; padding: 3px; border-radius: 12px; background: var(--pl-inset); }
+html:not(.desk) body.powa-app #clubArea .ui-seg:is(.club-view-seg, .club-rank-seg) { margin-top: 20px; padding: 3px; border-radius: 12px; background: var(--seg-track); }
 html:not(.desk) body.powa-app #clubArea .ui-seg:is(.club-view-seg, .club-rank-seg) button { min-height: 38px; border-radius: 9px; color: var(--text-2); font-size: 15px; font-weight: 600; }
-html:not(.desk) body.powa-app #clubArea .ui-seg:is(.club-view-seg, .club-rank-seg) button.on { background: var(--pl-raise); color: var(--text); box-shadow: var(--pl-raise-shade); }
+html:not(.desk) body.powa-app #clubArea .ui-seg:is(.club-view-seg, .club-rank-seg) button.on { background: var(--seg-key); color: var(--seg-key-ink); box-shadow: var(--seg-key-shade); }
 html:not(.desk) body.powa-app #clubArea .ui-seg.club-rank-seg { margin-top: 16px; }
 html:not(.desk) body.powa-app #clubArea .ui-seg.club-rank-seg button { font-size: 13px; }
 

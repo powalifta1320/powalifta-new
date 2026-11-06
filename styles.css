@@ -13271,3 +13271,37 @@ html[data-theme="light"]:not(.desk) body.powa-app:not(#_) :is(.btn-primary, .ca-
       the raised neutral fill with the RPE colour as its text. The coach's thread keeps its plain words (coach-app.css). */
 html:not([data-theme="light"]):not(.desk) body.powa-app .mc-rpe { background: #232327; }
 html[data-theme="light"]:not(.desk) body.powa-app .mc-rpe { background: #f0f0f3; }
+
+/* ======================================================================================================== THE PHONE'S TOKENS (6 Nov)
+   One segmented control and the laptop's amber, for both phone apps (the lifter app everywhere, the coach's phone;
+   html.desk keeps its own). The segmented control is the iOS one: a recessed grey track, the picked segment a raised
+   key (a light grey key with its drop shadow on the dark theme, a white key with a hairline shadow on the light), its
+   label full ink, the others text-2. "Over what was written" is the laptop's amber (desk.css --dk-over*): half a point
+   an outline in --over, a point or more solid --over-fill (with --over-edge) under --over-on. The raised neutral fill
+   is what a warm hue sits on instead of its own dark tint (no brown). */
+html:not(.desk) body.powa-app {
+  --seg-track: rgba(118, 118, 128, 0.2);
+  --seg-key: #5a5a60;
+  --seg-key-ink: #fff;
+  --seg-key-ink-2: rgba(255, 255, 255, 0.78);
+  --seg-key-shade: 0 3px 8px rgba(0, 0, 0, 0.32), 0 1px 1px rgba(0, 0, 0, 0.2);
+  --over: #ff9f45; --over-fill: #ff9f45; --over-edge: transparent; --over-on: #1a1206;
+  --np-raise: rgba(255, 255, 255, 0.07);
+}
+html[data-theme="light"]:not(.desk) body.powa-app {
+  --seg-track: rgba(118, 118, 128, 0.12);
+  --seg-key: #fff;
+  --seg-key-ink: var(--text);
+  --seg-key-ink-2: var(--text-2);
+  --seg-key-shade: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(0, 0, 0, 0.04);
+  --over: #9a5a00; --over-fill: #f5a524; --over-edge: #9a5a00; --over-on: #1a1206;
+  --np-raise: rgba(15, 15, 25, 0.05);
+}
+
+/* ======================================================================================================== ONE SEGMENTED CONTROL (6 Nov)
+   The dark theme had three picked looks: the iOS light key (Progress, the lifter's Club, Feedback, Results cards,
+   Notifications), a dark #1f1f23 pill (Ask in both apps, a client's Status, the coach's Club, Clients' filters,
+   Programs' days and toggles, the meet board's flights) and a faint 7.5% thumb in a bordered card (the coach's
+   Lifters). They are all the iOS key now (the light theme already was), sized for their place. The coach phone's own
+   ones are drawn in coach-app.css / coach-ui.css with these tokens, Ask's in ai-chat.css. */
+
