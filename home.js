@@ -847,6 +847,11 @@
   /* Every trigger refreshes in page order; the page map is re-read after each refresh. The boot ends two frames after
      the first refresh: from then on every moment plays as its block arrives. */
   ST.addEventListener('refresh', function () { S.setY = setStart(); measurePage(); paintNav(); paintReds(); });
+  /* A fromTo writes its start values at the end of GSAP's tick. On a phone nothing renders between the last of them and
+     this first refresh, which reverts the scrubbed timelines (the set's flight) and took the waiting start values with
+     them: Sam's reply sat in the thread before it arrived, and every entrance after it showed before its turn. One
+     render first writes them (on a laptop the opening's depth timeline already does). */
+  gsap.to({}, { duration: 1, paused: true }).progress(1).kill();
   ST.sort(); ST.refresh();
   requestAnimationFrame(function () { requestAnimationFrame(function () { booting = false; window.__fxReady = true; }); });
   function refresh() { fitFw(); ST.sort(); ST.refresh(); }
