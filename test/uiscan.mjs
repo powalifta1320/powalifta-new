@@ -44,6 +44,10 @@ const PULL_HOLD = "(async () => { await new Promise(r => setTimeout(r, 900)); co
 // Programs (coach-builder-v2): the builder's parts held to 44 pt (the header's ⋯ and the top bar's buttons with them), and
 // Arjun's week 1 grown by n days before the rest day (five days: numbered segments; seven: the row scrolls).
 const T44P = '.cp, section[data-pane="program"] > .dash-header, .nav-actions';
+// iPhone 1.5's sign-in sheets with Google (the system sign-in sheet plugin in the build): a fake PowaWebAuth after boot,
+// which only social-auth.js reads (native-bridge.js decided "not native" at load, so nothing else changes).
+const OB_GOOGLE = "window.Capacitor = { isPluginAvailable: (n) => n === 'PowaWebAuth', Plugins: { PowaWebAuth: { start: async () => ({ cancelled: true }) } } };";
+const OB_SIGNUP_STEP3 = "setTimeout(() => { const st = document.querySelector('.ob-sheet .ob-track .ob-step:nth-child(2)'); const i = st.querySelector('input[aria-label=\"Full name\"]'); i.value = 'Jane Doe'; i.dispatchEvent(new Event('input', { bubbles: true })); st.querySelector('.nw-btn-primary').click(); }, 600); true";
 const CP_DAYS = (n) => "Store.update(s => { const w = s.programs.find(p => p.athleteId === 'demo-a1').weeks[0]; ['Upper Day', 'Lower Day', 'Arms'].slice(0, " + n + ").forEach((nm, k) => { const d = newDay(nm), e = newExercise('push', '', 'Overhead Press'); for (let i = 0; i < 3; i++) e.sets.push(newSet(60, 8, 7)); d.exercises.push(e); w.days.splice(3 + k, 0, d); }); });";
 const screens = [];
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
@@ -136,6 +140,8 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
     { name: 'ob-welcome' + suf, page: 'index.html', theme },
     { name: 'ob-signup' + suf, page: 'index.html', theme, eval: "obOpen('signup', { role: 'coach' })" },
     { name: 'ob-login' + suf, page: 'index.html', theme, eval: "obOpen('login')" },
+    { name: 'ob-login-g' + suf, page: 'index.html', theme, eval: OB_GOOGLE + "obOpen('login')" },
+    { name: 'ob-signup-g' + suf, page: 'index.html', theme, eval: OB_GOOGLE + "obOpen('signup', { role: 'coach' }); " + OB_SIGNUP_STEP3 },
     // Coach challenges (challenges.js): New challenge, and the board from the lifter's side (you marked);
     // Aim for a total (meetday.js): the attempt planner with its row under the plans.
     { name: 'sh-chl-new' + suf, page: C, theme, eval: tab('club') + ';Challenges.openNew()' },

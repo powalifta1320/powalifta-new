@@ -133,6 +133,26 @@ copied capacitor.config.json, plus `public/social-sign-in.js` for the web code. 
 (`@capacitor-community/apple-sign-in`, `@codetrix-studio/capacitor-google-auth`) come in with
 `npm install` + `cap sync`. The JS side is `social-auth.js` (`SocialAuth.native`), the sheets'
 buttons are in `native-onboard.js`. Every dashboard step: `docs/social-sign-in-runbook.md`.
+iPhone 1.4 dropped the Google plugin (its Google SDK 6.2.4 has no privacy manifest, ITMS-91061):
+the injector leaves Google out when the plugin isn't installed, and 1.4 offers Apple and email.
+
+### Continue with Google without Google's SDK (1.5): the system sign-in sheet
+
+| File | Target | Role |
+|---|---|---|
+| `ios-native/App/WebAuthPlugin.swift` | App | Capacitor plugin `PowaWebAuth`: `start({ url, callbackScheme })` runs an `ASWebAuthenticationSession` (Safari's cookies, `prefersEphemeralWebBrowserSession` false) and resolves `{ url }` with the callback, `{ cancelled: true }` when the sheet is closed; rejects when it can't open |
+| `scripts/inject-web-auth.rb` | — | Copies the plugin into the App target, adds `WebAuthPlugin` to `packageClassList`, sets `CFBundleName` to `POWALIFTA` (iOS names the app by it in "… Wants to Use … to Sign In"; the template's is "App") |
+
+Google signs in the way the website does: `DB.oauthSignInUrl()` builds Supabase's own
+`/auth/v1/authorize` address for Google (no request), the sheet opens it, Supabase comes back to
+`powalifta://auth-callback#access_token=…&refresh_token=…`, and `social-auth.js` reads the hash
+(`parseCallbackUrl`) and hands the two tokens to `DB.setSession()`, which Supabase checks before
+the session is kept. The callback goes to the plugin only, never into the WebView's address bar.
+No Google code ships, so App Privacy is unchanged. The Google button shows in the app only when
+`Capacitor.isPluginAvailable('PowaWebAuth')` (`googleInBuild`). Supabase must list
+`powalifta://auth-callback` under Redirect URLs (runbook part 3 step 3), or the sheet ends on the
+website. Console checks: `Capacitor.isPluginAvailable('PowaWebAuth')` → true; a failed sign-in
+logs `POWALIFTA Google sign-in: <reason>`.
 
 ### Verify / troubleshoot on device (Safari Web Inspector)
 

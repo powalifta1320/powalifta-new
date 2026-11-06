@@ -14,6 +14,10 @@
  *   - plays the iPhone sheets with a fake Capacitor: Apple from Log in (the role step appears and
  *     the nonce Apple got is the SHA-256 of the one Supabase got), Google from Sign up (no extra
  *     questions), and the 16+ tick guarding both
+ *   - plays iPhone 1.5's Google, through the system sign-in sheet (a fake PowaWebAuth that comes back
+ *     with a callback full of fake tokens, DB.setSession mocked): the address it opens, the session
+ *     handed over, the role step and the landing; a closed sheet and "no" at Google stay quiet, a
+ *     Supabase error says so; and 1.4's build (neither plugin) shows Apple only
  * Needs playwright-core and a Chromium (CHROME_PATH=… points at a headless shell). Screenshots go
  * to scratchpad-shots/ (gitignored) or the folder given as the first argument.
  *     node test/social-sign-in.browser.mjs [outDir]
@@ -51,24 +55,30 @@ const wait = (ms) => new Promise(r => setTimeout(r, ms));
 const SIZES = [[390, 844, 3, '390'], [1440, 775, 1, '1440']];
 const THEMES = ['dark', 'light'];
 
-async function open({ w, h, scale, theme, native }) {
+async function open({ w, h, scale, theme, native, build }) {
   const ctx = await browser.newContext({
     viewport: { width: w, height: h }, deviceScaleFactor: scale, isMobile: w < 600, hasTouch: w < 600, serviceWorkers: 'block',
     userAgent: w < 600 ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148' : undefined,
   });
   // Nothing reaches Supabase, Apple or Google (fonts are allowed so the screenshots are honest).
   await ctx.route(/supabase\.co|appleid\.apple\.com|accounts\.google\.com|oauth2\.googleapis\.com|plausible\.io/, (r) => r.abort());
-  await ctx.addInitScript(({ theme, native }) => {
+  await ctx.addInitScript(({ theme, native, build }) => {
     try { localStorage.setItem('powa-consent', 'essential'); localStorage.setItem('powa-theme', theme); } catch (e) {}
     if (native) {
-      // A fake Capacitor: the two sign-in plugins answer like the real ones; every other plugin is a quiet no-op.
+      // A fake Capacitor: the sign-in plugins answer like the real ones; every other plugin is a quiet no-op.
+      // `build` is which Google the app carries: 'googleauth' (the old SDK plugin, never shipped), 'webauth'
+      // (1.5: the system sign-in sheet, PowaWebAuth) or 'none' (1.4: Apple and email only). isPluginAvailable
+      // answers for the sign-in plugins as the real bridge does (registered natively or not).
       const noop = new Proxy(function () {}, { get: (t, k) => (k === 'then' ? undefined : noop), apply: () => Promise.resolve({}) });
       const real = {
         SignInWithApple: { authorize: async (o) => { window.__appleReq = o; return { response: { user: '001.fake', email: 'k4xq7m2tz@privaterelay.appleid.com', givenName: 'Jane', familyName: 'Doe', identityToken: 'fake.apple.token', authorizationCode: 'fake' } }; } },
-        GoogleAuth: { initialize: async (o) => { window.__gInit = o; }, signIn: async () => ({ id: '1', email: 'jane@gmail.com', name: 'Jane Doe', givenName: 'Jane', familyName: 'Doe', imageUrl: 'https://lh3.googleusercontent.com/a', authentication: { accessToken: 'fake-access', idToken: 'fake.google.token' } }) },
       };
-      window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: new Proxy(real, { get: (t, k) => (k in t ? t[k] : noop) }) };
-      window.POWA_SOCIAL = { google: { iosClientId: 'test-ios.apps.googleusercontent.com', webClientId: 'test-web.apps.googleusercontent.com' } };
+      if (build === 'googleauth') real.GoogleAuth = { initialize: async (o) => { window.__gInit = o; }, signIn: async () => ({ id: '1', email: 'jane@gmail.com', name: 'Jane Doe', givenName: 'Jane', familyName: 'Doe', imageUrl: 'https://lh3.googleusercontent.com/a', authentication: { accessToken: 'fake-access', idToken: 'fake.google.token' } }) };
+      // The sheet's answer is set per case (window.__webAuthAnswer); by default Supabase's implicit return with a session.
+      if (build === 'webauth') real.PowaWebAuth = { start: async (o) => { (window.__webAuthReqs = window.__webAuthReqs || []).push(o); return window.__webAuthAnswer || { url: 'powalifta://auth-callback#access_token=fake-at&expires_at=4102444800&expires_in=3600&provider_token=fake-google&refresh_token=fake-rt&token_type=bearer' }; } };
+      const SIGN_IN = ['SignInWithApple', 'GoogleAuth', 'PowaWebAuth'];
+      window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', isPluginAvailable: (n) => (SIGN_IN.includes(n) ? n in real : true), Plugins: new Proxy(real, { get: (t, k) => (k in t ? t[k] : (SIGN_IN.includes(k) ? undefined : noop)) }) };
+      window.POWA_SOCIAL = build === 'googleauth' ? { google: { iosClientId: 'test-ios.apps.googleusercontent.com', webClientId: 'test-web.apps.googleusercontent.com' } } : { google: null };
     }
     // Toasts live 2.4 s and the first can appear before DOMContentLoaded: record every one from the start.
     window.__toasts = [];
@@ -79,7 +89,7 @@ async function open({ w, h, scale, theme, native }) {
       st.textContent = '*,*::before,*::after{transition:none!important;animation-duration:0s!important;animation-delay:0s!important}';
       document.head.appendChild(st);
     });
-  }, { theme, native: !!native });
+  }, { theme, native: !!native, build: build || 'googleauth' });
   const page = await ctx.newPage();
   page.errors = [];
   page.on('pageerror', (e) => page.errors.push(e.message));
@@ -100,6 +110,7 @@ const mockDb = (user, profileRow) => `
   DB.claimInviteCode = async (c) => { window.__calls.code = c; return 'coach-1'; };
   DB.signOut = async () => { window.__calls.signOut = true; };
   DB.signInWithIdToken = async (p, t, n, a) => { window.__idt = { p, t, n, a }; return { session: { user: ${JSON.stringify(user)} }, user: ${JSON.stringify(user)} }; };
+  DB.setSession = async (t) => { window.__setSession = t; return { session: { user: ${JSON.stringify(user)}, access_token: t.access_token }, user: ${JSON.stringify(user)} }; };
   window.sendWelcomeEmail = (e, n, t) => { window.__calls.welcome = { e, n, t }; };
   SocialAuth._navigate = (u) => { window.__dest = u; };
 `;
@@ -303,6 +314,114 @@ for (const [w, h, scale, sz] of SIZES) {
     ok(page.errors.length === 0, `native ${sz} ${theme}: no page errors` + (page.errors.length ? ' — ' + page.errors.join(' | ') : ''));
     await ctx.close();
   }
+}
+
+// ------------------------------------------------------------------ 5b. iPhone 1.5: Google through the system sign-in sheet
+// The real DB.oauthSignInUrl builds the address (no request: Supabase is refused anyway); the fake PowaWebAuth
+// records what it was asked to open and comes back with a callback full of fake tokens; DB.setSession is mocked.
+const LOGIN_STEP = '.ob-sheet .ob-track .ob-step:nth-child(1)';
+const kindsIn = (page, sel) => page.evaluate((s) => Array.prototype.map.call(document.querySelectorAll(s + ' .sa-btn'), (b) => b.getAttribute('data-provider')).join(','), sel);
+for (const [w, h, scale, sz] of SIZES) {
+  for (const theme of THEMES) {
+    const { ctx, page } = await open({ w, h, scale, theme, native: true, build: 'webauth' });
+    await page.goto(BASE + 'index.html', { waitUntil: 'load' });
+    await wait(1200);
+    await page.evaluate(() => obOpen('login'));
+    await wait(700);
+    ok(await kindsIn(page, LOGIN_STEP) === 'apple,google', `native 1.5 ${sz} ${theme}: Log in sheet has Apple, then Google (the system sign-in sheet is in the build)`);
+    await shot(page, `native15-login-${sz}-${theme}`);
+    await page.evaluate(mockDb(googleUser, null));
+    await page.click(LOGIN_STEP + ' .sa-google');
+    await page.waitForSelector(ROLE_STEP + ' h2', { timeout: 5000 });
+    await wait(500);
+    ok(/How will you use/.test(await page.textContent(ROLE_STEP + ' h2')), `native 1.5 ${sz} ${theme}: Google → the role step (a first-time account)`);
+    await shot(page, `native15-google-role-${sz}-${theme}`);
+    if (sz === '390' && theme === 'dark') {
+      const g = await page.evaluate(() => ({ reqs: window.__webAuthReqs, set: window.__setSession, idt: window.__idt || null, lead: document.querySelector('.ob-sheet .ob-track .ob-step:last-child .ob-lead').textContent }));
+      const req = (g.reqs || [])[0] || {};
+      const u = (() => { try { return new URL(req.url); } catch (e) { return null; } })();
+      ok((g.reqs || []).length === 1 && req.callbackScheme === 'powalifta', 'native 1.5 Google: one sheet opened, told to come back on powalifta://');
+      ok(!!u && u.origin === 'https://cxnotrikxvzncupswvio.supabase.co' && u.pathname === '/auth/v1/authorize', 'native 1.5 Google: the sheet opens Supabase\'s own sign-in: ' + req.url);
+      ok(!!u && u.searchParams.get('provider') === 'google' && u.searchParams.get('redirect_to') === 'powalifta://auth-callback' && u.searchParams.get('prompt') === 'select_account', 'native 1.5 Google: Google, back to powalifta://auth-callback, with Google\'s account picker');
+      ok(g.set && g.set.access_token === 'fake-at' && g.set.refresh_token === 'fake-rt' && Object.keys(g.set).length === 2, 'native 1.5 Google: the access + refresh tokens from the callback\'s hash went to DB.setSession (and nothing else, not Google\'s own token)');
+      ok(!g.idt, 'native 1.5 Google: no identity token, no Google SDK (signInWithIdToken never called)');
+      ok(/Signed in with Google as jane@gmail\.com/.test(g.lead), 'native 1.5 Google: the role step says who signed in: "' + g.lead + '"');
+      ok(await page.inputValue(ROLE_STEP + ' input[aria-label="Full name"]') === 'Jane Doe', 'native 1.5 Google: the name from the Google account is pre-filled');
+      ok(await page.evaluate(() => getComputedStyle(document.querySelector('.ob-sheet .ob-back')).visibility) === 'hidden', 'native 1.5 Google: the back arrow is hidden on the role step');
+      await page.click(ROLE_STEP + ' .ob-card.t-fire');
+      await page.click(ROLE_STEP + ' .nw-btn-primary');
+      ok(/16 or older/.test(await page.textContent(ROLE_STEP + ' .ob-err')), 'native 1.5 Google: Continue without the tick explains');
+      await page.click(ROLE_STEP + ' .ob-check');
+      await page.click(ROLE_STEP + ' .nw-btn-primary');
+      await wait(400);
+      const r = await page.evaluate(() => ({ calls: window.__calls, dest: window.__dest, role: localStorage.getItem('powa-last-role') }));
+      ok(r.calls.finish && r.calls.finish.t === 'athlete' && r.calls.finish.n === 'Jane Doe' && r.dest === 'athlete.html' && r.role === 'athlete', 'native 1.5 Google: a lifter on their own, created with Google\'s name, lands on athlete.html');
+      ok(r.calls.meta && r.calls.meta.user_type === 'athlete' && r.calls.meta.age_16_plus === true, 'native 1.5 Google: role + 16+ consent written to the account metadata');
+      ok(r.calls.welcome && r.calls.welcome.e === 'jane@gmail.com' && r.calls.welcome.t === 'athlete', 'native 1.5 Google: welcome email to the Google address');
+    }
+    ok(page.errors.length === 0, `native 1.5 ${sz} ${theme}: no page errors` + (page.errors.length ? ' — ' + page.errors.join(' | ') : ''));
+    await ctx.close();
+  }
+}
+// The sheet closed, "no" at Google, a Supabase error, a returning account, and Sign up that already knew everything.
+{
+  const { ctx, page } = await open({ w: 390, h: 844, scale: 3, theme: 'dark', native: true, build: 'webauth' });
+  await page.goto(BASE + 'index.html', { waitUntil: 'load' });
+  await wait(1200);
+  const tryGoogle = async (answer) => {
+    await page.evaluate((a) => { window.__webAuthAnswer = a; window.__setSession = null; window.__dest = null; }, answer);
+    await page.click(LOGIN_STEP + ' .sa-google');
+    await wait(600);
+    return page.evaluate((s) => {
+      const step = document.querySelector(s);
+      return { err: step.querySelector('.ob-err').textContent, label: step.querySelector('.sa-google span').textContent, disabled: step.querySelector('.sa-google').disabled, set: window.__setSession, dest: window.__dest, steps: document.querySelectorAll('.ob-sheet .ob-track .ob-step').length };
+    }, LOGIN_STEP);
+  };
+  await page.evaluate(() => obOpen('login'));
+  await wait(700);
+  await page.evaluate(mockDb(googleUser, null));
+  const c = await tryGoogle({ cancelled: true });
+  ok(c.err === '' && !c.set && !c.dest && c.label === 'Continue with Google' && c.disabled === false, 'native 1.5 Google: closing the sheet is quiet, nothing is signed in, the buttons come back' + (c.err ? ' — "' + c.err + '"' : ''));
+  const d = await tryGoogle({ url: 'powalifta://auth-callback?error=access_denied&error_code=access_denied&error_description=The+user+denied+access#error=access_denied&error_code=access_denied&error_description=The+user+denied+access' });
+  ok(d.err === '' && !d.set && d.disabled === false, 'native 1.5 Google: "no" at Google (access_denied) is as quiet as closing the sheet' + (d.err ? ' — "' + d.err + '"' : ''));
+  const e = await tryGoogle({ url: 'powalifta://auth-callback#error=server_error&error_code=unexpected_failure&error_description=Database+error+saving+new+user' });
+  ok(/Google sign-in didn.t finish/.test(e.err) && !e.set && e.disabled === false, 'native 1.5 Google: a Supabase error says Google sign-in didn\'t finish, signs nothing in: "' + e.err + '"');
+  const f = await tryGoogle({ url: 'powalifta://auth-callback#access_token=only-half' });
+  ok(/Google sign-in didn.t finish/.test(f.err) && !f.set, 'native 1.5 Google: a return without a refresh token signs nothing in');
+  await page.evaluate(mockDb(returningUser, { id: 'u-old', user_type: 'athlete', name: 'Old Lifter' }));
+  const back = await tryGoogle(null);
+  ok(back.set && back.set.access_token === 'fake-at' && back.dest === 'athlete.html' && back.steps === 2, 'native 1.5 Google: a returning account goes straight to athlete.html, nothing asked (' + JSON.stringify({ dest: back.dest, steps: back.steps }) + ')');
+
+  // Sign up as a coach: role, name and the tick are known, so Google needs no extra step.
+  await page.evaluate(() => obOpen('signup', { role: 'coach' }));
+  await wait(600);
+  await page.fill('.ob-sheet .ob-track .ob-step:nth-child(2) input[aria-label="Full name"]', 'Jane Doe');
+  await page.click('.ob-sheet .ob-track .ob-step:nth-child(2) .nw-btn-primary');
+  await wait(600);
+  ok(await kindsIn(page, '.ob-sheet .ob-track .ob-step:nth-child(3)') === 'apple,google', 'native 1.5: Sign up step 3 has Apple, then Google');
+  await page.evaluate(mockDb(googleUser, null));
+  await page.evaluate(() => { window.__webAuthAnswer = null; window.__webAuthReqs = []; });
+  await page.click('.ob-sheet .ob-track .ob-step:nth-child(3) .sa-google');
+  await wait(300);
+  ok(await page.evaluate(() => (window.__webAuthReqs || []).length) === 0, 'native 1.5 Google (sign-up): without the 16+ tick no sheet opens');
+  await page.click('.ob-sheet .ob-track .ob-step:nth-child(3) .ob-check');
+  await page.click('.ob-sheet .ob-track .ob-step:nth-child(3) .sa-google');
+  await wait(600);
+  const s = await page.evaluate(() => ({ reqs: (window.__webAuthReqs || []).length, set: window.__setSession, calls: window.__calls, dest: window.__dest, steps: document.querySelectorAll('.ob-sheet .ob-track .ob-step').length }));
+  ok(s.reqs === 1 && s.set && s.calls.finish && s.calls.finish.t === 'coach' && s.calls.finish.n === 'Jane Doe' && s.dest === 'coach.html' && s.steps === 3, 'native 1.5 Google (sign-up): coach created with the typed name, no extra step, lands on coach.html');
+  ok(page.errors.length === 0, 'native 1.5 Google cases: no page errors' + (page.errors.length ? ' — ' + page.errors.join(' | ') : ''));
+  await ctx.close();
+}
+// 1.4's build: neither the system sign-in sheet nor Google's SDK plugin, so Apple and email only.
+{
+  const { ctx, page } = await open({ w: 390, h: 844, scale: 3, theme: 'dark', native: true, build: 'none' });
+  await page.goto(BASE + 'index.html', { waitUntil: 'load' });
+  await wait(1200);
+  await page.evaluate(() => obOpen('login'));
+  await wait(700);
+  ok(await kindsIn(page, LOGIN_STEP) === 'apple', 'native 1.4 build: the Log in sheet has Apple only');
+  ok(page.errors.length === 0, 'native 1.4 build: no page errors' + (page.errors.length ? ' — ' + page.errors.join(' | ') : ''));
+  await ctx.close();
 }
 
 // ------------------------------------------------------------------ 6. the demos still boot (no sign-in code runs there)

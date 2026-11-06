@@ -71,6 +71,13 @@ Terms of Use: https://www.powalifta.com/terms.html
 Privacy Policy: https://www.powalifta.com/privacy.html
 ```
 
+**What's New** (version notes, ≤4000) — v1.5 (DRAFT, started 6 Nov 2026; add lines as 1.5 grows). Before 1.5 goes out: Supabase → Authentication → URL Configuration → Redirect URLs must list `powalifta://auth-callback` (docs/social-sign-in-runbook.md, part 3 step 3), or Continue with Google ends on the website. No Google SDK is in 1.5 (Google opens in the system's sign-in sheet), so App Privacy needs no change. Wording: no App Store version had Google yet (1.4's upload with it was refused), so "is back" reads true to testers only; "Continue with Google" alone also works.
+```
+New in 1.5
+
+- Continue with Google is back: pick your Google account and you're in
+```
+
 **What's New** (version notes, ≤4000) — v1.4 (5 Nov 2026). Apple approved 1.3 from a build made before 26 Oct (it had neither Sign in with Apple nor Google's SDK), so much of the 1.3 draft below shipped in 1.4 instead: put the approved 1.3 notes from App Store Connect beside this and delete every line they already have. Google sign-in is NOT in 1.4 (the plugin's Google SDK 6.2.4 has no privacy manifest, ITMS-91061; the app offers Apple and email, the website keeps Google).
 ```
 New in 1.4

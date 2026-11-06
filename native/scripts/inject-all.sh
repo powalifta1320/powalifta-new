@@ -12,6 +12,7 @@ ruby inject-health.rb          # Apple Health (1.3): plugin, entitlement, permis
 ruby inject-voice.rb           # voice notes: the microphone permission text (after inject-live-activity)
 ruby inject-video-export.rb    # form-check clips exported to H.264 MP4 (video review, M6)
 ruby inject-social-sign-in.rb  # Continue with Apple / Google: the Sign in with Apple entitlement + capability, Google's ids + URL scheme (native/social-sign-in.json)
-ruby inject-push.rb            # push: aps-environment + the Push capability, and AppDelegate.swift handing Apple's token to Capacitor (without it Turn on can never work)
+ruby inject-web-auth.rb        # Continue with Google without Google's SDK (1.5): Supabase's web sign-in in the system sheet (PowaWebAuth)
+ruby inject-push.rb           # push: aps-environment + the Push capability, and AppDelegate.swift handing Apple's token to Capacitor (without it Turn on can never work)
 ruby inject-pod-signing.rb      # CocoaPods resource bundles (AppAuth's privacy bundle...) need no signing team, or Archive stops
 ruby inject-ios-min.rb          # iOS 15.0 or later on the app and its extensions + the Podfile (Apple, ITMS-90068: required from April 2027)

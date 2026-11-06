@@ -9,6 +9,10 @@ nothing in this file is a secret.
 Budget about an hour the first time: Apple 15 min, Google 15 min, Supabase 10 min, the iPhone
 build 10 min, trying it 10 min.
 
+**Updated 2026-11-06 for iPhone 1.5** (Continue with Google back in the app, without Google's
+SDK): one new Supabase step, part 3 step 3 (`powalifta://auth-callback` on the Redirect URLs),
+and part 4 is simpler. Nothing changes at Apple or Google, nor on the website.
+
 ## What is built
 
 - **Website** (`index.html`, Log in and Sign up): two buttons above the email form. Tap one,
@@ -16,7 +20,9 @@ build 10 min, trying it 10 min.
   account is asked the sign-up's own questions (lifter on my own / with a coach / coach, a name,
   the 16+ tick) unless it already answered them on the form; then it lands on its dashboard.
 - **iPhone app** (the sign-up and log-in sheets): the same two buttons. Apple's own sheet
-  (Face ID), Google's own sheet. Same first-time questions, inside the sheet.
+  (Face ID). Google (from 1.5, 1.4 has Apple and email only): the iPhone's secure sign-in sheet
+  opens the website's own Supabase sign-in, so no Google SDK ships (Apple refused 1.4's with
+  ITMS-91061) and App Privacy stays as it is. Same first-time questions, inside the sheet.
 - **Server**: `sql/migration-social-sign-in-2026-10-25.sql` adds `finish_social_signup`, the
   one-time role choice for Apple / Google accounts. Until you run it, Apple / Google lifters can
   still sign up (as athletes); a coach is told to use email for now.
@@ -95,6 +101,10 @@ why both ship together and why the Apple button comes first in the app.
    `https://powalifta.com/**`. (For a local test server also add e.g. `http://localhost:4191/**`.)
    Without these Supabase sends people to the Site URL instead, which is also the home page, so
    even then the sign-in finishes; it just ignores the page they started from.
+   **For the iPhone app's Google (1.5), add one more, exactly:** `powalifta://auth-callback`
+   → Save. This one has no fallback: without it Supabase sends the sign-in sheet to the website
+   instead of back into the app, the sheet just shows powalifta.com and the lifter has to tap
+   Cancel. Add it **before** 1.5 is released (1.4 never uses it, so adding it now is safe).
 4. **Linking.** Authentication → Sign In / Providers → Auth settings: leave **Allow manual
    linking** off. Automatic linking is already on: a confirmed email + password account that signs
    in with Google using the same email becomes one account (see *What to expect*).
@@ -104,23 +114,27 @@ why both ship together and why the Apple button comes first in the app.
 
 ## Part 4 — the iPhone build
 
-1. Open `native/social-sign-in.json` and replace the two placeholders with the **iOS client ID**
-   (part 2 step 4) and the **Web client ID** (part 2 step 3). These ids are public identifiers,
-   not secrets (they ship inside every app and web page that uses them); the Google **secret**
-   never goes in this file.
-2. In Terminal: `cd native && npm install && npm run sync && bash scripts/inject-all.sh`.
-   `npm install` adds the two plugins (`@capacitor-community/apple-sign-in`,
-   `@codetrix-studio/capacitor-google-auth`); `inject-all.sh` now also runs
-   `inject-social-sign-in.rb`, which adds the Sign in with Apple entitlement and capability,
-   Google's client ids and the URL scheme Google returns through. Every `cap sync` after this
+Since 1.5 the app's Google needs nothing from Google in the build: no plugin, no client id, no
+URL scheme. It opens Supabase's sign-in (the same Web client as the website, part 2 step 3) in
+the system's sign-in sheet (`native/ios-native/App/WebAuthPlugin.swift`, JS name `PowaWebAuth`),
+which comes back to `powalifta://auth-callback` (part 3 step 3) with the session. The iOS client
+(part 2 step 4) and `native/social-sign-in.json` only matter to the old Google SDK plugin, which
+no build carries any more.
+
+1. In Terminal: `cd native && npm install && npm run sync && bash scripts/inject-all.sh`.
+   `npm install` adds the Apple plugin (`@capacitor-community/apple-sign-in`); `inject-all.sh`
+   runs `inject-social-sign-in.rb` (the Sign in with Apple entitlement and capability; it says
+   "Google plugin not installed", which is right) and `inject-web-auth.rb` (the sign-in sheet
+   plugin into the App target and `packageClassList`, and the app's short name `POWALIFTA`, which
+   iOS shows when it asks "POWALIFTA Wants to Use … to Sign In"). Every `cap sync` after this
    needs `inject-all.sh` again (same rule as the Live Activity).
-3. Xcode → the App target → **Signing & Capabilities**: **Sign in with Apple** is listed. If it
+2. Xcode → the App target → **Signing & Capabilities**: **Sign in with Apple** is listed. If it
    shows red, press **+ Capability** → Sign in with Apple once; automatic signing then updates the
-   provisioning profile. → **Info** tab → URL Types: an entry `com.googleusercontent.apps.…`
-   (your iOS client id, reversed) is there.
-4. Build to a real iPhone signed into iCloud (the Simulator's Apple sheet is unreliable) and try
+   provisioning profile. Build Phases → Compile Sources lists `WebAuthPlugin.swift`.
+3. Build to a real iPhone signed into iCloud (the Simulator's Apple sheet is unreliable) and try
    both buttons from the welcome screen: Get started → I coach lifters → name → Continue with
-   Apple; and I already have an account → Continue with Google.
+   Apple; and I already have an account → Continue with Google → **Continue** on iOS's question →
+   pick a Google account → back in the app (a new account is asked how it'll use POWALIFTA).
 
 ## Where each value goes
 
@@ -134,6 +148,7 @@ why both ship together and why the Apple button comes first in the app.
 | Google Web client secret | Google Cloud → Credentials | Supabase → Google → Client Secret, nowhere else |
 | Google iOS client ID | Google Cloud → Credentials | Supabase → Google → Client IDs (second); `native/social-sign-in.json` → `iosClientId` |
 | Callback URL `https://cxnotrikxvzncupswvio.supabase.co/auth/v1/callback` | Supabase (shown under each provider) | Apple's Services ID → Return URLs; Google's Web client → Authorized redirect URIs |
+| The app's return `powalifta://auth-callback` | fixed in the app (social-auth.js `APP_CALLBACK`) | Supabase → Authentication → URL Configuration → Redirect URLs (part 3 step 3) |
 
 ## Trying it
 
@@ -143,7 +158,9 @@ why both ship together and why the Apple button comes first in the app.
 - **Sign up with a tile:** Sign up → pick Coach → Continue with Apple → approve → straight to
   coach.html (the tile, name and tick were kept; Apple's name fills the name if the form was blank).
 - **iPhone:** both buttons from both sheets; a first-time account gets the "How will you use
-  POWALIFTA?" step inside the sheet.
+  POWALIFTA?" step inside the sheet. Google first shows iOS's own question ("POWALIFTA" Wants to
+  Use "cxnotrikxvzncupswvio.supabase.co" to Sign In), every time: that's the system sheet, not
+  the app. Cancel there, or closing the sheet, says nothing and leaves the buttons as they were.
 - **Nothing else changed:** email + password log in, Forgot password → the reset email →
   reset-password.html, Delete account, and the demos work as before.
 
@@ -173,7 +190,9 @@ why both ship together and why the Apple button comes first in the app.
 | "Unacceptable audience in id_token" | the token's client id isn't in Supabase's list | add the iOS client id (Google) or `com.powalifta.app` (Apple) to Client IDs |
 | "Passed nonce and nonce in id_token should either both exist or not" | a stale build; Apple's nonce check | make sure the build has the new social-auth.js |
 | AuthorizationError 1000 (iPhone, Apple) | the entitlement/capability is missing or the device isn't in iCloud | part 4 steps 2–3; sign into iCloud on the device |
-| "Google sign-in isn't set up in this build yet" | placeholders still in `native/social-sign-in.json` when inject-all ran | part 4 steps 1–2 |
+| iPhone (1.5): the Google sheet ends on powalifta.com instead of coming back into the app | `powalifta://auth-callback` isn't on Supabase's Redirect URLs | part 3 step 3; the lifter taps Cancel meanwhile |
+| iPhone (1.5): "Google sign-in didn't finish. Try again, or use email." | Supabase sent an error back, or a session it then refused | Safari → Develop → the iPhone → the app: the console says `POWALIFTA Google sign-in:` and why |
+| iPhone (1.5): no Continue with Google button | the build hasn't the sign-in sheet plugin (`inject-all.sh` wasn't run after the last `cap sync`) | part 4 step 1, then rebuild; `Capacitor.isPluginAvailable('PowaWebAuth')` in the console says true |
 | "Database error saving new user" | the sign-up trigger couldn't make the profile row | the account's provider sent no email; make sure the email scope is on (Apple: Client IDs, Google: consent screen) |
 | "Coach accounts … switch on with the next update" | the migration isn't run yet | part 3 step 5 |
 

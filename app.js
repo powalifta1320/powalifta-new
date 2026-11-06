@@ -16068,7 +16068,15 @@ function maybeAskForRating(reason) {
     const days = new Set((Store.get().workoutLogs || []).filter(l => !me || l.athleteId === me).map(l => l.date));
     if (days.size < 3) return;
     localStorage.setItem('powa-rate-asked', String(Date.now()));
-    setTimeout(() => { try { P.requestReview({ reason: reason || '' }); } catch (e) {} }, 3500);
+    // 1.5's shell answers { shown: false } when it couldn't ask (the app had left the screen): the four
+    // months haven't started, so the next high point may ask. Older builds answer nothing.
+    setTimeout(() => {
+      try {
+        Promise.resolve(P.requestReview({ reason: reason || '' }))
+          .then((r) => { if (r && r.shown === false) { try { localStorage.setItem('powa-rate-asked', String(last)); } catch (e) {} } })
+          .catch(() => {});
+      } catch (e) {}
+    }, 3500);
   } catch (e) {}
 }
 window.maybeAskForRating = maybeAskForRating;

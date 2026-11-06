@@ -5568,6 +5568,62 @@ group('social sign-in (Apple, Google)');
       window.Capacitor = wasCap;
     }
   });
+  test('googleInBuild: in the app, the system sign-in sheet (PowaWebAuth) brings Google back without its SDK', () => {
+    const root = document.documentElement, wasNative = root.classList.contains('native'), wasCap = window.Capacitor;
+    const sheet = { start: async () => ({ cancelled: true }) };
+    try {
+      root.classList.add('native');
+      window.Capacitor = { isPluginAvailable: (n) => n === 'PowaWebAuth', Plugins: { PowaWebAuth: sheet } };
+      eq(S.googleInBuild(), true, 'PowaWebAuth in the build: Google shows');
+      eq(Array.prototype.map.call(S.buttonRow().querySelectorAll('.sa-btn'), (b) => b.getAttribute('data-provider')).join(','), 'apple,google', 'Apple first, then Google');
+      window.Capacitor = { isPluginAvailable: () => false, Plugins: { PowaWebAuth: sheet } };
+      eq(S.googleInBuild(), false, 'not registered natively (isPluginAvailable says no): no Google');
+      window.Capacitor = { isPluginAvailable: (n) => n === 'PowaWebAuth', Plugins: {} };
+      eq(S.googleInBuild(), false, 'registered but no start method to call: no Google');
+      window.Capacitor = { Plugins: { PowaWebAuth: sheet } };
+      eq(S.googleInBuild(), true, 'an older bridge without isPluginAvailable: the plugin object decides');
+      window.Capacitor = { isPluginAvailable: () => false, Plugins: {} };
+      eq(S.googleInBuild(), false, '1.4: neither PowaWebAuth nor GoogleAuth: Apple and email only');
+      window.Capacitor = undefined;
+      eq(S.googleInBuild(), false, 'no Capacitor at all inside the shell: no Google');
+      root.classList.remove('native');
+      if (!root.classList.contains('native')) eq(S.googleInBuild(), true, 'the website always has Google');
+    } finally {
+      root.classList.toggle('native', wasNative);
+      window.Capacitor = wasCap;
+    }
+  });
+  test('parseCallbackUrl: the session the app\'s sign-in sheet came back with', () => {
+    eq(S.APP_CALLBACK, 'powalifta://auth-callback');
+    const t = S.parseCallbackUrl('powalifta://auth-callback#access_token=eyJ.a.b&expires_at=1762400000&expires_in=3600&provider_token=ya29.x&refresh_token=r3fr35h&token_type=bearer');
+    eq(t.ok, true); eq(t.accessToken, 'eyJ.a.b'); eq(t.refreshToken, 'r3fr35h'); eq(t.error, null); eq(t.foreign, false);
+    eq(S.parseCallbackUrl('powalifta://auth-callback/#access_token=a&refresh_token=b').ok, true, 'a trailing slash is the same address');
+    eq(S.parseCallbackUrl('POWALIFTA://Auth-Callback#access_token=a&refresh_token=b').ok, true, 'scheme and host in any case');
+    eq(S.parseCallbackUrl('powalifta://auth-callback#access_token=a%2Bb&refresh_token=c').accessToken, 'a+b', 'values are URL-decoded');
+  });
+  test('parseCallbackUrl: an error (hash or query), a missing token, somewhere else', () => {
+    const e = S.parseCallbackUrl('powalifta://auth-callback#error=server_error&error_code=unexpected_failure&error_description=Database+error+saving+new+user');
+    eq(e.ok, false); eq(e.error, 'Database error saving new user'); eq(e.code, 'unexpected_failure'); eq(e.accessToken, null);
+    const q = S.parseCallbackUrl('powalifta://auth-callback?error=access_denied&error_description=The+user+denied+access#error=access_denied');
+    eq(q.error, 'The user denied access', 'the query\'s error counts too'); eq(q.code, 'access_denied');
+    assert(S.isCancel({ message: q.code }), 'access_denied (saying no at Google) reads as a cancel');
+    eq(S.parseCallbackUrl('powalifta://auth-callback#error=access_denied').error, 'access_denied', 'an error with no description');
+    const half = S.parseCallbackUrl('powalifta://auth-callback#access_token=a');
+    eq(half.ok, false, 'no refresh token: no session'); eq(half.error, null); eq(half.foreign, false);
+    eq(S.parseCallbackUrl('powalifta://auth-callback').ok, false, 'nothing in it');
+    eq(S.parseCallbackUrl('powalifta://auth-callback?access_token=a&refresh_token=b').ok, false, 'tokens only count in the hash (the implicit return)');
+    const away = S.parseCallbackUrl('powalifta://join?code=ABC123#access_token=a&refresh_token=b');
+    eq(away.foreign, true, 'another powalifta:// address is not a sign-in'); eq(away.ok, false); eq(away.accessToken, null);
+    eq(S.parseCallbackUrl('https://www.powalifta.com/#access_token=a&refresh_token=b').foreign, true, 'the website is not the app\'s return');
+    eq(S.parseCallbackUrl('powalifta://auth-callback-evil#access_token=a&refresh_token=b').foreign, true, 'a look-alike address');
+    eq(S.parseCallbackUrl(undefined).foreign, true); eq(S.parseCallbackUrl('').ok, false);
+    eq(S.parseCallbackUrl('x://cb#access_token=a&refresh_token=b', 'x://cb').ok, true, 'another expected address');
+  });
+  test('the system sign-in sheet\'s errors are not called Apple\'s; Google\'s own wording passes through', () => {
+    eq(S.friendlyError(new Error('The operation couldn’t be completed. (com.apple.AuthenticationServices.WebAuthenticationSession error 2.)')), 'Sign-in didn\'t finish. Try again, or use email.');
+    eq(S.friendlyError(new Error('Google sign-in didn\'t finish. Try again, or use email.')), 'Google sign-in didn\'t finish. Try again, or use email.');
+    eq(S.friendlyError(new Error('Google sign-in was cancelled.')), '', 'a closed sheet is quiet');
+  });
 }
 
 /* ===========================================================
