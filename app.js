@@ -8338,7 +8338,9 @@ function programHeadsUp(o) {
   o = o || {};
   const coach = String(o.coachName || 'Your coach').split(' ')[0] || 'your coach';
   const name = o.programName || 'a new program';
-  const n = Number(o.week), week = o.week != null && o.week !== '' && Number.isInteger(n) && n >= 1 && n <= 99 ? n : null;
+  // The week as the email reads it (send-program-assigned weekOf): a number, or its digits; nothing else.
+  const n = typeof o.week === 'number' ? o.week : typeof o.week === 'string' && /^\s*\d{1,2}\s*$/.test(o.week) ? Number(o.week) : NaN;
+  const week = Number.isInteger(n) && n >= 1 && n <= 99 ? n : null;
   if (week) return { week, title: 'Week ' + week + ' from ' + coach, body: (name === 'a new program' ? 'Week ' + week + ' of your program' : 'Week ' + week + ' of "' + name + '"') + ' is ready. Open it in Today.' };
   return { week: null, title: 'New program from ' + coach, body: name === 'a new program' ? 'Your coach assigned you a new program.' : ('"' + name + '" is ready. Open it in Today.') };
 }
