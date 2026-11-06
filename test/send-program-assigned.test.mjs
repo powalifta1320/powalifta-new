@@ -206,6 +206,17 @@ await t('weekOf and buildEmail, directly', async () => {
   const b = FN.buildEmail({ athleteName: 'Sarah Kim', coachName: 'Sam', programName: 'Peak', week: 5 });
   eq(b.subject, 'Sam published week 5 — open POWALIFTA');
 });
+await t('the email in the brand: Archivo with a system sans after it, the wordmark all ink, one crimson button with a white label', async () => {
+  for (const m of [FN.buildEmail({ athleteName: 'Sarah Kim', coachName: 'Sam', programName: 'Peak' }), FN.buildEmail({ athleteName: 'Sarah Kim', coachName: 'Sam', programName: 'Peak', week: 3 })]) {
+    ok(!/Anton|Impact|Space Grotesk|Jakarta/.test(m.html), 'no old faces');
+    ok(!/#ff2d3f|#ff3b4a/i.test(m.html), 'no old red');
+    ok(/<body style="font-family: 'Archivo', -apple-system, [^"]*sans-serif;/.test(m.html), 'the body: Archivo, then the system sans');
+    ok(/>POWALIFTA<\/div>/.test(m.html) && !/POWA<span/.test(m.html), 'the wordmark in one piece, all ink');
+    const btn = (m.html.match(/<a href="https:\/\/powalifta\.com\/athlete\.html" style="([^"]*)">Open my dashboard<\/a>/) || [])[1] || '';
+    ok(/background-color:#dc2637/.test(btn) && /linear-gradient\(180deg, #dc2637, #c41a2c\)/.test(btn) && /color:#ffffff/.test(btn), 'the one button: the crimson, a white label: ' + btn);
+    eq((m.html.match(/#dc2637|#c41a2c/gi) || []).length, 3, 'red nowhere else');
+  }
+});
 
 console.info(`RESULT send-program-assigned: ${pass} passed, ${fail} failed`);
 if (fail && LOGS.length) console.log('function logs:\n  ' + LOGS.slice(-12).join('\n  '));
