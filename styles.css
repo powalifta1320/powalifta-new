@@ -3401,18 +3401,6 @@ footer .footer-base {
 .vol-card { margin-bottom: 22px; }
 .vol-grid { display: flex; flex-direction: column; gap: 16px; }
 
-/* Deload nudge — fatigue-management prompt (amber, advisory) */
-.deload-nudge {
-  display: flex; align-items: flex-start; gap: 12px;
-  margin: 0 0 22px; padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
-  background: color-mix(in srgb, var(--gold) 10%, var(--bg-1));
-  border-radius: 12px;
-}
-.deload-nudge .dl-icon { font-size: 20px; line-height: 1.2; }
-.deload-nudge .dl-title { font-weight: 700; color: var(--gold); margin-bottom: 2px; }
-.deload-nudge .dl-note { color: var(--text-2); font-size: 14px; line-height: 1.5; }
-
 /* e1RM trend chips — 8-week slope readout under the chart */
 .e1rm-trend-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 14px; }
 .e1rm-trend { display: inline-flex; align-items: baseline; gap: 6px; font-size: 13px; }
@@ -3929,24 +3917,6 @@ footer .footer-base {
   color: var(--text-2);
   font-style: italic;
 }
-
-/* ============================================ LAST RPE INLINE (program builder) */
-.last-rpe {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  font-size: 0.74rem;
-  color: var(--text-3);
-  font-family: var(--font-num);
-  font-weight: 600;
-}
-.last-rpe strong { color: var(--text); }
-.last-rpe.over { border-color: rgba(255,45,63,0.3); color: var(--red); }
-.last-rpe.under { border-color: rgba(78,216,132,0.3); color: var(--green); }
 
 /* ============================================ PROGRESSION HINT */
 .prog-hint {
@@ -7858,7 +7828,6 @@ html.native body.powa-app [data-pane="athletes"] > .dash-header:has(#planPill:no
 :where(body.powa-app) .pr-toast .pr-tag { font-size: 16px; }
 :where(body.powa-app) .pr-toast .pr-sub { font-size: 15px; }
 :where(body.powa-app) .pr-badge-inline { font-size: 11px; }
-:where(body.powa-app) .deload-nudge .dl-note { font-size: 15px; }
 :where(body.powa-app) .ach-badge .ach-lab { font-size: 13px; }
 :where(body.powa-app) .nj-search { font-size: 15px; }
 :where(body.powa-app) .nj-tag { font-size: 11px; }
@@ -7897,7 +7866,6 @@ html.native body.powa-app [data-pane="athletes"] > .dash-header:has(#planPill:no
 :where(body.powa-app) .roster-flag { font-size: 11px; }
 :where(body.powa-app) .roster-progress-label { font-size: 11px; }
 :where(body.powa-app) .roster-card .last-note { font-size: 13px; }
-:where(body.powa-app) .last-rpe { font-size: 11px; }
 :where(body.powa-app) .prog-hint { font-size: 13px; }
 :where(body.powa-app) .prog-hint::before { font-size: 15px; }
 :where(body.powa-app) .reorder-handles button { font-size: 11px; }
@@ -11071,7 +11039,6 @@ body.powa-app .cp-card .cp-lift.has-bar { padding-right: 104px; }
 .tn-ready-seg { flex-basis: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
 .tn-ready-btn { height: 36px; border: 0; border-radius: var(--r-chip, 999px); background: var(--fill-2); color: var(--text); font: inherit; font-size: var(--fs-sm, 14px); font-weight: 650; -webkit-tap-highlight-color: transparent; transition: transform var(--t-press, 150ms) var(--ease-out-quint, ease-out); }
 .tn-ready-btn:active { transform: scale(0.95); }
-.tn-ready-btn.is-rough { color: var(--soft-alert, #ff8a7a); }
 .tn-group .tn-ready.is-set .tn-ic { color: var(--soft-alert, #ff8a7a); }
 /* Weekly goal: the ring leads the row; full = green. */
 .tn-group .tn-goal { text-align: left; }
@@ -11903,7 +11870,6 @@ html:not(.desk) body.powa-app .sig-sheet .sig-unread .ui-row-title::after {
 [data-theme="light"] body.powa-app .mc-rpe, [data-theme="light"] body.powa-app .pb-chip em { color: color-mix(in srgb, var(--rc) 52%, #000); }
 [data-theme="light"] body .cp-card.is-pr .cp-who span, [data-theme="light"] body.powa-app .cp-card.is-pr .cp-who span { color: #8a5d00; }
 [data-theme="light"] body .cp-pr, [data-theme="light"] body.powa-app .cp-pr { color: #8a5d00; }
-[data-theme="light"] body .tn-ready-btn.is-rough, [data-theme="light"] body.powa-app .tn-ready-btn.is-rough { color: #c63a24; }
 [data-theme="light"] body .roster-last.is-stale, [data-theme="light"] body.powa-app .roster-last.is-stale { color: #c63a24; }
 
 /* Light theme, calm (2026-10-27): the v4 restraint the dark theme got, on white paper. One soft stage
@@ -12254,7 +12220,6 @@ html.native .tn-group.today-strip, html:not(.native) .tn-group.today-strip {
 .tn-group.today-strip.ci-alone, .tn-group.today-strip:has(> .ts-tile:only-child) { -webkit-mask-image: none; mask-image: none; }
 @media (min-width: 701px) { html:not(.native) .tn-group.today-strip { -webkit-mask-image: none; mask-image: none; } }
 /* One red per screen: "Beat up" is a choice, not an alarm. */
-.tn-ready-btn.is-rough, [data-theme="light"] body .tn-ready-btn.is-rough, [data-theme="light"] body.powa-app .tn-ready-btn.is-rough { color: var(--text); }
 /* In the app the day's name is the menu (Today's session); no second ⋯ beside it. */
 html.native .today-head .th-more { display: none !important; }
 @media (max-width: 700px) { .today-head .th-more { display: none !important; } }
@@ -13271,3 +13236,195 @@ html[data-theme="light"]:not(.desk) body.powa-app:not(#_) :is(.btn-primary, .ca-
       the raised neutral fill with the RPE colour as its text. The coach's thread keeps its plain words (coach-app.css). */
 html:not([data-theme="light"]):not(.desk) body.powa-app .mc-rpe { background: #232327; }
 html[data-theme="light"]:not(.desk) body.powa-app .mc-rpe { background: #f0f0f3; }
+
+/* ======================================================================================================== THE PHONE'S TOKENS (6 Nov)
+   One segmented control and the laptop's amber, for both phone apps (the lifter app everywhere, the coach's phone;
+   html.desk keeps its own). The segmented control is the iOS one: a recessed grey track, the picked segment a raised
+   key (a light grey key with its drop shadow on the dark theme, a white key with a hairline shadow on the light), its
+   label full ink, the others text-2. "Over what was written" is the laptop's amber (desk.css --dk-over*): half a point
+   an outline in --over, a point or more solid --over-fill (with --over-edge) under --over-on. The raised neutral fill
+   is what a warm hue sits on instead of its own dark tint (no brown). */
+html:not(.desk) body.powa-app {
+  --seg-track: rgba(118, 118, 128, 0.2);
+  --seg-key: #5a5a60;
+  --seg-key-ink: #fff;
+  --seg-key-ink-2: rgba(255, 255, 255, 0.78);
+  --seg-key-shade: 0 3px 8px rgba(0, 0, 0, 0.32), 0 1px 1px rgba(0, 0, 0, 0.2);
+  --over: #ff9f45; --over-fill: #ff9f45; --over-edge: transparent; --over-on: #1a1206;
+  --np-raise: rgba(255, 255, 255, 0.07);
+}
+html[data-theme="light"]:not(.desk) body.powa-app {
+  --seg-track: rgba(118, 118, 128, 0.12);
+  --seg-key: #fff;
+  --seg-key-ink: var(--text);
+  --seg-key-ink-2: var(--text-2);
+  --seg-key-shade: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(0, 0, 0, 0.04);
+  --over: #9a5a00; --over-fill: #f5a524; --over-edge: #9a5a00; --over-on: #1a1206;
+  --np-raise: rgba(15, 15, 25, 0.05);
+}
+
+/* ======================================================================================================== ONE SEGMENTED CONTROL (6 Nov)
+   The dark theme had three picked looks: the iOS light key (Progress, the lifter's Club, Feedback, Results cards,
+   Notifications), a dark #1f1f23 pill (Ask in both apps, a client's Status, the coach's Club, Clients' filters,
+   Programs' days and toggles, the meet board's flights) and a faint 7.5% thumb in a bordered card (the coach's
+   Lifters). They are all the iOS key now (the light theme already was), sized for their place. The coach phone's own
+   ones are drawn in coach-app.css / coach-ui.css with these tokens, Ask's in ai-chat.css. */
+
+/* Progress's four tabs, 44 pt to the touch (they were 34), drawn as they were: the tab clipped its own box for the
+   ellipsis, so a hit area couldn't reach past it; the label's span clips now (athlete.html renderProgress) and the tab
+   answers 5 pt above and below its pill, inside the track's padding and 2 pt past it. */
+html:not(.desk) body.powa-app .prog-subtab { overflow: visible; }
+html:not(.desk) body.powa-app .prog-subtab > .ps-l { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html:not(.desk) body.powa-app .prog-subtab::before { content: ''; position: absolute; inset: -5px 0; }
+
+/* ======================================================================================================== TRAIN, 44 PT TO THE TOUCH (6 Nov)
+   Train's set controls answer a finger at 44 pt and are drawn exactly as approved (the same pixels; a positioned hit
+   area or a clipped fill moves a few, so neither is used): the load (32: the tap that opens the set, or the box a
+   self-coached lifter types into) has 6 pt of padding above and below, taken back by its margins; the set's circle (36)
+   and its RPE chip (44 x 32) are handed the taps around them by their row, and Add set / PR attempt (34) by theirs
+   (athlete.html _txSlop: within 22 pt of the middle, and the width, or 44 pt for the circle). None overlaps another:
+   the circle's and the chip's stay 8 pt apart, and the row's three icons split the gaps between them (40 wide inside,
+   44 at the ends; at 375 pt the gaps are 4, so 38). */
+html:not(.desk) body.powa-app .tx-set .tx-set-load:is(.is-tap, .is-field) { padding-block: 6px; margin-block: -6px; }
+/* the line under the load (e1RM, Belt on, tempo: words only) lets a tap through to the load's padding it lies over */
+html:not(.desk) body.powa-app .tx-set .tx-set-main > .tx-set-sub { pointer-events: none; }
+html:not(.desk) body.powa-app .tx-card .tx-acts { padding-block: 5px; margin-block: 5px -3px; }
+html:not(.desk) body.powa-app :is(.tx-set, .tx-card .tx-acts) { -webkit-tap-highlight-color: transparent; }
+@media (max-width: 767px) {
+  html:not(.desk) body.powa-app .tx-acts .tx-act-ico::before { inset: -5px -3px; }
+  html:not(.desk) body.powa-app .tx-acts .tx-act:not(.tx-act-ico) + .tx-act-ico::before,
+  html:not(.desk) body.powa-app .tx-acts .tx-act-ico:first-child::before { left: -5px; }
+  html:not(.desk) body.powa-app .tx-acts .tx-act-ico:last-child::before { right: -5px; }
+}
+@media (max-width: 389px) { html:not(.desk) body.powa-app .tx-acts .tx-act-ico::before { inset: -5px -2px; } }
+
+/* ======================================================================================================== RED AND BROWN, THE LIFTER APP (6 Nov)
+   A scan of the lifter app (and what it shares with the coach's phone: the club, the thread's set cards, the toasts)
+   for what the 1.4 pass left. Red is the logo and the one crimson action; a true alert keeps the alert red; gold and
+   amber are never a dark tint. A warm hue sits on the raised neutral fill with a hairline of the hue (strong enough to
+   read as the hue: squat 72%, bench 82%, deadlift 68%, luminance close on all three, as the coach's lift tiles), or
+   keeps its colour on its mark (the letter, the dot, the ring). The three lifts are one family: the lit Train card,
+   the next set, the rail and the letter tiles lose their tint on all three, not only on the deadlift. The light
+   theme's pale tints stay; what is dark in both themes (the lifter card, the club's TV, the plate toast, the story)
+   gets the dark rule in both. The PR moment's gold plate glow stays (the celebration). */
+html:not(.desk) body.powa-app .lift-squat { --lh: 72%; }
+html:not(.desk) body.powa-app .lift-bench { --lh: 82%; }
+html:not(.desk) body.powa-app .lift-deadlift { --lh: 68%; }
+
+/* RPE is information, never a colour wash: a neutral chip with its number in ink. The simple scale's picked step is
+   ink (as the full scale's knob already is: light on the dark theme, dark on the light); the thread's set card says
+   its RPE in ink on its neutral chip (it was the RPE colour, 52% black in light: #85631f at 8, #851f26 at 10). */
+html:not(.desk) body.powa-app .rpe-steps button.on { background: var(--text); color: var(--bg); box-shadow: none; }
+html:not(.desk) body.powa-app .rpe-steps button.on::after { opacity: 0; }
+html:not(.desk) body.powa-app .mc-rpe { color: var(--text); }
+
+/* Train, dark: the lit card, the next set, the rail's chip and the letter tiles, neutral for all three lifts; the
+   lift's hue stays on its dot, the next set's ring and number, and the letter. */
+html:not([data-theme="light"]):not(.desk) body.powa-app .tx-hero[class*="lift-"] {
+  background: radial-gradient(120% 120% at 100% 0%, rgba(255, 255, 255, 0.045) 0%, transparent 52%), var(--bg-1);
+  border-color: var(--edge);
+}
+html:not([data-theme="light"]):not(.desk) body.powa-app .tx-set.is-next { background: rgba(255, 255, 255, 0.05); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .tx-rail-chip.now { background: var(--bg-1); border-color: color-mix(in srgb, var(--lc) var(--lh, 70%), transparent); }
+html:not([data-theme="light"]):not(.desk) body.powa-app :is(.tx-tile, .trc-tile) { background: color-mix(in srgb, var(--text-3) 17%, transparent); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .tx-rail-chip.done .trc-tile { background: color-mix(in srgb, var(--text-3) 17%, transparent); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .tx-done-lift { background: var(--np-raise); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .tx-set .tx-w-input:focus { background: rgba(255, 255, 255, 0.06) !important; }
+html:not([data-theme="light"]):not(.desk) body.powa-app :is(.tx-card, .ml-warm, .xd-body) .warmup-row.work {
+  background: var(--np-raise); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) var(--lh, 70%), transparent);
+}
+html:not([data-theme="light"]):not(.desk) body.powa-app .tx-smart-ic { background: var(--np-raise); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc, var(--text-3)) var(--lh, 70%), transparent); }
+/* the load moved down because the set before came in over what was written: the laptop's amber (a point or more over
+   solid, half a point an outline), in both themes */
+html:not(.desk) body.powa-app .tx-smart.is-over .tx-smart-ic { background: var(--over-fill); box-shadow: inset 0 0 0 1px var(--over-edge); color: var(--over-on); }
+html:not(.desk) body.powa-app .tx-smart.is-half .tx-smart-ic { background: var(--np-raise); box-shadow: inset 0 0 0 1.5px var(--over); color: var(--over); }
+
+/* A missed attempt is the lifter's own outcome, not an alert: its circle is the neutral fill with an ink cross, its
+   line and the thread card's kind the ink word beside the app's warn triangle (as the coach's phone draws them). */
+html:not(.desk) body.powa-app .tx-check.is-missed { background-color: var(--np-raise); color: var(--text-2); }
+html:not(.desk) body.powa-app .tx-set-sub.is-alert { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); }
+html:not(.desk) body.powa-app .tx-set-sub.is-alert::before,
+html:not(.desk) body.powa-app .msg-card.is-missed .mc-kind::before { content: ''; flex: none; width: 9px; height: 8px; background: var(--warn, #ff9f43); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+html:not(.desk) body.powa-app .msg-card.is-missed .mc-kind { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
+html[data-theme="light"]:not(.desk) body.powa-app :is(.tx-set-sub.is-alert, .msg-card.is-missed .mc-kind)::before { background: #e06414; }
+/* Sets this week: "over the maximum" is over, so its dot is the amber over (it was the soft alert's coral). */
+html:not(.desk) body.powa-app .vol-row.vol-over .vol-zone::before { background: var(--over-fill); box-shadow: inset 0 0 0 1px var(--over-edge); }
+/* The readiness row once answered, and the resting heart rate's line in Apple Health: ink, not coral. */
+html:not(.desk) body.powa-app .tn-group .tn-ready.is-set .tn-ic { color: var(--text-2); }
+html:not(.desk) body.powa-app .hs-spark { color: var(--text-2); }
+/* Apple Health refused: the raised fill with a hairline of the warn hue (a 12% amber tint read brown on dark). */
+html:not([data-theme="light"]):not(.desk) body.powa-app .health-sheet .hs-refused { background: var(--np-raise); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--soft-warn, #ffb35c) 55%, transparent); }
+
+/* The thread's set card (both apps' lifter side): the card is neutral on the bubble with a hairline of its lift. Its
+   kind in light was gold for every kind (Set, Session, Missed attempt): ink, gold only on New PR. */
+html[data-theme="light"]:not(.desk) body.powa-app .mc-kind { color: var(--text-3); }
+html[data-theme="light"]:not(.desk) body.powa-app .msg-card.is-pr .mc-kind { color: #8a5d00; }
+html:not([data-theme="light"]):not(.desk) body.powa-app .msg-card { background: rgba(0, 0, 0, 0.32); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) var(--lh, 60%), transparent); }
+
+/* Meet day (the sheet and meet mode), dark: a lift's card is the plain surface, the third attempt and the picked lift
+   the raised fill with the lift's hairline, its name in ink in light (the lift's 46% black read brown: #75581c). */
+html:not([data-theme="light"]):not(.desk) body.powa-app .meet-lift { background: var(--bg-2, #161619); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .ml-a.is-third { background: var(--np-raise); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) var(--lh, 70%), transparent); }
+html[data-theme="light"]:not(.desk) body.powa-app .ml-a.is-third span { color: var(--text); }
+html:not(.desk) body.powa-app .mm-tab.on { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--lc, var(--text-2)) var(--lh, 70%), transparent); }
+/* No lift is a result, said in ink as Good lift is (the coach's board strikes a no lift through in ink); the judges'
+   lights keep their own white and red, without the red's glow. "Make this one to stay in the meet" is a true alert:
+   the alert red on the word, the raised fill under it (it was coral on a coral tint). */
+html[data-theme="light"]:not(.desk) body.powa-app .meet-mode .btn:is(.mm-good, .mm-no) { background: rgba(15, 15, 25, 0.06); color: var(--text); }
+html:not(.desk) body.powa-app .mm-result.is-no { color: var(--text); }
+html:not(.desk) body.powa-app .mm-light.is-red { box-shadow: inset 0 -6px 12px rgba(0, 0, 0, 0.2); }
+html:not(.desk) body.powa-app .mm-warn { background: var(--np-raise); color: var(--brand-red, #ff2d3f); }
+html[data-theme="light"]:not(.desk) body.powa-app .mm-warn { color: #c63a24; }
+
+/* The program browser's open exercise, dark: the plain fill with its lift's hairline. */
+html:not([data-theme="light"]):not(.desk) body.powa-app .pb-ex.is-open { background: var(--fill-1); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) var(--lh, 70%), transparent); }
+
+/* The club, dark: the challenge card and its icon, the podium's blocks, the medals and the spotlight are the raised
+   fill with a hairline of gold, silver or bronze; "you" on the board is the neutral row with the gold ring on the face.
+   The gold stays on the words, the numbers and the crown. */
+html:not([data-theme="light"]):not(.desk) body.powa-app .club-ch { background: var(--bg-1); box-shadow: inset 0 0 0 1px rgba(242, 194, 91, 0.5); }
+html:not([data-theme="light"]):not(.desk) body.powa-app :is(.club-ch-ic, .club-spot .cs-ic) { background: var(--np-raise); box-shadow: inset 0 0 0 1px rgba(242, 194, 91, 0.55); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .club-spot { background: var(--bg-1); border-color: rgba(242, 194, 91, 0.5); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .cpd-block { background: var(--np-raise); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--md) 55%, transparent); }
+html:not([data-theme="light"]):not(.desk) body.powa-app :is(.cr-rank.gold, .cr-rank.silver, .cr-rank.bronze) { background: var(--np-raise); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .cr-rank.gold { box-shadow: inset 0 0 0 1px rgba(246, 210, 122, 0.55); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .cr-rank.silver { box-shadow: inset 0 0 0 1px rgba(223, 227, 234, 0.4); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .cr-rank.bronze { box-shadow: inset 0 0 0 1px rgba(231, 173, 131, 0.55); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .club-row.is-me { background: rgba(255, 255, 255, 0.045); }
+/* the medals in light were the dark night tiles on white (#3a2f12, #2a2c31, #33231a): a pale tile of the metal with
+   its deep shade on the number */
+html[data-theme="light"]:not(.desk) body.powa-app .cr-rank.gold { background: color-mix(in srgb, #8a5d00 12%, #fff); color: #6f4c00; box-shadow: inset 0 0 0 1px rgba(138, 93, 0, 0.22); }
+html[data-theme="light"]:not(.desk) body.powa-app .cr-rank.silver { background: #eef0f4; color: #3d4350; box-shadow: inset 0 0 0 1px rgba(61, 67, 80, 0.16); }
+html[data-theme="light"]:not(.desk) body.powa-app .cr-rank.bronze { background: color-mix(in srgb, #9a4f1c 12%, #fff); color: #7a3c12; box-shadow: inset 0 0 0 1px rgba(154, 79, 28, 0.22); }
+
+/* Dark in both themes. The club's TV: a neutral light, the leader's row the raised fill with a gold hairline. The
+   lifter card: its class chip the raised fill with a gold hairline, its rim neutral, its foil white where it was gold.
+   The plate toast: a neutral veil and card, the card's rim the gold hairline. A story (Wrapped): see athlete.html's
+   wrap tints; its light reads --wg. A meet's countdown, the strength chart's PR tag: the raised fill, gold words. */
+html:not(.desk) body.powa-app .club-tv { background: radial-gradient(90% 70% at 50% -10%, rgba(255, 255, 255, 0.06), transparent 60%), #050506; }
+html:not(.desk) body.powa-app .tv-row.top1 { background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(242, 194, 91, 0.5); }
+html:not(.desk) body.powa-app .lc-class { background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(242, 194, 91, 0.55); }
+html:not(.desk) body.powa-app .lc-card { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 34px 70px -24px rgba(0, 0, 0, 0.95); }
+html:not(.desk) body.powa-app .lc-sheen {
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 30%), rgba(255, 255, 255, 0.2), transparent 42%),
+    linear-gradient(115deg, transparent 20%, rgba(56, 198, 255, 0.10) 38%, rgba(169, 139, 255, 0.12) 50%, rgba(255, 255, 255, 0.08) 62%, transparent 80%);
+  background-size: 100% 100%, 220% 220%;
+}
+html:not(.desk) body.powa-app .pr-toast:not(.pr-moment) { background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.62) 70%); }
+html:not(.desk) body.powa-app .pr-toast:not(.pr-moment) .pr-card { background: linear-gradient(180deg, #1b1a1f, #121216); border-color: rgba(242, 194, 91, 0.7); }   /* 0.7: at 0.5 the rim read brown on the card */
+html:not(.desk) body.powa-app .wrap-mode { background: radial-gradient(80% 50% at 50% 38%, color-mix(in srgb, var(--wg, var(--wt, #9a9aa6)) 30%, transparent), transparent 70%), #050506; }
+html:not(.desk) body.powa-app .wrap-unit { color: var(--wt, #c9ced6); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .meet-count { background: var(--bg-2, #161619); box-shadow: inset 0 0 0 1px rgba(242, 194, 91, 0.45); }
+html:not([data-theme="light"]):not(.desk) body.powa-app .meet-count:has(.mcd-empty) { background: none; box-shadow: none; }   /* no date yet: just the line */
+html:not([data-theme="light"]):not(.desk) body.powa-app .sc-pr-tag { background: var(--np-raise); box-shadow: inset 0 0 0 1px rgba(242, 194, 91, 0.5); }
+/* A club post's PR chip in light was the only gold tint left on the club (rgba(255,191,60,.14)): the raised neutral
+   fill with its gold word, as the dark theme's (the 1.4 pass). */
+html[data-theme="light"]:not(.desk) body.powa-app .cp-pr { background: var(--np-raise); }
+/* light: the club spotlight's and the chart tag's gold were the dark theme's (#f2c25b on white): the light theme's
+   gold, as a PR chip's (Light theme legibility) */
+html[data-theme="light"]:not(.desk) body.powa-app .sc-pr-tag { color: #8a5d00; }
+/* The rest dock's ring was the fire gradient (red to orange) beside the screen's one crimson action: ink, as the
+   welcome's demo card has it; paused stays grey, done stays green. */
+html:not(.desk) body.powa-app .rest-timer:not(.paused):not(.done) .rt-prog { stroke: var(--text); }
+/* The session's note box in light took the generic focus ring's red: ink, as every other field's. */
+html[data-theme="light"]:not(.desk) body.powa-app #noteText:focus { border-color: color-mix(in srgb, var(--text) 32%, transparent); box-shadow: none; outline: none; }

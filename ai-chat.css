@@ -732,10 +732,11 @@ html:not(.desk) body.powa-app .ai-panel .ai-head-sub { margin-top: 2px; font-siz
 html:not(.desk) body.powa-app .ai-panel .ai-mode-pill { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--ask-inset-2); color: var(--text-2); font-size: 13px; font-weight: 600; }
 html:not(.desk) body.powa-app .ai-panel .ai-mode-pill::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ask-gold); }
 html:not(.desk) body.powa-app .ai-panel .ai-mode-pill.live::before { background: var(--ask-live); }
-html:not(.desk) body.powa-app .ai-panel .ai-seg { margin: 12px 16px 0; padding: 3px; border: 0; border-radius: 12px; background: var(--ask-inset); }
+html:not(.desk) body.powa-app .ai-panel .ai-seg { margin: 12px 16px 0; padding: 3px; border: 0; border-radius: 12px; background: var(--seg-track, var(--ask-inset)); }
 html:not(.desk) body.powa-app .ai-panel .ai-seg-btn { position: relative; min-height: 38px; border-radius: 9px; color: var(--text-2); font-size: 15px; font-weight: 600; }
 html:not(.desk) body.powa-app .ai-panel .ai-seg-btn::after { content: ''; position: absolute; inset: -3px 0; }
-html:not(.desk) body.powa-app .ai-panel .ai-seg-btn.is-on { background: var(--ask-raise); color: var(--text); box-shadow: var(--ask-raise-shade); }
+/* the app's one segmented control (styles.css, 6 Nov): the iOS key, not the dark raised pill */
+html:not(.desk) body.powa-app .ai-panel .ai-seg-btn.is-on { background: var(--seg-key, var(--ask-raise)); color: var(--seg-key-ink, var(--text)); box-shadow: var(--seg-key-shade, var(--ask-raise-shade)); }
 html:not(.desk) body.powa-app .ai-panel .ai-body { padding: 16px 16px 8px; gap: 12px; }
 html:not(.desk) body.powa-app .ai-panel .ai-msg.assistant .ai-bubble { background: var(--ask-inset); }
 html:not(.desk) body.powa-app .ai-panel .ai-msg.user .ai-bubble { background: var(--ask-inset-2); }

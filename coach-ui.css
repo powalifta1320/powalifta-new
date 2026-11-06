@@ -957,12 +957,13 @@ html:not(.desk) .cs-page.is-phone .cs-every.has-filters { margin-top: 28px; }
 html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters { display: flex; gap: 8px; margin: 0 -16px; padding: 2px 16px 4px; overflow-x: auto; scrollbar-width: none; }
 html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button {
   flex: none; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 0; border-radius: 999px;
-  background: var(--pl-inset); color: var(--text-2) !important; font-size: 15px !important; font-weight: 600 !important; line-height: 1 !important; white-space: nowrap;
+  background: var(--seg-track); color: var(--text-2) !important; font-size: 15px !important; font-weight: 600 !important; line-height: 1 !important; white-space: nowrap;
   transition: transform var(--pl-d-press) var(--pl-spring), background-color 160ms ease-out, color 160ms ease-out;
 }
 html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button span { margin: 0; color: var(--text-3); font-family: var(--font-num); font-weight: 700; font-variant-numeric: tabular-nums; opacity: 1; }
-html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button.on { background: var(--pl-raise); box-shadow: var(--pl-raise-shade); color: var(--text) !important; }
-html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button.on span { color: var(--text-2); }
+/* the picked filter is the app's segmented key (6 Nov: it was the dark #1f1f23 pill), the others the track's grey */
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button.on { background: var(--seg-key); box-shadow: var(--seg-key-shade); color: var(--seg-key-ink) !important; }
+html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button.on span { color: var(--seg-key-ink-2); }
 html:not(.desk) body.powa-app .cs-page.is-phone .cs-filters button:active { transform: scale(0.96); transition-duration: 90ms; }
 html:not(.desk) body.powa-app .cs-page.is-phone .cs-list.is-phone { position: relative; display: flex; flex-direction: column; overflow: visible; background: none; border: 0; border-radius: 0; box-shadow: none; }
 html:not(.desk) body.powa-app .cs-page.is-phone .cs-list.is-phone::before { content: ''; position: absolute; top: 0; left: 4px; right: 4px; height: 1px; background: var(--ca-hair); }
@@ -1053,9 +1054,9 @@ html:not(.desk) body.powa-app .cs-sheet .cs-chips button {
 html:not(.desk) body.powa-app .cs-sheet .cs-chips:not(.is-seg) button.on { background: var(--text); box-shadow: none; color: var(--bg) !important; }
 html:not(.desk) body.powa-app .cs-sheet .cs-chips button::after { content: ''; position: absolute; inset: -3px -2px; }
 html:not(.desk) body.powa-app .cs-sheet .cs-chips button:active { transform: scale(0.96); transition-duration: 90ms; }
-html:not(.desk) body.powa-app .cs-sheet .cs-chips.is-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 16px; background: var(--pl-inset); }
+html:not(.desk) body.powa-app .cs-sheet .cs-chips.is-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 16px; background: var(--seg-track); }
 html:not(.desk) body.powa-app .cs-sheet .cs-chips.is-seg button { border-radius: 12px; background: none; }
-html:not(.desk) body.powa-app .cs-sheet .cs-chips.is-seg button.on { background: var(--pl-raise); box-shadow: var(--pl-raise-shade); color: var(--text) !important; }
+html:not(.desk) body.powa-app .cs-sheet .cs-chips.is-seg button.on { background: var(--seg-key); box-shadow: var(--seg-key-shade); color: var(--seg-key-ink) !important; }
 html:not(.desk) body.powa-app .cs-sheet > .btn-primary { margin-top: 8px; min-height: 52px; border-radius: 999px; font-size: 17px; font-weight: 650; }
 @media (prefers-reduced-motion: reduce) { html:not(.desk) body.powa-app .cs-sheet .cs-chips button:active { transform: none; } }
 

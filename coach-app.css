@@ -640,10 +640,11 @@ html:not(.desk) .ca-tiles > .ca-tile .ca-ts.is-warn::before { content: ''; displ
 html:not(.desk) .ca-tiles > .ca-tile .ca-tv { grid-column: 3; grid-row: 1 / span 2; margin: 0; font-family: var(--font-num); font-stretch: 108%; font-size: 17px; font-weight: 800; letter-spacing: -0.012em; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 html:not(.desk) .ca-tiles > .ca-tile > svg { grid-column: 4; grid-row: 1 / span 2; width: 16px; height: 16px; color: var(--text-3); }
 
-/* the report: one row on an inset */
-html:not(.desk) .ca-rowcard { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; margin-top: 32px; padding: 12px 14px 12px 16px; border: 0; background: var(--pl-inset); text-align: left; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 140ms ease-out; }
+/* the report: one row on the card the Coaching list sits on (6 Nov: it was a grey borderless inset, the only one of
+   its kind on Home; in light a grey card under white ones), so the two read as one material */
+html:not(.desk) .ca-rowcard { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; margin-top: 32px; padding: 12px 14px 12px 16px; border: 1px solid var(--ca-edge); background: var(--ca-card); box-shadow: var(--pl-lip); text-align: left; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 140ms ease-out; }
 html:not(.desk) .ca-rowcard.is-top { margin-top: 12px; }
-html:not(.desk) .ca-rowcard:active { transform: scale(0.985); background: var(--pl-inset-2); transition-duration: 90ms; transition-timing-function: ease-out; }
+html:not(.desk) .ca-rowcard:active { transform: scale(0.985); background: color-mix(in srgb, var(--text) 5%, var(--ca-card)); transition-duration: 90ms; transition-timing-function: ease-out; }
 html:not(.desk) .ca-rowcard > svg { flex: none; width: 18px; height: 18px; color: var(--text-3); }
 html:not(.desk) .ca-rowcard .ca-tic { background: var(--pl-inset-2); }
 html:not(.desk) .ca-rowcard-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -707,23 +708,25 @@ html:not(.desk) body.powa-app .ca-search input { flex: 1; min-width: 0; height: 
 html:not(.desk) .ca-search input::placeholder { color: var(--text-3); }
 html:not(.desk) .ca-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
 /* the filters: four counts you tap, Reminders-style (they fit a 375 pt screen, chips didn't) */
-html:not(.desk) .ca-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; margin: 0 0 16px; padding: 3px; border-radius: 16px; background: var(--pl-inset); }
+html:not(.desk) .ca-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; margin: 0 0 16px; padding: 3px; border-radius: 16px; background: var(--seg-track); }
 html:not(.desk) .ca-seg-b {
   display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; min-height: 56px; padding: 7px 2px 8px; border: 0; border-radius: 13px; background: none; cursor: pointer;
   transition: background-color 180ms ease-out, box-shadow 180ms ease-out, transform var(--pl-d-press) var(--pl-spring);
 }
 html:not(.desk) .ca-seg-b b { font-family: var(--font-num); font-stretch: 108%; font-size: 20px; font-weight: 800; line-height: 1.15; color: var(--text-2); font-variant-numeric: tabular-nums; }
-html:not(.desk) .ca-seg-b span { max-width: 100%; font-size: 13px; font-weight: 600; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html:not(.desk) .ca-seg-b.on { background: var(--pl-raise); box-shadow: var(--pl-raise-shade); }
-html:not(.desk) .ca-seg-b.on b { color: var(--text); }
-html:not(.desk) .ca-seg-b.on span { color: var(--text); }
+html:not(.desk) .ca-seg-b span { max-width: 100%; font-size: 13px; font-weight: 600; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html:not(.desk) .ca-seg-b.on { background: var(--seg-key); box-shadow: var(--seg-key-shade); }
+html:not(.desk) .ca-seg-b.on b { color: var(--seg-key-ink); }
+html:not(.desk) .ca-seg-b.on span { color: var(--seg-key-ink-2); }
 html:not(.desk) .ca-seg-b:active { transform: scale(0.97); transition-duration: 90ms; }
 html:not(.desk) .ca-seg-b:disabled { cursor: default; }
 html:not(.desk) .ca-seg-b:disabled b { color: var(--text-3); opacity: 0.6; }
-html:not(.desk) .ca-seg.is-hero { padding: 4px; border-radius: 20px; gap: 4px; background: var(--ca-card); border: 1px solid var(--ca-edge); box-shadow: var(--pl-lip); }
+/* the hero size of the one segmented control (6 Nov: it was a bordered card with a faint 7.5% thumb): the track and
+   the key the app's others wear, bigger */
+html:not(.desk) .ca-seg.is-hero { padding: 4px; border-radius: 20px; gap: 4px; background: var(--seg-track); border: 0; box-shadow: none; }
 html:not(.desk) .ca-seg.is-hero .ca-seg-b { min-height: 64px; border-radius: 16px; padding: 9px 2px 10px; }
 html:not(.desk) .ca-seg.is-hero .ca-seg-b b { font-size: 22px; }
-html:not(.desk) .ca-seg.is-hero .ca-seg-b.on { background: var(--pl-inset-2); box-shadow: none; }
+html:not(.desk) .ca-seg.is-hero .ca-seg-b.on { background: var(--seg-key); box-shadow: var(--seg-key-shade); }
 html:not(.desk) .ca-seg.is-hero + .ca-search { margin-top: 4px; }
 html:not(.desk) .ca-chips { display: flex; gap: 8px; margin: 0 -16px 16px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; }
 html:not(.desk) .ca-chips::-webkit-scrollbar { display: none; }
@@ -780,7 +783,7 @@ html:not(.desk) .ca-seg.has-thumb .ca-seg-b { position: relative; z-index: 1; }
 html:not(.desk) .ca-seg.has-thumb .ca-seg-b.on { background: none; box-shadow: none; }
 html:not(.desk) .ca-seg-thumb {
   position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 20px) / 4); border-radius: 16px;
-  background: var(--pl-inset-2); transform: translate3d(calc(var(--k, 0) * (100% + 4px)), 0, 0);
+  background: var(--seg-key); box-shadow: var(--seg-key-shade); transform: translate3d(calc(var(--k, 0) * (100% + 4px)), 0, 0);
   transition: transform var(--pl-d-press) var(--pl-spring);
 }
 @media (prefers-reduced-motion: reduce) { html:not(.desk) .ca-seg-thumb { transition: none; } }
@@ -1183,10 +1186,10 @@ html:not(.desk) body.powa-app .md-board-root .md-odds.is-reach::before { content
 
 /* the flight: chips like the app's (the chosen one raised graphite, not inverted), heads and names on the scale, a
    good lift an ink number on its green, a no lift its number struck through in ink */
-html:not(.desk) body.powa-app .md-board-root .md-flight { font-size: 15px; }
+html:not(.desk) body.powa-app .md-board-root .md-flight { font-size: 15px; background: var(--seg-track); }
 html:not(.desk) body.powa-app .md-board-root .md-flight small { font-size: 13px; }
-html:not(.desk) body.powa-app .md-board-root .md-flight.on { background: var(--pl-raise); color: var(--text); box-shadow: var(--pl-raise-shade); }
-html:not(.desk) body.powa-app .md-board-root .md-flight.on small { color: var(--text-2); }
+html:not(.desk) body.powa-app .md-board-root .md-flight.on { background: var(--seg-key); color: var(--seg-key-ink); box-shadow: var(--seg-key-shade); }
+html:not(.desk) body.powa-app .md-board-root .md-flight.on small { color: var(--seg-key-ink-2); }
 html:not(.desk) body.powa-app .md-board-root :is(.md-table th, .md-name small, .md-legend) { font-size: 13px; }
 html:not(.desk) body.powa-app .md-board-root .md-cell.is-good .md-cell-kg { color: var(--text); }
 html:not(.desk) body.powa-app .md-board-root .md-cell.is-no .md-cell-kg { color: var(--text-2); box-shadow: none; text-decoration-color: var(--text-2); }
@@ -1264,10 +1267,10 @@ html:not(.desk) .cp-wkwhen { font-size: 15px; color: var(--text-3); }
 html:not(.desk) .cp-wkwhen.is-now { color: var(--acc); font-weight: 600; }
 html[data-theme="light"]:not(.desk) .cp-wkwhen.is-now { color: color-mix(in srgb, var(--acc) 58%, #000); }
 html:not(.desk) .cp-segwrap { position: relative; }
-html:not(.desk) .cp-days { display: flex; gap: 2px; padding: 2px; border-radius: 14px; background: var(--pl-inset); }
+html:not(.desk) .cp-days { display: flex; gap: 2px; padding: 2px; border-radius: 14px; background: var(--seg-track); }
 html:not(.desk) .cp-day { position: relative; flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 6px; border: 0; border-radius: 12px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; letter-spacing: -0.005em; white-space: nowrap; cursor: pointer; transition: background-color 200ms ease-out, color 200ms ease-out, box-shadow 200ms ease-out; }
 html:not(.desk) .cp-day span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-html:not(.desk) .cp-day.on { background: var(--pl-raise); color: var(--text) !important; box-shadow: var(--pl-raise-shade); }
+html:not(.desk) .cp-day.on { background: var(--seg-key); color: var(--seg-key-ink) !important; box-shadow: var(--seg-key-shade); }
 html:not(.desk) .cp-day.is-rest:not(.on) { color: var(--text-3) !important; }
 html:not(.desk) .cp-day-add { flex: 0 0 44px; padding: 0; color: var(--text-3) !important; }
 html:not(.desk) .cp-day-add svg { width: 18px; height: 18px; }
@@ -1382,9 +1385,9 @@ html:not(.desk) .cp-ed-note { margin: 10px 0 0; font-size: 13px; line-height: 1.
 html:not(.desk) .cp-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
 @media (prefers-reduced-motion: reduce) { html:not(.desk) .cp-blkmore svg { transition: none; } }
 html:not(.desk) .cp-tg-l { display: block; margin: 0 2px 6px; font-size: 13px; font-weight: 600; color: var(--text-3); }
-html:not(.desk) .cp-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 2px; border-radius: 12px; background: var(--pl-inset); }
+html:not(.desk) .cp-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 2px; border-radius: 12px; background: var(--seg-track); }
 html:not(.desk) .cp-seg button { min-height: 36px; padding: 0 6px; border: 0; border-radius: 10px; background: none; color: var(--text-2) !important; font-size: 15px !important; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 200ms ease-out, color 200ms ease-out, box-shadow 200ms ease-out; }
-html:not(.desk) .cp-seg button.on { background: var(--pl-raise); color: var(--text) !important; box-shadow: var(--pl-raise-shade); }
+html:not(.desk) .cp-seg button.on { background: var(--seg-key); color: var(--seg-key-ink) !important; box-shadow: var(--seg-key-shade); }
 html:not(.desk) .cp-blk { margin-top: 16px; padding: 12px 14px 16px; border-radius: 16px; background: var(--pl-inset); }
 html:not(.desk) .cp-blk.is-top {
   --pfl: #c9ced6;
@@ -2091,9 +2094,9 @@ html:not(.desk) body.powa-app #clubArea .club-buddy .btn::after { content: ''; p
 html:not(.desk) body.powa-app #clubArea .club-buddy .btn:disabled { color: var(--text-3); }
 
 /* -- Feed | Board, and the board's four: the app's segmented control */
-html:not(.desk) body.powa-app #clubArea .ui-seg:is(.club-view-seg, .club-rank-seg) { margin-top: 20px; padding: 3px; border-radius: 12px; background: var(--pl-inset); }
+html:not(.desk) body.powa-app #clubArea .ui-seg:is(.club-view-seg, .club-rank-seg) { margin-top: 20px; padding: 3px; border-radius: 12px; background: var(--seg-track); }
 html:not(.desk) body.powa-app #clubArea .ui-seg:is(.club-view-seg, .club-rank-seg) button { min-height: 38px; border-radius: 9px; color: var(--text-2); font-size: 15px; font-weight: 600; }
-html:not(.desk) body.powa-app #clubArea .ui-seg:is(.club-view-seg, .club-rank-seg) button.on { background: var(--pl-raise); color: var(--text); box-shadow: var(--pl-raise-shade); }
+html:not(.desk) body.powa-app #clubArea .ui-seg:is(.club-view-seg, .club-rank-seg) button.on { background: var(--seg-key); color: var(--seg-key-ink); box-shadow: var(--seg-key-shade); }
 html:not(.desk) body.powa-app #clubArea .ui-seg.club-rank-seg { margin-top: 16px; }
 html:not(.desk) body.powa-app #clubArea .ui-seg.club-rank-seg button { font-size: 13px; }
 
@@ -2157,6 +2160,8 @@ html:not(.desk) body.powa-app #clubArea .cpd-col { --md: #9aa1ad; }
 html:not(.desk) body.powa-app #clubArea .cpd-col.p1 { --md: var(--ca-gold); }
 html:not(.desk) body.powa-app #clubArea .cpd-block { font-family: var(--font-num); font-stretch: 112%; font-size: 22px; color: var(--text-3); background: var(--pl-inset); box-shadow: inset 0 1px 0 var(--ca-hair); }
 html:not(.desk) body.powa-app #clubArea .cpd-col.p1 .cpd-block { color: var(--ca-gold); background: color-mix(in srgb, var(--ca-gold) 14%, transparent); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ca-gold) 30%, transparent); }
+/* dark: the first place's block was gold at 14% (brown); the inset with a hairline of gold, as the lifter's club (6 Nov) */
+html:not([data-theme="light"]):not(.desk) body.powa-app #clubArea .cpd-col.p1 .cpd-block { background: var(--pl-inset); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ca-gold) 55%, transparent); }
 html:not(.desk) body.powa-app #clubArea .cpd-name { font-size: 15px; font-weight: 600; }
 html:not(.desk) body.powa-app #clubArea .cpd-col.is-me .cpd-name { color: var(--text); }
 html:not(.desk) body.powa-app #clubArea .cpd-val b { font-family: var(--font-num); font-size: 17px; font-weight: 800; }
