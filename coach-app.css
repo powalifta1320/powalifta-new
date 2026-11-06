@@ -1265,6 +1265,7 @@ html:not(.desk) .cp-wklabel { min-width: 0; text-align: center; font-size: 17px;
 html:not(.desk) .cp-wklabel b { font-weight: 700; color: var(--text); }
 html:not(.desk) .cp-wkwhen { font-size: 15px; color: var(--text-3); }
 html:not(.desk) .cp-wkwhen.is-now { color: var(--acc); font-weight: 600; }
+html:not(.desk) .cp-wkwhen.cp-wkdraft { color: var(--text-2); font-weight: 600; }   /* a week the lifter can't see yet (drafts on) */
 html[data-theme="light"]:not(.desk) .cp-wkwhen.is-now { color: color-mix(in srgb, var(--acc) 58%, #000); }
 html:not(.desk) .cp-segwrap { position: relative; }
 html:not(.desk) .cp-days { display: flex; gap: 2px; padding: 2px; border-radius: 14px; background: var(--seg-track); }
@@ -1468,6 +1469,8 @@ html:not(.desk) .cp-step .ui-stepper .st-val.is-typeable.is-stack { text-decorat
 html:not(.desk) body.powa-app .cp-step .st-input.cp-type { width: 100%; min-width: 0; height: 40px; padding: 0; border: 0 !important; border-radius: 10px; background: var(--pl-inset) !important; box-shadow: none !important; color: var(--text); font-family: var(--font-num); font-size: 22px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
 html:not(.desk) .cp-pick-on { display: inline-grid; place-items: center; width: 24px; height: 24px; color: var(--acc); }
 html:not(.desk) .cp-pick-on svg { width: 20px; height: 20px; }
+html:not(.desk) .cp-pick-draft { font-size: 15px; font-weight: 500; color: var(--text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }   /* "Week 3 draft" (drafts on) */
+html:not(.desk) .cp-pick-draft + .cp-pick-on { margin-left: 8px; }
 /* the picker past six lifters: the search keeps its place at the top while the list scrolls under it (the
    sheet's own colour around it hides the rows going by), the groups have titles, the sheet keeps its height */
 html:not(.desk) .cp-picker.is-many { min-height: min(78vh, 640px); }

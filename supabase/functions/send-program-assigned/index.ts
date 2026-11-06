@@ -1,8 +1,11 @@
 // Supabase Edge Function: send-program-assigned
 //
-// POST { athleteEmail, athleteName, coachName, programName }
+// POST { athleteEmail, athleteName, coachName, programName, week? }
 // Sends a branded email to the athlete when their coach has just
-// assigned them a (first) program. Uses Resend's REST API.
+// assigned them a (first) program, or published one week of it (week:
+// a whole number from 1 to 99, sent when a draft week goes out: the
+// email names that week). A caller that sends no week (or an older app)
+// gets the program's email, as before. Uses Resend's REST API.
 //
 // Deploy: paste into a new Edge Function named "send-program-assigned"
 // in the Supabase dashboard. Set the env var RESEND_API_KEY in the
@@ -22,17 +25,38 @@ function htmlEscape(str: string): string {
   return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
-function buildEmail(opts: { athleteName: string; coachName: string; programName: string }): { subject: string; html: string; text: string } {
+// The week a caller asked the email to name: a whole number from 1 to 99 (a number or its digits), else null (the
+// program's email). Anything else in the field is ignored, never echoed.
+export function weekOf(v: unknown): number | null {
+  if (typeof v !== 'number' && typeof v !== 'string') return null;
+  if (typeof v === 'string' && !/^\s*\d{1,2}\s*$/.test(v)) return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 1 && n <= 99 ? n : null;
+}
+
+// Archivo first (installed, or a client that has it), then each platform's own sans; the wordmark's wide heavy face falls
+// back to Arial Black, as the website's display stack does.
+const FONT = "'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+const FONT_WIDE = "'Archivo', 'Arial Black', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
+
+export function buildEmail(opts: { athleteName: string; coachName: string; programName: string; week?: number | null }): { subject: string; html: string; text: string } {
   const firstName = (opts.athleteName || 'lifter').split(' ')[0];
   const safeAthlete = htmlEscape(firstName);
   const safeCoach = htmlEscape(opts.coachName || 'Your coach');
   const safeProgram = htmlEscape(opts.programName || 'a new program');
+  const week = weekOf(opts.week);
+  // A week's email names the program when it has a name (the app sends 'a new program' when it has none).
+  const named = opts.programName && opts.programName !== 'a new program' ? opts.programName : '';
 
-  const subject = `${opts.coachName || 'Your coach'} just programmed you — open POWALIFTA`;
+  const subject = week
+    ? `${opts.coachName || 'Your coach'} published week ${week} — open POWALIFTA`
+    : `${opts.coachName || 'Your coach'} just programmed you — open POWALIFTA`;
 
   const text = `Hey ${firstName},
 
-${opts.coachName || 'Your coach'} just assigned you a new program on POWALIFTA: "${opts.programName || 'a new program'}".
+${week
+    ? `${opts.coachName || 'Your coach'} just published week ${week} of ${named ? `"${named}"` : 'your program'} on POWALIFTA.`
+    : `${opts.coachName || 'Your coach'} just assigned you a new program on POWALIFTA: "${opts.programName || 'a new program'}".`}
 
 Open your dashboard to see this week:
 https://powalifta.com/athlete.html
@@ -41,13 +65,16 @@ When you train: open Today's session, mark sets complete as you finish, log how 
 
 — POWALIFTA`;
 
-  const html = `<!DOCTYPE html><html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0b0b0c; color: #f4f4f6; padding: 0; margin: 0;">
+  // The brand (6 Nov): Archivo, the one family, with a system sans after it (web fonts in email are unreliable, so the
+  // stack carries the look); the wordmark all ink, wide and heavy; red only for the one action, the crimson (#dc2637 to
+  // #c41a2c, a solid #dc2637 where a client drops gradients) with a white label.
+  const html = `<!DOCTYPE html><html><body style="font-family: ${FONT}; background: #0b0b0c; color: #f4f4f6; padding: 0; margin: 0;">
 <div style="max-width: 540px; margin: 0 auto; padding: 32px 24px;">
-  <div style="font-family: 'Anton', Impact, sans-serif; font-size: 1.8rem; letter-spacing: 0.02em; margin-bottom: 24px;">POWA<span style="color:#ff2d3f">LIFTA</span></div>
-  <h1 style="font-size: 1.5rem; line-height: 1.25; margin: 0 0 18px;">${safeCoach} programmed you, ${safeAthlete}.</h1>
-  <p style="color: #b8b8c0; line-height: 1.6; margin: 0 0 22px;">Your new program <strong style="color:#f4f4f6;">${safeProgram}</strong> is live on your dashboard.</p>
+  <div style="font-family: ${FONT_WIDE}; font-weight: 800; font-stretch: 125%; font-size: 1.6rem; letter-spacing: 0.02em; color: #f4f4f6; margin-bottom: 24px;">POWALIFTA</div>
+  <h1 style="font-family: ${FONT}; font-size: 1.5rem; font-weight: 800; line-height: 1.25; letter-spacing: -0.01em; margin: 0 0 18px;">${week ? `${safeCoach} published week ${week}, ${safeAthlete}.` : `${safeCoach} programmed you, ${safeAthlete}.`}</h1>
+  <p style="color: #b8b8c0; line-height: 1.6; margin: 0 0 22px;">${week ? `Week ${week} of ${named ? `<strong style="color:#f4f4f6;">${htmlEscape(named)}</strong>` : 'your program'} is live on your dashboard.` : `Your new program <strong style="color:#f4f4f6;">${safeProgram}</strong> is live on your dashboard.`}</p>
   <div style="margin: 0 0 28px;">
-    <a href="https://powalifta.com/athlete.html" style="display:inline-block; background:#ff2d3f; color:#fff; text-decoration:none; padding:12px 22px; border-radius:10px; font-weight:700; letter-spacing:0.02em;">Open my dashboard</a>
+    <a href="https://powalifta.com/athlete.html" style="display:inline-block; background-color:#dc2637; background-image:linear-gradient(180deg, #dc2637, #c41a2c); color:#ffffff; text-decoration:none; padding:12px 22px; border-radius:10px; font-family:${FONT}; font-weight:700; letter-spacing:0.01em;">Open my dashboard</a>
   </div>
   <p style="color: #b8b8c0; line-height: 1.6; margin: 0 0 22px;"><strong style="color:#f4f4f6;">How it works:</strong></p>
   <ol style="color: #b8b8c0; line-height: 1.7; padding-left: 20px; margin: 0 0 22px;">
@@ -89,6 +116,7 @@ Deno.serve(async (req) => {
   const clean = (v: unknown) => String(v || '').replace(/https?:\/\/\S+/gi, '').replace(/[\r\n]+/g, ' ').trim().slice(0, 80);
   const coachName = clean(payload?.coachName);
   const programName = clean(payload?.programName);
+  const week = weekOf(payload?.week);   // optional: publishing one week names it
 
   if (!athleteEmail || !athleteEmail.includes('@')) {
     return jsonResponse(400, { error: 'Invalid athlete email' });
@@ -134,7 +162,7 @@ Deno.serve(async (req) => {
     return jsonResponse(500, { error: 'Email service not configured' });
   }
 
-  const { subject, html, text } = buildEmail({ athleteName, coachName, programName });
+  const { subject, html, text } = buildEmail({ athleteName, coachName, programName, week });
 
   try {
     const res = await fetch(RESEND_ENDPOINT, {

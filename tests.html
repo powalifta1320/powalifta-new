@@ -6791,6 +6791,21 @@ test('a quiet week: three lines, a question, what’s next, and no numbers at al
     eq(l2.length, 3); eq(l2[2], 'You said yes to pain on your check-in. Where is it, and how bad?');
   } finally { Store.set(saved); }
 });
+test('a week the coach hasn’t published is never “next on your program” (app.js weekIsDraft, switch on or off)', () => {
+  const saved = Store.get();
+  Store.set(wnStore());
+  try {
+    // Bo's week 1 done a fortnight ago; week 2 written as a draft: the lifter can't see it.
+    Store.update(s => { const p = s.programs.find(x => x.athleteId === 'wb');
+      p.weeks[0].days.forEach(d => d.exercises.forEach(e => e.sets.forEach(x => { x.completed = true; x.completedAt = '2026-10-12T18:00:00Z'; })));
+      p.weeks.push({ id: 'wbw2', number: 2, draft: true, days: [{ id: 'wbd2', name: 'Heavy Day', exercises: [{ id: 'wbe2', lift: 'squat', variant: 'Competition', exerciseName: '', note: '', sets: [{ id: 'wbs2', weight: 105, reps: 5, rpe: 7, completed: false }] }] }] }); });
+    eq(WN.facts('wb', { today: WT, unit: 'kg', applied: [] }).nextDay, null, 'no next session from a draft');
+    assert(!/Next on your program|Heavy Day/.test(weeklyNoteDraft('wb', { today: WT, unit: 'kg', applied: [] })), 'the note doesn’t name it');
+    Store.update(s => { delete s.programs.find(x => x.athleteId === 'wb').weeks[1].draft; });
+    eq(WN.facts('wb', { today: WT, unit: 'kg', applied: [] }).nextDay.name, 'Heavy Day', 'published: it is next');
+    assert(/Next on your program: Heavy Day\./.test(weeklyNoteDraft('wb', { today: WT, unit: 'kg', applied: [] })), 'and the note says so');
+  } finally { Store.set(saved); }
+});
 test('the lines: e1RM when it moved, sessions short of the plan, never more than six', () => {
   const base = { first: 'Cy', unit: 'kg', sessions: { done: 2, planned: 4, days: [] }, tops: [], prs: [], e1rm: null, pain: null, bw: null, meetNoWeighIn: null, next: [], words: null, nextDay: null };
   const L = (o) => WN.lines(Object.assign({}, base, o)).map(l => l.text);
@@ -9484,6 +9499,104 @@ test('one way to add a week: after a draft, a draft; the trailing rule kept on s
   eq(Store.get().programs[0].weeks[2].draft, true, 'app.js duplicateWeek goes through it');
   resetState();
 });
+test('the phone starts a draft as the laptop does: Duplicate week (and Add a week) add a draft with drafts on, live with them off', () => {
+  const w = (n, o) => dpWeek(n, [dpDay('A', [dpEx('squat', [dpSet({ weight: 100 })])])], o);
+  const was = DRAFTS_ON;
+  try {
+    [true, false].forEach((on) => {
+      DRAFTS_ON = on;
+      resetState();
+      seed({ programs: [{ id: 'PY', athleteId: 'AY', coachId: 'C', name: 'Y', weeks: [w(1), w(2)] }] });
+      duplicateWeek('PY', 0);
+      eq(Store.get().programs[0].weeks[2].draft === true, on, on ? 'a copy at the end is a draft (only the coach sees it)' : 'drafts off: a live week, as before');
+      const W = [w(1), w(2)]; appendBlockWeek(W, w(3), { draft: true });   // coach.html addWeek: what the phone's Add a week asks for
+      eq(W[2].draft === true, on, on ? 'Add a week: a draft' : 'Add a week: live');
+    });
+  } finally { DRAFTS_ON = was; resetState(); }
+});
+test('Publish week N (publishWeek): saved, the heads-up names the week, one undo step taken before it, the demo sends nothing', () => {
+  const w = (n, o) => dpWeek(n, [dpDay('A', [dpEx('squat', [dpSet({ id: 'pw' + n, weight: 100, reps: 5 })])])], o);
+  const keys = ['notifyAthleteAssigned', 'isDesk', 'dkPbRemember', 'dkPublish', '_dk'];
+  const real = { persist: persistProgram, demo: window._demoMode, g: keys.map((k) => [k, k in window, window[k]]) };
+  const saves = [], told = [], undo = [], sent = [];
+  const P = () => Store.get().programs[0];
+  try {
+    resetState();
+    seed({ athletes: [{ id: 'PWA', name: 'Arjun Mehta', coachId: 'C' }], programs: [{ id: 'PW', athleteId: 'PWA', coachId: 'C', name: 'Strength', weeks: [w(1), w(2), w(3, { draft: true }), w(4, { draft: true })] }] });
+    persistProgram = (id) => { saves.push(id); };
+    window._demoMode = false;
+    window.notifyAthleteAssigned = (aid, o) => { told.push([aid, o]); };
+    // The phone (no desk): saved, the heads-up straight from the app; no desk undo.
+    eq(DPg.publishWeek('PWA', 2), 1);
+    assert(P().weeks[2].draft !== true && P().weeks[3].draft === true, 'week 3 is out, week 4 still a draft');
+    eq(saves.join(), 'PW', 'saved once'); eq(JSON.stringify(told), JSON.stringify([['PWA', { week: 3 }]]), 'the heads-up names week 3');
+    eq(DPg.publishWeek('PWA', 2), 0, 'already published: nothing to do'); eq(saves.length, 1); eq(told.length, 1);
+    // The desk: the undo step first (the drafts as they were), then dkPublish with the week.
+    window.isDesk = () => true;
+    window._dk = { pbUndo: [] };
+    window.dkPbRemember = (p, label) => { undo.push({ label, weeks: JSON.parse(JSON.stringify(p.weeks)) }); window._dk.pbUndo.push({ id: p.id, label }); };
+    window.dkPublish = (aid, o) => { sent.push([aid, o]); };
+    Store.update((s) => { s.programs[0].weeks.push(w(5, { draft: true })); });   // weeks 4 and 5 are drafts
+    eq(DPg.publishWeek('PWA', 4), 2, 'publishing week 5 publishes week 4 with it (drafts stay trailing)');
+    eq(undo.length, 1); eq(undo[0].label, 'Publish week 5'); assert(undo[0].weeks[3].draft === true && undo[0].weeks[4].draft === true, 'the undo step holds the drafts as they were');
+    eq(JSON.stringify(sent), JSON.stringify([['PWA', { quietDemo: true, week: 4 }]]), 'the heads-up names the first week they can now see');
+    eq(told.length, 1, 'on the desk the heads-up goes through dkPublish'); eq(saves.length, 2);
+    // Undo (desk.js dkPbUndo puts the remembered weeks back): the drafts are drafts again.
+    Store.update((s) => { s.programs[0].weeks = JSON.parse(JSON.stringify(undo[0].weeks)); });
+    assert(P().weeks[3].draft === true && P().weeks[4].draft === true, 'undone: weeks 4 and 5 are drafts again');
+    // Nothing to publish on the desk: the step it took is dropped, and no heads-up.
+    window._dk.pbUndo = [];
+    eq(DPg.publishWeek('PWA', 1), 0); eq(window._dk.pbUndo.length, 0, 'the empty undo step is dropped'); eq(sent.length, 1);
+    // The demo: published in the Store, nothing leaves the page.
+    delete window.isDesk; window._demoMode = true;
+    eq(DPg.publishWeek('PWA', 4), 2); eq(told.length, 1, 'the demo sends nothing'); assert(!P().weeks.some((x) => x.draft === true), 'everything published');
+  } finally {
+    persistProgram = real.persist; window._demoMode = real.demo;
+    real.g.forEach(([k, had, v]) => { if (had) window[k] = v; else delete window[k]; });
+    resetState();
+  }
+});
+test('the desk’s Publish week N in a lifter’s week (dkWsApply → deskPublishNextWeek): a draft goes out once something is written', () => {
+  const st = (id, o) => Object.assign({ id, weight: 150, reps: 3, rpe: 8, completed: false }, o || {});
+  const wk = (n, o, done) => Object.assign({ id: 'nw' + n, number: n, days: [{ id: 'nd' + n, name: 'Squat Day', exercises: [{ id: 'ne' + n, lift: 'squat', variant: 'Competition', exerciseName: '', sets: [st('n' + n + 'a', { completed: !!done }), st('n' + n + 'b', { completed: !!done })] }] }] }, o || {});
+  const edit = { di: 0, ei: 0, startIdx: 0, count: 2, sets: [newSet(155, 3, 8), newSet(155, 3, 8)] };
+  const A = [wk(1, {}, true), wk(2, { draft: true }), wk(3, { draft: true })];
+  const r = deskPublishNextWeek(A, 1, [edit]);
+  eq(r.n, 1); eq(r.published, 1); assert(A[1].draft !== true && A[2].draft === true, 'week 2 published; week 3 stays a draft');
+  eq(A[1].days[0].exercises[0].sets[0].weight, 155, 'the change is written in');
+  const B = [wk(1, {}, true), wk(2, { draft: true })];
+  B[1].days[0].exercises[0].sets[0].completed = true;   // logged meanwhile: nothing can be written
+  const r2 = deskPublishNextWeek(B, 1, [edit]);
+  eq(r2.n, 0); eq(r2.published, 0); eq(B[1].draft, true, 'nothing written: still a draft');
+  const C = [wk(1, {}, true), wk(2, { draft: true })];
+  const r3 = deskPublishNextWeek(C, 1, [{ di: 0, ei: 0, startIdx: 0, count: 2, sets: [], variant: 'Pin' }]);
+  eq(r3.n, 1); eq(r3.published, 1); eq(C[1].days[0].exercises[0].variant, 'Pin', 'a swap for pain is a change too: it publishes');
+  const D = [wk(1, {}, true), wk(2)];
+  eq(deskPublishNextWeek(D, 1, [edit]).published, 0, 'a week they can already see: written, nothing to publish');
+});
+test('the heads-up’s words (coach.html notifyAthleteAssigned): a published week is named; without one, as they always were', () => {
+  eq(JSON.stringify(programHeadsUp({ coachName: 'Sam Ellis', programName: 'Strength Block' })), JSON.stringify({ week: null, title: 'New program from Sam', body: '"Strength Block" is ready. Open it in Today.' }));
+  eq(programHeadsUp({ coachName: 'Sam Ellis', programName: 'a new program' }).body, 'Your coach assigned you a new program.');
+  const h = programHeadsUp({ coachName: 'Sam Ellis', programName: 'Strength Block', week: 3 });
+  eq(h.week, 3); eq(h.title, 'Week 3 from Sam'); eq(h.body, 'Week 3 of "Strength Block" is ready. Open it in Today.');
+  eq(programHeadsUp({ coachName: 'Sam', programName: 'a new program', week: 2 }).body, 'Week 2 of your program is ready. Open it in Today.');
+  [0, 100, 2.5, '', null, undefined, 'x', true, '1e1', '0x3', [3]].forEach((v) => eq(programHeadsUp({ coachName: 'Sam', programName: 'P', week: v }).week, null, 'no week for ' + JSON.stringify(v)));
+  eq(programHeadsUp({ coachName: 'Sam', programName: 'P', week: '4' }).week, 4, 'its digits, as the email reads them');
+  // a coach with no name: notifyAthleteAssigned sends 'Your coach' (the email's words); the push said "New program from Your"
+  eq(programHeadsUp({ coachName: 'Your coach', programName: 'P' }).title, 'New program from your coach', 'a nameless coach');
+  eq(programHeadsUp({ programName: 'P', week: 3 }).title, 'Week 3 from your coach');
+  eq(programHeadsUp({ coachName: '  Sam   Ellis ', programName: 'P' }).title, 'New program from Sam', 'spaces around the name');
+});
+test('the phone’s Programs picker marks a draft as the laptop’s list does (behind the switch)', () => {
+  const CPg = window.CoachProgram;
+  assert(CPg && CPg.cpDraftWord, 'CoachProgram.cpDraftWord is loaded');
+  const w = (n, o, has) => dpWeek(n, [dpDay('A', has === false ? [] : [dpEx('squat', [dpSet({ weight: 100 })])])], o);
+  eq(CPg.cpDraftWord({ weeks: [w(1), w(2), w(3, { draft: true })] }), 'Week 3 draft');
+  eq(CPg.cpDraftWord({ weeks: [w(1), w(2, { draft: true }, false)] }), '', 'an empty draft: nothing to say');
+  eq(CPg.cpDraftWord(null), '');
+  const was = DRAFTS_ON; DRAFTS_ON = false;
+  try { eq(CPg.cpDraftWord({ weeks: [w(1), w(2, { draft: true })] }), '', 'drafts off: no mark'); } finally { DRAFTS_ON = was; }
+});
 test('a team never carries a lifter’s draft; a pushed week is published', () => {
   const set = (id, o) => Object.assign({ id, weight: 150, reps: 5, rpe: 8, completed: false }, o || {});
   const wk = (n, o) => Object.assign({ id: 'w' + n, number: n, days: [{ id: 'd' + n, name: 'A', exercises: [{ id: 'e' + n, lift: 'squat', variant: '', exerciseName: '', sets: [set('s' + n)] }] }] }, o || {});
@@ -9587,20 +9700,24 @@ test('the day card (4 Nov): the gap in a word and a circle a set, one colour a m
   eq(DPg.gapWord(ls[0].lifted.gapN), '+1', 'the top set\'s badge');
   eq(m.days[0].wkLifted && m.days[1].wkLifted, true, 'every day of a week that has been lifted in knows it (the circles go on every line)');
   eq(DPg.model([dpWeek(1, [dpDay('Squat', [dpEx('squat', [dpSet({ weight: 160, reps: 5, rpe: 7 })])])])], 0, dpEnv()).days[0].wkLifted, false, 'a week to come has no circles');
-  eq(typeof DPg.oldCard === 'function' && DPg.oldCard(), false, 'the new card by default (?daycard=old brings the card before it back)');
 });
 test('what was lifted against what was written: the line\'s tone', () => {
   const line = (sets, g) => ({ real: sets, g: Object.assign({ rpe: 8, reps: 3 }, g || {}), count: sets.length });
   const env = { show: (v) => v };
-  const tone = (sets, g) => DPg.liftedTone(DPg.liftedOf(line(sets, g), env));
+  // as the card colours the lifted line (desk-program.js liftedC): Missed / Skipped say themselves, else the top set's gap
+  const lifted = (sets, g) => DPg.liftedOf(line(sets, g), env);
+  const tone = (sets, g) => { const L = lifted(sets, g); return !L ? '' : L.top == null ? 'missed' : DPg.gapTone(L.gapN); };
   eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 8 })]), 'ok', 'on the RPE written');
-  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 8.5 })]), 'warn', 'half a point harder');
-  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 9.5 })]), 'alert', 'a point or more over');
-  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 7 })]), 'easy', 'easier');
+  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 8.5 })]), 'half', 'half a point harder: the amber outline');
+  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 9.5 })]), 'over', 'a point or more over: solid amber');
+  eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 7 })]), 'under', 'easier');
   eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: null })]), 'done', 'lifted, no RPE to compare');
   eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, skipped: true })]), 'missed', 'skipped');
   eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8 })]), '', 'not lifted yet');
   eq(tone([dpSet({ weight: 180, reps: 3, rpe: 8, rpeHi: 9, completed: true, actualRpe: 9 })], { rpeHi: 9 }), 'ok', 'inside a range');
+  eq(DPg.gapWord(lifted([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 9.5 })]).gapN), '+1.5', 'the gap in a word: +1.5');
+  eq(DPg.gapWord(lifted([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: 7 })]).gapN), '−1', '−1 under');
+  eq(DPg.gapWord(lifted([dpSet({ weight: 180, reps: 3, rpe: 8, completed: true, actualRpe: null })]).gapN), '', 'nothing to compare: nothing said');
 });
 test('the block strip: sessions done, the week\'s effort, its phase, the countdown to the meet', () => {
   const T = '2026-11-04';
@@ -9681,7 +9798,7 @@ test('a week nothing\'s been lifted in yet: each line shows what the same line l
   const m = DPg.model([W1, W2], 1, dpEnv({ nowIdx: 1 }));
   const sq = m.days[0].exercises[1];
   eq(sq.lines[0].prev && sq.lines[0].prev.text, '180 × 3 @8.5', 'the top set, matched by lift (not by place)');
-  eq(DPg.liftedTone(sq.lines[0].prev), 'warn', 'how hard it went comes with it');
+  eq(DPg.gapTone(sq.lines[0].prev.gapN), 'half', 'how hard it went comes with it (half a point over: the amber outline)');
   eq(sq.lines[1].prev && sq.lines[1].prev.text, '150 × 5 @7', 'the back-off');
   eq(m.days[0].exercises[0].lines[0].prev, null, 'nothing lifted: nothing said');
   assert(m.week.prevLifted, 'the week says it has some');
