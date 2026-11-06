@@ -394,6 +394,14 @@ html.desk .lift-squat { --lc: var(--dk-sq); } html.desk .lift-bench { --lc: var(
 .dk-btn.is-primary { background: var(--fire); color: #fff; font-weight: var(--fw-3); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18); }
 @media (hover: hover) and (pointer: fine) { .dk-btn.is-primary:hover { filter: brightness(1.06); background: var(--fire); } }
 .dk-btn.is-primary .dk-btn-n { background: none; color: #fff; }
+/* A primary that can't be pressed yet (Plan the meet before anyone is ticked, Nothing to push, Pushing…) is the quiet
+   fill with a muted label, as in the iPhone app (styles.css, the taste list of 4 Nov): the red at 45% was a dark
+   maroon. The same for the app's own primaries on the laptop; secondary and quiet buttons keep their dim. */
+html.desk body.powa-app:not(#_) :is(.dk-btn.is-primary, .btn-primary, .ca-btn.is-red, .cl-btn.red, .ch-btn.red, .md-btn-primary, #goalBuildBtn):is(:disabled, [aria-disabled="true"]) {
+  background: rgba(255, 255, 255, 0.08); color: var(--text-3) !important; opacity: 1; box-shadow: none; filter: none; border-color: transparent;
+}
+html.desk[data-theme="light"] body.powa-app:not(#_) :is(.dk-btn.is-primary, .btn-primary, .ca-btn.is-red, .cl-btn.red, .ch-btn.red, .md-btn-primary, #goalBuildBtn):is(:disabled, [aria-disabled="true"]) { background: rgba(15, 15, 25, 0.06); }
+html.desk body.powa-app .dk-btn.is-primary:disabled .dk-btn-n { color: inherit; }
 /* Tertiary: text and an icon; a fill only on hover. */
 .dk-btn.is-quiet { background: transparent; color: var(--text-2); }
 .dk-btn.is-quiet svg { color: var(--text-3); }
