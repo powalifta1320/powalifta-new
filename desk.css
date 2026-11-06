@@ -2125,7 +2125,6 @@ html.desk body.powa-app .dp-c-f.has-tags:not(:focus-within) input.dp-cell.dp-f {
 }
 html.desk body.powa-app :is(input.dp-cell:not([readonly]), input.dp-note, input.dp-mem-in):focus { background: var(--bg) !important; box-shadow: 0 0 0 2px var(--dp-ring) !important; color: var(--text); }
 html.desk[data-theme="light"] body.powa-app :is(input.dp-cell:not([readonly]), input.dp-note, input.dp-mem-in):focus { background: #fff !important; }
-html.desk body.powa-app input.dp-cell.is-bad { box-shadow: 0 0 0 2px var(--dk-alert) !important; }
 html.desk body.powa-app input.dp-cell[readonly] { cursor: default; color: var(--text-2); }
 html.desk body.powa-app input.dp-cell.dp-l[readonly] { color: var(--text); }
 html.desk body.powa-app input.dp-cell[readonly]:focus { box-shadow: inset 0 0 0 1px var(--line-2) !important; }
@@ -2142,6 +2141,10 @@ html.desk body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):focus { backgr
 html.desk[data-theme="light"] body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):focus { background: #fff !important; }
 html.desk body.powa-app input.dp-cell.dp-e.has-rc[readonly] { color: var(--text); }
 html.desk body.powa-app input.dp-cell.dp-e.has-rc[readonly]:focus { box-shadow: inset 0 0 0 1px var(--line-2) !important; }   /* a locked line's pill, reached by Tab: marked as the other locked cells are */
+/* a value that doesn't read (refused, the cursor stays in the cell): the field's error state, red, over the typing ring,
+   the hover outline and the effort pill (an alert is red: the owner's rule allows it) */
+html.desk body.powa-app input.dp-cell.is-bad, html.desk body.powa-app input.dp-cell.is-bad:not([readonly]):is(:focus, :hover),
+html.desk body.powa-app input.dp-cell.dp-e.has-rc.is-bad, html.desk body.powa-app input.dp-cell.dp-e.has-rc.is-bad:not([readonly]):is(:focus, :hover) { box-shadow: 0 0 0 2px var(--dk-alert) !important; }
 /* + Set and + Cue: on the band's foot, shown on hover and while it's being typed in; the cue under the role */
 .dp-ex-foot { position: absolute; left: var(--c-ind); bottom: -14px; z-index: 2; display: flex; gap: 4px; }
 .dp-addset { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px 0 7px; border: 0; border-radius: var(--r-1); cursor: pointer;
