@@ -640,10 +640,11 @@ html:not(.desk) .ca-tiles > .ca-tile .ca-ts.is-warn::before { content: ''; displ
 html:not(.desk) .ca-tiles > .ca-tile .ca-tv { grid-column: 3; grid-row: 1 / span 2; margin: 0; font-family: var(--font-num); font-stretch: 108%; font-size: 17px; font-weight: 800; letter-spacing: -0.012em; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 html:not(.desk) .ca-tiles > .ca-tile > svg { grid-column: 4; grid-row: 1 / span 2; width: 16px; height: 16px; color: var(--text-3); }
 
-/* the report: one row on an inset */
-html:not(.desk) .ca-rowcard { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; margin-top: 32px; padding: 12px 14px 12px 16px; border: 0; background: var(--pl-inset); text-align: left; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 140ms ease-out; }
+/* the report: one row on the card the Coaching list sits on (6 Nov: it was a grey borderless inset, the only one of
+   its kind on Home; in light a grey card under white ones), so the two read as one material */
+html:not(.desk) .ca-rowcard { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; margin-top: 32px; padding: 12px 14px 12px 16px; border: 1px solid var(--ca-edge); background: var(--ca-card); box-shadow: var(--pl-lip); text-align: left; cursor: pointer; transition: transform var(--pl-d-press) var(--pl-spring), background-color 140ms ease-out; }
 html:not(.desk) .ca-rowcard.is-top { margin-top: 12px; }
-html:not(.desk) .ca-rowcard:active { transform: scale(0.985); background: var(--pl-inset-2); transition-duration: 90ms; transition-timing-function: ease-out; }
+html:not(.desk) .ca-rowcard:active { transform: scale(0.985); background: color-mix(in srgb, var(--text) 5%, var(--ca-card)); transition-duration: 90ms; transition-timing-function: ease-out; }
 html:not(.desk) .ca-rowcard > svg { flex: none; width: 18px; height: 18px; color: var(--text-3); }
 html:not(.desk) .ca-rowcard .ca-tic { background: var(--pl-inset-2); }
 html:not(.desk) .ca-rowcard-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
