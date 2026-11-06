@@ -1250,10 +1250,11 @@ function dkQLine(r, lane, sentence) {
   dkTip(line, lane !== 'w' && r.reasons.length ? dkFullReasons(r) : sentence);
   return line;
 }
-// The row's right-hand tag: a draft waiting on Publish, handled, live, the meet, or last trained.
+// The row's right-hand tag: changes to next week waiting on Publish ("Changes · 2": "draft" is a week the lifter
+// can't see yet, desk-program.js), handled, live, the meet, or last trained.
 function dkRowTag(r, lane, handledVia, sentence) {
   var pn = lane !== 'w' ? dkPendCount(r.athlete.id) : 0;
-  if (pn) return el('span', { class: 'dk-qago is-draft', title: pn + (pn === 1 ? ' change' : ' changes') + ' to next week, not published yet' }, 'Draft · ' + pn);
+  if (pn) return el('span', { class: 'dk-qago is-pend', title: pn + (pn === 1 ? ' change' : ' changes') + ' to next week, not published yet' }, 'Changes · ' + pn);
   if (handledVia) return el('span', { class: 'dk-qago is-handled', html: DK_IC.check }, el('span', {}, handledVia === 'apply' ? 'Week sent' : 'Replied'));
   if (r.live) return el('span', { class: 'dk-qago is-live' }, 'Now');
   // The meet once: when the sentence already names it, the tag says when they last trained.
@@ -1261,7 +1262,7 @@ function dkRowTag(r, lane, handledVia, sentence) {
   if (r.status.ago == null) return el('span', { class: 'dk-qago dk-nil' }, 'Not trained yet');
   return el('span', { class: 'dk-qago' }, dkAgoShort(r.status.ago));
 }
-// A draft changed: the list rows' tags follow without a repaint.
+// The changes waiting changed: the list rows' tags follow without a repaint.
 function dkPaintRowTags(aid) {
   var r = dkRow(aid);
   if (!r) return;
@@ -1299,7 +1300,7 @@ function dkMark(kind, opts) {
   if (!_dk.sel) return;
   var r = dkRow(_dk.sel.id);
   if (!r) return;
-  // Done with a draft of next week still waiting: it would never reach them. Ask first.
+  // Done with changes to next week still waiting: they would never reach them. Ask first.
   var pn = kind !== 'snooze' && _dk.sel.lane === 'q' && !(opts && opts.force) ? dkPendCount(r.athlete.id) : 0;
   if (pn) { dkDraftAsk(r, pn); return; }
   var st = dkState();
@@ -1329,7 +1330,7 @@ function dkDraftAsk(r, n) {
       dkMark('done', { force: true });
       toast('Week ' + wk + ' published' + (window._demoMode ? ' in the demo' : '') + '. ' + _dkFirst(r.athlete.name) + ' done for this week · U to undo');
     } },
-    { label: 'Discard the draft and mark done', danger: true, run: function () { dkPendDrop(aid); dkMark('done', { force: true }); } },
+    { label: 'Discard the changes and mark done', danger: true, run: function () { dkPendDrop(aid); dkMark('done', { force: true }); } },
     '-',
     { label: 'Keep editing', run: function () { var i = _dkVis('.dk-ws[data-aid="' + CSS.escape(aid) + '"] input.dk-wk-in.is-pend'); if (i) { i.scrollIntoView({ block: 'center' }); i.focus(); } } }
   ];
@@ -2750,7 +2751,9 @@ function dkPublishBtn(aid) {
   var N = prog.weeks[rev.nextIdx];
   var wkn = N ? (N.number || rev.nextIdx + 1) : null;
   var n = dkPendCount(aid);
-  if (n) return dkBtn('Publish week ' + wkn, { primary: true, icon: DK_IC.send, count: n, title: 'Write the ' + n + (n === 1 ? ' change' : ' changes') + ' into week ' + wkn + ' and tell them', onClick: function () { dkWsApply(aid); } });
+  // A draft week (drafts on: app.js weekIsDraft) is published with them: they see it from then on.
+  var pubDraft = typeof DRAFTS_ON !== 'undefined' && DRAFTS_ON && typeof weekIsDraft === 'function' && weekIsDraft(N);
+  if (n) return dkBtn('Publish week ' + wkn, { primary: true, icon: DK_IC.send, count: n, title: 'Write the ' + n + (n === 1 ? ' change' : ' changes') + ' into week ' + wkn + (pubDraft ? ' and publish it: they see it from now on, with a heads-up' : ' and tell them'), onClick: function () { dkWsApply(aid); } });
   var ch = dkPbChanges(prog).length;
   if (ch) return dkBtn('Notify', { primary: true, icon: DK_IC.send, count: ch, title: 'Builder edits are already live. Send a heads-up about the ' + ch + (ch === 1 ? ' edit' : ' edits') + ' since the last one.', onClick: function () { dkPublish(aid); dkPaintPub(aid); } });
   // Nothing waiting: the state as a few quiet words, not a disabled button.
@@ -2882,8 +2885,8 @@ function dkWsPend(aid, prog, nextIdx) {
   if (!p || p.sig !== sig) p = _dk.wsPend[aid] = { sig: sig, rows: {} };
   return p;
 }
-// Drafts survive a reload (real accounts only; the demo writes nothing). Keyed by program and
-// week, so a draft for a week that has since moved on is simply dropped.
+// The changes waiting on Publish survive a reload (real accounts only; the demo writes nothing). Keyed by program
+// and week, so changes for a week that has since moved on are simply dropped.
 function _dkPendKey() { var u = _dkUser(); return 'powa-desk-pend-' + (u ? u.id : 'x'); }
 function dkLoadPend() {
   if (_dk.pendLoaded) return;
@@ -2899,7 +2902,7 @@ function dkSavePend() {
   Object.keys(_dk.wsPend).forEach(function (k) { var x = _dk.wsPend[k]; if (x && x.rows && Object.keys(x.rows).length) { o[k] = x; any = true; } });
   _dkLS(_dkPendKey(), any ? JSON.stringify(o) : null);
 }
-// How many next-week edits wait on Publish for this athlete (0 when the draft is for another week).
+// How many next-week edits wait on Publish for this athlete (0 when they are for another week).
 function dkPendCount(aid) {
   dkLoadPend();
   var p = _dk.wsPend[aid];
@@ -3062,12 +3065,12 @@ function dkWsWeek(r) {
   sec.appendChild(key);
 
   var inputs = [];
-  var draftTag = el('span', { class: 'dk-state is-draft dk-wk-draft', hidden: '' });
-  tools.insertBefore(draftTag, tools.firstChild);
+  var pendTag = el('span', { class: 'dk-state is-pend dk-wk-pend', hidden: '' });   // "Week 3 · 2 changes": not a draft week
+  tools.insertBefore(pendTag, tools.firstChild);
   var paintCount = function () {
     var n = Object.keys(pend.rows).length;
-    draftTag.hidden = !n;
-    draftTag.textContent = n ? 'Week ' + nn + ' draft · ' + n : '';
+    pendTag.hidden = !n;
+    pendTag.textContent = n ? 'Week ' + nn + ' · ' + n + (n === 1 ? ' change' : ' changes') : '';
     if (takeAll) {
       var left = inputs.filter(function (i) { return i._canTake && i._canTake(); }).length;
       takeAll.querySelector('.dk-btn-l').textContent = left ? 'Take ' + left + (left === 1 ? ' suggestion' : ' suggestions') : 'Suggestions taken';

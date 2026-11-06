@@ -436,7 +436,7 @@ html.desk body.powa-app input.dk-cb:focus-visible { outline: 2px solid var(--dk-
 /* A saved state, said quietly: a dot and a few words, never a disabled button. */
 .dk-state { display: inline-flex; align-items: center; gap: 6px; height: var(--ctl-h); padding: 0 var(--s-1); font-size: var(--fs-1); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .dk-state::before { content: ''; width: 6px; height: 6px; border-radius: var(--r-round); background: var(--dk-ok); flex: none; }
-.dk-state.is-draft::before { background: var(--dk-warn); }
+.dk-state.is-pend::before { background: var(--dk-warn); }   /* changes waiting on Publish (desk.js: not a draft week) */
 
 /* Tooltips: the name and the key, never required. Instant once one is showing. */
 html.desk .dk-tip {
@@ -496,12 +496,12 @@ html.desk body.powa-app .dk-wins .dk-qrow input.dk-cb { position: absolute; left
 .dk-qmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .dk-qtop { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
 .dk-qname { flex: 1; min-width: 0; font-size: var(--fs-3); font-weight: var(--fw-3); line-height: var(--lh-2); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* The right-hand tag: one quiet style (when, the meet, live, a draft); a dot says which. */
+/* The right-hand tag: one quiet style (when, the meet, live, changes waiting); a dot says which. */
 .dk-qago { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: var(--fs-1); color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.dk-qago:is(.is-live, .is-draft, .is-meet)::before { content: ''; width: 6px; height: 6px; border-radius: var(--r-round); flex: none; }
+.dk-qago:is(.is-live, .is-pend, .is-meet)::before { content: ''; width: 6px; height: 6px; border-radius: var(--r-round); flex: none; }
 .dk-qago.is-live::before { background: var(--dk-ok); }
 .dk-qago.is-meet::before { background: var(--dk-gold); }
-.dk-qago.is-draft::before { background: var(--dk-warn); }
+.dk-qago.is-pend::before { background: var(--dk-warn); }
 .dk-qago.is-handled svg { width: 12px; height: 12px; color: var(--dk-ok); }
 /* One line: the status word in ink after its dot, the rest in the secondary ink; the full
    sentence in the tooltip. */
@@ -923,7 +923,7 @@ html.desk body.powa-app .dk-ls-big b { font-stretch: var(--num-stretch, 100%); }
 .dk-wk-title { margin: 0; font-size: var(--fs-4); font-weight: var(--fw-3); line-height: var(--lh-1); letter-spacing: -0.01em; color: var(--text); text-wrap: balance; }
 .dk-wk-sub { margin: var(--s-1) 0 0; max-width: 72ch; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--text-3); text-wrap: pretty; }
 .dk-wk-tools { display: flex; align-items: center; gap: var(--s-1); flex: none; }
-.dk-wk-draft[hidden] { display: none; }
+.dk-wk-pend[hidden] { display: none; }
 .dk-wk-key { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); margin-bottom: var(--s-3); font-size: var(--fs-1); color: var(--text-3); }
 .dk-wk-key > span { display: inline-flex; align-items: center; gap: 6px; }
 .dk-key-line { display: block; width: 14px; height: 2px; border-radius: var(--r-round); background: var(--text); }
