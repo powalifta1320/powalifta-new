@@ -1463,7 +1463,7 @@ html.desk .cl-root .cl-stack .ui-av { box-shadow: 0 0 0 2px var(--cl-surface); }
 html.desk .cl-root .cl-stack .ui-av + .ui-av { margin-left: -6px; }
 html.desk[data-theme="light"] body.powa-app .cl-root .cl-stack .ui-av { box-shadow: 0 0 0 2px var(--cl-surface); }
 /* A tile's last line (who is over, who is behind) takes two lines instead of an ellipsis mid-name. */
-html.desk .cl-root .cl-tf { white-space: normal; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
+html.desk .cl-root .cl-tf { white-space: normal; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; margin-inline: -3px; padding-inline: 3px; }   /* room for a name's focus ring, given back */
 /* Two lines of names: a mouse needs no 7px of extra height, and the targets must not overlap the line below. */
 html.desk .cl-root .cl-tf :is(.cl-nm, .cl-link) { padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; }
 
@@ -2451,8 +2451,8 @@ html.desk .cl-card-n { flex: 1 1 auto; display: flex; align-items: baseline; gap
 html.desk .cl-card-n b { font-family: var(--font-num); font-stretch: var(--num-stretch, 112%); font-size: 44px; line-height: 1; font-weight: 800; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; color: var(--text); }
 html.desk .cl-card-n > span { min-width: 0; font-size: 15px; line-height: 20px; color: var(--text-3); text-wrap: balance; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 html.desk .cl-card-pic { min-width: 0; }
-html.desk .cl-card-f { margin-top: auto; min-width: 0; font-size: 13px; line-height: 18px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html.desk .cl-card-f .cl-nm { display: inline; margin: 0; padding: 0; font-weight: 600; color: var(--text-2); }
+html.desk .cl-card-f { margin-top: auto; min-width: 0; margin-inline: -8px; padding-inline: 8px; font-size: 13px; line-height: 18px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* 8 px each side, given back: the line clips, its buttons' focus rings show */
+html.desk .cl-card-f .cl-nm { display: inline; margin: 0 -3px; padding: 0 3px; font-weight: 600; color: var(--text-2); }   /* 3 px each side, given back: room for its focus ring (desk.css) */
 html.desk .cl-card-none { margin: 0; font-size: 15px; line-height: 20px; color: var(--text-3); }
 html.desk .cl-card-none b { display: block; margin-bottom: 4px; font-weight: 600; color: var(--text); }
 /* Roster: four lanes, a big count and the faces (each ringed by its lane) */

@@ -2141,6 +2141,7 @@ html.desk body.powa-app input.dp-cell.dp-e.has-rc { background: var(--dk-fill-2)
 html.desk body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):focus { background: var(--bg) !important; box-shadow: 0 0 0 2px var(--dp-ring) !important; }
 html.desk[data-theme="light"] body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):focus { background: #fff !important; }
 html.desk body.powa-app input.dp-cell.dp-e.has-rc[readonly] { color: var(--text); }
+html.desk body.powa-app input.dp-cell.dp-e.has-rc[readonly]:focus { box-shadow: inset 0 0 0 1px var(--line-2) !important; }   /* a locked line's pill, reached by Tab: marked as the other locked cells are */
 /* + Set and + Cue: on the band's foot, shown on hover and while it's being typed in; the cue under the role */
 .dp-ex-foot { position: absolute; left: var(--c-ind); bottom: -14px; z-index: 2; display: flex; gap: 4px; }
 .dp-addset { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px 0 7px; border: 0; border-radius: var(--r-1); cursor: pointer;
@@ -2909,13 +2910,25 @@ html.desk body.powa-app input.ds-lchip-in { flex: none; width: 64px; height: 28p
 .ds-lend .dk-icon-btn.has-own { position: relative; opacity: 1; }
 .ds-lend .dk-icon-btn.has-own::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--text-2); }
 
-/* ---------- one focus ring on Teams, Club and Settings (polish, 6 Nov) ----------
-   The desk's ring (--dk-focus, 2 px, 2 px out) on every control of the three screens. The app's own rules for a button, a
-   link and [tabindex] (styles.css) paint their ring in ink, and win over a desk class rule (the board's rows, reactions,
-   the challenge's buttons, Teams' tabs, rows and New team wore ink beside the grey of the desk's buttons); :where() keeps
-   this rule as plain as the screen's own exceptions. A control in a list that clips (overflow) rings inside itself. */
-html.desk body.powa-app :where(#deskTeams, section[data-pane="club"], #youArea) :where(button, a[href], [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
-html.desk body.powa-app :where(#deskTeams .dp-wks, .cb-side .chl-past-list) :where(button):focus-visible { outline-offset: -2px; }
+/* ---------- one focus ring on every desk screen (Teams, Club and Settings in the polish, every other screen after) ----------
+   The desk's ring (--dk-focus, 2 px, 2 px out) on every control. The app's own rules for a button, a link, .btn,
+   [role="button"] and [tabindex] (styles.css) paint their ring in ink (inside the app --red is ink) at 2 or 3 px and
+   out-rank a desk class rule: Programs' list, strip and tools, the Lifters list, Today's names, Meets, Messages and
+   Clients wore ink beside the grey of the desk's buttons. :where() keeps this rule as plain as the screens' own rings,
+   which follow it. Tab brings a control in with room for its ring; a control in a box that clips (a list that scrolls, a
+   strip, a line cut with an ellipsis) rings inside itself; a few ring flush or wider, as their screens drew them. */
+html.desk body.powa-app :where(button, a[href], .btn, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible { outline: 2px solid var(--dk-focus); outline-offset: 2px; }
+html.desk body.powa-app :where(button, a[href], .btn, [role="button"], [tabindex]:not([tabindex="-1"])) { scroll-margin-block: 12px; }
+html.desk body.powa-app :where(#deskTeams .dp-wks button, .cb-side .chl-past-list button, .dp-list .dp-lrow, .dp-strip :is(.dp-tile, .dp-tile-add), .dk-qrow, .dk-bd-row:not(.is-head),
+  .dk-pb-row, .dk-msg-row, .dk-tl-wk, .dk-tl-add, .ds-cal-whob, .dd-s, .cl-row, .cl-sn-l, .cl-jr-main, .ui-list .ui-row, .cs-filters button, .cs-rmain, .msg-list .msg-react,
+  .ch-q .cover, .ch-lc .cover, .bd-pick, .cap-trow, .cap-srow, .cap-edit):focus-visible { outline-offset: -2px; }
+html.desk body.powa-app :where(.dk-rmeta-inv, .dd-ag-it, .cl-lane):focus-visible { outline-offset: 0; }
+html.desk body.powa-app :where(.cl-tm, .cl-card-main):focus-visible { outline-offset: 4px; }
+html.desk body.powa-app :where(.prg-chip):focus-visible { outline-offset: 1px; }
+/* the screens' own rings (the desk's buttons at the top of this file, the coach pages' in coach-ui.css) in a box that
+   clips: the block list, a name cut with an ellipsis, the names in a card's one-line footer or a flag's */
+html.desk body.powa-app :is(.dk-bl .dk-bl-row, b > .dk-link):focus-visible { outline-offset: -2px; }
+html.desk body.powa-app :is(.cl-card-f, .dd-flag-w, .cl-tf) :is(.cl-nm, .cl-quiet):focus-visible { outline-offset: -2px; }
 
 /* ---------- the push preview ---------- */
 .dk-modal.ds-pv { width: min(640px, 100%); max-height: calc(100vh - 2 * var(--s-6)); display: flex; flex-direction: column; }
