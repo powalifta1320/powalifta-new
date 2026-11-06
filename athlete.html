@@ -1681,6 +1681,12 @@ function planSmartNext(ex, si, felt) {
   _smartLoad[k] = s || { none: true };   // "no change" is an answer too (readiness won't override it)
   return s;
 }
+// Train's 44 pt: is a tap (on a row, not on a control) within 22 pt of a control's middle, up and down, and within its
+// width or 22 pt of its middle across, whichever is wider?
+function _txSlop(el, e) {
+  const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, hw = Math.max(r.width / 2, 22);
+  return r.width > 0 && Math.abs(e.clientX - cx) <= hw && Math.abs(e.clientY - (r.top + r.height / 2)) <= 22;
+}
 // Why the load moved, in one line: "Set 1 felt RPE 9, planned 8".
 function smartWhy(ex, si) {
   const r = _readyLoad[ex.id + '_' + si];
@@ -2893,6 +2899,10 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
       });
       loadEl.appendChild(wInp);
       loadEl.insertAdjacentHTML('beforeend', '<small>' + unitLabel() + '</small><i>×</i><b>' + escHtml(String(set.reps)) + '</b>');
+      // The box is 32 pt tall: its line answers a finger at 44 (styles.css "Train, 44 pt to the touch"), and a tap
+      // anywhere on it ("kg × 5", or just above or below the box) puts the caret in the box.
+      loadEl.classList.add('is-field');
+      loadEl.addEventListener('click', (e) => { if (e.target !== wInp) wInp.focus(); });
     } else {
       loadEl.innerHTML = (shownKg > 0 ? '<b>' + kgToDisplay(shownKg) + '</b><small>' + unitLabel() + '</small>' : (set.pct != null ? '<b class="dim">' + escHtml(_num(set.pct) + '%') + '</b>' : '<b class="dim">–</b>')) +
         '<i>×</i><b>' + escHtml(String(set.reps)) + '</b>';
@@ -2955,6 +2965,9 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
       toggleSet(ex.id, si, true, { rpe: r });
     });
     row.appendChild(tick);
+    // 44 pt to the touch without moving a pixel (styles.css "Train, 44 pt to the touch"): a tap on the row itself just
+    // around the circle or above or below the RPE chip is theirs.
+    row.addEventListener('click', (e) => { if (e.target !== row) return; if (_txSlop(tick, e)) tick.click(); else if (_txSlop(chip, e)) chip.click(); });
     list.appendChild(row);
   });
   card.appendChild(list);
@@ -2977,6 +2990,13 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
   exNote.value = existingNote;
   // What the day might add: another set, a PR attempt (the big three), a note.
   const acts = el('div', { class: 'tx-acts' });
+  // Add set and PR attempt are 34 pt pills: their row answers 5 pt above and below them (its padding) and hands the
+  // tap to the pill under it, so they're 44 pt to the touch as drawn.
+  acts.addEventListener('click', (e) => {
+    if (e.target !== acts) return;
+    const b = [...acts.querySelectorAll('.tx-act:not(.tx-act-ico)')].find(x => _txSlop(x, e));
+    if (b) b.click();
+  });
   if (!isCardio) {
     const add = el('button', { class: 'tx-act', type: 'button', html: ICONS.plus + '<span>Add set</span>' });
     add.addEventListener('click', () => addExtraSet(ex.id));
@@ -7192,7 +7212,8 @@ function renderProgress() {
   };
   SUBTABS.forEach(t => {
     const on = t.key === activeSub;
-    const b = el('button', { class: 'prog-subtab' + (on ? ' active' : ''), type: 'button', role: 'tab', 'data-sub': t.key, 'aria-selected': on ? 'true' : 'false' }, t.label);
+    // The label in its own span: it clips for the ellipsis, so the tab's 44 pt hit area can reach past the pill.
+    const b = el('button', { class: 'prog-subtab' + (on ? ' active' : ''), type: 'button', role: 'tab', 'data-sub': t.key, 'aria-selected': on ? 'true' : 'false' }, el('span', { class: 'ps-l' }, t.label));
     b.addEventListener('click', () => {
       if (activeSub === t.key) return;
       activeSub = t.key;

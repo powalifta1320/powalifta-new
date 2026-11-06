@@ -13305,3 +13305,31 @@ html[data-theme="light"]:not(.desk) body.powa-app {
    Lifters). They are all the iOS key now (the light theme already was), sized for their place. The coach phone's own
    ones are drawn in coach-app.css / coach-ui.css with these tokens, Ask's in ai-chat.css. */
 
+/* Progress's four tabs, 44 pt to the touch (they were 34), drawn as they were: the tab clipped its own box for the
+   ellipsis, so a hit area couldn't reach past it; the label's span clips now (athlete.html renderProgress) and the tab
+   answers 5 pt above and below its pill, inside the track's padding and 2 pt past it. */
+html:not(.desk) body.powa-app .prog-subtab { overflow: visible; }
+html:not(.desk) body.powa-app .prog-subtab > .ps-l { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html:not(.desk) body.powa-app .prog-subtab::before { content: ''; position: absolute; inset: -5px 0; }
+
+/* ======================================================================================================== TRAIN, 44 PT TO THE TOUCH (6 Nov)
+   Train's set controls answer a finger at 44 pt and are drawn exactly as approved (the same pixels; a positioned hit
+   area or a clipped fill moves a few, so neither is used): the load (32: the tap that opens the set, or the box a
+   self-coached lifter types into) has 6 pt of padding above and below, taken back by its margins; the set's circle (36)
+   and its RPE chip (44 x 32) are handed the taps around them by their row, and Add set / PR attempt (34) by theirs
+   (athlete.html _txSlop: within 22 pt of the middle, and the width, or 44 pt for the circle). None overlaps another:
+   the circle's and the chip's stay 8 pt apart, and the row's three icons split the gaps between them (40 wide inside,
+   44 at the ends; at 375 pt the gaps are 4, so 38). */
+html:not(.desk) body.powa-app .tx-set .tx-set-load:is(.is-tap, .is-field) { padding-block: 6px; margin-block: -6px; }
+/* the line under the load (e1RM, Belt on, tempo: words only) lets a tap through to the load's padding it lies over */
+html:not(.desk) body.powa-app .tx-set .tx-set-main > .tx-set-sub { pointer-events: none; }
+html:not(.desk) body.powa-app .tx-card .tx-acts { padding-block: 5px; margin-block: 5px -3px; }
+html:not(.desk) body.powa-app :is(.tx-set, .tx-card .tx-acts) { -webkit-tap-highlight-color: transparent; }
+@media (max-width: 767px) {
+  html:not(.desk) body.powa-app .tx-acts .tx-act-ico::before { inset: -5px -3px; }
+  html:not(.desk) body.powa-app .tx-acts .tx-act:not(.tx-act-ico) + .tx-act-ico::before,
+  html:not(.desk) body.powa-app .tx-acts .tx-act-ico:first-child::before { left: -5px; }
+  html:not(.desk) body.powa-app .tx-acts .tx-act-ico:last-child::before { right: -5px; }
+}
+@media (max-width: 389px) { html:not(.desk) body.powa-app .tx-acts .tx-act-ico::before { inset: -5px -2px; } }
+
