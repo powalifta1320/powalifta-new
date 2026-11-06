@@ -1683,9 +1683,12 @@ html.desk section[data-pane="program"].dp-on { --list-w: 300px; }
 html.desk body.powa-app {
   --dp-17: 17px;   /* Teams' own sizes (desk-season.js) */
   --dp-ring: color-mix(in srgb, var(--dh, #38c6ff) 75%, transparent);
-  /* the day's one column grid: role · sets × reps · load · effort · notes · lifted · remove */
-  --c-role: 72px; --c-sr: 84px; --c-load: 150px; --c-eff: 80px; --c-lift: 150px; --c-rm: 24px; --c-gap: 8px; --c-ind: 40px;
+  /* the day's one column grid: role · sets × reps · load · effort · a circle a set · notes · remove (what was lifted
+     under the line); the indent the lines, the cue and + Set share. ≤ 680 px they come down (the card's tiers). */
+  --c-role: 70px; --c-sr: 76px; --c-load: 150px; --c-eff: 64px; --c-sets: 112px; --c-rm: 24px; --c-gap: 10px; --c-ind: 44px;
+  --dp-hollow: #6e6e78;   /* a set not logged: the circle's ring */
 }
+html.desk[data-theme="light"] body.powa-app { --dp-hollow: #8a8a93; }
 /* the list: Lifters · Teams · Templates, then who's to write first */
 .dp-list .dk-list-head { padding-bottom: var(--s-3); }
 .dp-tabs { display: flex; gap: 2px; padding: 3px; margin-bottom: var(--s-3); border-radius: 12px; background: var(--dk-fill); }
@@ -1906,15 +1909,28 @@ button.dp-tile:active { transform: scale(0.985); }
 .dp-dchip.t-rest { background: none; box-shadow: inset 0 0 0 1px var(--line); }
 .dp-dchip.t-rest.is-at { background: var(--dh-fill); }
 
-/* ---------- the week: one card per day ---------- */
+/* ---------- the week: one card per day ----------
+   The day card (4 Nov 2026: the owner's pick from the board, "C · Like the lifter app"). The owner on the card before it:
+   "idk if this needs some lines or what but i js dont like it over all". Each exercise is a quiet band (a surface, no
+   edge, no shadow: not a card in the card); each line leads with its load as Train does (20 px), the effort is Train's
+   neutral pill and a circle a set sits right after it (so the circles are read with their sets, at every width); what was
+   lifted is under the line in small type, its gap one word in its colour. One colour a meaning, and red is only the logo
+   and the one crimson action (the owner's rule): over what was written is the laptop's one amber (--dk-over), in two
+   steps a colour-blind eye can tell apart: half a point an outline (a raised fill with an amber hairline, never a dark
+   tint, which reads brown), a point or more solid amber; under is blue, on it a soft green, a set not logged or skipped a
+   quiet hollow circle. Light inks pass 4.5:1 as text and 3:1 as a circle's edge against the band.
+   Widths (the editor, container dpw): 860 px at 1440 with the sidebar open, 700 at 1280, 645 at 1225, 620 at 1200, 606 at
+   1150, 556 at 1100, 480 at 1024; tiers at 830 (the notes go under the line), 680 (the lines lose their indent) and 544
+   (below, with the head's). The card before this one went with iPhone 1.4 and the website on this one (6 Nov). */
 .dp-week { display: flex; flex-direction: column; gap: var(--s-4); padding-top: 6px; }
 .dp-days { display: flex; flex-direction: column; gap: var(--s-4); }
 .dp-day { position: relative; padding: 18px 22px 20px; border-radius: 20px; background: var(--dk-card); box-shadow: var(--dk-card-lit), 0 0 0 1px var(--dk-card-edge); scroll-margin-top: 150px; }
 html.desk:not([data-theme="light"]) .dp-day { background-image: var(--dk-card-sheen); }
-.dp-day.is-rest { padding-top: 14px; padding-bottom: 14px; background: none; box-shadow: inset 0 0 0 1px var(--line); }
 .dp-day.t-live { box-shadow: var(--dk-card-lit), 0 0 0 1px color-mix(in srgb, var(--dk-ok) 45%, transparent); }
-.dp-day-head { display: flex; align-items: center; gap: var(--s-3); min-height: 36px; margin-bottom: 6px; }
-.dp-day-id { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; }
+/* the day's head: its name, its status, then its date and size as one unit that wraps whole (no "·" left hanging); ⋯ */
+.dp-day-head { display: flex; align-items: center; gap: 10px; min-height: 36px; margin-bottom: 12px; }
+.dp-day-id { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; flex: 1 1 auto; min-width: 0; }
+.dp.is-team .dp-day-id { flex: 0 1 auto; }
 html.desk body.powa-app input.dp-day-name, .dp-day-title {
   flex: 0 1 auto; field-sizing: content; min-width: 80px; max-width: 100%; width: 220px; height: 34px !important; min-height: 0 !important; margin: 0 0 0 -8px; padding: 0 8px !important;
   border: 0 !important; border-radius: var(--r-2); background: none !important; box-shadow: none !important; outline: none;
@@ -1940,28 +1956,38 @@ html.desk body.powa-app input.dp-day-name:focus { background: var(--bg) !importa
 .dp-badge.t-planned { background: none; padding: 0 2px; color: var(--text-3); font-weight: var(--fw-2); }   /* most days are: said quietly */
 .dp-badge.t-planned .dp-badge-dot { background: none; box-shadow: inset 0 0 0 1.5px var(--text-3); }
 .dp-badge.t-rest, .dp-badge.t-empty { background: none; padding: 0; color: var(--text-3); font-weight: var(--fw-2); }
+.dp-day-meta { display: inline-flex; align-items: center; gap: 10px; flex: none; white-space: nowrap; }
+.dp-day-meta .dp-day-date + .dp-day-sum::before { content: '·'; margin-right: 10px; color: var(--text-4); }
 .dp-day-date { font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); white-space: nowrap; }
-.dp-day-sum { flex: none; margin-left: auto; font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dp-day-sum { flex: none; font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dp.is-team .dp-day-sum { flex: 0 1 auto; }
 .dp-day-min { color: var(--text-2); }
 .dp-day-min.is-over { color: var(--dk-warn); font-weight: var(--fw-3); }
 .dp-day-more, .dp-more, .dp-grip, .dp-rmline { position: relative; display: grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--r-1); background: none; color: var(--text-3); cursor: pointer; transition: background-color 0.15s var(--dk-ease), color 0.15s var(--dk-ease), opacity 0.15s var(--dk-ease); }
 .dp-day-more::before, .dp-more::before, .dp-grip::before { content: ''; position: absolute; inset: -6px -2px; }
 .dp-day-more svg, .dp-more svg, .dp-grip svg { width: 16px; height: 16px; }
-.dp-day-more { margin-right: -6px; }
+.dp-day-more { margin-left: auto; margin-right: -6px; }
 @media (hover: hover) and (pointer: fine) { :is(.dp-day-more, .dp-more, .dp-rmline):hover { background: var(--dk-hover); color: var(--text); } }
 .dp-grip { cursor: grab; touch-action: none; margin-right: -6px; }
 .dp-grip:active { cursor: grabbing; }
 .dp-ex.is-lock .dp-grip { cursor: not-allowed; }
 .dp-restrow { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
 .dp-rest { margin: 0; font: var(--fw-1) var(--fs-1)/1.4 var(--font-body); color: var(--text-3); }
-/* a line of sets: on one column grid for the whole day */
-.dp-line { display: grid; grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-lift) var(--c-rm); column-gap: var(--c-gap); margin-left: var(--c-ind); align-items: center; }
-.dp-week:not(.has-lifted) .dp-c-lift, .dp.is-team .dp-c-lift { display: none; }
-/* an exercise: its title row, its lines, + Set, the cue; a hairline between exercises */
-.dp-ex { position: relative; padding: 6px 0 12px; }
-.dp-ex + .dp-ex { border-top: 1px solid var(--line); }
+/* a rest day: one quiet line: its name, the words, Make it a training day, ⋯ */
+.dp-day.is-rest { display: flex; align-items: center; flex-wrap: wrap; column-gap: 16px; padding-top: 10px; padding-bottom: 10px; background: none; box-shadow: inset 0 0 0 1px var(--line); }
+.dp-day.is-rest .dp-day-head { display: contents; }
+.dp-day.is-rest .dp-day-id { flex: 0 1 auto; order: 1; }
+.dp-day.is-rest .dp-restrow { order: 2; flex: 1 1 auto; justify-content: space-between; }
+.dp-day.is-rest .dp-day-more { order: 3; margin-left: 0; }
+.dp.is-team .dp-day.is-rest > .dp-rest { order: 2; flex: 1 1 auto; }
+/* an exercise: a quiet band (its title row, its lines, + Set, the cue); the max after the lift's name; ⋯ and the handle
+   at the end */
+.dp-ex { position: relative; margin: 0 -12px; padding: 8px 12px 10px; border-radius: var(--r-2); background: color-mix(in srgb, var(--text) 2.6%, transparent); }
+html.desk[data-theme="light"] .dp-ex { background: color-mix(in srgb, var(--text) 3%, transparent); }
+.dp-ex + .dp-ex { margin-top: 10px; }
 .dp-ex.is-dragging { opacity: 0.35; }
-.dp-ex-head { display: flex; align-items: center; gap: var(--s-3); min-height: 40px; min-width: 0; }
+.dp-ex-head { display: flex; align-items: center; gap: var(--s-3); min-height: 44px; min-width: 0; }
+.dp-ex-head .dp-more { margin-left: auto; }
 .dp-lt { display: inline-grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: var(--r-1); font: 800 var(--fs-1)/1 var(--font-body); letter-spacing: 0;
   background: color-mix(in srgb, var(--lc, var(--text-3)) 17%, transparent); color: var(--lc-ink, var(--lc, var(--text-2))); }
 .dp-lt svg { width: 15px; height: 15px; }
@@ -1971,34 +1997,95 @@ html.desk body.powa-app input.dp-day-name:focus { background: var(--bg) !importa
 html.desk:not([data-theme="light"]) .dp-lt.lift-deadlift { background: var(--dk-fill-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) 34%, transparent); }
 .dp-lt.is-sm { width: 24px; height: 24px; border-radius: var(--r-1); }
 .dp-lt.is-sm svg { width: 13px; height: 13px; }
+.dp-ex-head .dp-lt { width: 32px; height: 32px; border-radius: var(--r-2); font-size: var(--fs-4); }   /* the day card's (the picker's .is-sm, Preview's .is-lg) */
+.dp-ex-head .dp-lt svg { width: 16px; height: 16px; }
 .dp-exn { flex: 0 1 auto; min-width: 0; font: var(--fw-3) var(--fs-4)/22px var(--font-body); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dp-ex.is-edited .dp-exn::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 8px; border-radius: 50%; background: var(--text-3); vertical-align: 3px; }
 .dp-week.is-draft .dp-ex.is-edited .dp-exn::after { display: none; }   /* a draft: nothing has been sent, so nothing is "edited since" */
 .dp-vtag { flex: none; height: 22px; padding: 0 8px; border-radius: var(--r-1); background: var(--dk-fill); color: var(--text-2); font: var(--fw-2) var(--fs-1)/22px var(--font-body); white-space: nowrap; }
 .dp-swap { flex: 0 1 auto; min-width: 0; font: var(--fw-2) var(--fs-1)/1.3 var(--font-body); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dp-exmax { flex: 1 1 auto; min-width: 0; text-align: right; font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dp-exmax { flex: 0 1 auto; min-width: 0; text-align: left; font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dp-exmax:empty { display: none; }
 /* ⋯ and the handle: on the exercise under the pointer, or the one being typed in */
 @media (hover: hover) and (pointer: fine) {
   .dp-ex :is(.dp-more, .dp-grip) { opacity: 0; }
   .dp-ex:hover :is(.dp-more, .dp-grip), .dp-ex:focus-within :is(.dp-more, .dp-grip), .dp-ex .dp-more[aria-expanded="true"] { opacity: 1; }
 }
-/* a line of sets */
-.dp-line { position: relative; min-height: 40px; }
-.dp-line.is-write { grid-template-columns: minmax(0, 1fr); }
-.dp-c-role { padding-left: 2px; font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dp-c-sr { display: flex; align-items: center; min-width: 0; }
+/* a line: role · sets × reps · the load · the effort · a circle a set · notes · ×, on one column grid for the whole day;
+   what was lifted on its own row under it. A hairline between lines, and the line under the pointer (or being typed in)
+   one band. A week nothing's been lifted in (and Teams' week) has no circles: their column is 0. */
+.dp-line { position: relative; display: grid; grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) var(--c-sets) minmax(0, 1fr) var(--c-rm); gap: 0 var(--c-gap); align-items: center;
+  max-width: 940px; min-height: 48px; margin-left: calc(var(--c-ind) - 8px); padding: 2px 0 2px 8px; border-radius: var(--r-2); transition: background-color 0.15s var(--dk-ease); }
+.dp-week:not(.has-lifted) .dp-line, .dp.is-team .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) 0 minmax(0, 1fr) var(--c-rm); }
+.dp-line > * { grid-row: 1; }
+.dp-line .dp-c-sets { grid-column: 5; }
+.dp-line .dp-c-f { grid-column: 6; }
+.dp-week:not(.has-lifted) .dp-line .dp-c-f, .dp.is-team .dp-line .dp-c-f { margin-left: calc(-1 * var(--c-gap)); }
+.dp-line .dp-rmline { grid-column: 7; }
+.dp-line .dp-c-lift { grid-row: 2; grid-column: 2 / 7; margin: -4px 0 8px 6px; }
+/* the set row reads on the load's first line: each of its cells is a 40 px box at the top of the line, its content
+   centred in it, so when the load wraps (its est. tag or % chip under it, in a narrow editor) the label, sets × reps, the
+   pill, the circles and × stay on the load's line and only the wrapped part hangs below. The line's spare height still
+   splits above and below the row (align-content), so a line that doesn't wrap sits exactly where it did. */
+.dp-line:not(.is-write) { align-items: start; align-content: center; }
+.dp-line :is(.dp-c-sr, .dp-c-eff, .dp-c-f) { display: flex; align-items: center; height: 40px; }
+.dp-line .dp-c-sets { min-height: 40px; }
+.dp-line .dp-rmline { margin-top: 8px; }
+.dp-line.is-write > * { grid-column: 1 / -1; }
+.dp-line + .dp-line::before { content: ''; position: absolute; left: 8px; right: 0; top: 0; height: 1px; background: var(--line); pointer-events: none; }
+:is(.dp-line:hover, .dp-line:focus-within)::before, :is(.dp-line:hover, .dp-line:focus-within) + .dp-line::before { opacity: 0; }
+@media (hover: hover) and (pointer: fine) { .dp-line:not(.is-write):hover { background: var(--dk-hover); } }
+.dp-line:not(.is-write):focus-within { background: var(--dk-hover); }
+.dp-c-role { height: 40px; padding-left: 2px; font: var(--fw-2) var(--fs-1)/40px var(--font-body); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-c-sr { min-width: 0; }
 .dp-x { flex: none; padding: 0 1px; color: var(--text-3); font: var(--fw-1) var(--fs-4)/1 var(--font-num); }
 .dp-c-load, .dp-c-eff, .dp-c-f, .dp-c-write { position: relative; min-width: 0; }
-.dp-c-load { display: flex; align-items: center; gap: 6px; }
-.dp-c-lift { display: flex; align-items: center; min-width: 0; font: var(--fw-2) var(--fs-4)/1.2 var(--font-num); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.dp-lifted { display: inline-flex; align-items: center; gap: 7px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.dp-lifted.t-missed { color: var(--text-3); font-family: var(--font-body); font-size: var(--fs-1); }
-.dp-extra { color: var(--text-3); font-family: var(--font-body); font-size: var(--fs-1); }
-.dp-c-lift.is-prev { color: var(--text-3); }
+.dp-c-load { display: flex; align-items: center; align-content: flex-start; gap: 6px; min-height: 40px; }
+/* what they lifted, under the line: "Lifted" (or "Week 2"), the numbers, the gap */
+.dp-c-lift { display: flex; align-items: center; min-width: 0; font: var(--fw-2) var(--fs-1)/1.3 var(--font-body); color: var(--text-2); white-space: nowrap; }
+.dp-week:not(.has-lifted) .dp-c-lift, .dp.is-team .dp-c-lift, .dp-c-lift.is-none:empty { display: none; }
+.dp-lifted { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: var(--fw-3) var(--fs-1)/1.3 var(--font-num); color: var(--text-2); }
+.dp-lk { color: var(--text-3); font-weight: var(--fw-2); }
+.dp-lv { min-width: 0; }
+.dp-lifted.t-missed { color: var(--text-3); font-weight: var(--fw-2); }
+.dp-c-lift.is-prev .dp-lifted { color: var(--text-3); }
+.dp-extra { flex: none; margin-left: 8px; color: var(--text-3); font-family: var(--font-body); font-size: var(--fs-1); }
+.dp-dev { display: inline-flex; align-items: center; justify-content: center; flex: none; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: var(--r-1);
+  font: var(--fw-4) var(--fs-1)/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0; white-space: nowrap; }
+.dp-dev.t-half { color: var(--dk-over); background: var(--dk-raise-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-over) 45%, transparent); }
+html.desk[data-theme="light"] .dp-dev.t-half { background: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-over) 55%, transparent); }
+.dp-dev.t-over { color: var(--dk-over-on); background: var(--dk-over-fill); box-shadow: inset 0 0 0 1px var(--dk-over-edge); }   /* a point or more: solid */
+.dp-dev.t-under { color: var(--dk-cool); background: color-mix(in srgb, var(--dk-cool) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-cool) 32%, transparent); }
+html.desk[data-theme="light"] .dp-dev.t-under { background: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-cool) 50%, transparent); }   /* 5.6:1 (on the tint it was 4.4) */
+.dp-dev.t-ok { width: 18px; padding: 0; color: var(--dk-ok); background: none; }
+.dp-dev.t-ok svg { width: 14px; height: 14px; }
+.dp-c-lift.is-prev .dp-dev { opacity: 0.75; }
+/* a circle a set, right after the effort (Train's set circles): on it a soft green with its check, half a point over an
+   amber ring on a raised fill, a point or more over solid amber, under it blue, lifted with nothing written to compare
+   grey, not logged or skipped a hollow ring.
+   Up to four at full size; five a little smaller; six or more smaller still, two rows past six (the tooltip says each). */
+.dp-c-sets { display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 6px; min-width: 0; padding-left: 2px; }
+.dp-set { display: grid; place-items: center; flex: none; width: 22px; height: 22px; box-sizing: border-box; border-radius: var(--r-round); box-shadow: inset 0 0 0 1.5px var(--dp-hollow); }
+.dp-set svg { width: 12px; height: 12px; }
+.dp-set.t-ok { background: color-mix(in srgb, var(--dk-ok) 16%, transparent); box-shadow: inset 0 0 0 1.5px var(--dk-ok); color: var(--dk-ok); }
+.dp-set.t-half { background: var(--dk-raise-2); box-shadow: inset 0 0 0 1.5px var(--dk-over); color: var(--dk-over); }
+html.desk[data-theme="light"] .dp-set.t-half { background: #fff; }
+.dp-set.t-over { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); color: var(--dk-over-on); }   /* a point or more: solid */
+.dp-set.t-under { background: color-mix(in srgb, var(--dk-cool) 16%, transparent); box-shadow: inset 0 0 0 1.5px var(--dk-cool); color: var(--dk-cool); }
+.dp-set.t-done { background: var(--dk-fill); box-shadow: inset 0 0 0 1.5px var(--text-3); color: var(--text-3); }
+.dp-c-sets[data-n="5"] { gap: 5px; }
+.dp-c-sets[data-n="5"] .dp-set { width: 18px; height: 18px; }
+.dp-c-sets[data-n="5"] .dp-set svg { width: 10px; height: 10px; }
+.dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) { gap: 4px; }
+.dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set { width: 14px; height: 14px; box-shadow: inset 0 0 0 1.25px var(--dp-hollow); }
+.dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set:is(.t-ok, .t-half, .t-under, .t-done) { box-shadow: inset 0 0 0 1.25px currentColor; }
+.dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set.t-over { box-shadow: inset 0 0 0 1.25px var(--dk-over-edge); }
+.dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set svg { display: none; }
 .dp-rmline { width: 24px; height: 24px; color: var(--text-3); }
 .dp-rmline svg { width: 12px; height: 12px; }
 @media (hover: hover) and (pointer: fine) { .dp-line .dp-rmline { opacity: 0; } .dp-line:hover .dp-rmline, .dp-line:focus-within .dp-rmline { opacity: 1; } }
-/* the cells: real inputs that read as text at rest; an outline on hover, a cyan ring when typed in */
+/* the cells: real inputs that read as text at rest; an outline on hover, a cyan ring when typed in. The numbers: the load
+   the big one, as Train shows it; sets × reps quieter */
 html.desk body.powa-app input.dp-cell, html.desk body.powa-app input.dp-note, html.desk body.powa-app input.dp-mem-in {
   width: 100%; height: 32px !important; min-height: 0 !important; margin: 0; padding: 0 6px !important; box-sizing: border-box;
   border: 0 !important; border-radius: var(--r-1); background: transparent !important; box-shadow: none !important; outline: none;
@@ -2006,28 +2093,27 @@ html.desk body.powa-app input.dp-cell, html.desk body.powa-app input.dp-note, ht
   transition: none;   /* Tab and Enter move between cells hundreds of times a session: the ring is instant */
 }
 html.desk body.powa-app input.dp-cell.dp-n { text-align: right; }
-html.desk body.powa-app input.dp-cell.dp-n, html.desk body.powa-app input.dp-cell.dp-r { width: 32px; padding: 0 4px !important; font-weight: var(--fw-3); }
-html.desk body.powa-app input.dp-cell.dp-l { flex: 0 1 auto; field-sizing: content; min-width: 44px; max-width: 100%; width: auto; font-weight: var(--fw-4); }
+html.desk body.powa-app input.dp-cell.dp-n, html.desk body.powa-app input.dp-cell.dp-r { width: 32px; height: 40px !important; padding: 0 4px !important; font: var(--fw-3) var(--fs-4)/40px var(--font-num); color: var(--text-2); }
+html.desk body.powa-app input.dp-cell.dp-l { flex: 0 1 auto; field-sizing: content; min-width: 44px; max-width: 100%; width: auto; height: 40px !important; font: var(--fw-4) 20px/40px var(--font-num); letter-spacing: -0.01em; }
 html.desk body.powa-app input.dp-cell.dp-l.is-est { font-weight: var(--fw-3); }
 html.desk body.powa-app input.dp-cell.dp-l:focus { min-width: 96px; }
 html.desk body.powa-app input.dp-cell.dp-f, html.desk body.powa-app input.dp-note { font: var(--fw-2) var(--fs-1)/32px var(--font-body); color: var(--text-2); }
 html.desk body.powa-app input.dp-cell.dp-wline { font: var(--fw-2) var(--fs-4)/32px var(--font-body); }
 html.desk body.powa-app :is(input.dp-cell, input.dp-note)::placeholder { color: var(--text-3); opacity: 1; font-weight: var(--fw-2); }
-html.desk body.powa-app input.dp-cell.dp-l::placeholder { font: var(--fw-2) var(--fs-1)/32px var(--font-body); }
+html.desk body.powa-app input.dp-cell.dp-l::placeholder { font: var(--fw-2) var(--fs-1)/40px var(--font-body); }
+/* the placeholder "Load" on a lift written without one (a hanging leg raise) shows when its line is pointed at */
+html.desk body.powa-app input.dp-cell.dp-l[placeholder="Load"]::placeholder { color: transparent; }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app .dp-line:hover input.dp-cell.dp-l[placeholder="Load"]:not([readonly])::placeholder { color: var(--text-3); } }
+html.desk body.powa-app input.dp-cell.dp-l[placeholder="Load"]:focus::placeholder { color: var(--text-3); }
 html.desk body.powa-app input.dp-cell.dp-f::placeholder { color: transparent; }
-/* the effort: a tag on the app's effort scale (easier green, harder red: styles.css RPE_COLORS) */
-html.desk body.powa-app input.dp-cell.dp-e { field-sizing: content; width: auto; min-width: 46px; max-width: 100%; height: 26px !important; padding: 0 8px !important; border-radius: var(--r-1);
-  font: var(--fw-3) var(--fs-1)/26px var(--font-body); }
-html.desk body.powa-app input.dp-cell.dp-e::placeholder { font: var(--fw-2) var(--fs-1)/26px var(--font-body); color: transparent; }
-@media (hover: hover) and (pointer: fine) { html.desk body.powa-app .dp-line:hover input.dp-cell.dp-e:not([readonly])::placeholder { color: var(--text-3); } }
-html.desk body.powa-app input.dp-cell.dp-e:focus::placeholder { color: var(--text-3); }
 .dp-tag { flex: none; height: 22px; padding: 0 7px; border-radius: var(--r-1); background: var(--dk-fill); color: var(--text-2); font: var(--fw-3) var(--fs-1)/22px var(--font-body); font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
 .dp-tag.is-est { background: none; padding: 0; color: var(--text-3); font-weight: var(--fw-2); }
 .dp-tag.is-warn { background: var(--dk-raise-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-warn) 40%, transparent); color: var(--text-2); }
 .dp-c-load:focus-within .dp-tag { display: none; }
-/* the notes: set fields as tags at rest; the words to type when the cell is in use */
-.dp-ftags { position: absolute; left: 0; right: 0; top: 50%; display: flex; gap: 4px; padding: 0 4px; transform: translateY(-50%); overflow: hidden; pointer-events: none; }
-.dp-ftag { flex: none; height: 22px; padding: 0 7px; border-radius: var(--r-1); background: var(--dk-fill); color: var(--text-2); font: var(--fw-2) var(--fs-1)/22px var(--font-body); white-space: nowrap; }
+/* the notes: set fields as quiet words at rest, a dot between; the words to type when the cell is in use */
+.dp-ftags { position: absolute; left: 0; right: 0; top: 50%; display: flex; gap: 6px; padding: 0 4px; transform: translateY(-50%); overflow: hidden; pointer-events: none; }
+.dp-ftag { flex: none; height: 22px; padding: 0 2px; border-radius: var(--r-1); color: var(--text-3); font: var(--fw-2) var(--fs-1)/22px var(--font-body); white-space: nowrap; }
+.dp-ftag + .dp-ftag::before { content: '·'; margin-right: 6px; color: var(--text-4); }
 html.desk body.powa-app .dp-c-f.has-tags:not(:focus-within) input.dp-cell.dp-f { color: transparent; }
 .dp-c-f:focus-within .dp-ftags { display: none; }
 @media (hover: hover) and (pointer: fine) {
@@ -2040,8 +2126,20 @@ html.desk body.powa-app input.dp-cell.is-bad { box-shadow: 0 0 0 2px var(--dk-al
 html.desk body.powa-app input.dp-cell[readonly] { cursor: default; color: var(--text-2); }
 html.desk body.powa-app input.dp-cell.dp-l[readonly] { color: var(--text); }
 html.desk body.powa-app input.dp-cell[readonly]:focus { box-shadow: inset 0 0 0 1px var(--line-2) !important; }
-/* + Set and + Cue: on the hairline under the exercise, shown on hover and while it's being typed in */
-.dp-ex-foot { position: absolute; left: var(--c-ind); bottom: -12px; z-index: 2; display: flex; gap: 4px; }
+/* the effort: Train's pill, neutral (how it went is the gap's job); never an outlined chip coloured by the RPE. After the
+   cell states above: a locked line's pill keeps its fill and no outline when it's focused. */
+html.desk body.powa-app input.dp-cell.dp-e { field-sizing: content; width: auto; min-width: 48px; max-width: 100%; height: 30px !important; padding: 0 12px !important; border-radius: var(--r-round); text-align: center;
+  font: var(--fw-4) var(--fs-1)/30px var(--font-num); font-variant-numeric: tabular-nums; }
+html.desk body.powa-app input.dp-cell.dp-e::placeholder { font: var(--fw-2) var(--fs-1)/30px var(--font-body); color: transparent; }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app .dp-line:hover input.dp-cell.dp-e:not([readonly])::placeholder { color: var(--text-3); } }
+html.desk body.powa-app input.dp-cell.dp-e:focus::placeholder { color: var(--text-3); }
+html.desk body.powa-app input.dp-cell.dp-e.has-rc { background: var(--dk-fill-2) !important; box-shadow: none !important; color: var(--text); }
+@media (hover: hover) and (pointer: fine) { html.desk body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):hover { background: var(--dk-fill-2) !important; box-shadow: inset 0 0 0 1px var(--line-2) !important; } }
+html.desk body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):focus { background: var(--bg) !important; box-shadow: 0 0 0 2px var(--dp-ring) !important; }
+html.desk[data-theme="light"] body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):focus { background: #fff !important; }
+html.desk body.powa-app input.dp-cell.dp-e.has-rc[readonly] { color: var(--text); }
+/* + Set and + Cue: on the band's foot, shown on hover and while it's being typed in; the cue under the role */
+.dp-ex-foot { position: absolute; left: var(--c-ind); bottom: -14px; z-index: 2; display: flex; gap: 4px; }
 .dp-addset { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px 0 7px; border: 0; border-radius: var(--r-1); cursor: pointer;
   background: var(--dk-card); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--text-2); font: var(--fw-3) var(--fs-1)/1 var(--font-body);
   transition: opacity 0.15s var(--dk-ease), background-color 0.15s var(--dk-ease), color 0.15s var(--dk-ease); }
@@ -2052,15 +2150,14 @@ html.desk body.powa-app input.dp-cell[readonly]:focus { box-shadow: inset 0 0 0 
   .dp-addset:hover { color: var(--text); box-shadow: inset 0 0 0 1px var(--text-4); }
 }
 .dp-ex.is-new .dp-ex-foot { position: static; margin: 4px 0 0 var(--c-ind); }
-/* the cue */
-.dp-cue { display: flex; align-items: center; gap: var(--s-2); min-height: 30px; margin: 2px 0 0 var(--c-ind); }
+.dp-cue { display: flex; align-items: center; gap: var(--s-2); min-height: 30px; margin: 0 0 0 var(--c-ind); }
 .dp-cue-k { flex: none; font: var(--fw-3) var(--fs-1)/1 var(--font-body); color: var(--text-3); }
 html.desk body.powa-app .dp-cue input.dp-note { flex: 1 1 auto; height: 28px !important; color: var(--text-2); }
 .dp-an { flex: none; max-width: 50%; font: var(--fw-1) var(--fs-1)/1.3 var(--font-body); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* + Add exercise: clearly a button */
-.dp-addex { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 44px; margin-top: 14px; border: 1px dashed var(--line-2); border-radius: 12px; background: none; cursor: pointer;
+/* + Add exercise: a small button at the foot of the day, where the lifts start */
+.dp-addex { display: flex; align-items: center; justify-content: flex-start; gap: 7px; width: auto; height: 34px; margin-top: 12px; padding: 0 14px 0 11px; border: 1px dashed var(--line-2); border-radius: var(--r-2); background: none; cursor: pointer;
   color: var(--text-2); font: var(--fw-3) var(--fs-1)/1 var(--font-body); transition: background-color 0.15s var(--dk-ease), border-color 0.15s var(--dk-ease), color 0.15s var(--dk-ease), transform 0.15s var(--dk-ease); }
-.dp-addex svg { width: 15px; height: 15px; }
+.dp-addex svg { width: 14px; height: 14px; }
 @media (hover: hover) and (pointer: fine) { .dp-addex:hover { background: var(--dk-hover); border-color: var(--text-4); border-style: solid; color: var(--text); } }
 .dp-addex:active { transform: scale(0.99); }
 .dp-addex[aria-expanded="true"] { border-style: solid; border-color: color-mix(in srgb, var(--dh) 50%, transparent); color: var(--text); }
@@ -2117,9 +2214,8 @@ html.desk body.powa-app input.dp-pick-in.is-bad { color: var(--dk-alert); }
 /* ---------- drag: the ghost under the pointer, the line where it lands ---------- */
 html.dp-dragging, html.dp-dragging * { cursor: grabbing !important; user-select: none; }
 html.dp-dragging .dk-tip { display: none !important; }
-.dp-ghost { position: fixed; left: 0; top: 0; z-index: 160; padding: 6px 14px 10px; box-sizing: border-box; border-radius: 14px; background: var(--bg-2); box-shadow: var(--dk-pop), 0 18px 40px -16px rgba(0, 0, 0, 0.6); pointer-events: none; opacity: 0.96; }
+.dp-ghost { position: fixed; left: 0; top: 0; z-index: 160; padding: 8px 14px 10px; box-sizing: border-box; border-radius: 14px; background: var(--bg-2); box-shadow: var(--dk-pop), 0 18px 40px -16px rgba(0, 0, 0, 0.6); pointer-events: none; opacity: 0.96; }
 html.desk[data-theme="light"] .dp-ghost { background: #fff; }
-.dp-ghost .dp-ex-head { min-height: 36px; }
 .dp-ghost :is(.dp-more, .dp-grip, .dp-exmax) { display: none; }
 .dp-ghost-sub { margin-left: var(--c-ind); font: var(--fw-2) var(--fs-1)/1 var(--font-body); color: var(--text-3); }
 .dp-dropline { position: fixed; left: 0; top: 0; z-index: 159; height: 2px; border-radius: var(--r-round); background: var(--dh); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dh) 22%, transparent); pointer-events: none; transition: transform 0.12s var(--dk-ease), opacity 0.12s var(--dk-ease); }
@@ -2216,29 +2312,41 @@ html.desk body.powa-app input.dp-mem-in { width: 88px; font-size: var(--fs-4); f
 /* a narrow editor: Preview, the crimson and ⋯ take a line of their own under the name, in every state, so the name and
    the block's chip are never cut ("Send the changes to Marcus" is 60 px wider than "Take 1 suggestion") */
 @container dkpb (max-width: 600px) { #programArea .dp-h1 { flex-wrap: wrap; row-gap: 6px; } #programArea .dp-h1 > .dp-hact { flex: 1 0 100%; justify-content: flex-end; } }
+/* the day card, narrower (container dpw; the widths are listed over the card's rules): */
+/* ≤ 830: the notes go under the load (as Train has them), what was lifted under those; the circles keep their place.
+   What was lifted wraps rather than clipping. */
 @container dpw (max-width: 830px) {
-  /* the notes take a line of their own under the cells; what was lifted keeps its column (to 830 px: wider, a set's
-     notes, "tempo 3s down · Belt: off", fit their own column beside the lifted one) */
+  .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-rm); }
+  .dp-line .dp-c-f { grid-row: 2; grid-column: 2 / 6; height: auto; margin: 0 0 2px; }
   .dp-line .dp-c-f.is-empty:not(:focus-within) { display: none; }
+  .dp-line .dp-c-lift { grid-column: 2 / 6; white-space: normal; }
+  .dp-line:has(.dp-c-f.has-tags) .dp-c-lift, .dp-line:has(.dp-c-f:focus-within) .dp-c-lift { grid-row: 3; }
+  .dp-line .dp-lifted { overflow: visible; }
+  .dp-line .dp-rmline { grid-column: 6; }
+  .dp-week:not(.has-lifted) .dp-line, .dp.is-team .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-rm); }
+  .dp-week:not(.has-lifted) .dp-line .dp-c-f, .dp.is-team .dp-line .dp-c-f { grid-row: 1; grid-column: 5; height: 40px; margin: 0 0 0 calc(-1 * var(--c-gap)); }
+  .dp-week:not(.has-lifted) .dp-line .dp-c-f.is-empty, .dp.is-team .dp-line .dp-c-f.is-empty { display: flex; }
+}
+/* ≤ 680: the lines lose their indent with what hangs off them (the cue stays under the role: a013d77) */
+@container dpw (max-width: 680px) {
+  :is(.dp-week, .dp-line, .dp-cue, .dp-ex-foot, .dp-mems) { --c-ind: 0px; --c-role: 54px; --c-sr: 76px; --c-load: 116px; --c-eff: 58px; --c-gap: 6px; }
+  .dp-ex { margin: 0 -8px; padding: 6px 8px 8px; }
+  .dp-c-load.has-tag { flex-wrap: wrap; align-content: flex-start; row-gap: 0; padding: 0 0 6px; }
+  html.desk body.powa-app input.dp-cell.dp-l:focus { min-width: 0; }
+  .dp-lifted { flex-wrap: wrap; row-gap: 2px; }
 }
 @container dpw (max-width: 600px) {
   .dp-day { padding-left: 16px; padding-right: 16px; }
   .dp-exmax { display: none; }
   .dp-day-sum :is(.dp-day-sep, .dp-day-min) { display: none; }
 }
-/* What was lifted is never cut (sets × reps @RPE and its dot) down to a 480 px editor: under 680 px the lines lose their
-   indent and the role, sets × reps, effort and gap columns come down to their longest real values (Back-off, 1 × 3, the
-   2 RIR chip; 6 px gaps); under 545 px a load's % or est. tag sits under its load, so the load column is the widest load
-   (~182.5 kg). A value still longer than its column breaks before its @RPE rather than clipping. */
-@container dpw (max-width: 830px) {
-  .dp-line .dp-c-lift { white-space: normal; }
-  .dp-line .dp-lifted { overflow: visible; }
-}
-@container dpw (max-width: 680px) {
-  /* what hangs off the lines loses the indent with them: the cue stays under Top set, the set buttons under the lines */
-  .dp-cue, .dp-ex-foot, .dp-ghost-sub, .dp-mems { --c-ind: 0px; }
-}
+/* ≤ 544 (a 1024 window with the sidebar open): the circles a size down so four still sit after the pill */
 @container dpw (max-width: 544px) {
+  .dp-c-sets { gap: 4px; }
+  .dp-c-sets .dp-set { width: 18px; height: 18px; }
+  .dp-c-sets .dp-set svg { width: 10px; height: 10px; }
+  .dp-c-sets[data-n="5"] .dp-set { width: 15px; height: 15px; }
+  .dp-c-sets[data-n="5"] .dp-set svg { display: none; }
 }
 /* reduced motion: colour changes stay (they say what changed), nothing moves or pulses */
 @media (prefers-reduced-motion: reduce) {
@@ -3117,169 +3225,3 @@ html.desk:not([data-theme="light"]) :is(.dk-set-tile.is-gold, .cb-tile.is-gold) 
 html.desk:not([data-theme="light"]) .cb-crest { background: var(--dk-fill-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cb-gold) 40%, transparent); }
 html.desk:not([data-theme="light"]) body.powa-app .cb-desk .club-spot { background: var(--dk-card); border-color: color-mix(in srgb, var(--cb-gold) 34%, var(--dk-card-edge)); }
 html.desk:not([data-theme="light"]) body.powa-app .cb-desk .club-spot .cs-ic { background: var(--dk-fill-2); }
-
-/* ---------- the day card (4 Nov 2026: the owner's pick from the board, "C · Like the lifter app") ----------
-   The owner on the card before it: "idk if this needs some lines or what but i js dont like it over all". Each exercise is
-   a quiet band (a surface, no edge, no shadow: not a card in the card); each line leads with its load as Train does (20 px),
-   the effort is Train's neutral pill and a circle a set sits right after it (so the circles are read with their sets, at
-   every width); what was lifted is under the line in small type, its gap one word in its colour. One colour a meaning, and
-   red is only the logo and the one crimson action (the owner's rule): over what was written is the laptop's one amber
-   (--dk-over), in two steps a colour-blind eye can tell apart: half a point an outline (a raised fill with an amber
-   hairline, never a dark tint, which reads brown), a point or more solid amber; under is blue, on it a soft green, a set
-   not logged or skipped a quiet hollow circle. Light inks pass 4.5:1 as text and 3:1 as a circle's edge against the band.
-   The card before it stays for one release behind ?daycard=old (desk-program.js sets html[data-daycard="old"]): every rule
-   here is under html.desk, over the shared .dp rules above. Same cells, same order, same edits.
-   Widths (the editor, container dpw): 860 px at 1440 with the sidebar open, 700 at 1280, 645 at 1225, 620 at 1200, 606 at
-   1150, 556 at 1100, 480 at 1024; tiers at 830 (the notes go under the line), 680 (the lines lose their indent) and 544. */
-html.desk:not([data-theme="light"]) body.powa-app { --dp-hollow: #6e6e78; }
-html.desk[data-theme="light"] body.powa-app { --dp-hollow: #8a8a93; }
-html.desk :is(.dp-week, .dp-line, .dp-cue, .dp-ex-foot, .dp-mems) { --c-ind: 44px; --c-role: 70px; --c-sr: 76px; --c-load: 150px; --c-eff: 64px; --c-sets: 112px; --c-gap: 10px; }
-/* the day's head: its name, its status, then its date and size as one unit that wraps whole (no "·" left hanging); ⋯ */
-html.desk .dp-day-head { gap: 10px; margin-bottom: 12px; }
-html.desk .dp-day-id { flex: 1 1 auto; flex-wrap: wrap; row-gap: 4px; }
-html.desk .dp-day-meta { display: inline-flex; align-items: center; gap: 10px; flex: none; white-space: nowrap; }
-html.desk .dp-day-meta .dp-day-sum { margin-left: 0; }
-html.desk .dp-day-meta .dp-day-date + .dp-day-sum::before { content: '·'; margin-right: 10px; color: var(--text-4); }
-html.desk .dp.is-team .dp-day-id { flex: 0 1 auto; }
-html.desk .dp.is-team .dp-day-sum { flex: 0 1 auto; margin-left: 0; }
-html.desk .dp-day-more { margin-left: auto; }
-/* an exercise: a quiet band; the max after the lift's name; ⋯ and the handle at the end */
-html.desk .dp-ex { margin: 0 -12px; padding: 8px 12px 10px; border-radius: var(--r-2); background: color-mix(in srgb, var(--text) 2.6%, transparent); }
-html.desk[data-theme="light"] .dp-ex { background: color-mix(in srgb, var(--text) 3%, transparent); }
-html.desk .dp-ex + .dp-ex { border-top: 0; margin-top: 10px; }
-html.desk .dp-ex-head { min-height: 44px; }
-html.desk .dp-ex-head .dp-lt { width: 32px; height: 32px; border-radius: var(--r-2); font-size: var(--fs-4); }
-html.desk .dp-ex-head .dp-lt svg { width: 16px; height: 16px; }
-html.desk .dp-exmax { flex: 0 1 auto; text-align: left; }
-html.desk .dp-exmax:empty { display: none; }
-html.desk .dp-ex-head .dp-more { margin-left: auto; }
-html.desk .dp-ghost .dp-ex-head .dp-more { margin-left: 0; }
-html.desk .dp-ghost { --c-ind: 44px; padding: 8px 14px 10px; }
-/* a line: role · sets × reps · the load · the effort · a circle a set · notes · ×; what was lifted on its own row under it.
-   A hairline between lines, and the line under the pointer (or being typed in) one band. */
-html.desk .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) var(--c-sets) minmax(0, 1fr) var(--c-rm); row-gap: 0;
-  max-width: 940px; min-height: 48px; margin-left: calc(var(--c-ind) - 8px); padding: 2px 0 2px 8px; border-radius: var(--r-2); transition: background-color 0.15s var(--dk-ease); }
-html.desk .dp-week:not(.has-lifted) .dp-line, html.desk .dp.is-team .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) 0 minmax(0, 1fr) var(--c-rm); }
-html.desk .dp-line > * { grid-row: 1; }
-html.desk .dp-line .dp-c-sets { grid-column: 5; }
-html.desk .dp-line .dp-c-f { grid-column: 6; }
-html.desk .dp-week:not(.has-lifted) .dp-line .dp-c-f, html.desk .dp.is-team .dp-line .dp-c-f { margin-left: calc(-1 * var(--c-gap)); }
-html.desk .dp-line .dp-rmline { grid-column: 7; }
-html.desk .dp-line .dp-c-lift { grid-row: 2; grid-column: 2 / 7; margin: -4px 0 8px 6px; font: var(--fw-2) var(--fs-1)/1.3 var(--font-body); color: var(--text-2); }
-html.desk .dp-line .dp-c-lift.is-none:empty, html.desk .dp.is-team .dp-line .dp-c-lift { display: none; }
-/* the set row reads on the load's first line: each of its cells is a 40 px box at the top of the line, its content
-   centred in it, so when the load wraps (its est. tag or % chip under it, in a narrow editor) the label, sets × reps, the
-   pill, the circles and × stay on the load's line and only the wrapped part hangs below. The line's spare height still
-   splits above and below the row (align-content), so a line that doesn't wrap sits exactly where it did. */
-html.desk .dp-line:not(.is-write) { align-items: start; align-content: center; }
-html.desk .dp-line .dp-c-role { height: 40px; line-height: 40px; }
-html.desk .dp-line :is(.dp-c-sr, .dp-c-eff, .dp-c-f) { display: flex; align-items: center; height: 40px; }
-html.desk .dp-line .dp-c-load { min-height: 40px; align-content: flex-start; }
-html.desk .dp-line .dp-c-sets { min-height: 40px; }
-html.desk .dp-line .dp-rmline { margin-top: 8px; }
-html.desk .dp-line.is-write > * { grid-column: 1 / -1; }
-html.desk .dp-line + .dp-line::before { content: ''; position: absolute; left: 8px; right: 0; top: 0; height: 1px; background: var(--line); pointer-events: none; }
-html.desk :is(.dp-line:hover, .dp-line:focus-within)::before, html.desk :is(.dp-line:hover, .dp-line:focus-within) + .dp-line::before { opacity: 0; }
-@media (hover: hover) and (pointer: fine) { html.desk .dp-line:not(.is-write):hover { background: var(--dk-hover); } }
-html.desk .dp-line:not(.is-write):focus-within { background: var(--dk-hover); }
-/* the numbers: the load the big one, as Train shows it; sets × reps quieter */
-html.desk body.powa-app input.dp-cell.dp-l { height: 40px !important; font: var(--fw-4) 20px/40px var(--font-num); letter-spacing: -0.01em; }
-html.desk body.powa-app input.dp-cell.dp-l.is-est { font-weight: var(--fw-3); }
-html.desk body.powa-app input.dp-cell.dp-l::placeholder { font: var(--fw-2) var(--fs-1)/40px var(--font-body); }
-html.desk body.powa-app :is(input.dp-cell.dp-n, input.dp-cell.dp-r) { height: 40px !important; font: var(--fw-3) var(--fs-4)/40px var(--font-num); color: var(--text-2); }
-/* the placeholder "Load" on a lift written without one (a hanging leg raise) shows when its line is pointed at */
-html.desk body.powa-app input.dp-cell.dp-l[placeholder="Load"]::placeholder { color: transparent; }
-@media (hover: hover) and (pointer: fine) { html.desk body.powa-app .dp-line:hover input.dp-cell.dp-l[placeholder="Load"]:not([readonly])::placeholder { color: var(--text-3); } }
-html.desk body.powa-app input.dp-cell.dp-l[placeholder="Load"]:focus::placeholder { color: var(--text-3); }
-/* the effort: Train's pill, neutral (how it went is the gap's job); never an outlined chip coloured by the RPE */
-html.desk body.powa-app input.dp-cell.dp-e { height: 30px !important; min-width: 48px; padding: 0 12px !important; border-radius: var(--r-round); text-align: center; font: var(--fw-4) var(--fs-1)/30px var(--font-num); font-variant-numeric: tabular-nums; }
-html.desk body.powa-app input.dp-cell.dp-e.has-rc { background: var(--dk-fill-2) !important; box-shadow: none !important; color: var(--text); }
-html.desk body.powa-app input.dp-cell.dp-e::placeholder { font: var(--fw-2) var(--fs-1)/30px var(--font-body); }
-@media (hover: hover) and (pointer: fine) { html.desk body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):hover { background: var(--dk-fill-2) !important; box-shadow: inset 0 0 0 1px var(--line-2) !important; } }
-html.desk body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):focus { background: var(--bg) !important; box-shadow: 0 0 0 2px var(--dp-ring) !important; }
-html.desk[data-theme="light"] body.powa-app input.dp-cell.dp-e.has-rc:not([readonly]):focus { background: #fff !important; }
-html.desk body.powa-app input.dp-cell.dp-e.has-rc[readonly] { color: var(--text); }
-/* the notes: set fields as quiet words, a dot between */
-html.desk .dp-ftags { gap: 6px; }
-html.desk .dp-ftag { background: none; padding: 0 2px; color: var(--text-3); }
-html.desk .dp-ftag + .dp-ftag::before { content: '·'; margin-right: 6px; color: var(--text-4); }
-/* what they lifted, under the line: "Lifted" (or "Week 2"), the numbers, the gap */
-html.desk .dp-lifted { gap: 8px; min-width: 0; font: var(--fw-3) var(--fs-1)/1.3 var(--font-num); color: var(--text-2); }
-html.desk .dp-lk { color: var(--text-3); font-weight: var(--fw-2); }
-html.desk .dp-lv { min-width: 0; }
-html.desk .dp-lifted.t-missed { color: var(--text-3); font-weight: var(--fw-2); }
-html.desk .dp-c-lift.is-prev .dp-lifted { color: var(--text-3); }
-html.desk .dp-extra { flex: none; margin-left: 8px; }
-html.desk .dp-dev { display: inline-flex; align-items: center; justify-content: center; flex: none; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: var(--r-1);
-  font: var(--fw-4) var(--fs-1)/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0; white-space: nowrap; }
-html.desk .dp-dev.t-half { color: var(--dk-over); background: var(--dk-raise-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-over) 45%, transparent); }
-html.desk[data-theme="light"] .dp-dev.t-half { background: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-over) 55%, transparent); }
-html.desk .dp-dev.t-over { color: var(--dk-over-on); background: var(--dk-over-fill); box-shadow: inset 0 0 0 1px var(--dk-over-edge); }   /* a point or more: solid */
-html.desk .dp-dev.t-under { color: var(--dk-cool); background: color-mix(in srgb, var(--dk-cool) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-cool) 32%, transparent); }
-html.desk[data-theme="light"] .dp-dev.t-under { background: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-cool) 50%, transparent); }   /* 5.6:1 (on the tint it was 4.4) */
-html.desk .dp-dev.t-ok { width: 18px; padding: 0; color: var(--dk-ok); background: none; }
-html.desk .dp-dev.t-ok svg { width: 14px; height: 14px; }
-html.desk .dp-c-lift.is-prev .dp-dev { opacity: 0.75; }
-/* a circle a set, right after the effort (Train's set circles): on it a soft green with its check, half a point over an
-   amber ring on a raised fill, a point or more over solid amber, under it blue, lifted with nothing written to compare
-   grey, not logged or skipped a hollow ring.
-   Up to four at full size; five a little smaller; six or more smaller still, two rows past six (the tooltip says each). */
-html.desk .dp-c-sets { display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 6px; min-width: 0; padding-left: 2px; }
-html.desk .dp-set { display: grid; place-items: center; flex: none; width: 22px; height: 22px; box-sizing: border-box; border-radius: var(--r-round); box-shadow: inset 0 0 0 1.5px var(--dp-hollow); }
-html.desk .dp-set svg { width: 12px; height: 12px; }
-html.desk .dp-set.t-ok { background: color-mix(in srgb, var(--dk-ok) 16%, transparent); box-shadow: inset 0 0 0 1.5px var(--dk-ok); color: var(--dk-ok); }
-html.desk .dp-set.t-half { background: var(--dk-raise-2); box-shadow: inset 0 0 0 1.5px var(--dk-over); color: var(--dk-over); }
-html.desk[data-theme="light"] .dp-set.t-half { background: #fff; }
-html.desk .dp-set.t-over { background: var(--dk-over-fill); box-shadow: inset 0 0 0 1.5px var(--dk-over-edge); color: var(--dk-over-on); }   /* a point or more: solid */
-html.desk .dp-set.t-under { background: color-mix(in srgb, var(--dk-cool) 16%, transparent); box-shadow: inset 0 0 0 1.5px var(--dk-cool); color: var(--dk-cool); }
-html.desk .dp-set.t-done { background: var(--dk-fill); box-shadow: inset 0 0 0 1.5px var(--text-3); color: var(--text-3); }
-html.desk .dp-c-sets[data-n="5"] { gap: 5px; }
-html.desk .dp-c-sets[data-n="5"] .dp-set { width: 18px; height: 18px; }
-html.desk .dp-c-sets[data-n="5"] .dp-set svg { width: 10px; height: 10px; }
-html.desk .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) { gap: 4px; }
-html.desk .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set { width: 14px; height: 14px; box-shadow: inset 0 0 0 1.25px var(--dp-hollow); }
-html.desk .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set:is(.t-ok, .t-half, .t-under, .t-done) { box-shadow: inset 0 0 0 1.25px currentColor; }
-html.desk .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set.t-over { box-shadow: inset 0 0 0 1.25px var(--dk-over-edge); }
-html.desk .dp-c-sets:not([data-n="0"]):not([data-n="1"]):not([data-n="2"]):not([data-n="3"]):not([data-n="4"]):not([data-n="5"]) .dp-set svg { display: none; }
-/* + Set and + Cue sit on the band's foot; the cue under the role */
-html.desk .dp-ex-foot { bottom: -14px; }
-html.desk .dp-cue { margin-top: 0; }
-/* + Add exercise: a small button at the foot of the day, where the lifts start */
-html.desk .dp-addex { width: auto; height: 34px; margin-top: 12px; padding: 0 14px 0 11px; justify-content: flex-start; gap: 7px; border-radius: var(--r-2); }
-html.desk .dp-addex svg { width: 14px; height: 14px; }
-/* a rest day: one quiet line: its name, the words, Make it a training day, ⋯ */
-html.desk .dp-day.is-rest { display: flex; align-items: center; flex-wrap: wrap; column-gap: 16px; padding-top: 10px; padding-bottom: 10px; }
-html.desk .dp-day.is-rest .dp-day-head { display: contents; }
-html.desk .dp-day.is-rest .dp-day-id { flex: 0 1 auto; order: 1; }
-html.desk .dp-day.is-rest .dp-restrow { order: 2; flex: 1 1 auto; justify-content: space-between; }
-html.desk .dp-day.is-rest .dp-day-more { order: 3; margin-left: 0; }
-html.desk .dp.is-team .dp-day.is-rest > .dp-rest { order: 2; flex: 1 1 auto; }
-/* ≤ 830: the notes go under the load (as Train has them), what was lifted under those; the circles keep their place */
-@container dpw (max-width: 830px) {
-  html.desk .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-rm); }
-  html.desk .dp-line .dp-c-f { grid-row: 2; grid-column: 2 / 6; height: auto; margin: 0 0 2px; }
-  html.desk .dp-line .dp-c-f.is-empty:not(:focus-within) { display: none; }
-  html.desk .dp-line .dp-c-lift { grid-column: 2 / 6; }
-  html.desk .dp-line:has(.dp-c-f.has-tags) .dp-c-lift, html.desk .dp-line:has(.dp-c-f:focus-within) .dp-c-lift { grid-row: 3; }
-  html.desk .dp-line .dp-rmline { grid-column: 6; }
-  html.desk .dp-week:not(.has-lifted) .dp-line, html.desk .dp.is-team .dp-line { grid-template-columns: var(--c-role) var(--c-sr) var(--c-load) var(--c-eff) minmax(0, 1fr) var(--c-rm); }
-  html.desk .dp-week:not(.has-lifted) .dp-line .dp-c-f, html.desk .dp.is-team .dp-line .dp-c-f { grid-row: 1; grid-column: 5; height: 40px; margin: 0 0 0 calc(-1 * var(--c-gap)); }
-  html.desk .dp-week:not(.has-lifted) .dp-line .dp-c-f.is-empty, html.desk .dp.is-team .dp-line .dp-c-f.is-empty { display: flex; }
-}
-/* ≤ 680: the lines lose their indent with what hangs off them (the cue stays under the role: a013d77) */
-@container dpw (max-width: 680px) {
-  html.desk :is(.dp-week, .dp-line, .dp-cue, .dp-ex-foot, .dp-mems) { --c-ind: 0px; --c-role: 54px; --c-sr: 76px; --c-load: 116px; --c-eff: 58px; --c-gap: 6px; }
-  html.desk .dp-ex { margin: 0 -8px; padding: 6px 8px 8px; }
-  html.desk .dp-c-load.has-tag { flex-wrap: wrap; align-content: flex-start; row-gap: 0; padding: 0 0 6px; }
-  html.desk body.powa-app input.dp-cell.dp-l:focus { min-width: 0; }
-  html.desk .dp-c-lift { white-space: normal; }
-  html.desk .dp-lifted { flex-wrap: wrap; row-gap: 2px; overflow: visible; }
-}
-/* ≤ 544 (a 1024 window with the sidebar open): the circles a size down so four still sit after the pill */
-@container dpw (max-width: 544px) {
-  html.desk .dp-c-sets { gap: 4px; }
-  html.desk .dp-c-sets .dp-set { width: 18px; height: 18px; }
-  html.desk .dp-c-sets .dp-set svg { width: 10px; height: 10px; }
-  html.desk .dp-c-sets[data-n="5"] .dp-set { width: 15px; height: 15px; }
-  html.desk .dp-c-sets[data-n="5"] .dp-set svg { display: none; }
-}
