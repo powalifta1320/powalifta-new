@@ -8245,13 +8245,13 @@ function getProgramForAthlete(athleteId) {
 // Reading and making are split, so the lifter's side can ride in an iPhone build now and work later unchanged:
 // - Reading never waits on a switch: a week with draft === true is always hidden from the lifter and never counted as
 //   planned (liftWeeks / liftProgram, busy weeks, challenges, Ask, the coach's planned counts, the Monday report).
-// - Making waits on DRAFTS_ON, off until the iPhone build that carries liftProgram / liftWeeks is live in the App
-//   Store (an older app reads every week and would show a draft): Write week, + and Copy, the builders' Draft UI,
-//   Publish week N and the "isn't published" job. While off nothing makes a draft: those write live weeks.
+// - Making waits on DRAFTS_ON: Write week, + and Copy, the builders' Draft UI, Publish week N and the "isn't
+//   published" job. On since 9 Nov 2026, when iPhone 1.4 (which carries liftProgram / liftWeeks, so it hides a
+//   draft) went live in the App Store. Turned off, nothing makes a draft: those write live weeks.
 // - No stray flags: every copy of weeks into something else drops it (weeksWithoutDrafts; templates and the next
 //   block build their weeks field by field), and every save keeps drafts last (keepWeeksDraftsTrailing), so a flag
 //   can never hide a week in the middle of a block. Turning drafts on is this one constant. (tests.html covers both.)
-var DRAFTS_ON = false;
+var DRAFTS_ON = true;
 // A week the coach wrote but hasn't published carries draft: true inside programs.weeks. Old weeks carry no
 // flag: published, so nothing needs a migration. Only trailing weeks can be drafts (publishing week N
 // publishes every draft before it), so hiding them never shifts an earlier week's index: set logging patches
