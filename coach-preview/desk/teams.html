@@ -1,0 +1,1228 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta name="robots" content="noindex">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teams, POWALIFTA Coach</title>
+<script>
+/* the theme before any CSS: ?theme= wins, then powa-r6-theme, else dark */
+(function () { var t = null; var m = /[?&]theme=(light|dark)\b/.exec(location.search); if (m) t = m[1]; if (!t) { try { t = localStorage.getItem('powa-r6-theme'); } catch (e) { t = null; } } document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark'); })();
+</script>
+<link rel="stylesheet" href="../kit/r6/tokens.css">
+<link rel="stylesheet" href="../kit/r6/glass.css">
+<link rel="stylesheet" href="../kit/r6/ui.css">
+<link rel="stylesheet" href="../kit/r6/week.css">
+<link rel="stylesheet" href="../kit/r6/fix.css">
+<link rel="stylesheet" href="../kit/r6/newcoach.css">
+<style>
+  /* Teams (screens.md §4, spec B): the team's lifters in a list that never hides, the team or one lifter beside it. Tokens
+     only; widths in px. The list is a pane of its own (Lifters' list): pinned from the toolbar's foot to the window's
+     foot, it scrolls by itself, a hairline on its right edge, on the floor. The detail runs 812 px at 1440 and 696 at
+     1280, 16 px right of that line. Two raised cards at most: the picture and the work. */
+  .tml {
+    position: fixed; z-index: var(--z-side); top: calc(var(--inset) + var(--tb-h)); bottom: 0; left: calc(var(--col-l) - var(--sp-6)); width: calc(var(--list-w) + var(--sp-6) * 2);
+    display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--line); background: var(--floor);
+  }
+  /* the one list head (function-polish PX3, DESK.listHead): at the column's top, its words on the rows' words; the label
+     at its end names the rows' numbers (P35) */
+  .tml > .lh[data-list-head] { flex: none; padding-left: calc(var(--sp-4) + var(--sp-3)); padding-right: calc(var(--sp-4) + var(--sp-3)); }
+  .tml > .lh[data-list-head] .lh-l { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); white-space: nowrap; }
+  .tml-h { padding: 0 var(--sp-6) var(--sp-1); }
+  .tml-sw { display: inline-flex; align-items: center; gap: var(--sp-2); max-width: 100%; min-width: 0; height: 40px; margin-left: calc(var(--sp-2) * -1); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-field); background: none; color: var(--ink); font: 600 var(--fs-head)/var(--lh-none) var(--font); letter-spacing: var(--ls-head); cursor: pointer; white-space: nowrap; }
+  .tml-sw .vt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .tml-sw svg { width: 16px; height: 16px; flex: none; color: var(--ink-3); }
+  .tml-sw.is-open { background: var(--fill-2); }
+  @media (hover: hover) and (pointer: fine) { .tml-sw:hover { background: var(--hover); } }
+  .tml-s {
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: var(--sp-2) var(--sp-4) var(--sp-6);
+    -webkit-mask-image: linear-gradient(transparent, var(--ink) var(--sp-4), var(--ink) calc(100% - var(--sp-6)), transparent);
+    mask-image: linear-gradient(transparent, var(--ink) var(--sp-4), var(--ink) calc(100% - var(--sp-6)), transparent);
+  }
+  .tml-s::-webkit-scrollbar { display: none; }
+  .tml-f { flex: none; display: flex; align-items: center; min-height: 56px; padding: 0 var(--sp-6); border-top: 1px solid var(--line); }
+  .tml-f .btn { margin-left: calc(var(--sp-3) * -1); padding: 0 var(--sp-3); }
+  .tml-empty { margin: 0; padding: var(--sp-4) var(--sp-3); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+
+  /* a row: the name and the week's sessions on line one, one line in words under it; no face, no ring, no glyph */
+  .lr { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n v' 'r r'; align-items: center; column-gap: var(--sp-3); row-gap: 2px; min-height: 64px; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-row); cursor: pointer; outline: 0; user-select: none; }
+  .lr + .lr::before { content: ''; position: absolute; top: 0; left: var(--sp-3); right: var(--sp-3); height: 1px; background: var(--line); }
+  /* the chosen row wears the place's tint (Teams: cyan), dark and light */
+  .lr[aria-selected='true'] { background: var(--place-sel); }
+  .lr[aria-selected='true']::before, .lr[aria-selected='true'] + .lr::before { opacity: 0; }
+  .lr:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  @media (hover: hover) and (pointer: fine) { .lr:hover:not([aria-selected='true']) { background: var(--hover); } }
+  .lr .nm { grid-area: n; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 600 var(--fs-body)/var(--lh-tight) var(--font); }
+  .lr .nv { grid-area: v; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .lr .rs { grid-area: r; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .lr .done-row { grid-area: r; }
+
+  /* the detail */
+  .td { min-width: 0; margin-left: calc(var(--list-w) + var(--sp-6)); margin-right: calc(var(--sp-4) - var(--gutter)); padding-left: var(--sp-4); }
+  .td-fade { position: fixed; z-index: var(--z-edge); top: calc(var(--inset) + var(--tb-h)); left: calc(var(--col-l) + var(--list-w) + var(--sp-6)); right: 0; height: var(--sp-5); pointer-events: none; background: linear-gradient(var(--floor), transparent); opacity: 0; }
+  body.is-scrolled .td-fade { opacity: 1; }
+  .tt { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-5); margin: 0 var(--sp-1) var(--sp-4); min-width: 0; }
+  .tt > div { min-width: 0; }
+  .tt h1 { margin: 0; min-width: 0; font: 700 var(--fs-large)/var(--lh-large) var(--font); letter-spacing: var(--ls-large); text-wrap: balance; outline: 0; }
+  /* the date line sits under the title, on its left edge, as on Overview and Meets (P29) */
+  .tt .facts { margin: var(--sp-2) 0 0; color: var(--ink-2); font: 400 var(--fs-body)/var(--lh-body) var(--font); font-variant-numeric: tabular-nums; }
+  .tt .facts b { color: var(--ink); font-weight: 600; }
+  /* the whole team: the title, then its date line under it on the same left edge (P29) */
+  .td > .t-h1 { margin: 0 var(--sp-1); font: 700 var(--fs-large)/var(--lh-large) var(--font); letter-spacing: var(--ls-large); text-wrap: balance; outline: 0; }
+  .td > .t-sub { margin: var(--sp-1) var(--sp-1) var(--sp-2); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; }
+  .tt .open { flex: none; }
+  .sec { margin-top: var(--sp-5); min-width: 0; }
+  .sec-h .grow { flex: 1; }
+  .sec-h .sub { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; }
+
+  /* the picture card: four tiles, each a control that lights its people in the grid */
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: var(--sp-1); }
+  .tiles .ch { display: grid; grid-template-columns: minmax(0, 1fr) 76px; grid-template-areas: 'h h' 'v p' 'f f'; align-items: end; column-gap: var(--sp-2); row-gap: var(--sp-2); padding: var(--sp-3) var(--sp-3) var(--sp-2) var(--sp-4); }
+  .tiles .ch + .ch::before { top: var(--sp-4); bottom: var(--sp-4); }
+  .tiles .ch-h { grid-area: h; min-width: 0; }
+  .tiles .ch-h span { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); }
+  .tiles .ch-v { grid-area: v; min-width: 0; }
+  .tiles .ch-v .unit { color: var(--ink-2); }
+  .tiles .ch-v.words { font-size: var(--fs-head); line-height: var(--lh-num); }
+  .tiles .ch-f { grid-area: f; min-height: calc(var(--fs-label) * 2.6); }
+  .tiles .plot { grid-area: p; height: 36px; align-self: center; }
+  .tiles .bars .lab { display: none; }
+  .tiles .bars .d { grid-template-rows: minmax(0, 1fr); }
+  .tiles .div { padding-right: 0; }
+  .tiles .div::before { right: 0; }
+  .tiles .div .ax { display: none; }
+  .tiles .tl .ax { top: 18px; }
+  .tiles .tl .tk { top: 13px; }
+  .tiles .tl .m { top: 19px; }
+  .tiles .tl .lab { display: none; }
+  .spark { display: block; width: 100%; height: 100%; overflow: visible; }
+  .spark .sl { fill: none; stroke: var(--place); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .spark .sp { fill: var(--place); }
+
+  /* Where everyone is: one table, a row per lifter, the four team weeks at each lifter's own kilos */
+  .gc { padding: var(--sp-1) var(--sp-2) var(--sp-2); }
+  .tgr col.c-who { width: 200px; } .tgr col.c-wk { width: 92px; } .tgr col.c-mv { width: 224px; }
+  .tgr th, .tgr td { padding: 0 var(--sp-1); }
+  .tgr th:first-child, .tgr td:first-child { padding-left: var(--sp-3); }
+  .tgr th { height: 32px; }
+  /* one marker a head (P32): the place's bar on this week; the week shown below in ink at 600 */
+  .tgr th.is-now { border-top: 2px solid var(--place); color: var(--ink-2); }
+  .tgr th.is-shown { color: var(--ink); font-weight: 600; }
+  .tgr tr.grp td { height: 28px; padding-top: var(--sp-2); color: var(--ink); font: 600 var(--fs-label)/var(--lh-label) var(--font); }
+  .tgr tr.grp .dn { margin-left: var(--sp-3); color: var(--ink-2); font-weight: 400; }
+  .tgr tr[data-row] td { height: 48px; padding-top: 3px; padding-bottom: 3px; vertical-align: middle; }
+  .tgr tr[data-row].is-hi td { background: var(--place-sel); }
+  .tgr .w1 { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; height: 20px; }
+  .tgr .wh .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 600 var(--fs-body)/var(--lh-tight) var(--font); }
+  /* the row's ⋯ at its end (P30), shown on hover or focus where a pointer can hover */
+  .tgr td.c-mv { white-space: nowrap; }
+  .tgr td.c-mv .cmv { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+  .tgr td.c-mv .more { flex: none; margin-left: auto; --h: 32px; }
+  @media (hover: hover) and (pointer: fine) {
+    .tgr tr[data-row] .more { opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+    .tgr tr[data-row]:hover .more, .tgr tr[data-row]:focus-within .more, .tgr tr[data-row] .more[aria-expanded='true'] { opacity: 1; }
+  }
+  .tgr .wh .st { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; min-width: 0; margin-top: 2px; overflow: hidden; white-space: normal; text-wrap: balance; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .tgr td.wk b { display: block; overflow: hidden; text-overflow: ellipsis; color: var(--ink); font: 500 var(--fs-label)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tgr td.wk small { display: block; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); white-space: nowrap; }
+  .tgr td.wk small.q { color: var(--ink-3); }
+  /* a top set wears its lift's colour (ui.css [data-lift]); the state word under it stays grey */
+  .tgr td.wk b[data-lift], .tgr td.wk small[data-lift], .hw td b[data-lift], .kvl [data-lift] b { color: var(--lc-ink); }
+  .tgr td.c-mv { text-align: left; }
+  .tgr .done-row, .lr .done-row { flex-wrap: wrap; column-gap: var(--sp-2); row-gap: 0; }
+  .tgr .done-row .dw, .lr .done-row .dw { flex: 1 1 calc(100% - 28px); white-space: normal; overflow: visible; text-wrap: pretty; }
+  .tgr .done-row .at, .lr .done-row .at { margin-left: 24px; }
+  .lr .done-row .at { margin-left: 28px; }
+  /* a row's move on one line (P31): the whole label in its title when the column cuts it */
+  .tgr .mvb { --h: 36px; min-width: 0; max-width: 100%; padding: 0 var(--sp-3); white-space: nowrap; text-align: left; font-size: var(--fs-label); }
+  .tgr .mvb > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  @media (max-width: 1280px) {
+    .tiles .ch { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'h' 'v' 'p' 'f'; }
+    .tiles .plot { width: 100%; height: 28px; }
+    .tgr col.c-who { width: 232px; } .tgr col.c-wk { width: 100px; } .tgr col.c-mv { width: 40px; }
+    .tgr tr[data-row] { position: relative; }
+    .tgr th.c-mv, .tgr td.c-mv { padding: 0; }
+    .tgr tr.has-mv td.wh { padding-bottom: 44px; }
+    .tgr td.c-mv .cmv { display: block; }
+    .tgr td.c-mv .mvb, .tgr td.c-mv .done-row { position: absolute; left: var(--sp-3); bottom: var(--sp-2); max-width: 216px; }
+    .tgr tr.grp td[colspan] { padding-right: 0; }
+  }
+
+  /* the week as written: tabs with their state, then the days as three columns of lines; a cell edits in place */
+  .wk-tabs { display: flex; gap: var(--sp-2); margin: 0 0 var(--sp-3); border-bottom: 1px solid var(--line); }
+  .wk-tab { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 96px; min-height: 52px; padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-1); border: 0; border-radius: var(--r-field) var(--r-field) 0 0; border-bottom: 2px solid transparent; background: none; color: var(--ink-2); text-align: left; cursor: pointer; }
+  .wk-tab b { font: 600 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .wk-tab small { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .wk-tab[aria-selected='true'] { color: var(--ink); border-bottom-color: var(--place); }
+  .wk-tab[aria-selected='true'] small { color: var(--ink-2); }
+  .wk-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  @media (hover: hover) and (pointer: fine) { .wk-tab:hover:not([aria-selected='true']) { background: var(--hover); } }
+  .wk-say { min-height: 20px; margin: 0 var(--sp-1) var(--sp-2); color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .wk-say.is-warn { color: var(--warn); }
+  .days { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-6); }
+  .day h3 { margin: 0 0 var(--sp-1); padding: 0 var(--sp-1); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .ln { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; min-height: 40px; border-top: 1px solid var(--line); }
+  .ln-h { display: flex; min-width: 0; }
+  .ln-n { display: flex; align-items: center; flex: 1; min-width: 0; height: 40px; padding: 0 var(--sp-1); border: 0; border-radius: var(--r-field); background: none; color: var(--ink); font: 500 var(--fs-body)/var(--lh-tight) var(--font); text-align: left; cursor: pointer; }
+  .ln-n span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ln-n.is-open { background: var(--fill-2); }
+  @media (hover: hover) and (pointer: fine) { .ln-n:hover { background: var(--hover); } }
+  .ln-c { display: block; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ln-c .x { color: var(--ink-3); }
+  .cell { display: inline-flex; align-items: center; min-width: 10px; height: 32px; padding: 0 1px; border-radius: var(--r-mark); outline: 0; cursor: text; vertical-align: middle; }
+  .cell:empty { min-width: 24px; }
+  .cell:focus-visible, .cell.is-hand { outline: 1.5px solid var(--ink-3); outline-offset: -1.5px; }
+  .cell.is-ro { cursor: default; }
+  @media (hover: hover) and (pointer: fine) { .cell:not(.is-ro):hover { background: var(--hover); } }
+  .cell-in { width: 6ch; height: 30px; padding: 0 var(--sp-1); border: 0; border-radius: var(--r-mark); background: var(--fill); box-shadow: var(--shadow-field); color: var(--ink); font: 500 var(--fs-sub)/var(--lh-none) var(--font); font-variant-numeric: tabular-nums; outline: 0; }
+  .cell-in.is-error { outline: 1.5px solid var(--pain); outline-offset: -1.5px; }
+  .own { margin: 0; padding: 0 var(--sp-1) var(--sp-2); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .day-add { margin: var(--sp-1) 0 0; padding: 0 var(--sp-1); }
+  .day-add .add-row { min-height: 40px; }
+  @media (max-width: 1280px) {
+    .days { gap: var(--sp-4); }
+    .ln-c { font-size: var(--fs-label); }
+    .cell { padding: 0 2px; }
+  }
+
+  /* one lifter */
+  .need { padding: var(--sp-3) var(--sp-1); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .need h2 { margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); }
+  .need p { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .need .acts { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+  .hw { padding: var(--sp-1) var(--sp-2) var(--sp-2); }
+  .hw col.c-st { width: 180px; }
+  .hw td b { display: block; color: var(--ink); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hw td small { display: block; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); white-space: nowrap; }
+  .hw tr[data-wk] td { height: 48px; padding-top: 3px; padding-bottom: 3px; }
+  .hw th { height: 32px; }
+  .hw tr.is-now td:first-child b { font-weight: 700; }
+  .kvl { display: grid; gap: var(--sp-2); margin: 0 var(--sp-1); }
+  .kvl p { margin: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .kvl p b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .kvl .link { margin-top: var(--sp-1); }
+  .thr { display: grid; gap: var(--sp-2); margin: 0 var(--sp-1); }
+  .thr .bubble { max-width: 70%; }
+  .thr .none { margin: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .cmp { display: grid; gap: var(--sp-2); margin: var(--sp-3) var(--sp-1) 0; }
+  .cmp textarea.input { width: 100%; height: auto; min-height: 72px; max-height: 288px; padding: var(--sp-3); line-height: var(--lh-sub); resize: none; field-sizing: content; }
+  .cmp .acts { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+
+  /* popovers and sheets on this page */
+  .pop .pp-h { margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); }
+  .pop .pp-s { margin: 2px 0 var(--sp-3); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .pop .who-k { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n v' 's s'; align-items: center; column-gap: var(--sp-3); width: 100%; min-height: 48px; padding: var(--sp-2) var(--sp-2); border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
+  .pop .who-k b { grid-area: n; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .pop .who-k .v { grid-area: v; font: 600 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; }
+  .pop .who-k small { grid-area: s; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .pop .who-k[aria-pressed='true'] { background: var(--fill-2); }
+  .pop .tws { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin: var(--sp-2) 0; }
+  .pop .tw { min-height: 32px; padding: 0 var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-pill); background: transparent; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); cursor: pointer; transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out); }
+  .pop .tw[aria-pressed='true'] { border-color: transparent; background: var(--fill-2); color: var(--ink); }
+  .pop .tw[aria-pressed='false'] { text-decoration: line-through; }
+  .pop .tw:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .pop .pp-f { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+  .pop .pp-p { margin: 0 0 var(--sp-3); color: var(--ink); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+  .pop .pp-l { display: block; margin: var(--sp-3) 0 var(--sp-1); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .pop .pp-i { width: 100%; }
+  .pop textarea.input { width: 100%; height: auto; min-height: 96px; max-height: 288px; padding: var(--sp-3); line-height: var(--lh-sub); resize: none; field-sizing: content; }
+  .pop .err { margin-top: var(--sp-1); }
+  .rs-d { position: fixed; z-index: var(--z-pop); margin: 0; width: 360px; padding: var(--sp-5); border: 0; border-radius: var(--r-pop); background: var(--pop); color: var(--ink); box-shadow: var(--shadow-pop); }
+  .rs-d p { margin: 0; font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+  .rs-d .acts { display: flex; gap: var(--sp-2); margin-top: var(--sp-4); }
+
+  dialog.sheet.tsh { width: 640px; }
+  .tsh .sh { display: flex; flex-direction: column; max-height: var(--sheet-max); }
+  .tsh .sh-h { flex: none; padding: var(--sp-5) var(--sp-6) var(--sp-3); }
+  .tsh .sh-h h2 { margin: 0; font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); text-wrap: balance; }
+  .tsh .sh-h p { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .tsh .sh-h p.chg-l { color: var(--ink-3); font-size: var(--fs-label); line-height: var(--lh-label); }
+  .tsh .sh-b { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-1) var(--sp-6) var(--sp-4);
+    -webkit-mask-image: linear-gradient(transparent, var(--ink) var(--sp-3), var(--ink) calc(100% - var(--sp-4)), transparent);
+    mask-image: linear-gradient(transparent, var(--ink) var(--sp-3), var(--ink) calc(100% - var(--sp-4)), transparent); }
+  .tsh .sh-f { flex: none; display: flex; justify-content: flex-end; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-6) var(--sp-5); border-top: 1px solid var(--line); }
+  .tsh .sh-f .back { margin-right: auto; }
+  .tsh .tb2 col.c-tk { width: 40px; } .tsh .tb2 col.c-n { width: 128px; } .tsh .tb2 col.c-k { width: 84px; }
+  .tsh .tb2 th, .tsh .tb2 td { padding: 0 var(--sp-2); }
+  .tsh .tb2 th { height: 36px; }
+  .tsh .tb2 tr[data-row] { cursor: default; }
+  .tsh .tb2 tr[data-row] td { height: 52px; }
+  .tsh .tb2 td.v { font-size: var(--fs-label); }
+  .tsh .tb2 td.nt { white-space: normal; line-height: var(--lh-label); font-size: var(--fs-label); }
+  .tsh .tb2 td.nt .btn { margin-top: 2px; }
+  .tsh .tb2 td.nt .nl { display: block; }
+  .tsh .tb2 b { color: var(--ink); font-weight: 600; }
+  .tsh input[type=checkbox] { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); cursor: pointer; }
+  .tsh input[type=checkbox]:disabled { cursor: default; }
+  .tsh .fld { display: grid; gap: var(--sp-1); margin-top: var(--sp-4); }
+  .tsh .fld > label, .tsh .fld > .lab { color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .tsh .fld .input { width: 100%; }
+  .tsh select.input { padding-right: var(--sp-8); }
+  .tsh .mx { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; align-items: end; gap: var(--sp-3); }
+  .tsh .mx label { display: grid; gap: var(--sp-1); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .tsh .mx .input { width: 100%; }
+  .tsh .stk { display: flex; flex-direction: column; }
+  .tsh .stk > .fld { order: -1; }
+  .tsh .p { margin: var(--sp-3) 0 0; color: var(--ink); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+  .tsh .p.q { color: var(--ink-2); }
+  .tsh .p .w { color: var(--warn); font-weight: 600; }
+  .tsh .ck { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--sp-3); min-height: 48px; padding: var(--sp-1) var(--sp-1); border-top: 1px solid var(--line); cursor: pointer; }
+  .tsh .ck b { display: block; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .tsh .ck small { display: block; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .tsh .ck-h { margin: var(--sp-4) 0 var(--sp-1); color: var(--ink); font: 600 var(--fs-label)/var(--lh-label) var(--font); }
+  .tsh .rad { display: flex; align-items: center; gap: var(--sp-3); min-height: 40px; color: var(--ink); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); cursor: pointer; }
+  .tsh .rad input { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); }
+  .tsh .sub2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); margin: var(--sp-1) 0 var(--sp-2) var(--sp-7); }
+  .tsh .sub2 label { display: grid; gap: var(--sp-1); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  /* one status word a row in its tone (screens.md §2.3) */
+  .t-warn, .lr .rs.t-warn, .tgr .wh .st.t-warn, .tgr td.wk small.t-warn { color: var(--warn); }
+  .t-pain, .lr .rs.t-pain, .tgr .wh .st.t-pain { color: var(--pain); }
+</style>
+</head>
+<body data-place="teams">
+<div id="page" class="page">
+  <main class="td" id="detail" data-crop="detail"></main>
+  <aside class="tml" data-crop="list" id="list" aria-label="Teams"></aside>
+  <div class="td-fade" data-fade aria-hidden="true"></div>
+</div>
+<script src="../kit/data.js"></script>
+<script src="../kit/kit.js"></script>
+<script src="../kit/coach.js"></script>
+<script src="../kit/r6/block.js"></script>
+<script src="../kit/r6/store.js"></script>
+<script src="../kit/r6/charts.js"></script>
+<script src="../kit/r6/desk.js"></script>
+<script src="../kit/r6/fix.js"></script>
+<script src="../kit/r6/newcoach.js"></script>
+<script>
+/* teams.html: a team's lifters in a list beside the team (screens.md §4, shared.md §2 to §9). Every number and word comes
+   from the store (window.PL: teams.get, lifters, programs, items) and the engine (window.BLOCK); the page never counts a
+   number it shows and never works out a load of its own. */
+(function () {
+  'use strict';
+  var K = window.K, PL = window.PL, DESK = window.DESK, BLOCK = window.BLOCK, CH = window.CHARTS;
+  var esc = K.esc, $ = function (s, r) { return (r || document).querySelector(s); }, $$ = function (s, r) { return [].slice.call((r || document).querySelectorAll(s)); };
+  var fn = function (o, k) { return !!o && typeof o[k] === 'function'; };
+  /* one countdown on every screen (function-polish FD3): PL.fmt.out's words, "in 12 days", "4 weeks out" */
+  var outT = function (d) { var o = fn(PL.fmt, 'out') ? PL.fmt.out(d) : null; o = o && o.data !== undefined ? o.data : o; return o && o.text ? o.text : d === 0 ? 'today' : 'in ' + d + ' days'; };
+  /* the tile's big number from the same words: "4 weeks out" reads 4 and "weeks out", "in 12 days" 12 and "days" */
+  var outBig = function (d) { var t = outT(d).replace(/^in /, ''), m = /^(\d+) (.+)$/.exec(t); return m ? esc(m[1]) + ' <span class="unit">' + esc(m[2]) + '</span>' : '<span class="unit">' + esc(t.charAt(0).toUpperCase() + t.slice(1)) + '</span>'; };
+  var dat = function (r) { return r && !r.error ? r.data : null; };
+  var n = function (v) { return v == null || v === '' ? '' : K.n(v); };
+  var LIFTS = ['squat', 'bench', 'deadlift'], LIFT = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
+  var hm = function (iso) { return iso ? String(iso).slice(11, 16) : ''; };
+  var day3 = function (iso) { return K.wd3(iso) + ' ' + K.dm(iso); };
+  var dayN = function (iso) { return K.wd3(iso) + ' ' + Number(String(iso).slice(8, 10)); };
+  var signed = function (v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + n(Math.abs(v)); };
+  var L = function (id) { return dat(PL.lifters.get(id)); };
+  var first = function (id) { var l = K.L(id); return l ? l.first : id; };
+  var his = function (id) { var l = K.L(id); return l && l.sex === 'F' ? 'her' : 'his'; };
+  var he = function (id) { var l = K.L(id); return l && l.sex === 'F' ? 'She' : 'He'; };
+  var CHECK = DESK.ic('check', 2.4), MORE = DESK.ic('more'), DOWN = DESK.ic('down', 2);
+  var setsOf = function (t) { return t ? n(t.w) + ' × ' + t.r + (t.rpe != null ? ' @' + n(t.rpe) : '') : ''; };
+  /* sentence case for a day's name ("Squat day", P33) */
+  var dayName = function (s) { return String(s || '').replace(/(\S) Day\b/g, '$1 day'); };
+  /* a line's set words as Programs writes them (BLOCK.setText: "3 × 3 @8, 85%"), split for the cells that edit in place */
+  function lineWords(ln) {
+    var t = ln.cell && BLOCK && typeof BLOCK.setText === 'function' ? BLOCK.setText(ln.cell) : null, p = splitLine(t || ln.text);
+    return p;
+  }
+  var lifterCount = function () { var c = dat(PL.counts()) || {}; return c.lifters != null ? c.lifters : 0; };
+
+  /* ---------------- state: the hash is the truth (shared.md §7: id, lifter, week, from) ---------------- */
+  var st = { team: null, lifter: null, week: {}, lift: 'squat', hi: null, placed: {}, hand: null, why: {} };
+  function hashGet() { var h = new URLSearchParams(location.hash.replace(/^#/, '')); return { id: h.get('id'), lifter: h.get('lifter'), week: h.get('week') ? Number(h.get('week')) : null, from: h.get('from'), nw: h.get('new') }; }
+  function hashOf(o) { var h = new URLSearchParams(); if (o.id) h.set('id', o.id); if (o.lifter) h.set('lifter', o.lifter); if (o.week) h.set('week', o.week); var f = hashGet().from; if (f) h.set('from', f); return h.toString(); }
+  function go(o) { var s = '#' + hashOf(o); if (location.hash === s) render(); else location.hash = s; }
+  function teams() { var r = dat(PL.teams.list()); return r || []; }
+  function team() { return st.team ? dat(PL.teams.get(st.team)) : null; }
+  function member(T, id) { return T ? T.members.filter(function (m) { return m.id === id; })[0] || null : null; }
+  function weekOf(T, k) { return T.week.weeks.filter(function (w) { return w.n === k; })[0] || null; }
+
+  /* the row's one move (screens.md §4.1): the store's members[].item (Kofi, Jonah, Leo, Dev), its words from coach.js
+     through the store; a lifter with no program starts on the team's next week instead (§4.5) */
+  function itemOf(m) {
+    var x = m.item && m.item.itemId && !/^first-/.test(m.item.itemId) ? m.item : null, dn = null;
+    /* walk 2 ("Off the plan 4" with the old reasons after every fix ran): once a move has run the store drops the open item
+       and answers members[].done; the row keeps its place with the tick, what was done and Undo (screens.md §2.4) */
+    if (!x && m.done && m.done.itemId && !/^first-/.test(m.done.itemId)) { x = m.done; dn = m.done; }
+    var it = x ? dat(PL.items.get(x.itemId)) : null;
+    if (!it || !it.acts || !it.acts.length) return null;
+    var a = it.acts.filter(function (q) { return q.id === x.actId; })[0] || it.acts[0];
+    var done = it.done || (dn ? { act: dn.actId, label: dn.label, at: dn.at } : null);
+    return { itemId: it.id, actId: a.id, label: a.label, act: a, item: it, done: done };
+  }
+  /* the first team week still to come that a new lifter can start on (the week after this one) */
+  function firstToCome(T) { var w = T.week.weeks.filter(function (x) { return x.n > T.week.now && x.days.length; })[0]; return w ? w.n : null; }
+  function startable(T, m) { var k = firstToCome(T); return !m.from && !m.joins && k ? { label: 'Start ' + m.first + ' on week ' + k + '…', n: k } : null; }
+  /* the week a hold is about: the first week to come that is held or not with the lifter yet */
+  function holdWeek(T, m) {
+    if (!m.from) return null;
+    var w = m.weeks.filter(function (q, i) { var tw = T.week.weeks[i]; return tw && tw.n > T.week.now && (q.state === 'held' || q.state === 'written' || q.state === 'own' || q.state === 'starts'); })[0];
+    return w ? { n: w.n, held: w.state === 'held' } : null;
+  }
+  /* walk 2 (Dev's paused back-offs told to him, missing from the week as written and the send sheet): the lines a fix
+     changed in a member's own program for team week k, in words, by day and lift ("2 × 5 paused back-offs, 15% off") */
+  function ownChanges(T, m, k) {
+    var g = m.from || m.joins ? dat(PL.programs.get(m.id)) : null, out = [];
+    var pw = g && g.weeks ? g.weeks.filter(function (w) { return w.n === k - (m.offset || 0); })[0] : null;
+    if (!pw) return out;
+    (pw.days || []).forEach(function (d) { (d.exercises || []).forEach(function (x) {
+      if (!x.changed) return;
+      var bo = (x.sets || []).filter(function (q) { return q.off != null; }), q0 = bo[0];
+      var text = q0 ? bo.length + ' × ' + q0.r + (q0.pause ? ' paused' : '') + ' back-offs, ' + n(q0.off) + '% off the top set' : String(x.changed);
+      out.push({ day: d.name, lift: x.lift, title: x.title, text: text });
+    }); });
+    return out;
+  }
+  function doneAct(x) { if (!x || !x.done) return null; var a = x.item.acts.filter(function (q) { return q.id === x.done.act; })[0] || x.act; return { words: x.done.label || a.done || a.label, at: x.done.at }; }
+
+  /* the member's one line in words (one tone word at most): the store's reason, a start to come, or "On the plan" */
+  function lineOf(m) {
+    var key = st.team + ':' + m.id, x0 = m.item && m.item.itemId ? m : null;
+    if (x0 && m.reason && m.reason.text) st.why[key] = m.reason.text;
+    if (m.status && /^Starts /.test(m.status.text)) return { text: m.status.text, tone: '' };
+    if (!m.item && m.done && m.done.itemId && !/^first-/.test(m.done.itemId) && st.why[key]) return { text: st.why[key], tone: '' };
+    var r = m.reason, s = m.status;
+    if (r && r.text) return { text: r.text, tone: r.type === 'pain' ? 't-pain' : (r.type === 'quiet' || r.type === 'stalling' || (s && s.tone === 't-warn')) ? 't-warn' : '' };
+    if (s && s.text) return { text: s.text, tone: s.tone === 't-pain' ? 't-pain' : s.tone === 't-warn' ? 't-warn' : '' };
+    return { text: m.from ? 'On the plan' : 'No program yet', tone: '' };
+  }
+  /* where a member sits in the grid; kept for the visit so a row a fix has dealt with keeps its place */
+  function groupOf(T, m) {
+    var key = T.id + ':' + m.id; if (st.placed[key]) return st.placed[key];
+    var g = !m.week || (m.status && /^Starts /.test(m.status.text)) ? 'start' : (itemOf(m) && !itemOf(m).done) ? 'off' : 'on';
+    st.placed[key] = g; return g;
+  }
+
+  /* ---------------- the toolbar: back when there is somewhere to go back to, Message the team, the crimson ---------------- */
+  /* back to the Programs queue when the coach came from it (function-polish F4.5) */
+  var fromProg = hashGet().from === 'programs', lead0 = DESK.backHtml() || (fromProg ? '<button class="btn quiet" type="button" data-back-programs title="Back to Programs">‹ Programs</button>' : '');
+  DESK.mount({ place: 'teams', title: 'Teams', lead: lead0, trail: '<div class="cluster" role="group" aria-label="Team actions" id="tb-acts"></div>' });
+  DESK.keyMap([['↑ ↓', 'Move in the list'], ['Enter', 'Open the row'], ['J K', 'Next or previous lifter'], ['Esc', 'Back to Whole team, then close a popover'], ['← →', 'Week tabs'], ['Tab', 'Next cell in the week'], ['⌘↵', 'Send in a composer']]);
+  /* what the crimson is (§4.2): the next unsent week within 7 days of its start, then the first open fix, then Message */
+  function changesWord(k) { return k === 1 ? '1 change to send' : k + ' changes to send'; }
+  function crimsonOf(T) {
+    noteSlot(T);
+    var w = T.week.next ? weekOf(T, T.week.next) : null;
+    if (w && !w.sent && K.daysTo(w.from) <= 7) return { kind: 'send', label: 'Send week ' + w.n + ' to the team…', n: w.n };
+    /* a week that went out and changed since (§4.4): the same review sheet, listing what changed */
+    var ch = T.week.weeks.filter(function (x) { return x.n > T.week.now && x.sent && x.toSend > 0; })[0];
+    if (ch) return { kind: 'send', label: 'Send ' + (ch.toSend === 1 ? '1 change' : ch.toSend + ' changes') + ' to the team…', n: ch.n };
+    /* from the Programs queue, the week sent: the next lifter due in the queue (F4.5) */
+    if (hashGet().from === 'programs') { var nx = nextDue(T); if (nx) return { kind: 'next', label: 'Next: ' + nx.first, id: nx.id }; }
+    var rows = gridRows(T).filter(function (x) { return x.m && x.g === 'off' && x.x && !x.x.done; });
+    if (rows.length) return { kind: 'fix', label: rows[0].x.label, m: rows[0].m, x: rows[0].x };
+    return { kind: 'msg', label: 'Message the team' };
+  }
+  /* the To do row after the team's own row in the queue's order, wrapping round to the top (F4.5: "Next: Callum" after
+     the Meet team, which sits between Hannah and Callum). Once its week is sent the team's row leaves To do, so the rows
+     after it are noted while it is still there; with no note, the first To do row. */
+  var teamSlot = {};
+  function queueRows() { return fn(PL.programs, 'queue') ? dat(PL.programs.queue()) || [] : []; }
+  function isTeamRow(x) { return !!x.teamId || /(^|:)team:/.test(String(x.id || '')); }
+  function isTodoLifter(x) { return (x.group || 'todo') === 'todo' && !!x.lifterId && !isTeamRow(x); }
+  function noteSlot(T) {
+    if (!T) return;
+    var q = queueRows(), at = -1;
+    q.forEach(function (x, i) { if (at < 0 && (x.group || 'todo') === 'todo' && isTeamRow(x) && x.teamId === T.id) at = i; });
+    if (at >= 0) teamSlot[T.id] = q.slice(at + 1).concat(q.slice(0, at)).filter(isTodoLifter).map(function (x) { return x.id; });
+  }
+  function nextDue(T) {
+    var q = queueRows(), todo = q.filter(isTodoLifter), ids = T && teamSlot[T.id];
+    var r = ids ? ids.map(function (id) { return todo.filter(function (x) { return x.id === id; })[0]; }).filter(Boolean)[0] : null;
+    if (!r) r = todo[0];
+    var l = r ? K.L(r.lifterId) : null;
+    return l ? { id: l.id, first: l.first } : null;
+  }
+  function paintToolbar(T) {
+    var box = $('#tb-acts'); if (!box) return;
+    /* first-time-coach §6: with fewer than 2 lifters a team waits for a lifter; else New team */
+    if (!T) { box.innerHTML = lifterCount() < 2 ? '<button class="btn" type="button" data-primary data-add-lifter>Add a lifter…</button>' : '<button class="btn" type="button" data-primary data-new-team aria-haspopup="dialog">New team…</button>'; return; }
+    var m = st.lifter ? member(T, st.lifter) : null, x = m ? itemOf(m) : null, ownCrimson = !!(m && x && !x.done);
+    var c = crimsonOf(T), html = '';
+    if (c.kind !== 'msg') html += '<button class="btn" type="button" data-team-msg aria-haspopup="dialog">Message the team</button>';
+    if (c.kind === 'send') html += '<button class="btn" type="button"' + (ownCrimson ? '' : ' data-primary') + ' data-send-week="' + c.n + '" aria-haspopup="dialog" title="Review who gets it">' + esc(c.label) + '</button>';
+    else if (c.kind === 'fix' && !ownCrimson) html += '<button class="btn" type="button" data-primary data-move="' + esc(c.x.itemId + '|' + c.x.actId) + '" data-for="' + esc(c.m.id) + '">' + esc(c.label) + '</button>';
+    else if (c.kind === 'next') html += '<button class="btn" type="button"' + (ownCrimson ? '' : ' data-primary') + ' data-next-due="' + esc(c.id) + '" title="Back to Programs, on ' + esc(c.label.replace(/^Next: /, '')) + '">' + esc(c.label) + '</button>';
+    else if (c.kind === 'msg') html += '<button class="btn" type="button"' + (ownCrimson ? '' : ' data-primary') + ' data-team-msg aria-haspopup="dialog">Message the team</button>';
+    box.innerHTML = html;
+  }
+
+  /* ---------------- the list column: the switcher, Whole team, the members, New team ---------------- */
+  function paintList(T) {
+    var el = $('#list');
+    if (!T) {
+      el.innerHTML = DESK.listHead(null, { name: 'Teams', count: 0, countKey: 'teams' }) + '<div class="tml-s"></div>';
+      return;
+    }
+    var wk = 'Week ' + T.week.now + ' of ' + T.week.of + (T.week.next ? ', week ' + T.week.next + ' to send' : ', all sent');
+    var rows = '<div class="lr" role="option" tabindex="' + (st.lifter ? -1 : 0) + '" data-row="team" aria-selected="' + !st.lifter + '"><span class="nm" data-fact="name">Whole team</span><span class="rs" data-fact="reason">' + esc(wk) + '</span></div>';
+    T.members.forEach(function (m) {
+      var x = itemOf(m), d = x && x.done ? doneAct(x) : null, ln = lineOf(m), sel = st.lifter === m.id;
+      var line = d ? doneRow(d, x.itemId, true) : '<span class="rs' + (ln.tone ? ' ' + ln.tone : '') + '" data-fact="reason" data-ellipsis title="' + esc(ln.text) + '">' + esc(ln.text) + '</span>';
+      rows += '<div class="lr" role="option" tabindex="' + (sel ? 0 : -1) + '" data-row="' + esc(m.id) + '" aria-selected="' + sel + '"><span class="nm" data-fact="name">' + esc(m.name) + '</span>' +
+        '<span class="nv" data-fact="number"' + (m.week ? ' title="' + esc(m.week.done + ' of ' + m.week.of + ' sessions done this week') + '"' : '') + '>' + (m.week ? m.week.done + ' of ' + m.week.of : '<span class="sr">none</span>') + '</span>' + line + '</div>';
+    });
+    el.innerHTML = DESK.listHead(null, { name: 'Teams', count: teams().length, countKey: 'teams', action: '<span class="lh-l" title="Sessions done this week">This week</span>' }) +
+      '<div class="tml-h"><button class="tml-sw" type="button" data-team-switch aria-haspopup="menu" aria-expanded="false" title="Your teams"><span class="vt" data-ellipsis title="' + esc(T.name) + '">' + esc(T.name) + '</span>' + DOWN + '</button></div>' +
+      '<div class="tml-s"><div data-list data-step="click" role="listbox" aria-label="' + esc(T.name) + '">' + rows + '</div></div>' +
+      '<div class="tml-f"><button class="btn quiet" type="button" data-new-team aria-haspopup="dialog">New team…</button></div>';
+  }
+  function doneRow(d, itemId, inList) {
+    return '<div class="done-row"' + (inList ? ' data-fact="reason"' : '') + '><span class="done-tick" aria-hidden="true">' + CHECK + '</span><span class="dw" data-ellipsis title="' + esc(d.words) + '">' + esc(d.words) + '</span>' +
+      (d.at ? '<time class="at">' + esc(hm(d.at)) + '</time>' : '') + '<button class="btn quiet sm" type="button" data-undo="' + esc(itemId) + '">Undo</button></div>';
+  }
+
+  /* ---------------- the whole team ---------------- */
+  function factsLine(T) {
+    var end = K.add(T.startsOn, T.week.of * 7 - 1), prog = String(T.program || '').replace(new RegExp('^' + T.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*·\\s*'), '');
+    return esc(prog || T.program || '') + ', week ' + T.week.now + ' of ' + T.week.of + ' · ' + esc(day3(T.startsOn).replace(/ \w+$/, '') + ' to ' + day3(end));
+  }
+  function tile(key, title, per, val, foot, plot, aria, words, acc) {
+    return '<button type="button" class="ch" data-tile="' + key + '" aria-pressed="' + (st.hi === key) + '" aria-label="' + esc(aria) + '" title="Show who in the grid"><span class="ch-h"><b>' + title + '</b><span>' + per + '</span></span>' +
+      '<span class="ch-v' + (words ? ' words' : '') + (acc ? ' acc' : '') + '">' + val + '</span><span class="ch-f">' + foot + '</span><span class="plot" aria-hidden="true">' + plot + '</span></button>';
+  }
+  function sparkHtml(pts) {
+    var v = (pts || []).filter(function (x) { return x != null; }); if (v.length < 2) return '';
+    var lo = Math.min.apply(null, v), hi = Math.max.apply(null, v), span = Math.max(hi - lo, 1), W = 76, H = 36;
+    var xy = v.map(function (y, i) { return [2 + i / (v.length - 1) * (W - 6), 4 + (1 - (y - lo) / span) * (H - 8)]; });
+    var last = xy[xy.length - 1];
+    return '<svg class="spark" data-chart viewBox="0 0 ' + W + ' ' + H + '"><path class="sl" d="' + CH.smooth(xy) + '"/><circle class="sp" cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="3"/></svg>';
+  }
+  function people(T, key) {
+    var f = T.facts;
+    if (key === 'sessions') return T.members.filter(function (m) { var w = m.weeks[T.week.now - 1]; return m.week && (w && w.missed > 0 || m.week.done === 0); }).map(function (m) { return m.id; });
+    if (key === 'strength') return f.strength.flat.slice();
+    if (key === 'effort') return f.effort.perLifter.filter(function (x) { return x.felt != null && Math.abs(x.felt - x.written) >= 0.5; }).map(function (x) { return x.id; });
+    if (key === 'meet') return f.meet ? f.meet.ids.slice() : [];
+    return [];
+  }
+  function tilesHtml(T) {
+    var f = T.facts, s = f.sessions, nowW = T.week.now;
+    /* Mon to Sun: each day's sessions on the team's plan, the ones done lit (the members' own weeks, as the store gives them) */
+    var mon = K.add(T.startsOn, (nowW - 1) * 7), by = [0, 1, 2, 3, 4, 5, 6].map(function (i) { return { iso: K.add(mon, i), plan: 0, done: 0 }; });
+    T.members.forEach(function (m) {
+      if (!m.week) return; var w = dat(PL.lifters.week(m.id)); if (!w || !w.sessions || w.n !== nowW) return;
+      w.sessions.forEach(function (x) { var i = K.daysTo(String(x.date || '').slice(0, 10)) - K.daysTo(mon); if (i >= 0 && i < 7) { by[i].plan++; if (x.state === 'done') by[i].done++; } });
+    });
+    var bars = CH.bars(by.map(function (d) { return { label: K.wd(d.iso).charAt(0), now: d.done, ghost: d.plan, today: d.iso === K.today, tip: K.wd(d.iso) + ': ' + d.done + ' of ' + d.plan + ' done' }; }));
+    var flat = f.strength.flat.map(first), harder = people(T, 'effort').map(first), per = f.effort.perLifter.filter(function (x) { return x.felt != null; });
+    var effortV = f.effort.topFelt == null ? 'No RPE yet' : Math.abs(f.effort.topFelt - f.effort.topWritten) < 0.25 ? 'As written' : signed(f.effort.topFelt - f.effort.topWritten) + ' RPE';
+    var div = CH.diverging(per.map(function (x) { return { v: x.felt - x.written, tip: first(x.id) + ': ' + (Math.abs(x.felt - x.written) < 0.05 ? 'as written' : signed(x.felt - x.written) + ' RPE') }; }), { max: 1.5 });
+    var end = K.add(T.startsOn, T.week.of * 7 - 1), mt = f.meet, span = Math.max(56, (mt ? mt.days : 0) + 7);
+    var tl = mt ? CH.timeline([{ x: mt.days / span, n: 1, tip: mt.name + ', ' + outT(mt.days) }], { ticks: [K.daysTo(end) / span] }) : '';
+    var meetFoot = mt ? esc(mt.name) + ': ' + esc(K.list(mt.ids.map(first), 3)) + '. Block ends ' + esc(K.dm(end)) : 'No meet booked. Block ends ' + esc(K.dm(end));
+    return '<div class="card tiles" data-crop="facts" role="group" aria-label="The block so far">' +
+      tile('sessions', 'Sessions', 'This week', s.done + ' <span class="unit">of ' + s.of + '</span>', 'sessions done, ' + s.lastDone + ' of ' + s.lastOf + ' last week', bars,
+        'Sessions this week: ' + s.done + ' of ' + s.of + ' done, ' + s.lastDone + ' of ' + s.lastOf + ' last week. Show who is behind.', false, true) +
+      tile('strength', 'Strength', '4 weeks', f.strength.avg == null ? '<span class="unit">None yet</span>' : esc(signed(f.strength.avg)) + ' <span class="unit">kg</span>', flat.length ? 'Flat: ' + esc(K.list(flat, 3)) : 'Nobody is flat', sparkHtml(f.strength.pts),
+        'Strength over 4 weeks: ' + (f.strength.avg == null ? 'none yet' : signed(f.strength.avg) + ' kg on average') + '. ' + (flat.length ? 'Flat: ' + K.list(flat, 3) : 'Nobody is flat') + '. Show who.', false, f.strength.avg != null) +
+      tile('effort', 'Effort', 'Top sets', esc(effortV), harder.length ? 'Harder: ' + esc(K.list(harder, 3)) : 'All within 0.5 RPE', div,
+        'Effort on top sets: ' + effortV + '. ' + (harder.length ? 'Harder: ' + K.list(harder, 3) : 'All within 0.5 RPE') + '. Show who.', true) +
+      tile('meet', 'Next meet', '', mt ? outBig(mt.days) : '<span class="unit">None</span>', meetFoot, tl,
+        mt ? 'Next meet: ' + mt.name + ', ' + outT(mt.days) + '. Show who.' : 'No meet booked.') +
+      '</div>';
+  }
+  /* the rows of the grid in their groups, in the store's order inside each */
+  function gridRows(T) {
+    var g = { off: [], on: [], start: [] };
+    T.members.forEach(function (m) { g[groupOf(T, m)].push({ m: m, g: groupOf(T, m), x: itemOf(m) }); });
+    var out = [];
+    /* Off the plan counts what is still open; a handled row keeps its place, ticked, until the page is left (§2.4) */
+    [['off', 'Off the plan'], ['on', 'On the plan'], ['start', 'Starting']].forEach(function (k) { if (!g[k[0]].length) return; var open = k[0] === 'off' ? g.off.filter(function (r) { return !(r.x && r.x.done); }).length : g[k[0]].length; out.push({ head: k[1], n: open, done: g[k[0]].length - open }); out = out.concat(g[k[0]]); });
+    return out;
+  }
+  /* a week cell: the lift's top set at the lifter's own kilos and its state in one word (shared.md §8) */
+  function cellHtml(T, m, w, toneLeft) {
+    var t = w && w.top ? w.top[st.lift] : null, top = t && t.w != null ? setsOf(t) : '', sub = '', q = false, warn = false, srOnly = '';
+    if (!w || w.state === 'none') return { html: '<span class="sr">none</span>', warn: false };
+    var wt = weekOf(T, w.n);
+    if (w.his != null) sub = 'His week ' + w.his;
+    else if (w.state === 'lifted') { if (t && t.felt != null && t.rpe != null) { var d = t.felt - t.rpe; sub = Math.abs(d) < 0.25 ? 'as written' : 'felt ' + n(t.felt); warn = d >= 0.5; } else sub = 'Lifted'; }
+    else if (w.state === 'missed') { sub = 'Missed'; q = false; }
+    else if (w.state === 'now') { var mw = m.week; top = (mw ? mw.done + ' of ' + mw.of : ''); sub = t && t.w != null ? setsOf(t) : ''; }
+    else if (w.state === 'sent') sub = 'Sent' + (wt && wt.sentAt ? ' ' + K.wd3(String(wt.sentAt).slice(0, 10)) : '');
+    else if (w.state === 'held') sub = 'Held';
+    else if (w.state === 'own') sub = 'Own line';
+    else if (w.state === 'starts') sub = 'Starts ' + dayN(wt ? wt.from : T.startsOn);
+    else if (w.state === 'written') { if (wt && wt.toSend > 0) srOnly = changesWord(wt.toSend); else sub = 'Not sent'; }
+    if (w.his != null && w.his !== w.n) sub = 'His week ' + w.his;
+    warn = warn && toneLeft;
+    var lk = t && t.w != null ? ' data-lift="' + st.lift + '"' : '', setIn = w.state === 'now' ? 'sub' : 'top';
+    return { html: (top ? '<b' + (setIn === 'top' ? lk : '') + '>' + esc(top) + '</b>' : '') + (sub ? '<small class="' + (warn ? 't-warn' : q ? 'q' : '') + '"' + (setIn === 'sub' && lk && sub === setsOf(t) ? lk : '') + '>' + esc(sub) + '</small>' : '') + (srOnly ? '<span class="sr">, ' + esc(srOnly) + '</span>' : ''), warn: warn };
+  }
+  function moveBtn(T, m, x, where) {
+    if (x && !x.done) return '<button class="btn sm fix mvb" type="button" data-move="' + esc(x.itemId + '|' + x.actId) + '" data-for="' + esc(m.id) + '" data-where="' + where + '" title="' + esc(x.label) + '"><span data-ellipsis>' + esc(x.label) + '</span></button>';
+    var s = !x ? startable(T, m) : null;
+    if (s) return '<button class="btn sm fix mvb" type="button" data-start="' + esc(m.id) + '" aria-haspopup="dialog" title="' + esc(s.label) + '"><span data-ellipsis>' + esc(s.label) + '</span></button>';
+    return '';
+  }
+  function gridHtml(T) {
+    var hi = st.hi ? people(T, st.hi) : [], shown = st.week[T.id];
+    var head = '<tr><th scope="col">Lifter</th>' + T.week.weeks.map(function (w) { return '<th scope="col" class="' + ((w.now ? 'is-now' : '') + (w.n === shown ? ' is-shown' : '')).trim() + '" data-week-h="' + w.n + '"><span' + (w.toSend > 0 && !w.now ? ' title="' + esc(changesWord(w.toSend)) + '"' : '') + '>Week ' + w.n + '</span>' + (w.now ? '<span class="sr">, this week</span>' : w.toSend > 0 ? '<span class="sr">, ' + esc(changesWord(w.toSend)) + '</span>' : '') + '</th>'; }).join('') + '<th scope="col" class="c-mv"><span class="sr">Move</span></th></tr>';
+    var body = gridRows(T).map(function (r) {
+      if (r.head) return '<tr class="grp"><td colspan="' + (T.week.weeks.length + 2) + '">' + esc(r.head) + '<span class="n">' + r.n + '</span>' + (r.done ? '<span class="dn">' + r.done + ' done</span>' : '') + '</td></tr>';
+      var m = r.m, x = r.x, d = x && x.done ? doneAct(x) : null, ln = lineOf(m), toneLeft = !ln.tone || !!d;
+      var cells = T.week.weeks.map(function (tw, i) { var c = cellHtml(T, m, m.weeks[i], toneLeft); if (c.warn) toneLeft = false; return '<td class="wk" data-week="' + tw.n + '">' + c.html + '</td>'; }).join('');
+      var mv = d ? doneRow(d, x.itemId) : moveBtn(T, m, x, 'grid');
+      var cls = (hi.indexOf(m.id) >= 0 ? 'is-hi ' : '') + (mv ? 'has-mv' : '');
+      return '<tr data-row="' + esc(m.id) + '"' + (cls.trim() ? ' class="' + cls.trim() + '"' : '') + '><td class="wh"><div class="w1"><span class="nm">' + esc(m.name) + '</span></div>' +
+        '<span class="st' + (ln.tone && !d ? ' ' + ln.tone : '') + '" data-ellipsis title="' + esc(ln.text) + '">' + esc(ln.text) + '</span>' +
+        '</td>' + cells + '<td class="c-mv"><div class="cmv">' + mv + '<button class="btn icon quiet sm more" type="button" data-more aria-haspopup="menu" aria-label="' + esc('More for ' + m.first) + '" title="More">' + MORE + '</button></div></td></tr>';
+    }).join('');
+    return '<div class="sec" aria-labelledby="g-h"><div class="sec-h"><h2 id="g-h">Where everyone is</h2><span class="grow"></span>' +
+      '<div class="seg" data-lift-pick role="group" aria-label="Lift">' + LIFTS.map(function (k) { return '<button type="button" data-lift="' + k + '" aria-pressed="' + (st.lift === k) + '">' + LIFT[k] + '</button>'; }).join('') + '</div></div>' +
+      '<div class="card gc" data-crop="grid"><table class="tbl tgr" data-table aria-label="' + esc('Where everyone is, ' + LIFT[st.lift].toLowerCase() + ' top sets') + '"><colgroup><col class="c-who">' + T.week.weeks.map(function () { return '<col class="c-wk">'; }).join('') + '<col class="c-mv"></colgroup>' +
+      '<thead>' + head + '</thead><tbody>' + body + '</tbody></table></div></div>';
+  }
+  /* the week as written (§4.1 item 4): tabs, then the days as three columns of lines; cells edit in place (§4.4) */
+  function weekWord(T, w) {
+    if (w.n < T.week.now) return 'Lifted';
+    if (w.now) return 'This week';
+    if (w.toSend > 0) return changesWord(w.toSend);
+    if (w.sent) return 'Sent' + (w.sentAt ? ' ' + K.wd3(String(w.sentAt).slice(0, 10)) : '');
+    if (!w.days.length) return 'Not written';
+    return 'Not sent';
+  }
+  /* a line's lift (the store's key, else a lift named in its title): its name wears the lift's colour */
+  function liftAttr(ln) { var k = ln && (ln.lift || DESK.liftOf(ln.title)); return k ? ' data-lift="' + k + '"' : ''; }
+  function editable(T, w) { return w.n >= T.week.now && w.days.length > 0; }
+  function splitLine(text) {
+    var m = /^(\d+)\s*×\s*(\d+(?:-\d+)?)\s*(.*)$/.exec(String(text || '').trim());
+    return m ? { sets: m[1], reps: m[2], effort: m[3] } : { sets: '', reps: '', effort: String(text || '') };
+  }
+  function weekHtml(T) {
+    var shown = st.week[T.id], w = weekOf(T, shown) || T.week.weeks[0], ed = editable(T, w);
+    var tabs = '<div class="wk-tabs" role="tablist" aria-label="Team weeks">' + T.week.weeks.map(function (x) {
+      return '<button class="wk-tab" type="button" role="tab" data-week-tab="' + x.n + '" aria-selected="' + (x.n === w.n) + '" tabindex="' + (x.n === w.n ? 0 : -1) + '"><b>Week ' + x.n + '</b><small>' + esc(weekWord(T, x)) + '</small></button>';
+    }).join('') + '</div>';
+    var days = w.days.length ? '<div class="days" role="grid" data-grid aria-label="' + esc('Week ' + w.n + ' as written') + '" aria-readonly="' + !ed + '">' + w.days.map(function (d, di) {
+      return '<div class="day" role="rowgroup"><h3>' + esc(dayName(d.name)) + '</h3>' + d.lines.map(function (ln, li) {
+        var p = lineWords(ln), key = w.n + '.' + di + '.' + li, ro = ed ? '' : ' is-ro';
+        var cell = function (col, v) { return '<span class="cell' + ro + '" role="gridcell" data-col="' + col + '" tabindex="-1" aria-label="' + esc(ln.title + ', ' + (col === 'effort' ? 'RPE or %' : col)) + '"' + (ed ? '' : ' aria-readonly="true"') + '>' + esc(v) + '</span>'; };
+        var own = (ln.own || []).map(function (o) { return '<p class="own">' + esc(first(o.id)) + ': ' + esc(o.text) + '</p>'; }).join('');
+        T.members.forEach(function (mm) { ownChanges(T, mm, w.n).forEach(function (c) { if (c.day === d.name && c.title === ln.title) own += '<p class="own">' + esc(first(mm.id)) + ': ' + esc(c.text) + '</p>'; }); });
+        return '<div class="ln" role="row" data-line="' + key + '"><span role="rowheader" class="ln-h"><button class="ln-n" type="button" data-line-open="' + key + '" aria-haspopup="dialog" title="Each lifter’s kilos"><span' + liftAttr(ln) + '>' + esc(ln.title) + '</span></button></span>' +
+          '<span class="ln-c">' + cell('sets', p.sets) + ' <span class="x" aria-hidden="true">×</span> ' + cell('reps', p.reps) + ' ' + cell('effort', p.effort) + '</span></div>' + own;
+      }).join('') + (ed ? '<p class="day-add"><button class="add-row" type="button" data-add-line="' + w.n + '.' + di + '">Add an exercise</button></p>' : '') + '</div>';
+    }).join('') + '</div>' : '<p class="wk-say">Not written yet. Write it in Programs.</p>';
+    var dates = Number(String(w.from).slice(8, 10)) + ' to ' + K.dm(K.add(w.from, 6));
+    return '<div class="sec wk" data-crop="week" aria-labelledby="wk-h"><div class="sec-h"><h2 id="wk-h">Week ' + w.n + ' as written</h2><span class="sub">' + esc(dates) + '</span></div>' + tabs +
+      '<p class="wk-say" id="wk-say" aria-live="polite">' + (w.days.length ? UNIT : '') + '</p>' + days + '</div>';
+  }
+  function teamHtml(T) {
+    return '<h1 class="t-h1" tabindex="-1">' + esc(T.name) + '</h1><p class="t-sub">' + factsLine(T) + '</p>' + tilesHtml(T) + gridHtml(T) + weekHtml(T);
+  }
+
+  /* ---------------- one lifter of the team ---------------- */
+  function memberHtml(T, m) {
+    var l = L(m.id) || {}, x = itemOf(m), open = x && !x.done, nowW = T.week.now, facts = 'Team week ' + nowW + ' of ' + T.week.of;
+    if (!m.from && !m.joins) facts = m.status && m.status.text ? m.status.text : 'No program yet';
+    else if (m.status && /^Starts /.test(m.status.text)) facts = m.status.text;
+    else {
+      var missedAll = m.weeks.filter(function (w, i) { return i < nowW - 1 && w.of > 0 && w.missed >= w.of; }).map(function (w) { return w.n; });
+      facts += ' · ' + (missedAll.length ? 'missed all of week ' + K.list(missedAll.map(String)) : m.week ? m.week.done + ' of ' + m.week.of + ' sessions this week' : '');
+    }
+    var html = '<div data-crop="member"><div class="tt"><div><h1 tabindex="-1">' + esc(m.name) + '</h1><p class="facts">' + esc(facts) + '</p></div><button class="btn quiet open" type="button" data-open-page="' + esc(m.id) + '">Open page</button></div>';
+    if (open) {
+      var hw = holdWeek(T, m);
+      html += '<div class="need" aria-labelledby="nd-h"><h2 id="nd-h">' + esc(lineOf(m).text) + '</h2>' + (x.item.meaning ? '<p>' + esc(x.item.meaning) + '</p>' : '') +
+        '<div class="acts"><button class="btn" type="button" data-primary data-move="' + esc(x.itemId + '|' + x.actId) + '" data-for="' + esc(m.id) + '">' + esc(x.label) + '</button>' +
+        (hw && !hw.held ? '<button class="btn" type="button" data-hold="' + esc(m.id) + '" data-hold-n="' + hw.n + '">Hold week ' + hw.n + '</button>' : '') +
+        '<button class="btn icon quiet more" type="button" data-more="' + esc(m.id) + '" aria-haspopup="menu" aria-label="' + esc('More for ' + m.first) + '" title="More">' + MORE + '</button></div></div>';
+    } else if (startable(T, m)) {
+      html += '<div class="need"><h2>No program yet</h2><div class="acts"><button class="btn" type="button" data-start="' + esc(m.id) + '" aria-haspopup="dialog">' + esc(startable(T, m).label) + '</button></div></div>';
+    }
+    /* his weeks: State, then each lift's top set at his own max (what he lifted on a week lifted, the day this week) */
+    var lw = m.week ? dat(PL.lifters.week(m.id)) : null, ses = lw && lw.n === T.week.now ? lw.sessions || [] : [];
+    var dayFor = function (k) { return ses.filter(function (s) { return String(s.name || '').toLowerCase().indexOf(k) === 0; })[0] || null; };
+    var rows = m.weeks.map(function (w, i) {
+      var tw = T.week.weeks[i], c = cellHtml(T, m, w, false), stateW = w.state === 'now' ? 'This week' : (c.html.match(/<small[^>]*>([^<]*)<\/small>/) || [])[1] || (w.state === 'written' ? weekWord(T, tw) : '');
+      if (w.state === 'now' && m.week) stateW = 'This week, ' + m.week.done + ' of ' + m.week.of;
+      var lifts = LIFTS.map(function (k) {
+        var t = w.top ? w.top[k] : null; if (!t || t.w == null) return '<td><span class="sr">none</span></td>';
+        var sub = '';
+        if (w.state === 'now') { var s = dayFor(k); if (s && s.date) sub = dayN(s.date) + (s.state === 'done' ? ', done' : ''); }
+        else if (w.state === 'lifted' && t.felt != null) sub = Math.abs(t.felt - t.rpe) < 0.25 ? 'as written' : 'felt ' + n(t.felt);
+        else if (w.state === 'missed') sub = 'Missed';
+        return '<td><b data-lift="' + k + '">' + esc(setsOf(t)) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</td>';
+      }).join('');
+      return '<tr data-wk="' + tw.n + '"' + (tw.now ? ' class="is-now"' : '') + '><td><b>Week ' + tw.n + '</b><small>' + esc(stateW || 'None') + '</small></td>' + lifts + '</tr>';
+    }).join('');
+    html += '<div class="sec" aria-labelledby="hw-h"><div class="sec-h"><h2 id="hw-h">' + esc(his(m.id) === 'her' ? 'Her weeks' : 'His weeks') + '</h2></div><div class="card hw"><table class="tbl" aria-label="' + esc(m.first + '’s team weeks') + '"><colgroup><col class="c-st"><col><col><col></colgroup>' +
+      '<thead><tr><th scope="col">State</th><th scope="col">Squat</th><th scope="col">Bench</th><th scope="col">Deadlift</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+    /* numbers and maxes: whatever the store holds (lifters.get), never worked out here */
+    /* F6.1: the e1RM shown is the store's one number for every page (numbers(id).lifts[k].shown, 0.5 kg steps) */
+    var nb = fn(PL.lifters, 'numbers') ? dat(PL.lifters.numbers(m.id)) : null, nl = (nb && nb.lifts) || {};
+    var lm = l.loadMax || {}, lifts = l.lifts || {};
+    var e1v = function (k) { return nl[k] && nl[k].shown != null ? nl[k].shown : lifts[k] && lifts[k].e1; };
+    var e1 = LIFTS.filter(function (k) { return e1v(k) != null; });
+    var mx = LIFTS.filter(function (k) { return lm[k] && lm[k].kg != null; }), from = mx.length && mx.every(function (k) { return lm[k].from === lm[mx[0]].from; }) ? lm[mx[0]].from : null;
+    var fromW = from === 'lifting' ? ', from ' + his(m.id) + ' lifting' : from === 'typed' ? ', typed by you' : from === 'intake' ? ', from ' + his(m.id) + ' intake' : '';
+    html += '<div class="sec" aria-labelledby="nm-h"><div class="sec-h"><h2 id="nm-h">Numbers</h2><span class="sub">e1RM in kg</span></div><div class="kvl">' +
+      (l.totalShown != null ? '<p>Total e1RM <b>' + esc(n(l.totalShown)) + '</b>' + (l.change != null ? ', ' + esc(signed(l.change)) + ' kg in 4 weeks' : '') + '</p>' : '') +
+      (e1.length ? '<p>e1RM: ' + e1.map(function (k) { return '<span data-lift="' + k + '">' + k + ' <b>' + esc(n(e1v(k))) + '</b></span>'; }).join(', ') + '</p>' : '') +
+      (mx.length ? '<p>Maxes: ' + mx.map(function (k) { return '<span data-lift="' + k + '">' + k + ' <b>' + esc(n(lm[k].kg)) + '</b></span>'; }).join(', ') + esc(fromW) + '</p>' : '<p>No maxes yet.</p>') +
+      (m.from || m.joins ? '<a class="link" href="' + esc(DESK.href('programs', 'id=' + encodeURIComponent(m.id) + '&team=' + encodeURIComponent(T.id) + '&from=teams')) + '" data-to-programs>Change in Programs</a>' : '') + '</div></div></div>';
+    /* messages: the last two and a composer that grows with the words */
+    var th = dat(PL.threads.get(m.id)), msgs = th && th.messages ? th.messages.filter(function (q) { return q.kind !== 'card' || q.type === 'change'; }).slice(-2) : [];
+    html += '<div class="sec" aria-labelledby="ms-h"><div class="sec-h"><h2 id="ms-h">Messages</h2><span class="grow"></span><a class="link" href="' + esc(DESK.href('messages', 'id=' + encodeURIComponent(m.id))) + '">Open the thread</a></div>' +
+      '<div class="thr">' + (msgs.length ? msgs.map(function (q) { return '<div class="bubble' + (q.me ? ' me' : '') + '" data-quote>' + esc(q.body || (q.type === 'change' ? 'Program change' : '')) + '<small>' + esc(q.at ? (String(q.at).slice(0, 10) === K.today ? hm(q.at) : day3(String(q.at).slice(0, 10))) : '') + '</small></div>'; }).join('') : '<p class="none">No messages yet.</p>') + '</div>' +
+      '<div class="cmp"><textarea class="input" rows="2" data-compose="' + esc(m.id) + '" aria-label="' + esc('Message ' + m.first) + '" placeholder="' + esc('Write to ' + m.first) + '"></textarea><div class="acts"><button class="btn" type="button" data-send-one="' + esc(m.id) + '" title="Send (⌘↵)">Send to ' + esc(m.first) + '</button></div></div></div>';
+    return html;
+  }
+
+  /* ---------------- render ---------------- */
+  function render() {
+    var h = hashGet(), list = teams();
+    if (!h.id || !list.some(function (t) { return t.id === h.id; })) {
+      if (list.length) { history.replaceState(null, '', location.pathname + location.search + '#' + hashOf({ id: list[0].id, lifter: null, week: h.week })); h = hashGet(); }
+    }
+    st.team = list.length ? h.id : null;
+    var T = team();
+    if (!T) { paintList(null); paintToolbar(null); $('#detail').innerHTML = '<div class="tt"><div><h1 tabindex="-1">Teams</h1></div></div><p class="tml-empty">No teams yet. A team is one program for several lifters, each at their own max.</p>'; DESK.setTitle('Teams'); return; }
+    if (!st.week[T.id]) st.week[T.id] = T.week.next || T.week.now;
+    if (h.week && weekOf(T, h.week)) st.week[T.id] = h.week;
+    var m = h.lifter ? member(T, h.lifter) : null;
+    st.lifter = m ? m.id : null;
+    paintList(T); paintToolbar(T);
+    $('#detail').innerHTML = m ? memberHtml(T, m) : teamHtml(T);
+    $$('.seg').forEach(function (s) { DESK.segSync(s); });
+    DESK.setTitle(m ? m.name : T.name);
+    document.title = (m ? m.name + ', ' : '') + T.name + ', POWALIFTA Coach';
+  }
+  var lastKey = null;
+  function onHash() {
+    var h = hashGet(), key = h.id + '|' + h.lifter;
+    render();
+    if (key !== lastKey) { if (lastKey !== null) scrollTo({ top: 0, behavior: 'instant' }); lastKey = key; }
+    if (h.week && !h.lifter) { var tab = $('[data-week-tab="' + h.week + '"]'); if (tab) tab.scrollIntoView({ block: 'center', behavior: 'instant' }); }
+  }
+  addEventListener('hashchange', onHash);
+  PL.on('change', function () { if (st.editing) return; var y = scrollY; render(); scrollTo({ top: y, behavior: 'instant' }); });
+
+  /* ---------------- writes: one toast in the store's words, its Undo the store's ---------------- */
+  function toastOf(r, extraUndo, fallback) {
+    if (!r) return null;
+    if (r.error) { DESK.toast(r.error.message); return null; }
+    var tok = r.meta && r.meta.undo, lab = (r.meta && r.meta.label) || fallback;
+    if (lab) DESK.toast(lab, tok ? function () { var u = PL.undo(tok); if (extraUndo && !u.error) extraUndo(); return u; } : null);
+    return r;
+  }
+  function holdIt(T, id, k) { toastOf(PL.teams.hold(T.id, id, k), null, 'Week ' + k + ' held for ' + first(id) + '.'); }
+
+  /* the send review (§4.3): who gets the week, at their own kilos; anyone can be held */
+  function sendSheet(k) {
+    var T = team(); if (!T) return;
+    var w = weekOf(T, k); if (!w) return;
+    var reach = w.ids || [];
+    var rows = T.members.map(function (m) {
+      var mw = m.weeks[k - 1] || {}, inR = reach.indexOf(m.id) >= 0, held = mw.state === 'held', top = mw.top || {};
+      var note = '', can = inR && mw.state !== 'sent', quiet = can && !held && m.quiet ? m.quiet : null;
+      if (!m.from && !m.joins) note = 'No program yet. <button class="btn quiet sm" type="button" data-start="' + esc(m.id) + '" data-in-sheet>Start ' + esc(m.first) + ' first</button>';
+      else if (!inR) note = esc(m.status && m.status.text ? m.status.text : 'Not on this week');
+      else if (held) note = 'Held';
+      else if (mw.state === 'sent') note = 'Sent';
+      else {
+        var own = []; w.days.forEach(function (d) { d.lines.forEach(function (ln) { (ln.own || []).forEach(function (o) { if (o.id === m.id) own.push('Own ' + ln.title.toLowerCase() + ' line: ' + o.text.replace(/ \d+(\.\d+)?%$/, '')); }); }); });
+        ownChanges(T, m, k).forEach(function (c) { own.push(c.title + ': ' + c.text); });
+        var ln = lineOf(m);
+        /* FD8: 7 or more days away, the week waits for the lifter; one tick sends it anyway */
+        if (quiet) note = '<span class="nl t-warn">' + esc(quiet.text) + '.</span><span class="nl">' + esc('Held: ' + m.first + ' gets week ' + k + ' when ' + he(m.id).toLowerCase() + '’s back.') + '</span>';
+        else note = own.length ? own.map(function (x) { return '<span class="nl">' + esc(x) + '</span>'; }).join('') : ln.tone === 't-warn' ? '<span class="t-warn">' + esc(ln.text) + '</span>' : '';
+      }
+      var on = can && !held && !quiet, kg = function (lift) { var t = top[lift]; return inR && t && t.w != null ? n(t.w) + ' × ' + t.r : '<span class="sr">none</span>'; };
+      return '<tr data-row="' + esc(m.id) + '"><td><input type="checkbox" data-tick="' + esc(m.id) + '"' + (quiet ? ' data-quiet title="' + esc('Tick to send week ' + k + ' to ' + m.first + ' anyway') + '"' : '') + ' aria-label="' + esc('Send to ' + m.first) + '"' + (on ? ' checked' : '') + (can ? '' : ' disabled') + '></td><td><b>' + esc(m.name) + '</b></td>' +
+        '<td class="v" data-lift="squat">' + kg('squat') + '</td><td class="v" data-lift="bench">' + kg('bench') + '</td><td class="v" data-lift="deadlift">' + kg('deadlift') + '</td><td class="nt">' + note + '</td></tr>';
+    }).join('');
+    var end = K.add(w.from, 6);
+    var html = '<div class="sh"><div class="sh-h"><h2>Send week ' + k + ' to the ' + esc(T.name) + '</h2><p>' + esc(day3(w.from).replace(/ \w+$/, '') + ' to ' + day3(end)) + '. Each lifter at their own max.</p>' +
+      (w.sent && (w.changes || []).length ? '<p class="chg-l">' + esc(String(w.changes[0]).replace(/\.$/, '') + (w.changes.length > 1 ? ', and ' + (w.changes.length - 1) + ' more.' : '.')) + '</p>' : '') + '</div>' +
+      '<div class="sh-b"><table class="tbl tb2" aria-label="Who gets week ' + k + '"><colgroup><col class="c-tk"><col class="c-n"><col class="c-k"><col class="c-k"><col class="c-k"><col></colgroup><thead><tr><th scope="col"><span class="sr">Send</span></th><th scope="col">Lifter</th><th scope="col">Squat</th><th scope="col">Bench</th><th scope="col">Deadlift</th><th scope="col">Note</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<div class="sh-f"><button class="btn quiet" type="button" data-close>Cancel</button><button class="btn" type="button" data-primary data-send-go="' + k + '"></button></div></div>';
+    openSheet('send-week', 'Send week ' + k + ' to the ' + T.name, html);
+    countTicks();
+  }
+  function countTicks() {
+    var d = DESK.sheet.el(), b = d && $('[data-send-go]', d); if (!b) return;
+    var c = $$('input[data-tick]:checked', d).length;
+    b.textContent = 'Send to ' + c; b.disabled = !c;
+  }
+  /* a sheet holds the page still under it at its top (nothing under the toolbar band), and gives the coach the place back
+     where they were when it closes */
+  var sheetY = null;
+  function openSheet(name, label, html, onClose) {
+    if (!DESK.sheet.isOpen()) { sheetY = scrollY; if (sheetY > 0) scrollTo({ top: 0, behavior: 'instant' }); }
+    var d = DESK.sheet.open({ label: label, cls: 'tsh', html: html, onClose: function () { d.removeAttribute('data-sheet'); if (sheetY) scrollTo({ top: sheetY, behavior: 'instant' }); sheetY = null; if (onClose) onClose(); } });
+    d.setAttribute('data-sheet', name);
+    var f = d.querySelector('[data-autofocus]') || d.querySelector('[data-primary]');
+    if (f) setTimeout(function () { f.focus({ preventScroll: true }); }, 30);
+    return d;
+  }
+  function sendGo(k) {
+    var T = team(), d = DESK.sheet.el(); if (!T || !d) return;
+    var ids = $$('input[data-tick]:checked', d).map(function (i) { return i.getAttribute('data-tick'); });
+    var hold = $$('input[data-tick][data-quiet]:not(:checked)', d).map(function (i) { return i.getAttribute('data-tick'); });
+    if (!ids.length) return;
+    DESK.sheet.close();
+    toastOf(PL.teams.sendWeek(T.id, k, hold.length ? { ids: ids, hold: hold } : { ids: ids }));
+  }
+
+  /* start a lifter on the team (§4.5): the same call as Programs' start panel, at the intake's maxes */
+  function startSheet(id, back) {
+    var T = team(); if (!T) return;
+    var m = member(T, id); if (!m) return;
+    var intake = fn(PL.lifters, 'intake') ? dat(PL.lifters.intake(id)) : null, est = intake && intake.est ? intake.est : {};
+    var weeks = T.week.weeks.filter(function (w) { return w.n > T.week.now && w.days.length; });
+    if (!weeks.length) { DESK.toast('No week to come to start ' + m.first + ' on.'); return; }
+    var k = weeks[0].n;
+    var b = intake && intake.best ? intake.best : null, when = '';
+    if (b) { var ds = LIFTS.map(function (q) { return b[q] && b[q].when; }).filter(Boolean).sort(); if (ds.length) when = ' (' + K.dm(ds[ds.length - 1]).split(' ')[1] + ')'; }
+    var best = b ? 'Best sets: ' + LIFTS.filter(function (q) { return b[q]; }).map(function (q) { return q + ' ' + n(b[q].kg) + ' × ' + b[q].reps; }).join(', ') + when + '.' : '';
+    var inj = intake && intake.injuries && intake.injuries.note ? '<p class="p q">' + esc((intake.injuries.parts || []).join(', ') || 'Injury') + ': <span data-quote>“' + esc(intake.injuries.note) + '”</span></p>' : '';
+    var meetW = '';
+    if (intake && intake.meet && T.facts.meet && intake.meet.name !== T.facts.meet.name) meetW = '<p class="p"><span class="w">Her meet</span> is the ' + esc(intake.meet.name) + ', ' + esc(K.dm(intake.meet.date)) + '. This block peaks for the ' + esc(T.facts.meet.name) + ', ' + esc(K.dm(K.add(K.today, T.facts.meet.days))) + '.</p>';
+    if (meetW && his(id) === 'his') meetW = meetW.replace('Her meet', 'His meet');
+    var mxIn = function (q) { var v = est[q] != null ? est[q] : ''; return '<label>' + LIFT[q] + '<input class="input" type="number" inputmode="decimal" step="2.5" min="20" max="600" data-max="' + q + '" value="' + esc(v) + '" data-est="' + esc(v) + '"></label>'; };
+    var html = '<div class="sh" data-start-for="' + esc(id) + '"><div class="sh-h"><h2>Start ' + esc(m.first) + ' on the ' + esc(T.name) + '</h2>' +
+      '<p>From <select class="input" data-start-week aria-label="Starting week">' + weeks.map(function (w) { return '<option value="' + w.n + '"' + (w.n === k ? ' selected' : '') + '>Week ' + w.n + ', ' + esc(day3(w.from)) + '</option>'; }).join('') + '</select></p></div>' +
+      '<div class="sh-b">' + (best ? '<p class="p">' + esc(best) + '</p>' : '') + inj +
+      '<div class="stk"><p class="p" data-preview aria-live="polite"></p><div class="fld"><span class="lab">Starting maxes' + (est.squat != null ? ', from ' + his(id) + ' intake: ' + LIFTS.filter(function (q) { return est[q] != null; }).map(function (q) { return q + ' ' + n(est[q]); }).join(', ') : '') + '</span><div class="mx">' + LIFTS.map(mxIn).join('') + '<button class="btn quiet" type="button" data-ninety>Start at 90%</button></div><p class="err" data-max-err hidden></p></div></div>' +
+      meetW + '</div>' +
+      '<div class="sh-f">' + (back ? '<button class="btn quiet back" type="button" data-back-send="' + back + '">‹ Back</button>' : '') + '<button class="btn quiet" type="button" data-close>Cancel</button><button class="btn" type="button" data-primary data-start-go>Start ' + esc(m.first) + '</button></div></div>';
+    openSheet('start', 'Start ' + m.first + ' on the ' + T.name, html);
+    preview();
+  }
+  function maxesIn(d) { var o = {}; $$('input[data-max]', d).forEach(function (i) { o[i.getAttribute('data-max')] = i.value === '' ? null : Number(i.value); }); return o; }
+  function maxOk(v) { return v != null && isFinite(v) && v >= 20 && v <= 600 && Math.abs(v / 2.5 - Math.round(v / 2.5)) < 1e-9; }
+  function preview() {
+    var T = team(), d = DESK.sheet.el(); if (!T || !d) return;
+    var p = $('[data-preview]', d); if (!p) return;
+    var k = Number(($('[data-start-week]', d) || {}).value), w = weekOf(T, k), mx = maxesIn(d), parts = [];
+    if (w) LIFTS.forEach(function (q) {
+      var ln = null; w.days.some(function (dd) { return dd.lines.some(function (x) { if (x.lift === q) { ln = x; return true; } return false; }); });
+      if (!ln) return;
+      var cell = ln.cell || null, kg = null;
+      if (!cell) { var c = BLOCK.parse(String(ln.text).replace(/ × /g, 'x')); cell = c && c.ok ? c.cell : null; }
+      if (cell && maxOk(mx[q])) { var o = { max: mx[q], reps: cell.r, step: 2.5 }; if (cell.rpe != null) o.rpe = cell.rpe; if (cell.pct != null) o.pct = cell.pct; var r = BLOCK.math.load(o); kg = r && r.kg != null ? r.kg : null; }
+      parts.push(q + ' ' + (cell ? cell.n + ' × ' + cell.r + (cell.rpe != null ? ' @' + n(cell.rpe) : '') : ln.text) + ' at ' + (kg != null ? n(kg) : 'a max to come'));
+    });
+    p.textContent = w ? 'Week ' + k + ': ' + parts.join(', ') + '.' : '';
+  }
+  function startGo() {
+    var T = team(), d = DESK.sheet.el(); if (!T || !d) return;
+    var box = $('[data-start-for]', d), id = box.getAttribute('data-start-for'), mx = maxesIn(d), bad = LIFTS.filter(function (q) { return !maxOk(mx[q]); });
+    $$('input[data-max]', d).forEach(function (i) { i.classList.toggle('is-error', bad.indexOf(i.getAttribute('data-max')) >= 0); });
+    var err = $('[data-max-err]', d);
+    if (bad.length) { err.hidden = false; err.textContent = 'Type a max from 20 to 600, in 2.5 kg steps.'; return; }
+    err.hidden = true;
+    var k = Number($('[data-start-week]', d).value);
+    DESK.sheet.close();
+    toastOf(PL.teams.start(T.id, id, { week: k, maxes: { squat: mx.squat, bench: mx.bench, deadlift: mx.deadlift } }));
+  }
+
+  /* a new team (§4.6) */
+  function newTeamSheet() {
+    var all = (dat(PL.lifters.list({ sort: 'name' })) || []).map(function (x) { return x.id; });
+    if (!all.length) all = (K.D.lifters || []).map(function (l) { return l.id; });
+    var onTeam = {}; teams().forEach(function (t) { var g = dat(PL.teams.get(t.id)); if (g) g.members.forEach(function (m) { onTeam[m.id] = t.name; }); });
+    var rowOf = function (id) {
+      var l = L(id) || {}, p = l.program, sub = 'No program yet';
+      if (p) { var end = p.startsOn && p.of ? K.add(p.startsOn, p.of * 7 - 1) : null; sub = String(p.name || 'A program').replace(/^.*·\s*/, '') + (end ? ', ends ' + (end === K.today ? 'today' : day3(end)) : ''); }
+      return '<label class="ck"><input type="checkbox" data-nt-id="' + esc(id) + '"><span><b>' + esc(l.name || id) + '</b><small>' + esc(sub) + '</small></span></label>';
+    };
+    var free = all.filter(function (id) { return !onTeam[id]; }), taken = all.filter(function (id) { return onTeam[id]; });
+    var tpls = fn(PL.templates, 'list') ? dat(PL.templates.list()) || [] : [];
+    var mons = [1, 2, 3].map(function (i) { var x = K.add(K.today, ((8 - K.d(K.today).getDay()) % 7 || 7) + (i - 1) * 7); return x; });
+    var cur = team();
+    var html = '<div class="sh"><div class="sh-h"><h2>New team</h2></div><div class="sh-b">' +
+      '<div class="fld"><label for="nt-name">Name</label><input class="input" id="nt-name" name="name" autocomplete="off" data-autofocus><p class="err" data-nt-err="name" hidden></p></div>' +
+      '<div class="fld"><span class="lab">Lifters</span>' + (free.length ? '<p class="ck-h">On no team</p>' + free.map(rowOf).join('') : '') + (taken.length ? '<p class="ck-h">On a team</p>' + taken.map(rowOf).join('') : '') + '<p class="err" data-nt-err="ids" hidden></p></div>' +
+      '<div class="fld" role="radiogroup" aria-label="Program"><span class="lab">Program</span>' +
+      (tpls.length ? '<label class="rad"><input type="radio" name="nt-from" value="tpl">From a template</label><div class="sub2"><label>Template<select class="input" data-nt-tpl>' + tpls.map(function (t) { return '<option value="' + esc(t.id) + '">' + esc(t.name) + ', ' + t.weeks + ' weeks</option>'; }).join('') + '</select></label>' +
+        '<label>Starts<select class="input" data-nt-on>' + mons.map(function (x) { return '<option value="' + x + '">' + esc(day3(x)) + '</option>'; }).join('') + '</select></label></div>' : '') +
+      (cur ? '<label class="rad"><input type="radio" name="nt-from" value="team">Copy the ' + esc(cur.name) + '’s program</label>' : '') +
+      '<label class="rad"><input type="radio" name="nt-from" value="own" checked>Each keeps their own program for now</label></div>' +
+      '<div data-nt-joins></div></div>' +
+      '<div class="sh-f"><button class="btn quiet" type="button" data-close>Cancel</button><button class="btn" type="button" data-primary data-nt-go>Create the team</button></div></div>';
+    openSheet('new-team', 'New team', html);
+  }
+  function ntJoins() {
+    var d = DESK.sheet.el(); if (!d) return; var box = $('[data-nt-joins]', d); if (!box) return;
+    var on = ($('[data-nt-on]', d) || {}).value, from = ($('input[name=nt-from]:checked', d) || {}).value;
+    if (!on || from === 'own') { box.innerHTML = ''; return; }
+    var lines = $$('input[data-nt-id]:checked', d).map(function (i) {
+      var l = L(i.getAttribute('data-nt-id')) || {}, p = l.program; if (!p || !p.startsOn || !p.of) return '';
+      var end = K.add(p.startsOn, p.of * 7 - 1); if (end < on) return '';
+      var j = K.add(end, ((8 - K.d(end).getDay()) % 7) || 7);
+      return '<p class="p q">' + esc(l.first + ' joins ' + day3(j) + ', after ' + String(p.name).replace(/^.*·\s*/, '') + '.') + '</p>';
+    }).join('');
+    box.innerHTML = lines;
+  }
+  function ntGo() {
+    var d = DESK.sheet.el(); if (!d) return;
+    var name = $('#nt-name', d).value.trim(), ids = $$('input[data-nt-id]:checked', d).map(function (i) { return i.getAttribute('data-nt-id'); });
+    var from = ($('input[name=nt-from]:checked', d) || {}).value, o = { name: name, ids: ids, startsOn: ($('[data-nt-on]', d) || {}).value || null, from: null };
+    if (from === 'tpl') o.from = { template: $('[data-nt-tpl]', d).value };
+    else if (from === 'team' && team()) o.from = { team: team().id };
+    if (!o.startsOn) { var x = K.add(K.today, ((8 - K.d(K.today).getDay()) % 7) || 7); o.startsOn = x; }
+    $$('[data-nt-err]', d).forEach(function (e) { e.hidden = true; e.textContent = ''; });
+    $('#nt-name', d).classList.remove('is-error');
+    if (!name) { var e0 = $('[data-nt-err=name]', d); e0.hidden = false; e0.textContent = 'Give the team a name.'; $('#nt-name', d).classList.add('is-error'); $('#nt-name', d).focus(); return; }
+    var r = PL.teams.create(o);
+    if (r && r.error) {
+      var f = r.error.details && r.error.details[0] ? r.error.details[0].field : 'name', e1 = $('[data-nt-err="' + (f === 'ids' ? 'ids' : 'name') + '"]', d);
+      e1.hidden = false; e1.textContent = r.error.message; return;
+    }
+    DESK.sheet.close();
+    toastOf(r);
+    go({ id: r.data.id });
+  }
+
+  /* the team composer (§4.7) and one lifter's */
+  /* walk 2 ("Week 3 is in your app" reached Jonah, whose week 3 was held): the names are toggles, everyone on but a lifter
+     whose next week is held; the head and the button count who it reaches */
+  function teamCompose(btn) {
+    var T = team(); if (!T) return;
+    var held = function (m) { return m.weeks.some(function (w, i) { var tw = T.week.weeks[i]; return tw && tw.n > T.week.now && w.state === 'held'; }); };
+    var who = T.members.map(function (m) { return '<button type="button" class="tw" data-team-to="' + esc(m.id) + '" aria-pressed="' + !held(m) + '"' + (held(m) ? ' title="' + esc('Week held for ' + m.first) + '"' : '') + '>' + esc(m.first) + '</button>'; }).join('');
+    DESK.pop.open(btn, '<h3 class="pp-h" data-team-head></h3><div class="tws" role="group" aria-label="Who gets it">' + who + '</div><textarea class="input" data-team-text aria-label="' + esc('Message to the ' + T.name) + '" placeholder="Write to the team"></textarea>' +
+      '<p class="err" data-team-err hidden></p><div class="pp-f"><button class="btn" type="button" data-team-send title="Send (⌘↵)"></button><button class="btn quiet" type="button" data-pop-close>Cancel</button></div>', { label: 'Message the team', focus: '[data-team-text]', place: 'below-end' });
+    teamCount();
+  }
+  function teamTo(p) { return $$('[data-team-to]', p).filter(function (b) { return b.getAttribute('aria-pressed') === 'true'; }).map(function (b) { return b.getAttribute('data-team-to'); }); }
+  function teamCount() {
+    var T = team(), p = DESK.pop.el(); if (!T || !p) return;
+    var k = teamTo(p).length, all = k === T.members.length, h = $('[data-team-head]', p), b = $('[data-team-send]', p);
+    if (h) h.textContent = all ? 'To all ' + k + ' on the ' + T.name : 'To ' + k + ' of ' + T.members.length + ' on the ' + T.name;
+    if (b) { b.textContent = all ? 'Send to all ' + k : 'Send to ' + k; b.disabled = !k; }
+  }
+  function teamSend() {
+    var T = team(), p = DESK.pop.el(); if (!T || !p) return;
+    var ta = $('[data-team-text]', p), t = ta.value.trim(), ids = teamTo(p);
+    if (!t) { var e = $('[data-team-err]', p); e.hidden = false; e.textContent = 'Write the message first.'; ta.focus(); return; }
+    if (!ids.length) { var e2 = $('[data-team-err]', p); e2.hidden = false; e2.textContent = 'Pick who gets it.'; return; }
+    DESK.pop.close();
+    toastOf(PL.messages.sendMany(ids, { text: t }));
+  }
+  function sendOne(id) {
+    var ta = $('textarea[data-compose="' + id + '"]'), t = ta ? ta.value.trim() : '';
+    if (!t) { if (ta) ta.focus(); return; }
+    toastOf(PL.messages.send(id, { text: t }));
+  }
+
+  /* a row's ⋯ (§4.1, §4.4): message, hold or send now, restart, open the page */
+  function moreMenu(btn, id) {
+    var T = team(); if (!T) return;
+    var m = member(T, id); if (!m) return;
+    var hw = holdWeek(T, m), k = hw ? hw.n : null, items = [{ id: 'msg', label: 'Message ' + m.first }];
+    if (hw && hw.held) items.push({ id: 'send', label: 'Send ' + his(id) + ' week ' + k + ' now' });
+    else if (hw) items.push({ id: 'hold', label: 'Hold week ' + k });
+    if (m.from) items.push({ id: 'restart', label: 'Restart at week 1…' });
+    items.push({ sep: true }, { id: 'page', label: 'Open ' + m.first + '’s page' });
+    DESK.menu.open(btn, items, { label: 'More for ' + m.first, anchor: btn.closest('tr, .need') || btn, place: 'below-end', run: function (what) {
+      if (what === 'msg') { go({ id: T.id, lifter: id }); setTimeout(function () { var ta = $('textarea[data-compose="' + id + '"]'); if (ta) { ta.scrollIntoView({ block: 'center', behavior: 'instant' }); ta.focus(); } }, 0); }
+      else if (what === 'hold') holdIt(T, id, k);
+      else if (what === 'send') sendNow(T, id, k);
+      else if (what === 'restart') restartDialog(btn, T, m);
+      else if (what === 'page') openPage(id);
+    } });
+  }
+  function sendNow(T, id, k) {
+    var r1 = PL.teams.release(T.id, id, k); if (r1 && r1.error) { DESK.toast(r1.error.message); return; }
+    var others = (weekOf(T, k).ids || []).filter(function (x) { return x !== id; });
+    var sentOthers = others.every(function (x) { var mm = member(T, x); return mm && mm.weeks[k - 1] && (mm.weeks[k - 1].state === 'sent' || mm.weeks[k - 1].state === 'held'); });
+    if (!sentOthers) { toastOf(r1); return; }
+    var r2 = PL.teams.sendWeek(T.id, k, { ids: [id] });
+    if (r2 && r2.error) { toastOf(r1); return; }
+    var t1 = r1.meta && r1.meta.undo;
+    toastOf(r2, function () { if (t1) PL.undo(t1); });
+  }
+  function nextMonday() { var x = K.add(K.today, ((8 - K.d(K.today).getDay()) % 7) || 7); return x; }
+  var rsDlg = null;
+  function restartDialog(btn, T, m) {
+    closeRestart();
+    var on = nextMonday(), end = K.add(on, T.week.of * 7 - 1), teamEnd = K.add(T.startsOn, T.week.of * 7 - 1), wks = Math.round(K.daysTo(end) - K.daysTo(teamEnd)) / 7;
+    var d = document.createElement('dialog');
+    d.className = 'rs-d'; d.setAttribute('data-layer', 'popover'); d.setAttribute('aria-label', 'Restart ' + m.first);
+    d.innerHTML = '<p>' + esc('Start ' + m.first + ' again at week 1 on ' + day3(on) + '. ' + he(m.id) + ' finishes ' + (wks > 0 ? (wks === 1 ? '1 week' : wks + ' weeks') + ' after the team' : 'with the team') + ', on ' + day3(end) + '.') + '</p>' +
+      '<div class="acts"><button class="btn" type="button" data-rs-go>Restart ' + esc(m.first) + '</button><button class="btn quiet" type="button" data-rs-no>Cancel</button></div>';
+    document.body.appendChild(d); d.show(); rsDlg = d;
+    var a = (btn.closest('tr') || btn).getBoundingClientRect(), W = document.documentElement.clientWidth, w = d.offsetWidth, h = d.offsetHeight;
+    var x = Math.max(12, Math.min(W - w - 12, a.right - w)), y = a.bottom + 8 + h <= innerHeight - 12 ? a.bottom + 8 : Math.max(64, a.top - 8 - h);
+    d.style.left = Math.round(x) + 'px'; d.style.top = Math.round(y) + 'px';
+    d.addEventListener('click', function (e) {
+      if (e.target.closest('[data-rs-no]')) { closeRestart(); btn.focus(); }
+      else if (e.target.closest('[data-rs-go]')) { closeRestart(); toastOf(PL.teams.restart(T.id, m.id, { at: 1, on: on })); }
+    });
+    d.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeRestart(); btn.focus(); } });
+    setTimeout(function () { var f = $('[data-rs-go]', d); if (f) f.focus(); }, 30);
+  }
+  function closeRestart() { if (rsDlg) { rsDlg.close(); rsDlg.remove(); rsDlg = null; } }
+  document.addEventListener('pointerdown', function (e) { if (rsDlg && !rsDlg.contains(e.target)) closeRestart(); }, true);
+
+  function openPage(id) {
+    var T = team(); if (!T) return;
+    DESK.openLifter(id, { from: 'teams', back: { label: T.name, href: 'teams.html#id=' + encodeURIComponent(T.id) + '&lifter=' + encodeURIComponent(id) } });
+  }
+
+  /* a line of the team's week: each lifter's kilos with the max they come from, and their own line (§4.1 item 4) */
+  function lineAt(T, key) { var p = key.split('.').map(Number), w = weekOf(T, p[0]), d = w && w.days[p[1]], ln = d && d.lines[p[2]]; return ln ? { w: w, d: d, ln: ln, n: p[0], di: p[1], li: p[2] } : null; }
+  function kilosOf(T, at, id) {
+    var ln = at.ln, x = (ln.loads || []).filter(function (q) { return q.id === id; })[0];
+    if (x && x.kg != null) return x.kg;
+    var m = member(T, id), mw = m && m.weeks[at.n - 1], firstOfLift = ln.lift && at.d.lines.filter(function (y) { return y.lift === ln.lift; })[0] === ln;
+    return firstOfLift && mw && mw.top && mw.top[ln.lift] && mw.top[ln.lift].w != null ? mw.top[ln.lift].w : null;
+  }
+  function linePop(btn, key, pick) {
+    var T = team(); if (!T) return;
+    var at = lineAt(T, key); if (!at) return;
+    var ids = (at.w.ids || []).slice(), sel = pick && ids.indexOf(pick) >= 0 ? pick : ids[0];
+    var rows = ids.map(function (id) {
+      var kg = kilosOf(T, at, id), own = (at.ln.own || []).filter(function (o) { return o.id === id; })[0], l = L(id) || {}, mx = at.ln.lift && l.loadMax && l.loadMax[at.ln.lift] ? l.loadMax[at.ln.lift].kg : null;
+      var sub = own ? 'Own line: ' + own.text : mx != null ? 'from a max of ' + n(mx) : at.ln.lift ? 'No max yet' : 'Same for everyone';
+      return '<button class="who-k" type="button" data-pick-own="' + esc(id) + '" aria-pressed="' + (id === sel) + '"><b>' + esc(l.name || first(id)) + '</b><span class="v"' + (kg != null ? liftAttr(at.ln) : '') + '>' + (kg != null ? esc(n(kg)) : '<span class="sr">none</span>') + '</span><small>' + esc(sub) + '</small></button>';
+    }).join('');
+    var ed = editable(T, at.w);
+    var html = '<h3 class="pp-h"' + liftAttr(at.ln) + '>' + esc(at.ln.title + ', week ' + at.n) + '</h3><p class="pp-s">' + esc(at.ln.text) + (at.ln.lift ? '. Each at their own max.' : '') + '</p><div class="pop-b">' + (rows || '<p class="pp-p">Nobody is on this week yet.</p>') + '</div>' +
+      (ed && sel ? '<div class="pp-f"><button class="btn sm" type="button" data-give-own="' + esc(sel) + '" data-line-key="' + esc(key) + '">Give ' + esc(first(sel)) + ' ' + his(sel) + ' own line</button></div>' : '');
+    DESK.pop.open(btn, html, { label: at.ln.title + ', week ' + at.n, anchor: btn.closest('.ln') || btn });
+  }
+  function ownLinePop(btn, key, id) {
+    var T = team(); if (!T) return;
+    var at = lineAt(T, key); if (!at) return;
+    var own = (at.ln.own || []).filter(function (o) { return o.id === id; })[0], v = String(own ? own.text : at.ln.text).replace(/ × /g, 'x');
+    var html = '<h3 class="pp-h">' + esc(first(id) + '’s ' + at.ln.title.toLowerCase() + ', week ' + at.n) + '</h3><p class="pp-s">The team’s line: ' + esc(at.ln.text) + '</p>' +
+      '<label class="pp-l" for="own-in">' + esc(first(id) + '’s line') + '</label><input class="input pp-i" id="own-in" data-own-in autocomplete="off" value="' + esc(v) + '"><p class="err" data-own-err hidden></p>' +
+      '<div class="pp-f"><button class="btn" type="button" data-own-save="' + esc(id) + '" data-line-key="' + esc(key) + '">Save ' + esc(first(id)) + '’s line</button><button class="btn quiet" type="button" data-pop-close>Cancel</button></div>';
+    var anchor = $('[data-line="' + key + '"]');
+    DESK.pop.open(anchor ? anchor.querySelector('.ln-n') : btn, html, { label: 'Own line for ' + first(id), anchor: anchor || btn, focus: '[data-own-in]' });
+  }
+  function ownSave(btn) {
+    var T = team(), p = DESK.pop.el(); if (!T || !p) return;
+    var at = lineAt(T, btn.getAttribute('data-line-key')), id = btn.getAttribute('data-own-save'), v = $('[data-own-in]', p).value.trim();
+    var r = PL.teams.setLine(T.id, at.n, at.di, at.li, { text: v, own: id });
+    if (r && r.error) { var e = $('[data-own-err]', p); e.hidden = false; e.textContent = r.error.message; $('[data-own-in]', p).classList.add('is-error'); return; }
+    DESK.pop.close(); toastOf(r);
+  }
+  function addLinePop(btn, key) {
+    var html = '<h3 class="pp-h">Add an exercise</h3><label class="pp-l" for="add-t">Exercise</label><input class="input pp-i" id="add-t" data-add-t autocomplete="off" placeholder="Pause squat">' +
+      '<label class="pp-l" for="add-x">Sets, reps and RPE or %</label><input class="input pp-i" id="add-x" data-add-x autocomplete="off" placeholder="3x5 @7"><p class="err" data-add-err hidden></p>' +
+      '<div class="pp-f"><button class="btn" type="button" data-add-go="' + esc(key) + '">Add it</button><button class="btn quiet" type="button" data-pop-close>Cancel</button></div>';
+    DESK.pop.open(btn, html, { label: 'Add an exercise', focus: '[data-add-t]' });
+  }
+  function addGo(btn) {
+    var T = team(), p = DESK.pop.el(); if (!T || !p) return;
+    var k = btn.getAttribute('data-add-go').split('.').map(Number), title = $('[data-add-t]', p).value.trim(), text = $('[data-add-x]', p).value.trim();
+    var low = title.toLowerCase(), lift = /^squat\b/.test(low) ? 'squat' : /^bench\b/.test(low) ? 'bench' : /^deadlift\b/.test(low) ? 'deadlift' : undefined;
+    var r = PL.teams.addLine(T.id, k[0], k[1], { title: title, text: text, lift: lift });
+    if (r && r.error) { var e = $('[data-add-err]', p); e.hidden = false; e.textContent = r.error.message; return; }
+    DESK.pop.close(); toastOf(r);
+  }
+
+  /* ---------------- the week's cells: click or Enter edits, typing replaces, Tab and Shift+Tab move, Esc cancels ---------------- */
+  var UNIT = '% of each lifter’s max';
+  function say(text, warn) { var s = $('#wk-say'); if (!s) return; s.textContent = text || UNIT; s.classList.toggle('is-warn', !!warn); }
+  function cellsAll() { return $$('[data-crop=week] .cell'); }
+  function editCell(cell, seed) {
+    if (!cell || st.editing) return;
+    if (cell.classList.contains('is-ro')) { say('Lifted already. Change a week still to come.', true); cell.focus(); return; }
+    var orig = cell.textContent, input = document.createElement('input');
+    input.className = 'cell-in'; input.type = 'text'; input.autocomplete = 'off'; input.spellcheck = false;
+    input.setAttribute('aria-label', cell.getAttribute('aria-label'));
+    input.value = seed != null ? seed : orig;
+    input.style.width = Math.max(4, (input.value.length || 2) + 2) + 'ch';
+    cell.textContent = ''; cell.appendChild(input); cell.classList.add('is-hand');
+    st.editing = { cell: cell, input: input, orig: orig };
+    input.focus(); if (seed == null) input.select(); else input.setSelectionRange(input.value.length, input.value.length);
+    input.addEventListener('input', function () { input.style.width = Math.max(4, input.value.length + 2) + 'ch'; input.classList.remove('is-error'); });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); endEdit(false); }
+      else if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); commitEdit(0); }
+      else if (e.key === 'Tab') { e.preventDefault(); commitEdit(e.shiftKey ? -1 : 1); }
+    });
+    input.addEventListener('blur', function () { setTimeout(function () { if (st.editing && st.editing.input === input && !st.asking) commitEdit(null); }, 0); });
+  }
+  function endEdit(keep, value) {
+    var e = st.editing; if (!e) return null;
+    st.editing = null;
+    e.cell.textContent = keep ? value : e.orig; e.cell.classList.remove('is-hand');
+    return e.cell;
+  }
+  function commitEdit(step) {
+    var e = st.editing; if (!e) return;
+    var T = team(), lnEl = e.cell.closest('[data-line]'), key = lnEl.getAttribute('data-line'), col = e.cell.getAttribute('data-col');
+    var at = lineAt(T, key), v = e.input.value.trim();
+    if (v === e.orig.trim()) { var c0 = endEdit(false); moveFrom(c0, step); return; }
+    var p = splitLine(at.ln.text); p[col] = v;
+    var text = (p.sets + 'x' + p.reps + (p.effort ? ' ' + String(p.effort).replace(/,\s*/g, ' ') : '')).trim();
+    var chk = BLOCK.parse(text);
+    if (!chk || !chk.ok || !chk.cell) { e.input.classList.add('is-error'); say((chk && chk.why) || 'Type it like 3x5 @7 or 3x3 85%.', true); e.input.focus(); return; }
+    var own = (at.ln.own || []).map(function (o) { return o.id; }), others = (at.w.ids || []).filter(function (id) { return own.indexOf(id) < 0; });
+    var apply = function () {
+      var r = PL.teams.setLine(T.id, at.n, at.di, at.li, { text: text });
+      if (r && r.error) { if (st.editing) { e.input.classList.add('is-error'); e.input.focus(); } say(r.error.message, true); return false; }
+      var c = endEdit(true, v); say('');
+      toastOf(r);
+      var now = c && c.isConnected ? c : $('[data-line="' + key + '"] [data-col="' + col + '"]');
+      moveFrom(now, step);
+      return true;
+    };
+    if (own.length) {
+      st.asking = true;
+      var who = K.list(own.map(first), 3), one = own.length === 1;
+      var q = who + (one ? ' keeps ' + his(own[0]) : ' keep their') + ' own ' + at.ln.title.toLowerCase() + ' line. Update the other ' + others.length + '?';
+      DESK.pop.open(lnEl.querySelector('.ln-n'), '<p class="pp-p">' + esc(q) + '</p><div class="pp-f"><button class="btn" type="button" data-scope-go>Update ' + others.length + '</button><button class="btn quiet" type="button" data-scope-no>Cancel</button></div>', { label: 'Whose line', anchor: lnEl, focus: '[data-scope-go]' });
+      st.ask = { apply: apply, cancel: function () { endEdit(false); }, cell: e.cell };
+      return;
+    }
+    apply();
+  }
+  function moveFrom(cell, step) {
+    if (!cell) return;
+    var all = cellsAll().filter(function (c) { return !c.classList.contains('is-ro'); }), i = all.indexOf(cell);
+    if (step == null) return;
+    var nx = step ? all[i + step] : cell;
+    if (step === 0) { var key = cell.closest('[data-line]').getAttribute('data-line').split('.'), col = cell.getAttribute('data-col'), below = $('[data-line="' + key[0] + '.' + key[1] + '.' + (Number(key[2]) + 1) + '"] [data-col="' + col + '"]'); nx = below || cell; }
+    if (nx) { nx.focus(); st.hand = nx; }
+  }
+  function settleAsk(goOn) {
+    var a = st.ask; st.ask = null; st.asking = false;
+    DESK.pop.close();
+    if (!a) return;
+    if (goOn) { if (!a.apply()) return; } else { a.cancel(); a.cell.focus(); }
+  }
+
+  /* ---------------- wiring ---------------- */
+  document.addEventListener('click', function (e) {
+    var t = e.target, b;
+    if ((b = t.closest('[data-scope-go]'))) { settleAsk(true); return; }
+    if ((b = t.closest('[data-scope-no]'))) { settleAsk(false); return; }
+    if ((b = t.closest('[data-pop-close]'))) { DESK.pop.close(); return; }
+    if ((b = t.closest('[data-undo]'))) { var r = PL.items.undo(b.getAttribute('data-undo')); if (r && r.error) DESK.toast(r.error.message); else if (r && r.meta && r.meta.label) DESK.toast(/^Undone/.test(r.meta.label) ? r.meta.label : 'Undone: ' + r.meta.label); return; }
+    if ((b = t.closest('[data-team-switch]'))) {
+      if (DESK.pop.justClosed(b)) return;
+      var ts = teams();
+      DESK.menu.open(b, ts.map(function (x) { return { id: x.id, label: x.name, checked: x.id === st.team }; }).concat([{ sep: true }, { id: '@new', label: 'New team…' }]), { label: 'Your teams', place: 'below-end', run: function (id) { if (id === '@new') newTeamSheet(); else go({ id: id }); } });
+      return;
+    }
+    if ((b = t.closest('[data-new-team]'))) { newTeamSheet(); return; }
+    if ((b = t.closest('[data-add-lifter]'))) { if (fn(DESK, 'addLifter')) DESK.addLifter({ from: 'teams' }); return; }
+    if ((b = t.closest('[data-back-programs]'))) { DESK.go('programs', ''); return; }
+    if ((b = t.closest('[data-next-due]'))) { DESK.go('programs', 'id=' + encodeURIComponent(b.getAttribute('data-next-due'))); return; }
+    if ((b = t.closest('[data-nt-go]'))) { ntGo(); return; }
+    if ((b = t.closest('[data-send-week]'))) { sendSheet(Number(b.getAttribute('data-send-week'))); return; }
+    if ((b = t.closest('[data-send-go]'))) { sendGo(Number(b.getAttribute('data-send-go'))); return; }
+    if ((b = t.closest('[data-start]'))) { var inSheet = b.hasAttribute('data-in-sheet'), wk = inSheet ? $('[data-send-go]', DESK.sheet.el()) : null; startSheet(b.getAttribute('data-start'), wk ? wk.getAttribute('data-send-go') : null); return; }
+    if ((b = t.closest('[data-back-send]'))) { sendSheet(Number(b.getAttribute('data-back-send'))); return; }
+    if ((b = t.closest('[data-ninety]'))) {
+      var d = DESK.sheet.el(); $$('input[data-max]', d).forEach(function (i) { var v = Number(i.getAttribute('data-est')); if (isFinite(v) && v > 0) i.value = BLOCK.math.round(v * 0.9, 2.5); i.classList.remove('is-error'); });
+      preview(); return;
+    }
+    if ((b = t.closest('[data-start-go]'))) { startGo(); return; }
+    if ((b = t.closest('[data-team-msg]'))) { if (DESK.pop.justClosed(b)) return; teamCompose(b); return; }
+    if ((b = t.closest('[data-team-send]'))) { teamSend(); return; }
+    if ((b = t.closest('[data-team-to]'))) { b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); teamCount(); return; }
+    if ((b = t.closest('[data-send-one]'))) { sendOne(b.getAttribute('data-send-one')); return; }
+    if ((b = t.closest('[data-move]'))) {
+      var p = b.getAttribute('data-move').split('|'), who = b.getAttribute('data-for');
+      DESK.fix.open(b, { itemId: p[0], actId: p[1], forId: who, anchor: b.closest('tr, .need, .cluster') || b });
+      return;
+    }
+    if ((b = t.closest('[data-hold]'))) { var T0 = team(); if (T0) holdIt(T0, b.getAttribute('data-hold'), Number(b.getAttribute('data-hold-n'))); return; }
+    if ((b = t.closest('[data-more]'))) { if (DESK.pop.justClosed(b)) return; var row = b.closest('[data-row]'); moreMenu(b, b.getAttribute('data-more') || (row && row.getAttribute('data-row'))); return; }
+    if ((b = t.closest('[data-open-page]'))) { openPage(b.getAttribute('data-open-page')); return; }
+    if ((b = t.closest('[data-lift-pick] [data-lift]'))) { st.lift = b.getAttribute('data-lift'); var y = scrollY; render(); scrollTo({ top: y, behavior: 'instant' }); var s2 = $('[data-lift-pick]'); if (s2) DESK.segSync(s2, true); return; }
+    if ((b = t.closest('[data-tile]'))) { var k2 = b.getAttribute('data-tile'); st.hi = st.hi === k2 ? null : k2; var y2 = scrollY; render(); scrollTo({ top: y2, behavior: 'instant' }); return; }
+    if ((b = t.closest('[data-week-tab]'))) { selectWeek(Number(b.getAttribute('data-week-tab')), true); return; }
+    if ((b = t.closest('[data-line-open]')) || ((b = t.closest('[data-crop=week] .ln')) && !t.closest('.cell') && (b = b.querySelector('[data-line-open]')))) { if (DESK.pop.justClosed(b)) return; linePop(b, b.getAttribute('data-line-open')); return; }
+    if ((b = t.closest('[data-pick-own]'))) { var pop = b.closest('.pop'), key = pop && $('[data-give-own]', pop) ? $('[data-give-own]', pop).getAttribute('data-line-key') : null; if (key) { var tr = DESK.pop.trigger(); linePop(tr || b, key, b.getAttribute('data-pick-own')); } return; }
+    if ((b = t.closest('[data-give-own]'))) { ownLinePop(b, b.getAttribute('data-line-key'), b.getAttribute('data-give-own')); return; }
+    if ((b = t.closest('[data-own-save]'))) { ownSave(b); return; }
+    if ((b = t.closest('[data-add-line]'))) { addLinePop(b, b.getAttribute('data-add-line')); return; }
+    if ((b = t.closest('[data-add-go]'))) { addGo(b); return; }
+    if ((b = t.closest('[data-crop=week] .cell'))) { if (st.editing && st.editing.cell === b) return; editCell(b); return; }
+    if ((b = t.closest('#list [data-row]'))) { var T1 = team(); if (!T1) return; var id = b.getAttribute('data-row'); go({ id: T1.id, lifter: id === 'team' ? null : id }); return; }
+    if ((b = t.closest('[data-crop=grid] tr[data-row]')) && !t.closest('button, a, input')) { var T2 = team(); if (T2) go({ id: T2.id, lifter: b.getAttribute('data-row') }); return; }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.matches('input[data-tick]')) countTicks();
+    else if (t.matches('[data-start-week]')) preview();
+    else if (t.matches('input[data-nt-id], [data-nt-on], input[name=nt-from]')) ntJoins();
+  });
+  document.addEventListener('input', function (e) { if (e.target.matches('input[data-max]')) { e.target.classList.remove('is-error'); preview(); } });
+  document.addEventListener('focusout', function (e) {
+    var t = e.target;
+    if (t.matches && t.matches('input[data-max]')) { var v = t.value === '' ? null : Number(t.value), ok = maxOk(v), d = DESK.sheet.el(), err = d && $('[data-max-err]', d); t.classList.toggle('is-error', !ok); if (err) { var bad = $$('input[data-max].is-error', d).length; err.hidden = !bad; err.textContent = bad ? 'Type a max from 20 to 600, in 2.5 kg steps.' : ''; } }
+  });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    /* ⌘↵ in a composer sends it */
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      if (t.matches && t.matches('[data-team-text]')) { e.preventDefault(); teamSend(); return; }
+      if (t.matches && t.matches('textarea[data-compose]')) { e.preventDefault(); sendOne(t.getAttribute('data-compose')); return; }
+    }
+    if (t.matches && t.matches('[data-own-in]') && e.key === 'Enter') { e.preventDefault(); var b = $('[data-own-save]', DESK.pop.el()); if (b) ownSave(b); return; }
+    /* the week tabs: ← → once a tab has the focus */
+    if (t.matches && t.matches('[data-week-tab]') && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      e.preventDefault(); var tabs = $$('[data-week-tab]'), i = tabs.indexOf(t), nx = tabs[i + (e.key === 'ArrowRight' ? 1 : -1)];
+      if (nx) { selectWeek(Number(nx.getAttribute('data-week-tab')), false); var f = $('[data-week-tab="' + nx.getAttribute('data-week-tab') + '"]'); if (f) f.focus(); }
+      return;
+    }
+    /* a cell in hand: Enter or a typed character edits, Tab moves, arrows move */
+    if (t.matches && t.matches('[data-crop=week] .cell') && !st.editing) {
+      if (e.key === 'Enter' || e.key === 'F2') { e.preventDefault(); editCell(t); return; }
+      if (e.key === 'Tab') { var all = cellsAll(), i2 = all.indexOf(t), n2 = all[i2 + (e.shiftKey ? -1 : 1)]; if (n2) { e.preventDefault(); n2.focus(); } return; }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); var all2 = cellsAll(), j = all2.indexOf(t), m2 = all2[j + (e.key === 'ArrowRight' ? 1 : -1)]; if (m2) m2.focus(); return; }
+      if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); editCell(t, e.key); return; }
+    }
+    /* the list: ↑ ↓ move, Enter opens */
+    var row = t.closest && t.closest('#list [data-row]');
+    if (row && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && !e.altKey && !e.metaKey) {
+      e.preventDefault(); var rows = $$('#list [data-row]'), k = rows.indexOf(row), nr = rows[k + (e.key === 'ArrowDown' ? 1 : -1)];
+      if (nr) { rows.forEach(function (r) { r.setAttribute('tabindex', '-1'); }); nr.setAttribute('tabindex', '0'); nr.focus(); }
+      return;
+    }
+    if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); row.click(); return; }
+  });
+  /* the cell in hand keeps its mark while the focus is on it */
+  document.addEventListener('focusin', function (e) { if (e.target.matches && e.target.matches('[data-crop=week] .cell')) { $$('.cell.is-hand').forEach(function (c) { if (c !== e.target && !(st.editing && st.editing.cell === c)) c.classList.remove('is-hand'); }); } });
+  /* Esc: back to Whole team from a lifter (desk.js closes popovers and sheets first) */
+  DESK.on('escape', function () { if (st.editing) return; var T = team(); if (T && st.lifter) go({ id: T.id }); });
+  /* the scope question closes with its popover: an edit asked about and not answered is put back */
+  DESK.on('pop:closed', function () { if (st.ask) { var a = st.ask; st.ask = null; st.asking = false; a.cancel(); } });
+  document.addEventListener('desk:fix', function () { render(); });
+
+  function selectWeek(k, focus) {
+    var T = team(); if (!T || !weekOf(T, k)) return;
+    st.week[T.id] = k;
+    var h = hashGet();
+    history.replaceState(null, '', location.pathname + location.search + '#' + hashOf({ id: T.id, lifter: h.lifter, week: k }));
+    var y = scrollY; render(); scrollTo({ top: y, behavior: 'instant' });
+    if (focus) { var f = $('[data-week-tab="' + k + '"]'); if (f) f.focus({ preventScroll: true }); }
+  }
+
+  /* Find's moves on this page (screens.md §3.2 Do) */
+  function registerActions() {
+    var T = team(), out = [{ title: 'New team', run: newTeamSheet }];
+    if (T) {
+      if (T.week.next) out.unshift({ title: 'Send week ' + T.week.next + ' to the team…', sub: T.name, run: function () { sendSheet(T.week.next); } });
+      out.splice(1, 0, { title: 'Message the team', sub: T.name, run: function () { var b = $('[data-team-msg]'); if (b) teamCompose(b); } });
+    }
+    DESK.actions(out);
+  }
+
+  /* first paint, then the links that open a sheet (#new=1, Find's "New team") */
+  onHash();
+  registerActions();
+  PL.on('change', registerActions);
+  if (hashGet().nw === '1') {
+    history.replaceState(null, '', location.pathname + location.search + '#' + hashOf({ id: st.team }));
+    newTeamSheet();
+  }
+})();
+</script>
+</body>
+</html>

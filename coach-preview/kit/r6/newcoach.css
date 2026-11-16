@@ -1,0 +1,158 @@
+/* newcoach.css: the first-time coach's sheets and cards (newcoach.js; first-time-coach.md §3, §4, §5.2, §7.1, §8, §10.2),
+   loaded after fix.css, whose sheet frame (.fx-s, .fx-sh, .fx-sb, .fx-sf, .fx-f) the two sheets share. Tokens only: no
+   new colour, no radius outside the kit's scale, no glow, no blur. Rows on hairlines; errors beside their field in
+   --warn; one crimson per sheet (its main button). Motion: the kit's sheet and popover timings; nothing moves on a key. */
+
+/* ================= the add and charge sheets ================= */
+dialog.sheet.nc-sheet { width: 560px; }
+.nc-sh { display: flex; align-items: center; gap: var(--sp-3); }
+.nc-sh .fx-st { flex: 1 1 auto; min-width: 0; outline: 0; }
+.nc-x { margin-right: calc(var(--sp-2) * -1); color: var(--ink-2); }
+.nc-way { flex: none; padding: var(--sp-4) var(--sp-6) 0; }
+.nc-sb > .fx-f:first-child, .nc-sb > :first-child { margin-top: var(--sp-3); }
+.nc-opt { margin-left: var(--sp-1); color: var(--ink-3); font-weight: 500; }
+.nc-err { margin: 0; color: var(--warn); font: 500 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
+.nc-sheet .input.is-error { box-shadow: var(--shadow-field); outline: 1.5px solid var(--warn); outline-offset: -1.5px; }
+.nc-sheet .input.is-error:focus { outline-offset: 0; }
+.nc-line { margin: var(--sp-2) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+
+/* the person's own link: the words, then a quiet Copy at the row's end */
+.nc-lr { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--ctl-h); border-bottom: 1px solid var(--line); }
+.nc-url { flex: 1 1 auto; min-width: 0; color: var(--ink); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.nc-none { color: var(--ink-3); }
+.nc-copy { margin-right: calc(var(--sp-3) * -1); }
+.nc-fold { margin-top: var(--sp-4); }
+.nc-money { margin-top: var(--sp-1); }
+.nc-money > .nc-line:first-child { margin-top: var(--sp-2); }
+
+/* a number with its unit or currency beside it, the field as wide as the number needs */
+.nc-unit-in, .nc-money-in { display: inline-flex; align-items: center; gap: var(--sp-2); align-self: flex-start; }
+.nc-unit-in .input { width: 96px; text-align: right; }
+.nc-money-in .input { width: 132px; text-align: right; }
+.nc-u, .nc-cur { color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-none) var(--font); }
+.nc-cur { order: -1; }
+
+/* best sets: one line per lift, kilos × reps */
+.nc-best { display: grid; grid-template-columns: 88px 96px 16px 80px; justify-content: start; align-items: center; row-gap: var(--sp-2); column-gap: var(--sp-2); }
+.nc-best > legend { grid-column: 1 / -1; margin-bottom: var(--sp-2); }
+.nc-br { display: contents; }
+.nc-bl { color: var(--ink); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); }
+.nc-best .input { width: 100%; text-align: right; }
+.nc-br .nc-times { color: var(--ink-3); font: 500 var(--fs-sub)/var(--lh-none) var(--font); text-align: center; }
+.nc-br .nc-err { grid-column: 2 / -1; margin-top: calc(var(--sp-1) * -1); }
+.nc-br .nc-err[hidden] { display: none; }
+
+/* choices that wrap: the training days, Every, First payment (aria-pressed, the segmented thumb's look) */
+.nc-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.nc-chips > button {
+  position: relative; height: var(--ctl-s); min-width: 48px; padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill);
+  background: var(--fill); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-none) var(--font); font-variant-numeric: tabular-nums; cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.nc-chips > button::after { content: ''; position: absolute; inset: -4px -2px; }   /* 40 px to hit; rows 8 px apart */
+.nc-chips > button[aria-pressed='true'] { background: var(--thumb); color: var(--ink); box-shadow: var(--shadow-thumb); font-weight: 600; }
+.nc-chips > button:active { transform: scale(var(--press)); }
+.nc-chips > button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .nc-chips > button:hover:not([aria-pressed='true']) { background: var(--fill-2); color: var(--ink); } }
+.nc-days > button { min-width: 52px; }
+/* a picked training day reads at a glance, filled as the start panel's days are in Programs (.sp-days) */
+.nc-days > button[aria-pressed='true'] { background: var(--ink); color: var(--card); box-shadow: none; }
+.nc-date { width: 180px; align-self: flex-start; }
+.nc-date[hidden] { display: none; }
+.nc-meet-r { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: var(--sp-2); }
+.nc-tell { margin-top: var(--sp-5); }
+.nc-tell .fx-msg[hidden] { display: none; }
+.nc-set { margin-top: var(--sp-4); color: var(--ink-2); }
+
+/* the foot: the plan after this lifter on the left, then Cancel and the main button */
+.nc-sf { flex-wrap: wrap; row-gap: var(--sp-2); }
+.nc-seat { flex: 1 1 auto; min-width: 0; margin: 0 auto 0 0; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; text-wrap: pretty; }
+.nc-sf > .fx-err:not([hidden]) { flex-basis: 100%; order: -1; }
+.nc-up { flex: none; }
+
+/* ================= Getting started (the Overview's work card) ================= */
+.nc-setup { max-width: 720px; }
+.nc-set-h, .nc-small-h { display: flex; align-items: center; gap: var(--sp-3); min-height: 56px; padding: var(--sp-3) var(--sp-4) 0 var(--sp-6); }
+.nc-set-t { margin: 0; color: var(--ink); font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); text-wrap: balance; }
+.nc-set-n { flex: 1 1 auto; color: var(--ink-3); font: 500 var(--fs-sub)/var(--lh-none) var(--font); font-variant-numeric: tabular-nums; }
+.nc-steps { padding-top: var(--sp-1); }
+.nc-step .nm { font-size: var(--fs-body); }
+/* only the next step is a target: it is the selected row and does the same act as the crimson; its line is the one
+   explanation on the card, so it reads in ink */
+.nc-step.is-next, .nc-step.is-next.is-sel { background: var(--fill-2); }
+.nc-step.is-next .why { color: var(--ink); }
+.nc-step.is-next .why .t { white-space: normal; text-wrap: pretty; }
+.nc-step.is-next::before, .nc-step.is-next + .lrow::before { opacity: 0; }
+.nc-step.is-done, .nc-step.is-later { cursor: default; }
+.nc-step.is-later .nm { color: var(--ink-3); font-weight: 500; }
+.nc-step .done-tick { max-width: none; }
+/* a done step's words (the store's doneText, up to 9 words) read in ink, as the Lifters list's done rows do: grey words
+   in a row stop at 8 (look L10) */
+.nc-step.is-done .done-tick span { color: var(--ink); }
+@media (hover: hover) and (pointer: fine) {
+  .nc-step.is-done:hover, .nc-step.is-later:hover { background: transparent; }
+  .nc-step.is-next:hover { background: var(--fill-2); }
+}
+.nc-set-done { display: flex; align-items: center; gap: var(--sp-3); min-height: 64px; padding: 0 var(--sp-4) 0 var(--sp-6); }
+.nc-set-l { flex: 1 1 auto; margin: 0; color: var(--ink); font: 600 var(--fs-body)/var(--lh-sub) var(--font); }
+
+/* ================= Your lifters (1 to 3 lifters, FTC §5.2) ================= */
+.nc-small .nm { text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { .nc-small .nm:hover { text-decoration: underline; text-underline-offset: 3px; } }
+.nc-small .nc-top { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.nc-small .why.is-warn { color: var(--warn); }
+/* the lifter's line is the words a new coach is learning: it wraps under the name, never cut ("Week 1 of 13: 1 of 4 done") */
+.nc-small .nc-lr2 .why .t { white-space: normal; overflow: visible; text-overflow: clip; text-wrap: pretty; }
+.nc-small-f .link { margin-left: 0; }
+
+/* ================= What to watch in week one (a popover from its trigger) ================= */
+.pop:has(> .nc-w1) { width: 360px; max-width: calc(100vw - var(--sp-7)); }
+.nc-w1-l { margin: var(--sp-3) 0 0; padding: 0; list-style: none; }
+.nc-w1-l > li { padding: var(--sp-2) 0; border-top: 1px solid var(--line); color: var(--ink); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+.nc-w1-l > li:last-child { border-bottom: 1px solid var(--line); }
+
+/* ================= words on demand (desk.js DESK.terms; FTC §8.3) ================= */
+/* the first place a word appears on a page, until its line has been read: a dotted underline that takes no room */
+.term-on {
+  text-decoration: underline dotted; text-decoration-color: var(--ink-4); text-decoration-thickness: 1px; text-underline-offset: 3px;
+  cursor: help; border-radius: var(--r-mark);
+}
+.term-on:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* the popover: the word and its line, no buttons; 300 px at most */
+.pop[data-term-pop], .pop:has(> [data-term-pop]) { width: max-content; max-width: min(300px, calc(100vw - var(--sp-7))); }
+[data-term-pop] b, [data-term-pop] strong, [data-term-pop] .tp-l, [data-term-pop] h3 { display: block; margin: 0; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
+[data-term-pop] p { margin: 2px 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+
+/* ================= one-time tips (DESK.tip; FTC §8.4) ================= */
+/* a slim line in flow under its anchor, never over content: the words in ink, Got it quiet at its end. No box of its
+   own (it sits inside cards: no rounded fill, no card in a card); a hairline under it holds it to its place */
+[data-tip] {
+  display: flex; align-items: center; gap: var(--sp-3); min-height: 40px; padding: var(--sp-1) 0 var(--sp-1) var(--sp-1);
+  border-bottom: 1px solid var(--line); color: var(--ink); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty;
+}
+[data-tip] > :first-child:not(button) { flex: 1 1 auto; min-width: 0; margin: 0; }
+[data-tip] > button, [data-tip] .btn { flex: none; margin-left: auto; }
+[data-tip-slot] > [data-tip] { border-bottom: 0; padding-left: var(--sp-4); padding-right: var(--sp-2); }
+@starting-style { [data-tip] { opacity: 0; } }
+[data-tip] { transition: opacity var(--dur-snap) var(--ease-out); }
+
+/* ================= the phase strip (a starter's weeks, FTC §7.1, §7.2) ================= */
+.nc-ph { display: flex; gap: 3px; width: 100%; min-width: 0; }
+/* a run is never narrower than its name (a one-week Deload reads whole): the longer runs give up the room */
+.nc-ph-run { display: flex; flex-direction: column; gap: 6px; min-width: min-content; flex: 1 1 0; }
+.nc-ph-c { display: flex; gap: 3px; }
+.nc-ph-c > i { flex: 1 1 0; height: 8px; border-radius: var(--r-mark); background: var(--fill-2); }
+.nc-ph-run[data-kind='low'] .nc-ph-c > i { background: var(--fill); }
+.nc-ph-run[data-kind='meet'] .nc-ph-c > i { background: var(--ink-3); }
+.nc-ph-n { min-width: 0; overflow: hidden; color: var(--ink-3); font: 500 var(--fs-cap)/var(--lh-cap) var(--font); white-space: nowrap; text-overflow: clip; }
+.nc-ph-run[data-span='2'] { flex-grow: 2; } .nc-ph-run[data-span='3'] { flex-grow: 3; } .nc-ph-run[data-span='4'] { flex-grow: 4; }
+.nc-ph-run[data-span='5'] { flex-grow: 5; } .nc-ph-run[data-span='6'] { flex-grow: 6; } .nc-ph-run[data-span='7'] { flex-grow: 7; }
+.nc-ph-run[data-span='8'] { flex-grow: 8; } .nc-ph-run[data-span='9'] { flex-grow: 9; } .nc-ph-run[data-span='10'] { flex-grow: 10; }
+.nc-ph-run[data-span='11'] { flex-grow: 11; } .nc-ph-run[data-span='12'] { flex-grow: 12; } .nc-ph-run[data-span='13'] { flex-grow: 13; }
+.nc-ph-run[data-span='14'] { flex-grow: 14; } .nc-ph-run[data-span='15'] { flex-grow: 15; } .nc-ph-run[data-span='16'] { flex-grow: 16; }
+
+/* ================= reduced motion: fades only; chips hold still ================= */
+@media (prefers-reduced-motion: reduce) {
+  .nc-chips > button { transition: background-color 150ms linear, color 150ms linear; }
+  .nc-chips > button:active { transform: none; }
+}

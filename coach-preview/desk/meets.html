@@ -1,0 +1,1510 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta name="robots" content="noindex">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meets, POWALIFTA Coach</title>
+<script>
+/* the theme before any CSS: ?theme= wins, then powa-r6-theme, else dark */
+(function () { var t = null; var m = /[?&]theme=(light|dark)\b/.exec(location.search); if (m) t = m[1]; if (!t) { try { t = localStorage.getItem('powa-r6-theme'); } catch (e) { t = null; } } document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark'); })();
+</script>
+<link rel="stylesheet" href="../kit/r6/tokens.css">
+<link rel="stylesheet" href="../kit/r6/glass.css">
+<link rel="stylesheet" href="../kit/r6/ui.css">
+<link rel="stylesheet" href="../kit/r6/fix.css">
+<link rel="stylesheet" href="../kit/r6/newcoach.css">
+<style>
+  /* Meets (screens.md §5, professional.md §10.7): the meets list on the left that never hides, beside the overview, a
+     lifter's prep or the day's board. Two cards a screen at most (the picture and the work); everything else flat on the
+     floor under an 18/600 title with hairline rows. The crimson lives at the end of the toolbar on every view, so a
+     popover never covers it. Tokens only. */
+  .tb-slot { display: contents; }
+  .tb .pos { display: inline-flex; align-items: center; gap: var(--sp-1); }
+  .tb .pos-n { min-width: 64px; padding: 0 var(--sp-2); text-align: center; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-none) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---- the list column: pinned from the toolbar's foot to the window's foot, as on Lifters and Programs ---- */
+  .ml {
+    position: fixed; z-index: var(--z-side); top: calc(var(--inset) + var(--tb-h)); bottom: 0; left: calc(var(--col-l) - var(--sp-6)); width: calc(var(--list-w) + var(--sp-6) * 2);
+    display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--line); background: var(--floor);
+  }
+  /* the one list head (function-polish PX3, DESK.listHead): at the column's top, its words on the rows' words */
+  .ml > .lh[data-list-head] { flex: none; padding-left: calc(var(--sp-4) + var(--sp-3)); padding-right: var(--sp-5); }
+  .ml-s {
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: var(--sp-2) var(--sp-4) var(--sp-9);
+    -webkit-mask-image: linear-gradient(transparent, var(--ink) var(--sp-4), var(--ink) calc(100% - var(--sp-6)), transparent);
+    mask-image: linear-gradient(transparent, var(--ink) var(--sp-4), var(--ink) calc(100% - var(--sp-6)), transparent);
+  }
+  .ml-s::-webkit-scrollbar { display: none; }
+  .ml-gh { display: flex; align-items: center; gap: var(--sp-2); min-height: 36px; margin: var(--sp-3) 0 0; padding: 0 var(--sp-3); color: var(--ink-2); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .ml-gh:first-child { margin-top: 0; }
+  .ml-gh .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .ml-empty { padding: var(--sp-6) var(--sp-3); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .mr { position: relative; display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-areas: 'd n' 'd w'; align-items: baseline; column-gap: var(--sp-2); row-gap: 2px; min-height: 64px; padding: var(--sp-3) var(--sp-3); border-radius: var(--r-row); cursor: pointer; outline: 0; user-select: none; align-content: center; }
+  .mr + .mr::before { content: ''; position: absolute; top: 0; left: var(--sp-3); right: var(--sp-3); height: 1px; background: var(--line); }
+  .mr[aria-selected='true'] { background: var(--place-sel); }   /* the chosen meet wears the place's tint (Meets: gold) */
+  .mr[aria-selected='true']::before, .mr[aria-selected='true'] + .mr::before { opacity: 0; }
+  .mr:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  @media (hover: hover) and (pointer: fine) { .mr:not([aria-selected='true']):hover { background: var(--hover); } .mr:hover::before, .mr:hover + .mr::before { opacity: 0; } }
+  .mr .d { grid-area: d; color: var(--ink-2); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mr .d.is-today { color: var(--gold); }
+  .mr .nm { grid-area: n; min-width: 0; color: var(--ink); font: 600 var(--fs-body)/var(--lh-sub) var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mr .w { grid-area: w; min-width: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mr .w.tone-warn { color: var(--warn); }
+
+  /* ---- the detail: 812 px at 1440, 696 at 1280, 16 px right of the list's line ---- */
+  .md { min-width: 0; margin-left: calc(var(--list-w) + var(--sp-6)); margin-right: calc(var(--sp-4) - var(--gutter)); padding-left: var(--sp-4); }
+  .md > * + * { margin-top: var(--sp-6); }
+  .md-fade { position: fixed; z-index: var(--z-edge); top: calc(var(--inset) + var(--tb-h)); left: calc(var(--col-l) + var(--list-w) + var(--sp-6)); right: 0; height: var(--sp-5); pointer-events: none; background: linear-gradient(var(--floor), transparent); opacity: 0; }
+  body.is-scrolled .md-fade { opacity: 1; }
+  .hd { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-5); min-height: 64px; }
+  .hd h1 { margin: 0; font: 700 var(--fs-large)/var(--lh-large) var(--font); letter-spacing: var(--ls-large); text-wrap: balance; outline: 0; }
+  .hd .facts { margin: var(--sp-2) 0 0; color: var(--ink-2); font: 400 var(--fs-body)/var(--lh-body) var(--font); font-variant-numeric: tabular-nums; }
+  .hd .facts .tw { font-weight: 500; }
+  .hd .hd-r { display: flex; align-items: center; gap: var(--sp-3); flex: none; }
+  .sec-t { display: flex; align-items: baseline; gap: var(--sp-2); margin: 0 0 var(--sp-3); font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+  .sec-t .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .sec-t .sub { margin-left: var(--sp-2); color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); letter-spacing: 0; }
+  .sec-t .grow { flex: 1; }
+  .line { margin: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+  .line b { color: var(--ink); font-weight: 600; }
+  .num { font-variant-numeric: tabular-nums; }
+  .err-l { margin: var(--sp-2) 0 0; color: var(--pain); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .tabs.lt-tabs { margin-bottom: var(--sp-5); }
+
+  /* ---- overview: the Today card (the picture) and Everyone with a meet (the work) ---- */
+  .today { padding: var(--sp-6) var(--sp-6) var(--sp-5); }
+  .today h2 { margin: 0; font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); }
+  .today .sub { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .today .rows { margin: var(--sp-4) calc(var(--sp-3) * -1) 0; }
+  .trow { position: relative; display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-4); min-height: 56px; padding: var(--sp-2) var(--sp-3); }
+  .trow + .trow::before { content: ''; position: absolute; top: 0; left: var(--sp-3); right: var(--sp-3); height: 1px; background: var(--line); }
+  .trow .nm { color: var(--ink); font: 600 var(--fs-body)/var(--lh-sub) var(--font); }
+  .trow .why { min-width: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .trow .why.tone-pain { color: var(--pain); font-weight: 500; }
+  .trow .why.tone-q { color: var(--ink-3); }
+  .trow .act { display: flex; justify-content: flex-end; min-width: 0; }
+  .trow > .done-row { grid-column: 2 / -1; }
+  .tl8 { position: relative; height: 52px; margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+  .tl8 > .tl { height: 52px; }
+  .ev { padding: var(--sp-2) var(--sp-2) var(--sp-3); }
+  .ev .tbl col.c-l { width: 18%; } .ev .tbl col.c-m { width: 19%; } .ev .tbl col.c-w { width: 12%; } .ev .tbl col.c-wt { width: 12%; } .ev .tbl col.c-a { width: 11%; } .ev .tbl col.c-r { width: 28%; }
+  .ev .tbl td, .ev .tbl th { padding: 0 var(--sp-2); }
+  .ev .tbl td { overflow: hidden; text-overflow: ellipsis; }
+  .ev .tbl td .q { color: var(--ink-3); }
+  .ev .tbl td .mv { max-width: 100%; }
+  .ev .tbl td .mv > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ev .tbl a.who { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); text-decoration: none; }
+  @media (hover: hover) and (pointer: fine) { .ev .tbl a.who:hover { text-decoration: underline; text-underline-offset: 3px; } }
+
+  /* ---- a lifter's prep ---- */
+  .att { padding: var(--sp-5) var(--sp-6) var(--sp-5); }
+  .att-h { display: flex; align-items: center; gap: var(--sp-3); min-height: 40px; }
+  .att-h h2 { margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+  .att-h .st { color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-tight) var(--font); }
+  .att-h .grow { flex: 1; }
+  .att-h .yours { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); }
+  .ag { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 124px); align-items: center; margin-top: var(--sp-3); }
+  .ag .ch { padding: 0 0 var(--sp-2); color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); text-align: center; }
+  .ag .rh, .ag .cell { min-height: 76px; border-top: 1px solid var(--line); }
+  .ag .rh { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; padding-right: var(--sp-3); }
+  .ag .rh b { color: var(--ink); font: 600 var(--fs-body)/var(--lh-tight) var(--font); }
+  .ag .rh span { min-width: 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ag .cell { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  .ag .cell input { width: 100px; height: 36px; padding: 0; border: 0; border-radius: var(--r-field); background: transparent; box-shadow: var(--shadow-field); color: var(--ink); font: 800 var(--fs-title)/var(--lh-none) var(--font); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; text-align: center; outline: 0; transition: background-color var(--dur-fast) var(--ease-out); }
+  .ag .cell input:focus { background: var(--fill); outline: 2px solid var(--focus); outline-offset: 0; }
+  .ag .cell input::placeholder { color: var(--ink-4); font-weight: 500; font-size: var(--fs-sub); }
+  .ag .cell input.is-error { outline: 1.5px solid var(--pain); outline-offset: -1.5px; }
+  /* each lift's name and its three attempts wear the lift's colour (ui.css [data-lift]) */
+  .ag .rh b[data-lift], .ag .cell[data-lift] input { color: var(--lc-ink); }
+  /* an attempt the store guessed from the intake reads quieter until the coach types or steps it (F7.4) */
+  .ag .cell[data-lift] input[data-guess] { color: var(--ink-2); }
+  .att .basis { margin: var(--sp-2) 0 0; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .att-h .mv { margin-left: calc(var(--sp-2) * -1); }
+  .ag .cell .sh { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; }
+  .ag .cell .pm { position: absolute; top: 50%; translate: 0 -60%; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--r-pill); background: var(--btn-2); color: var(--ink); font: 600 var(--fs-sub)/var(--lh-none) var(--font); cursor: pointer; opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-out); }
+  .ag .cell .pm::after { content: ''; position: absolute; inset: -6px; }
+  .ag .cell .pm.l { left: 0; } .ag .cell .pm.r { right: 0; }
+  .ag .cell:focus-within .pm { opacity: 1; pointer-events: auto; }
+  .tot { display: flex; align-items: center; gap: var(--sp-4); min-height: 56px; margin-top: var(--sp-1); border-top: 1px solid var(--line); }
+  .tot .t { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; }
+  .tot .t.acc { color: var(--place-ink); }
+  .tot .grow { flex: 1; }
+  .tot label { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-tight) var(--font); }
+  .tot .input { width: 96px; text-align: right; }
+  .tot .tgt { color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-tight) var(--font); white-space: nowrap; }
+  .warns { margin-top: var(--sp-2); border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+  .warns p { margin: 0 0 var(--sp-2); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+  .warns p b { color: var(--warn); font-weight: 600; }
+  .chg { display: flex; align-items: center; gap: var(--sp-3); min-height: 48px; border-top: 1px solid var(--line); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-tight) var(--font); }
+  .chg .input { width: 84px; }
+  .flat .moves { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
+  .bwc { margin-top: var(--sp-3); }
+  .bwc svg { display: block; overflow: visible; }
+  .bwc .grid { stroke: var(--line); stroke-width: 1; }
+  .bwc .cl { stroke: var(--line-2); stroke-width: 1; }
+  .bwc .ln { fill: none; stroke: var(--bw); stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+  .bwc .pt { fill: var(--bw); stroke: var(--floor); stroke-width: 2; }
+  .bwc .plan { fill: none; stroke: var(--ink-3); stroke-width: 1.5; stroke-dasharray: 4 4; }
+  .bwc .lab { fill: var(--ink-3); font: 500 var(--fs-cap) var(--font); }
+  .rin { margin-top: var(--sp-3); }
+  .rin svg { display: block; overflow: visible; }
+  .rin .ax { stroke: var(--line-2); stroke-width: 2; stroke-linecap: round; }
+  .rin .win { fill: var(--fill-2); }
+  .rin .wk { stroke: var(--line-2); stroke-width: 1; }
+  .rin .lab { fill: var(--ink-3); font: 500 var(--fs-cap) var(--font); }
+  .rin .meet { fill: var(--gold); }
+  .mk { margin: var(--sp-3) 0 0; padding: 0; list-style: none; }
+  .mk li.r { grid-template-columns: 176px minmax(0, 1fr) auto; }
+  .mk li.r .d { color: var(--ink); font: 400 var(--fs-sub)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; }
+  .mk .r { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-4); min-height: 44px; }
+  .mk .r + .r::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--line); }
+  .mk .r b { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-label) var(--font); }
+  .mk .r span { color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; }
+  .mk .r em { font-style: normal; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); white-space: nowrap; }
+  .ready { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-5); row-gap: var(--sp-2); margin-top: var(--sp-2); }
+  .ready .tick { margin-top: 0; min-height: 40px; }
+  .ready .rk { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-tight) var(--font); }
+  .ready .rk .input { width: 48px; padding: 0 var(--sp-2); text-align: center; }
+  .ready.rk-row { column-gap: var(--sp-4); margin-top: var(--sp-3); }
+  .ready .rk-l { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .note-f { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-3); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-tight) var(--font); }
+  .note-f .input { flex: 1; min-width: 0; }
+
+  /* ---- the board ---- */
+  .up { padding: var(--sp-5) var(--sp-6) var(--sp-5); }
+  .up .lbl { margin: 0; color: var(--ink-3); font: 600 var(--fs-label)/var(--lh-tight) var(--font); }
+  .up h2 { margin: var(--sp-2) 0 0; font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); text-wrap: balance; }
+  .up .line { margin-top: var(--sp-1); }
+  .up ol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-5); margin: var(--sp-4) 0 0; padding: 0; list-style: none; }
+  .up li { display: inline-flex; align-items: center; gap: var(--sp-2); }
+  .up li .k { min-width: 12px; color: var(--ink-3); font: 600 var(--fs-label)/var(--lh-none) var(--font); font-variant-numeric: tabular-nums; text-align: right; }
+  .up li .mv { margin-left: 0; }
+  .up li .done-w { color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-tight) var(--font); }
+  .up .another { display: inline-flex; align-items: center; gap: var(--sp-1); }
+  .up .another .input { width: 84px; text-align: center; }
+  .plat { display: flex; align-items: center; gap: var(--sp-3); min-height: 48px; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .plat b { color: var(--ink); font-weight: 600; }
+  .plat .input { width: 64px; text-align: center; font-weight: 700; }
+  .plat .grow { flex: 1; }
+  .wu .r { position: relative; display: grid; grid-template-columns: 112px 104px minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-3); min-height: 48px; padding: 0 var(--sp-1); }
+  .wu .r + .r::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--line); }
+  .wu .r .nmb { justify-self: start; height: 36px; margin-left: calc(var(--sp-2) * -1); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-field); background: none; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-none) var(--font); cursor: pointer; }
+  @media (hover: hover) and (pointer: fine) { .wu .r .nmb:hover { background: var(--fill); } }
+  .wu .r .kg { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .wu .r .kg[data-lift], .pp .rl .r .kg[data-lift] { color: var(--lc-ink); }
+  .wu .r .wh { min-width: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wu .r .wh.tone-warn { color: var(--warn); font-weight: 500; }
+  .wu .r .tick { margin: 0; }
+  .wu .none { color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .wi .tbl col.c-l { width: 88px; } .wi .tbl col.c-s { width: 96px; } .wi .tbl col.c-res { width: 136px; } .wi .tbl col.c-r { width: 196px; } .wi .tbl col.c-o { width: 132px; }
+  .wi .tbl td, .wi .tbl th { padding: 0 var(--sp-2); }
+  .wi .tbl td { height: 64px; }
+  .wi .tbl td .nm { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .wi .tbl td .rs { display: block; white-space: normal; text-wrap: pretty; }
+  .wi .tbl td .rs.tone-warn { color: var(--warn); font-weight: 500; }
+  .wi .tbl td .rs.tone-up { color: var(--up); font-weight: 500; }
+  .wi .tbl td .rs.q { color: var(--ink-3); }
+  .wi .tbl input.input { width: 100%; max-width: 84px; text-align: center; }
+  .wi .tbl .rk { display: flex; gap: var(--sp-1); }
+  .wi .tbl .rk .input { width: 60px; padding: 0; text-align: center; }
+  .wi .tbl .rk .input::placeholder { color: var(--ink-4); }
+  .wi .tbl td.op { font-variant-numeric: tabular-nums; color: var(--ink-2); }
+  .wi .tbl td .hi { color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-tight) var(--font); white-space: normal; }
+  .bd { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+  .bd .tbl { table-layout: fixed; }
+  .bd .tbl col.c-a { width: 56px; } .bd .tbl col.c-t { width: 76px; } .bd .tbl col.c-p { width: 56px; }
+  .bd .tbl th { padding: 0 var(--sp-1); text-align: center; }
+  .bd .tbl th:first-child { text-align: left; padding-left: var(--sp-2); }
+  .bd .tbl td { padding: var(--sp-3) 2px; vertical-align: top; text-align: center; white-space: normal; }
+  .bd .tbl td.lf { padding-left: var(--sp-2); padding-right: var(--sp-2); text-align: left; }
+  .bd .tbl td.lf .nm { display: block; color: var(--ink); font: 600 var(--fs-body)/var(--lh-label) var(--font); }
+  .bd .tbl td.lf .l2 { display: block; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bd .tbl td.lf .fl { display: block; margin-top: var(--sp-1); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .bd .tbl td.lf .fl.tone-pain { color: var(--pain); }
+  .bd .tbl td.lf .flb { display: inline-flex; align-items: center; height: 32px; margin: 2px 0 0 calc(var(--sp-2) * -1); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-field); background: none; color: var(--pain); font: 600 var(--fs-label)/var(--lh-none) var(--font); cursor: pointer; }
+  .bd .tbl td.lf .flb.ink { color: var(--ink); }
+  @media (hover: hover) and (pointer: fine) { .bd .tbl td.lf .flb:hover { background: var(--fill); } }
+  .bd .tbl tr.grp-s td { border-top: 1px solid var(--line-2); }
+  button.ac { position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 52px; min-height: 40px; padding: var(--sp-1) 0; border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink-3); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out); }
+  button.ac.is-called { color: var(--ink); font-weight: 800; }
+  button.ac.is-good { background: var(--up-tint); color: var(--ink); }
+  button.ac.is-no { background: var(--pain-tint); color: var(--ink-2); }
+  button.ac.is-no .v { text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  button.ac[aria-current='true'] { outline: 2px solid var(--ink); outline-offset: -2px; }
+  /* an attempt called or made wears its lift's colour; a planned one stays quiet, a no lift struck through */
+  .bd .tbl td[data-lift] button.ac:is(.is-called, .is-good) .v { color: var(--lc-ink); }
+  button.ac .pr { color: var(--ink-2); font: 600 var(--fs-cap)/var(--lh-tight) var(--font); }
+  button.ac:active { transform: scale(var(--press)); }
+  button.ac.is-open { background: var(--fill-2); }
+  @media (hover: hover) and (pointer: fine) { button.ac:hover:not(.is-good):not(.is-no) { background: var(--fill); } }
+  .bd .tbl td.tot-c, .bd .tbl td.pts-c { padding-top: calc(var(--sp-3) + 10px); }
+  .bd .tbl td .tt { display: block; color: var(--ink); font: 700 var(--fs-sub)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; }
+  .bd .tbl td .tp { display: block; color: var(--ink-3); font: 500 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bd .tbl td .ts { display: block; color: var(--ink-2); font: 500 var(--fs-cap)/var(--lh-label) var(--font); }
+  .bd .tbl td .pt { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; }
+
+  /* ---- popovers and the cut sheet ---- */
+  .pp h3 { margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+  .pp .who { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .pp .big { margin: var(--sp-3) 0 0; display: flex; align-items: center; gap: var(--sp-3); }
+  .pp .big .v { min-width: 88px; text-align: center; font: 800 var(--fs-title)/var(--lh-none) var(--font); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; }
+  .pp .acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-4); }
+  .pp .chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
+  .pp .chip { height: 32px; padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill); background: var(--fill); color: var(--ink); font: 500 var(--fs-label)/var(--lh-none) var(--font); cursor: pointer; }
+  .pp .chip[aria-pressed='true'] { background: var(--ink); color: var(--card); }
+  .pp .chip::after { content: ''; position: absolute; inset: -4px 0; }
+  .pp .chip { position: relative; }
+  .pp .lh { margin: var(--sp-4) 0 0; color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-tight) var(--font); }
+  .pp .rl { margin-top: var(--sp-2); }
+  .pp .rl .r { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-3); min-height: 40px; }
+  .pp .rl .r + .r::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--line); }
+  .pp .rl .r .tick { margin: 0; }
+  .pp .rl .r .kg { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; }
+  .pp .rl .r .pl { color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pp textarea.input { width: 100%; margin-top: var(--sp-3); }
+  .pp .mx { margin-top: var(--sp-3); }
+  .pp .mx p { margin: 0 0 var(--sp-2); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; }
+  .pp .mx p b { color: var(--ink); font-weight: 600; }
+  .pp .mx p [data-lift] b { color: var(--lc-ink); }
+  .pp .fl-r { display: grid; grid-template-columns: 72px 1fr 1fr; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-tight) var(--font); }
+  .pp .fl-r .input { width: 100%; padding: 0 var(--sp-2); text-align: center; }
+  .pp .err-l:empty { display: none; }
+  dialog.cut { width: min(760px, calc(100vw - 48px)); }
+  .cs { display: flex; flex-direction: column; max-height: calc(100dvh - var(--edge-h) - var(--sp-8)); }
+  .cs-h { padding: var(--sp-6) var(--sp-6) var(--sp-3); }
+  .cs-h h2 { margin: 0; font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); }
+  .cs-h p { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .cs-b { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-2) var(--sp-6) var(--sp-4);
+    -webkit-mask-image: linear-gradient(transparent, var(--ink) var(--sp-3), var(--ink) calc(100% - var(--sp-4)), transparent);
+    mask-image: linear-gradient(transparent, var(--ink) var(--sp-3), var(--ink) calc(100% - var(--sp-4)), transparent); }
+  .cs-b .tbl col.c-d { width: 104px; } .cs-b .tbl col.c-t { width: 96px; } .cs-b .tbl col.c-f { width: 200px; }
+  .cs-b .tbl td, .cs-b .tbl th { height: 44px; padding: 0 var(--sp-1); }
+  .cs-b .tbl th[scope=row] { color: var(--ink); font: 600 var(--fs-label)/var(--lh-tight) var(--font); text-align: left; padding-left: 0; }
+  .cs-b .tbl td .input { width: 100%; height: 34px; padding: 0 var(--sp-2); }
+  .cs-b .tbl td .input.n { text-align: right; }
+  .cs-b .fl { display: block; margin-top: var(--sp-4); color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-tight) var(--font); }
+  .cs-b textarea.input { width: 100%; margin-top: var(--sp-2); min-height: 64px; }
+  .cs-f { display: flex; justify-content: flex-end; align-items: center; gap: var(--sp-3); padding: var(--sp-4) var(--sp-6) var(--sp-5); border-top: 1px solid var(--line); }
+  .cs-f .grow { flex: 1; }
+
+  @media (max-width: 1280px) {
+    .ag { grid-template-columns: minmax(0, 1fr) repeat(3, 112px); }
+    .bd .tbl col.c-a { width: 50px; } .bd .tbl col.c-t { width: 88px; } .bd .tbl col.c-p { width: 48px; }
+    .ev .tbl col.c-l { width: 18%; } .ev .tbl col.c-m { width: 15%; } .ev .tbl col.c-w { width: 15%; } .ev .tbl col.c-wt { width: 14%; } .ev .tbl col.c-a { width: 11%; } .ev .tbl col.c-r { width: 27%; }
+    .wi .tbl td.op { white-space: normal; }
+    button.ac { width: 48px; }
+    .wu .r { grid-template-columns: 96px 96px minmax(0, 1fr) auto; }
+    .trow { grid-template-columns: 80px minmax(0, 1fr) auto; }
+    .wi .tbl col.c-l { width: 76px; } .wi .tbl col.c-s { width: 84px; } .wi .tbl col.c-res { width: 116px; } .wi .tbl col.c-r { width: 172px; } .wi .tbl col.c-o { width: 104px; }
+    .wi .tbl .rk .input { width: 52px; }
+    .mk li.r { grid-template-columns: 152px minmax(0, 1fr) auto; }
+  }
+  @media (prefers-reduced-motion: reduce) { button.ac, .ag .cell input, .ag .cell .pm { transition: none; } button.ac:active { transform: none; } }
+</style>
+</head>
+<body data-place="meets">
+<div id="page" class="page">
+  <aside class="ml" data-crop="list" id="list" aria-label="Meets"></aside>
+  <main class="md" data-crop="detail" id="detail"></main>
+  <div class="md-fade" data-fade aria-hidden="true"></div>
+</div>
+<script src="../kit/data.js"></script>
+<script src="../kit/kit.js"></script>
+<script src="../kit/coach.js"></script>
+<script src="../kit/r6/block.js"></script>
+<script src="../kit/r6/store.js"></script>
+<script src="../kit/r6/charts.js"></script>
+<script src="../kit/r6/desk.js"></script>
+<script src="../kit/r6/fix.js"></script>
+<script src="../kit/r6/newcoach.js"></script>
+<script>
+/* meets.html: the meets list beside the overview, a lifter's prep or the day's board (screens.md §5; shared.md §2 to §9).
+   Every number and word comes from the store (window.PL) and coach.js through it; the page never counts, never works out
+   a load and never keeps its own copy of a weigh-in. Writes go through PL; the page repaints on PL's change event. */
+(function () {
+  'use strict';
+  var K = window.K, PL = window.PL, DESK = window.DESK, CH = window.CHARTS;
+  var esc = K.esc, $ = function (s, r) { return (r || document).querySelector(s); }, $$ = function (s, r) { return [].slice.call((r || document).querySelectorAll(s)); };
+  var fn = function (o, k) { return !!o && typeof o[k] === 'function'; };
+  var dat = function (r) { return r && !r.error ? r.data : null; };
+  var n = function (v) { return K.n(v); };
+  var LIFTS = ['squat', 'bench', 'deadlift'], LIFT = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
+  var ORD = ['opener', 'second', 'third'], ORD_C = ['Opener', 'Second', 'Third'], SHORT = { squat: 'S', bench: 'B', deadlift: 'D' };
+  var STAGES = [['weigh', 'Weigh-in'], ['squat', 'Squat'], ['bench', 'Bench'], ['deadlift', 'Deadlift'], ['done', 'Done']];
+  var NEXT = { squat: 'bench', bench: 'deadlift' };
+  var RED = [['depth', 'Depth'], ['press', 'Press call'], ['lockout', 'Lockout'], ['rack', 'Rack'], ['down', 'Down call'], ['start', 'Start call'], ['other', 'Other']];
+  var redWord = function (k) { var r = RED.filter(function (x) { return x[0] === k || x[1] === k; })[0]; return r ? r[1] : String(k || ''); };
+  var CHECK = DESK.ic('check', 2.4);
+  var S = { id: null, lifter: null, err: {}, refused: {}, tabLifter: null, upMoves: [], crimson: null, pop: null, called: {} };
+
+  /* ---------------- reads (the store's, guarded) ---------------- */
+  function meets() { return dat(PL.meets.list()) || []; }
+  function meetGet(id) { if (!id) return null; var r = PL.meets.get(id); return dat(r); }
+  function meetRow(id) { return meets().filter(function (m) { return m.id === id; })[0] || null; }
+  function boardOf(id) { return id ? dat(PL.meets.board(id)) : null; }
+  function planOf(id) { return id ? dat(PL.meets.plan(id)) : null; }
+  function L(id) { return id ? dat(PL.lifters.get(id)) : null; }
+  function itemOf(id) { return id ? dat(PL.items.get(id)) : null; }
+  function counts() { return dat(PL.counts()) || {}; }
+  /* one number per fact (function-polish F6): every lift number and bodyweight from PL.lifters.numbers; one countdown */
+  function nums(id) { return id && fn(PL.lifters, 'numbers') ? dat(PL.lifters.numbers(id)) : null; }
+  function outOf(days) { var o = fn(PL.fmt, 'out') ? PL.fmt.out(days) : null; o = o && o.data ? o.data : o; return o && o.text ? o : { text: days === 0 ? 'today' : 'in ' + days + ' days', title: '' }; }
+  function outHtml(days) { var o = outOf(days); return '<span' + (o.title ? ' title="' + esc(o.title) + '"' : '') + '>' + esc(o.text) + '</span>'; }
+  function lifterCount() { var c = counts(); return c.lifters != null ? c.lifters : (dat(PL.lifters.list()) || []).length; }
+  function todayMeet() { return meets().filter(function (m) { return m.days === 0; })[0] || null; }
+  function first(id) { var l = L(id); return l ? l.first : ''; }
+  function her(id, cap) { var l = L(id), w = l && l.sex === 'F' ? 'her' : 'his'; return cap ? w.charAt(0).toUpperCase() + w.slice(1) : w; }
+  function she(id) { var l = L(id); return l && l.sex === 'F' ? 'she' : 'he'; }
+  function day(iso) { return iso ? K.wd3(iso) + ' ' + K.dm(iso) : ''; }
+  function rel(iso) { var d = iso ? K.daysTo(String(iso).slice(0, 10)) : null; return d === 0 ? 'Today' : d === 1 ? 'Tomorrow, ' + day(iso) : day(iso); }
+  function names(ids) { return K.list(ids.map(first).filter(Boolean), 4); }
+  /* everyone with a meet, in the order of their meets (the prep's ‹ ›, J and K) */
+  function meeters() { var out = []; meets().forEach(function (m) { (m.lifterIds || []).forEach(function (id) { if (out.indexOf(id) < 0) out.push(id); }); }); return out; }
+  function lifterMeet(id) { var l = L(id); return l && l.meet ? l.meet : null; }
+  function isNext(id, meetId) { var m = lifterMeet(id); return !!m && (m.id === meetId || K.esc(m.name).toLowerCase().replace(/[^a-z0-9]+/g, '-') === meetId); }
+  function liftsDone(b, x, lift) { return x.attempts[lift].every(function (a) { return a.st === 'good' || a.st === 'no'; }); }
+  function bestMade(x, lift) { return x.attempts[lift].reduce(function (m, a) { return a.st === 'good' && (m == null || a.kg > m) ? a.kg : m; }, null); }
+  function bombed(x, lift) { return liftsDone(null, x, lift) && bestMade(x, lift) == null; }
+  /* an attempt's place on the platform, from the store's flights: flights run one after another, each its rounds */
+  function attemptAt(b, id, lift, k) {
+    var fl = b && b.flights && b.flights[lift]; if (!fl) return null;
+    var off = 0;
+    for (var i = 0; i < fl.length; i++) { var f = fl[i], p = f.ids && f.ids[id]; if (p) return off + (k - 1) * f.size + p; off += 3 * f.size; }
+    return null;
+  }
+  function liftTotal(b, lift) { var fl = b && b.flights && b.flights[lift]; return fl ? fl.reduce(function (s, f) { return s + 3 * f.size; }, 0) : 0; }
+
+  /* ---------------- painting: coalesced, never while a pointer is down (a click lands on what it pressed) ---------------- */
+  var pending = false, ptrDown = false;
+  addEventListener('pointerdown', function () { ptrDown = true; }, true);
+  addEventListener('pointerup', function () { ptrDown = false; if (pending) setTimeout(flush, 0); }, true);
+  addEventListener('pointercancel', function () { ptrDown = false; if (pending) setTimeout(flush, 0); }, true);
+  function schedule() { if (pending) return; pending = true; setTimeout(function () { if (!ptrDown) flush(); }, 0); }
+  function flush() { if (!pending) return; pending = false; paint(); }
+  /* a repaint morphs the DOM in place: a node the coach holds (a field, a button under the pointer, a popover's trigger)
+     stays the same node, keeps its focus and what was typed in it; only what changed is touched */
+  var keyOf = function (n) { return n.nodeType !== 1 ? '' : n.getAttribute('data-row') || n.getAttribute('data-att') || n.getAttribute('data-rung') || n.getAttribute('data-k') || n.getAttribute('data-crop') || n.id || ''; };
+  /* nodes the kit puts in the page (the segmented thumb, a one-time tip) are never the page's to take out */
+  var skip = function (n) { return n.nodeType === 1 && (n.classList.contains('seg-thumb') || n.hasAttribute('data-tip')); };
+  /* a marked word's title, tab stop and underline belong to DESK.terms (desk.js), never to the repaint */
+  var TERM_ATTRS = { title: 1, tabindex: 1, 'aria-describedby': 1, 'data-term-tab': 1 };
+  function syncAttrs(x, y) {
+    var term = x.hasAttribute('data-term') && x.getAttribute('data-term') === y.getAttribute('data-term'), on = term && x.classList.contains('term-on');
+    [].slice.call(x.attributes).forEach(function (a) { if (term && TERM_ATTRS[a.name]) return; if (!y.hasAttribute(a.name)) x.removeAttribute(a.name); });
+    [].slice.call(y.attributes).forEach(function (a) { if (term && TERM_ATTRS[a.name]) return; if (x.getAttribute(a.name) !== a.value) x.setAttribute(a.name, a.value); });
+    if (on && !x.classList.contains('term-on')) x.classList.add('term-on');
+  }
+  function morphKids(a, b) {
+    var an = [].filter.call(a.childNodes, function (q) { return !skip(q); }), bn = [].slice.call(b.childNodes);
+    for (var i = 0; i < bn.length; i++) {
+      var x = an[i], y = bn[i];
+      if (!x) { a.appendChild(document.importNode(y, true)); continue; }
+      if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName || keyOf(x) !== keyOf(y)) { a.replaceChild(document.importNode(y, true), x); continue; }
+      if (x.nodeType !== 1) { if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue; continue; }
+      if (x.tagName === 'INPUT') {
+        var was = x.getAttribute('value') || '', now = y.getAttribute('value') || '', dirty = x.value !== was;
+        syncAttrs(x, y);
+        if (document.activeElement !== x && !(dirty && was === now) && x.value !== now) x.value = now;
+        continue;
+      }
+      if (x.tagName === 'TEXTAREA') { var tw = x.defaultValue; syncAttrs(x, y); if (tw !== y.value) { var td = x.value !== tw; x.defaultValue = y.value; if (document.activeElement !== x && !td) x.value = y.value; } continue; }
+      syncAttrs(x, y);
+      morphKids(x, y);
+    }
+    for (var j = an.length - 1; j >= bn.length; j--) a.removeChild(an[j]);
+  }
+  function morph(el, html) { var t = document.createElement('template'); t.innerHTML = html; morphKids(el, t.content); }
+
+  /* ---------------- the view ---------------- */
+  function view() {
+    if (!S.id) return 'overview';
+    if (S.practice && S.practice.meetId === S.id) return 'practice';
+    var m = meetRow(S.id); if (!m) return 'overview';
+    if (m.days === 0 && !S.lifter) return 'board';
+    return 'prep';
+  }
+  function prepLifter() {
+    if (S.lifter) return S.lifter;
+    var m = meetRow(S.id); return m && m.lifterIds && m.lifterIds.length ? (S.tabLifter && m.lifterIds.indexOf(S.tabLifter) >= 0 ? S.tabLifter : m.lifterIds[0]) : null;
+  }
+  function syncUrl(push) {
+    var h = DESK.url.get(), o = { id: S.id, lifter: S.lifter, from: h.from };
+    var v = view(); if (v === 'board') { var b = boardOf(S.id); if (b) o.stage = b.stage; }
+    DESK.url.set(o, push);
+  }
+
+  /* ---------------- the list ---------------- */
+  function meetLine(m) {
+    var ids = m.lifterIds || [];
+    if (ids.length === 1) {
+      var id = ids[0], g = meetGet(m.id), x = g && g.lifters ? g.lifters.filter(function (y) { return y.id === id; })[0] : null;
+      var cls = x && x.cls ? String(x.cls).replace(/\s*kg$/, '') : (m.classes && m.classes[0] ? String(m.classes[0]).replace(/\s*kg$/, '') : '');
+      if (x && x.over != null && x.over > 0 && m.days > 0) return { t: first(id) + ', ' + n(x.over) + ' kg over the ' + cls + ' kg class', tone: 'warn' };
+      return { t: first(id) + (cls ? ', ' + cls + ' kg class' : ''), tone: '' };
+    }
+    return { t: names(ids), tone: '' };
+  }
+  function rowHtml(m) {
+    var sel = S.id === m.id, ln = meetLine(m);
+    return '<div class="mr" role="option" tabindex="' + (sel ? 0 : -1) + '" data-row="' + esc(m.id) + '" aria-selected="' + sel + '">' +
+      '<span class="d' + (m.days === 0 ? ' is-today' : '') + '" data-fact="date">' + (m.days === 0 ? 'Today' : esc(K.dm(m.date))) + '</span>' +
+      '<span class="nm" data-fact="name" data-ellipsis title="' + esc(m.name) + '">' + esc(m.name) + '</span>' +
+      '<span class="w' + (ln.tone ? ' tone-' + ln.tone : '') + '" data-fact="who" data-ellipsis title="' + esc(ln.t) + '">' + esc(ln.t) + '</span></div>';
+  }
+  function paintList() {
+    var all = meets(), soon = all.filter(function (m) { return m.days <= 56; }), later = all.filter(function (m) { return m.days > 56; });
+    var h = DESK.listHead(null, { name: 'All meets', count: all.length, action: lifterCount() ? '<button class="btn quiet sm" type="button" data-book>Book a meet…</button>' : '' }) + '<div class="ml-s" data-scroll>';
+    if (all.length) {
+      h += '<div data-list role="listbox" aria-label="Meets">';
+      if (soon.length) h += '<p class="ml-gh">Next 8 weeks <span class="n">' + soon.length + '</span></p>' + soon.map(rowHtml).join('');
+      if (later.length) h += '<p class="ml-gh">Later <span class="n">' + later.length + '</span></p>' + later.map(rowHtml).join('');
+      h += '</div>';
+    }
+    h += '</div>';
+    morph($('#list'), h);
+  }
+
+  /* ---------------- the toolbar ---------------- */
+  function crimsonHtml(c) { return c ? '<button class="btn" type="button" data-primary data-crimson' + (c.title ? ' title="' + esc(c.title) + '"' : '') + '>' + esc(c.label) + '</button>' : ''; }
+  function paintToolbar(v, crimson) {
+    var lead = DESK.backHtml(), trail = '';
+    if (v === 'prep') {
+      var all = meeters(), id = prepLifter(), i = all.indexOf(id);
+      if (i >= 0) lead += '<span class="pos"><button class="btn icon quiet" type="button" data-step="-1" aria-label="Previous lifter with a meet" title="Previous: ' + esc(L(all[(i - 1 + all.length) % all.length]).name) + ' (K)">' + K.ic('back', 2) + '</button><span class="pos-n">' + esc(L(id).name) + ', ' + (i + 1) + ' of ' + all.length + '</span><button class="btn icon quiet" type="button" data-step="1" aria-label="Next lifter with a meet" title="Next: ' + esc(L(all[(i + 1) % all.length]).name) + ' (J)">' + K.ic('chev', 2) + '</button></span>';
+    }
+    if (v === 'board') {
+      var b = boardOf(S.id), ids = b ? b.lifters.map(function (x) { return x.id; }) : [];
+      trail += '<button class="btn quiet" type="button" data-msg-all title="One message, one copy in each thread">Message all ' + (ids.length === 3 ? 'three' : ids.length) + '</button>';
+      trail += '<button class="btn" type="button" data-undo-last title="Undo the last verdict or weigh-in (U)">Undo last</button>';
+    }
+    if (v === 'practice') trail += '<button class="btn quiet" type="button" data-practice-end title="Back to the prep. Nothing from the practice is kept.">End practice</button>';
+    trail += crimsonHtml(crimson);
+    S.crimson = crimson || null;
+    var tl = $('#tbL'), tt = $('#tbT');
+    if (tl && tl.innerHTML !== lead) tl.innerHTML = lead;
+    if (tt && tt.innerHTML !== trail) tt.innerHTML = trail;
+  }
+
+  /* ---------------- done rows (shared.md §9) ---------------- */
+  function doneRow(itemId) {
+    var it = itemOf(itemId), d = it && it.done; if (!d) return '';
+    var at = d.at ? String(d.at).slice(11, 16) : '';
+    return '<div class="done-row">' + CHECK + '<span class="dw" data-ellipsis title="' + esc(d.label || 'Done') + '">' + esc(d.label || 'Done') + '</span>' + (at ? '<time class="at">' + esc(at) + '</time>' : '') + '<button class="btn quiet sm" type="button" data-undo-item="' + esc(itemId) + '">Undo</button>' + (d.sent ? '<span class="rc">Not seen yet</span>' : '') + '</div>';
+  }
+
+  /* ---------------- overview (screens.md §5.1) ---------------- */
+  function weighWords(x) {
+    var cls = x.cls ? String(x.cls).replace(/\s*kg$/, '') : '';
+    if (x.weigh === 'made') return 'Made the ' + cls + ' kg class';
+    if (x.over != null && x.over > 0) return n(x.over) + ' kg over the ' + cls + ' kg class';
+    return 'On weight for the ' + cls + ' kg class';
+  }
+  function todayRow(m, x) {
+    var ask = itemOf('meet-today-' + x.id), pain = itemOf('pain-' + x.id), pl = planOf(x.id), why = weighWords(x), tone = '', act = null, doneOf = null;
+    if (ask && ask.acts.some(function (a) { return a.id === 'msg'; })) {
+      if (ask.done) doneOf = ask.id; else { why += '. Asks: is ' + n(x.bw) + ' OK?'; act = { item: ask.id, act: 'msg', label: 'Reply to ' + x.first }; }
+    } else if (pain) {
+      if (pl && pl.pain) { why = pl.pain.text; tone = 'pain'; }
+      else { why = 'Pain on this morning’s check-in'; tone = 'pain'; }
+      var sa = pain.acts.filter(function (a) { return a.kind === 'primary'; })[0] || pain.acts[0];
+      if (pain.done) doneOf = pain.id; else act = { item: pain.id, act: sa.id, label: sa.label };
+    } else if (ask) {
+      /* P36: a lifter with nothing to do says so in words, never as a button that does nothing */
+      if (ask.done) doneOf = ask.id; else if (ask.nothing) { why = ask.nothing; tone = 'q'; }
+    }
+    var h = '<div class="trow" data-today="' + esc(x.id) + '"><span class="nm">' + esc(x.first) + '</span>';
+    if (doneOf) return h + doneRow(doneOf) + '</div>';
+    h += '<span class="why' + (tone ? ' tone-' + tone : '') + '">' + esc(why) + '</span>';
+    /* PX1: the row's move is a quiet text button; the toolbar's crimson stays the one filled action */
+    h += '<span class="act">' + (act ? '<button class="mv" type="button" data-fix="' + esc(act.item) + '|' + esc(act.act) + '">' + esc(act.label) + '</button>' : '') + '</span></div>';
+    return h;
+  }
+  function timelineHtml() {
+    var all = meets().filter(function (m) { return m.days <= 56; });
+    var marks = all.map(function (m) { return { x: m.days / 56, n: (m.lifterIds || []).length, now: m.days === 0, tip: m.name + ', ' + (m.days === 0 ? 'today' : day(m.date)) + ': ' + names(m.lifterIds || []) }; });
+    return '<div class="tl8" aria-label="Meets in the next 8 weeks">' + CH.timeline(marks, { ticks: [1, 2, 3, 4, 5, 6, 7].map(function (w) { return w / 8; }), left: 'Today', right: K.dm(K.add(K.today, 56)) }) + '</div>';
+  }
+  function overviewHtml() {
+    var c = counts(), tm = todayMeet(), h = '';
+    /* first-time-coach §6: nothing booked is one line, and the crimson is the way to start */
+    if (!meets().length) return '<div class="hd"><div><h1 tabindex="-1">Meets</h1></div></div><p class="line">No meets booked.</p>';
+    h += '<div class="hd"><div><h1 tabindex="-1">Meets</h1><p class="facts">' + esc(K.wd(K.today) + ' ' + K.dm(K.today)) + ' · <span data-count="meetsSoon">' + (c.meetsSoon || 0) + '</span> meets in 8 weeks</p></div></div>';
+    if (tm) {
+      var g = meetGet(tm.id), b = boardOf(tm.id), st = b && b.stages ? b.stages : [], sq = st.filter(function (s) { return s.id === 'squat'; })[0], w8 = st.filter(function (s) { return s.id === 'weigh'; })[0];
+      var wi = g && g.lifters && g.lifters[0] && g.lifters[0].weighIn === '24h' ? '24-hour weigh-in' : '2-hour weigh-in';
+      h += '<div class="card today" data-crop="today"><h2>' + esc(tm.name) + '</h2><p class="sub">Today, ' + esc(tm.fed || '') + ', ' + wi + '</p>';
+      if (w8 && sq) h += '<p class="sub">Scale ' + esc(w8.at) + ' to ' + esc(w8.until || b.clock.weighCloses) + ', squats ' + esc(sq.at) + '</p>';
+      h += '<div class="rows">' + ((g && g.lifters) || []).map(function (x) { return todayRow(tm, x); }).join('') + '</div>';
+      h += timelineHtml() + '</div>';
+    } else {
+      h += '<div class="card today" data-crop="today"><h2>Next 8 weeks</h2>' + timelineHtml() + '</div>';
+    }
+    /* everyone with a meet in 8 weeks */
+    var rows = [];
+    meets().filter(function (m) { return m.days <= 56; }).forEach(function (m) { var g = meetGet(m.id); (m.lifterIds || []).forEach(function (id) { if (!rows.some(function (r) { return r.id === id; })) rows.push({ id: id, m: m, x: g && g.lifters ? g.lifters.filter(function (y) { return y.id === id; })[0] : null }); }); });
+    /* function-polish F7.6: the lifters with a meet in 8 weeks; the Peak column says whether the run-in is written */
+    h += '<div><h2 class="sec-t">Meets in the next 8 weeks <span class="n"><span data-count="meetLifters">' + (c.meetLifters || rows.length) + '</span> lifters</span></h2>';
+    h += '<div class="card ev" data-crop="everyone"><table class="tbl" data-table><colgroup><col class="c-l"><col class="c-m"><col class="c-w"><col class="c-wt"><col class="c-a"><col class="c-r"></colgroup>' +
+      '<thead><tr><th scope="col">Lifter</th><th scope="col">Meet</th><th scope="col">When</th><th scope="col">Weight</th><th scope="col">Attempts</th><th scope="col"><span data-term="peak">Peak</span></th></tr></thead><tbody>';
+    rows.forEach(function (r) {
+      var l = L(r.id), pl = isNext(r.id, r.m.id) ? planOf(r.id) : null, x = r.x || {};
+      var wt = x.weigh !== 'made' && x.over != null && x.over > 0 ? '<span class="tw tone-warn">' + n(x.over) + ' kg over</span>' : x.weigh === 'made' ? 'Made weight' : 'On weight';
+      var att = pl ? (pl.sent === 'yes' ? 'Sent' : pl.sent === 'stale' ? 'Changed since' : 'Not sent') : '';
+      var pk = (pl && pl.timeline || []).filter(function (t) { return t.id === 'peak'; })[0], peak;
+      if (r.m.days === 0) peak = '<span class="q">Meet today</span>';
+      else if (!pl || !pk) peak = '<span class="sr">none</span>';
+      else if (pk.written) peak = 'Written';
+      else { var pw = 'Not written: write ' + her(r.id) + ' peak'; peak = '<button class="mv" type="button" data-peak="' + esc(r.id) + '" title="' + esc(pw) + '"><span data-ellipsis title="' + esc(pw) + '">' + esc(pw) + '</span></button>'; }
+      var href = '#id=' + encodeURIComponent(r.m.id) + '&lifter=' + encodeURIComponent(r.id);
+      h += '<tr data-row="' + esc(r.id) + '" data-open="' + esc(href.slice(1)) + '"><td><a class="who" href="' + esc(href) + '">' + esc(l ? l.name : r.id) + '</a></td><td data-ellipsis title="' + esc(r.m.name) + '">' + esc(r.m.name) + '</td><td class="num">' + (r.m.days === 0 ? 'Today' : outHtml(r.m.days)) + '</td><td>' + wt + '</td><td>' + esc(att) + '</td><td>' + peak + '</td></tr>';
+    });
+    h += '</tbody></table></div></div>';
+    return h;
+  }
+
+  /* ---------------- a lifter's prep (screens.md §5.2 to §5.4) ---------------- */
+  function cellHtml(id, pl, lift, k, e1) {
+    var kg = pl.attempts[lift][k - 1], key = 'att|' + lift + '|' + k, err = S.err[key], guess = pl.guess && pl.preset && kg != null;
+    var share = kg && e1 ? Math.round(kg / e1 * 100) + '%' : '';
+    return '<div class="cell" data-att="' + lift + '|' + k + '" data-lift="' + lift + '">' +
+      '<button class="pm l" type="button" tabindex="-1" data-pm="' + lift + '|' + k + '|-1" aria-label="2.5 kg less">−</button>' +
+      '<input type="text" inputmode="decimal" autocomplete="off" data-k="' + key + '" data-v="' + esc(kg == null ? '' : n(kg)) + '" value="' + esc(kg == null ? '' : n(kg)) + '" data-att-in="' + lift + '|' + k + '" placeholder="kg" aria-label="' + esc(LIFT[lift] + ' ' + ORD[k - 1] + ', kg') + '" title="' + esc(LIFT[lift] + ' ' + ORD[k - 1] + ': + and − change it by 2.5') + '"' + (guess ? ' data-guess' : '') + (err ? ' class="is-error" aria-invalid="true"' : '') + '>' +
+      '<button class="pm r" type="button" tabindex="-1" data-pm="' + lift + '|' + k + '|1" aria-label="2.5 kg more">+</button>' +
+      '<span class="sh">' + esc(share) + '</span></div>';
+  }
+  /* the attempts go out from the crimson only inside 21 days (function-polish FD9); earlier a quiet move sends them */
+  function earlySend(pl) { return (pl.phase === 'far' || pl.phase === 'build') && pl.sent !== 'yes' && LIFTS.every(function (k) { return pl.attempts[k].every(function (v) { return v != null; }); }); }
+  function attemptsCard(id, pl) {
+    var l = L(id), fst = l.first, nb = nums(id), h = '<div class="card att" data-crop="attempts">';
+    var sent = pl.sent === 'yes' ? 'With ' + fst : pl.sent === 'stale' ? 'Changed since ' + fst + ' got them' : 'Not sent';
+    var st = earlySend(pl) ? '<button class="mv" type="button" data-send-now>' + (pl.sent === 'stale' ? 'Send the new attempts now' : 'Send attempts now') + '</button>' : '<span class="st">' + esc(sent) + '</span>';
+    var safeT = pl.guess ? 'Safe: opener 90%, second 95%, third 99% of ' + her(id) + ' estimated max, rounded down to 2.5 kg. For a first meet.' : null;
+    h += '<div class="att-h"><h2>Attempts</h2>' + st + '<span class="grow"></span>' + (pl.preset ? '' : '<span class="yours">Your numbers</span>') +
+      '<div class="seg" role="group" aria-label="Preset">' + (pl.presets || []).map(function (p) { var t = p.title ? p.title : p.id === 'safe' && safeT ? safeT : p.name + ': ' + p.pct.join(', ') + '% of today’s e1RM, rounded down to 2.5 kg';   /* the store's one title (the veteran's walk: the hover said 90 / 95 / 99 over boxes that were not) */ return '<button type="button" data-preset="' + esc(p.id) + '" aria-pressed="' + (pl.preset === p.id) + '" title="' + esc(t) + '">' + (p.id === 'safe' ? '<span data-term="safe">' + esc(p.name) + '</span>' : esc(p.name)) + '</button>'; }).join('') + '</div></div>';
+    h += '<div data-tip-slot="attempts"></div>';
+    h += '<div class="ag" role="group" aria-label="' + esc(fst + '’s attempts') + '"><span></span>' + ORD_C.map(function (o, i) { return '<span class="ch">' + (i ? o : '<span data-term="opener">' + o + '</span>') + '</span>'; }).join('');
+    var marked = false;
+    LIFTS.forEach(function (lift) {
+      /* the basis of each lift's attempts: the store's e1RM (one number everywhere, F6.1), or her intake's estimate */
+      var bs = pl.basis && pl.basis[lift], lx = nb && nb.lifts ? nb.lifts[lift] : null, e1 = bs && bs.kg != null ? bs.kg : null, sub, why = '';
+      if (bs && bs.kind === 'e1rm') {
+        var best = lx && lx.best, word = marked ? 'e1RM' : '<span data-term="e1rm">e1RM</span>'; marked = true;
+        sub = word + ' ' + esc(n(bs.kg)) + (best && best.w ? esc('. Heaviest recent: ' + n(best.w) + ' × ' + best.r + ' ' + K.wd3(best.on)) : '');
+        why = lx && lx.basis && lx.basis.text ? lx.basis.text : '';
+      } else if (bs && bs.kind === 'intake') sub = esc('Estimated max ' + n(bs.kg));
+      else sub = esc('No max yet. Type the attempts.');
+      h += '<div class="rh"><b data-lift="' + lift + '">' + LIFT[lift] + '</b><span data-ellipsis title="' + esc(why || sub.replace(/<[^>]+>/g, '')) + '">' + sub + '</span></div>';
+      [1, 2, 3].forEach(function (k) { h += cellHtml(id, pl, lift, k, e1); });
+    });
+    h += '</div>';
+    if (pl.guess && pl.guessText) {
+      var ib = fn(PL.lifters, 'intake') ? dat(PL.lifters.intake(id)) : null, bb = ib && ib.best;
+      var bt = bb ? LIFTS.filter(function (k) { return bb[k]; }).map(function (k) { return k + ' ' + n(bb[k].kg) + ' × ' + bb[k].reps; }).join(', ') : '';
+      h += '<p class="basis"' + (bt ? ' title="' + esc('Her best sets: ' + bt).replace('Her', her(id, true)) + '"' : '') + '>' + esc(pl.guessText) + '</p>';
+    }
+    var errs = Object.keys(S.err).filter(function (k) { return /^att\|/.test(k) && S.err[k]; }).map(function (k) { return S.err[k]; });
+    if (errs.length) h += '<p class="err-l" role="alert">' + esc(errs[0]) + '</p>';
+    var tg = pl.target;
+    h += '<div class="tot"><span class="t acc">Openers ' + n(pl.totals.opener) + ', thirds ' + n(pl.totals.third) + '</span><span class="grow"></span>' +
+      (tg && tg.total ? '<span class="tgt' + (tg.short > 0 ? ' tw tone-warn' : '') + '">' + (tg.short > 0 ? 'Thirds ' + n(tg.short) + ' short' : 'Thirds reach it') + '</span>' : '') +
+      '<label>Target total<input class="input num" type="text" inputmode="decimal" autocomplete="off" data-k="target" data-v="' + esc(tg && tg.total ? n(tg.total) : '') + '" value="' + esc(tg && tg.total ? n(tg.total) : '') + '" data-target aria-label="Target total"></label></div>';
+    if (S.err.target) h += '<p class="err-l" role="alert">' + esc(S.err.target) + '</p>';
+    /* months out (phase far) nothing has been lifted toward the meet yet: a missing heavy single is no warning then */
+    if (pl.warnings && pl.warnings.length && pl.phase !== 'far') {
+      h += '<div class="warns">' + pl.warnings.map(function (w) {
+        var t = String(w.text), cut = w.kind === 'no-heavy' ? 'No heavy single or triple'.length : t.indexOf(',') > 0 ? t.indexOf(',') : t.length;
+        return '<p><b>' + esc(t.slice(0, cut)) + '</b>' + esc(t.slice(cut)) + '</p>';
+      }).join('') + '<button class="btn sm" type="button" data-safe-thirds' + (safeRead(id) ? '' : ' disabled title="Safe’s numbers are not in the store yet."') + '>Use Safe thirds</button></div>';
+    }
+    var lm = lifterMeet(id);
+    if (lm && lm.days === 0) {
+      var cb = pl.changeBy;
+      h += '<div class="chg"><span>' + (cb ? 'Openers to the table by ' + esc(cb) : 'Openers can change until') + '</span><input class="input num" type="text" inputmode="numeric" autocomplete="off" data-k="changeby" data-v="' + esc(cb || '') + '" value="' + esc(cb || '') + '" data-changeby placeholder="09:55" aria-label="Openers can change until"></div>';
+    }
+    return h + '</div>';
+  }
+  /* the bodyweight chart: weigh-ins, the class line and, once a cut exists, the plan (data-series=plan) */
+  function bwChart(pl) {
+    var bw = pl.bw, ser = (bw.series || []).slice(), plan = bw.plan || [], W = 520, H = 112, padL = 4, padR = 48, padY = 12;
+    /* one weigh-in is a number, not a chart (function-polish F7.3) */
+    if (ser.length < 2 && !plan.length) return '';
+    var dates = ser.map(function (p) { return p.d; }).concat(plan.map(function (p) { return p.d; })).sort(), d0 = dates[0], d1 = dates[dates.length - 1];
+    var vals = ser.map(function (p) { return p.kg; }).concat(plan.map(function (p) { return p.target; })).concat([bw.cls]);
+    var lo = Math.min.apply(null, vals) - 0.3, hi = Math.max.apply(null, vals) + 0.3, span = Math.max(1, (K.d(d1) - K.d(d0)) / 864e5);
+    var X = function (d) { return padL + (K.d(d) - K.d(d0)) / 864e5 / span * (W - padL - padR); }, Y = function (v) { return padY + (1 - (v - lo) / (hi - lo)) * (H - padY * 2); };
+    var path = function (pts) { return pts.map(function (p, i) { return (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1); }).join(' '); };
+    var s = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc('Weigh-ins: ' + ser.map(function (p) { return K.dm(p.d) + ' ' + n(p.kg); }).join(', ') + (plan.length ? '. The plan ends at ' + n(plan[plan.length - 1].target) : '')) + '">';
+    s += '<line class="cl" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + Y(bw.cls).toFixed(1) + '" y2="' + Y(bw.cls).toFixed(1) + '"/><text class="lab" x="' + (W - padR + 6) + '" y="' + (Y(bw.cls) + 4).toFixed(1) + '">' + n(bw.cls) + '</text>';
+    if (plan.length) s += '<path class="plan" data-series="plan" d="' + path([[ser[ser.length - 1].d, ser[ser.length - 1].kg]].concat(plan.map(function (p) { return [p.d, p.target]; }))) + '"/>';
+    if (ser.length > 1) s += '<path class="ln" data-series="weighins" d="' + path(ser.map(function (p) { return [p.d, p.kg]; })) + '"/>';
+    ser.forEach(function (p) { s += '<circle class="pt" cx="' + X(p.d).toFixed(1) + '" cy="' + Y(p.kg).toFixed(1) + '" r="3.5"><title>' + esc(K.dm(p.d) + ': ' + n(p.kg) + ' kg') + '</title></circle>'; });
+    var last = ser[ser.length - 1]; s += '<text class="lab" x="' + (W - padR + 6) + '" y="' + (Y(last.kg) + 4).toFixed(1) + '">' + n(last.kg) + '</text>';
+    return '<div class="bwc" data-chart>' + s + '</svg></div>';
+  }
+  function bwHtml(id, pl) {
+    var bw = pl.bw, l = L(id), lm = lifterMeet(id), nb = nums(id), one = nb && nb.bw && nb.bw.text ? nb.bw.text : '', h = '<div class="flat" data-crop="bw"><h2 class="sec-t">Bodyweight</h2>';
+    /* the store's one bodyweight string (function-polish F6.6); a missing number leaves its clause out, never NaN */
+    var said;
+    if (bw.now == null) said = one ? one + '.' : 'Not weighed in yet.';
+    else if (lm && lm.days === 0) said = /^Weighed/.test(bw.sentence || '') ? bw.sentence : n(bw.now) + ' kg ' + K.when(bw.at, { bare: true }) + (bw.over > 0 ? ', ' + n(bw.over) + ' over the ' + n(bw.cls) + ' kg class.' : ', on weight for the ' + n(bw.cls) + ' kg class.');
+    else if (bw.over > 0) said = (one || n(bw.now) + ' kg') + '. ' + lm.days + ' days to make weight.';
+    else said = one ? one + '.' : n(bw.now) + ' kg.';
+    h += '<p class="line num">' + esc(said) + '</p>';
+    if (bw.offPace) h += '<p class="line"><span class="tw tone-warn">' + esc(bw.offPace.text) + '</span></p>';
+    if (bw.plan && bw.plan.length) h += '<p class="line">' + (bw.planSent ? 'Cut plan sent' : 'Cut plan saved, not sent') + '</p>';
+    h += bwChart(pl);
+    var it = itemOf('cut-' + id), done = it && it.done;
+    if (done) h += doneRow(it.id);
+    else if (bw.moves && bw.moves.length) h += '<div class="moves">' + bw.moves.map(function (mv) { return '<button class="btn sm' + (mv.primary ? '' : ' quiet') + '" type="button" data-bw="' + esc(mv.how) + '">' + esc(mv.label) + '</button>'; }).join('') + '</div>';
+    return h + '</div>';
+  }
+  /* When (function-polish F7.2, first-time-coach §7.6): every dated step from here to the meet, one row each, with its
+     date and whether it is written; the strip of the run-in stays while she is building or peaking. "Peak" is the word for
+     the run-in on every screen. What is left to lift, the opener practice still to write and a week waiting to go follow. */
+  function range(a, b) { if (!a) return ''; if (!b || a === b) return day(a); return String(a).slice(0, 7) === String(b).slice(0, 7) ? K.wd3(a) + ' ' + Number(String(a).slice(8, 10)) + ' to ' + day(b) : day(a) + ' to ' + day(b); }
+  function whenRow(t, lm) {
+    var when = t.id === 'heavy' && t.text ? t.text : t.id === 'last' ? day(t.from) + (t.text ? ', ' + t.text : '') : t.id === 'weigh' ? (t.text || day(t.from)) : range(t.from, t.to);
+    var lab = t.term ? '<b data-term="' + esc(t.term) + '">' + esc(t.label) + '</b>' : '<b title="' + esc(t.id === 'meet' && lm ? lm.name + ', ' + day(lm.date) : t.id === 'last' ? 'Last session: a light day before the meet' : t.label) + '">' + esc(t.label) + '</b>';
+    var state = t.id === 'weigh' || t.id === 'meet' ? '' : t.written ? 'Written' : 'Not written yet';
+    return '<li class="r" data-when="' + esc(t.id) + '">' + lab + '<span class="d">' + esc(when) + '</span>' + (state ? '<em>' + state + '</em>' : '<span></span>') + '</li>';
+  }
+  function whenHtml(id, pl, crimson) {
+    var lm = lifterMeet(id), h = '<div class="flat" data-crop="when"><h2 class="sec-t">When</h2><div data-crop="runin">';
+    if (!lm || lm.days === 0) return h + '<p class="line">' + (lm ? 'Meet day.' : '') + '</p></div></div>';
+    var ri = pl.runin, ph = pl.phase;
+    if (ri && (ph === 'build' || ph === 'peak')) {
+      var W = 680, X = function (iso) { return 6 + K.daysTo(iso) / lm.days * (W - 12); };
+      var s = '<svg width="' + W + '" height="56" viewBox="0 0 ' + W + ' 56" role="img" aria-label="' + esc('From today to ' + day(lm.date)) + '">';
+      ri.markers.forEach(function (mk) { if (mk.id === 'weigh' || mk.id === 'taper') return; s += '<rect class="win" x="' + X(mk.from).toFixed(1) + '" y="10" width="' + Math.max(4, X(mk.to) - X(mk.from)).toFixed(1) + '" height="20" rx="3"/>'; });
+      s += '<line class="ax" x1="6" x2="' + (W - 6) + '" y1="20" y2="20"/>';
+      for (var w = 7; w < lm.days; w += 7) s += '<line class="wk" x1="' + X(K.add(K.today, w)).toFixed(1) + '" x2="' + X(K.add(K.today, w)).toFixed(1) + '" y1="14" y2="26"/>';
+      s += '<rect class="meet" x="' + (W - 10) + '" y="14" width="8" height="12" rx="3"/>';
+      s += '<text class="lab" x="6" y="50">Today</text><text class="lab" x="' + (W - 6) + '" y="50" text-anchor="end">' + esc(day(lm.date)) + '</text></svg>';
+      h += '<div class="rin" data-chart>' + s + '</div>';
+    }
+    h += '<ul class="mk">' + (pl.timeline || []).map(function (t) { return whenRow(t, lm); }).join('') + '</ul>';
+    if (ri && ri.projected) h += '<p class="line num">At ' + her(id) + ' last 4 weeks’ rate ' + her(id) + ' total is about ' + n(ri.projected.total) + ' on the day</p>';
+    var mv = [];
+    /* the sessions still to lift before the meet (a lifter peaking on her own block) */
+    var left = !ri ? pl.left || [] : [];
+    if (left.length) h += '<div class="mk">' + left.map(function (s0) { var t = s0.top; return '<div class="r"><span><b>' + esc(rel(s0.date)) + '</b> ' + esc(s0.name) + (t ? ': ' + esc(t.exercise.toLowerCase()) + ' ' + n(t.w) + ' × ' + t.r + (t.rpe != null ? ' @' + n(t.rpe) : '') : '') + '</span><em>' + (s0.opener ? 'Opener practice' : '') + '</em></div>'; }).join('') + '</div>';
+    var rh = pl.rehearsal;
+    if (rh && !ri) {
+      h += '<p class="line" style="margin-top: var(--sp-3)">' + esc(rh.text) + '</p>';
+      /* walk 2 (Elena's rehearsals on the wrong days, 3 round trips): every rehearsal still missing is written from here in one
+         write (PL.meets.rehearse: each opener single on its own lift's last session in the window, one Undo); Programs stays
+         one click away to check or change it */
+      if (rh.missing && rh.missing.length) {
+        var all = rh.missing.length === 1 ? 'Write the ' + rh.missing[0] + ' rehearsal' : 'Write the ' + K.list(rh.missing, 3) + ' rehearsals';
+        if (fn(PL.meets, 'rehearse')) mv.push({ label: all, attrs: ' data-rehearse-all' }, { label: 'Open in Programs', attrs: ' data-rehearse="' + esc(rh.missing[0]) + '"' });
+        else mv.push({ label: 'Write the ' + rh.missing[0] + ' rehearsal', attrs: ' data-rehearse="' + esc(rh.missing[0]) + '"' });
+      }
+    }
+    /* a rehearsal (or any change) written into a week she already has waits to go: say so, and send it from here */
+    var wks = fn(PL.programs, 'weeks') ? dat(PL.programs.weeks(id)) || [] : [], wait = wks.filter(function (w0) { return w0.block === 'current' && /to send$/.test(w0.state || ''); })[0];
+    if (wait && fn(PL.programs, 'send')) { h += '<p class="line">Week ' + wait.n + ': ' + esc(wait.state) + '.</p>'; mv.push({ label: 'Send week ' + wait.n + ' to ' + first(id), attrs: ' data-send-wk="' + wait.n + '"' }); }
+    /* the steps still to write get their way there (the growing walk, Hannah: "Not written yet" four times and no button):
+       Programs on her peak, or the crimson when it already goes there (her first block, the run-in) */
+    var gap = (pl.timeline || []).some(function (t) { return /^(peak|heavy|rehearsal|last)$/.test(t.id) && !t.written; }), toPeak = crimson && /run-in|peak|weeks? between|first block/i.test(crimson.label);
+    if (gap && !toPeak) mv.push({ label: 'Write ' + her(id) + ' peak', attrs: ' data-peak="' + esc(id) + '"' });
+    else if (ri && ph !== 'far' && !(crimson && /run-in|weeks? between/.test(crimson.label))) mv.push({ label: 'Open the peak in Programs', attrs: ' data-runin' });
+    /* meet day, tried before the day: her attempts on a practice board with a pretend clock, nothing kept */
+    if (lm.days > 0) mv.push({ label: 'Practice ' + first(id) + '’s meet day', attrs: ' data-practice="' + esc(id) + '"' });
+    h += DESK.movesHtml(mv, { skip: crimson && crimson.label });
+    return h + '</div></div>';
+  }
+  function readyHtml(id, pl) {
+    var rack = pl.rack || {}, h = '<div class="flat" data-crop="ready"><h2 class="sec-t">Ready</h2><div class="ready">';
+    (pl.ticks || []).forEach(function (t) { if (t.id === 'rack') return; var who = /:\s*(.+)$/.exec(t.label), words = t.label.replace(/:\s*.+$/, '') + ' ' + t.more; h += '<button type="button" class="tick" role="checkbox" aria-checked="' + !!t.on + '" data-tick="' + esc(t.id) + '"' + (who ? ' title="' + esc(t.label) + '"' : '') + '><i>' + CHECK + '</i><span>' + esc(words) + '</span></button>'; });
+    h += '</div><div class="ready rk-row" data-rack-set><span class="rk-l">Rack heights</span>';
+    [['squat', 'Squat', 'Squat rack'], ['bench', 'Bench', 'Bench rack'], ['safety', 'Safety', 'Safety']].forEach(function (r) {
+      var v = rack[r[0]] != null ? String(rack[r[0]]) : '';
+      h += '<label class="rk">' + r[1] + '<input class="input num" type="text" inputmode="numeric" autocomplete="off" data-k="prack|' + r[0] + '" data-v="' + esc(v) + '" value="' + esc(v) + '" data-prack="' + r[0] + '" aria-label="' + r[2] + '"></label>';
+    });
+    h += '</div>';
+    if (S.err.prack) h += '<p class="err-l" role="alert">' + esc(S.err.prack) + '</p>';
+    h += '<label class="note-f">Note<input class="input" type="text" autocomplete="off" data-k="note" data-v="' + esc(pl.note || '') + '" value="' + esc(pl.note || '') + '" data-note placeholder="Cues, kit, how it moved" aria-label="Note"></label>';
+    return h + '</div>';
+  }
+  function prepHtml() {
+    var id = prepLifter(), m = meetRow(S.id), l = L(id), h = '';
+    if (!id || !l) return '<div class="hd"><div><h1 tabindex="-1">' + esc(m ? m.name : 'Meets') + '</h1><p class="facts">No lifter is booked in.</p></div></div>';
+    var several = m && m.lifterIds && m.lifterIds.length > 1 && m.days > 0;
+    var lm = lifterMeet(id), pl = isNext(id, S.id) ? planOf(id) : null;
+    var tabs = several ? '<div class="tabs lt-tabs" role="tablist" aria-label="Lifters at ' + esc(m.name) + '">' + m.lifterIds.map(function (x) { return '<button type="button" role="tab" data-lt="' + esc(x) + '" aria-selected="' + (x === id) + '">' + esc(L(x).name) + '</button>'; }).join('') + '</div>' : '';
+    if (!pl) {
+      return tabs + '<div class="hd"><div><h1 tabindex="-1">' + esc(l.name) + '</h1><p class="facts">' + esc(m.name + ', ' + day(m.date)) + '</p></div></div><p class="line">Booked. ' + her(id, true) + ' prep opens after the ' + esc(lm ? lm.name : 'next meet') + '.</p>';
+    }
+    var bw = pl.bw, cls = n(bw.cls);
+    /* the meet and one countdown (FD3: PL.fmt.out, its title the days and the date) */
+    var facts = cls + ' kg class' + (bw.over > 0 && (lm.days > 0 || pl.weigh !== 'made') ? ', <span class="tw tone-warn">' + n(bw.over) + ' kg over</span>' : '') + (lm.days === 0 ? ', today' : ' · ' + esc(lm.name) + ', ' + outHtml(lm.days));
+    h += tabs + '<div class="hd"><div><h1 tabindex="-1">' + esc(l.name) + '</h1><p class="facts">' + facts + '</p></div></div>';
+    h += attemptsCard(id, pl) + bwHtml(id, pl) + whenHtml(id, pl, prepCrimson()) + readyHtml(id, pl);
+    return h;
+  }
+  /* the crimson follows the phase (function-polish F7.1): the store's plan.job, the same words Overview and Find use */
+  function prepCrimson() {
+    var id = prepLifter(), pl = id && isNext(id, S.id) ? planOf(id) : null;
+    if (!pl) return { label: 'Book a meet…', run: function () { DESK.bookMeet(null); } };
+    var j = pl.job;
+    if (!j) { var tm0 = todayMeet(); return tm0 ? { label: 'Open meet day', run: function () { go({ id: tm0.id }); } } : { label: 'Book a meet…', run: function () { DESK.bookMeet(null); } }; }
+    var lab = String(j.label).replace(/'/g, '’');
+    if (j.run === 'attempts') return { label: lab, title: '⌘↵', send: true, run: function () { sendAttempts(id); } };
+    if (j.run === 'fillGap' && fn(PL.programs, 'fillGap')) return { label: lab, run: function () { write(function () { return PL.programs.fillGap(id); }); } };
+    if (j.next) return { label: lab, run: function () { openPrep(j.next); } };
+    var g = j.go || {};
+    if (g.place === 'meets') { var hp = new URLSearchParams(g.hash || ''); return { label: lab, run: function () { if (hp.get('id')) go({ id: hp.get('id'), lifter: hp.get('lifter') }); else openPrep(hp.get('lifter') || id); } }; }
+    return { label: lab, run: function () { DESK.go(g.place || 'programs', g.hash || 'id=' + encodeURIComponent(id), { from: 'meets' }); } };
+  }
+
+  /* ---------------- the board (screens.md §5.6) ---------------- */
+  function weighLine(x) {
+    var c = n(x.cls);
+    if (x.weigh === 'made') return c + 's, weighed ' + n(x.scale);
+    if (x.weigh === 'over') return c + 's, over at ' + n(x.scale);
+    return c + 's, not weighed';
+  }
+  function rackLine(x) { var r = x.rack; if (!r || (r.squat == null && r.bench == null)) return ''; return 'Rack ' + (r.squat != null ? r.squat : '') + ', bench ' + (r.bench != null ? r.bench : '') + (r.safety != null ? '/' + r.safety : ''); }
+  function cellState(a) { return a.st === 'good' ? 'is-good' : a.st === 'no' ? 'is-no' : a.st === 'called' ? 'is-called' : 'is-planned'; }
+  function cellTitle(x, lift, a) {
+    var reason = x.reasons && x.reasons[lift] ? x.reasons[lift][a.k - 1] : null;
+    if (a.st === 'good') return 'Good lift';
+    if (a.st === 'no') return 'No lift' + (reason ? ': ' + redWord(reason).toLowerCase() : '');
+    if (a.st === 'called') return 'Called ' + n(a.kg);
+    return 'Planned ' + n(a.kg);
+  }
+  function boardTable(b, mt) {
+    var pf = b.platform, done = b.stage === 'done', kind = b.lifters[0] && b.lifters[0].points ? b.lifters[0].points.kind : 'DOTS';
+    /* PX10: the points column waits until a lift is judged */
+    var pts = b.lifters.some(function (x) { return x.points && x.points.value != null; });
+    var h = '<div class="card bd" data-crop="board"><table class="tbl" data-table aria-label="Attempts"><colgroup><col>' + [0, 1, 2, 3, 4, 5, 6, 7, 8].map(function () { return '<col class="c-a">'; }).join('') + '<col class="c-t">' + (pts ? '<col class="c-p">' : '') + '</colgroup>';
+    h += '<thead><tr><th scope="col">Lifter</th>' + LIFTS.map(function (lift) { return [1, 2, 3].map(function (k) { return '<th scope="col" data-lift="' + lift + '" title="' + LIFT[lift] + ' ' + ORD[k - 1] + '">' + SHORT[lift] + k + '</th>'; }).join(''); }).join('') + '<th scope="col">' + (done ? 'Total' : 'So far') + '</th>' + (pts ? '<th scope="col">' + (kind === 'GL' ? '<span title="IPF GL points">GL</span>' : '<span data-term="dots">DOTS</span>') + '</th>' : '') + '</tr></thead><tbody>';
+    var order = b.lifters.slice();
+    order.forEach(function (x) {
+      var fl = done ? null : (x.flags || [])[0], flag = '';
+      if (fl && fl.kind === 'pain') flag = fl.where ? '<button class="flb" type="button" data-pain="' + esc(x.id) + '" title="Record pain again">' + esc(fl.text) + '</button>' : '<button class="flb" type="button" data-pain="' + esc(x.id) + '">Pain: where?</button>';
+      else if (fl && fl.kind === 'ask') { var it = itemOf(fl.itemId); if (!it || !it.done) flag = '<span class="fl">Asks: is ' + n(x.bw) + ' OK?</span>'; }
+      if (done) flag += '<button class="flb ink" type="button" data-note-day="' + esc(x.id) + '">' + (planOf(x.id) && planOf(x.id).debrief ? 'Edit the day’s note' : 'Note the day') + '</button>';
+      var rk = rackLine(x);
+      h += '<tr data-row="' + esc(x.id) + '"><td class="lf"><span class="nm">' + esc(x.name) + '</span><span class="l2" data-ellipsis title="' + esc(weighLine(x)) + '">' + esc(weighLine(x)) + '</span>' + (rk ? '<span class="l2" data-ellipsis title="' + esc(rk) + '">' + esc(rk) + '</span>' : '') + flag + '</td>';
+      LIFTS.forEach(function (lift) {
+        x.attempts[lift].forEach(function (a) {
+          var gi = pf && pf.lift === lift ? attemptAt(b, x.id, lift, a.k) : null, on = gi != null && gi === pf.at && (b.stage === lift);
+          var pr = (x.prs || []).some(function (p) { return p.lift === lift && p.kg === a.kg; }) && a.st === 'good';
+          var words = a.st === 'good' ? 'good' : a.st === 'no' ? 'no lift' : a.st === 'called' ? 'called' : 'planned';
+          h += '<td data-lift="' + lift + '"><button class="ac ' + cellState(a) + '" type="button" data-att="' + esc(x.id) + '|' + lift + '|' + a.k + '" title="' + esc(cellTitle(x, lift, a)) + '"' + (on ? ' aria-current="true"' : '') + ' aria-label="' + esc(x.first + ', ' + LIFT[lift].toLowerCase() + ' ' + ORD[a.k - 1] + ', ' + n(a.kg) + ', ' + words) + '"><span class="v">' + n(a.kg) + '</span>' + (pr ? '<span class="pr">meet PR</span>' : '') + '<span class="sr"> ' + words + '</span></button></td>';
+        });
+      });
+      var bomb = LIFTS.some(function (lift) { return bombed(x, lift); });
+      var tgt = x.target && x.target.total ? (x.target.needs != null && b.stage === 'deadlift' ? 'Needs ' + n(x.target.needs) + ' on the third for ' + n(x.target.total) : 'Target ' + n(x.target.total)) : '';
+      h += '<td class="tot-c">' + (bomb ? '<span class="tt">No total</span>' : '<span class="tt">' + (x.total ? n(x.total) : '<span class="sr">none</span>') + '</span>' + (done ? '' : '<span class="tp" title="If every third is made: ' + n(x.onCalls) + '">Plan ' + n(x.onCalls) + '</span>')) + (tgt ? '<span class="ts" title="' + esc(tgt) + '">' + esc(tgt) + '</span>' : '') + '</td>';
+      h += (pts ? '<td class="pts-c"><span class="pt">' + (x.points && x.points.value != null ? n(x.points.value) : '<span class="sr">none</span>') + '</span></td>' : '') + '</tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+  function weighInHtml(b) {
+    var closes = b.clock.weighCloses;
+    var h = '<div class="flat wi" data-crop="weighin"><h2 class="sec-t">Weigh-in <span class="sub">Scale ' + esc(b.clock.weighOpens) + ' to ' + esc(closes) + '</span></h2><table class="tbl" data-table aria-label="Weigh-in"><colgroup><col class="c-l"><col class="c-s"><col class="c-res"><col class="c-r"><col class="c-o"><col class="c-h"></colgroup>';
+    h += '<thead><tr><th scope="col">Lifter</th><th scope="col">Scale</th><th scope="col">Result</th><th scope="col"><span data-term="racks">Rack heights</span></th><th scope="col"><span data-term="opener">Openers</span></th><th scope="col"><span class="sr" data-term="handin">Hand in</span></th></tr></thead><tbody>';
+    b.lifters.forEach(function (x) {
+      var sk = 'scale|' + x.id, err = S.err[sk];
+      var res = x.weigh === 'made' ? '<span class="rs tone-up">Made</span>' : x.weigh === 'over' ? '<span class="rs tone-warn">Over by ' + n(Math.round((x.scale - x.cls) * 10) / 10) + ', re-weigh by ' + esc(closes) + '</span>' : '<span class="rs q">Not weighed in</span>';
+      if (err) res = '<span class="rs tone-warn">' + esc(err) + '</span>';
+      var r = x.rack || {}, op = LIFTS.map(function (lift) { return n(x.attempts[lift][0].kg); }).join(', ');
+      h += '<tr data-row="' + esc(x.id) + '"><td><span class="nm">' + esc(x.first) + '</span></td>' +
+        '<td><input class="input num" type="text" inputmode="decimal" autocomplete="off" data-scale data-id="' + esc(x.id) + '" data-k="' + sk + '" data-v="' + esc(x.scale != null ? n(x.scale) : '') + '" value="' + esc(x.scale != null ? n(x.scale) : '') + '" placeholder="' + esc(n(x.bw)) + '" aria-label="' + esc(x.first + '’s scale weight, kg') + '" title="Enter or Tab records it"' + (err ? ' aria-invalid="true"' : '') + '></td>' +
+        '<td>' + res + '</td><td><div class="rk" data-rack-group="' + esc(x.id) + '">' +
+        [['squat', 'Squat rack', 'Squat'], ['bench', 'Bench rack', 'Bench'], ['safety', 'Safety', 'Safety']].map(function (k) { var v = r[k[0]] != null ? String(r[k[0]]) : ''; return '<input class="input num" type="text" inputmode="numeric" autocomplete="off" data-rack="' + k[0] + '" data-id="' + esc(x.id) + '" data-k="rack|' + esc(x.id) + '|' + k[0] + '" data-v="' + esc(v) + '" value="' + esc(v) + '" placeholder="' + k[2] + '" aria-label="' + esc(x.first + ', ' + k[1].toLowerCase()) + '" title="' + k[1] + '">'; }).join('') + '</div></td>' +
+        '<td class="op">' + esc(op) + '</td><td>' + (x.handedIn ? '<span class="hi">Handed in ' + esc(String(x.handedIn.at).slice(11, 16)) + '</span>' : '<button class="btn sm" type="button" data-hand="' + esc(x.id) + '">Hand in openers</button>') + '</td></tr>';
+    });
+    return h + '</tbody></table>' + (S.err.rack ? '<p class="err-l" role="alert">' + esc(S.err.rack) + '</p>' : '') + '</div>';
+  }
+  /* the merged warm-ups: each lifter's next rung, in the order they are due (the store's timeline) */
+  function warmRows(b) {
+    var seen = {}, out = [];
+    (b.timeline || []).forEach(function (t) {
+      if (seen[t.id] || t.state === 'done') return;
+      var x = b.lifters.filter(function (y) { return y.id === t.id; })[0]; if (!x || !x.out) return;
+      seen[t.id] = true; out.push(t);
+    });
+    return out;
+  }
+  /* a lift's key as data-lift (its name or number then wears the lift's colour) */
+  function liftAttr(k) { k = String(k || '').toLowerCase(); return LIFTS.indexOf(k) >= 0 ? ' data-lift="' + k + '"' : ''; }
+  function rungWords(t) { return (t.kg <= 20 ? 'bar' : n(t.kg)) + ' × ' + t.reps; }
+  function warmupsHtml(b) {
+    var rows = warmRows(b), h = '<div class="flat wu" data-crop="warmups"><h2 class="sec-t">Warm-ups <span class="sub">by attempts out</span></h2>';
+    if (!rows.length) return h + '<p class="none">No warm-ups to come on this lift.</p></div>';
+    rows.forEach(function (t) {
+      var w = b.warmup[t.id], of = w ? w.rungs.length : 0, ord = t.i + 1;
+      var when = t.state === 'late' ? 'Late' : t.state === 'now' ? 'now · ' + ordW(ord) + ' rung of ' + of : 'in about ' + t.in + ' attempts';
+      var act = t.state === 'late' && w && w.draft && !w.cut ? '<button class="btn sm" type="button" data-cut="' + esc(t.id) + '">Cut to 3 singles</button>' : '<button type="button" class="tick" role="checkbox" aria-checked="false" data-rung-tick="' + esc(t.id) + '|' + t.i + '" aria-label="' + esc(t.name + ' took ' + rungWords(t)) + '" title="Tick it (W)"><i>' + CHECK + '</i><span>Done</span></button>';
+      h += '<div class="r" data-rung="' + esc(t.id) + '|' + t.i + '"><button class="nmb" type="button" data-ladder="' + esc(t.id) + '" title="' + esc(t.name + '’s ladder') + '">' + esc(t.name) + '</button><span class="kg"' + liftAttr(w && w.lift) + '>' + esc(rungWords(t)) + '</span><span class="wh' + (t.state === 'late' ? ' tone-warn' : '') + '">' + esc(when) + '</span>' + act + '</div>';
+    });
+    return h + '</div>';
+  }
+  function ordW(i) { return i + (i % 10 === 1 && i !== 11 ? 'st' : i % 10 === 2 && i !== 12 ? 'nd' : i % 10 === 3 && i !== 13 ? 'rd' : 'th'); }
+  function platformHtml(b) {
+    var pf = b.platform; if (!pf) return '<div class="plat" data-platform><span>No flights yet.</span><button class="btn quiet sm" type="button" data-flight>Edit the flight</button></div>';
+    return '<div class="plat" data-platform><span><b data-lift="' + pf.lift + '">' + LIFT[pf.lift] + ', flight ' + esc(pf.flight) + '</b>: attempt <span class="sr">' + pf.at + '</span></span><input class="input num" type="text" inputmode="numeric" autocomplete="off" data-plat data-k="plat" data-v="' + pf.at + '" value="' + pf.at + '" aria-label="Attempt on the platform"><span>of ' + pf.of + '</span>' +
+      '<button class="btn icon quiet" type="button" data-plat-by="-1" aria-label="Previous attempt" title="Previous attempt ([)">−</button><button class="btn sm" type="button" data-plat-by="1" title="Next attempt (])">Next attempt</button><span class="grow"></span><button class="btn quiet sm" type="button" data-flight>Edit the flight</button></div>';
+  }
+
+  /* Up next: one decision, its moves numbered (1 2 3); the first that is primary is the toolbar's crimson (E) */
+  function upModel(b) {
+    var st = b.stage, ids = b.lifters;
+    if (st === 'weigh') {
+      for (var i = 0; i < ids.length; i++) { var x = ids[i], ask = itemOf('meet-today-' + x.id); if (ask && !ask.done && ask.acts.some(function (a) { return a.id === 'msg'; })) return { head: ask.title, line: weighWords(x), moves: [{ label: 'Reply to ' + x.first, primary: true, run: function (btn) { DESK.fix.open(btn, { itemId: 'meet-today-' + x.id, actId: 'msg', forId: x.id, anchor: btn }); } }, { label: 'Record ' + x.first + '’s weight', run: focusScale.bind(null, x.id) }] }; }
+      for (i = 0; i < ids.length; i++) { x = ids[i]; var pi = itemOf('pain-' + x.id), fl = (x.flags || [])[0]; if (pi && fl && fl.kind === 'pain' && !fl.where) return { head: x.first + ': pain on this morning’s check-in', line: 'Openers ' + LIFTS.map(function (lift) { return n(x.attempts[lift][0].kg); }).join(', '), moves: [{ label: 'Record where it hurts', primary: true, run: painFor.bind(null, x.id) }].concat(pi.done ? [] : [{ label: pi.acts[0].label, run: function (btn) { DESK.fix.open(btn, { itemId: 'pain-' + x.id, actId: pi.acts[0].id, forId: x.id, anchor: btn }); } }]) }; }
+      for (i = 0; i < ids.length; i++) { x = ids[i]; if (x.weigh === 'not') return { head: 'Weigh in ' + x.first, line: n(x.bw) + ' yesterday, ' + n(x.cls) + ' kg class', moves: [{ label: 'Record ' + x.first + '’s weight', primary: true, run: focusScale.bind(null, x.id) }] }; }
+      for (i = 0; i < ids.length; i++) { x = ids[i]; if (x.weigh === 'over') return { head: x.first + ' is over the ' + n(x.cls) + ' kg class', line: 'Re-weigh by ' + b.clock.weighCloses, moves: [{ label: 'Record ' + x.first + '’s weight', primary: true, run: focusScale.bind(null, x.id) }] }; }
+      for (i = 0; i < ids.length; i++) { x = ids[i]; if (!x.handedIn) return { head: 'Hand in ' + x.first + '’s openers', line: LIFTS.map(function (lift) { return n(x.attempts[lift][0].kg); }).join(', '), moves: [{ label: 'Openers handed in', primary: true, run: handIn.bind(null, x.id) }] }; }
+      var sq = (b.stages || []).filter(function (s) { return s.id === 'squat'; })[0];
+      return { head: 'Squats at ' + (sq ? sq.at : '10:00'), line: 'Everyone weighed in, openers handed in', moves: [{ label: 'Start the squats', primary: true, run: function () { setStage('squat'); } }] };
+    }
+    if (st === 'done') {
+      var tots = ids.map(function (y) { return y.first + ' ' + (LIFTS.some(function (lift) { return bombed(y, lift); }) ? 'no total' : n(y.total)); }).join(', ');
+      var mv = [];
+      if (b.cards) mv.push({ done: 'Cards sent' }); else mv.push({ label: 'Send each their card', primary: true, run: sendCards });
+      mv.push({ label: 'Use today’s lifts as maxes…', primary: !!b.cards && !S.maxed, run: maxesPop });
+      mv.push({ label: 'Plan the week after', primary: !!b.cards && !!S.maxed, run: weekAfter });
+      return { head: b.name + ' is done', line: tots, moves: mv };
+    }
+    var lift = st, pf = b.platform, ours = [];
+    ids.forEach(function (y) { y.attempts[lift].forEach(function (a) { var g = attemptAt(b, y.id, lift, a.k); ours.push({ x: y, a: a, gi: g }); }); });
+    var open = ours.filter(function (o) { return o.a.st !== 'good' && o.a.st !== 'no'; }).sort(function (p, q) { return (p.gi || 0) - (q.gi || 0); });
+    var lastLine = function (o) { var misses = o.x.attempts[lift].filter(function (a) { return a.st === 'no'; }).length; return misses === 2 && o.a.k === 3 ? 'One attempt left: without it there is no total.' : null; };
+    var verdict = function (o, why) { return { head: o.x.first + '’s ' + LIFT[lift].toLowerCase() + ' ' + ORD[o.a.k - 1] + ', ' + n(o.a.kg), line: lastLine(o) || why, moves: [{ label: 'Good lift', key: 'G', primary: true, run: function () { judge(o.x.id, lift, o.a.k, true); } }, { label: 'No lift', key: 'N', run: function () { judge(o.x.id, lift, o.a.k, false); } }] }; };
+    /* 1 on the platform now */
+    var now = open.filter(function (o) { return pf && o.gi != null && (o.gi === pf.at || o.gi === pf.at - 1); })[0];
+    if (now) return verdict(now, 'On the platform');
+    /* 2 an attempt to call: the one before it is judged, this one is not called yet */
+    var call = open.filter(function (o) { return o.a.k > 1 && o.a.st === 'planned' && /good|no/.test(o.x.attempts[lift][o.a.k - 2].st); })[0];
+    if (call) {
+      var prev = call.x.attempts[lift][call.a.k - 2], base = call.a.kg, floor = prev.st === 'no' ? prev.kg : prev.kg + 2.5;
+      var offers = [base - 2.5, base, base + 2.5].filter(function (v) { return v >= floor; }), pick = base;
+      /* after a no lift a coach repeats the weight or adds 2.5 at most (walk 2, Tom's third after a miss at 245): the repeat
+         is first and the crimson, never the planned jump */
+      if (prev.st === 'no') { offers = [prev.kg, prev.kg + 2.5]; pick = prev.kg; }
+      return { head: 'Call ' + call.x.first + '’s ' + ORD[call.a.k - 1] + ' ' + LIFT[lift].toLowerCase(), line: lastLine(call) || ORD_C[call.a.k - 2] + ' ' + n(prev.kg) + (prev.st === 'good' ? ', good' : ', no lift'), call: call, pickKg: pick,
+        moves: offers.map(function (v) { return { label: (prev.st === 'no' && v === prev.kg ? 'Repeat ' : 'Call ') + n(v), primary: v === pick, run: function () { callAt(call.x.id, lift, call.a.k, v); } }; }) };
+    }
+    /* 3 the next lift's warm-ups start while this one is still on */
+    if (NEXT[lift] && pf) {
+      var nl = NEXT[lift];
+      for (i = 0; i < ids.length; i++) {
+        x = ids[i]; var g1 = attemptAt(b, x.id, nl, 1), w0 = b.warmup[x.id];
+        if (g1 == null) continue;
+        var outN = (liftTotal(b, lift) - pf.at) + (b.breakMin || 10) + g1;
+        var r0 = w0 && w0.nextLift && w0.nextLift.lift === nl && w0.nextLift.rungs && w0.nextLift.rungs[0] ? w0.nextLift.rungs[0] : null;
+        if (outN <= 24) return { head: x.first + ': start ' + LIFT[nl].toLowerCase() + ' warm-ups, ' + (r0 && r0.kg > 20 ? n(r0.kg) : 'bar') + ' × ' + (r0 ? r0.r : 8), line: her(x.id, true) + ' ' + LIFT[nl].toLowerCase() + ' opener is ' + outN + ' attempts out', moves: [{ label: 'Next attempt', key: ']', primary: true, run: function () { platBy(1); } }] };
+      }
+    }
+    /* 4 a warm-up due now, or late */
+    var wr = warmRows(b).filter(function (t) { return t.state === 'now' || t.state === 'late'; })[0];
+    if (wr) {
+      var ww = b.warmup[wr.id], wx = ids.filter(function (y) { return y.id === wr.id; })[0];
+      /* a lift's first warm-ups run while the weigh-in or the lift before is still on, when the board cannot tick them yet
+         (walk 2: Priya "late" at the start of every lift after the cue told her to start). With nothing ticked on this ladder,
+         Up next asks first whether she took them: one write ticks every rung that is due, else Cut to 3 singles */
+      var lateIs = (b.timeline || []).filter(function (t) { return t.id === wr.id && t.state === 'late'; }).map(function (t) { return t.i; });
+      if (wr.state === 'late' && ww && !ww.cut && lateIs.length && !ww.rungs.some(function (r) { return r.ticked; }) && fn(PL.meets, 'rungs')) {
+        var topR = ww.rungs[lateIs[lateIs.length - 1]], mvT = [{ label: 'Took them, up to ' + rungWords({ kg: topR.kg, reps: topR.r }), key: 'W', primary: true, run: function () { write(function () { return PL.meets.rungs(wr.id, lateIs, true); }, { label: wr.name + '’s ' + LIFT[lift].toLowerCase() + ' warm-ups up to ' + rungWords({ kg: topR.kg, reps: topR.r }) + ' are ticked.' }); } }];
+        if (ww.draft) mvT.push({ label: 'Cut to 3 singles', run: function () { cutWarm(wr.id); } });
+        return { head: wr.name + '’s ' + LIFT[lift].toLowerCase() + ' warm-ups', line: 'Up to ' + rungWords({ kg: topR.kg, reps: topR.r }) + ' was due. ' + LIFT[lift] + ' ' + ORD[(wx.out ? wx.out.attempt : 1) - 1] + ' in ' + (wx.out ? wx.out.out : 0) + ' attempts', moves: mvT };
+      }
+      var mv4 = [{ label: 'Tick ' + rungWords(wr), key: 'W', primary: true, run: function () { tickRung(wr.id, wr.i); } }];
+      if (wr.state === 'late' && ww && ww.draft && !ww.cut) mv4.push({ label: 'Cut to 3 singles', run: function () { cutWarm(wr.id); } });
+      return { head: wr.state === 'late' ? wr.name + '’s warm-ups are late' : wr.name + ': ' + rungWords(wr) + ' now', line: (wr.state === 'late' ? rungWords(wr) + ' was due. ' : '') + her(wr.id, true) + ' ' + LIFT[lift].toLowerCase() + ' ' + ORD[(wx.out ? wx.out.attempt : 1) - 1] + ' is ' + (wx.out ? wx.out.out : 0) + ' attempts out', moves: mv4 };
+    }
+    /* 5 a verdict the platform has passed */
+    if (open.length && pf && open[0].gi != null && open[0].gi < pf.at) return verdict(open[0], 'The platform has passed it');
+    /* 6 the next of ours */
+    if (open.length) { var o = open[0]; return { head: o.x.first + '’s ' + LIFT[lift].toLowerCase() + ' ' + ORD[o.a.k - 1] + ' in ' + (pf && o.gi != null ? Math.max(0, o.gi - pf.at) : '?') + ' attempts', line: n(o.a.kg) + (o.a.st === 'called' ? ', called' : ', planned'), moves: [{ label: 'Next attempt', key: ']', primary: true, run: function () { platBy(1); } }] }; }
+    var nx = NEXT[lift], stg = (b.stages || []).filter(function (s) { return s.id === (nx || 'done'); })[0];
+    return { head: LIFT[lift] + ' is done', line: nx ? LIFT[nx] + ' at ' + (stg ? stg.at : '') : 'Every attempt is in', moves: [{ label: nx ? 'Start the ' + LIFT[nx].toLowerCase() : 'Finish the day', primary: true, run: function () { setStage(nx || 'done'); } }] };
+  }
+  function upHtml(u) {
+    var h = '<div class="card up" data-crop="upnext"><p class="lbl">Up next</p><h2>' + esc(u.head) + '</h2>' + (u.line ? '<p class="line num">' + esc(u.line) + '</p>' : '') + '<ol>';
+    var k = 0;
+    u.moves.forEach(function (m, i) {
+      if (m.done) { h += '<li><span class="k" aria-hidden="true">' + (i + 1) + '</span><span class="done-w">' + esc(m.done) + '</span></li>'; return; }
+      k++;
+      h += '<li><span class="k" aria-hidden="true">' + (i + 1) + '</span><button class="mv" type="button" data-up="' + i + '" title="' + esc((m.key ? m.key + ' or ' : '') + (i + 1) + (m.primary ? ', E' : '')) + '">' + esc(m.label) + '</button></li>';
+    });
+    if (u.call) h += '<li class="another"><label class="sr" for="another">Another weight</label><input id="another" class="input num" type="text" inputmode="decimal" autocomplete="off" data-another data-k="another" data-v="" value="" placeholder="' + esc(n(u.pickKg != null ? u.pickKg : u.call.a.kg)) + '" aria-label="Another weight" title="Another weight: type it, Enter calls it"></li>';
+    return h + '</ol></div>';
+  }
+  function boardHtml() {
+    var m = meetRow(S.id), b = boardOf(S.id); if (!b) return '';
+    var h = '<div class="hd"><div><h1 tabindex="-1">' + esc(b.name) + '</h1><p class="facts">Today ' + esc(b.clock.now) + ' · ' + esc(m ? m.fed || '' : '') + '</p></div><div class="hd-r"><div class="seg" role="group" aria-label="Stage of the day">' +
+      STAGES.map(function (s) { return '<button type="button" data-stage="' + s[0] + '" aria-pressed="' + (b.stage === s[0]) + '">' + s[1] + '</button>'; }).join('') + '</div></div></div>';
+    var u = upModel(b); S.upMoves = u.moves;
+    h += upHtml(u);
+    if (b.stage === 'weigh') h += weighInHtml(b);
+    else if (b.stage !== 'done') h += platformHtml(b) + warmupsHtml(b);
+    h += boardTable(b);
+    var pri = u.moves.filter(function (x) { return x.primary && !x.done; })[0];
+    return { html: h, crimson: pri ? { label: pri.label, title: 'E', run: function (btn) { pri.run(btn); } } : null };
+  }
+
+  /* ---------------- practice: meet day before the day (the growing walk: a first meet learnt on the day, under pressure) ----
+     The board as it will run, her planned attempts on it and a pretend clock, all on this page: nothing is written to the
+     store, nothing reaches the lifter, and End practice (or leaving) drops it. The moves are the board's own words. */
+  function hmOf(m) { m = Math.max(0, Math.round(m)); var h = Math.floor(m / 60), mm = m % 60; return (h < 10 ? '0' : '') + h + ':' + (mm < 10 ? '0' : '') + mm; }
+  function minOf(s) { var x = /^(\d{1,2}):(\d{2})$/.exec(String(s || '')); return x ? +x[1] * 60 + +x[2] : null; }
+  var PRACTICE_GAP = 6;   /* minutes between her attempts on the pretend clock: a flight of about six lifters */
+  function startPractice(id) {
+    var lm = lifterMeet(id), b0 = lm ? boardOf(lm.id) : null;
+    if (!lm || !b0 || !b0.lifters || !b0.lifters.length) { DESK.toast('This meet has nobody on its board yet.'); return; }
+    var pb = JSON.parse(JSON.stringify(b0)), at = {};
+    (pb.stages || []).forEach(function (x) { at[x.id] = minOf(x.at); });
+    pb.lifters.forEach(function (x) {
+      x.weigh = 'not'; x.scale = null; x.handedIn = null; x.flags = []; x.prs = []; x.reasons = {}; x.points = null; x.out = null;
+      if (x.target) delete x.target.needs;
+      LIFTS.forEach(function (lift) { (x.attempts[lift] || []).forEach(function (a) { a.st = 'planned'; a.called = a.k === 1; }); });
+    });
+    pb.stage = 'weigh'; pb.platform = null; pb.flights = null; pb.cards = false; pb.timeline = [];
+    var open = minOf(pb.clock && pb.clock.weighOpens);
+    S.practice = { meetId: lm.id, lifterId: id, b: pb, at: at, clock: open != null ? open : 480, back: { id: S.id, lifter: S.lifter } };
+    S.id = lm.id;
+    paint(); scrollTo(0, 0);
+    DESK.toast('Practice: nothing here is kept or sent.');
+  }
+  function endPractice() { var p = S.practice; if (!p) return; S.practice = null; go({ id: p.back.id || p.meetId, lifter: p.back.lifter || p.lifterId }, false); }
+  function practiceTotals(b) {
+    b.lifters.forEach(function (x) {
+      var made = 0, plan = 0;
+      LIFTS.forEach(function (lift) {
+        var best = bestMade(x, lift); made += best || 0;
+        var left = x.attempts[lift].filter(function (a) { return a.st !== 'no'; }).reduce(function (m, a) { return Math.max(m, a.kg); }, 0); plan += left;
+      });
+      x.total = made; x.onCalls = plan;
+    });
+  }
+  function practiceModel() {
+    var p = S.practice, b = p.b, st = b.stage, ids = b.lifters, i, x, adv = function (m) { p.clock += m; };
+    var redo = function () { practiceTotals(b); paint(); };
+    if (st === 'weigh') {
+      for (i = 0; i < ids.length; i++) { x = ids[i]; if (x.weigh !== 'made') return (function (x) {
+        var over = x.weigh === 'over';
+        return { head: over ? x.first + ' is over the ' + n(x.cls) + ' kg class' : 'Weigh in ' + x.first, line: over ? 'Re-weigh by ' + (b.clock.weighCloses || '') : (x.bw != null ? n(x.bw) + ' kg now, ' : '') + n(x.cls) + ' kg class, the scale opens ' + (b.clock.weighOpens || ''),
+          moves: [{ label: 'Made weight', key: 'G', primary: true, run: function () { x.weigh = 'made'; adv(10); redo(); } }].concat(over ? [] : [{ label: 'Over the class', key: 'N', run: function () { x.weigh = 'over'; adv(20); redo(); } }]) };
+      })(x); }
+      for (i = 0; i < ids.length; i++) { x = ids[i]; if (!x.handedIn) return (function (x) {
+        return { head: 'Hand in ' + x.first + '’s openers', line: LIFTS.map(function (lift) { return n(x.attempts[lift][0].kg); }).join(', ') + ', before the scale closes', moves: [{ label: 'Openers handed in', primary: true, run: function () { x.handedIn = { at: hmOf(p.clock) }; adv(5); redo(); } }] };
+      })(x); }
+      var sq = p.at.squat;
+      return { head: 'Squats at ' + (sq != null ? hmOf(sq) : '10:00'), line: 'Everyone weighed in, openers handed in', moves: [{ label: 'Start the squats', primary: true, run: function () { b.stage = 'squat'; if (sq != null) p.clock = Math.max(p.clock, sq); redo(); } }] };
+    }
+    if (st === 'done') {
+      var tots = ids.map(function (y) { return y.first + ' ' + (LIFTS.some(function (lift) { return bombed(y, lift); }) ? 'no total' : n(y.total)); }).join(', ');
+      return { head: 'That is meet day', line: tots, moves: [{ label: 'End practice', primary: true, run: endPractice }, { label: 'Practice again', run: function () { startPractice(p.lifterId); } }] };
+    }
+    var lift = st, nx = NEXT[lift];
+    for (var k = 1; k <= 3; k++) for (i = 0; i < ids.length; i++) {
+      x = ids[i]; var a = x.attempts[lift][k - 1]; if (!a || a.st === 'good' || a.st === 'no') continue;
+      if (!a.called) return (function (x, a) {
+        var prev = x.attempts[lift][a.k - 2], base = a.kg, floor = prev.st === 'no' ? prev.kg : prev.kg + 2.5;
+        var offers = [base - 2.5, base, base + 2.5].filter(function (v) { return v >= floor; }), pick = base;
+        if (prev.st === 'no') { offers = [prev.kg, prev.kg + 2.5]; pick = prev.kg; }
+        if (offers.indexOf(pick) < 0) pick = offers[0];
+        return { head: 'Call ' + x.first + '’s ' + ORD[a.k - 1] + ' ' + LIFT[lift].toLowerCase(), line: ORD_C[a.k - 2] + ' ' + n(prev.kg) + (prev.st === 'good' ? ', good' : ', no lift'),
+          moves: offers.map(function (v) { return { label: (prev.st === 'no' && v === prev.kg ? 'Repeat ' : 'Call ') + n(v), primary: v === pick, run: function () { a.kg = v; a.called = true; a.st = 'called'; redo(); } }; }) };
+      })(x, a);
+      return (function (x, a) {
+        var misses = x.attempts[lift].filter(function (y) { return y.st === 'no'; }).length;
+        return { head: x.first + '’s ' + LIFT[lift].toLowerCase() + ' ' + ORD[a.k - 1] + ', ' + n(a.kg), line: misses === 2 && a.k === 3 ? 'One attempt left: without it there is no total' : 'On the platform at ' + hmOf(p.clock),
+          moves: [{ label: 'Good lift', key: 'G', primary: true, run: function () { a.st = 'good'; adv(PRACTICE_GAP); redo(); } }, { label: 'No lift', key: 'N', run: function () { a.st = 'no'; adv(PRACTICE_GAP); redo(); } }] };
+      })(x, a);
+    }
+    var at = nx ? p.at[nx] : null;
+    return { head: LIFT[lift] + ' is done', line: nx ? LIFT[nx] + (at != null ? ' at ' + hmOf(Math.max(at, p.clock)) : ' next') : 'Every attempt is in',
+      moves: [{ label: nx ? 'Start the ' + LIFT[nx].toLowerCase() : 'Finish the day', primary: true, run: function () { b.stage = nx || 'done'; if (at != null) p.clock = Math.max(p.clock, at); redo(); } }] };
+  }
+  function practiceHtml() {
+    var p = S.practice, b = p.b, m = meetRow(p.meetId);
+    practiceTotals(b);
+    var u = practiceModel(); S.upMoves = u.moves;
+    var h = '<div class="hd"><div><h1 tabindex="-1">' + esc(b.name) + ', practice</h1><p class="facts">Pretend clock <span class="num">' + esc(hmOf(p.clock)) + '</span> · nothing here is kept or sent</p></div></div>';
+    /* the day's note is for the real day: the practice table leaves it out */
+    h += upHtml(u) + boardTable(b).replace(/<button class="flb ink"[^>]*data-note-day[^>]*>[^<]*<\/button>/g, '');
+    var pri = u.moves.filter(function (x) { return x.primary && !x.done; })[0];
+    return { html: h, crimson: pri ? { label: pri.label, title: 'E', run: function (btn) { pri.run(btn); } } : null };
+  }
+
+  /* ---------------- paint ---------------- */
+  function paint() {
+    var v = view(), html, crimson = null;
+    if (v === 'overview') {
+      html = overviewHtml(); var tm = todayMeet();
+      crimson = tm ? { label: 'Open meet day', run: function () { go({ id: tm.id }); } }
+        : lifterCount() ? { label: 'Book a meet…', run: function () { DESK.bookMeet(null); } }
+        : { label: 'Add your first lifter…', run: function () { if (fn(DESK, 'addLifter')) DESK.addLifter({ from: 'meets' }); } };
+    }
+    else if (v === 'board') { var r = boardHtml(); html = r.html; crimson = r.crimson; }
+    else if (v === 'practice') { var rp = practiceHtml(); html = rp.html; crimson = rp.crimson; }
+    else { html = prepHtml(); crimson = prepCrimson(); }
+    var det = $('#detail');
+    morph(det, html);
+    $$('.seg', det).forEach(function (s) { DESK.segSync(s); });
+    paintList();
+    paintToolbar(v, crimson);
+    DESK.setTitle(v === 'overview' ? 'Meets' : v === 'board' ? (boardOf(S.id) || {}).name || 'Meets' : v === 'practice' ? 'Practice' : (L(prepLifter()) || {}).name || 'Meets');
+    repaintPop();
+    keys(v);
+    /* words on demand (first-time-coach §8.3, §8.4): the marks get their titles now; the attempts tip shows once */
+    if (DESK.terms && fn(DESK.terms, 'paint')) DESK.terms.paint();
+    if (v === 'prep' && fn(DESK, 'tip')) { var slot = $('#detail [data-tip-slot=attempts]'); if (slot) DESK.tip('attempts', slot, esc('Opener: a weight they’d make on a bad day. First meet? Use Safe.')); }
+  }
+
+  /* ---------------- navigation ---------------- */
+  function go(o, push) {
+    S.id = o.id || null; S.lifter = o.lifter || null; S.err = {}; S.practice = null;
+    if (DESK.pop.isOpen()) DESK.pop.close();
+    syncUrl(push !== false);
+    paint();
+    scrollTo(0, 0);
+  }
+  function openPrep(id) { var m = lifterMeet(id); if (m) go({ id: m.id, lifter: id }); }
+  function stepLifter(dir) { var all = meeters(), i = all.indexOf(prepLifter()); if (i < 0) return false; openPrep(all[(i + dir + all.length) % all.length]); return true; }
+  function stepMeet(dir) { var all = meets(), i = all.map(function (m) { return m.id; }).indexOf(S.id), nx = all[i < 0 ? (dir > 0 ? 0 : all.length - 1) : i + dir]; if (!nx) return true; go({ id: nx.id }); var r = $('#list [data-row="' + nx.id + '"]'); if (r) { r.focus({ preventScroll: true }); r.scrollIntoView({ block: 'nearest' }); } return true; }
+  DESK.listStepper = function (dir) { return view() === 'prep' && !S.listFocus ? stepLifter(dir) : stepMeet(dir); };
+
+  /* ---------------- writes ---------------- */
+  function said(res, o) {
+    if (!res) return false;
+    if (res.error) { DESK.toast(res.error.message); return false; }
+    var tok = res.meta && res.meta.undo, lab = (o && o.label) || (res.meta && res.meta.label);
+    if (lab) DESK.toast(lab, tok ? function () { return PL.undo(tok); } : null);
+    return true;
+  }
+  /* a store write whose own toast the page says once, in the run's words */
+  function quiet(f) { var h = PL.hooks, prev = h ? h.toast : null; if (h) h.toast = function () {}; try { return f(); } finally { if (h) h.toast = prev; } }
+  function write(f, o) { return said(quiet(f), o); }
+  function setStage(s) { var b = boardOf(S.id); if (!b || b.stage === s) return; if (write(function () { return PL.meets.stage(S.id, s); }, { label: (STAGES.filter(function (x) { return x[0] === s; })[0] || [0, s])[1] + (s === 'weigh' ? ' is open.' : s === 'done' ? ': the day is done.' : ' is on.') })) syncUrl(false); }
+  function judge(id, lift, k, good) { write(function () { return PL.meets.judge(id, lift, k, good); }); }
+  function callAt(id, lift, k, kg) { write(function () { return PL.meets.setAttempt(id, lift, k, kg); }, { label: first(id) + '’s ' + ORD[k - 1] + ' ' + lift + ': ' + n(kg) + ' to the table.' }); }
+  function platBy(by) { write(function () { return PL.meets.platform(S.id, by); }, { label: '' }); }
+  function tickRung(id, i) { write(function () { return PL.meets.rung(id, i, true); }); }
+  function cutWarm(id) { write(function () { return PL.meets.cutWarmup(id); }); }
+  function handIn(id) { flushRack(id); write(function () { return PL.meets.handIn(id); }); }
+  function sendCards() { write(function () { return PL.meets.sendCards(S.id); }); }
+  function sendAttempts(id) { flushAttempts(); if (fn(DESK, 'tip')) DESK.tip.done('attempts'); write(function () { return PL.meets.sendAttempts(id); }); }
+  function focusScale(id) { var f = $('#detail input[data-scale][data-id="' + id + '"]'); if (f) { f.focus(); f.select(); } }
+  function painFor(id, btn) { var b = btn || $('#detail [data-pain="' + id + '"]') || $('#detail [data-up]'); if (b && fn(DESK, 'painPop')) DESK.painPop(b, id, {}); }
+  function weekAfter() {
+    var b = boardOf(S.id), ids = b ? b.lifters.map(function (x) { return x.id; }) : [];
+    var ends = ids.map(function (id) { return itemOf('blockend-' + id); }).filter(Boolean);
+    var target = ends.length ? ends[0] : null, gt = target && target.acts.filter(function (a) { return a.go; })[0];
+    var hash = gt ? gt.go.hash : 'id=' + encodeURIComponent(ids[0] || '');
+    DESK.go('programs', hash, { from: 'meets' });
+  }
+  function recordScale(input) {
+    var id = input.getAttribute('data-id'), raw = String(input.value).trim().replace(',', '.'), kg = Number(raw), b = boardOf(S.id), x = b && b.lifters.filter(function (y) { return y.id === id; })[0];
+    if (!x) return;
+    if (!raw) { S.err['scale|' + id] = 'Type what the scale says.'; schedule(); return; }
+    if (!isFinite(kg) || kg < 30 || kg > 250) { S.err['scale|' + id] = 'A scale weight in kg, like 104.9.'; schedule(); return; }
+    delete S.err['scale|' + id];
+    if (x.scale != null && Math.abs(x.scale - kg) < 1e-9) { schedule(); return; }
+    var stt = kg <= x.cls ? 'made' : 'over';
+    write(function () { return PL.meets.weighIn(id, stt, { kg: kg }); });
+  }
+  /* rack heights: one write when the coach leaves the three fields (or hands the openers in) */
+  function rackVals(scope) { var o = {}, bad = false; $$('input[data-rack], input[data-prack]', scope).forEach(function (el) { var k = el.getAttribute('data-rack') || el.getAttribute('data-prack'), v = String(el.value).trim(); if (v === '') o[k] = null; else if (/^\d{1,2}$/.test(v)) o[k] = Number(v); else bad = true; }); return bad ? null : o; }
+  function rackDirty(scope) { return $$('input[data-rack], input[data-prack]', scope).some(function (el) { return el.value !== el.getAttribute('data-v'); }); }
+  function flushRack(id) {
+    var g = $('#detail [data-rack-group="' + id + '"]'); if (!g || !rackDirty(g)) return;
+    var o = rackVals(g); if (!o) { S.err.rack = 'Rack heights are whole numbers, 0 to 30.'; schedule(); return; }
+    delete S.err.rack;
+    write(function () { return PL.meets.rack(id, o); }, { label: first(id) + '’s rack: ' + [o.squat != null ? 'squat ' + o.squat : '', o.bench != null ? 'bench ' + o.bench : '', o.safety != null ? 'safety ' + o.safety : ''].filter(Boolean).join(', ') + '.' });
+  }
+  function flushPrepRack() {
+    var g = $('#detail [data-crop=ready] [data-rack-set]'), id = prepLifter(); if (!g || !rackDirty(g)) return;
+    var o = rackVals(g); if (!o) { S.err.prack = 'Rack heights are whole numbers, 0 to 30.'; schedule(); return; }
+    delete S.err.prack;
+    write(function () { return PL.meets.rack(id, o); }, { label: first(id) + '’s rack heights saved.' });
+  }
+  function commitAttempt(input) {
+    var p = input.getAttribute('data-att-in').split('|'), lift = p[0], k = +p[1], id = prepLifter(), key = 'att|' + lift + '|' + k;
+    var raw = String(input.value).trim().replace(',', '.'); if (raw === input.getAttribute('data-v')) { if (S.err[key]) { delete S.err[key]; schedule(); } return; }
+    var kg = Number(raw);
+    if (!raw || !isFinite(kg)) { S.err[key] = 'Type a weight in kg, like 82.5.'; schedule(); return; }
+    var res = quiet(function () { return PL.meets.setAttempt(id, lift, k, kg); });
+    if (res && res.error) { S.err[key] = res.error.message; schedule(); return; }
+    delete S.err[key]; said(res);
+  }
+  function flushAttempts() { $$('#detail [data-att-in]').forEach(function (el) { if (el.value !== el.getAttribute('data-v')) commitAttempt(el); }); }
+  function stepAttempt(lift, k, by) {
+    var id = prepLifter(), pl = planOf(id), kg = pl && pl.attempts[lift][k - 1]; if (kg == null) return;
+    var key = 'att|' + lift + '|' + k, res = quiet(function () { return PL.meets.setAttempt(id, lift, k, kg + by * 2.5); });
+    if (res && res.error) { S.err[key] = res.error.message; schedule(); return; }
+    delete S.err[key]; said(res);
+  }
+  function safeRead(id) {
+    if (fn(PL.meets, 'safe')) { var s = dat(PL.meets.safe(id)); if (s) return s.attempts || s; }
+    var p = planOf(id); return p && p.safe ? p.safe : null;
+  }
+  function safeThirds() {
+    var id = prepLifter(), s = safeRead(id), pl = planOf(id); if (!s || !pl) return;
+    var toks = [], said3 = [];
+    /* a third at Safe's never sits at or under the second: where it would, the second (and the opener under it) go to Safe's too */
+    LIFTS.forEach(function (lift) {
+      var sf = s[lift], cur = pl.attempts[lift]; if (!sf || sf[2] == null || sf[2] === cur[2]) return;
+      var ks = [3]; if (sf[2] <= cur[1]) { ks.unshift(2); if (sf[1] <= cur[0]) ks.unshift(1); }
+      var ok1 = true;
+      ks.forEach(function (k) { if (!ok1 || sf[k - 1] === cur[k - 1]) return; var r = quiet(function () { return PL.meets.setAttempt(id, lift, k, sf[k - 1]); }); if (r && !r.error) toks.push(r.meta.undo); else { ok1 = false; if (r && r.error) DESK.toast(r.error.message); } });
+      if (ok1) said3.push(lift + ' ' + n(sf[2]) + (ks.length > 1 ? ' (second ' + n(sf[1]) + ')' : ''));
+    });
+    if (toks.length) DESK.toast(first(id) + '’s thirds at Safe: ' + said3.join(', ') + '.', function () { var last; for (var i = toks.length - 1; i >= 0; i--) last = PL.undo(toks[i]); return last; });
+  }
+
+  /* ---------------- popovers: an attempt, a ladder, maxes, the flight, a note, the message to all ---------------- */
+  function attPopHtml(id, lift, k) {
+    var b = boardOf(S.id), x = b && b.lifters.filter(function (y) { return y.id === id; })[0]; if (!x) return '';
+    var a = x.attempts[lift][k - 1], key = id + '|' + lift + '|' + k, kg = S.called[key] != null ? S.called[key] : a.kg, judged = a.st === 'good' || a.st === 'no';
+    var reason = x.reasons && x.reasons[lift] ? x.reasons[lift][k - 1] : null;
+    var h = '<div class="pp" data-pp="att" data-key="' + esc(key) + '"><h3>' + esc(x.first + ', ' + LIFT[lift].toLowerCase() + ' ' + ORD[k - 1]) + '</h3><p class="who">' + esc(cellTitle(x, lift, a)) + '</p>';
+    h += '<div class="big"><button class="btn icon" type="button" data-pp-step="-1" aria-label="2.5 kg less"' + (judged ? ' disabled' : '') + '>−</button><span class="v" data-lift="' + lift + '">' + n(kg) + '</span><button class="btn icon" type="button" data-pp-step="1" aria-label="2.5 kg more"' + (judged ? ' disabled' : '') + '>+</button></div>';
+    h += '<div class="acts"><button class="btn" type="button" data-pp-judge="1" title="G" aria-pressed="' + (a.st === 'good') + '">Good lift</button><button class="btn" type="button" data-pp-judge="0" title="N" aria-pressed="' + (a.st === 'no') + '">No lift</button>' + (!judged && (kg !== a.kg || a.st === 'planned') ? '<button class="btn" type="button" data-pp-call>Call ' + n(kg) + '</button>' : '') + (judged ? '<button class="btn quiet" type="button" data-pp-judge="">Not judged</button>' : '') + '</div>';
+    if (a.st === 'no') h += '<p class="lh">Why</p><div class="chips" role="group" aria-label="Why it was a no lift">' + RED.map(function (r) { return '<button class="chip" type="button" data-pp-reason="' + r[0] + '" aria-pressed="' + (reason === r[0]) + '">' + r[1] + '</button>'; }).join('') + '</div>';
+    return h + '<p class="err-l" data-pp-err></p></div>';
+  }
+  function ladderHtml(id) {
+    var b = boardOf(S.id), w = b && b.warmup[id]; if (!w) return '';
+    var h = '<div class="pp" data-pp="ladder" data-key="' + esc(id) + '"><h3>' + esc(w.first + '’s ' + w.lift + ' warm-ups') + '</h3><p class="who">Opener ' + n(w.opener) + ', plates a side</p><div class="rl">';
+    w.rungs.forEach(function (r, i) {
+      if (r.out) return;
+      h += '<div class="r"><button type="button" class="tick" role="checkbox" aria-checked="' + !!r.ticked + '" data-rung-tick="' + esc(id) + '|' + i + '" aria-label="' + esc(w.first + ' took ' + (r.kg <= 20 ? 'bar' : n(r.kg)) + ' × ' + r.r) + '"><i>' + CHECK + '</i></button><span class="kg"' + liftAttr(w.lift) + '>' + (r.kg <= 20 ? 'bar' : n(r.kg)) + ' × ' + r.r + '</span><span class="pl">' + esc(r.plates || 'empty bar') + (r.outAt != null ? ', ' + r.outAt + ' out' : '') + '</span></div>';
+    });
+    h += '</div><div class="acts">' + (w.cut ? '<button class="btn sm" type="button" data-uncut="' + esc(id) + '">Put the ladder back</button>' : w.draft ? '<button class="btn sm" type="button" data-cut="' + esc(id) + '">Cut to 3 singles</button>' : '') + '</div></div>';
+    return h;
+  }
+  function maxesHtml() {
+    var b = boardOf(S.id), rows = [];
+    (b ? b.lifters : []).forEach(function (x) { var l = L(x.id); LIFTS.forEach(function (lift) { var best = bestMade(x, lift), was = l && l.lifts[lift] ? l.lifts[lift].max : null; if (best != null && (was == null || best > was)) rows.push(x.first + ' <span data-lift="' + lift + '">' + lift + ': <b>' + (was != null ? n(was) + ' → ' : '') + n(best) + '</b></span>'); }); });
+    return '<div class="pp" data-pp="maxes"><h3>Today’s lifts as maxes</h3><div class="mx">' + (rows.length ? rows.map(function (r) { return '<p>' + r + '</p>'; }).join('') : '<p>Nobody made a lift over their max.</p>') + '</div><div class="acts">' + (rows.length ? '<button class="btn" type="button" data-maxes-apply>Apply</button>' : '') + '</div></div>';
+  }
+  function flightHtml() {
+    var b = boardOf(S.id), lift = b && b.platform ? b.platform.lift : 'squat', fl = (b && b.flights && b.flights[lift]) || [], h = '<div class="pp" data-pp="flight"><h3>' + LIFT[lift] + ' flights</h3><p class="who">Flight sizes and your lifters’ places</p>';
+    fl.forEach(function (f, i) {
+      h += '<div class="fl-r"><b>Flight ' + esc(f.letter) + '</b><label>Size <input class="input num" type="text" inputmode="numeric" data-fl-size="' + i + '" value="' + f.size + '"></label><span></span></div>';
+      Object.keys(f.ids || {}).forEach(function (id) { h += '<div class="fl-r"><span></span><span>' + esc(first(id)) + '</span><input class="input num" type="text" inputmode="numeric" data-fl-pos="' + i + '|' + esc(id) + '" value="' + f.ids[id] + '" aria-label="' + esc(first(id) + '’s place in flight ' + f.letter) + '"></div>'; });
+    });
+    return h + '<p class="err-l" data-pp-err></p><div class="acts"><button class="btn" type="button" data-fl-save>Save</button></div></div>';
+  }
+  function notePopHtml(id) {
+    var pl = planOf(id);
+    return '<div class="pp" data-pp="note" data-key="' + esc(id) + '"><h3>' + esc(first(id) + '’s day') + '</h3><p class="who">What to change next block</p><textarea class="input" rows="3" data-note-day-text aria-label="' + esc(first(id) + '’s note on the day') + '">' + esc(pl && pl.debrief ? pl.debrief : '') + '</textarea><p class="err-l" data-pp-err></p><div class="acts"><button class="btn" type="button" data-note-day-save>Save</button></div></div>';
+  }
+  function msgAllHtml() {
+    var b = boardOf(S.id), ids = b ? b.lifters.map(function (x) { return x.id; }) : [];
+    return '<div class="pp" data-pp="msgall"><h3>Message ' + esc(names(ids)) + '</h3><p class="who">One copy in each thread</p><textarea class="input" rows="3" data-msg-all-text aria-label="The message"></textarea><p class="err-l" data-pp-err></p><div class="acts"><button class="btn" type="button" data-msg-all-send title="⌘↵">Send to ' + ids.length + '</button></div></div>';
+  }
+  function openPop(btn, kind, key, html, o) { S.pop = { kind: kind, key: key }; var el = DESK.pop.open(btn, html, Object.assign({ label: o && o.label || kind, anchor: o && o.anchor, place: o && o.place }, o && o.focus ? { focus: o.focus } : {})); return el; }
+  function repaintPop() {
+    if (!S.pop || !DESK.pop.isOpen()) return;
+    var el = DESK.pop.el(), box = el && $('[data-pp]', el); if (!box || box.getAttribute('data-pp') !== S.pop.kind) return;
+    var h = S.pop.kind === 'att' ? attPopHtml.apply(null, S.pop.key.split('|').map(function (v, i) { return i === 2 ? +v : v; })) : S.pop.kind === 'ladder' ? ladderHtml(S.pop.key) : null;
+    if (h != null) morph(el, h);
+  }
+  DESK.on('pop:closed', function () { S.pop = null; });
+
+  /* ---------------- the cut plan sheet (screens.md §5.3): seen first, then sent ---------------- */
+  var cutD = null;
+  /* her message, written from the table as it stands (walk 2: "From today … the last 0.5 comes off with water" over a plan
+     that starts tomorrow and keeps water as usual until Saturday); it follows the table until the coach writes in it */
+  function startWord(iso) { var d = K.daysTo(iso); return d <= 0 ? 'today' : d === 1 ? 'tomorrow' : day(iso); }
+  function cutDraft(from, by, rows) {
+    if (!rows.length) return '';
+    var last = rows[rows.length - 1], over = Math.round((from - last.target) * 10) / 10, days = K.daysTo(by), f0 = String(rows[0].food || '').trim();
+    var t = (over > 0 ? n(over) + ' over with ' + days + ' days to go. ' : '') + 'From ' + startWord(rows[0].d) + ': ' + (f0 ? (/^\d/.test(f0) ? 'about ' : '') + f0 + ' and ' : '') + 'a weigh-in every morning.';
+    var wi = -1; rows.forEach(function (r, i) { var w = String(r.water || '').trim().toLowerCase(); if (wi < 0 && w && w !== 'as usual' && i < rows.length - 1) wi = i; });
+    if (wi > 0) { var by0 = Math.round((rows[wi - 1].target - last.target) * 10) / 10; t += ' Water as usual until ' + day(rows[wi - 1].d) + ', then ' + String(rows[wi].water).trim() + (by0 > 0 ? ': the last ' + n(by0) + ' comes off that way.' : '.'); }
+    return t;
+  }
+  function cutRows(box) { return $$('tr[data-cut-row]', box).map(function (tr) { return { d: tr.getAttribute('data-cut-row'), target: Number(String($('[data-cut-f=target]', tr).value).replace(',', '.')), food: $('[data-cut-f=food]', tr).value, water: $('[data-cut-f=water]', tr).value }; }); }
+  function cutRedraft() {
+    var box = cutD && $('.cs', cutD), ta = box && $('[data-cut-msg]', box); if (!ta || ta.hasAttribute('data-touched')) return;
+    var rows = cutRows(box); if (rows.some(function (r) { return !isFinite(r.target); })) return;
+    ta.value = cutDraft(Number(box.getAttribute('data-from')), box.getAttribute('data-by'), rows);
+  }
+  function cutSheet(id) {
+    var c = dat(PL.meets.cutPlan(id)); if (!c) { DESK.toast('There is no cut to plan for ' + first(id) + '.'); return; }
+    if (!cutD) {
+      cutD = document.createElement('dialog'); cutD.className = 'sheet cut'; cutD.setAttribute('data-layer', 'sheet'); cutD.setAttribute('data-sheet', 'cut');
+      document.body.appendChild(cutD);
+      cutD.addEventListener('click', function (e) { if (e.target === cutD) closeCut(false); });
+      cutD.addEventListener('cancel', function (e) { e.preventDefault(); closeCut(false); });
+    }
+    var lm = lifterMeet(id), wi = lm && lm.weighIn === '24h' ? '24-hour weigh-in' : '2-hour weigh-in';
+    var h = '<div class="cs" data-cut-id="' + esc(id) + '" data-from="' + esc(c.from) + '" data-by="' + esc(c.by) + '"><div class="cs-h"><h2>' + esc(c.title) + '</h2><p>' + wi + '</p></div><div class="cs-b">';
+    h += '<table class="tbl" aria-label="The plan, day by day"><colgroup><col class="c-d"><col class="c-t"><col class="c-f"><col><col></colgroup><thead><tr><th scope="col">Day</th><th scope="col">Morning kg</th><th scope="col">Food</th><th scope="col">Water</th><th scope="col">Note</th></tr></thead><tbody>';
+    c.rows.forEach(function (r, i) {
+      h += '<tr data-cut-row="' + esc(r.d) + '"><th scope="row">' + esc(day(r.d)) + '</th><td><input class="input n num" type="text" inputmode="decimal" value="' + esc(n(r.target)) + '" data-cut-f="target" aria-label="' + esc(day(r.d) + ' target, kg') + '"></td>' +
+        ['food', 'water', 'note'].map(function (k) { return '<td><input class="input" type="text" value="' + esc(r[k] || '') + '" data-cut-f="' + k + '" aria-label="' + esc(day(r.d) + ' ' + k) + '"></td>'; }).join('') + '</tr>';
+    });
+    h += '</tbody></table><label class="fl" for="cut-after">After the weigh-in</label><textarea id="cut-after" class="input" rows="2" data-cut-after>' + esc(c.after || '') + '</textarea>';
+    h += '<label class="fl" for="cut-msg">' + esc('Her message'.replace('Her', her(id, true))) + '</label><textarea id="cut-msg" class="input" rows="3" data-cut-msg>' + esc(isFinite(c.from) && c.by ? cutDraft(c.from, c.by, c.rows) : c.text || '') + '</textarea><p class="err-l" data-cut-err></p></div>';
+    h += '<div class="cs-f"><button class="btn quiet" type="button" data-cut-cancel>Cancel</button><span class="grow"></span><button class="btn" type="button" data-cut-save>Save without sending</button><button class="btn" type="button" data-primary data-cut-send title="⌘↵">Send ' + esc(first(id)) + ' the plan</button></div></div>';
+    cutD.setAttribute('aria-label', c.title);
+    cutD.innerHTML = h;
+    if (!cutD.open) cutD.showModal();
+  }
+  function closeCut(back) {
+    if (cutD && cutD.open) cutD.close();
+    var h = DESK.url.get(); if (h.sheet) { delete h.sheet; DESK.url.set(h); }
+    if (back && DESK.back()) DESK.goBack();
+  }
+  function saveCut(send) {
+    var box = $('.cs', cutD), id = box.getAttribute('data-cut-id'), rows = [], bad = null;
+    $$('tr[data-cut-row]', box).forEach(function (tr) {
+      var t = Number(String($('[data-cut-f=target]', tr).value).replace(',', '.'));
+      if (!isFinite(t) || t < 30 || t > 250) bad = bad || day(tr.getAttribute('data-cut-row'));
+      rows.push({ d: tr.getAttribute('data-cut-row'), target: t, food: $('[data-cut-f=food]', tr).value, water: $('[data-cut-f=water]', tr).value, note: $('[data-cut-f=note]', tr).value });
+    });
+    var err = $('[data-cut-err]', box);
+    if (bad) { err.textContent = bad + ': a morning weight in kg, like 58.2.'; return; }
+    var text = $('[data-cut-msg]', box).value.trim();
+    var res = quiet(function () { return PL.meets.saveCut(id, { rows: rows, after: $('[data-cut-after]', box).value, text: text, send: !!send }); });
+    if (!res || res.error) { err.textContent = (res && res.error && res.error.message) || 'That did not save.'; return; }
+    closeCut(false);
+    var tok = res.meta && res.meta.undo;
+    DESK.toast(send ? first(id) + '’s cut plan starts ' + startWord(rows[0].d) + '. Sent to ' + first(id) + ': “' + text + '”' : first(id) + '’s cut plan is saved, not sent.', tok ? function () { return PL.undo(tok); } : null);
+  }
+
+  /* ---------------- events ---------------- */
+  document.addEventListener('click', function (e) {
+    var t = e.target, b;
+    if (cutD && cutD.contains(t)) {
+      if ((b = t.closest('[data-cut-send]'))) { saveCut(true); return; }
+      if ((b = t.closest('[data-cut-save]'))) { saveCut(false); return; }
+      if ((b = t.closest('[data-cut-cancel]'))) { closeCut(true); return; }
+      return;
+    }
+    if ((b = t.closest('[data-practice-end]'))) { endPractice(); return; }
+    if ((b = t.closest('[data-practice]'))) { startPractice(b.getAttribute('data-practice')); return; }
+    /* the practice board writes nothing: its own moves run, every other control on it stays still */
+    if (view() === 'practice' && t.closest('#detail')) { if ((b = t.closest('[data-up]'))) { var pm0 = S.upMoves[+b.getAttribute('data-up')]; if (pm0 && pm0.run) pm0.run(b); } else if (t.closest('[data-att]')) DESK.toast('In the practice, Up next calls and judges each attempt.'); return; }
+    if ((b = t.closest('#list [data-row]'))) { go({ id: b.getAttribute('data-row') }); return; }
+    if ((b = t.closest('[data-book]'))) { if (fn(DESK, 'bookMeet')) DESK.bookMeet(view() === 'prep' ? prepLifter() : null); return; }
+    if ((b = t.closest('[data-crimson]'))) { if (S.crimson && S.crimson.run) S.crimson.run(b); return; }
+    if ((b = t.closest('[data-send-now]'))) { sendAttempts(prepLifter()); return; }
+    if ((b = t.closest('[data-peak]'))) { var pid = b.getAttribute('data-peak'), pj = planOf(pid), pg = pj && pj.job && pj.job.go && pj.job.go.place === 'programs' && /runin/.test(pj.job.go.hash) ? pj.job.go.hash : null, pm = lifterMeet(pid); DESK.go('programs', pg || 'id=' + encodeURIComponent(pid) + '&start=runin' + (pm ? '&runin=' + encodeURIComponent(pm.id) : ''), { from: 'meets' }); return; }
+    if ((b = t.closest('[data-step]')) && b.closest('.tb')) { stepLifter(+b.getAttribute('data-step')); return; }
+    if ((b = t.closest('[data-undo-last]'))) { undoLast(); return; }
+    if ((b = t.closest('[data-msg-all]'))) { if (DESK.pop.justClosed(b)) return; openPop(b, 'msgall', '', msgAllHtml(), { label: 'Message all', focus: '[data-msg-all-text]' }); return; }
+    if ((b = t.closest('[data-undo-item]'))) { var ur = PL.items.undo(b.getAttribute('data-undo-item')); if (ur && ur.error) DESK.toast(ur.error.message); else DESK.toast('Undone: ' + String((ur && ur.meta && ur.meta.label) || 'done').replace(/^Undone: /, '')); return; }
+    if ((b = t.closest('[data-fix]'))) { var p = b.getAttribute('data-fix').split('|'); DESK.fix.open(b, { itemId: p[0], actId: p[1], anchor: b.closest('.trow') || b }); return; }
+    if ((b = t.closest('#detail tr[data-open]'))) { if (t.closest('a')) e.preventDefault(); var hp = new URLSearchParams(b.getAttribute('data-open')); go({ id: hp.get('id'), lifter: hp.get('lifter') }); return; }
+    /* prep */
+    if ((b = t.closest('[data-lt]'))) { S.tabLifter = b.getAttribute('data-lt'); go({ id: S.id, lifter: S.tabLifter }); return; }
+    if ((b = t.closest('[data-preset]'))) { flushAttempts(); S.err = {}; S.refused = {}; if (fn(DESK, 'tip')) DESK.tip.done('attempts'); write(function () { return PL.meets.preset(prepLifter(), b.getAttribute('data-preset')); }); return; }
+    if ((b = t.closest('[data-pm]'))) { var q = b.getAttribute('data-pm').split('|'); stepAttempt(q[0], +q[1], +q[2]); var inp = $('#detail [data-att-in="' + q[0] + '|' + q[1] + '"]'); if (inp) inp.focus({ preventScroll: true }); return; }
+    if ((b = t.closest('[data-safe-thirds]'))) { safeThirds(); return; }
+    if ((b = t.closest('[data-bw]'))) { var how = b.getAttribute('data-bw'); if (how === 'plan') { DESK.url.set(Object.assign(DESK.url.get(), { sheet: 'cut' })); cutSheet(prepLifter()); } else write(function () { return PL.meets.bw(prepLifter(), how); }); return; }
+    if ((b = t.closest('[data-runin]'))) { var lm = lifterMeet(prepLifter()); DESK.go('programs', 'id=' + encodeURIComponent(prepLifter()) + '&runin=' + encodeURIComponent(lm ? lm.id : ''), { from: 'meets' }); return; }
+    if ((b = t.closest('[data-send-wk]'))) { var sid = prepLifter(), sn = +b.getAttribute('data-send-wk'); write(function () { return PL.programs.send(sid, sn, {}); }); return; }
+    if ((b = t.closest('[data-rehearse-all]'))) { var rid = prepLifter(); write(function () { return PL.meets.rehearse(rid); }); return; }
+    if ((b = t.closest('[data-rehearse]'))) { rehearse(b.getAttribute('data-rehearse')); return; }
+    if ((b = t.closest('[data-tick]'))) { var on = b.getAttribute('aria-checked') !== 'true'; write(function () { return PL.meets.tick(prepLifter(), b.getAttribute('data-tick'), on); }); return; }
+    /* board */
+    if ((b = t.closest('[data-stage]')) && b.closest('#detail')) { setStage(b.getAttribute('data-stage')); return; }
+    if ((b = t.closest('[data-up]'))) { var mv = S.upMoves[+b.getAttribute('data-up')]; if (mv && mv.run) mv.run(b); return; }
+    if ((b = t.closest('[data-hand]'))) { handIn(b.getAttribute('data-hand')); return; }
+    if ((b = t.closest('[data-pain]'))) { if (DESK.pop.justClosed(b)) return; painFor(b.getAttribute('data-pain'), b); return; }
+    if ((b = t.closest('[data-plat-by]'))) { platBy(+b.getAttribute('data-plat-by')); return; }
+    if ((b = t.closest('[data-flight]'))) { if (DESK.pop.justClosed(b)) return; openPop(b, 'flight', '', flightHtml(), { label: 'Edit the flight' }); return; }
+    if ((b = t.closest('[data-rung-tick]'))) { var rr = b.getAttribute('data-rung-tick').split('|'); write(function () { return PL.meets.rung(rr[0], +rr[1], b.getAttribute('aria-checked') !== 'true'); }); return; }
+    if ((b = t.closest('[data-cut]'))) { cutWarm(b.getAttribute('data-cut')); return; }
+    if ((b = t.closest('[data-uncut]'))) { var uid = b.getAttribute('data-uncut'); write(function () { return PL.meets.uncutWarmup(uid); }); return; }
+    if ((b = t.closest('[data-ladder]'))) { if (DESK.pop.justClosed(b)) return; var lid = b.getAttribute('data-ladder'); openPop(b, 'ladder', lid, ladderHtml(lid), { label: first(lid) + '’s warm-ups' }); return; }
+    if ((b = t.closest('#detail [data-att]')) && b.matches('button')) { if (DESK.pop.justClosed(b)) return; var ak = b.getAttribute('data-att'), ap = ak.split('|'); delete S.called[ak]; openPop(b, 'att', ak, attPopHtml(ap[0], ap[1], +ap[2]), { label: 'Attempt', anchor: b.closest('tr'), place: 'below-end' }); return; }
+    if ((b = t.closest('[data-note-day]'))) { if (DESK.pop.justClosed(b)) return; var nid = b.getAttribute('data-note-day'); openPop(b, 'note', nid, notePopHtml(nid), { label: 'Note the day', focus: '[data-note-day-text]' }); return; }
+    /* inside our popovers */
+    if ((b = t.closest('.pop [data-pp-judge]'))) { var kk = S.pop.key.split('|'), gv = b.getAttribute('data-pp-judge'); judge(kk[0], kk[1], +kk[2], gv === '' ? null : gv === '1'); return; }
+    if ((b = t.closest('.pop [data-pp-step]'))) { var k2 = S.pop.key, a2 = k2.split('|'), bx = boardOf(S.id).lifters.filter(function (y) { return y.id === a2[0]; })[0], cur = S.called[k2] != null ? S.called[k2] : bx.attempts[a2[1]][+a2[2] - 1].kg; S.called[k2] = cur + 2.5 * +b.getAttribute('data-pp-step'); repaintPop(); return; }
+    if ((b = t.closest('.pop [data-pp-call]'))) { var k3 = S.pop.key, a3 = k3.split('|'), bx3 = boardOf(S.id).lifters.filter(function (y) { return y.id === a3[0]; })[0], v3 = S.called[k3] != null ? S.called[k3] : bx3.attempts[a3[1]][+a3[2] - 1].kg, r3 = quiet(function () { return PL.meets.setAttempt(a3[0], a3[1], +a3[2], v3); }); if (r3 && r3.error) { var e3 = $('.pop [data-pp-err]'); if (e3) e3.textContent = r3.error.message; return; } delete S.called[k3]; DESK.pop.close(); said(r3, { label: first(a3[0]) + '’s ' + ORD[+a3[2] - 1] + ' ' + a3[1] + ': ' + n(v3) + ' to the table.' }); return; }
+    if ((b = t.closest('.pop [data-pp-reason]'))) { var k4 = S.pop.key.split('|'); write(function () { return PL.meets.reason(k4[0], k4[1], +k4[2], b.getAttribute('data-pp-reason')); }); return; }
+    if ((b = t.closest('.pop [data-maxes-apply]'))) { DESK.pop.close(); var mr = quiet(function () { return PL.meets.maxesFromMeet(S.id); }); if (mr && !mr.error) S.maxed = true; said(mr); schedule(); return; }
+    if ((b = t.closest('.pop [data-fl-save]'))) { saveFlight(); return; }
+    if ((b = t.closest('.pop [data-note-day-save]'))) { saveNote(); return; }
+    if ((b = t.closest('.pop [data-msg-all-send]'))) { sendAll(); return; }
+  });
+  function maxesPop(btn) { openPop(btn, 'maxes', '', maxesHtml(), { label: 'Maxes from the meet' }); }
+  function undoLast() { var r = PL.meets.undo(S.id); if (r && r.error) { DESK.toast(r.error.message); return; } var s = String((r.meta && r.meta.label) || 'Undone.'); DESK.toast(/^Undone: /.test(s) ? s.replace(/^Undone: (.)/, function (m, c) { return 'Undone: ' + c.toUpperCase(); }) : s); }
+  function rehearse(lift) {
+    var id = prepLifter(), pl = planOf(id), rh = pl && pl.rehearsal, left = (pl && pl.left) || [];
+    var inWin = left.filter(function (s0) { return s0.top && s0.top.lift === lift && (!rh || (s0.date >= rh.from && s0.date <= rh.to)); });
+    var s1 = inWin[inWin.length - 1] || left.filter(function (s0) { return s0.top && s0.top.lift === lift; }).slice(-1)[0];
+    var hash = 'id=' + encodeURIComponent(id) + (s1 ? '&week=' + s1.week + '&day=' + s1.idx : '') + '&prefill=opener-' + lift;
+    DESK.go('programs', hash, { from: 'meets' });
+  }
+  function saveFlight() {
+    var b = boardOf(S.id), lift = b.platform ? b.platform.lift : 'squat', fl = JSON.parse(JSON.stringify(b.flights[lift] || [])), box = $('.pop [data-pp=flight]');
+    $$('[data-fl-size]', box).forEach(function (el) { fl[+el.getAttribute('data-fl-size')].size = Number(el.value); });
+    $$('[data-fl-pos]', box).forEach(function (el) { var p = el.getAttribute('data-fl-pos').split('|'); fl[+p[0]].ids[p[1]] = Number(el.value); });
+    var r = quiet(function () { return PL.meets.flight(S.id, lift, fl); });
+    if (r && r.error) { $('[data-pp-err]', box).textContent = r.error.message; return; }
+    DESK.pop.close(); said(r, { label: LIFT[lift] + ' flights saved.' });
+  }
+  function saveNote() {
+    var box = $('.pop [data-pp=note]'), id = box.getAttribute('data-key'), text = $('[data-note-day-text]', box).value.trim();
+    var r = quiet(function () { return PL.meets.note(id, S.id, text); });
+    if (r && r.error) { $('[data-pp-err]', box).textContent = r.error.message; return; }
+    DESK.pop.close(); said(r, { label: first(id) + '’s note on the day is saved.' });
+  }
+  function sendAll() {
+    var box = $('.pop [data-pp=msgall]'), text = $('[data-msg-all-text]', box).value.trim(), b = boardOf(S.id), ids = b.lifters.map(function (x) { return x.id; });
+    if (!text) { $('[data-pp-err]', box).textContent = 'Write the message first.'; return; }
+    if (!fn(PL.messages, 'sendMany')) { $('[data-pp-err]', box).textContent = 'Sending to several is not in the store yet.'; return; }
+    var r = quiet(function () { return PL.messages.sendMany(ids, { text: text }); });
+    if (r && r.error) { $('[data-pp-err]', box).textContent = r.error.message; return; }
+    DESK.pop.close(); said(r, { label: 'Sent to ' + names(ids) + ': “' + text + '”' });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (t && t.matches && t.matches('#detail input[data-scale]') && e.key === 'Enter') { e.preventDefault(); recordScale(t); return; }
+    /* the attempt number hands the board's keys back on Enter or Esc (walk 2: "11eeee" typed into it) */
+    if (t && t.matches && t.matches('#detail input[data-plat]') && e.key === 'Enter') { e.preventDefault(); var v = parseInt(t.value, 10); t.blur(); if (!isFinite(v)) { t.value = t.getAttribute('data-v'); return; } write(function () { return PL.meets.platformAt(S.id, v); }, { label: '' }); return; }
+    if (t && t.matches && t.matches('#detail input[data-plat]') && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); t.value = t.getAttribute('data-v'); t.blur(); return; }
+    if (t && t.matches && t.matches('#detail input[data-scale]') && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); t.value = t.getAttribute('data-v'); delete S.err['scale|' + t.getAttribute('data-id')]; t.blur(); schedule(); return; }
+    if (t && t.matches && t.matches('#detail input[data-another]') && e.key === 'Enter') { e.preventDefault(); var u = S.upMoves && S.upMoves.call; var c = upModel(boardOf(S.id)).call, kg = Number(String(t.value).replace(',', '.')); if (c && isFinite(kg) && kg > 0) callAt(c.x.id, boardOf(S.id).stage, c.a.k, kg); return; }
+    if (t && t.matches && t.matches('#detail input[data-target]') && e.key === 'Enter') { e.preventDefault(); t.blur(); return; }
+    if (t && t.matches && t.matches('#detail input[data-changeby], #detail input[data-note], #detail input[data-prack], #detail input[data-rack]') && e.key === 'Enter') { e.preventDefault(); t.blur(); return; }
+    if (t && t.matches && t.matches('#detail input[data-att-in]')) {
+      var p = t.getAttribute('data-att-in').split('|'), lift = p[0], k = +p[1];
+      if (e.key === '+' || e.key === '=') { e.preventDefault(); if (t.value !== t.getAttribute('data-v')) commitAttempt(t); stepAttempt(lift, k, 1); return; }
+      if (e.key === '-' || e.key === '−') { e.preventDefault(); if (t.value !== t.getAttribute('data-v')) commitAttempt(t); stepAttempt(lift, k, -1); return; }
+      if (e.key === 'Enter' && !(e.metaKey || e.ctrlKey)) { e.preventDefault(); commitAttempt(t); return; }
+      if (e.key === 'Escape') { t.value = t.getAttribute('data-v'); delete S.err['att|' + lift + '|' + k]; delete S.refused['att|' + lift + '|' + k]; schedule(); return; }
+      var to = e.key === 'ArrowLeft' ? [lift, k - 1] : e.key === 'ArrowRight' ? [lift, k + 1] : e.key === 'ArrowUp' ? [LIFTS[LIFTS.indexOf(lift) - 1], k] : e.key === 'ArrowDown' ? [LIFTS[LIFTS.indexOf(lift) + 1], k] : null;
+      if (to && to[0] && to[1] >= 1 && to[1] <= 3 && !e.altKey) { e.preventDefault(); var nx = $('#detail [data-att-in="' + to[0] + '|' + to[1] + '"]'); if (nx) { nx.focus(); nx.select(); } return; }
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      if (cutD && cutD.open) { e.preventDefault(); saveCut(true); return; }
+      var pp = DESK.pop.isOpen() && $('.pop [data-pp]');
+      if (pp && pp.getAttribute('data-pp') === 'msgall') { e.preventDefault(); sendAll(); return; }
+      if (pp && pp.getAttribute('data-pp') === 'note') { e.preventDefault(); saveNote(); return; }
+      if (view() === 'prep' && !$('dialog[open]') && !DESK.pop.isOpen()) { e.preventDefault(); var cr = prepCrimson(), pl0 = planOf(prepLifter()); if (cr && cr.send) cr.run(); else if (pl0 && earlySend(pl0)) sendAttempts(prepLifter()); return; }
+    }
+    var typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+    if (typing || e.metaKey || e.ctrlKey || e.altKey || $('dialog[open]')) return;
+    var key = e.key.length === 1 ? e.key.toLowerCase() : e.key, v = view();
+    if (v === 'practice') {
+      if (DESK.pop.isOpen()) return;
+      var pv = practiceModel(), pmv = pv.moves.filter(function (m) { return !m.done; });
+      var gk = key === 'g' ? pmv.filter(function (m) { return m.key === 'G'; })[0] : key === 'n' ? pmv.filter(function (m) { return m.key === 'N'; })[0] : null;
+      if (gk) { e.preventDefault(); gk.run(); return; }
+      if (key === 'e') { e.preventDefault(); if (S.crimson && S.crimson.run) S.crimson.run($('.tb [data-crimson]')); return; }
+      if (/^[1-3]$/.test(key)) { var pk = S.upMoves[+key - 1]; if (pk && pk.run) { e.preventDefault(); pk.run(); } }
+      return;
+    }
+    if (v !== 'board') return;
+    var popAtt = DESK.pop.isOpen() && S.pop && S.pop.kind === 'att';
+    if ((key === 'g' || key === 'n') && (popAtt || !DESK.pop.isOpen())) {
+      e.preventDefault();
+      if (popAtt) { var kk = S.pop.key.split('|'); judge(kk[0], kk[1], +kk[2], key === 'g'); return; }
+      var b = boardOf(S.id), lift0 = b.stage; if (LIFTS.indexOf(lift0) < 0) return;
+      var all = []; b.lifters.forEach(function (x) { x.attempts[lift0].forEach(function (a) { if (a.st !== 'good' && a.st !== 'no') all.push({ id: x.id, k: a.k, gi: attemptAt(b, x.id, lift0, a.k) || 0 }); }); });
+      all.sort(function (p, q) { return p.gi - q.gi; });
+      if (all[0]) judge(all[0].id, lift0, all[0].k, key === 'g');
+      return;
+    }
+    if (DESK.pop.isOpen()) return;
+    if (key === ']' || key === '[') { e.preventDefault(); platBy(key === ']' ? 1 : -1); return; }
+    if (key === 'w') { var bw0 = boardOf(S.id), r0 = (bw0.timeline || []).filter(function (x) { return x.state !== 'done'; })[0]; if (r0) { e.preventDefault(); tickRung(r0.id, r0.i); } return; }
+    if (key === 'u') { e.preventDefault(); undoLast(); return; }
+    if (key === 'e') { e.preventDefault(); var cb = $('.tb [data-crimson]'); if (S.crimson && S.crimson.run) S.crimson.run(cb); return; }
+    if (/^[1-3]$/.test(key)) { var mv = S.upMoves[+key - 1]; if (mv && mv.run) { e.preventDefault(); mv.run($('#detail [data-up="' + (+key - 1) + '"]')); } }
+  });
+  /* fields commit when the coach leaves them */
+  document.addEventListener('focusout', function (e) {
+    var t = e.target, to = e.relatedTarget;
+    if (!t || !t.matches) return;
+    /* the scale weight saves when the coach leaves the field, as the rack heights do (walk 2: 62.6 left unrecorded on Tab) */
+    if (t.matches('#detail input[data-scale]')) { var sv = String(t.value).trim(); if (sv && sv !== t.getAttribute('data-v')) recordScale(t); return; }
+    if (t.matches('#detail input[data-rack]')) { var g = t.closest('[data-rack-group]'); if (!to || !g.contains(to)) flushRack(g.getAttribute('data-rack-group')); return; }
+    if (t.matches('#detail input[data-prack]')) { var g2 = t.closest('.ready'); if (!to || !to.matches || !to.matches('input[data-prack]')) flushPrepRack(); return; }
+    if (t.matches('#detail input[data-att-in]')) {
+      if (to && to.closest && to.closest('.cell') === t.closest('.cell')) return;
+      /* a letter was refused while typing: say how to write it on leaving the box (never per key), and keep what is there */
+      var rk = 'att|' + t.getAttribute('data-att-in'); if (S.refused[rk]) { delete S.refused[rk]; S.err[rk] = 'Type a weight in kg, like 82.5.'; schedule(); return; }
+      commitAttempt(t); return;
+    }
+    if (t.matches('#detail input[data-target]')) {
+      var raw = String(t.value).trim(); if (raw === t.getAttribute('data-v')) return;
+      var tot = raw === '' ? null : Number(raw.replace(',', '.'));
+      if (raw !== '' && !isFinite(tot)) { S.err.target = 'A total in kg, like 600.'; schedule(); return; }
+      var res = quiet(function () { return PL.meets.target(prepLifter(), { total: tot }); });
+      if (res && res.error) { S.err.target = res.error.message; schedule(); return; }
+      delete S.err.target; said(res, { label: tot == null ? first(prepLifter()) + '’s target total is cleared.' : first(prepLifter()) + '’s target total: ' + n(tot) + '.' }); return;
+    }
+    if (t.matches('#detail input[data-changeby]')) { var hm = String(t.value).trim(); if (!hm || hm === t.getAttribute('data-v')) return; var m0 = lifterMeet(prepLifter()); write(function () { return PL.meets.changeBy(m0.id, hm); }, { label: 'Openers to the table by ' + hm + '.' }); return; }
+    if (t.matches('#detail input[data-note]')) { if (t.value === t.getAttribute('data-v')) return; var nv = t.value; write(function () { return PL.meets.note(prepLifter(), nv); }, { label: first(prepLifter()) + '’s note is saved.' }); return; }
+  });
+  /* the attempt number takes digits only; the cut table redrafts her message until the coach writes in it */
+  document.addEventListener('input', function (e) { var t = e.target;
+    if (t && t.matches && cutD && cutD.contains(t)) { if (t.matches('[data-cut-msg]')) t.setAttribute('data-touched', ''); else if (t.matches('[data-cut-f]')) cutRedraft(); return; } if (t && t.matches && t.matches('#detail input[data-plat]')) { var v = t.value.replace(/\D+/g, '').slice(0, 3); if (v !== t.value) t.value = v; } });
+  document.addEventListener('focusin', function (e) { var t = e.target; if (t && t.matches && t.matches('#detail [data-att-in]')) { t.select(); setTimeout(function () { if (document.activeElement === t) t.select(); }, 0); } S.listFocus = !!(t && t.closest && t.closest('#list')); });
+  /* F7.4: a click into an attempt keeps the whole value chosen, so typing replaces it */
+  document.addEventListener('mouseup', function (e) { var t = e.target; if (t && t.matches && t.matches('#detail input[data-att-in]') && t.value && t.selectionStart === t.selectionEnd) { e.preventDefault(); t.select(); } });
+  /* the box takes digits and one decimal point; anything else is refused as it is typed */
+  document.addEventListener('beforeinput', function (e) {
+    var t = e.target; if (!t || !t.matches || !t.matches('#detail input[data-att-in]') || !/^insert/.test(e.inputType || '') || e.data == null) return;
+    var kept = t.value.slice(0, t.selectionStart) + t.value.slice(t.selectionEnd), add = String(e.data).replace(',', '.');
+    if (!/^[\d.]*$/.test(add) || (kept + add).split('.').length > 2) { e.preventDefault(); S.refused['att|' + t.getAttribute('data-att-in')] = true; }
+  });
+  document.addEventListener('desk:fix', function () { schedule(); });
+
+  /* ---------------- keys and Find ---------------- */
+  var lastKeys = null;
+  function keys(v) {
+    if (lastKeys === v) return; lastKeys = v;
+    if (v === 'board') DESK.keyMap([['1 2 3', 'Up next’s moves'], ['E', 'The red button'], ['G N', 'Good lift, no lift'], ['] [', 'Next or previous attempt on the platform'], ['W', 'Tick the next warm-up due'], ['U', 'Undo the last verdict or weigh-in'], ['Esc', 'Close the popover']]);
+    else if (v === 'practice') DESK.keyMap([['1 2 3', 'Up next’s moves'], ['E', 'The red button'], ['G N', 'Good lift, no lift']]);
+    else if (v === 'prep') DESK.keyMap([['+ −', '2.5 kg on the attempt in hand'], ['← →', 'The attempt before or after'], ['J K', 'Next or previous lifter with a meet'], ['⌘↵', 'Send the attempts']]);
+    else if (v === 'overview' && !meets().length) DESK.keyMap([]);
+    else DESK.keyMap([]);
+  }
+  DESK.actions([
+    { title: 'Book a meet…', run: function () { DESK.bookMeet(null); } },
+    { title: 'Open meet day', sub: 'Autumn Open', run: function () { var tm = todayMeet(); if (tm) go({ id: tm.id }); } },
+    { title: 'Plan Elena’s cut…', run: function () { var id = 'demo-d4', lm = lifterMeet(id); if (lm) { go({ id: lm.id, lifter: id }); cutSheet(id); } } }
+  ]);
+
+  /* ---------------- mount and the URL ---------------- */
+  DESK.mount({ place: 'meets', title: 'Meets', lead: '<span class="tb-slot" id="tbL"></span>', trail: '<span class="tb-slot" id="tbT"></span>' });
+  function readHash() {
+    var h = DESK.url.get();
+    S.id = h.id || null; S.lifter = h.lifter || null;
+    if (!S.id && S.lifter) { var lm = lifterMeet(S.lifter); if (lm) S.id = lm.id; }
+    if (S.id && !meetRow(S.id)) S.id = null;
+    if (h.stage && S.id && view() === 'board') {
+      var b = boardOf(S.id), want = h.stage === 'weighin' || h.stage === 'weigh-in' ? 'weigh' : h.stage;
+      if (b && b.stage !== want && STAGES.some(function (s) { return s[0] === want; })) quiet(function () { return PL.meets.stage(S.id, want); });
+    }
+    return h;
+  }
+  function openSheets(h) {
+    if (h.sheet === 'cut') { var id = h.lifter || prepLifter(); if (id) cutSheet(id); }
+    else if (h.book || h.sheet === 'book') { var bid = h.book || null; var h2 = DESK.url.get(); delete h2.book; if (h2.sheet === 'book') delete h2.sheet; DESK.url.set(h2); if (fn(DESK, 'bookMeet')) DESK.bookMeet(bid); }
+  }
+  var h0 = readHash();
+  PL.on('change', schedule);
+  addEventListener('hashchange', function () { var h = readHash(); paint(); openSheets(h); });
+  paint();
+  syncUrl(false);
+  openSheets(h0);
+
+  DESK.states({
+    board: function () { var tm = todayMeet(); if (tm) go({ id: tm.id }); },
+    prep: function () { go({ id: 'state-championships', lifter: 'demo-d4' }); }
+  });
+})();
+</script>
+</body>
+</html>

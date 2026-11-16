@@ -1,0 +1,157 @@
+/* fix.css: the fix sheet and the shared sheets (fix.js; overview-lifters.md §4.3, screens.md §5.5, §5.6, §7.2), on the
+   kit's one raised solid (ui.css .pop and dialog.sheet: --pop, the hairline ring folded into --shadow-pop, no blur).
+   Tokens only. The fix sheet is 420 px (at most the window less 32), grown from its trigger in 160 ms; its main button is
+   the filled secondary, never the crimson (a book or remind sheet is modal, so its own crimson is the one on top).
+   Rows on hairlines, no box inside the sheet; before in ink-3, the arrow in ink-3, after in ink; numbers tabular. */
+
+/* ================= the popover: wider for a fix or the pain chips, scrolling when the window is short ================= */
+.pop:has(> .fx[data-crop='fix']) { width: 420px; max-width: calc(100vw - var(--sp-7)); }
+.pop:has(> .fx-pain) { width: 488px; max-width: calc(100vw - var(--sp-7)); }
+.pop:has(> .fx-remind) { width: 420px; max-width: calc(100vw - var(--sp-7)); }
+.fx-remind .fx-msg { margin-top: var(--sp-4); }
+.pop:has(> .fx) { overflow-y: auto; overscroll-behavior: contain; }
+.fx { display: flex; flex-direction: column; min-width: 0; }
+/* the fix sheet holds its title and its buttons; between them the body scrolls (under 12 px fades) when the window is
+   short, so the sheet never has to cover the row it is about */
+.pop:popover-open:has(> .fx[data-crop='fix']) { display: flex; flex-direction: column; overflow: hidden; }
+.pop > .fx[data-crop='fix'] { flex: 0 1 auto; min-height: 0; }
+.fx-body {
+  flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  margin: 0 calc(var(--sp-5) * -1); padding: 0 var(--sp-5) var(--sp-3);
+  -webkit-mask-image: linear-gradient(transparent, var(--floor) var(--sp-3), var(--floor) calc(100% - var(--sp-3)), transparent);
+  mask-image: linear-gradient(transparent, var(--floor) var(--sp-3), var(--floor) calc(100% - var(--sp-3)), transparent);
+}
+.fx-body > :first-child { margin-top: var(--sp-3); }
+.fx-acts { flex: none; }
+.fx-t { margin: 0; color: var(--ink); font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); text-wrap: balance; }
+.fx-who { margin: 2px 0 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
+.fx-h { margin: var(--sp-4) 0 var(--sp-2); color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-label) var(--font); }
+
+/* ================= what changes: one row per change, label left, before → after right ================= */
+.fx-ch { margin-top: var(--sp-4); }
+.fx-r {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-3);
+  min-height: var(--sp-8); padding: 6px 0; border-top: 1px solid var(--line);
+}
+.fx-r:last-child { border-bottom: 1px solid var(--line); }
+.fx-l { min-width: 0; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+.fx-v { display: inline-flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--sp-2); color: var(--ink); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; text-align: right; }
+.fx-b, .fx-ar { color: var(--ink-3); white-space: nowrap; }
+.fx-a { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--ink); font-weight: 600; white-space: nowrap; }
+.fx-a.fx-out { color: var(--ink-2); font-weight: 500; }
+.fx-tail { color: var(--ink); }
+/* the other number a lighter line offers ("Use 215"): a quiet button under the after value, its words on the values' edge */
+.fx-use { grid-column: 2; justify-self: end; display: flex; }
+.fx-use:empty { display: none; }
+.fx-use .btn { margin-right: calc(var(--sp-3) * -1); color: var(--ink-2); }
+@media (hover: hover) and (pointer: fine) { .fx-use .btn:hover { color: var(--ink); background: var(--fill); } }
+/* the load the coach may adjust: a field in place of the after value (2.5 kg steps on ↑ ↓) */
+.fx-in { width: 84px; height: var(--sp-8); padding: 0 var(--sp-2); text-align: right; font-weight: 600; }
+.fx-err { grid-column: 1 / -1; margin: var(--sp-1) 0 0; color: var(--warn); font: 500 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
+.fx-tell .fx-err, .fx > .fx-err, .fx-s .fx-err { margin-top: var(--sp-2); }
+
+/* ================= choices, the ride line, the words, the ticks ================= */
+.fx-choice { margin-top: var(--sp-4); }
+.fx-choice .seg { display: flex; }
+.fx-choice .seg > button { flex: 1 1 0; justify-content: center; }
+.fx-note { margin: var(--sp-3) 0 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
+.fx-tell { display: flex; flex-direction: column; margin-top: var(--sp-4); }
+.fx-tell > .tick { margin-top: 0; }
+.fx-msg { width: 100%; margin-top: var(--sp-3); min-height: 76px; max-height: calc(8lh + var(--sp-6)); }
+.fx-tell > .tick + .fx-msg { margin-top: var(--sp-2); }
+.fx-ticks { display: flex; flex-direction: column; }
+/* a tick row is words on the popover: 40 px to hit */
+.fx .tick { position: relative; min-height: 32px; }
+.fx .tick::after { content: ''; position: absolute; inset: -4px 0; }
+.fx-warn { margin: var(--sp-3) 0 0; color: var(--warn); font: 500 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
+
+/* ================= the foot: Cancel, then the main button (filled secondary) at the trailing edge ================= */
+.fx-acts { display: flex; justify-content: flex-end; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+
+/* ================= choices as chips and radio rows (the pain and class popovers, the book sheet) ================= */
+.fx-chips { display: flex; flex-wrap: wrap; gap: var(--sp-3) 6px; }
+.fx-chip {
+  position: relative; height: 32px; min-width: 32px; padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill);
+  background: var(--fill); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-none) var(--font); cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.fx-chip::after { content: ''; position: absolute; inset: -5px -3px; }   /* 42 px to hit; rows 12 px apart, so hit areas meet, never overlap */
+.fx-score { gap: var(--sp-3) 5px; }
+.fx-score .fx-chip { padding: 0; width: 36px; }
+.fx-score .fx-chip::after { inset: -5px -3px; }
+.fx-chip[aria-pressed='true'] { background: var(--thumb); color: var(--ink); box-shadow: var(--shadow-thumb); font-weight: 600; }
+.fx-chip:active { transform: scale(var(--press)); }
+@media (hover: hover) and (pointer: fine) { .fx-chip:hover:not([aria-pressed='true']) { background: var(--fill-2); color: var(--ink); } }
+.fx-hrow { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin: var(--sp-3) 0 var(--sp-2); }
+.fx-hrow > .fx-h { margin: 0; }
+.fx-side.is-off { visibility: hidden; }
+.fx-other { width: 100%; height: var(--sp-8); margin-top: var(--sp-3); }
+
+.fx-opts { display: flex; flex-direction: column; margin-top: var(--sp-3); }
+.fx-opts .fx-h { margin-top: var(--sp-2); }
+.fx-opt {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-3);
+  min-height: 44px; padding: var(--sp-1) 0; border-top: 1px solid var(--line); color: var(--ink); cursor: pointer;
+}
+.fx-opt:last-child { border-bottom: 1px solid var(--line); }
+.fx-opt input { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); cursor: pointer; }
+.fx-opt .fx-ol { min-width: 0; font: 500 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; text-wrap: pretty; }
+.fx-opt .fx-od { color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fx-opt.is-off { cursor: default; }
+.fx-opt.is-off .fx-ol { color: var(--ink-3); }
+.fx-opt:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-mark); }
+.fx-opt input:focus-visible { outline: 0; }
+
+/* ================= the modal sheets (book a meet, remind): head, a scrolling body, a foot ================= */
+dialog.sheet.fx-sheet { width: 560px; }
+.fx-s { display: flex; flex-direction: column; max-height: var(--sheet-max); }
+.fx-sh { flex: none; padding: var(--sp-5) var(--sp-6) 0; }
+.fx-st { margin: 0; color: var(--ink); font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); text-wrap: balance; }
+.fx-sb {
+  flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-2) var(--sp-6) var(--sp-4);
+  -webkit-mask-image: linear-gradient(var(--floor) calc(100% - var(--sp-4)), transparent); mask-image: linear-gradient(var(--floor) calc(100% - var(--sp-4)), transparent);
+}
+.fx-sf { flex: none; display: flex; justify-content: flex-end; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-6) var(--sp-5); border-top: 1px solid var(--line); }
+.fx-sf > .fx-err { flex: 1 1 auto; min-width: 0; margin: 0 auto 0 0; }   /* a booking's reason, beside its button */
+.fx-f { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-4); }
+.fx-f .input { width: 100%; }
+.fx-f .seg { align-self: flex-start; }
+.fx-fl { color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-label) var(--font); }
+.fx-fs { margin: var(--sp-4) 0 0; padding: 0; border: 0; min-width: 0; }
+.fx-fs > legend { padding: 0; }
+.fx-other-meet { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); column-gap: var(--sp-3); }
+.fx-other-meet > .fx-f:first-child { grid-column: 1 / -1; }
+.fx-s .input:not(textarea) { height: var(--sp-8); }
+.fx-s select.input { padding-right: var(--sp-6); }
+.fx-s .fx-msg { margin-top: 0; }
+
+/* the book sheet's one line under its head (function-polish F7.5) */
+.fx-book-l { margin-top: var(--sp-1); }
+
+/* ================= PX1: one inline move style (function-polish §4.0; P8, P43, P48) =================
+   Quiet text buttons in a wrapping row: ink at 600, the label size, 36 px tall (40 to hit), 8 px inline padding, the row
+   radius, no fill until the pointer is on one (--hover) or it is pressed (--fill). The row sits 8 px out on both sides,
+   so the first move's words start on the labels' edge above it (P43). Never a grey pill; never the crimson's act again
+   (DESK.movesHtml leaves that one out). Scoped to buttons: a page's own .mv cell or column keeps its own rules. */
+.moves:has(> .mv) { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--sp-1); margin-inline: calc(var(--sp-2) * -1); min-width: 0; }
+.moves > .mv, button.mv {
+  position: relative; display: inline-flex; align-items: center; height: var(--ctl-h); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-row);
+  background: none; box-shadow: none; color: var(--ink); font: 600 var(--fs-label)/var(--lh-none) var(--font); white-space: nowrap; text-decoration: none; cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.moves > .mv::after, button.mv::after { content: ''; position: absolute; inset: -2px 0; }   /* 40 px to hit */
+.moves > .mv:active:not(:disabled), button.mv:active:not(:disabled) { background: var(--fill); transform: scale(var(--press)); }
+.moves > .mv:focus-visible, button.mv:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
+.moves > .mv:disabled, button.mv:disabled { color: var(--ink-3); cursor: default; }
+@media (hover: hover) and (pointer: fine) { .moves > .mv:hover:not(:disabled), button.mv:hover:not(:disabled) { background: var(--hover); } }
+/* a lone move outside a row of them starts on its labels' edge too (Messages' facts: Record pain…, P43) */
+:not(.moves) > button.mv:first-child { margin-left: calc(var(--sp-2) * -1); }
+/* in a facts pane the moves wrap under the facts, one hairline-free row (P43) */
+[data-crop='facts'] .moves:has(> .mv) { margin-top: var(--sp-2); }
+
+/* ================= reduced motion: the kit's fades; chips hold still ================= */
+@media (prefers-reduced-motion: reduce) {
+  .fx-chip { transition: background-color 150ms linear, color 150ms linear; }
+  .fx-chip:active { transform: none; }
+  .moves > .mv:active, button.mv:active { transform: none; }
+}

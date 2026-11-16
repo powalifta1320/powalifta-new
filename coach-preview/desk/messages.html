@@ -1,0 +1,1257 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta name="robots" content="noindex">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Messages, POWALIFTA Coach</title>
+<script>
+/* the theme before any CSS: ?theme= wins, then powa-r6-theme, else dark */
+(function () { var t = null; var m = /[?&]theme=(light|dark)\b/.exec(location.search); if (m) t = m[1]; if (!t) { try { t = localStorage.getItem('powa-r6-theme'); } catch (e) { t = null; } } document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark'); })();
+</script>
+<link rel="stylesheet" href="../kit/r6/tokens.css">
+<link rel="stylesheet" href="../kit/r6/glass.css">
+<link rel="stylesheet" href="../kit/r6/ui.css">
+<link rel="stylesheet" href="../kit/r6/fix.css">
+<link rel="stylesheet" href="../kit/r6/newcoach.css">
+<style>
+  /* Messages (screens.md §6, professional.md §10.8): the threads | the thread | the facts. The window never scrolls: the
+     list pane, the thread's words and the facts' body each scroll on their own between fades. The thread is the one card
+     (the work), the composer its foot under a hairline; the facts are the flush inspector pane. Tokens only. */
+  body[data-place='messages'] { --inspector-w: 340px; --mgap: var(--sp-6); overflow: hidden; }
+  @media (max-width: 1280px) { body[data-place='messages'] { --inspector-w: 300px; --mgap: var(--sp-4); } }
+
+  /* ---------- the list column: search, then the groups; it never hides ---------- */
+  .ml {
+    position: fixed; z-index: var(--z-edge); top: var(--edge-h); bottom: 0; left: calc(var(--col-l) - var(--mgap)); width: calc(var(--list-w) + var(--mgap) * 2);
+    display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--line); background: var(--floor);
+  }
+  /* the list head right under the toolbar band, the search 12 px under it (PX3: the same y as every list) */
+  .ml > .lh { flex: none; padding: 0 var(--mgap); }
+  .ml-h { padding: var(--sp-3) var(--mgap) var(--sp-2); }
+  .ml-h .field { width: 100%; }
+  .ml-s {
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: var(--sp-2) calc(var(--mgap) - var(--sp-3)) var(--sp-9);
+    -webkit-mask-image: linear-gradient(transparent, var(--ink) var(--sp-4), var(--ink) calc(100% - var(--sp-6)), transparent);
+    mask-image: linear-gradient(transparent, var(--ink) var(--sp-4), var(--ink) calc(100% - var(--sp-6)), transparent);
+  }
+  .ml-s::-webkit-scrollbar { display: none; }
+  .ml-g + .ml-g { margin-top: var(--sp-3); }
+  .ml-gh { display: flex; align-items: center; gap: var(--sp-2); min-height: 40px; margin: 0; padding: 0 var(--sp-3); color: var(--ink-2); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .ml-gh .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  button.ml-gh { width: 100%; border: 0; border-radius: var(--r-row); background: none; text-align: left; cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out); }
+  button.ml-gh .grow { flex: 1; }
+  button.ml-gh .w { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  @media (hover: hover) and (pointer: fine) { button.ml-gh:hover { background: var(--hover); } }
+  .ml-empty { margin: 0; padding: var(--sp-2) var(--sp-3); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .ml-none { padding: var(--sp-5) var(--sp-3); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .ml-none .btn { margin-top: var(--sp-3); }
+
+  /* a thread row: the name and when (or "1 new"), their words under it; the row in hand on a fill */
+  .mr {
+    position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n w' 't t' 'd d'; align-items: baseline;
+    column-gap: var(--sp-3); row-gap: 2px; min-height: 64px; padding: var(--sp-3); border-radius: var(--r-row); cursor: pointer; outline: 0; user-select: none;
+    transition: background-color var(--dur-fast) var(--ease-out);
+  }
+  .mr + .mr::before { content: ''; position: absolute; top: 0; left: var(--sp-3); right: var(--sp-3); height: 1px; background: var(--line); }
+  .mr[aria-current='true'] { background: var(--place-sel); }
+  .mr[aria-current='true']::before, .mr[aria-current='true'] + .mr::before { opacity: 0; }
+  .mr:has(.nm:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
+  .mr .nm:focus-visible { outline: 0; }
+  .mr .nm { text-decoration: none; }
+  @media (hover: hover) and (pointer: fine) { .mr:not([aria-current='true']):hover { background: var(--hover); } .mr:hover::before, .mr:hover + .mr::before { opacity: 0; } }
+  .mr .nm { grid-area: n; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 600 var(--fs-body)/var(--lh-sub) var(--font); }
+  .mr.is-unread .nm { font-weight: 700; }
+  .mr .wh { grid-area: w; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mr .wh.new { color: var(--words); font-weight: 600; }
+  /* on the chosen row's tint the green falls under 4.5:1 in light: the count reads in ink there */
+  .mr[aria-current='true'] .wh.new { color: var(--ink); }
+  .mr .ln { grid-area: t; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+  .mr .ln.pain { color: var(--pain); font-weight: 500; }
+  .mr .dl { grid-area: d; color: var(--warn); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .mr .done-row { grid-area: t; flex-wrap: nowrap; }
+  .mr .done-row .done-tick span { color: var(--ink-2); }
+
+  /* ---------- the thread: the work card, fixed between the list and the facts ---------- */
+  .th {
+    position: fixed; top: var(--edge-h); bottom: var(--sp-4); left: calc(var(--col-l) + var(--list-w) + var(--mgap) * 2); right: calc(var(--inspector-w) + var(--mgap));
+    display: flex; flex-direction: column; min-width: 0; overflow: clip;
+  }
+  .th-h { flex: none; padding: var(--sp-5) var(--sp-6) var(--sp-3); border-bottom: 1px solid var(--line); }
+  .th-h h1 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); }
+  .th-h .facts { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .th-h .links { display: flex; gap: var(--sp-5); margin-top: var(--sp-1); }
+  .th-m {
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: var(--sp-4) var(--sp-6) var(--sp-5);
+    -webkit-mask-image: linear-gradient(transparent, var(--ink) var(--sp-4), var(--ink) calc(100% - var(--sp-4)), transparent);
+    mask-image: linear-gradient(transparent, var(--ink) var(--sp-4), var(--ink) calc(100% - var(--sp-4)), transparent);
+  }
+  /* the words sit at the foot, just above the draft, as in any chat (owner 16 Nov: "looks very messy", the empty middle):
+     a column whose first item takes the spare room above it; a long thread still scrolls from its top */
+  .th-m { display: flex; flex-direction: column; }
+  .th-m > * { flex: none; }
+  .th-m > :first-child, .th-m > .dv:first-child { margin-top: auto; }
+  .th-empty { margin: var(--sp-6) 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-align: center; }
+  .dv { display: flex; align-items: center; justify-content: center; gap: var(--sp-3); margin: var(--sp-4) 0 0; color: var(--ink-3); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); }
+  .dv.new { color: var(--words); }
+  .dv.new::before, .dv.new::after { content: ''; flex: 1; height: 1px; background: var(--words); }
+  /* a message: theirs on the left, yours on the right; a card (a change, a check-in, attempts) a hairline box, no fill */
+  .mg { display: flex; flex-direction: column; align-items: flex-start; max-width: 86%; margin-top: var(--sp-2); }
+  .mg.me { align-items: flex-end; margin-left: auto; }
+  .mg .bubble { max-width: 100%; overflow-wrap: anywhere; }
+  .mg .bubble .k { display: block; margin-bottom: 2px; color: var(--ink-3); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); }
+  .mg .bubble mark, .mc mark { border-radius: var(--r-mark); background: var(--fill-3); color: inherit; }
+  .mt { display: flex; align-items: center; gap: var(--sp-2); min-height: 24px; margin-top: 2px; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; }
+  .mt .btn.icon { --h: var(--ctl-s); }
+  .mc { width: 100%; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line-2); border-radius: var(--r-pop); color: var(--ink); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+  .mc .k { display: block; margin-bottom: 2px; color: var(--ink-3); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); }
+  .mc .link { margin-top: var(--sp-1); }
+  .mc .a3 { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); column-gap: var(--sp-4); row-gap: 2px; margin-top: var(--sp-1); font-variant-numeric: tabular-nums; }
+  .mc .a3 span:nth-child(4n+1):not([data-lift]) { color: var(--ink-2); }
+  .mg.wide { max-width: 100%; width: 100%; }
+  .voice { display: flex; align-items: center; gap: var(--sp-3); }
+  .voice .btn.icon { --h: var(--ctl-s); flex: none; }
+  .voice .vt { min-width: 0; }
+  .voice .vt b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .voice .vt q { display: block; color: var(--ink-2); quotes: '“' '”'; }
+  .vid { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: var(--sp-3); align-items: center; }
+  .vid svg { display: block; width: 128px; height: 72px; }
+  .vid .vt { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); min-width: 0; }
+  .vid .vt small { color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .ed { width: 100%; }
+  .ed textarea { width: 100%; }
+  .ed .row { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-2); }
+
+  /* ---------- the composer: the card's foot, one hairline above, no box of its own ---------- */
+  .cmp { flex: none; padding: var(--sp-3) var(--sp-6) var(--sp-4); border-top: 1px solid var(--line); }
+  .cmp-top { display: flex; align-items: center; gap: var(--sp-3); min-height: 24px; }
+  .cmp-l { color: var(--ink-3); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); }
+  .cmp-top .link { margin-left: auto; }
+  .cmp-t {
+    display: block; width: 100%; min-height: 48px; max-height: calc(var(--lh-sub) * var(--fs-sub) * 12 + var(--sp-4)); margin: 0; padding: var(--sp-1) 0;
+    border: 0; border-radius: var(--r-mark); outline: 0; background: transparent; color: var(--ink); font: 400 var(--fs-sub)/var(--lh-sub) var(--font);
+    resize: none; field-sizing: content; overflow-y: auto;
+  }
+  .cmp-t.is-draft { color: var(--ink-2); }
+  .cmp-t:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .cmp-w { margin: var(--sp-1) 0 0; color: var(--warn); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .ride { margin-top: var(--sp-2); }
+  .ride > .tick, .cmp > .tick, .ride .tick { margin-top: var(--sp-2); }
+  .ride > .tick:first-child { margin-top: 0; }
+  .rl { display: grid; gap: 2px; margin: var(--sp-1) 0 0; padding: 0 0 0 26px; list-style: none; }
+  .rl li { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-2); color: var(--ink); font: 500 var(--fs-label)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; }
+  .rl .w:not([data-lift]), .rl .was { color: var(--ink-2); }
+  .rl b { font-weight: 600; }
+  .rl .ed-n { display: inline-flex; align-items: center; height: 24px; padding: 0 var(--sp-2); border: 0; border-radius: var(--r-mark); background: var(--fill-2); color: var(--ink); font: 600 var(--fs-label)/var(--lh-none) var(--font); font-variant-numeric: tabular-nums; cursor: pointer; }
+  .rl input.input { width: 84px; height: 28px; }
+  .rl .err { flex-basis: 100%; margin: 0; }
+  .rl .link { padding: 0; }
+  .rn { margin: var(--sp-1) 0 0 26px; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .att { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-3); margin-top: var(--sp-2); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .att b { color: var(--ink); font-weight: 600; }
+  .cmp-f { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+  .cmp-f .grow { flex: 1; min-width: 0; }
+  .cmp-f .btn.quiet { padding: 0 var(--sp-3); }
+  /* the first quiet move's words start on the draft's edge, as the ticks above it do */
+  .cmp-f > .btn.quiet:first-child { margin-left: calc(var(--sp-3) * -1); }
+  .cmp-f [data-primary] { max-width: 100%; }
+  .cmp-f [data-primary] span { overflow: hidden; text-overflow: ellipsis; }
+
+  /* ---------- the facts pane (the flush inspector) ---------- */
+  .fq { min-width: 0; padding-bottom: var(--sp-2); }
+  .fq h2 { margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); text-wrap: balance; }
+  .fq .q { margin: var(--sp-2) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+  .fq .q time { color: var(--ink-3); font-size: var(--fs-label); white-space: nowrap; }
+  .fq .m { margin: var(--sp-2) 0 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
+  /* the decision's answers: one style, stacked; the one in the draft carries a tick, never a fill of its own (owner 16 Nov:
+     "three move buttons in two styles") */
+  .moves.ans:has(> .mv) { flex-direction: column; align-items: stretch; gap: 0; }
+  .ans > .mv { gap: var(--sp-2); width: 100%; min-width: 0; text-align: left; }
+  .ans > .mv .ck { display: grid; place-items: center; flex: none; width: 18px; height: 18px; color: transparent; }
+  .ans > .mv .ck svg { width: 14px; height: 14px; }
+  .ans > .mv[aria-pressed='true'] .ck { color: var(--ink); }
+  .ans > .mv .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .insp .ig:first-child { margin-top: var(--sp-2); }
+  /* the numbers in one row: each e1RM in its lift's colour, then the total */
+  .nums { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: var(--sp-3); }
+  .nums > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .nums .k { color: var(--ink-3); font: 500 var(--fs-cap)/var(--lh-cap) var(--font); white-space: nowrap; }
+  .nums .v { color: var(--ink); font: 600 var(--fs-body)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .nums .v[data-lift] { color: var(--lc-ink); }
+  /* the meet in one line, its move at the line's end */
+  .meet1 { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-width: 0; }
+  .meet1 > span { min-width: 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
+  .meet1 > span b { color: var(--ink); font-weight: 600; }
+  .meet1 > .mv { flex: none; margin-right: calc(var(--sp-2) * -1); }
+  /* everything else behind one fold, worded as the list's Answered fold (Show / Hide) */
+  .more { padding-top: var(--sp-2); border-top: 1px solid var(--line); }
+  .more > .mv.more-t { display: flex; width: calc(100% + var(--sp-4)); margin: 0 calc(var(--sp-2) * -1); }
+  .more-t .grow { flex: 1; }
+  .more-t .w { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .more-b > .ig:first-child { margin-top: var(--sp-3); }
+  .insp .done-row { margin-top: var(--sp-1); }
+  .kvr .nt { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+  .kvr .nt .btn { margin-right: calc(var(--sp-3) * -1); }
+  .kvr .v.w { font-weight: 500; }
+  .kvr.pn { grid-template-columns: auto minmax(0, 1fr); }
+  .kvr.pn .v { white-space: normal; text-wrap: pretty; }
+  .kvr .v.pain { color: var(--pain); }
+  .a3t { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); column-gap: var(--sp-3); row-gap: var(--sp-1); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; }
+  .a3t .h { color: var(--ink-3); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); }
+  .a3t .k:not([data-lift]) { color: var(--ink-2); }
+  .a3t .n { text-align: right; }
+  .insp-f .mv { flex: 1; justify-content: center; min-width: 0; margin: 0; }
+  .insp-f .mv span { overflow: hidden; text-overflow: ellipsis; }
+
+  /* ---------- the rep review (a sheet): the frame, the scrubber, the tools, the depth call ---------- */
+  dialog.sheet.rv { width: 640px; }
+  .rv-b { padding: var(--sp-4) var(--sp-6) var(--sp-5); }
+  .rv-h { display: flex; align-items: baseline; gap: var(--sp-3); }
+  .rv-h h2 { margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+  .rv-h small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .rv-fr { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); margin-top: var(--sp-3); }
+  .rv-fr.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rv-fr svg { display: block; width: 100%; height: auto; touch-action: none; }
+  .rv-fr svg.draw { cursor: crosshair; }
+  .rv-fr figure { margin: 0; }
+  .rv-fr figcaption { margin-top: var(--sp-1); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .rv-svg .bg { fill: var(--card-3); }
+  .rv-svg .fig { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+  .rv-svg .fig .thin { stroke-width: 2.5; }
+  .rv-svg .lm { fill: none; stroke: var(--ink-2); stroke-width: 2.5; stroke-linecap: round; }
+  .rv-svg .floor { stroke: var(--line-2); stroke-width: 2; }
+  .rv-svg .mk { fill: none; stroke: var(--gold); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+  .rv-svg .mk-p { fill: var(--gold); }
+  .rv-svg .pill { fill: var(--pop); }
+  .rv-svg .pill-t { fill: var(--ink); font: 600 var(--fs-head)/var(--lh-none) var(--font); }
+  .rv-c { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-3); }
+  .rv-c input[type='range'] { flex: 1; min-width: 0; height: 32px; margin: 0; accent-color: var(--ink); cursor: pointer; }
+  .rv-c .tm { min-width: 104px; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .rv-t { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin-top: var(--sp-2); }
+  .rv-t .rec { color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; }
+  .rv-l { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-height: 32px; margin: var(--sp-2) 0 0; padding: 0; list-style: none; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .rv-l li[data-rv-mark] { display: inline-flex; align-items: center; gap: var(--sp-1); height: 32px; padding: 0 var(--sp-1) 0 var(--sp-3); border-radius: var(--r-pill); background: var(--fill); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .rv-l li .btn.icon { --h: 24px; }
+  .mg.sched .mc { border-style: dashed; color: var(--ink-2); }
+  .rv-l .rv-go { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+  .rv-l .rv-go:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-mark); }
+  .rv-f { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+  .rv-f .grow { flex: 1; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+</head>
+<body data-place="messages">
+<div id="page">
+  <main class="page ms" id="main">
+    <aside class="ml" data-crop="list" id="list" aria-label="Threads">
+      <div class="ml-h"><label class="field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><input type="search" id="q" placeholder="Search names and messages" aria-label="Search names and messages" autocomplete="off"></label></div>
+      <div class="ml-s" id="groups"></div>
+    </aside>
+    <section class="card th" data-crop="thread" id="thread" aria-labelledby="th-name">
+      <div class="th-h" id="th-h"></div>
+      <div class="th-m" id="th-m" role="log" aria-label="Messages" tabindex="-1"></div>
+      <div class="cmp" data-crop="composer" id="cmp"></div>
+    </section>
+  </main>
+</div>
+<script src="../kit/data.js"></script>
+<script src="../kit/kit.js"></script>
+<script src="../kit/coach.js"></script>
+<script src="../kit/r6/block.js"></script>
+<script src="../kit/r6/store.js"></script>
+<script src="../kit/r6/desk.js"></script>
+<script src="../kit/r6/fix.js"></script>
+<script src="../kit/r6/newcoach.js"></script>
+<script>
+(function () {
+  'use strict';
+  var K = window.K, PL = window.PL, DESK = window.DESK, esc = K.esc;
+  var $ = function (s, r) { return (r || document).querySelector(s); }, $$ = function (s, r) { return [].slice.call((r || document).querySelectorAll(s)); };
+  var fn = function (o, k) { return !!o && typeof o[k] === 'function'; };
+  /* one countdown on every screen (function-polish FD3) */
+  var outT = function (d) { var o = fn(PL.fmt, 'out') ? PL.fmt.out(d) : null; o = o && o.data !== undefined ? o.data : o; return o && o.text ? o.text : d === 0 ? 'today' : 'in ' + d + ' days'; };
+  var dataOf = function (r) { return r && !r.error ? r.data : null; };
+  var n = K.n, FPS = 30, FRAMES = 270, LIFTS = ['squat', 'bench', 'deadlift'];
+  var L = function (id) { return K.L(id); };
+  /* a line's lift ("Squat, Sun 15 Nov", "Block pull", "Deadlift Day"): its name and new numbers wear the lift's colour */
+  var liftKey = function (label) { var t = String(label || '').split(',')[0].replace(/\s+day$/i, ''); return fn(DESK, 'liftOf') ? DESK.liftOf(t) : null; };
+  var liftAt = function (k) { return k ? ' data-lift="' + k + '"' : ''; };
+  var first = function (id) { var l = L(id); return l ? l.first : ''; };
+  var cap = function (s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); };
+  var hm = function (iso) { return iso ? String(iso).slice(11, 16) : ''; };
+  var day10 = function (iso) { return String(iso || '').slice(0, 10); };
+  var mins = function (iso) { var s = String(iso || '').slice(0, 16); var t = Date.parse(s + ':00Z'); return isNaN(t) ? NaN : t / 60000; };
+  var nowIso = function () { return fn(PL, 'now') ? PL.now() : K.today + 'T07:20'; };
+  var isIso = function (v) { return typeof v === 'string' && /^\d{4}-\d\d-\d\d$/.test(v); };
+  var dmy = function (iso) { return K.wd3(iso) + ' ' + K.dm(iso); };
+  var ICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+  /* a day in words: "Today", "Yesterday", "Sunday 8 Nov" this week, else "Sat 31 Oct" */
+  function dayWords(d) { var x = -K.daysTo(d); return x === 0 ? 'Today' : x === 1 ? 'Yesterday' : x > 1 && x < 7 ? K.wd(d) + ' ' + K.dm(d) : dmy(d); }
+  function whenShort(iso) { var d = day10(iso), x = -K.daysTo(d); return x === 0 ? 'Today' : x === 1 ? 'Yesterday' : x > 1 && x < 7 ? K.wd(d) : K.dm(d); }
+  /* a change's value as the store writes it ("1 × 3 @7, 125", the same words as the toast and the change card); dates in words */
+  function rxWords(v) {
+    if (v == null || v === '') return '';
+    if (typeof v === 'number') return n(v);
+    if (isIso(v)) return dmy(v);
+    return String(v);
+  }
+  function parseRx(v) { var m = /^(\d+) × (\d+) @([\d.]+), ([\d.]+)$/.exec(String(v || '')); return m ? { n: +m[1], r: +m[2], rpe: +m[3], kg: +m[4] } : null; }
+  function mtime(f) { var t = f / FPS, m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); }
+  function thursday() { var d = K.today, i; for (i = 1; i < 8; i++) { var x = K.add(K.today, i); if (K.d(x).getDay() === 4) { d = x; break; } } return d; }
+
+  /* ---------------- state for the visit ---------------- */
+  var S = { id: null, groups: null, open: false, more: false, q: '', cmp: {}, done: {}, edited: {}, editing: null, rv: {} };
+  var thread = function (id) { return dataOf(PL.threads.get(id)); };
+  var list = function (q) { var r = PL.threads.list(q ? { q: q } : {}); return r && r.data ? r : { data: [], meta: { groups: { waiting: [], first: [], answered: [] } } }; };
+  var waitingNow = function () { return list().meta.groups.waiting || []; };
+  function snapshot() {
+    var g = list().meta.groups || {}, ids = function (a) { return (a || []).map(function (x) { return typeof x === 'string' ? x : x.id; }); };
+    S.groups = { waiting: ids(g.waiting), first: ids(g.first), answered: ids(g.answered) };
+  }
+  /* threads that came in after the page opened join their group's end; the current thread always has a row */
+  function groupsNow() {
+    var g = S.groups, st = list().meta.groups, all = g.waiting.concat(g.first, g.answered);
+    (st.waiting || []).forEach(function (id) { if (all.indexOf(id) < 0) { g.waiting.push(id); all.push(id); } });
+    (st.answered || []).forEach(function (id) { if (all.indexOf(id) < 0) { g.answered.push(id); all.push(id); } });
+    if (S.id && all.indexOf(S.id) < 0 && L(S.id)) g.first.unshift(S.id);
+    return g;
+  }
+  function order() { var g = groupsNow(); return g.waiting.concat(g.first, S.open || (S.id && g.answered.indexOf(S.id) >= 0) ? g.answered : []); }
+  function isWaiting(id) { return waitingNow().indexOf(id) >= 0; }
+  /* the next thread that still needs words from you, after this one in the list's order */
+  function nextUp(from) {
+    var o = groupsNow(), seq = o.waiting.concat(o.first), i = seq.indexOf(from), rest = seq.slice(i + 1).concat(seq.slice(0, Math.max(0, i)));
+    var w = waitingNow();
+    return rest.filter(function (id) { return id !== from && (w.indexOf(id) >= 0 || (o.first.indexOf(id) >= 0 && !S.done[id] && needsWords(id))); })[0] || null;
+  }
+  function needsWords(id) { var t = thread(id); return !!(t && t.draft) || !!openItem(id); }
+
+  /* ---------------- items: the open one for a lifter (Tomas has no thread yet) ---------------- */
+  function openItem(id) {
+    var t = thread(id), mv = t && t.moves;
+    if (mv && mv.itemId) return dataOf(PL.items.get(mv.itemId));
+    var all = dataOf(PL.items.list()) || [];
+    return all.filter(function (it) { return it.ids.length === 1 && it.ids[0] === id && !it.done; })[0] || null;
+  }
+  function actOf(it, actId) { return it ? it.acts.filter(function (a) { return a.id === actId; })[0] || null : null; }
+  function preview(itemId, actId, o) { if (!fn(PL.items, 'preview')) return null; var r = PL.items.preview(itemId, actId, o || {}); return dataOf(r); }
+
+  /* ---------------- the composer's model for a thread ----------------
+     From the store's draft (threads.get().draft: its words, the change that rides along, a row of This week its words
+     decide); a lifter with no thread uses the main move of their open item. An answer picked in the facts replaces it. */
+  function baseOf(id) {
+    var t = thread(id), d = t && t.draft;
+    if (d) return { text: d.text || '', itemId: d.itemId, actId: d.actId, ride: d.ride ? { itemId: d.ride.itemId, actId: d.ride.actId, says: d.ride.text, label: d.ride.label } : null, row: d.row || null, depth: d.depth || null };
+    var it = openItem(id), a = it && (it.acts.filter(function (x) { return x.kind === 'primary'; })[0] || it.acts[0]);
+    if (a && a.reply != null) return { text: a.reply, itemId: it.id, actId: a.id, ride: a.ops && a.ops.length ? { itemId: it.id, actId: a.id, says: a.says, label: a.label } : null, row: null };
+    return { text: '', itemId: null, actId: null, ride: null, row: null };
+  }
+  function quietRide(itemId, actId) {
+    var it = itemId ? dataOf(PL.items.get(itemId)) : null; if (!it || it.done) return null;
+    var cur = actOf(it, actId); if (!cur || cur.reply == null || (cur.ops && cur.ops.length) || cur.says) return null;
+    var a = it.acts.filter(function (x) { return x.id !== actId && x.reply == null && !x.go && !x.keep && x.ride && (x.says || (x.ops && x.ops.length)); })[0];
+    return a ? { itemId: it.id, actId: a.id, says: a.says || null, label: a.label } : null;
+  }
+  function cmpOf(id) {
+    var c = S.cmp[id];
+    if (!c) {
+      var b = S.done[id] ? { text: '', ride: null, row: null } : baseOf(id);
+      /* words with no change of their own (Jonah's check-in) offer the item's plan move as a ride, unticked: both can go in
+         one send, and picking one never wipes the other */
+      var opt = !b.ride && !b.row ? quietRide(b.itemId, b.actId) : null;
+      c = S.cmp[id] = { text: b.text, draft: b.text, touched: false, itemId: b.itemId || null, actId: b.actId || null, ride: b.ride || opt, rideOn: !opt, row: b.row, rowOn: true, edits: {}, other: {}, remind: false, sendWeek: false, attach: null, depthSaid: '' };
+    }
+    return c;
+  }
+  /* an answer picked in the facts: its words and its change fill the composer; nothing is sent */
+  function pickAct(id, itemId, actId) {
+    var it = dataOf(PL.items.get(itemId)), a = actOf(it, actId); if (!a) return;
+    if (a.go) { if (a.go.place === 'messages') openReview(id); else DESK.go(a.go.place, a.go.hash + '&from=messages'); return; }
+    var pv = preview(itemId, actId, { for: id }), text = pv && pv.tell ? pv.tell.text : (a.reply || '');
+    var c0 = S.cmp[id];
+    if (!text && a.reply == null && c0 && c0.text.trim() && c0.itemId === itemId) {
+      /* a plan move with no words of its own (Hold week 3) rides with the words already in the box */
+      c0.ride = { itemId: itemId, actId: actId, says: a.says || null, label: a.label }; c0.rideOn = true; c0.picked = actId; c0.row = null; c0.rowOn = false;
+      renderComposer(); renderFacts();
+      var sb = $('[data-send]'); if (sb) sb.focus({ preventScroll: true });
+      return;
+    }
+    var hasChange = (a.ops && a.ops.length) || (a.says && a.reply != null) || a.reply == null;
+    S.cmp[id] = { text: text, draft: text, touched: false, itemId: itemId, actId: actId, picked: actId,
+      ride: hasChange ? { itemId: itemId, actId: actId, says: a.says || null, label: a.label, keep: a.reply == null && !(a.ops && a.ops.length) } : quietRide(itemId, actId),
+      rideOn: !!hasChange || !!(S.cmp[id] && S.cmp[id].ride && S.cmp[id].rideOn && S.cmp[id].ride.itemId === itemId && quietRide(itemId, actId) && S.cmp[id].ride.actId === quietRide(itemId, actId).actId), row: null, rowOn: false, edits: {}, other: {}, remind: false, sendWeek: false, attach: (S.cmp[id] || {}).attach || null, depthSaid: '' };
+    renderComposer(); renderFacts();
+    var b = $('[data-send]'); if (b) b.focus({ preventScroll: true });
+  }
+  function replyOnly(id) {
+    var it = openItem(id), a = it && it.acts.filter(function (x) { return x.reply != null && !(x.ops && x.ops.length) && !x.says; })[0];
+    var text = a ? a.reply : '';
+    S.cmp[id] = { text: text, draft: text, touched: false, itemId: a ? it.id : null, actId: a ? a.id : null, picked: 'reply', ride: null, rideOn: false, row: null, rowOn: false, edits: {}, other: {}, remind: false, sendWeek: false, attach: (S.cmp[id] || {}).attach || null, depthSaid: '' };
+    renderComposer(); renderFacts();
+    var ta = $('#cmp-t'); if (ta) ta.focus();
+  }
+
+  /* what rides along: the exact change, from the store's preview (never numbers of this page's own). The numbers the coach
+     typed and the other number he took ("Use 215") go in as edits, so the preview, the draft and the write agree */
+  function editsOf(c) {
+    var e = {}; Object.keys(c.edits).forEach(function (k) { e[k] = c.edits[k]; }); Object.keys(c.other).forEach(function (k) { e[k] = c.other[k].kg; });
+    return Object.keys(e).length ? e : undefined;
+  }
+  function rideOf(id, c) {
+    if (!c.ride) return null;
+    return preview(c.ride.itemId, c.ride.actId, { for: id, edits: editsOf(c), text: c.touched ? c.text : undefined });
+  }
+  /* the row a message decides (Arjun's "Use 182.5 on squat"): the result's numbers, the store's unless the coach changed
+     them in the ride line (c.rowEd) */
+  function rowNext(id, c) { var w = dataOf(PL.lifters.week(id)), row = w && c.row ? w.rows.filter(function (r) { return r.key === c.row.key; })[0] : null; return row ? row.next : null; }
+  function rowBase(id, c) { var nx = rowNext(id, c); return { w: c.row.kg, r: nx ? nx.r : null, rpe: nx && nx.rpe != null ? nx.rpe : null }; }
+  function rowNameOf(id, c) { var w = dataOf(PL.lifters.week(id)), row = w && c.row ? w.rows.filter(function (r) { return r.key === c.row.key; })[0] : null; return row ? row.name.toLowerCase() : ''; }
+  function rowVals(id, c) { var b = rowBase(id, c), e = c.rowEd || {}; return { w: e.w != null ? e.w : b.w, r: e.r != null ? e.r : b.r, rpe: e.rpe !== undefined ? e.rpe : b.rpe }; }
+  function rowEdited(id, c) { if (!c.row || !c.rowEd) return false; var b = rowBase(id, c), v = rowVals(id, c); return v.w !== b.w || v.r !== b.r || v.rpe !== b.rpe; }
+  function swapKg(text, from, to) { var re = new RegExp('(^|[^\\d.])' + String(from).replace('.', '\\.') + '(?![\\d.])', 'g'); return String(text).replace(re, function (m0, p) { return p + n(to); }); }
+  function keepRowEdit(inp) {
+    var f = inp.getAttribute('data-rowin'), v = Number(inp.value), c = cmpOf(S.id), bad = null;
+    if (f === 'w' && (!(v > 0) || v > 1000 || Math.abs(v / 2.5 - Math.round(v / 2.5)) > 1e-9)) bad = 'Write a load in 2.5 kg steps, like 182.5';
+    else if (f === 'r' && (!(v >= 1) || v > 30 || v % 1)) bad = 'Reps are a whole number from 1 to 30';
+    else if (f === 'rpe' && (!(v >= 1) || v > 10 || (v * 2) % 1)) bad = 'RPE runs from 1 to 10, in halves, like 8';
+    if (bad) { S.editErr = { key: 'row', text: bad }; renderComposer(); var x = $('[data-rowin]'); if (x) x.focus(); return; }
+    var before = rowVals(S.id, c);
+    c.rowEd = c.rowEd || {}; c.rowEd[f] = v; S.rowKey = null; S.editErr = null;
+    /* the drafted words follow the load until the coach writes his own */
+    if (f === 'w' && !c.touched && before.w !== v) c.text = c.draft = swapKg(c.text, before.w, v);
+    renderComposer();
+  }
+  /* the drafted words follow the numbers until the coach writes his own */
+  function redraft(id, c) { if (c.touched) return; var pv = rideOf(id, c); if (pv && pv.tell && pv.tell.text) c.text = c.draft = pv.tell.text; }
+  /* the next thread in a few words: "Next: Mei, knee note" (the body part from the store's reason) */
+  function nextTag(id) {
+    var it = openItem(id), m = /\b(low back|knee|hip|shoulder|elbow|wrist|ankle|back)\b/i.exec((it && it.reason) || '');
+    if (!m) return '';
+    var lw = lastWords(id); return m[1].toLowerCase() + (lw && lw.m.type === 'note' ? ' note' : ' pain');
+  }
+  function nextWords(nx) { var tg = nextTag(nx); return 'Next: ' + first(nx) + (tg ? ', ' + tg : ''); }
+
+  /* ---------------- the list ---------------- */
+  function lastWords(id) {
+    var t = thread(id), ms = t ? t.messages : [], i;
+    for (i = ms.length - 1; i >= 0; i--) if (!ms[i].me && ms[i].type !== 'change') return { m: ms[i], prev: ms[i - 1] || null };
+    return null;
+  }
+  function rowLine(id, waiting) {
+    var it = openItem(id), lw = lastWords(id), t = thread(id), mine = t && t.messages.length ? t.messages[t.messages.length - 1] : null;
+    if (!waiting && mine && mine.me && mine.type === 'text') return { text: 'You: ' + mine.body };
+    if (!lw) { var lx = dataOf(PL.lifters.get(id)); return { text: it ? it.reason || it.title : lx && lx.reason && lx.reason.text ? lx.reason.text : 'No messages yet' }; }
+    var m = lw.m;
+    if (m.type === 'checkin') return { text: it && it.reason ? it.reason : 'Check-in: ' + m.body.toLowerCase(), pain: !!(m.meta && m.meta.pain), at: m.at };
+    if (m.type === 'note') return { text: 'Session note: “' + m.body + '”', at: m.at };
+    if (m.type === 'voice') { var vid = lw.prev && lw.prev.type === 'video' && lw.prev.at === m.at; return { text: 'Voice note ' + (m.meta && m.meta.len || '') + (vid ? ' and a video' : ''), at: m.at }; }
+    if (m.type === 'video') return { text: 'Video: ' + m.body, at: m.at };
+    return { text: m.body, at: m.at };
+  }
+  function rowHtml(id, group) {
+    var l = L(id); if (!l) return '';
+    var waiting = isWaiting(id), t = thread(id), sel = id === S.id, d = S.done[id];
+    var h = '<div class="mr' + (t && t.unread && waiting ? ' is-unread' : '') + '" data-row="' + esc(id) + '"' + (sel ? ' aria-current="true"' : '') + '>' +
+      '<a class="nm" href="#id=' + esc(id) + '" data-fact="name" data-ellipsis title="' + esc(l.name) + '">' + esc(l.name) + '</a>';
+    if (d && !waiting) {
+      return h + '<div class="done-row" data-fact="done"><span class="done-tick">' + ICK + '<span>Answered</span></span><time class="at">' + esc(d.at) + '</time>' +
+        '<button class="btn quiet sm" type="button" data-undo="' + esc(id) + '" data-fact="action" title="Take back what you sent">Undo</button>' + (d.seen ? '<span class="rc" data-fact="seen">' + esc(d.seen) + '</span>' : '') + '</div></div>';
+    }
+    var ln = rowLine(id, waiting), dl = waiting && t ? (list().data.filter(function (x) { return x.id === id; })[0] || {}).deadline : null;
+    if (dl && !/\b\d\d:\d\d\b/.test(dl.text || '')) dl = null;
+    var unread = waiting && t && t.unread ? t.unread : 0, newTone = unread && !ln.pain && !dl;
+    /* every "n new" is the one green (function-polish P41); a row whose tone is its pain or its deadline (one tone a row)
+       says when the newest words came instead, in the grey it had */
+    var when = newTone ? (unread + ' new') : ln.at ? whenShort(ln.at) : '';
+    if (when) h += '<span class="wh' + (newTone ? ' new' : '') + '" data-fact="when">' + esc(when) + '</span>';
+    h += '<span class="ln' + (ln.pain ? ' pain' : '') + '" data-fact="words" data-quote data-ellipsis title="' + esc(ln.text) + '">' + esc(ln.text) + '</span>';
+    if (dl) h += '<span class="dl" data-fact="deadline">' + esc(dl.text) + '</span>';
+    return h + '</div>';
+  }
+  function renderList() {
+    var box = $('#groups'), g = groupsNow(), q = S.q.trim(), hits = null;
+    if (q) { hits = {}; list(q).data.forEach(function (t) { hits[t.id] = 1; }); }
+    var keep = function (ids) { return hits ? ids.filter(function (id) { return hits[id]; }) : ids; };
+    /* one list head (PX3): every thread, whatever the search shows */
+    DESK.listHead($('#list'), { name: 'Threads', count: g.waiting.length + g.first.length + g.answered.length });
+    var w = keep(g.waiting), f = keep(g.first), a = keep(g.answered), h = '';
+    if (hits && !w.length && !f.length && !a.length) {
+      box.innerHTML = '<div class="ml-none"><p class="ml-empty">Nothing for “' + esc(q) + '”.</p><button class="btn" type="button" data-allthreads>Show every thread</button></div>';
+      return;
+    }
+    h += '<div class="ml-g" data-group="waiting"><h2 class="ml-gh" data-head>Waiting for you <span class="n" data-count="waitingThreads">' + (PL.counts().data.waitingThreads || 0) + '</span></h2>' +
+      (w.length ? '<div data-list aria-label="Waiting for you">' + w.map(function (id) { return rowHtml(id, 'waiting'); }).join('') + '</div>' : '<p class="ml-empty">Nobody is waiting.</p>') + '</div>';
+    /* plain group names (owner 16 Nov): "Quiet", never the store's longer "Quiet: write to them." */
+    var fh = 'Quiet';
+    if (f.length) h += '<div class="ml-g" data-group="first"><h2 class="ml-gh" data-head>' + esc(fh) + ' <span class="n">' + f.length + '</span></h2><div data-list aria-label="' + esc(fh) + '">' + f.map(function (id) { return rowHtml(id, 'first'); }).join('') + '</div></div>';
+    if (a.length) {
+      var open = S.open || !!hits || a.indexOf(S.id) >= 0;
+      h += '<div class="ml-g" data-group="answered"><button class="ml-gh" type="button" data-head data-fold-answered aria-expanded="' + open + '">Answered <span class="n">' + a.length + '</span><span class="grow"></span><span class="w">' + (open ? 'Hide' : 'Show') + '</span></button>' +
+        '<div data-list aria-label="Answered"' + (open ? '' : ' hidden') + '>' + a.map(function (id) { return rowHtml(id, 'answered'); }).join('') + '</div></div>';
+    }
+    box.innerHTML = h;
+  }
+
+  /* ---------------- the thread ---------------- */
+  function hl(s) { var t = esc(s), q = S.q.trim(); if (!q) return t; var re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/&/g, '&amp;') + ')', 'gi'); return t.replace(re, '<mark>$1</mark>'); }
+  function receipt(m) { return m.seenAt ? 'Seen ' + (day10(m.seenAt) === K.today ? hm(m.seenAt) : K.wd3(day10(m.seenAt)) + ' ' + hm(m.seenAt)) : 'Not seen yet'; }
+  function checkinWords(id, m) {
+    var ci = fn(PL.lifters, 'checkins') ? dataOf(PL.lifters.checkins(id)) : null, dd = m.meta && m.meta.day, row = ci ? (ci.daily || []).filter(function (x) { return x.day === dd; })[0] : null, out = [];
+    if (m.meta && m.meta.pain) out.push('pain yes');
+    if (row) row.answers.forEach(function (a) { if (/sleep/i.test(a.q) && a.num != null) out.push('slept ' + n(a.num) + ' h'); else if (/sore/i.test(a.q) && a.num != null) out.push('soreness ' + n(a.num) + ' of 10'); });
+    return cap(out.join(', ')) + (m.meta && m.meta.q ? '. “' + m.meta.q + '”' : '');
+  }
+  function attemptsCard(id, at) {
+    var pl = fn(PL.meets, 'plan') ? dataOf(PL.meets.plan(id)) : null; if (!pl || !pl.attempts) return '';
+    var cells = LIFTS.map(function (k) { return '<span data-lift="' + k + '">' + cap(k) + '</span>' + (pl.attempts[k] || []).map(function (x) { return '<span data-lift="' + k + '">' + esc(n(x)) + '</span>'; }).join(''); }).join('');
+    return '<div class="mg wide" data-msg data-kind="card"><div class="mc"><span class="k">Attempts</span><div class="a3">' + cells + '</div></div><div class="mt">Changed ' + esc(hm(at)) + '</div></div>';
+  }
+  function figureThumb() {
+    return '<svg class="rv-svg" viewBox="0 0 640 360" aria-hidden="true"><rect class="bg" width="640" height="360" rx="24"/>' + figureSvg(118, false, true) + '</svg>';
+  }
+  function msgHtml(id, m, lastMine) {
+    var mine = m.me, kind = m.kind === 'card' || m.type === 'change' || m.type === 'checkin' || m.type === 'payment' || m.type === 'cut' ? 'card' : 'words', h = '';
+    var foot = '<div class="mt"><time>' + esc(hm(m.at)) + '</time>';
+    if (mine && (m.type === 'text' || m.type === 'voice')) {
+      if (S.edited[m.at] || m.edited) foot += '<span>Edited</span>';
+      if (m === lastMine) foot += '<span>' + esc(receipt(m)) + '</span>';
+      if (m.type === 'text') foot += '<button class="btn quiet icon" type="button" data-more data-msgmore="' + esc(m.at) + '" aria-haspopup="menu" aria-label="More for this message">' + DESK.ic('more') + '</button>';
+    }
+    foot += '</div>';
+    var open = '<div class="mg' + (mine ? ' me' : '') + (kind === 'card' ? ' wide' : '') + '" data-msg data-kind="' + kind + '" data-at="' + esc(m.at) + '"' + (mine ? ' data-me' : '') + '>';
+    if (S.editing === m.at) {
+      return open + '<div class="ed"><textarea class="input" id="ed-t" aria-label="Edit your message" rows="2">' + esc(m.body) + '</textarea><div class="row"><button class="btn quiet sm" type="button" data-edcancel>Cancel</button><button class="btn sm" type="button" data-edsave>Save</button></div></div></div>';
+    }
+    if (m.type === 'change') {
+      h = '<div class="mc"><span class="k">Program change</span>' + hl(m.body) + '<br><button class="link" type="button" data-openprog>Open the program</button></div>';
+      foot = '<div class="mt"><time>' + esc(hm(m.at)) + '</time><span>' + esc(receipt(m)) + '</span></div>';
+      var it = m.meta && m.meta.itemId ? dataOf(PL.items.get(m.meta.itemId)) : null;
+      return open + h + foot + '</div>' + (m.meta && m.meta.actId === 'safe' || (it && /openers/i.test(m.body)) ? attemptsCard(id, m.at) : '');
+    }
+    if (m.type === 'checkin') h = '<div class="mc"><span class="k">Check-in, ' + esc(dayWords(day10(m.at))) + '</span>' + hl(checkinWords(id, m)) + '</div>';
+    else if (m.type === 'payment') h = '<div class="mc"><span class="k">About the payment</span>' + hl(m.body) + '</div>';
+    else if (m.type === 'cut') h = '<div class="mc"><span class="k">Cut plan</span>' + hl(m.body) + '</div>';
+    else if (m.type === 'set') h = '<div class="bubble">' + hl(setWords(m)) + '</div>';
+    else if (m.type === 'note') h = '<div class="bubble"><span class="k">Session note</span>' + hl(m.body) + '</div>';
+    else if (m.type === 'voice') {
+      var said = m.meta && m.meta.said;
+      h = '<div class="bubble"><div class="voice"><button class="btn icon" type="button" data-play="' + esc(m.at) + '" data-dur="' + esc(m.meta && m.meta.dur || 12) + '" aria-label="Play the voice note" aria-pressed="false">' + DESK.ic('play') + '</button>' +
+        '<span class="vt"><b data-len>Voice note ' + esc(m.meta && m.meta.len || '') + '</b>' + (said ? '<q>' + hl(said) + '</q>' : '') + '</span></div></div>';
+    } else if (m.type === 'video') {
+      h = '<div class="bubble"><div class="vid">' + figureThumb() + '<span class="vt"><span>' + hl(m.body) + '</span><small>' + esc(m.meta && m.meta.len || '') + (m.meta && m.meta.detail ? ', “' + esc(m.meta.detail) + '”' : '') + '</small>' +
+        '<button class="btn sm" type="button" data-review>Review the rep</button></span></div></div>';
+    } else {
+      var att = m.meta && m.meta.attach;
+      h = '<div class="bubble' + (mine ? ' me' : '') + '">' + hl(m.body) + (att && att.kind === 'marks' ? '<small>Your marks on the rep: ' + esc(K.plural(att.n, 'mark')) + '</small>' : att && att.kind === 'session' ? '<small>' + esc(att.name + ', ' + dmy(att.date)) + '</small>' : '') + '</div>';
+    }
+    return open + h + foot + '</div>';
+  }
+  function renderHead() {
+    var id = S.id, l = L(id), lx = dataOf(PL.lifters.get(id)) || {}, p = lx.program, facts = [];
+    if (p) facts.push(String(p.name || '').replace(/\s*·\s*/g, ', ') + (p.week ? ', week ' + p.week + ' of ' + p.of : ''));
+    else facts.push('No program yet');
+    if (lx.meet && lx.meet.days != null && lx.meet.days <= 14) facts.push(lx.meet.name + ' ' + outT(lx.meet.days));
+    $('#th-h').innerHTML = '<h1 id="th-name" title="' + esc(l.name) + '" data-ellipsis>' + esc(l.name) + '</h1><p class="facts">' + esc(facts.join(' · ')) + '</p>' +
+      '<div class="links"><button class="link" type="button" data-openpage>Open page</button><button class="link" type="button" data-openprog>Open program</button></div>';
+    DESK.setTitle('Messages');
+  }
+  function renderMessages(keepScroll) {
+    var box = $('#th-m'), t = thread(S.id), ms = t ? t.messages : [], h = '', lastDay = null, newShown = false;
+    var mine = ms.filter(function (m) { return m.me && (m.type === 'text' || m.type === 'voice'); }), lastMine = mine[mine.length - 1] || null;
+    var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 48;
+    ms.forEach(function (m, i) {
+      if (m.type === 'video' && ms[i + 1] && ms[i + 1].type === 'voice' && ms[i + 1].at === m.at && !ms[i + 1].me) { /* the video sits before the voice note it came with */ }
+      var d = day10(m.at); if (d !== lastDay) { h += '<div class="dv">' + esc(dayWords(d)) + '</div>'; lastDay = d; }
+      if (!newShown && !m.me && m.read === false) { h += '<div class="dv new" role="separator">New</div>'; newShown = true; }
+      h += msgHtml(S.id, m, lastMine);
+    });
+    if (!ms.length) h = '<p class="th-empty">' + esc('No messages with ' + first(S.id) + ' yet.') + '</p>';
+    /* a payment reminder Clients set to go out later (Tom lifts today): it shows where it will land, greyed, until it goes */
+    var g = fn(PL.billing, 'get') ? dataOf(PL.billing.get(S.id)) : null, rem = g && g.reminder && g.reminder.when === 'tomorrow' ? g.reminder : null;
+    if (rem) {
+      var canCancel = g.todo && g.todo.done && g.todo.done.act === 'remind';
+      h = (ms.length ? h : '') + '<div class="mg me wide sched" data-scheduled><div class="mc"><span class="k">Scheduled for tomorrow 08:00</span>' + esc(rem.words || 'Payment reminder') + '</div>' +
+        '<div class="mt"><span>Payment reminder from Clients</span>' + (canCancel ? '<button class="btn quiet sm" type="button" data-unschedule="' + esc(g.todo.key) + '">Cancel</button>' : '') + '</div></div>';
+    }
+    box.innerHTML = h;
+    if (!keepScroll || atBottom) box.scrollTop = box.scrollHeight;
+  }
+
+  /* ---------------- the composer ---------------- */
+  function sendLabel(id, c) {
+    var text = c.text.trim(), rideOn = c.ride && c.rideOn;
+    if (text) return 'Send to ' + first(id);
+    if (rideOn) { var it = dataOf(PL.items.get(c.ride.itemId)), a = actOf(it, c.ride.actId); return a ? (a.silent || a.label) : 'Apply'; }
+    var nx = nextUp(id);
+    return nx ? nextWords(nx) : quietThread(id) ? 'Send to ' + first(id) : 'Back to Overview';
+  }
+  /* a thread with no messages and nobody after it: the crimson waits for words (FTC §6) */
+  function quietThread(id) { var t = thread(id); return !(t && t.messages && t.messages.length) && !nextUp(id); }
+  function sendOff(id, c) { return !c.text.trim() && !(c.ride && c.rideOn) && quietThread(id); }
+  function rideHtml(id, c) {
+    var h = '';
+    if (c.ride) {
+      var pv = rideOf(id, c), it = dataOf(PL.items.get(c.ride.itemId)), a = actOf(it, c.ride.actId), lands = pv && pv.ride ? pv.ride.lands : null;
+      /* the change in its own words: the words above already tell them, so "tell Kofi" / "ask Priya" is left off */
+      var label = c.ride.keep ? 'Also: ' + (a ? a.label.charAt(0).toLowerCase() + a.label.slice(1) : 'keep it') : 'Also: ' + String((a && a.ride) || c.ride.label || (a && a.label) || '').replace(/^Also:?\s*/i, '').replace(/,? (and )?(tell|ask|reply to) [A-Z][a-z]+$/, '').replace(/^./, function (x) { return x.toLowerCase(); });
+      h += '<div class="ride" data-ride="' + esc(c.ride.itemId + '|' + c.ride.actId) + '"' + (c.ride.says ? ' title="' + esc(c.ride.says) + '"' : '') + '>' +
+        '<button class="tick" type="button" role="checkbox" aria-checked="' + !!c.rideOn + '" data-tick="ride"><i>' + ICK + '</i><span>' + esc(label) + '</span></button>';
+      /* a session that moves goes first (Tomas's missed bench to today), then the lines it carries */
+      var ch = (pv ? pv.changes || [] : []).slice().sort(function (x, y) { return (y.field === 'date') - (x.field === 'date'); });
+      if (ch.length) {
+        h += '<ul class="rl">' + ch.map(function (x) {
+          /* the other number the store offers for a line made easier ("Use 215"); once taken, the move's own number to go back */
+          var took = c.other[x.key], other = took ? took.back : x.other != null ? x.other : null, lk = liftAt(liftKey(x.label));
+          var v = x.after == null ? '<b>out this week</b>' : x.edit ? '<b' + lk + '>' + (S.editKey === x.key ? '<input class="input" type="number" inputmode="decimal" step="2.5" min="0" data-edin="' + esc(x.key) + '" value="' + esc(x.edit.value) + '" aria-label="Load for ' + esc(x.label) + '">' : '<button class="ed-n" type="button" data-edit="' + esc(x.key) + '" title="Change the load (2.5 kg steps)">' + esc(rxWords(x.after)) + '</button>') + '</b>' : '<b' + (x.field === 'date' ? '' : lk) + '>' + esc(rxWords(x.after)) + '</b>';
+          return '<li><span class="w"' + lk + '>' + esc(x.label) + '</span>' + (x.before != null ? '<span class="was">' + esc(rxWords(x.before)) + ' →</span>' : '<span class="was">new:</span>') + v +
+            (other != null && x.after != null ? '<button class="link" type="button" data-other="' + esc(x.key) + '" data-kg="' + esc(other) + '" data-now="' + esc(parseRx(x.after) ? parseRx(x.after).kg : x.after) + '">Use ' + esc(n(other)) + '</button>' : '') +
+            (S.editErr && S.editErr.key === x.key ? '<span class="err">' + esc(S.editErr.text) + '</span>' : '') + '</li>';
+        }).join('') + '</ul>';
+      }
+      if (lands === 'draft') h += '<p class="rn">This goes out with week ' + esc(pv.ride.week) + ', not sent yet.</p><button class="tick" type="button" role="checkbox" aria-checked="' + !!c.sendWeek + '" data-tick="week"><i>' + ICK + '</i><span>Send week ' + esc(pv.ride.week) + ' to ' + esc(first(id)) + ' now too</span></button>';
+      if (pv && pv.warn) h += '<p class="cmp-w">' + esc(pv.warn) + '</p>';
+      h += '</div>';
+    } else if (c.row) {
+      var w = dataOf(PL.lifters.week(id)), row = w ? w.rows.filter(function (r) { return r.key === c.row.key; })[0] : null, nxt = row && row.next, nk = String(c.row.key).replace(/^w(\d+)/, function (m0, k) { return 'w' + (+k + 1); });
+      var w1 = dataOf(PL.lifters.week(id, { offset: 1 })), r1 = w1 ? w1.rows.filter(function (r) { return r.key === nk; })[0] : null;
+      /* what the week after holds now (written, and seen if it went out) → what it becomes; each number of the result is
+         the coach's to change before Send (load in 2.5 kg steps, reps, RPE in halves) */
+      var rv = rowVals(id, c), was = nxt ? (nxt.w ? n(nxt.w) + ' × ' + nxt.r : nxt.kg ? 'about ' + n(nxt.kg) + ' × ' + nxt.r : nxt.r + ' reps') + (nxt.rpe != null ? ' @' + n(nxt.rpe) : '') : '';
+      var num = function (f, v, pre) {
+        var lab = f === 'w' ? 'Load' : f === 'r' ? 'Reps' : 'RPE';
+        if (S.rowKey === f) return pre + '<input class="input" type="number" inputmode="decimal" step="' + (f === 'w' ? 2.5 : f === 'r' ? 1 : 0.5) + '" min="' + (f === 'w' ? 0 : 1) + '" max="' + (f === 'rpe' ? 10 : f === 'r' ? 30 : 1000) + '" data-rowin="' + f + '" value="' + esc(v) + '" aria-label="' + lab + ' for next week\'s ' + esc(row ? row.name.toLowerCase() : 'top set') + '">';
+        /* the "@" sits inside the RPE's button so the line reads as one prescription ("182.5 × 3 @8.5") */
+        var at = f === 'rpe' ? '@' : ''; if (at) pre = ' ';
+        return pre + '<button class="ed-n" type="button" data-rowedit="' + f + '" title="Change the ' + lab.toLowerCase() + '">' + at + esc(n(v)) + '</button>';
+      };
+      var edited = rowEdited(id, c), lift = row ? row.name.toLowerCase() : 'squat';
+      var lab0 = edited ? 'set ' + lift + ' next week' : c.row.label.charAt(0).toLowerCase() + c.row.label.slice(1);
+      h += '<div class="ride" data-ride="' + esc((c.itemId || 'row') + '|' + (c.actId || 'msg')) + '" title="' + esc(c.row.label) + '"><button class="tick" type="button" role="checkbox" aria-checked="' + !!c.rowOn + '" data-tick="row"><i>' + ICK + '</i><span>Also: ' + esc(lab0) + '</span></button>' +
+        '<ul class="rl"><li><span class="w"' + liftAt(liftKey(lift)) + '>' + esc(cap(lift) + (r1 && r1.date ? ', ' + dmy(r1.date) : ', next week')) + '</span>' + (was ? '<span class="was">' + esc(was) + ' →</span>' : '') +
+        '<b class="rx"' + liftAt(liftKey(lift)) + '>' + num('w', rv.w, '') + num('r', rv.r, ' × ') + (rv.rpe != null ? num('rpe', rv.rpe, ' @') : '') + '</b>' +
+        (S.editErr && S.editErr.key === 'row' ? '<span class="err">' + esc(S.editErr.text) + '</span>' : '') + '</li></ul></div>';
+    }
+    return h;
+  }
+  function renderComposer() {
+    var id = S.id, c = cmpOf(id), box = $('#cmp'), at = c.attach, rec = S.rv[id];
+    var remindText = 'Remind me Thu if no answer';
+    if (c.ride) { var pv0 = rideOf(id, c); if (pv0 && pv0.remind && pv0.remind.text) remindText = pv0.remind.text; }
+    box.innerHTML =
+      '<div class="cmp-top"><label class="cmp-l" for="cmp-t">' + (c.touched || !c.draft ? 'Message' : 'Draft') + '</label>' +
+      (c.touched && c.draft && c.text !== c.draft ? '<button class="link" type="button" data-bringback>Bring back the draft</button>' : '') + '</div>' +
+      '<textarea class="cmp-t' + (c.touched ? '' : ' is-draft') + '" id="cmp-t" rows="2" placeholder="Write to ' + esc(first(id)) + '" title="Tab keeps the words as yours" aria-label="Message to ' + esc(first(id)) + '">' + esc(c.text) + '</textarea>' +
+      rideHtml(id, c) +
+      (at ? '<div class="att"><span><b>' + (at.kind === 'session' ? 'Session' : 'Your marks') + '</b> ' + esc(at.words) + '</span><button class="link" type="button" data-unattach>Remove</button></div>' : '') +
+      (c.text.trim() ? '<button class="tick" type="button" role="checkbox" aria-checked="' + !!c.remind + '" data-tick="remind"><i>' + ICK + '</i><span>' + esc(remindText) + '</span></button>' : '') +
+      '<div class="cmp-f"><button class="btn quiet sm" type="button" data-saved aria-haspopup="menu">Insert a saved reply</button><button class="btn quiet sm" type="button" data-attach aria-haspopup="menu">Attach</button><span class="grow"></span>' +
+      '<button class="btn" type="button" data-primary data-send' + (sendOff(id, c) ? ' disabled title="Write something first."' : ' title="' + esc(c.text.trim() ? 'Send (⌘↵)' : 'Next thread (J)') + '"') + '><span>' + esc(sendLabel(id, c)) + '</span></button></div>';
+    void rec;
+  }
+  function paintSend() {
+    var b = $('[data-send] span'), c = cmpOf(S.id); if (!b) return;
+    b.textContent = sendLabel(S.id, c);
+    var off = sendOff(S.id, c), btn = b.parentNode; btn.disabled = off; btn.title = off ? 'Write something first.' : c.text.trim() ? 'Send (⌘↵)' : 'Next thread (J)';
+  }
+
+  /* a logged set in a thread (F6.1): "Set: squat 180 × 3 @8. e1RM now 205.5", the e1RM from PL.lifters.numbers */
+  function setWords(m) {
+    var x = m.meta || {}, k = x.lift; if (!k || x.weightKg == null) return m.body;
+    var nb = fn(PL.lifters, 'numbers') ? dataOf(PL.lifters.numbers(S.id)) : null, now = nb && nb.lifts && nb.lifts[k] ? nb.lifts[k].shown : null;
+    return 'Set: ' + k + ' ' + n(x.weightKg) + ' × ' + x.reps + (x.rpe != null ? ' @' + n(x.rpe) : '') + '.' + (now != null ? ' e1RM now ' + n(now) : '');
+  }
+
+  /* ---------------- the facts pane ---------------- */
+  function feltWords(id) {
+    var w = dataOf(PL.lifters.week(id)); if (!w) return null;
+    var top = w.rows.filter(function (r) { return r.line === 0 && r.lift && r.felt && r.felt.values && r.felt.values.length; });
+    if (!top.length) return 'No RPE this week';
+    var over = top.filter(function (r) { return r.felt.kind === 'over'; }).length;
+    return over ? K.plural(over, 'top set') + ' harder than written' : 'As written, ' + K.plural(top.length, 'top set');
+  }
+  /* pain, from the one pain record (lifters.get().health) and the check-ins (lifters.checkins().summary.pain): a pain
+     answer on a check-in is pain, whatever else the day holds (Tom: twice, never answered, on his meet day). ask: the
+     sentence "Ask about it" adds to the words while nobody has answered it */
+  function painWords(id, lx) {
+    var ci = fn(PL.lifters, 'checkins') ? dataOf(PL.lifters.checkins(id)) : null, sp = ci && ci.summary ? ci.summary.pain : null;
+    var hp = lx.health && lx.health.kind === 'pain' ? String(lx.health.text).replace(/^pain\s+/i, '') : null;
+    if (hp) hp = /^(today|yesterday)\b/i.test(hp) ? 'Yes, ' + hp.toLowerCase() : cap(hp);
+    var text = hp || (sp && sp.count ? sp.text : null) || (lx.reason && lx.reason.tone === 't-pain' ? lx.reason.text : null);
+    var ask = null;
+    if (!hp && sp && sp.count && !sp.answered && sp.days && sp.days.length) {
+      var dd = sp.days.slice(-3).map(function (d) { return d === K.today ? 'today' : 'on ' + dmy(d); });
+      ask = (dd.length > 1 ? 'Your check-ins said pain ' + K.list(dd) : 'Your check-in said pain ' + dd[0]) + '. Where is it, and how is it today?';
+    }
+    return { text: text || 'None recorded', on: !!text, ask: ask };
+  }
+  function askPain(id) {
+    var lx = dataOf(PL.lifters.get(id)) || {}, pw = painWords(id, lx), c = cmpOf(id); if (!pw.ask) return;
+    if (c.text.indexOf(pw.ask) < 0) { c.text = (c.text.trim() ? c.text.trim() + ' ' : '') + pw.ask; c.touched = true; }
+    renderComposer();
+    var ta = $('#cmp-t'); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  }
+  function renderFacts(keep) {
+    var id = S.id, l = L(id), lx = dataOf(PL.lifters.get(id)) || {}, t = thread(id), it = openItem(id), c = cmpOf(id), lw = lastWords(id), d = S.done[id];
+    var head = '<div class="fq">';
+    if (it) {
+      head += '<h2>' + esc(it.title) + '</h2>';
+      if (lw && (lw.m.type === 'text' || lw.m.type === 'note')) head += '<p class="q" data-quote>“' + esc(lw.m.body) + '” <time>' + esc(whenShort(lw.m.at) + ' ' + hm(lw.m.at)) + '</time></p>';
+      if (it.meaning) head += '<p class="m">' + esc(it.meaning) + '</p>';
+    } else if (d && d.item) {
+      head += '<h2>' + esc(d.item.title) + '</h2><div class="done-row"><span class="done-tick">' + ICK + '<span>' + esc(d.words) + '</span></span><time class="at">' + esc(d.at) + '</time>' + (d.seen ? '<span class="rc">' + esc(d.seen) + '</span>' : '<span class="rc">Not seen yet</span>') + '</div>';
+    } else head += '<h2>' + esc(isWaiting(id) ? first(id) + ' is waiting for a reply' : 'Nothing open with ' + first(id)) + '</h2>';
+    head += '</div>';
+    var body = '';
+    /* 1. the one thing to decide: its main move and at most one quiet alternative, one style, the one in the draft ticked
+       (owner 16 Nov). The rest of the answers wait under "More about"; a move that opens the meet sits on the meet's line. */
+    var cur = c.picked || c.actId, more = [], meetGo = null;
+    var moveHtml = function (m, key) {
+      if (m.reply) return '<button class="mv" type="button" data-replyonly aria-pressed="' + (c.picked === 'reply') + '" title="Write your own words, change nothing"><span class="ck">' + ICK + '</span><span class="t">Reply only</span></button>';
+      var a = m.a, on = cur === a.id && !a.go;
+      return '<button class="mv" type="button" data-act="' + esc(it.id + '|' + a.id) + '" aria-pressed="' + on + '"' + (key ? ' aria-keyshortcuts="E" title="' + esc(a.label) + ' (E)"' : ' title="' + esc(a.label) + '"') + '><span class="ck">' + ICK + '</span><span class="t">' + esc(a.label) + '</span></button>';
+    };
+    if (it) {
+      var acts = it.acts.filter(function (a) { return a.id !== 'seen'; });
+      var opts = acts.map(function (a) { return { a: a }; });
+      if (!(acts.some(function (a) { return a.reply != null && !(a.ops && a.ops.length) && !a.says; }) || !acts.some(function (a) { return a.reply != null; }))) opts.push({ reply: true });
+      var main = opts.filter(function (o) { return o.a && o.a.kind === 'primary'; })[0] || opts[0];
+      if (lx.meet) meetGo = acts.filter(function (a) { return a !== (main && main.a) && a.go && a.go.place === 'meets'; })[0] || null;
+      var rest = opts.filter(function (o) { return o !== main && !(meetGo && o.a === meetGo); });
+      var alt = rest.filter(function (o) { return o.reply || !o.a.go; })[0] || rest[0] || null;
+      more = rest.filter(function (o) { return o !== alt; });
+      body += '<div class="ig"><div class="moves ans" role="group" aria-label="Answers">' + (main ? moveHtml(main, true) : '') + (alt ? moveHtml(alt, false) : '') + '</div></div>';
+    }
+    /* 2. the numbers in one row (one source, F6.1: PL.lifters.numbers; the e1RM's basis is its title) */
+    var nb = fn(PL.lifters, 'numbers') ? dataOf(PL.lifters.numbers(id)) : null, lifts = lx.lifts || {}, pw = painWords(id, lx);
+    var e1Of = function (k) { var x = nb && nb.lifts && nb.lifts[k]; return x ? { v: x.shown, title: x.basis && x.basis.text } : lifts[k] && lifts[k].e1 != null ? { v: lifts[k].e1 } : null; };
+    var tot = nb && nb.total ? nb.total.shown : lx.totalShown != null ? lx.totalShown : lx.total;
+    var bwText = nb && nb.bw && nb.bw.text ? nb.bw.text : lx.bw && lx.bw.now != null ? n(lx.bw.now) + ' kg' : 'Not weighed';
+    if (pw.ask && (d || /\bpain\b/i.test(c.text))) pw.ask = null;
+    var cells = LIFTS.map(function (k) { var e = e1Of(k); return e && e.v != null ? '<div><span class="k">' + cap(k) + '</span><span class="v" data-lift="' + k + '"' + (e.title ? ' title="' + esc(e.title) + '"' : '') + '>' + esc(n(e.v)) + '</span></div>' : ''; }).join('') +
+      (tot != null ? '<div><span class="k">Total</span><span class="v">' + esc(n(tot)) + '</span></div>' : '');
+    if (cells) body += '<div class="ig"><div class="ig-h"><h3>Numbers</h3><span><span data-term="e1rm">e1RM</span> in kg</span></div><div class="nums">' + cells + '</div></div>';
+    /* 3. the meet in one line: "Autumn Open today, attempts sent", and the way to it */
+    var pl = lx.meet && fn(PL.meets, 'plan') ? dataOf(PL.meets.plan(id)) : null;
+    if (lx.meet && lx.meet.days != null) {
+      var sentW = pl && pl.attempts ? (pl.sent === 'yes' ? 'attempts sent' : pl.sent === 'stale' ? 'attempts changed since sent' : lx.meet.days <= 14 ? 'attempts not sent' : '') : '';
+      var go = meetGo ? '<button class="mv" type="button" data-act="' + esc(it.id + '|' + meetGo.id) + '" aria-pressed="false">' + esc(meetGo.label) + '</button>'
+        : '<button class="mv" type="button" data-openmeet>Open meet</button>';
+      body += '<div class="ig"><div class="meet1" data-fact="meet"><span><b>' + esc(lx.meet.name) + '</b> ' + esc(outT(lx.meet.days)) + (sentW ? ', ' + esc(sentW) : '') + '</span>' + go + '</div></div>';
+    }
+    /* 4. everything else behind one fold: the other answers, the week, the rest of the numbers, pain and class, attempts */
+    var mb = '';
+    if (more.length) mb += '<div class="ig"><div class="ig-h"><h3>Other answers</h3></div><div class="moves ans" role="group" aria-label="Other answers">' + more.map(function (m) { return moveHtml(m, false); }).join('') + '</div></div>';
+    var w = t ? t.week : [];
+    /* the sessions the store calls this week; when every one fell before this Monday (a lifter who stopped, Jonah) they are last week's */
+    var mon = K.monday(K.today), wkName = w.length && w.every(function (s) { return s.date && s.date < mon; }) ? 'Last week' : w.length && w.every(function (s) { return s.date && s.date > K.add(mon, 6); }) ? 'Next week' : 'This week';
+    mb += '<div class="ig"><div class="ig-h"><h3>' + wkName + '</h3></div>' + (w.length ? w.map(function (s) {
+      var st = s.state === 'done' ? 'Done' : s.state === 'missed' ? 'Missed' : s.date === K.today ? 'Today' : s.state === 'part' ? 'Part done' : 'To come';
+      return '<div class="ses"><span class="when">' + esc(s.date ? K.wd3(s.date) + ' ' + K.d(s.date).getDate() : '') + '</span><span class="what">' + esc(String(s.name || '').replace(/ Day$/, '')) + '</span><span class="st' + (st === 'Missed' ? ' tw tone-warn' : '') + '">' + esc(st) + '</span></div>';
+    }).join('') : '<p class="m">No sessions this week.</p>') + '</div>';
+    mb += '<div class="ig">' +
+      (tot != null && lx.change != null && typeof lx.change === 'number' ? '<div class="kvr"><span class="k l">Total in 4 weeks</span><span class="v">' + esc(K.sign(lx.change)) + '</span></div>' : '') +
+      '<div class="kvr pn"><span class="k l">Bodyweight</span><span class="v w">' + esc(bwText) + '</span></div>' +
+      '<div class="kvr"><span class="k l">Felt</span><span class="v w">' + esc(feltWords(id) || 'No RPE this week') + '</span></div>' +
+      '<div class="kvr pn"><span class="k l">Pain</span><span class="v w' + (pw.on ? ' pain' : '') + '" data-fact="pain">' + esc(pw.text) + '</span></div>' +
+      /* the moves under the facts, one row of quiet moves; Record pain… starts on the labels' edge (P43) */
+      '<div class="moves fm"><button class="mv" type="button" data-pain aria-haspopup="dialog">Record pain…</button>' +
+      (pw.ask ? '<button class="mv" type="button" data-askpain title="' + esc(pw.ask) + '">Ask about it</button>' : '') +
+      '<button class="mv" type="button" data-setclass aria-haspopup="dialog">' + (lx.cls ? 'Change class' : 'Set class') + '</button></div></div>';
+    if (lx.meet && pl && pl.attempts) mb += '<div class="ig"><div class="ig-h"><h3>' + esc(lx.meet.name) + ' attempts</h3><span>' + esc(pl.sent === 'yes' ? 'Sent' : pl.sent === 'stale' ? 'Changed since sent' : 'Not sent') + '</span></div><div class="a3t"><span class="h"></span><span class="h n">Opener</span><span class="h n">Second</span><span class="h n">Third</span>' +
+      LIFTS.map(function (k) { return '<span class="k" data-lift="' + k + '">' + cap(k) + '</span>' + (pl.attempts[k] || []).map(function (x) { return '<span class="n" data-lift="' + k + '">' + esc(n(x)) + '</span>'; }).join(''); }).join('') + '</div></div>';
+    body += '<div class="ig more"><button class="mv more-t" type="button" data-more aria-expanded="' + !!S.more + '" aria-controls="more-b">More about ' + esc(first(id)) + '<span class="grow"></span><span class="w">' + (S.more ? 'Hide' : 'Show') + '</span></button>' +
+      '<div class="more-b" id="more-b"' + (S.more ? '' : ' hidden') + '>' + mb + '</div></div>';
+    var o = order(), i = o.indexOf(id), pv = i > 0 ? o[i - 1] : null, nx = i >= 0 && i < o.length - 1 ? o[i + 1] : null;
+    var foot = '<button class="mv" type="button" data-step="-1"' + (pv ? ' title="Previous: ' + esc(L(pv).name) + ' (K)"' : ' disabled title="This is the first thread"') + '><span>Previous</span></button>' +
+      '<button class="mv" type="button" data-step="1"' + (nx ? ' title="Next: ' + esc(L(nx).name) + ' (J)"' : ' disabled title="This is the last thread"') + '><span>' + esc(nx ? nextWords(nx) : 'Next') + '</span></button>';
+    DESK.insp.open({ label: 'Facts about ' + l.name, head: head, body: body, foot: foot, pinned: true, live: true, subject: id, keepScroll: !!keep });
+    var el = DESK.insp.el(); if (el) el.setAttribute('data-crop', 'facts');
+  }
+
+  function renderAll(keep) {
+    var box = $('#th-m'), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 48;
+    renderList(); renderHead(); renderMessages(keep); renderComposer(); renderFacts(keep);
+    if (!keep || atBottom) box.scrollTop = box.scrollHeight;
+  }
+
+  /* ---------------- selection and the URL ---------------- */
+  function select(id, o) {
+    o = o || {};
+    if (!L(id)) return;
+    var was = S.id; S.id = id; S.editing = null; S.editKey = null; S.rowKey = null; S.editErr = null;
+    var h = { id: id }; if (S.q) h.q = S.q; if (o.review) h.review = 1;
+    DESK.url.set(h, !!o.push);
+    if (was === id && !o.force) { renderList(); return; }
+    renderAll(false);
+    var row = $('#groups [data-row="' + id + '"]'); if (row) row.scrollIntoView({ block: 'nearest' });
+    if (o.focusRow && row) row.querySelector('.nm').focus({ preventScroll: true });
+  }
+  function readHash() {
+    var u = DESK.url.get(), id = u.id && L(u.id) ? u.id : null;
+    if (u.q != null && u.q !== S.q) { S.q = u.q; $('#q').value = u.q; }
+    if (!id) { var w = waitingNow(); id = w[0] || (S.groups && S.groups.first[0]) || (list().data[0] || {}).id || (firstLifter() || {}).id || null; }
+    if (!id) { renderEmpty(); return; }
+    select(id, { force: id !== S.id });
+    if (u.review === '1') openReview(id);
+  }
+  /* the first lifter who has joined (an invited lifter has no thread before joining, FTC §6) */
+  function firstLifter() { return (K.lifters || []).filter(function (l) { var x = fn(PL.lifters, 'get') ? dataOf(PL.lifters.get(l.id)) : null; return !x || x.stage !== 'invited'; })[0] || null; }
+  /* a desk with nobody to write to yet (FTC §6): one line, one next step */
+  function renderEmpty() {
+    S.id = null;
+    DESK.listHead($('#list'), { name: 'Threads', count: 0 });
+    $('#groups').innerHTML = '';
+    $('#th-h').innerHTML = '<h1 id="th-name">Messages</h1>';
+    $('#th-m').innerHTML = '<p class="th-empty">No messages yet. Lifters write to you from their app.</p>';
+    $('#cmp').innerHTML = '<div class="cmp-f"><span class="grow"></span><button class="btn" type="button" data-primary data-add-first aria-haspopup="dialog">Add your first lifter…</button></div>';
+    if (DESK.insp && fn(DESK.insp, 'close')) DESK.insp.close();
+  }
+  document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-add-first]') && fn(DESK, 'addLifter')) DESK.addLifter({ from: 'messages' }); });
+  document.addEventListener('desk:newcoach', function () { if (!S.id) { snapshot(); readHash(); } });
+  DESK.listStepper = function (dir) {
+    if (!S.id) return true;
+    var o = order(), i = o.indexOf(S.id), nx = i < 0 ? o[0] : o[i + dir];
+    if (nx) select(nx, { focusRow: !!(document.activeElement && document.activeElement.closest && document.activeElement.closest('[data-crop=list]')) });
+    return true;
+  };
+
+  /* ---------------- sending ---------------- */
+  function undoAll(tokens) { return function () { var r = null; tokens.slice().reverse().forEach(function (tk) { r = PL.undo(tk); }); return r; }; }
+  function send() {
+    var id = S.id, c = cmpOf(id), text = c.text.trim(), rideOn = !!(c.ride && c.rideOn), res, tokens = [], who = first(id), says = '', rowTok = null, rowSaid = '';
+    if (!text && !rideOn) { var nx = nextUp(id); if (nx) select(nx, { push: true }); else DESK.go('overview'); return; }
+    /* the numbers the coach typed and the other number he took ("Use 215") ride as edits: one write, one Undo */
+    var edits = editsOf(c);
+    var ri = rideOn ? dataOf(PL.items.get(c.ride.itemId)) : null;
+    /* "Send week 5 to Mei now too" rides in the same write (messages.send's sendWeek, LOGIC-FIX-3) */
+    if (rideOn && text) res = PL.messages.send(id, { text: text, ride: [{ itemId: c.ride.itemId, actId: c.ride.actId, edits: edits }], sendWeek: c.sendWeek && ri ? true : undefined });
+    else if (rideOn) res = PL.items.run(c.ride.itemId, c.ride.actId, { tell: false, edits: edits, for: id, sendWeek: !!c.sendWeek });
+    else {
+      var o = { text: text };
+      /* the row the words decide: as the store suggests it (one write with the words, the change card after them), or with
+         the numbers the coach changed in the ride line (next week's line written with them, under the same Undo) */
+      var rowSet = c.row && c.rowOn && rowEdited(id, c) ? rowVals(id, c) : null;
+      if (c.row && c.rowOn && !rowSet) o.decide = { key: c.row.key, how: 'use' };
+      if (c.attach) o.attach = c.attach.kind === 'session' ? { kind: 'session', week: c.attach.week, idx: c.attach.idx } : { kind: 'marks', n: c.attach.n, video: c.attach.video || null };
+      /* words that answer an open fix that is only words (Arjun's question) settle it in the store (messages.send's own
+         replyFix, LOGIC-FIX-3): no ride of the page's own */
+      res = PL.messages.send(id, o);
+      if (rowSet && res && !res.error) {
+        var sn = fn(PL.lifters, 'setNext') ? PL.lifters.setNext(id, c.row.key, { w: rowSet.w, r: rowSet.r, rpe: rowSet.rpe }) : null;
+        if (!sn || sn.error) { if (res.meta && res.meta.undo) PL.undo(res.meta.undo); DESK.toast((sn && sn.error && sn.error.message) || 'Could not change next week. Nothing was sent.'); return; }
+        if (sn.meta && sn.meta.undo) rowTok = sn.meta.undo;
+        rowSaid = first(id) + '’s ' + (rowNameOf(id, c) || 'top set') + ' next week: ' + n(rowSet.w) + ' × ' + rowSet.r + (rowSet.rpe != null ? ' @' + n(rowSet.rpe) : '');
+      }
+    }
+    if (!res || res.error) { DESK.toast((res && res.error && res.error.message) || 'Could not send. Try again.'); return; }
+    if (res.meta && res.meta.undo) tokens.push(res.meta.undo);
+    if (rowTok) tokens.push(rowTok);
+    says = res.meta && res.meta.label ? String(res.meta.label) : '';
+    if (rowSaid) says = rowSaid + '. ' + (says || 'Sent to ' + who + ': “' + text + '”');
+    if (text && c.remind && fn(PL.reminders, 'add')) { var pr = c.ride ? rideOf(id, c) : null, on = pr && pr.remind ? pr.remind.on : thursday(); var rr = PL.reminders.add(id, { on: on, text: 'Ask ' + who + ' again: no answer yet', kind: 'reply', itemId: c.itemId || null }); if (rr && !rr.error && rr.meta && rr.meta.undo) tokens.push(rr.meta.undo); }
+    /* the toast in the one format (the store's words: what changed, then exactly what was sent) */
+    var label = says || (text ? 'Sent to ' + who + ': “' + text + '”' : 'Done.');
+    var it = c.itemId ? dataOf(PL.items.get(c.ride ? c.ride.itemId : c.itemId)) : null, act = it && actOf(it, c.ride ? c.ride.actId : c.actId);
+    S.done[id] = { at: hm(nowIso()), tokens: tokens.slice(), words: act && act.done ? act.done : text ? 'Replied to ' + who : 'Done', item: it ? { title: it.title } : null };
+    delete S.cmp[id]; S.cmp[id] = { text: '', draft: '', touched: false, itemId: null, actId: null, ride: null, rideOn: false, row: null, rowOn: false, edits: {}, other: {}, remind: false, sendWeek: false, attach: null, depthSaid: '' };
+    S.rv[id] = null;
+    DESK.toast(label, tokens.length ? undoAll(tokens) : null);
+    renderAll(true);
+    var b = $('[data-send]'); if (b) b.focus({ preventScroll: true });
+  }
+  function undoRow(id) {
+    var d = S.done[id]; if (!d) return;
+    var r = undoAll(d.tokens)(); delete S.done[id]; delete S.cmp[id];
+    if (r && r.error) DESK.toast(r.error.message); else DESK.toast('Undone: your send to ' + first(id) + '.');
+    renderAll(true);
+  }
+
+  /* ---------------- the composer's events ---------------- */
+  var cmpEl = $('#cmp');
+  cmpEl.addEventListener('input', function (e) {
+    if (e.target.id === 'cmp-t') {
+      var c = cmpOf(S.id), had = !!c.text.trim(); c.text = e.target.value; if (!c.touched) { c.touched = true; e.target.classList.remove('is-draft'); var lb = $('.cmp-l'); if (lb) lb.textContent = 'Message'; }
+      if (had !== !!c.text.trim()) { var pos = e.target.selectionStart; renderComposer(); var ta = $('#cmp-t'); ta.focus(); ta.setSelectionRange(pos, pos); }
+      else paintSend();
+    }
+  });
+  cmpEl.addEventListener('keydown', function (e) {
+    if (e.target.id === 'cmp-t' && e.key === 'Tab' && !e.shiftKey) { var c = cmpOf(S.id); if (!c.touched && c.text) { e.preventDefault(); c.touched = true; e.target.classList.remove('is-draft'); e.target.setSelectionRange(c.text.length, c.text.length); var lb = $('.cmp-l'); if (lb) lb.textContent = 'Message'; } }
+    if (e.target.matches('[data-rowin]')) {
+      if (e.key === 'Enter') { e.preventDefault(); keepRowEdit(e.target); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); S.rowKey = null; S.editErr = null; renderComposer(); }
+    }
+    if (e.target.matches('[data-edin]')) {
+      if (e.key === 'Enter') { e.preventDefault(); keepEdit(e.target); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); S.editKey = null; S.editErr = null; renderComposer(); }
+    }
+  });
+  cmpEl.addEventListener('focusout', function (e) { if (e.target.matches && e.target.matches('[data-edin]') && S.editKey) setTimeout(function () { if (S.editKey && document.activeElement !== e.target) keepEdit(e.target); }, 0); });
+  cmpEl.addEventListener('focusout', function (e) { if (e.target.matches && e.target.matches('[data-rowin]') && S.rowKey) setTimeout(function () { if (S.rowKey && document.activeElement !== e.target && e.target.isConnected) keepRowEdit(e.target); }, 0); });
+  function keepEdit(inp) {
+    var key = inp.getAttribute('data-edin'), v = Number(inp.value), c = cmpOf(S.id);
+    if (!(v > 0) || Math.abs(v / 2.5 - Math.round(v / 2.5)) > 1e-9) { S.editErr = { key: key, text: 'Write a load in 2.5 kg steps, like 147.5' }; renderComposer(); var x = $('[data-edin]'); if (x) x.focus(); return; }
+    c.edits[key] = v; S.editKey = null; S.editErr = null;
+    redraft(S.id, c);
+    renderComposer();
+  }
+  cmpEl.addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    var c = cmpOf(S.id);
+    if (t.hasAttribute('data-send')) { send(); return; }
+    if (t.hasAttribute('data-tick')) {
+      var k = t.getAttribute('data-tick');
+      if (k === 'ride') c.rideOn = !c.rideOn; else if (k === 'row') c.rowOn = !c.rowOn; else if (k === 'remind') c.remind = !c.remind; else if (k === 'week') c.sendWeek = !c.sendWeek;
+      renderComposer(); var again = $('[data-tick="' + k + '"]'); if (again) again.focus(); return;
+    }
+    if (t.hasAttribute('data-rowedit')) { S.rowKey = t.getAttribute('data-rowedit'); S.editErr = null; renderComposer(); var ri = $('[data-rowin]'); if (ri) { ri.focus(); ri.select(); } return; }
+    if (t.hasAttribute('data-edit')) { S.editKey = t.getAttribute('data-edit'); renderComposer(); var inp = $('[data-edin]'); if (inp) { inp.focus(); inp.select(); } return; }
+    if (t.hasAttribute('data-other')) {
+      /* one edit on that line (back-offs and the draft follow in the store's preview); the same spot then offers the way back */
+      var key = t.getAttribute('data-other');
+      if (c.other[key]) delete c.other[key]; else c.other[key] = { kg: Number(t.getAttribute('data-kg')), back: Number(t.getAttribute('data-now')) };
+      redraft(S.id, c); renderComposer();
+      var again2 = $('[data-other="' + key + '"]'); if (again2) again2.focus(); return;
+    }
+    if (t.hasAttribute('data-bringback')) { c.text = c.draft; c.touched = false; renderComposer(); $('#cmp-t').focus(); return; }
+    if (t.hasAttribute('data-unattach')) { c.attach = null; renderComposer(); return; }
+    if (t.hasAttribute('data-saved')) { savedMenu(t); return; }
+    if (t.hasAttribute('data-attach')) { attachMenu(t); return; }
+  });
+  function savedMenu(btn) {
+    var s = fn(PL.settings, 'get') ? dataOf(PL.settings.get()) : null, saved = (s && s.saved) || [];
+    var items = saved.length ? saved.map(function (x, i) { return { id: 's' + i, label: x.name || ('Reply ' + (i + 1)), sub: String(x.text || '').slice(0, 60) }; })
+      : [{ id: 'none', label: 'No saved replies yet', disabled: true }, { sep: true }, { id: 'settings', label: 'Add one in Settings' }];
+    DESK.menu.open(btn, items, { title: 'Saved replies', label: 'Saved replies', run: function (mid) {
+      if (mid === 'settings') { DESK.go('settings', 's=words'); return; }
+      var x = saved[+String(mid).slice(1)]; if (!x) return;
+      var c = cmpOf(S.id); c.text = (c.text.trim() ? c.text.replace(/\s+$/, '') + ' ' : '') + x.text; c.touched = true; renderComposer(); $('#cmp-t').focus();
+    } });
+  }
+  function attachMenu(btn) {
+    var t = thread(S.id), w = t ? t.week : [], hasVid = threadVideo(S.id), c = cmpOf(S.id), busy = !!(c.ride && c.rideOn);
+    var items = w.map(function (s) { return { id: 'ses' + s.idx, label: String(s.name || ''), sub: busy ? 'Send the change first' : s.date ? dmy(s.date) : '', disabled: busy }; });
+    if (hasVid) items.push({ id: 'review', label: 'Marks on the rep…', sub: 'Review the rep and draw' });
+    if (!items.length) items = [{ id: 'none', label: 'Nothing to attach yet', sub: 'No session or video this week', disabled: true }];
+    DESK.menu.open(btn, items, { title: 'Attach', label: 'Attach', run: function (mid) {
+      if (mid === 'review') { openReview(S.id); return; }
+      var s = w.filter(function (x) { return 'ses' + x.idx === mid; })[0]; if (!s) return;
+      c.attach = { kind: 'session', week: 0, idx: s.idx, words: s.name + (s.date ? ', ' + dmy(s.date) : '') };
+      if (!c.text.trim()) { c.text = s.name + (s.date ? ', ' + dmy(s.date) : ''); c.touched = true; }
+      renderComposer(); $('#cmp-t').focus();
+    } });
+  }
+
+  /* ---------------- the thread's events: edit and delete, play, review, links ---------------- */
+  var thEl = $('#thread');
+  thEl.addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    if (t.hasAttribute('data-openpage')) { DESK.openLifter(S.id, { from: 'messages' }); return; }
+    if (t.hasAttribute('data-unschedule')) { var ur = PL.billing.undo(t.getAttribute('data-unschedule')); if (ur && ur.error) DESK.toast(ur.error.message); else DESK.toast('Reminder to ' + first(S.id) + ' cancelled. Nothing was sent.'); renderAll(true); return; }
+    if (t.hasAttribute('data-openprog')) { var lx = dataOf(PL.lifters.get(S.id)) || {}; DESK.go('programs', 'id=' + encodeURIComponent(S.id) + (lx.program && lx.program.week ? '&week=' + lx.program.week : '') + '&from=messages'); return; }
+    if (t.hasAttribute('data-review')) { openReview(S.id); return; }
+    if (t.hasAttribute('data-play')) { playVoice(t); return; }
+    if (t.hasAttribute('data-msgmore')) { msgMenu(t, t.getAttribute('data-msgmore')); return; }
+    if (t.hasAttribute('data-edcancel')) { S.editing = null; renderMessages(true); return; }
+    if (t.hasAttribute('data-edsave')) { saveEdit(); return; }
+  });
+  thEl.addEventListener('keydown', function (e) {
+    if (e.target.id !== 'ed-t') return;
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); S.editing = null; renderMessages(true); }
+  });
+  function myMsg(at) { var t = thread(S.id); return t ? t.messages.filter(function (m) { return m.me && m.at === at; })[0] : null; }
+  function msgMenu(btn, at) {
+    var m = myMsg(at); if (!m) return;
+    var age = mins(nowIso()) - mins(at), ok = age <= 10, when = day10(at) === K.today ? hm(at) : K.wd3(day10(at)) + ' ' + hm(at);
+    var sent = 'Sent ' + when + ", can't be changed now";
+    DESK.menu.open(btn, [{ id: 'edit', label: 'Edit', disabled: !ok, sub: ok ? null : sent }, { id: 'delete', label: 'Delete', red: true, disabled: !ok, sub: ok ? null : sent }], { label: 'Your message', run: function (mid) {
+      if (mid === 'edit') { S.editing = at; renderMessages(true); var x = $('#ed-t'); if (x) { x.focus(); x.setSelectionRange(x.value.length, x.value.length); } return; }
+      if (mid === 'delete') {
+        var r = PL.messages.remove(S.id, at);
+        if (r && r.error) { DESK.toast(r.error.message); return; }
+        var tk = r.meta && r.meta.undo; DESK.toast((r.meta && r.meta.label) || 'Message taken back.', tk ? function () { return PL.undo(tk); } : null); renderAll(true);
+      }
+    } });
+  }
+  function saveEdit() {
+    var at = S.editing, x = $('#ed-t'); if (!at || !x) return;
+    var text = x.value.trim(); if (!text) { DESK.toast('A message needs words.'); return; }
+    var r = PL.messages.edit(S.id, at, text);
+    if (r && r.error) { DESK.toast(r.error.message); return; }
+    S.edited[at] = true; S.editing = null;
+    var tk = r.meta && r.meta.undo; DESK.toast((r.meta && r.meta.label) || 'Message to ' + first(S.id) + ' edited: “' + text + '”', tk ? function () { delete S.edited[at]; return PL.undo(tk); } : null);
+    renderAll(true);
+  }
+  var voice = { btn: null, t: 0, el: 0, dur: 0 };
+  function playVoice(btn) {
+    if (voice.btn === btn) { stopVoice(); return; }
+    stopVoice();
+    voice = { btn: btn, el: 0, dur: Number(btn.getAttribute('data-dur')) || 12, t: setInterval(function () { voice.el += 1; var b = voice.btn && voice.btn.parentElement.querySelector('[data-len]'); if (b) b.textContent = 'Playing ' + mtime(voice.el * FPS).replace(/\.\d$/, '') + ' of ' + mtime(voice.dur * FPS).replace(/\.\d$/, ''); if (voice.el >= voice.dur) stopVoice(); }, 1000) };
+    btn.setAttribute('aria-pressed', 'true'); btn.setAttribute('aria-label', 'Pause the voice note'); btn.innerHTML = DESK.ic('pause');
+  }
+  function stopVoice() {
+    if (!voice.btn) return; clearInterval(voice.t);
+    var b = voice.btn; b.setAttribute('aria-pressed', 'false'); b.setAttribute('aria-label', 'Play the voice note'); b.innerHTML = DESK.ic('play');
+    var lb = b.parentElement && b.parentElement.querySelector('[data-len]'); if (lb) lb.textContent = 'Voice note ' + mtime(voice.dur * FPS).replace(/\.\d$/, '');
+    voice = { btn: null, t: 0, el: 0, dur: 0 };
+  }
+
+  /* ---------------- the list's events ---------------- */
+  var listEl = $('#list');
+  listEl.addEventListener('click', function (e) {
+    var u = e.target.closest('[data-undo]'); if (u) { e.stopPropagation(); undoRow(u.getAttribute('data-undo')); return; }
+    if (e.target.closest('[data-fold-answered]')) { S.open = !S.open; renderList(); return; }
+    if (e.target.closest('[data-allthreads]')) { S.q = ''; $('#q').value = ''; select(S.id, { force: true }); return; }
+    var r = e.target.closest('[data-row]'); if (r) { e.preventDefault(); select(r.getAttribute('data-row'), { push: true }); }
+  });
+  listEl.addEventListener('keydown', function (e) {
+    var r = e.target.closest && e.target.closest('[data-row]');
+    if (r && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); DESK.listStepper(e.key === 'ArrowDown' ? 1 : -1); }
+    else if (r && e.key === 'Enter') { e.preventDefault(); var ta = $('#cmp-t'); if (ta) ta.focus(); }
+  });
+  var qT = 0;
+  $('#q').addEventListener('input', function (e) { clearTimeout(qT); qT = setTimeout(function () { S.q = e.target.value; var h = { id: S.id }; if (S.q.trim()) h.q = S.q; DESK.url.set(h); renderList(); renderMessages(true); }, 120); });
+  $('#q').addEventListener('keydown', function (e) { if (e.key === 'Escape' && S.q) { e.preventDefault(); e.stopPropagation(); S.q = ''; e.target.value = ''; DESK.url.set({ id: S.id }); renderList(); renderMessages(true); } });
+
+  /* ---------------- the facts' events ---------------- */
+  document.addEventListener('click', function (e) {
+    var ins = DESK.insp.el(); if (!ins || !ins.contains(e.target)) return;
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.hasAttribute('data-act')) { var p = b.getAttribute('data-act').split('|'); pickAct(S.id, p[0], p[1]); return; }
+    if (b.hasAttribute('data-replyonly')) { replyOnly(S.id); return; }
+    if (b.hasAttribute('data-more')) { S.more = !S.more; renderFacts(true); var mt = DESK.insp.el().querySelector('[data-more]'); if (mt) mt.focus({ preventScroll: true }); return; }
+    if (b.hasAttribute('data-openmeet')) { var mx = (dataOf(PL.lifters.get(S.id)) || {}).meet; DESK.go('meets', (mx && mx.id ? 'id=' + encodeURIComponent(mx.id) + '&' : '') + 'lifter=' + encodeURIComponent(S.id) + '&from=messages'); return; }
+    if (b.hasAttribute('data-step')) { DESK.listStepper(+b.getAttribute('data-step')); return; }
+    if (b.hasAttribute('data-setclass') && fn(DESK, 'classPop')) { DESK.classPop(b, S.id); return; }
+    if (b.hasAttribute('data-askpain')) { askPain(S.id); renderFacts(true); return; }
+    if (b.hasAttribute('data-pain') && fn(DESK, 'painPop')) { DESK.painPop(b, S.id); return; }
+  });
+
+  /* ---------------- keys ---------------- */
+  var typingIn = function (el) { var tg = el && el.tagName; return tg === 'INPUT' || tg === 'TEXTAREA' || tg === 'SELECT' || !!(el && el.isContentEditable); };
+  document.addEventListener('keydown', function (e) {
+    if (e.defaultPrevented) return;
+    if ($('dialog[open]') || DESK.pop.isOpen()) return;
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { if (e.target && e.target.id === 'ed-t') return; e.preventDefault(); send(); return; }
+    var typing = typingIn(e.target);
+    if (e.key === 'Escape' && typing && e.target.id === 'cmp-t') { e.target.blur(); return; }
+    if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'r' || e.key === 'R') { var ta = $('#cmp-t'); if (ta) { e.preventDefault(); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }
+    else if (e.key === 'e' || e.key === 'E') { var a = DESK.insp.el() && DESK.insp.el().querySelector('[data-act]'); if (a) { e.preventDefault(); a.click(); } }
+    else if (e.key === 'Escape' && S.q) { S.q = ''; $('#q').value = ''; DESK.url.set({ id: S.id }); renderList(); renderMessages(true); }
+  });
+
+  /* ================= the rep review ================= */
+  /* the demo's rep: a side-on line figure from five poses (standing, half-way down, the bottom at frame 118 of 270, half-way
+     up, lockout) in a 640 × 360 frame. At the bottom the hip crease sits 6 px below the top of the knee; last block's rep
+     sits 4 px higher there. */
+  var POSE = {
+    up:  { kne: [323, 250], hip: [318, 165], sho: [322, 62], hed: [331, 38], kt: [328, 243], hc: [328, 167] },
+    mid: { kne: [347, 255], hip: [288, 196], sho: [333, 102], hed: [343, 80], kt: [352, 248], hc: [298, 194] },
+    low: { kne: [366, 265], hip: [282, 266], sho: [349, 186], hed: [360, 164], kt: [370, 257], hc: [292, 263] }
+  };
+  var LOW2 = { kne: [366, 265], hip: [282, 262], sho: [349, 182], hed: [360, 160], kt: [370, 257], hc: [292, 259] };
+  var KF = [[0, 'up'], [24, 'up'], [70, 'mid'], [118, 'low'], [176, 'mid'], [226, 'up'], [270, 'up']];
+  function poseAt(f, last) {
+    var i = 0; while (i < KF.length - 2 && f > KF[i + 1][0]) i++;
+    var a = KF[i], b = KF[i + 1], t = b[0] === a[0] ? 0 : Math.max(0, Math.min(1, (f - a[0]) / (b[0] - a[0]))), s = t * t * (3 - 2 * t);
+    var pa = a[1] === 'low' && last ? LOW2 : POSE[a[1]], pb = b[1] === 'low' && last ? LOW2 : POSE[b[1]], o = {};
+    Object.keys(pa).forEach(function (k) { o[k] = [pa[k][0] + (pb[k][0] - pa[k][0]) * s, pa[k][1] + (pb[k][1] - pa[k][1]) * s]; });
+    return o;
+  }
+  function P(p) { return p[0].toFixed(1) + ' ' + p[1].toFixed(1); }
+  function figureSvg(f, last, thumb) {
+    var p = poseAt(f, last), ank = [320, 330], bar = [p.sho[0] - 8, p.sho[1] - 2];
+    return '<line class="floor" x1="120" y1="340" x2="520" y2="340"/><g class="fig">' +
+      '<path d="M306 338 L' + P(ank) + ' L356 338"/><path d="M' + P(ank) + ' L' + P(p.kne) + ' L' + P(p.hip) + ' L' + P(p.sho) + '"/>' +
+      '<circle class="thin" cx="' + p.hed[0].toFixed(1) + '" cy="' + p.hed[1].toFixed(1) + '" r="15"/><circle class="thin" cx="' + bar[0].toFixed(1) + '" cy="' + bar[1].toFixed(1) + '" r="34"/><circle cx="' + bar[0].toFixed(1) + '" cy="' + bar[1].toFixed(1) + '" r="5"/></g>' +
+      (thumb ? '' : '<path class="lm" d="M' + P([p.kt[0] - 7, p.kt[1]]) + ' L' + P([p.kt[0] + 7, p.kt[1]]) + ' M' + P([p.hc[0] - 7, p.hc[1]]) + ' L' + P([p.hc[0] + 7, p.hc[1]]) + '"/>');
+  }
+  function threadVideo(id) { var t = thread(id); if (!t) return null; var v = t.messages.filter(function (m) { return !m.me && m.type === 'video'; }); return v[v.length - 1] || null; }
+  function rvOf(id) {
+    if (!S.rv[id]) S.rv[id] = { frame: 0, fpos: 0, playing: false, speed: 1, tool: 'line', marks: [], pend: [], compare: false, rec: null, seq: 0, raf: 0, last: 0, drag: null };
+    return S.rv[id];
+  }
+  var DEPTH = [['deep', 'Deep enough'], ['border', 'Borderline'], ['high', 'High']];
+  var TOOLS = [['line', 'Line', 'Line: tap two points, or drag.'], ['angle', 'Angle', 'Angle: tap three points, the corner second.'], ['pen', 'Pen', 'Pen: draw on the frame.']];
+  function markWords(m) { return (m.kind === 'voice' ? 'Voice' : m.kind === 'angle' ? 'Angle' : m.kind === 'pen' ? 'Pen' : 'Line') + ' at ' + mtime(m.frame); }
+  function markSvg(m) {
+    if (m.kind === 'line') return '<path class="mk" d="M' + P(m.pts[0]) + ' L' + P(m.pts[1]) + '"/>';
+    if (m.kind === 'pen') return '<path class="mk" d="M' + m.pts.map(P).join(' L') + '"/>';
+    if (m.kind === 'angle') {
+      var a = m.pts[0], b = m.pts[1], c = m.pts[2], v1 = [a[0] - b[0], a[1] - b[1]], v2 = [c[0] - b[0], c[1] - b[1]];
+      var deg = Math.round(Math.acos(Math.max(-1, Math.min(1, (v1[0] * v2[0] + v1[1] * v2[1]) / (Math.hypot(v1[0], v1[1]) * Math.hypot(v2[0], v2[1]) || 1)))) * 180 / Math.PI);
+      var mx = (v1[0] / (Math.hypot(v1[0], v1[1]) || 1) + v2[0] / (Math.hypot(v2[0], v2[1]) || 1)), my = (v1[1] / (Math.hypot(v1[0], v1[1]) || 1) + v2[1] / (Math.hypot(v2[0], v2[1]) || 1)), ml = Math.hypot(mx, my) || 1;
+      var lx = b[0] - mx / ml * 46, ly = b[1] - my / ml * 46;
+      return '<path class="mk" d="M' + P(a) + ' L' + P(b) + ' L' + P(c) + '"/><rect class="pill" x="' + (lx - 30).toFixed(1) + '" y="' + (ly - 17).toFixed(1) + '" width="60" height="34" rx="17"/><text class="pill-t" x="' + lx.toFixed(1) + '" y="' + (ly + 7).toFixed(1) + '" text-anchor="middle">' + deg + '°</text>';
+    }
+    return '';
+  }
+  function frameSvg(id, last) {
+    var rv = rvOf(id), f = rv.frame, h = '<title>Frame ' + f + ' of ' + FRAMES + '</title><rect class="bg" width="640" height="360" rx="24"/>' + figureSvg(f, last, false);
+    if (!last) {
+      rv.marks.forEach(function (m) { if (m.kind !== 'voice' && Math.abs(m.frame - f) <= 15) h += markSvg(m); });
+      if (rv.drag && rv.drag.pts.length > 1) h += '<path class="mk" d="M' + rv.drag.pts.map(P).join(' L') + '"/>';
+      rv.pend.forEach(function (p) { h += '<circle class="mk-p" cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="6"/>'; });
+    }
+    return h;
+  }
+  function paintFrame(id) {
+    var a = $('#rv-f'), b = $('#rv-f2'), rv = rvOf(id); if (!a) return;
+    a.innerHTML = frameSvg(id, false); a.setAttribute('aria-label', 'This rep, frame ' + rv.frame + ' of ' + FRAMES);
+    if (b) b.innerHTML = frameSvg(id, true);
+    var s = $('#rv-s'); if (s && Number(s.value) !== rv.frame) s.value = rv.frame;
+    var tm = $('#rv-tm'); if (tm) tm.textContent = mtime(rv.frame) + ' / ' + mtime(FRAMES);
+  }
+  function paintMarks(id) {
+    var rv = rvOf(id), ul = $('#rv-l'); if (!ul) return;
+    ul.innerHTML = rv.marks.length ? rv.marks.map(function (m, i) { return '<li data-rv-mark><button class="rv-go" type="button" data-rv-go="' + i + '" title="Go to its frame">' + esc(markWords(m)) + '</button><button class="btn quiet icon" type="button" data-rv-del="' + i + '" aria-label="Delete the ' + esc(markWords(m).toLowerCase()) + '">×</button></li>'; }).join('') : '<li>No marks yet</li>';
+  }
+  function reviewHtml(id) {
+    var rv = rvOf(id), v = threadVideo(id), t = thread(id), dp = t && t.draft ? t.draft.depth : null, tool = TOOLS.filter(function (x) { return x[0] === rv.tool; })[0];
+    return '<div class="rv-b"><div class="rv-h"><h2>Review the rep</h2><small title="' + esc(v ? v.body : '') + '">' + esc(first(id) + ', ' + (v ? v.body.charAt(0).toLowerCase() + v.body.slice(1) : 'the rep')) + '</small></div>' +
+      '<div class="rv-fr' + (rv.compare ? ' two' : '') + '"><figure><svg id="rv-f" class="rv-svg draw" viewBox="0 0 640 360" role="img"></svg>' + (rv.compare ? '<figcaption>This rep</figcaption>' : '') + '</figure>' +
+      (rv.compare ? '<figure><svg id="rv-f2" class="rv-svg" viewBox="0 0 640 360" role="img" aria-label="Last block\'s rep"></svg><figcaption>Last block\'s rep</figcaption></figure>' : '') + '</div>' +
+      '<div class="rv-c"><button class="btn icon" type="button" data-rv-play aria-label="' + (rv.playing ? 'Pause' : 'Play') + ' (Space)" title="' + (rv.playing ? 'Pause' : 'Play') + ' (Space)">' + DESK.ic(rv.playing ? 'pause' : 'play') + '</button>' +
+      '<input type="range" id="rv-s" min="0" max="' + FRAMES + '" step="1" value="' + rv.frame + '" aria-label="Frame" title="← → one frame, Shift for ten">' +
+      '<span class="tm" id="rv-tm"></span><div class="seg" role="group" aria-label="Speed">' + [['0.25', '0.25×'], ['0.5', '0.5×'], ['1', '1×']].map(function (s) { return '<button type="button" data-rv-speed="' + s[0] + '" aria-pressed="' + (String(rv.speed) === s[0]) + '">' + s[1] + '</button>'; }).join('') + '</div></div>' +
+      '<div class="rv-t"><div class="seg" role="group" aria-label="Draw">' + TOOLS.map(function (x) { return '<button type="button" data-rv-tool="' + x[0] + '" aria-pressed="' + (rv.tool === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div>' +
+      '<div class="seg" role="group" aria-label="Compare"><button type="button" data-rv-cmp="off" aria-pressed="' + !rv.compare + '">Off</button><button type="button" data-rv-cmp="on" aria-pressed="' + rv.compare + '">Last block\'s rep</button></div>' +
+      (rv.rec ? '<button class="btn sm" type="button" data-rv-rec>Stop</button><span class="rec" id="rv-rec">Recording 0:00</span>' : '<button class="btn sm" type="button" data-rv-rec>Record over</button>') + '</div>' +
+      '<ul class="rv-l" id="rv-l" aria-label="' + esc(tool ? tool[2] : 'Marks') + '"></ul>' +
+      '<div class="rv-f"><div class="seg" role="group" aria-label="Depth">' + DEPTH.map(function (x) { return '<button type="button" data-rv-depth="' + x[0] + '" aria-pressed="' + (dp === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div><span class="grow"></span>' +
+      '<button class="btn" type="button" data-primary data-rv-done>Done</button></div></div>';
+  }
+  var rvId = null;
+  function openReview(id) {
+    if (!threadVideo(id)) { DESK.toast(first(id) + ' has sent no video yet.'); return; }
+    if (S.id !== id) select(id);
+    rvId = id;
+    var d = DESK.sheet.open({ label: 'Review the rep', html: reviewHtml(id), cls: 'rv', onClose: function () { var rv = rvOf(id); stopPlay(id); if (rv.rec) stopRec(id); rvId = null; var u = DESK.url.get(); if (u.review) DESK.url.set({ id: S.id }); } });
+    $$('.seg', d).forEach(function (s) { DESK.segSync(s); });
+    paintFrame(id); paintMarks(id);
+    var u = DESK.url.get(); if (u.review !== '1') DESK.url.set({ id: id, review: 1 });
+    bindReview(d);
+  }
+  function rerenderReview() { var d = DESK.sheet.el(); if (!d || !rvId) return; d.innerHTML = reviewHtml(rvId); $$('.seg', d).forEach(function (s) { DESK.segSync(s); }); paintFrame(rvId); paintMarks(rvId); }
+  function setFrame(id, f) { var rv = rvOf(id); rv.frame = Math.max(0, Math.min(FRAMES, Math.round(f))); rv.fpos = rv.frame; paintFrame(id); }
+  function stopPlay(id) { var rv = rvOf(id); rv.playing = false; cancelAnimationFrame(rv.raf); var b = $('[data-rv-play]'); if (b) { b.innerHTML = DESK.ic('play'); b.setAttribute('aria-label', 'Play (Space)'); b.title = 'Play (Space)'; } }
+  function startPlay(id) {
+    var rv = rvOf(id); if (rv.frame >= FRAMES) setFrame(id, 0);
+    rv.playing = true; rv.fpos = rv.frame; rv.last = 0;
+    var b = $('[data-rv-play]'); if (b) { b.innerHTML = DESK.ic('pause'); b.setAttribute('aria-label', 'Pause (Space)'); b.title = 'Pause (Space)'; }
+    var tick = function (ts) {
+      if (!rv.playing) return;
+      if (!rv.last) { rv.last = ts; rv.raf = requestAnimationFrame(tick); return; }
+      var nf = rv.fpos + (ts - rv.last) * FPS / 1000 * rv.speed; rv.last = ts;
+      var hit = rv.marks.filter(function (m) { return m.kind !== 'voice' && m.frame > Math.floor(rv.fpos) && m.frame <= nf; }).sort(function (a, b2) { return a.frame - b2.frame; })[0];
+      if (hit && !rv.rec) { setFrame(id, hit.frame); stopPlay(id); return; }
+      if (nf >= FRAMES) { setFrame(id, FRAMES); stopPlay(id); return; }
+      rv.fpos = nf; rv.frame = Math.floor(nf); paintFrame(id);
+      rv.raf = requestAnimationFrame(tick);
+    };
+    rv.raf = requestAnimationFrame(tick);
+  }
+  function stopRec(id) {
+    var rv = rvOf(id); if (!rv.rec) return;
+    clearInterval(rv.rec.t);
+    rv.marks.push({ kind: 'voice', frame: rv.rec.start, dur: Math.max(1, Math.round((Date.now() - rv.rec.t0) / 1000)) });
+    rv.rec = null; stopPlay(id);
+  }
+  function svgPoint(svg, e) { var pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; var m = svg.getScreenCTM(); if (!m) return [0, 0]; var p = pt.matrixTransform(m.inverse()); return [Math.max(0, Math.min(640, p.x)), Math.max(0, Math.min(360, p.y))]; }
+  function addMark(id, m) { var rv = rvOf(id); m.frame = rv.frame; rv.marks.push(m); rv.pend = []; paintFrame(id); paintMarks(id); }
+  var bound = null;
+  function bindReview(d) {
+    if (bound === d) return; bound = d;
+    d.addEventListener('click', function (e) {
+      if (!rvId || !d.classList.contains('rv')) return;
+      var id = rvId, rv = rvOf(id), b = e.target.closest('button'); if (!b) return;
+      if (b.hasAttribute('data-rv-play')) { if (rv.playing) stopPlay(id); else startPlay(id); return; }
+      if (b.hasAttribute('data-rv-speed')) { rv.speed = Number(b.getAttribute('data-rv-speed')); $$('[data-rv-speed]', d).forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); DESK.segSync(b.parentElement, true); return; }
+      if (b.hasAttribute('data-rv-tool')) { rv.tool = b.getAttribute('data-rv-tool'); rv.pend = []; $$('[data-rv-tool]', d).forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); DESK.segSync(b.parentElement, true); var tl = TOOLS.filter(function (x) { return x[0] === rv.tool; })[0]; $('#rv-l').setAttribute('aria-label', tl[2]); paintFrame(id); return; }
+      if (b.hasAttribute('data-rv-cmp')) { var on = b.getAttribute('data-rv-cmp') === 'on'; if (on !== rv.compare) { rv.compare = on; rerenderReview(); } return; }
+      if (b.hasAttribute('data-rv-rec')) {
+        if (rv.rec) { stopRec(id); rerenderReview(); return; }
+        rv.rec = { start: rv.frame, t0: Date.now(), t: 0 }; rerenderReview();
+        rv.rec.t = setInterval(function () { var x = $('#rv-rec'); if (x && rv.rec) x.textContent = 'Recording ' + mtime(Math.round((Date.now() - rv.rec.t0) / 1000) * FPS).replace(/\.\d$/, ''); }, 250);
+        if (!rv.playing) startPlay(id);
+        return;
+      }
+      if (b.hasAttribute('data-rv-go')) { var gm = rv.marks[+b.getAttribute('data-rv-go')]; if (gm && gm.frame != null) { stopPlay(id); setFrame(id, gm.frame); } return; }
+      if (b.hasAttribute('data-rv-del')) { rv.marks.splice(+b.getAttribute('data-rv-del'), 1); paintFrame(id); paintMarks(id); return; }
+      if (b.hasAttribute('data-rv-depth')) { depthCall(id, b.getAttribute('data-rv-depth')); $$('[data-rv-depth]', d).forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); DESK.segSync(b.parentElement, true); return; }
+      if (b.hasAttribute('data-rv-done')) { doneReview(id); return; }
+    });
+    d.addEventListener('input', function (e) { if (rvId && e.target.id === 'rv-s') { stopPlay(rvId); setFrame(rvId, Number(e.target.value)); } });
+    d.addEventListener('keydown', function (e) {
+      if (!rvId || !d.classList.contains('rv')) return;
+      var id = rvId, rv = rvOf(id), tg = e.target;
+      if (e.key === ' ' && !typingIn(tg)) { e.preventDefault(); if (rv.playing) stopPlay(id); else startPlay(id); return; }
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.metaKey && !e.altKey) { e.preventDefault(); stopPlay(id); setFrame(id, rv.frame + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 10 : 1)); return; }
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); e.stopPropagation(); if (rv.pend.length) rv.pend = []; else rv.marks.pop(); paintFrame(id); paintMarks(id); }
+    });
+    d.addEventListener('keyup', function (e) { if (rvId && e.key === ' ' && !typingIn(e.target)) e.preventDefault(); });
+    d.addEventListener('pointerdown', function (e) {
+      var svg = e.target.closest && e.target.closest('#rv-f'); if (!svg || !rvId) return;
+      var rv = rvOf(rvId), p = svgPoint(svg, e); stopPlay(rvId);
+      rv.drag = { pts: [p], start: p }; svg.setPointerCapture(e.pointerId);
+    });
+    d.addEventListener('pointermove', function (e) {
+      if (!rvId) return; var rv = rvOf(rvId), svg = $('#rv-f'); if (!rv.drag || !svg) return;
+      var p = svgPoint(svg, e);
+      if (rv.tool === 'pen') rv.drag.pts.push(p); else rv.drag.pts = [rv.drag.start, p];
+      if (Math.hypot(p[0] - rv.drag.start[0], p[1] - rv.drag.start[1]) > 8) paintFrame(rvId);
+    });
+    d.addEventListener('pointerup', function (e) {
+      if (!rvId) return; var id = rvId, rv = rvOf(id), svg = $('#rv-f'); if (!rv.drag || !svg) return;
+      var p = svgPoint(svg, e), dr = rv.drag, far = Math.hypot(p[0] - dr.start[0], p[1] - dr.start[1]) > 8; rv.drag = null;
+      if (rv.tool === 'pen') { if (far && dr.pts.length > 1) addMark(id, { kind: 'pen', pts: dr.pts.concat([p]) }); else paintFrame(id); return; }
+      if (rv.tool === 'line') {
+        if (far) addMark(id, { kind: 'line', pts: [dr.start, p] });
+        else if (rv.pend.length) addMark(id, { kind: 'line', pts: [rv.pend[0], p] });
+        else { rv.pend = [p]; paintFrame(id); }
+        return;
+      }
+      if (rv.tool === 'angle') { rv.pend.push(p); if (rv.pend.length === 3) addMark(id, { kind: 'angle', pts: rv.pend.slice() }); else paintFrame(id); }
+    });
+  }
+  function depthCall(id, call) {
+    if (!fn(PL.messages, 'depth')) return;
+    var c = cmpOf(id), before = thread(id) && thread(id).draft ? thread(id).draft.text : '';
+    var r = PL.messages.depth(id, call); if (r && r.error) { DESK.toast(r.error.message); return; }
+    var t = thread(id), now = t && t.draft ? t.draft.text : before;
+    if (!c.touched) { c.text = c.draft = now; if (c.row && c.rowEd && c.rowEd.w != null) c.text = c.draft = swapKg(now, rowBase(id, c).w, c.rowEd.w); }
+    else {
+      var said = now && before && now.length > before.length && now.slice(-before.length) === before ? now.slice(0, now.length - before.length).trim() : '';
+      if (c.depthSaid && c.text.indexOf(c.depthSaid) === 0) c.text = c.text.slice(c.depthSaid.length).trim();
+      if (said) { c.text = said + ' ' + c.text; c.depthSaid = said; }
+    }
+    renderComposer();
+  }
+  function doneReview(id) {
+    var rv = rvOf(id), v = threadVideo(id), c = cmpOf(id); if (rv.rec) stopRec(id);
+    c.attach = rv.marks.length ? { kind: 'marks', n: rv.marks.length, video: v ? v.at : null, words: rv.marks.map(markWords).join(', ').replace(/^./, function (x) { return x.toLowerCase(); }) } : null;
+    DESK.sheet.close();
+    renderComposer();
+    var b = $('[data-send]'); if (b) b.focus({ preventScroll: true });
+  }
+
+  /* ---------------- mount ---------------- */
+  DESK.mount({ place: 'messages', title: 'Messages', fixed: true });
+  DESK.keyMap([['J K', 'Next or previous thread'], ['↑ ↓', 'Move through the list'], ['R', 'Write a reply'], ['Tab', 'Keep the draft as your words'], ['⌘↵', 'Send'], ['E', 'The first answer in the facts'],
+    ['Space', 'Play or pause the rep (review)'], ['← →', 'One frame, Shift for ten (review)'], ['⌘Z', 'Take back the last mark (review)'], ['Esc', 'Leave the box, then clear the search']]);
+  DESK.actions([
+    { title: 'Send what is in the box', keywords: 'reply message', run: function () { send(); } },
+    { title: 'Review the rep', keywords: 'video form check depth', run: function () { openReview(S.id); } },
+    { title: 'Next thread', keywords: 'messages waiting', run: function () { DESK.listStepper(1); } }
+  ]);
+  snapshot();
+  readHash();
+  addEventListener('hashchange', function () { var u = DESK.url.get(); if (u.id && u.id !== S.id) select(u.id, { force: true }); if (u.review === '1' && (!DESK.sheet.isOpen())) openReview(u.id || S.id); });
+  var pend = 0;
+  PL.on('change', function () { if (pend) return; pend = requestAnimationFrame(function () { pend = 0; if (!S.id) { snapshot(); readHash(); return; } renderList(); renderMessages(true); renderFacts(true); if (document.activeElement && document.activeElement.id === 'cmp-t') paintSend(); else if (!S.editKey) renderComposer(); }); });
+})();
+</script>
+</body>
+</html>

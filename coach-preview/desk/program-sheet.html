@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta name="robots" content="noindex">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Programs, POWALIFTA Coach</title>
+<script>
+/* the theme before any CSS: ?theme= wins, then powa-r6-theme, else dark */
+(function () { var t = null; var m = /[?&]theme=(light|dark)\b/.exec(location.search); if (m) t = m[1]; if (!t) { try { t = localStorage.getItem('powa-r6-theme'); } catch (e) { t = null; } } document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark'); })();
+</script>
+<link rel="stylesheet" href="../kit/r6/tokens.css">
+<style>html, body { margin: 0; min-height: 100dvh; background-color: var(--floor); }</style>
+<script>
+/* program-sheet.html, the round-4 program sheet, is Programs' Block view now (shared.md §7):
+     → programs.html#view=block (+ id, week)
+   The same legacy maps as prog-builder.html (new=1 → start=first, next=1 → start=next, tpl=1 → tab=templates). Every
+   other parameter travels: reset, theme, probe and anything unknown stay where they were (query or hash); the Programs
+   parameters go into the hash. location.replace leaves no history entry. */
+(function () {
+  var TARGET = 'programs.html';
+  var PAGE = /^(id|week|view|row|tab|tpl|start|day|prefill|runin|team|ids|from|new|next)$/;
+  var ORDER = ['id', 'week', 'view', 'row', 'tab', 'tpl', 'start', 'day', 'prefill', 'runin', 'team', 'ids', 'from'];
+  var q = new URLSearchParams(location.search), h = new URLSearchParams(location.hash.replace(/^#/, ''));
+  var p = {}, query = new URLSearchParams(), rest = new URLSearchParams();
+  q.forEach(function (v, k) { if (PAGE.test(k)) p[k] = v; else query.append(k, v); });
+  h.forEach(function (v, k) { if (PAGE.test(k)) p[k] = v; else rest.append(k, v); });
+  if (p.new === '1') { if (!p.start) p.start = 'first'; delete p.new; }
+  if (p.next === '1') { if (!p.start) p.start = 'next'; delete p.next; }
+  if (p.tpl === '1') { if (!p.tab) p.tab = 'templates'; delete p.tpl; }
+  p.view = 'block';
+  var hash = new URLSearchParams();
+  ORDER.forEach(function (k) { if (p[k] != null) hash.set(k, p[k]); });
+  ['new', 'next'].forEach(function (k) { if (p[k] != null) hash.set(k, p[k]); });
+  rest.forEach(function (v, k) { hash.append(k, v); });
+  var qs = query.toString();
+  location.replace(TARGET + (qs ? '?' + qs : '') + '#' + hash.toString());
+})();
+</script>
+</head>
+<body>
+<noscript><a href="programs.html">Open Programs</a></noscript>
+</body>
+</html>

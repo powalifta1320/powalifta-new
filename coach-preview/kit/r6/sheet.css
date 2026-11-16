@@ -1,0 +1,239 @@
+/* sheet.css: the Block view (kit/r6/sheet.js; programs.md §14.3, professional.md §8.6). One card holds the block: the
+   cell in hand on the card's own colour with a hairline under it, and the week heads, both pinned under the toolbar while
+   the page scrolls; the exercise column pinned left; week columns that share the card's width in whole weeks (never under
+   168 px) and scroll sideways inside the card.
+   Four visual codes and no more: the lit week to write (one --fill band down the column), a rule's step after a load in
+   ink-3 ("135 +2.5": no green, no arrow, no caption), ink-2 for what was written in a lifted cell, and the cell's one
+   mark in words. No lift dots, no glyphs. Every load is ink at one weight. Colours, type, radii and shadows come from
+   tokens.css; widths are px.
+   A page whose window stays still (Programs) makes the host the pane that scrolls and sets --sx-top: 0px (where the bar
+   and the heads pin inside it) and --sx-reach: 0px (no strip reaching up under a toolbar). */
+
+.sx { --sx-ex: 232px; --sx-bar-h: 56px; --sx-head-h: 56px; --sx-row-h: 56px; --sx-day-h: 40px; --sx-w: 174px; --sx-n: 6;
+  position: relative; display: block; border-radius: var(--r-card); }
+.sx-sentinel { display: block; height: 0; }
+
+/* ---------- the cell in hand: the line and its rule, the field, one sentence, at most two buttons (§5.1) ---------- */
+.sx-bar {
+  position: sticky; top: var(--sx-top, var(--edge-h)); z-index: 6;
+  display: grid; grid-template-columns: minmax(0, max-content) 168px minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-3);
+  height: var(--sx-bar-h); padding: 0 var(--sp-4) 0 var(--sp-5);
+  background: transparent; box-shadow: inset 0 -1px 0 var(--line);
+}
+/* at rest it sits on the card itself (no surface of its own, no box in the box); pinned, it takes the card's colour so the
+   rows passing under it never show through */
+.sx.is-stuck .sx-bar { background: var(--card); }
+/* while the heads are pinned, the card reaches up under the toolbar's edge to the capsules' foot, as the Roster's pinned
+   table heads do: the strip between the toolbar row and the cell in hand is the card's own surface (never the floor), so
+   the glass capsules sit over the card fading into the edge, and a row scrolled past the week heads never shows again
+   above them (the toolbar's scroll edge fades the rest) */
+.sx.is-stuck .sx-bar::before {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--sx-reach, calc(var(--edge-h) - var(--inset) - var(--tb-h)));
+  background: var(--card); pointer-events: none;
+}
+.sx.is-stuck .sx-bar { border-radius: 0; }
+.sx-addr { max-width: 240px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 500 var(--fs-label)/var(--lh-label) var(--font); letter-spacing: var(--ls-label); }
+.sx-fx.input { width: 168px; height: var(--ctl-h); padding: 0 var(--sp-3); font: 500 var(--fs-sub)/1 var(--font); font-variant-numeric: tabular-nums; }
+.sx-fx.input:read-only { color: var(--ink-2); }
+.sx-how { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+.sx-how.is-warn { color: var(--warn); font-weight: 500; }
+.sx-acts { display: flex; align-items: center; gap: var(--sp-2); }
+.sx-acts:empty { display: none; }
+
+/* ---------- the grid ---------- */
+.sx-grid { position: relative; outline: 0; }
+/* the pinned heads end on one edge: a hairline that runs unbroken from the sheet's left edge (under "Exercise") to its
+   right. Under the heads row the box holds one scroll-edge band more (.sx-fr, --sp-4) without taking its room (the same
+   negative margin), so the rows never move: at rest the band is clear and lets every click through; while the heads are
+   pinned (.sx.is-stuck) it fades the rows passing under them into the card, so no line of words is ever sliced at the
+   edge. The band is real boxes, not a ::before, and it scrolls sideways with the heads, so the lit week stays lit. */
+.sx-head {
+  position: sticky; top: calc(var(--sx-top, var(--edge-h)) + var(--sx-bar-h)); z-index: 5;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  margin-bottom: calc(var(--sp-6) * -1); pointer-events: none;
+}
+.sx-head::-webkit-scrollbar { display: none; }
+.sx-head > .sx-hr { background-color: var(--card); pointer-events: auto; box-shadow: inset 0 -1px 0 var(--line-2); }
+/* taller than a line of words and solid for its first quarter (as the toolbar's own edge is), so a line reaches the
+   hairline already gone: it fades out, never shows its letters cut */
+.sx-fr { height: var(--sp-6); }
+.sx-fr > i { display: block; min-width: 0; box-shadow: inset 1px 0 0 var(--line); }   /* the column lines run on through it */
+.sx-fr > .sx-fz0 { position: sticky; left: 0; z-index: 2; box-shadow: inset -1px 0 0 var(--line); }
+.sx.is-stuck .sx-fr { pointer-events: auto; }
+.sx.is-stuck .sx-fr > i { background-image: linear-gradient(var(--card) 25%, transparent); }
+.sx.is-stuck .sx-fr > i.is-lit { background-image: linear-gradient(var(--fill) 25%, transparent), linear-gradient(var(--card) 25%, transparent); }
+.sx-body {
+  position: relative; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+  scroll-snap-type: x mandatory; scroll-padding-left: var(--sx-ex); padding-bottom: var(--sp-2);
+  border-radius: 0 0 var(--r-card) var(--r-card);
+}
+.sx-r { display: grid; grid-template-columns: var(--sx-ex) repeat(var(--sx-n), var(--sx-w)); min-width: max-content; }
+.sx-body .sx-r:first-of-type > .sx-dc { scroll-snap-align: start; }   /* the first row (the lit band, an <i>, comes before it) */
+
+/* the exercise column, pinned left */
+.sx-ex {
+  position: sticky; left: 0; z-index: 2; display: flex; align-items: center; gap: var(--sp-2); min-width: 0;
+  padding: 0 var(--sp-3) 0 var(--sp-5); background: var(--card); box-shadow: inset -1px 0 0 var(--line);
+}
+.sx-corner { height: var(--sx-head-h); justify-content: space-between; }
+.sx-head .sx-corner { box-shadow: inset -1px 0 0 var(--line), inset 0 -1px 0 var(--line-2); }
+.sx-ch { color: var(--ink-3); font: 500 var(--fs-label)/1 var(--font); letter-spacing: var(--ls-label); }
+.sx-nav { display: none; gap: 2px; }
+.sx.is-wide .sx-nav { display: inline-flex; }
+.sx-navb {
+  position: relative; display: inline-grid; place-items: center; width: var(--ctl-s); height: var(--ctl-s); padding: 0; border: 0; border-radius: var(--r-pill);
+  background: transparent; color: var(--ink-2); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.sx-navb svg { width: 16px; height: 16px; }
+.sx-navb:disabled { opacity: .35; cursor: default; }
+.sx-navb:active:not(:disabled) { transform: scale(var(--press)); }
+
+/* the week heads: "Week 5" and one fact under it, never two (§5.7); a menu for the week's moves */
+.sx-hr { height: var(--sx-head-h); }
+.sx-wh {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-content: center; row-gap: 2px;
+  min-width: 0; padding: 0 var(--sp-2) 0 var(--sp-3); box-shadow: inset 1px 0 0 var(--line), inset 0 -1px 0 var(--line-2); cursor: default;
+}
+.sx-wn { grid-column: 1; color: var(--ink); font: 600 var(--fs-body)/1.2 var(--font); white-space: nowrap; }
+.sx-wn { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sx-wf { grid-column: 1; grid-row: 2; justify-self: start; max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-3); font: 500 var(--fs-label)/1.25 var(--font); white-space: nowrap; }
+.sx-wf.is-strong { color: var(--ink-2); }
+/* the week's moves: a 36 px button whose hit area reaches 40 (shared.md §9) */
+.sx-wm {
+  position: relative; grid-column: 2; grid-row: 1 / span 2; align-self: center; display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0;
+  border-radius: var(--r-pill); background: transparent; color: var(--ink-3); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.sx-wm svg { width: 16px; height: 16px; }
+.sx-wm::after, .sx-navb::after { content: ''; position: absolute; inset: -4px; }
+.sx-wm:active { transform: scale(var(--press)); }
+/* with a pointer, the week menu shows on the week to write and on a week under the pointer or the keys; on touch, always */
+@media (hover: hover) and (pointer: fine) {
+  .sx-wh:not(.is-lit) .sx-wm:not([aria-expanded='true']):not(:focus-visible) { opacity: 0; }
+  .sx-wh:hover .sx-wm, .sx-wh:focus-within .sx-wm { opacity: 1; }
+}
+.sx-wm { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out); }
+.sx-wm[aria-expanded='true'] { background: var(--fill-2); color: var(--ink); }
+.sx-wh.is-sel { background: var(--sel); }
+.sx-wh.is-sel .sx-wn { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+
+/* the lit week to write: its head, and one band down the whole column (sheet.js draws .sx-lit once, under the cells),
+   so the column reads as one light with the grid's own 1 px lines over it, through the day rows and the add rows too */
+.sx-wh.is-lit { background-color: var(--fill); }
+.sx-lit { position: absolute; top: 0; bottom: var(--sp-2); left: calc(var(--sx-ex) + var(--sx-w) * var(--sx-cw)); width: var(--sx-w); background: var(--fill); pointer-events: none; }
+
+/* days: their name and weekday, news only when there is news */
+.sx-dr, .sx-bh { height: var(--sx-day-h); }
+.sx-dc, .sx-bc { position: relative; }   /* painted over the lit band, as the cells are */
+.sx-dr > .sx-ex, .sx-bh > .sx-ex { background: var(--card-2); }
+.sx-dr > .sx-dc, .sx-bh > .sx-dc { background: var(--card-2); box-shadow: inset 1px 0 0 var(--line), inset 0 1px 0 var(--line-2); }
+.sx-dr > .sx-ex, .sx-bh > .sx-ex { box-shadow: inset -1px 0 0 var(--line), inset 0 1px 0 var(--line-2); }
+.sx-dr > .sx-dc.is-lit::after, .sx-bh > .sx-dc.is-lit::after { content: ''; position: absolute; inset: 0; background: var(--fill); pointer-events: none; }
+.sx-dc > * { position: relative; z-index: 1; }
+.sx-dn { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink); font: 600 var(--fs-sub)/1.2 var(--font); white-space: nowrap; }
+.sx-dw { color: var(--ink-3); font: 500 var(--fs-label)/1.2 var(--font); }
+.sx-dc { display: flex; align-items: center; min-width: 0; padding: 0 var(--sp-3); }
+.sx-news { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 500 var(--fs-label)/1.2 var(--font); }
+.sx-dc.is-warn .sx-news { color: var(--warn); }
+
+/* a line: the exercise name (a line under it reads "Back-offs", or the name again in ink-2), then one cell a week */
+.sx-lr { height: var(--sx-row-h); }
+.sx-lr > .sx-ex { box-shadow: inset -1px 0 0 var(--line), inset 0 1px 0 var(--line); }
+.sx-exb {
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; align-content: center; row-gap: 1px;
+  width: 100%; min-width: 0; min-height: 40px; margin: 0 calc(var(--sp-2) * -1); padding: var(--sp-1) var(--sp-2); border: 0; border-radius: var(--r-field);
+  background: transparent; color: var(--ink); text-align: left; font: inherit; cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.sx-exn[data-lift] { color: var(--lc-ink); }   /* a main lift's row: its name in the lift's ink */
+.sx-exn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--fs-body)/1.25 var(--font); text-wrap: pretty; }
+.sx-exs { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-3); font: 500 var(--fs-label)/1.2 var(--font); }
+.sx-exb.is-then { padding-left: calc(var(--sp-2) + var(--sp-4)); }
+.sx-exb.is-then .sx-exn { color: var(--ink-2); font: 500 var(--fs-sub)/1.25 var(--font); }
+.sx-exb.is-band { cursor: default; grid-template-rows: auto; min-height: 0; }
+.sx-exb:active:not(.is-band) { transform: scale(var(--press)); }
+
+/* a cell: line 1 what you wrote (15/500), line 2 the bar (15/600): its load, or the top set as lifted. Its two lines fit
+   the line's height exactly (4 + 21 + 2 + 21 + 4 within 56), so no cell spills into the line under it */
+.sx-c {
+  position: relative; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; padding: var(--sp-1) var(--sp-3);
+  box-shadow: inset 1px 0 0 var(--line), inset 0 1px 0 var(--line); color: var(--ink); cursor: cell; outline: 0;
+  font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch);
+}
+.sx-l1, .sx-l2 { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; height: 21px; white-space: nowrap; }
+.sx-l1 { font: 500 var(--fs-sub)/var(--lh-sub) var(--font); }
+.sx-l2 { font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
+.sx-t { min-width: 0; white-space: nowrap; }
+.sx-c.is-lifted .sx-l1 { color: var(--ink-2); }
+/* a proposal's or a rule's step after the load: "135 +2.5", the step in ink-3 14/500 */
+.sx-l2 .sx-d { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; }
+.sx-l2 { gap: var(--sp-1); }
+.sx-c.is-ro { cursor: default; }
+.sx-t.is-bad { color: var(--warn); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.sx-over { color: var(--warn); }
+/* the cell's one mark, in words at the right end of line 1: a state word, never a glyph or a dot */
+.sx-mk { flex: none; margin-left: auto; font: 500 var(--fs-label)/1 var(--font); font-stretch: 100%; white-space: nowrap; color: var(--ink-3); }
+.sx-mk.mk-pain { color: var(--pain); font-weight: 600; }
+.sx-mk.mk-short { color: var(--warn); font-weight: 600; }
+.sx-mk.mk-check { color: var(--warn); font-weight: 600; }
+.sx-mk.mk-check-then { color: var(--ink-2); font-weight: 600; }   /* the same flag in a later week of the line: one colour per row */   /* a load the engine flags: "about @10", as the Week view says */
+.sx-mk.mk-skipped, .sx-mk.mk-off, .sx-mk.mk-swapped { color: var(--ink-2); }
+/* changed after its week was sent: what is written reads underlined in dots until the next send */
+.sx-c.is-changed .sx-t { text-decoration: underline dotted var(--ink-3); text-decoration-thickness: 1px; text-underline-offset: 4px; }
+/* a range gets a quiet fill; the cell in hand a 2 px ring */
+.sx-c.is-in { background-color: var(--sel); }
+/* a week scrolled under the pinned exercise column: its cells stay where they are (a click brings them back), their words go */
+.sx-c.is-off > *, .sx-wh.is-off > * { visibility: hidden; }
+.sx-fr > i.is-off { visibility: hidden; }   /* the band of a week under the pinned column, whose own band is clear at its foot */
+/* a day cell keeps its box (only its words go), so the grid's first cell is never a hidden one to a reader or a test */
+.sx-dc.is-off > * { visibility: hidden; }
+.sx-bc.is-off { visibility: hidden; }
+/* the cell in hand as the Week view draws it (function-polish P26): square, a 2 px ring in the place's own focus colour,
+   the fill handle inside its corner, so it never reaches past the card */
+.sx-sel { position: absolute; z-index: 1; border-radius: 0; box-shadow: inset 0 0 0 2px var(--focus); pointer-events: none; }
+.sx-handle {
+  position: absolute; right: 1px; bottom: 1px; width: 9px; height: 9px; border: 1px solid var(--card); border-radius: 0; background: var(--ink);
+  pointer-events: auto; cursor: crosshair; touch-action: none;
+}
+.sx-handle::after { content: ''; position: absolute; inset: -6px; }
+.sx-fpv { position: absolute; z-index: 1; border-radius: 0; box-shadow: inset 0 0 0 2px var(--ink-3); background: var(--sel); pointer-events: none; }
+
+/* each day ends with a row to add an exercise, as in a sheet */
+.sx-ar { height: 40px; }
+.sx-ar > .sx-ex { box-shadow: inset -1px 0 0 var(--line), inset 0 1px 0 var(--line); }
+.sx-arw { grid-column: 2 / -1; box-shadow: inset 0 1px 0 var(--line); }
+.sx-addb {
+  min-height: 36px; margin: 0 calc(var(--sp-2) * -1); padding: var(--sp-1) var(--sp-2); border: 0; border-radius: var(--r-field); background: none;
+  color: var(--ink-3); font: 500 var(--fs-sub)/1.2 var(--font); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+/* the one add-row style (week.css .add-row, function-polish PX6): its words on the exercise names' line, no fill of its own */
+.sx-addb.add-row { margin: 0; padding: var(--sp-1) 0; font: 500 var(--fs-label)/var(--lh-tight) var(--font); }
+
+/* the band: what each week asks of each lift, in words ("6 hard · top 88%"); no colour, no arrows, no verdicts (§5.5) */
+.sx-br { height: 48px; }
+.sx-br > .sx-ex { box-shadow: inset -1px 0 0 var(--line), inset 0 1px 0 var(--line); }
+.sx-bc {
+  display: flex; align-items: center; gap: 4px; min-width: 0; padding: 0 var(--sp-3); box-shadow: inset 1px 0 0 var(--line), inset 0 1px 0 var(--line);
+  color: var(--ink-2); font: 500 var(--fs-sub)/1.2 var(--font); white-space: nowrap; cursor: default;
+}
+.sx-bc b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); }
+.sx-bc.is-cur { box-shadow: inset 0 0 0 2px var(--ink-3); border-radius: var(--r-field); }
+.sx-grid:focus .sx-bc.is-cur { box-shadow: inset 0 0 0 2px var(--focus); }
+
+@media (hover: hover) and (pointer: fine) {
+  .sx-exb:hover:not(.is-band) { background: var(--hover); }
+  .sx-navb:hover:not(:disabled) { background: var(--fill-2); color: var(--ink); }
+  .sx-wm:hover { background: var(--fill-2); color: var(--ink); }
+  .sx-addb:hover { color: var(--ink); }
+  .sx-addb:not(.add-row):hover { background: var(--hover); }
+  .sx-wh:hover { background-color: var(--hover); }
+  .sx-wh.is-lit:hover { background-color: var(--fill-2); }
+}
+
+@media (max-width: 1280px) {
+  .sx-bar { column-gap: var(--sp-2); padding-left: var(--sp-4); }
+  .sx-ex { padding-left: var(--sp-4); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sx-navb, .sx-wm, .sx-exb, .sx-addb { transition: none; }
+  .sx-navb:active:not(:disabled), .sx-wm:active, .sx-exb:active { transform: none; }
+}

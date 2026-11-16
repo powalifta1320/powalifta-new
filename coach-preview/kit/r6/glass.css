@@ -1,0 +1,40 @@
+/* glass.css: the toolbar band's edge, the collapsed title and the floating layers' fallbacks. The name is kept so no
+   page needs a new link: since 13 Nov nothing on the desk is glass (the place's light came back the same evening: it
+   falls over the floor, the band and the sidebar, all solid; ui.css body::before). The owner ticked "the glass sidebar and toolbars"
+   (and the coloured light under them) as cheap and AI-made, so every surface is solid: the sidebar (--side) and the
+   toolbar band (--floor) are flat; popovers, menus, toasts and sheets are one raised solid (--pop, a hairline ring, a
+   soft drop); the inspector is a flush pane in the card's colour (ui.css). No backdrop blur anywhere (gate L2, lint S4). */
+
+/* ---------- the toolbar band: rows passing under it fade into the floor over 16 px (one colour fading out: a scroll
+   edge, not light; the place's light falls over band, fade and rows alike from ui.css body::before). It shows only once
+   content is under the band (desk.js sets body.is-scrolled). ---------- */
+.tb::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 100%; height: var(--sp-4); pointer-events: none;
+  background: linear-gradient(var(--floor), transparent); opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+/* once shown, the fade is part of the band: a click there lands on the toolbar, not on a row half faded out under it */
+body.is-scrolled .tb::after { opacity: 1; pointer-events: auto; }
+
+/* ---------- the collapsed title fades in over the last 12 px of the large title's way under the band (the large title
+   sits at 68 px; it is gone under the 56 px band by 47 px of scroll) ---------- */
+@supports (animation-timeline: scroll()) {
+  .tb-title { animation: r6-title linear both; animation-timeline: scroll(root block); animation-range: 40px 52px; }
+}
+@supports not (animation-timeline: scroll()) {
+  body.is-scrolled .tb-title { opacity: 1; visibility: visible; }
+}
+@keyframes r6-title { from { opacity: 0; visibility: hidden; } to { opacity: 1; visibility: visible; } }
+/* a page whose window stays still folds the title itself (DESK.title.fold): shown at once, whatever the window's scroll */
+body.is-title-folded .tb-title { animation: none; opacity: 1; visibility: visible; }
+
+/* ---------- more contrast: a stronger hairline on the solids ---------- */
+@media (prefers-contrast: more) {
+  .side { box-shadow: inset -1px 0 0 var(--line-2); }
+  .insp { box-shadow: inset 1px 0 0 var(--line-2), var(--shadow-pane); }
+  .pop, .toast, dialog.sheet { box-shadow: 0 0 0 1px var(--line-2), var(--shadow-pop); }
+  body.is-scrolled .tb { box-shadow: 0 1px 0 var(--line-2); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tb::after { transition: none; }
+}

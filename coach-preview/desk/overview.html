@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta name="robots" content="noindex">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview, POWALIFTA Coach</title>
+<script>
+/* the theme before any CSS: ?theme= wins, then powa-r6-theme, else dark */
+(function () { var t = null; var m = /[?&]theme=(light|dark)\b/.exec(location.search); if (m) t = m[1]; if (!t) { try { t = localStorage.getItem('powa-r6-theme'); } catch (e) { t = null; } } document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark'); })();
+</script>
+<link rel="stylesheet" href="../kit/r6/tokens.css">
+<link rel="stylesheet" href="../kit/r6/glass.css">
+<link rel="stylesheet" href="../kit/r6/ui.css">
+<link rel="stylesheet" href="../kit/r6/fix.css">
+<link rel="stylesheet" href="../kit/r6/newcoach.css">
+<style>
+  /* the Overview (overview-lifters.md §5, professional.md §10.2): the charts card, then Needs you (the work card) beside a
+     side column of two flat sections, Today and Messages. Two cards on the screen, nothing else raised. Tokens only. */
+  body { --side-col: 340px; }
+  @media (max-width: 1280px) { body { --side-col: 312px; } }
+  .charts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: var(--sp-2); }
+  .ch-f .said { display: block; margin-top: var(--sp-1); }
+  .mid { display: grid; grid-template-columns: minmax(0, 1fr) var(--side-col); gap: var(--sp-7); align-items: start; margin-top: var(--sp-7); }
+  .col { display: flex; flex-direction: column; gap: var(--sp-7); min-width: 0; }
+  .sec { min-width: 0; }
+  .sec-h .sub [data-count] { font-variant-numeric: tabular-nums; }
+  /* the page's key count (how many need you) wears the Overview's warm colour */
+  .sec-h h2 .n.acc { color: var(--place-ink); }
+
+  /* Needs you: who (the name, the reason under it) | the context, right-aligned against the fix | the fix in a fixed
+     track, so every decision starts on one vertical line. A done row is the name over the shared done row. */
+  .need { --fix-w: 216px; }
+  @media (max-width: 1280px) { .need { --fix-w: 212px; } }
+  /* 52 px rows (the Lifters list's two-line row): the whole list of 11 and its foot lines fit one window under the band */
+  .need .list { padding-top: var(--sp-1); padding-bottom: var(--sp-1); }
+  .need .lrow { grid-template-columns: minmax(0, max-content) minmax(0, 1fr) var(--fix-w); min-height: 52px; padding-top: 5px; padding-bottom: 5px; }
+  .need .lrow .nm { line-height: var(--lh-tight); }
+  .need .lrow .why { line-height: var(--lh-tight); }
+  .need .lrow.c2 { grid-template-columns: minmax(0, 1fr); }
+  .need .nm { text-decoration: none; }
+  .need .ctx { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .need .act { justify-content: flex-start; min-width: 0; }
+  .need .act .fix { min-width: 0; max-width: 100%; }
+  .need .act .fix span { overflow: hidden; text-overflow: ellipsis; }
+  .need .act .more { flex: none; margin-left: auto; }
+  /* a done row keeps the row's 64 px: the name over one line of done words, its Undo 24 px to see and 40 px to hit */
+  .need .done-row { line-height: var(--lh-tight); }
+  .need .done-row .btn.sm { --h: 20px; }
+  /* the card's foot lines: words in ink-3 on hairlines, the way on (a link) at the right */
+  .nf { display: flex; align-items: center; gap: var(--sp-3); min-height: 40px; padding: 0 var(--sp-6); border-top: 1px solid var(--line); color: var(--ink-3); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .nf .w { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nf .w b { color: var(--ink-2); font-weight: 500; }
+  .nf .link { margin-left: auto; flex: none; }
+  .need .empty { margin: 0; padding: var(--sp-5) var(--sp-4); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .need .empty .btn { margin-top: var(--sp-3); }
+
+  /* Today and Messages: flat sections on the floor, rows on hairlines */
+  .flat .list { padding: 0; }
+  .flat .sec-h { margin-left: 0; margin-right: 0; }
+  .lrow.duo { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n a' 'w w'; row-gap: 2px; padding-top: var(--sp-3); padding-bottom: var(--sp-3); }
+  .lrow.duo > .nm { grid-area: n; }
+  .lrow.duo > .why { grid-area: w; }
+  .lrow.duo > .acts { grid-area: a; display: flex; align-items: center; gap: var(--sp-1); }
+  button.lrow { width: 100%; border: 0; background-color: transparent; color: inherit; font: inherit; text-align: left; }
+  a.lrow { color: inherit; text-decoration: none; }
+  .flat .empty { margin: 0; padding: var(--sp-3) 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .sfoot { display: flex; align-items: center; min-height: 48px; padding: 0; border-top: 1px solid var(--line); }
+
+  /* a desk under 4 lifters (first-time-coach §5): Getting started, then Your lifters in the charts' place */
+  .first-col { display: grid; gap: var(--sp-7); align-items: start; }
+  .first-col > [hidden] { display: none; }
+  /* both on screen: Getting started over the Needs you column, Your lifters over Today and Messages (one grid with .mid) */
+  .first-col.duo { grid-template-columns: minmax(0, 1fr) var(--side-col); }
+  .first-col.duo > .look-around { grid-column: 1 / -1; }
+  /* in the columns (a small desk): one step of space under Getting started, as between the side column's sections */
+  .sec.need > #setup:not([hidden]) { margin-bottom: var(--sp-7); }
+  /* a done step's words read in ink, as every done row on the desk (one line, never a grey sentence in a row) */
+  #setup .is-done .done-tick span { color: var(--ink); }
+  /* flat (beside Your lifters): the words start under the heading, as every flat section's do (PX2) */
+  #setup:not(.card) { max-width: none; }
+  #setup:not(.card) .nc-set-h { min-height: var(--ctl-h); padding: 0 var(--sp-1); margin-bottom: var(--sp-1); }
+  #setup:not(.card) .nc-steps { margin-inline: calc(var(--sp-1) - var(--sp-6)); padding-top: 0; }
+  .look-around { margin: 0; color: var(--ink-3); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .nf .w.none { color: var(--ink-3); }
+
+  /* popovers on this page: a title with its count, people as rows, one quiet way on at the foot */
+  .pop h3 .n { color: var(--ink-3); font-variant-numeric: tabular-nums; margin-left: var(--sp-1); }
+  .pop .pk-h { margin: var(--sp-4) 0 var(--sp-1); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .pop .pk-h .n { color: var(--ink-3); font-variant-numeric: tabular-nums; margin-left: var(--sp-1); }
+  .pop .ppl { margin-top: var(--sp-3); }
+  .pop a.pick { text-decoration: none; }
+  .pop .pop-f { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+  .pop .inv { margin: var(--sp-3) 0 0; font: 600 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; user-select: all; }
+  .pop .seats { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .pop .compose { display: block; width: 100%; margin-top: var(--sp-3); }
+</style>
+</head>
+<body data-place="overview">
+<div id="page">
+  <main class="page" id="main">
+    <div class="lt"><div><h1>Overview</h1><p class="facts" id="facts"></p></div></div>
+    <div class="first-col" id="first" hidden>
+      <div id="setup" hidden></div>
+      <p class="look-around" id="look" hidden>Want to look around first? <a class="link" data-demo href="overview.html?fresh=0">Open the example desk</a></p>
+      <div id="small" hidden></div>
+    </div>
+    <div class="card charts" id="charts" data-crop="charts" role="group" aria-label="This week across your lifters"></div>
+    <div class="mid" id="mid">
+      <div class="sec need" aria-labelledby="need-h">
+        <div class="sec-h" id="need-hd"><h2 id="need-h">Needs you <span class="n acc" data-count="needYou"></span></h2><span class="grow"></span><span class="sub" id="need-sum"><span data-count="doneToday"></span> done today</span></div>
+        <div class="card" data-crop="needs"><div class="list" id="need" data-list aria-label="Needs you"></div><div id="need-f"></div></div>
+      </div>
+      <div class="col">
+        <div class="sec flat" data-crop="today" aria-labelledby="today-h">
+          <div class="sec-h"><h2 class="sec-t" id="today-h">Today</h2></div>
+          <div class="list" id="today" data-list aria-label="Today"></div>
+        </div>
+        <div class="sec flat" data-crop="messages" aria-labelledby="msgs-h">
+          <div class="sec-h"><h2 class="sec-t" id="msgs-h">Messages</h2><span class="grow"></span><span class="sub" id="msgs-sub"><span data-count="waitingThreads"></span> waiting</span></div>
+          <div class="list" id="msgs" data-list aria-label="Waiting for a reply"></div>
+          <div class="sfoot"><a class="link" href="messages.html">Open messages</a></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="../kit/data.js"></script>
+<script src="../kit/kit.js"></script>
+<script src="../kit/coach.js"></script>
+<script src="../kit/r6/block.js"></script>
+<script src="../kit/r6/store.js"></script>
+<script src="../kit/r6/charts.js"></script>
+<script src="../kit/r6/desk.js"></script>
+<script src="../kit/r6/fix.js"></script>
+<script src="../kit/r6/newcoach.js"></script>
+<script>
+(function () {
+  'use strict';
+  var K = window.K, PL = window.PL, DESK = window.DESK, CH = window.CHARTS, esc = K.esc, n = K.n;
+  var $ = function (s, r) { return (r || document).querySelector(s); }, $$ = function (s, r) { return [].slice.call((r || document).querySelectorAll(s)); };
+  var fn = function (o, k) { return !!o && typeof o[k] === 'function'; };
+  var data = function (r) { return r && !r.error ? r.data : null; };
+  var LIFTS = ['squat', 'bench', 'deadlift'];
+  var L = function (id) { return K.L(id); };
+  var firstOf = function (id) { var l = L(id); return l ? l.first : id; };
+  /* "Ines, Tomas, Leo and 2 more": up to three first names, then how many more */
+  var names = function (ids, max) { max = max || 3; var f = ids.map(firstOf); return f.length <= max ? f.join(', ') : f.slice(0, max).join(', ') + ' and ' + (f.length - max) + ' more'; };
+  var minus = function (v, d) { var x = Math.abs(v), s = d ? x.toFixed(d) : n(x); return (v > 0 ? '+' : v < 0 ? '−' : '') + s; };
+  var hm = function (iso) { return iso ? String(iso).slice(11, 16) : ''; };
+  var counts = function () { return PL.counts().data; };
+  var LIFTERS = DESK.routes.lifters, MESSAGES = DESK.routes.messages;
+  var DEMO_FRESH = !!(window.DEMO && window.DEMO.fresh);
+  var lifterHref = function (id, f) { return LIFTERS + '#id=' + encodeURIComponent(id) + (f ? '&f=' + f : ''); };
+  var words = function (s) { return String(s || '').trim().split(/\s+/).filter(Boolean).length; };
+  /* the desk's day is the demo clock's (PL.now moves on when the demo skips to a lifter's session), never a fixed date */
+  var dayNow = function () { var t = fn(PL, 'now') ? String(PL.now() || '') : ''; return /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 10) : K.today; };
+  var localDay = function (iso) { if (!iso) return ''; var x = String(iso); if (!/Z$/.test(x)) return x.slice(0, 10); var d = new Date(x); return isNaN(d) ? x.slice(0, 10) : d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  /* Needs you is today's: a row done on an earlier day has left it (its Undo with it) */
+  var needsNow = function () { var td = dayNow(); return PL.roster.needs().data.filter(function (x) { return !(x.done && x.done.at && localDay(x.done.at) < td); }); };
+
+  /* ---------------- the toolbar: Add a lifter… (quiet), then the crimson ---------------- */
+  DESK.mount({ place: 'overview', title: 'Overview',
+    trail: '<div class="cluster" role="group" aria-label="Overview actions" id="tb-acts"></div>' });
+  /* the lifters on the desk who are not invited-and-unjoined (first-time-coach §5): 0, 1 to 3, or 4 and more */
+  var rosterN = function (c) { c = c || counts(); return Math.max(0, (c.lifters || 0) - (c.invited || 0)); };
+  var size = function (c) { c = c || counts(); var k = rosterN(c); return k >= 4 ? 'full' : k === 0 && !(c.invited || 0) ? 'empty' : 'small'; };
+  var setupOf = function () { return fn(PL.setup, 'get') ? data(PL.setup.get()) : null; };
+  /* the next Getting started step, while the card is shown and not done (§4.2 rule 1) */
+  function setupStep() {
+    var s = setupOf(); if (!s || !s.show || s.done >= s.of || !s.next) return null;
+    return s.steps.filter(function (x) { return x.key === s.next; })[0] || null;
+  }
+  DESK.keyMap([['↑ ↓', 'Move between Needs you rows'], ['Enter', 'Open in Lifters'], ['E', 'Do what the red button says'], ['⌘↵', 'Apply the open fix'], ['Esc', 'Close the fix or the popover']]);
+
+  /* ---------------- the title row and the crimson, in this order of truth (§5.2) ---------------- */
+  /* Keep an eye on: the store's list, and the ones not handled today (function-polish F10.1: the line counts open ones) */
+  function watchList() { var r = PL.lifters.list({ f: 'watch' }); return r && r.data ? r : { data: [], meta: { total: 0 } }; }
+  function handled(x) { if (!x) return false; if (x.handled || x.group === 'done') return true; var t = fn(PL.lifters, 'today') ? data(PL.lifters.today(x.id)) : null; return !!(t && t.length); }
+  function watchOpen() { return watchList().data.filter(function (x) { return !handled(x); }); }
+  /* the plan in words: "Free, 0 of 3 lifters" (the sidebar's coach line says the same) */
+  function planWords() {
+    var bs = fn(PL.billing, 'summary') ? data(PL.billing.summary()) : null, st = bs && bs.seats; if (!st) return '';
+    if (st.unlimited) return st.plan;
+    return st.plan + ', ' + st.used + ' of ' + st.limit + (st.planId === 'free' || st.plan === 'Free' ? ' lifters' : ' seats');
+  }
+  /* the crimson, in this order of truth (first-time-coach §4.2): the next setup step; who needs you; a small desk's new
+     sessions; who to keep an eye on (4 or more lifters); the weeks due; all caught up */
+  function crimsonOf() {
+    var c = counts(), k = rosterN(c), st = setupStep(), open = watchOpen().length;
+    var one = c.needYou === 1 && k <= 3 ? needsNow().filter(function (x) { return !x.done && x.fix && x.fix.go && x.fix.label; })[0] : null;
+    if (st && st.act && !(st.key === 'week1' && c.needYou)) return { label: st.act.label, step: st.key };
+    if (one) return { label: one.fix.label, href: (DESK.routes[one.fix.go.place] || one.fix.go.place + '.html') + '#' + one.fix.go.hash + '&from=overview' };
+    if (c.needYou) return { label: 'Go through the ' + c.needYou + ' who need' + (c.needYou === 1 ? 's' : '') + ' you', href: LIFTERS + '#f=need' };
+    if (k >= 1 && k <= 3 && c.trainedSince) {
+      var who = (data(PL.lifters.list({ f: 'since' })) || [])[0];
+      return { label: c.trainedSince === 1 && who ? 'Read ' + firstOf(who.id) + '’s session' : 'Read ' + c.trainedSince + ' sessions', href: LIFTERS + '#f=since' };
+    }
+    if (k >= 4 && open) return { label: 'Go through the ' + open + ' to keep an eye on', href: LIFTERS + '#f=watch' };
+    if (c.programsDue) return { label: 'Write the ' + c.programsDue + ' week' + (c.programsDue === 1 ? '' : 's') + ' due', href: DESK.routes.programs };
+    return { label: 'All caught up' };
+  }
+  function paintTitle() {
+    var c = counts(), td = dayNow(), day = K.wd(td) + ' ' + K.dm(td), facts, sz = size(c);
+    if (!DEMO_FRESH && window.DEMO && window.DEMO.deskFrom === 'fresh') facts = 'Example desk';
+    else if (sz === 'empty') facts = esc(planWords());
+    else if (sz === 'small') facts = c.needYou ? esc(String(c.needYou)) + ' need' + (c.needYou === 1 ? 's' : '') + ' you' : 'Nothing needs you';
+    else facts = c.needYou ? '<span class="acc">' + esc(String(c.needYou)) + '</span> need you' + (c.needYouDone ? ', ' + esc(String(c.needYouDone)) + ' done' : '') : 'All caught up';
+    $('#facts').innerHTML = '<b>' + esc(day) + '</b> · ' + facts;
+    /* the toolbar: the quiet "Add a lifter…" (not beside a crimson that already adds one), then the crimson */
+    var cr = crimsonOf(), addSame = cr.step === 'add';
+    var cluster = $('#tb-acts'), had = document.activeElement && cluster.contains(document.activeElement) ? (document.activeElement.hasAttribute('data-primary') ? 'p' : 'a') : null;
+    var crim = cr.href ? '<a class="btn" data-primary data-walk href="' + esc(cr.href) + '" aria-keyshortcuts="E">' + esc(cr.label) + '</a>'
+      : '<button class="btn" type="button" data-primary data-walk' + (cr.step ? ' data-setup-step="' + esc(cr.step) + '"' + (cr.step === 'add' || cr.step === 'week1' ? ' aria-haspopup="dialog"' : '') : ' aria-disabled="true"') + ' aria-keyshortcuts="E">' + esc(cr.label) + '</button>';
+    cluster.innerHTML = (addSame ? '' : '<button class="btn" type="button" data-add aria-haspopup="dialog">Add a lifter…</button>') + crim;
+    if (had) { var back = $(had === 'p' ? '[data-primary]' : '[data-add]', cluster); if (back) back.focus({ preventScroll: true }); }
+    $('#need-sum').hidden = !c.doneToday;
+    $('#need-h [data-count]').hidden = !c.needYou;
+  }
+
+  /* ---------------- the five charts: each a picture, a number, a short line; a click lists its people ---------------- */
+  var CHARTS = {};
+  /* each chart names what its popover lists (the Strength chart is the lifts) */
+  var POPKIND = { behind: 'training', stalled: 'lift', harder: 'effort', health: 'health', meet: 'meet' };
+  function chartsHtml() {
+    var c = PL.roster.charts().data, t = c.training, s = c.strength, e = c.effort, h = c.health, m = c.meets, cnt = counts();
+    var days = t.days.map(function (d) {
+      var wd = K.wd(d.iso), last = d.prev + ' last week', plan = d.planned ? d.planned + ' on the plan' : 'nothing on the plan';
+      var tip = d.today ? wd + ', today: ' + (d.planned ? d.planned + ' on the plan, ' + (d.done ? d.done + ' done so far' : 'none done yet') : 'nothing on the plan') + '. ' + last
+        : d.future ? wd + ': ' + plan + ', ' + last : wd + ': ' + (d.planned > d.done ? d.done + ' of ' + d.planned + ' done' : d.done + ' done') + ', ' + last;
+      return { label: wd.charAt(0), now: d.future ? 0 : d.done, ghost: d.prev, today: d.today, tip: tip };
+    });
+    var maxPct = Math.max.apply(null, LIFTS.map(function (k) { return Math.abs(s.lifts[k] || 0); }));
+    var hb = LIFTS.map(function (k) { var v = s.lifts[k] || 0; return { cls: 'lc-' + k, label: K.LIFT[k], value: v, text: minus(v, 1) + '%', tip: K.LIFT[k] + ': ' + minus(v, 1) + '% on average in 4 weeks' }; });
+    var dv = e.perLifter.map(function (x) { return { v: x.drift, tip: firstOf(x.id) + ': ' + (Math.abs(x.drift) < 0.05 ? 'as written' : minus(x.drift) + ' RPE on average') }; });
+    var order = h.pain.map(function (id) { return { id: id, tone: 'pain', w: 'pain' }; }).concat(h.low.map(function (id) { return { id: id, tone: 'warn', w: 'low recovery' }; }), h.ok.map(function (id) { return { id: id, tone: 'up', w: 'fine' }; }), h.none.map(function (id) { return { id: id, none: true, w: 'no check-in' }; }));
+    var dots = order.map(function (x) { return { tone: x.tone, none: x.none, tip: firstOf(x.id) + ': ' + x.w }; });
+    var bunches = []; m.list.forEach(function (mm) { var b = bunches[bunches.length - 1]; if (b && mm.days - b.days <= 4) b.list.push(mm); else bunches.push({ days: mm.days, list: [mm] }); });
+    var marks = bunches.map(function (b) { var ids = [].concat.apply([], b.list.map(function (x) { return x.ids; })); return { x: b.days / m.span, n: ids.length, now: b.days === 0, tip: b.list.map(function (x) { var o = fn(PL.fmt, 'out') ? PL.fmt.out(x.days) : null; o = o && o.data !== undefined ? o.data : o; return x.name + ', ' + (o && o.text ? o.text : x.days ? 'in ' + x.days + ' days' : 'today') + ': ' + names(x.ids, 4); }).join('. ') }; });
+    var ticks = []; for (var i = 1; i < 8; i++) ticks.push(i * 7 / m.span);
+    var today = m.list.filter(function (x) { return x.days === 0; })[0];
+    /* each chart carries its sentence as its title too (function-polish F11), and its head word's meaning (data-term) */
+    var TERM = { stalled: 'strength', harder: 'effort' };
+    var col = function (key, title, per, val, unit, plot, foot, aria) {
+      var head = TERM[key] ? '<b data-term="' + TERM[key] + '">' + title + '</b>' : '<b>' + title + '</b>';
+      if (key === 'harder') unit = unit.replace('felt as written', '<span data-term="felt">felt as written</span>');
+      return '<button type="button" class="ch" data-chart-pop="' + key + '" data-pop="' + (POPKIND[key] || key) + '" aria-haspopup="dialog" aria-label="' + esc(aria) + '" title="' + esc(aria.replace(/ Show who\.$/, '')) + '"><span class="ch-h">' + head + '<span>' + per + '</span></span>' +
+        '<span class="ch-v">' + val + '<span class="unit">' + unit + '</span></span><span class="plot">' + plot + '</span><span class="ch-f">' + foot + '</span></button>';
+    };
+    var behind = t.behind.length ? 'Behind: ' + esc(names(t.behind)) : 'Nobody is behind';
+    var flat = s.flat.length ? 'Flat: ' + esc(names(s.flat)) : 'Nobody is flat';
+    var harder = e.harder.length ? 'Harder: ' + esc(names(e.harder)) : 'Nobody found it harder';
+    var meetLine = today ? 'Today: ' + esc(names(today.ids)) : 'No meet this week';
+    return col('behind', 'Training', 'Mon to Sun', t.done, 'of ' + t.planned + ' sessions', CH.bars(days), CH.legend([{ label: 'This week', tone: 'up' }, { label: 'Last week', ghost: true }]) + '<span class="said">' + behind + '</span>',
+        'Training, Monday to Sunday: ' + t.done + ' of ' + t.planned + ' sessions. ' + behind + '. Show who.') +
+      col('stalled', 'Strength', '4 weeks', minus(s.pct, 1) + '%', 'on average', CH.hbars(hb, { max: maxPct }), flat,
+        'Strength over 4 weeks: ' + minus(s.pct, 1) + '% on average. ' + flat + '. Show who.') +
+      col('harder', 'Effort', '7 days', e.asWrittenPct + '%', 'felt as written', CH.diverging(dv), harder,
+        'Effort over 7 days: ' + e.asWrittenPct + '% of sets felt as written. ' + harder + '. Show who.') +
+      col('health', 'Health', 'Today', cnt.pain, 'in pain', CH.waffle(dots), CH.legend([{ label: h.pain.length + ' pain', tone: 'pain' }, { label: h.low.length + ' low', tone: 'warn' }, { label: h.ok.length + ' fine', tone: 'up' }, { label: h.none.length + ' no check-in', none: true }]),
+        'Health today: ' + h.pain.length + ' in pain, ' + h.low.length + ' low recovery, ' + h.ok.length + ' fine, ' + h.none.length + ' without a check-in. Show who.') +
+      col('meet', 'Meets', '8 weeks', cnt.meetsSoon, 'meets, ' + cnt.meetLifters + ' lifters', CH.timeline(marks, { ticks: ticks, left: 'Today', right: K.dm(K.add(K.today, m.span)) }), meetLine,
+        'Meets in the next 8 weeks: ' + cnt.meetsSoon + ' meets, ' + cnt.meetLifters + ' lifters. ' + meetLine + '. Show who.');
+  }
+  /* a chart's people (§5.3): title and count, up to 8 rows, each opening the lifter in Lifters, one quiet way on */
+  function pickHtml(id, f, sub, val) {
+    var l = L(id); if (!l) return '';
+    return '<a class="pick" href="' + esc(lifterHref(id, f)) + '"><span class="pk"><b>' + esc(l.name) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>' + (val ? '<span class="v">' + esc(val) + '</span>' : '') + '</a>';
+  }
+  function rowsOf(f) { var r = PL.lifters.list({ f: f }); return r && r.data ? r.data : []; }
+  var POPS = {
+    behind: function () {
+      var rows = rowsOf('behind');
+      return { title: 'Behind on sessions', n: rows.length, f: 'behind', rows: rows.slice(0, 8).map(function (r) { return pickHtml(r.id, 'behind', null, r.week ? r.week.done + ' of ' + r.week.of : ''); }).join('') };
+    },
+    stalled: function () {
+      var rows = rowsOf('stalled');
+      return { title: 'Not getting stronger', n: rows.length, f: 'stalled', rows: rows.slice(0, 8).map(function (r) { return pickHtml(r.id, 'stalled', null, r.change == null ? '' : minus(r.change, 1).replace(/\.0$/, '') + ' kg in 4 weeks'); }).join('') };
+    },
+    harder: function () {
+      var rows = rowsOf('harder');
+      return { title: 'Finding it harder', n: rows.length, f: 'harder', rows: rows.slice(0, 8).map(function (r) { return pickHtml(r.id, 'harder', r.reason ? r.reason.text : '', null); }).join('') };
+    },
+    health: function () {
+      var rows = rowsOf('health'), none = rowsOf('nocheckin');
+      var more = none.length ? '<p class="pk-h">No check-in<span class="n">' + none.length + '</span></p>' + none.slice(0, 8).map(function (r) { return pickHtml(r.id, 'nocheckin', r.health ? [r.health.text, r.health.sub].filter(Boolean).join(', ') : '', null); }).join('') +
+        '<div class="pop-f"><a class="btn quiet sm" href="' + LIFTERS + '#f=nocheckin">Show the ' + none.length + ' in Lifters</a></div>' : '';
+      return { title: 'Pain or low recovery', n: rows.length, f: 'health', rows: rows.slice(0, 8).map(function (r) { return pickHtml(r.id, 'health', r.health ? r.health.text : '', null); }).join(''), after: more };
+    },
+    meet: function () {
+      var rows = rowsOf('meet');
+      var out = function (d) { var o = fn(PL.fmt, 'out') ? PL.fmt.out(d) : null; o = o && o.data !== undefined ? o.data : o; return o && o.text ? o.text : d === 0 ? 'today' : 'in ' + d + ' days'; };
+      var job = function (id) { var p = fn(PL.meets, 'plan') ? data(PL.meets.plan(id)) : null; return p && p.job && p.job.label ? p.job.label : null; };
+      return { title: 'Meet in 8 weeks', n: rows.length, f: 'meet', rows: rows.slice(0, 8).map(function (r) { return pickHtml(r.id, 'meet', r.meet ? r.meet.name + ', ' + out(r.meet.days) : '', job(r.id)); }).join('') };
+    }
+  };
+  function openChart(btn) {
+    var p = POPS[btn.getAttribute('data-chart-pop')](); if (!p) return;
+    var html = '<h3>' + esc(p.title) + '<span class="n">' + p.n + '</span></h3><div class="pop-b"><div class="ppl">' + p.rows + '</div>' +
+      '<div class="pop-f"><a class="btn quiet sm" href="' + LIFTERS + '#f=' + p.f + '">Show them in Lifters</a></div>' + (p.after || '') + '</div>';
+    DESK.pop.open(btn, html, { label: p.title });
+  }
+
+  /* ---------------- Needs you ---------------- */
+  /* lifters handled before this visit fold into "Done today"; lifters handled during it keep their row in place. The
+     visit is the coach's sitting: everything since they last looked (the store's lastLook, the line "Trained since you
+     looked" counts from). So a row handled on Lifters a minute ago still shows its done row here, with its Undo. */
+  var folded = {}, foldOpen = false, here = null;
+  var since = fn(PL.lifters, 'since') ? PL.lifters.since() : null, lastLook = since && since.meta && since.meta.from ? String(since.meta.from) : null;
+  PL.roster.needs().data.forEach(function (x) { if (x.done && lastLook && x.done.at && String(x.done.at) < lastLook) folded[x.id] = true; });
+  function ctxHtml(c) {
+    if (!c) return '<span class="ctx" data-fact="context"></span>';
+    var h = esc(c).replace(/(?:(?:up|down) )?\d+(?:[.,]\d+)?(?:\/\d+)?(?: ?(?:kg|days?|times|bpm|%))?/, function (m) { return '<span class="fig">' + m + '</span>'; });
+    return '<span class="ctx" data-fact="context" data-ellipsis title="' + esc(c) + '">' + h + '</span>';
+  }
+  function doneRowHtml(x) {
+    var d = x.done, rc = d.sent ? (d.seenAt ? 'Seen ' + hm(d.seenAt) : 'Not seen yet') : '';
+    return '<div class="done-row" data-fact="reason"><span class="done-tick" aria-hidden="true">' + DESK.ic('check', 2.4) + '</span><span class="dw" data-ellipsis title="' + esc(d.label) + '">' + esc(d.label) + '</span>' +
+      (d.at ? '<time class="at">' + esc(hm(d.at)) + '</time>' : '') + (x.fix && x.fix.itemId ? '<button class="btn quiet sm" type="button" data-undo="' + esc(x.fix.itemId) + '">Undo</button>' : '') +
+      (rc ? '<span class="rc">' + esc(rc) + '</span>' : '') + '</div>';
+  }
+  function rowHtml(x) {
+    var why = x.reason, href = lifterHref(x.id, 'need'), nm = '<a class="nm" data-fact="name" href="' + esc(href) + '" tabindex="-1" data-ellipsis title="' + esc(x.name) + '">' + esc(x.name) + '</a>';
+    if (x.done) return '<div class="lrow c2 is-done" data-row="' + esc(x.id) + '" tabindex="0" aria-label="' + esc(x.name + ', ' + x.done.label) + '"><span class="who">' + nm + doneRowHtml(x) + '</span></div>';
+    var f = x.fix, tone = why && why.tone === 't-pain' ? ' data-tone="pain"' : '';
+    var more = menuOf(x).length ? '<button class="btn quiet sm icon more" type="button" data-more="' + esc(x.id) + '" aria-haspopup="menu" aria-label="' + esc('More for ' + x.first) + '" title="More">' + DESK.ic('more') + '</button>' : '';
+    var fix = f ? '<button class="btn sm fix" type="button" data-fact="action" data-fixbtn data-item="' + esc(f.itemId || '') + '" data-act="' + esc(f.actId || '') + '"' + (f.reminderId ? ' data-reminder="' + esc(f.reminderId) + '"' : '') +
+      ' data-for="' + esc(x.id) + '" data-ellipsis title="' + esc(f.label) + '"><span>' + esc(f.short || f.label) + '</span></button>' : '';
+    return '<div class="lrow' + (here === x.id ? ' is-sel' : '') + '" data-row="' + esc(x.id) + '" tabindex="0" aria-label="' + esc(x.name + (why ? ', ' + why.text : '')) + '">' +
+      '<span class="who">' + nm + (why ? '<span class="why" data-fact="reason"' + tone + '><span class="t" data-ellipsis title="' + esc(why.full || why.text) + '">' + esc(why.text) + '</span></span>' : '') + '</span>' +
+      ctxHtml(x.context) + '<span class="act">' + fix + more + '</span></div>';
+  }
+  /* a row's ⋯ holds what is not its fix: the item's own menu moves (a first block's "Do it Saturday", function-polish F4.4)
+     and, for pain read only from words in a note, "Not pain: clear the flag" (P2) */
+  function menuOf(x) {
+    var out = [], f = x.fix, why = x.reason;
+    var it = f && f.itemId && fn(PL.items, 'get') ? data(PL.items.get(f.itemId)) : null;
+    (it && it.menu || []).forEach(function (m) { if (m && m.id) out.push({ id: 'item:' + m.id, label: m.label, item: it.id, act: m.id }); });
+    if (why && why.type === 'note' && why.tone === 't-pain' && fn(PL.lifters, 'notPain')) out.push({ id: 'notpain', label: 'Not pain: clear the flag', title: 'Their words stay waiting; the pain hold on ' + x.first + '’s lift lifts' });
+    return out;
+  }
+  function needHtml() {
+    var all = needsNow();
+    all.forEach(function (x) { if (!x.done) delete folded[x.id]; });
+    var shown = all.filter(function (x) { return !folded[x.id]; }), fold = all.filter(function (x) { return folded[x.id]; });
+    if (!shown.length) {
+      var w = watchOpen().length;
+      return '<p class="empty">Nobody needs you right now.' + (w ? '<br><a class="btn quiet sm" href="' + LIFTERS + '#f=watch">Go through the ' + w + ' to keep an eye on</a>' : '') + '</p>' + (foldOpen ? fold.map(rowHtml).join('') : '');
+    }
+    return shown.map(rowHtml).join('') + (foldOpen ? fold.map(rowHtml).join('') : '');
+  }
+  function footHtml() {
+    var c = counts(), w = watchList(), open = watchOpen(), out = '';
+    var fold = needsNow().filter(function (x) { return folded[x.id]; });
+    /* a small desk's new sessions lead the foot (the session is the news); a full desk keeps Keep an eye on first */
+    var since = c.trainedSince ? '<div class="nf"><span class="w">Trained since you looked: <span data-count="trainedSince">' + c.trainedSince + '</span> session' + (c.trainedSince === 1 ? '' : 's') + '</span><a class="link" href="' + LIFTERS + '#f=since">Show them</a></div>' : '', small = size(c) !== 'full';
+    if (small) out += since;
+    if (fold.length) out += '<div class="nf"><span class="w">Done today: ' + esc(names(fold.map(function (x) { return x.id; }), 4)) + '</span><button class="link" type="button" data-fold aria-expanded="' + foldOpen + '">' + (foldOpen ? 'Hide' : 'Show') + '</button></div>';
+    out += open.length ? '<div class="nf"><span class="w">Keep an eye on: ' + esc(names(open.map(function (x) { return x.id; }))) + '</span><a class="link" href="' + LIFTERS + '#f=watch">Show them</a></div>'
+      : w.data.length ? '<div class="nf"><span class="w none">Keep an eye on: nobody left today</span></div>'
+      : !needsNow().some(function (x) { return !folded[x.id]; }) ? ''   /* the list already says "Nobody needs you right now.": one line, never two */
+      : '<div class="nf"><span class="w">Everyone else is on track.</span></div>';
+    if (!small) out += since;
+    return out;
+  }
+
+  /* ---------------- Today: the meet by the board's stage, then who trains today ---------------- */
+  function meetWords(m) {
+    if (m.words) return m.words;
+    var b = fn(PL.meets, 'board') ? data(PL.meets.board(m.id)) : null, who = names(m.ids, 4);
+    if (!b) return who + '.';
+    var ls = b.lifters || [], stage = b.stage, st = function (k) { return (b.stages || []).filter(function (x) { return x.id === k; })[0] || {}; };
+    if (stage === 'weigh') {
+      var made = ls.filter(function (l) { return l.weigh === 'made'; }), over = ls.filter(function (l) { return l.weigh === 'over'; });
+      if (!made.length && !over.length) return who + '. Scale ' + (b.clock.weighOpens || st('weigh').at) + ' to ' + (b.clock.weighCloses || st('weigh').until) + '.';
+      if (over.length) return over.map(function (l) { return l.first + ' ' + n(Math.abs(l.over)) + ' kg over'; }).join(', ') + ' at the scale.';
+      if (made.length === ls.length) return (ls.length === 3 ? 'All three' : ls.length === 2 ? 'Both' : ls.length === 1 ? made[0].first : 'All ' + ls.length) + ' made weight. Squats ' + (st('squat').at || '') + '.';
+      return names(made.map(function (l) { return l.id; })) + ' made weight. Scale until ' + (b.clock.weighCloses || st('weigh').until) + '.';
+    }
+    if (stage === 'squat') return 'Squats now.';
+    if (stage === 'bench') return 'Bench now.';
+    if (stage === 'deadlift') return 'Deadlifts now.';
+    if (stage === 'done') return 'Done: ' + ls.map(function (l) { return l.first + ' ' + n(l.total); }).join(', ') + '.';
+    return who + '.';
+  }
+  function trainingToday() {
+    var s = PL.roster.today().data.sessions, live = (s.live || []).map(function (x) { return x.id; }), ids = live.concat(s.ids.filter(function (x) { return live.indexOf(x) < 0; }));
+    return { s: s, live: live, ids: ids };
+  }
+  function todayHtml() {
+    var t = PL.roster.today().data, out = '';
+    t.meets.forEach(function (m) {
+      var cnt = m.ids.length, all = cnt === 1 ? firstOf(m.ids[0]) : cnt === 2 ? 'both' : cnt === 3 ? 'all three' : 'all ' + cnt;
+      var more = fn(PL.messages, 'sendMany') ? '<button class="btn quiet sm icon" type="button" data-more data-meetmore="' + esc(m.id) + '" aria-haspopup="menu" aria-label="' + esc('More for ' + m.name) + '" title="Message ' + esc(all) + '">' + DESK.ic('more') + '</button>' : '';
+      var w = meetWords(m);
+      out += '<div class="lrow duo" data-row="meet-' + esc(m.id) + '" data-meet="' + esc(m.id) + '" data-all="' + esc(all) + '"><span class="nm" data-fact="name">' + esc(m.name) + '</span>' +
+        '<span class="acts"><a class="btn quiet sm" data-fact="action" href="' + esc(DESK.routes.meets + '#id=' + encodeURIComponent(m.id)) + '">Meet day</a>' + more + '</span>' +
+        '<span class="why" data-fact="reason"><span class="t" data-ellipsis title="' + esc(w) + '">' + esc(w) + '</span></span></div>';
+    });
+    var tt = trainingToday(), k = tt.ids.length;
+    if (k) {
+      /* a session already logged today reads done, never "to come" */
+      var gone = tt.ids.filter(function (id) { return tt.live.indexOf(id) < 0 && liftedToday(id); });
+      var toCome = tt.ids.filter(function (id) { return tt.live.indexOf(id) < 0 && gone.indexOf(id) < 0; });
+      var a = tt.live.length ? names(tt.live, 2) + ' lifting now.' : '', d = gone.length ? names(gone, 3) + ' done.' : '', b = toCome.length ? names(toCome, 4) + ' to come.' : '';
+      var line = [a, d, b].filter(Boolean).join(' ');
+      if (words(line) > 8) line = [a, gone.length ? gone.length + ' done.' : '', toCome.length ? toCome.length + ' to come.' : ''].filter(Boolean).join(' ');
+      out += '<button class="lrow duo" type="button" data-row="sessions-today" aria-haspopup="dialog"><span class="nm" data-fact="name">' + k + ' training today</span>' +
+        '<span class="why" data-fact="reason"><span class="t" data-ellipsis title="' + esc(line) + '">' + esc(line) + '</span></span></button>';
+    }
+    if (!t.meets.length && !k) out = '<p class="empty">Nothing on the plan today.</p>';
+    return out;
+  }
+  function sessionToday(id) { var w = fn(PL.lifters, 'week') ? data(PL.lifters.week(id)) : null, td = dayNow(); return w && w.sessions ? w.sessions.filter(function (x) { return x.date === td; })[0] || null : null; }
+  function liftedToday(id) { var x = sessionToday(id); return !!x && (x.state === 'done' || x.done > 0); }
+  function trainingPop(btn) {
+    var tt = trainingToday(), live = {}; (tt.s.live || []).forEach(function (x) { live[x.id] = x; });
+    var rows = tt.ids.map(function (id) {
+      var sub;
+      if (live[id]) sub = 'Lifting now, ' + K.plural(live[id].sets, 'set') + ' in';
+      else { var ses = sessionToday(id); sub = ses ? ses.name + ', ' + (liftedToday(id) ? 'done' : 'to come') : 'To come'; }
+      return pickHtml(id, null, sub, null);
+    }).join('');
+    var title = tt.ids.length + ' training today';
+    DESK.pop.open(btn, '<h3>' + esc(title) + '</h3><div class="pop-b"><div class="ppl">' + rows + '</div></div>', { label: title });
+  }
+  function meetMenu(btn) {
+    var row = btn.closest('[data-meet]'), id = row.getAttribute('data-meet'), all = row.getAttribute('data-all');
+    var m = PL.roster.today().data.meets.filter(function (x) { return x.id === id; })[0]; if (!m) return;
+    DESK.menu.open(btn, [{ id: 'all', label: 'Message ' + all }], { label: m.name, anchor: row, place: 'below-end', run: function () { compose(btn, m, all); } });
+  }
+  /* "Message all three": the composer first, one copy per thread (PL.messages.sendMany) */
+  function compose(btn, m, all) {
+    var html = '<h3>Message ' + esc(all) + '</h3><p class="who-l">' + esc(names(m.ids, 4)) + ', ' + esc(m.name) + '</p>' +
+      '<textarea class="input compose" data-all-text rows="3" aria-label="' + esc('Message to ' + names(m.ids, 4)) + '"></textarea><p class="err" data-all-err hidden></p>' +
+      '<div class="acts"><button class="btn" type="button" data-all-send="' + esc(m.id) + '">Send to ' + esc(all) + '</button><button class="btn quiet" type="button" data-pop-close>Cancel</button></div>';
+    DESK.pop.open(btn, html, { label: 'Message ' + all, anchor: btn.closest('[data-row]'), place: 'below-end', focus: '[data-all-text]' });
+  }
+  function sendAll(meetId) {
+    var pop = DESK.pop.el(), ta = pop && $('[data-all-text]', pop), err = pop && $('[data-all-err]', pop), text = ta ? ta.value.trim() : '';
+    if (!text) { if (err) { err.textContent = 'Write the message first.'; err.hidden = false; } if (ta) ta.focus(); return; }
+    var m = PL.roster.today().data.meets.filter(function (x) { return x.id === meetId; })[0]; if (!m) return;
+    var r = PL.messages.sendMany(m.ids, { text: text });
+    if (r && r.error) { if (err) { err.textContent = r.error.message; err.hidden = false; } return; }
+    DESK.pop.close();
+    if (!PL.toast(r)) DESK.toast('Sent to ' + names(m.ids, 4) + ': “' + text + '”');
+  }
+
+  /* ---------------- Messages: who waits for a reply, in the Messages queue's order ---------------- */
+  var sentences = function (t) { return String(t || '').trim().split(/(?<=[.?!])\s+/).filter(Boolean); };
+  var cap1 = function (s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
+  function whenWords(at) {
+    var d = -K.daysTo(String(at).slice(0, 10));
+    return d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : d < 7 ? K.wd(String(at).slice(0, 10)) : K.wd3(String(at).slice(0, 10)) + ' ' + K.dm(String(at).slice(0, 10));
+  }
+  function theirWords(x) {
+    var last = x.last || {}, msgs = (data(PL.threads.get(x.id)) || {}).messages || [];
+    var theirs = msgs.filter(function (m) { return !m.me && m.at === last.at; });
+    if (last.type === 'voice') return 'Voice note ' + (last.len || '') + (theirs.some(function (m) { return m.type === 'video'; }) ? ' and a video' : '');
+    if (last.type === 'video') return 'Video: ' + last.body;
+    if (last.type === 'checkin') { var g = data(PL.lifters.get(x.id)); return 'Check-in: ' + (g && g.health && g.health.kind === 'pain' ? String(g.health.text).toLowerCase() : 'see their answers'); }
+    if (last.type === 'note') return 'Session note: ' + (sentences(last.body)[0] || last.body);
+    var s = sentences(last.body), q = s.filter(function (y) { return /\?$/.test(y); });
+    return cap1(q.length ? q.join(' ') : String(last.body || ''));
+  }
+  function msgsHtml() {
+    var r = PL.threads.list(), by = {}; (r.data || []).forEach(function (t) { by[t.id] = t; });
+    var ids = r.meta && r.meta.groups ? r.meta.groups.waiting : (r.data || []).filter(function (t) { return t.waiting; }).map(function (t) { return t.id; });
+    $('#msgs-sub').hidden = !counts().waitingThreads;
+    if (!ids.length) return '<p class="empty">No one is waiting for a reply.</p>';
+    return ids.map(function (id) {
+      var x = by[id]; if (!x) return '';
+      var w = theirWords(x);
+      return '<a class="lrow two" data-row="' + esc(id) + '" href="' + esc(MESSAGES + '#id=' + encodeURIComponent(id)) + '"><span class="nm" data-fact="name" data-ellipsis title="' + esc(x.name) + '">' + esc(x.name) + '</span>' +
+        '<span class="when" data-fact="context">' + esc(whenWords(x.since || (x.last && x.last.at))) + '</span>' +
+        '<span class="why" data-fact="reason"><span class="t" data-quote data-ellipsis title="' + esc(w) + '">' + esc(w) + '</span></span></a>';
+    }).join('');
+  }
+
+  /* ---------------- painting: once at load, then on every store change while no popover is open ---------------- */
+  var stale = false;
+  function paint() {
+    paintTitle();
+    var c = counts(), sz = size(c), st = setupOf();
+    /* Getting started: alone on an empty desk, above Your lifters on a small one, on a full desk only when asked for */
+    var first = $('#first'), setupEl = $('#setup'), showSetup = !!st && (st.show || st.done >= st.of) && (sz !== 'full' || st.show);
+    /* on a small desk Getting started sits flat on the floor beside Your lifters (two raised cards at most in view) */
+    var on = showSetup && fn(DESK, 'setupCard') ? DESK.setupCard(setupEl, { flat: sz === 'small' }) : false;
+    if (on && sz === 'small') setupEl.classList.remove('card');
+    if (!on) { setupEl.hidden = true; setupEl.removeAttribute('data-setup'); }
+    $('#look').hidden = sz !== 'empty' || !DEMO_FRESH;
+    var small = $('#small');
+    if (sz === 'small' && fn(DESK, 'smallDesk')) { small.hidden = false; DESK.smallDesk(small); }
+    else { small.hidden = true; small.removeAttribute('data-crop'); small.innerHTML = ''; }
+    /* a small desk: Getting started heads the Needs you column and Your lifters the side column, each column flowing on its
+       own, so a short band ("You're set up") never leaves the height of Your lifters empty above Needs you */
+    var needCol = $('#mid .sec.need'), sideCol = $('#mid .col');
+    if (sz === 'small') {
+      if (setupEl.parentNode !== needCol) needCol.insertBefore(setupEl, needCol.firstChild);
+      if (small.parentNode !== sideCol) sideCol.insertBefore(small, sideCol.firstChild);
+    } else {
+      if (setupEl.parentNode !== first) first.insertBefore(setupEl, first.firstChild);
+      if (small.parentNode !== first) first.appendChild(small);
+    }
+    first.hidden = !Array.prototype.some.call(first.children, function (el) { return !el.hidden; });
+    first.classList.toggle('duo', setupEl.parentNode === first && small.parentNode === first && !setupEl.hidden && !small.hidden);
+    $('#charts').hidden = sz !== 'full';
+    $('#mid').hidden = sz === 'empty';
+    if (sz !== 'full') { $('#charts').innerHTML = ''; paintLists(); return; }
+    $('#charts').innerHTML = chartsHtml();
+    paintLists();
+  }
+  function paintLists() {
+    var hadRow = document.activeElement && document.activeElement.closest ? document.activeElement.closest('#need [data-row]') : null, rowId = hadRow ? hadRow.getAttribute('data-row') : null;
+    var lost = !document.activeElement || document.activeElement === document.body || !!hadRow;
+    $('#need').innerHTML = needHtml();
+    $('#need-f').innerHTML = footHtml();
+    $('#today').innerHTML = todayHtml();
+    $('#msgs').innerHTML = msgsHtml();
+    var back = rowId || (lost && here) || null, row = back ? rowEl(back) : null;
+    if (row && lost) row.focus({ preventScroll: true });
+    here = null;
+    /* the one-time tip under the Needs you head, on a desk under 4 lifters (first-time-coach §8.4) */
+    if (size() !== 'full' && $('#need [data-row]') && fn(DESK, 'tip')) DESK.tip('needs', $('#need-hd'), 'Worst first. Each button shows the change before it makes it.');
+  }
+  function rowEl(id) { return $$('#need [data-row]').filter(function (r) { return r.getAttribute('data-row') === id; })[0] || null; }
+  PL.on('change', function () { if (DESK.pop.isOpen()) stale = true; else paint(); });
+  DESK.on('pop:closed', function () {
+    $$('#need .lrow.is-sel').forEach(function (r) { r.classList.remove('is-sel'); });
+    if (stale) { stale = false; paint(); }
+  });
+  paint();
+
+  /* ---------------- moves ---------------- */
+  function openFix(btn) {
+    var row = btn.closest('[data-row]'), id = btn.getAttribute('data-for'), item = btn.getAttribute('data-item'), act = btn.getAttribute('data-act'), rem = btn.getAttribute('data-reminder');
+    if (rem) { if (fn(PL.reminders, 'done')) { var r = PL.reminders.done(rem); if (r && r.error) DESK.toast(r.error.message); else PL.toast(r); } return; }
+    if (!item) {
+      var x = PL.roster.needs().data.filter(function (y) { return y.id === id; })[0];
+      if (x && x.fix && x.fix.go) DESK.go(x.fix.go.place, x.fix.go.hash + '&from=overview');
+      return;
+    }
+    here = id;
+    if (fn(DESK, 'tip') && DESK.tip.done) DESK.tip.done('needs');
+    var opened = DESK.fix.open(btn, { itemId: item, actId: act, forId: id, anchor: row });
+    if (opened && DESK.pop.isOpen()) row.classList.add('is-sel');
+  }
+  function rowMenu(btn) {
+    var id = btn.getAttribute('data-more'), x = PL.roster.needs().data.filter(function (y) { return y.id === id; })[0]; if (!x) return;
+    var items = menuOf(x); if (!items.length) return;
+    DESK.menu.open(btn, items.map(function (m) { return { id: m.id, label: m.label, title: m.title }; }), {
+      label: x.name, anchor: btn, place: 'below-end',
+      run: function (k) {
+        var m = items.filter(function (y) { return y.id === k; })[0]; if (!m) return;
+        var r = m.id === 'notpain' ? PL.lifters.notPain(id) : PL.items.run(m.item, m.act, { for: id });
+        if (r && r.error) DESK.toast(r.error.message); else PL.toast(r);
+      }
+    });
+  }
+  /* one way in for a lifter: the add sheet (first-time-coach §3), Invite first */
+  function addLifter() { if (fn(DESK, 'addLifter')) DESK.addLifter({ from: 'overview' }); }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target, b;
+    if (!t.closest) return;
+    if ((b = t.closest('[data-chart-pop]'))) { if (DESK.pop.justClosed(b)) return; openChart(b); return; }
+    if ((b = t.closest('[data-add]'))) { addLifter(); return; }
+    if ((b = t.closest('[data-setup-step]'))) { var st = setupStep(); if (st && st.key === b.getAttribute('data-setup-step')) DESK.setup.run(st.act, b); return; }
+    if ((b = t.closest('[data-pop-close]'))) { DESK.pop.close(); return; }
+    if ((b = t.closest('[data-all-send]'))) { sendAll(b.getAttribute('data-all-send')); return; }
+    if ((b = t.closest('[data-meetmore]'))) { if (DESK.pop.justClosed(b)) return; meetMenu(b); return; }
+    if ((b = t.closest('#need [data-more]'))) { if (DESK.pop.justClosed(b)) return; rowMenu(b); return; }
+    if ((b = t.closest('#need [data-fixbtn]'))) { if (DESK.pop.justClosed(b)) return; openFix(b); return; }
+    if ((b = t.closest('#need [data-undo]'))) { var r = PL.items.undo(b.getAttribute('data-undo')); if (r && r.error) DESK.toast(r.error.message); else if (r && r.meta && r.meta.label) DESK.toast(r.meta.label); return; }
+    if ((b = t.closest('[data-fold]'))) { foldOpen = !foldOpen; paint(); return; }
+    if ((b = t.closest('#today [data-row="sessions-today"]'))) { if (DESK.pop.justClosed(b)) return; trainingPop(b); return; }
+    /* a Needs you row opens that lifter in Lifters, anywhere but its buttons and links */
+    if ((b = t.closest('#need [data-row]')) && !t.closest('a, button')) { var a = $('a.nm', b); if (a) location.href = a.href; }
+  });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    if (t && t.matches && t.matches('[data-all-text]') && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); var s = $('[data-all-send]', DESK.pop.el()); if (s) sendAll(s.getAttribute('data-all-send')); return; }
+    if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+    var row = t && t.closest ? t.closest('#need [data-row]') : null;
+    if (row && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); step(row, e.key === 'ArrowDown' ? 1 : -1); return; }
+    if (row && t === row && e.key === 'Enter') { e.preventDefault(); var a = $('a.nm', row); if (a) location.href = a.href; return; }
+    if ((e.key === 'e' || e.key === 'E') && !e.shiftKey && !document.querySelector('dialog[open]') && !DESK.pop.isOpen()) {
+      var w = $('[data-walk]'); if (w && (w.getAttribute('href') || w.hasAttribute('data-setup-step'))) { e.preventDefault(); w.click(); }
+    }
+  });
+  /* ↑ ↓ (and ⌥↓ ⌥↑, J K) move between Needs you rows, instantly */
+  function step(row, dir) {
+    var rows = $$('#need [data-row]'), i = row ? rows.indexOf(row) : -1, nx = rows[i < 0 ? (dir > 0 ? 0 : rows.length - 1) : i + dir];
+    if (!nx) return;
+    nx.focus({ preventScroll: true }); nx.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  }
+  DESK.listStepper = function (dir) {
+    var a = document.activeElement, row = a && a.closest ? a.closest('#need [data-row]') : null;
+    if (!row && a && a.closest && a.closest('#today, #msgs')) return false;
+    step(row, dir); return true;
+  };
+
+  /* ---------------- the gate's states (§5.8) ---------------- */
+  /* the states that end on the list show it whole: the Needs you card scrolled up under the band (it fits one window) */
+  function showNeeds() {
+    var sec = $('.sec.need'), tb = $('[data-crop=toolbar]'); if (!sec) return;
+    var top = sec.getBoundingClientRect().top + window.scrollY - (tb ? tb.getBoundingClientRect().bottom : 0) - 4;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'instant' });
+  }
+  DESK.states({
+    'all-done': function () {
+      PL.roster.needs().data.filter(function (x) { return !x.done && x.fix; }).forEach(function (x) {
+        var f = x.fix;
+        if (f.reminderId) { if (fn(PL.reminders, 'done')) PL.reminders.done(f.reminderId); return; }
+        if (!f.itemId) return;
+        if (f.go) { PL.items.settle(f.itemId, { label: 'Seen, nothing to change' }); return; }
+        var pv = data(PL.items.preview(f.itemId, f.actId, { for: x.id }));
+        PL.items.run(f.itemId, f.actId, pv && pv.tell ? { for: x.id, text: pv.tell.text } : { for: x.id });
+      });
+      showNeeds();
+    },
+    'no-messages': function () {
+      var r = PL.threads.list(), ids = r.meta && r.meta.groups ? r.meta.groups.waiting.slice() : [];
+      ids.forEach(function (id) { PL.messages.send(id, { text: 'Read it, thanks. More from me tonight.' }); });
+    },
+    'board-weighed': function () {
+      var m = PL.roster.today().data.meets[0]; if (m && fn(PL.meets, 'weighIns')) PL.meets.weighIns(m.id, m.ids, 'made');
+      showNeeds();
+    }
+  });
+  DESK.actions([{ title: 'Go through who needs you', run: function () { $('[data-walk]').click(); } }, { title: 'Add a lifter', run: addLifter }]);
+})();
+</script>
+</body>
+</html>

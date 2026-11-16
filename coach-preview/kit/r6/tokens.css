@@ -1,0 +1,226 @@
+/* POWALIFTA coach desk, round 6, after the owner's 13 Nov feedback: dark first, flat and solid, one card level, words
+   for state, the crimson once (r6/spec-b/professional.md). tokens.css holds every raw value the desk uses. Dark is
+   :root; light redefines semantic tokens only. Pages use var(--…) for colour, type, radius, shadow and motion; spacing
+   uses --sp-*. Gone on 13 Nov (the owner's four ticks): every glass token, the face hues and rings, and (KIT-CLEAN) the
+   old names that pointed at their replacements. BACK on 13 Nov evening (the owner: "why did the colors go bro what",
+   "did i ever fucking say the colors were an issue"): the colour. Each place has its hue and lights its page from above
+   (body[data-place], below), the lifts wear their colours on their names and numbers, status keeps its colours. */
+
+@font-face {
+  font-family: 'Archivo';
+  src: url('../archivo.woff2') format('woff2');
+  font-weight: 400 800;
+  font-stretch: 100% 125%;
+  font-display: block;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* ---- surfaces: the floor, the sidebar a step up, cards, one raised solid for the floating layers ---- */
+  --floor: #0a0a0c;
+  --side: #101013;
+  --card: #131317;
+  --card-2: #19191e;
+  --card-3: #222228;
+  --pop: #1f1f24;
+  --card-edge: rgb(255 255 255 / .07);
+  --card-lit: inset 0 1px 0 rgb(255 255 255 / .05);
+  --fill: rgb(255 255 255 / .065);
+  --fill-2: rgb(255 255 255 / .10);
+  --fill-3: rgb(255 255 255 / .14);
+  --hover: rgb(255 255 255 / .04);
+  --line: rgb(255 255 255 / .07);
+  --line-2: rgb(255 255 255 / .12);
+
+  /* ---- ink: all ≥ 4.5:1 on floor, side and card; on --pop and on a selected row ink-4 steps up to --ink-quiet ---- */
+  --ink: #f3f3f5;
+  --ink-2: #c2c2cb;
+  --ink-3: #9a9aa5;
+  --ink-4: #85858f;
+  --ink-quiet: var(--ink-3);
+
+  /* ---- the one action ---- */
+  --crimson: linear-gradient(180deg, #dc2637, #c41a2c);
+  --crimson-hover: brightness(1.07);
+  --on-crimson: #fff;
+  --crimson-lit: inset 0 1px 0 rgb(255 255 255 / .22), 0 1px 2px rgb(0 0 0 / .3);
+  --brand-plate: #dc2637;   /* the 25 kg plate in the mark: the logo's own red, never an action */
+
+  /* ---- lifts: marks and lines (--sq), and their names and numbers as text (--sq-ink, [data-lift] in ui.css) ---- */
+  --sq: #38c6ff; --bp: #a98bff; --dl: #ffbf3c;
+  --sq-ink: #38c6ff; --bp-ink: #a98bff; --dl-ink: #ffbf3c;
+
+  /* ---- status: a word in its colour, one per row at most ---- */
+  --up: #3fd99a; --pain: #ff6f7d; --warn: #ff9f45; --gold: #ffbf3c; --gold-edge: #ffbf3c;
+  --bw: #6cb8ff; --words: #34d982;
+  --up-ink: #3fd99a;
+  --up-tint: rgb(63 217 154 / .14); --pain-tint: rgb(255 111 125 / .14); --warn-tint: rgb(255 159 69 / .14);
+  --gold-tint: rgb(255 191 60 / .14); --words-tint: rgb(52 217 130 / .13); --bw-tint: rgb(108 184 255 / .14);
+
+  /* ---- places: each has its own hue, as in the app (Train fire, Progress cyan, Club gold, Coach green, You violet).
+     --place is the mark (strokes, bars, the light), --place-ink the shade that passes 4.5:1 as text and 3:1 as an icon on
+     the floor, the sidebar, a card and its own tint, --place-rgb the channels its tints and light are made from. The
+     neutral default holds on a page with no place. ---- */
+  --place: #9a9aa5; --place-ink: #c2c2cb; --place-rgb: 154 154 165;
+  --a-light: .16;      /* the window's light from above, at its brightest (above the window's top edge) */
+  --a-side: .14;       /* the second, lower light at the window's top-left, over the sidebar */
+  --light-blend: screen;   /* light adds to the dark (ui.css body::before) */
+  --a-pill: .16;       /* the current place in the sidebar */
+  --a-sel: .12;        /* a chosen row, a range of cells */
+  --a-sheen: .06;      /* a chart card's top 132 px */
+  --a-rim: .30;        /* a chart card's lit top edge */
+
+  --focus: rgb(243 243 245 / .55);
+  --scrim: rgb(0 0 0 / .45);
+  --thumb: #2c2c33;
+  --on-mark: #0b0b0d;
+  --sel: rgb(255 255 255 / .10);
+  --btn-2: rgb(255 255 255 / .10);
+  --btn-2-hover: rgb(255 255 255 / .14);
+  --btn-2-edge: 0 0 0 0 transparent;
+
+  /* ---- type: Archivo only, a fixed scale ---- */
+  --font: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fs-large: 32px; --lh-large: 1.1;  --ls-large: -0.02em;
+  --fs-title: 24px; --lh-title: 1.2;  --ls-title: -0.015em;
+  --fs-head: 18px;  --lh-head: 1.3;   --ls-head: -0.01em;
+  --fs-body: 16px;  --lh-body: 1.45;  --ls-body: 0em;
+  --fs-sub: 15px;   --lh-sub: 1.4;    --ls-sub: 0em;
+  --fs-label: 14px; --lh-label: 1.3;  --ls-label: 0.005em;
+  --fs-cap: 12px;   --lh-cap: 1.3;    --ls-cap: 0.01em;
+  --fs-num: 28px;   --lh-num: 1;      --ls-num: -0.02em;
+  --fs-hero: 56px;  --lh-hero: 1;     --ls-hero: -0.035em;
+  --fs-unit: 0.5em;
+  --lh-tight: 1.2; --lh-none: 1;
+  --num-stretch: 112%;
+
+  /* ---- shape: one scale. Cards 20, floating layers 16, rows 12, fields 10, marks 3, buttons and chips a pill ---- */
+  --r-card: 20px; --r-pop: 16px; --r-row: 12px; --r-field: 10px; --r-mark: 3px; --r-pill: 999px;
+
+  /* ---- space (4 pt) ---- */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-7: 32px; --sp-8: 40px; --sp-9: 48px; --sp-10: 64px;
+
+  /* ---- layout ---- */
+  --sidebar-w: 240px; --list-w: 300px; --inspector-w: 420px; --facts-w: 360px;   /* one list width on every page (shared.md §9) */
+  --inset: 8px; --gutter: 32px;
+  --col-l: calc(var(--sidebar-w) + var(--gutter));
+  --tb-h: 48px;    /* the toolbar's row of buttons */
+  --edge-h: 56px;  /* the toolbar band (= --inset + --tb-h): content and pinned heads start under it. A plain length,
+                      never calc(): desk.js, lifter.html, programs.html, teams.html, roster.html and sheet.js read it
+                      with parseFloat(getPropertyValue('--edge-h')) */
+  --row-h: 64px; --trow-h: 56px; --ctl-h: 36px; --ctl-s: 32px; --ctl-l: 44px;
+  --grow-h: 44px; --gday-h: 36px; --gwk-h: 40px; --gsub-h: 32px;
+
+  /* ---- depth: a card's soft drop; a floating layer's ring and deeper drop; never a glow or a coloured edge ---- */
+  --shadow-card: 0 24px 60px -24px rgb(0 0 0 / .85), 0 0 0 1px var(--card-edge);
+  /* a floating layer's drop stays close to its edge: a line just under a popover keeps its contrast (lifters gate, dark
+     1280: "1 to come this week" read 4.39 in a 40 px drop); the 1 px ring is what separates the layer */
+  --shadow-pop: 0 14px 28px -14px rgb(0 0 0 / .7), 0 0 0 1px rgb(255 255 255 / .10);
+  --shadow-pane: -24px 0 48px -28px rgb(0 0 0 / .7);
+  --shadow-thumb: 0 1px 2px rgb(0 0 0 / .35), inset 0 1px 0 rgb(255 255 255 / .07);
+  --shadow-field: inset 0 0 0 1px var(--line-2);
+
+  /* ---- motion: ease-out, short, exits faster; keyboard moves never animate ---- */
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --dur-fast: 150ms;        /* hover, colour */
+  --dur-press: 100ms;       /* press scale */
+  --dur-snap: 160ms;        /* popovers, menus, toasts, the segmented thumb */
+  --dur-move: 220ms;        /* the inspector, sheets */
+  --dur-page: 180ms;        /* the cross-fade between pages */
+  --dur-exit-snap: 120ms;
+  --dur-exit-move: 160ms;
+  --press: .97;
+
+  /* ---- one z-index scale ---- */
+  --z-content: 0; --z-edge: 10; --z-toolbar: 20; --z-side: 30; --z-light: 35; --z-insp: 40; --z-pop: 50; --z-menu: 60; --z-toast: 70;
+}
+
+/* ---- the laptop below 1281 px ---- */
+@media (max-width: 1280px) {
+  :root { --sidebar-w: 224px; --list-w: 272px; --inspector-w: 380px; --facts-w: 340px; }
+}
+@media (max-width: 1280px), (max-height: 740px) {
+  :root { --grow-h: 40px; --gday-h: 32px; --gwk-h: 36px; --gsub-h: 28px; }
+}
+
+/* ================= light: designed, not inverted ================= */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --floor: #f4f4f6;
+  --side: #ebebee;
+  --card: #fff;
+  --card-2: #f0f0f3;
+  --card-3: #e6e6ea;
+  --pop: #fff;
+  --card-edge: rgb(11 11 13 / .07);
+  --card-lit: 0 1px 2px rgb(11 11 13 / .04);
+  --fill: rgb(11 11 13 / .055);
+  --fill-2: rgb(11 11 13 / .09);
+  --fill-3: rgb(11 11 13 / .13);
+  --hover: rgb(11 11 13 / .04);
+  --line: rgb(11 11 13 / .08);
+  --line-2: rgb(11 11 13 / .14);
+
+  --ink: #0b0b0d; --ink-2: #34343c; --ink-3: #55555e; --ink-4: #66666f;
+
+  --sq: #19a9e6; --bp: #8b6cf0; --dl: #e5a51c;
+  --sq-ink: #0b6f99; --bp-ink: #6a4fd6; --dl-ink: #8a5a00;
+
+  /* pain in light is a rose, not the crimson's lower stop: the one crimson stays the action */
+  --up: #0f7d47; --pain: #b4235a; --warn: #b4410c; --gold: #8a5a00; --gold-edge: #d39b00;
+  --bw: #036f9c; --words: #0f7d47;
+  --up-ink: #0b6638;
+  --up-tint: rgb(15 125 71 / .10); --pain-tint: rgb(180 35 90 / .09); --warn-tint: rgb(180 65 12 / .09);
+  --gold-tint: rgb(211 155 0 / .13); --words-tint: rgb(15 125 71 / .09); --bw-tint: rgb(3 111 156 / .09);
+
+  --place: #6c6c76; --place-ink: #34343c; --place-rgb: 108 108 118;
+  --a-light: .12; --a-side: .09; --a-pill: .13; --a-sel: .10; --a-sheen: .05; --a-rim: .0;
+  --light-blend: multiply;   /* in light, the hue tints the paper */
+
+  --focus: rgb(11 11 13 / .5);
+  --scrim: rgb(15 15 25 / .22);
+  --thumb: #fff;
+  --sel: rgb(11 11 13 / .07);
+  --btn-2: rgb(11 11 13 / .065);
+  --btn-2-hover: rgb(11 11 13 / .10);
+  --btn-2-edge: 0 0 0 0 transparent;
+
+  --shadow-card: 0 22px 54px -24px rgb(20 20 40 / .28), 0 0 0 1px rgb(11 11 13 / .08);
+  /* the floating layers' drop is tighter in light (the handoff's request): quiet ink beside a popover keeps 4.5:1, ink-3
+     5.9 and ink-4 4.5 at the darkest pixel the drop leaves on the floor (measured 13 Nov; .22 over 40 px left ink-4 at 4.1) */
+  --shadow-pop: 0 12px 32px -14px rgb(20 20 40 / .16), 0 0 0 1px rgb(11 11 13 / .08);
+  --shadow-pane: -24px 0 48px -30px rgb(20 20 40 / .22);
+  --shadow-thumb: 0 1px 3px rgb(20 20 40 / .16), 0 0 0 .5px rgb(11 11 13 / .06);
+  --crimson-lit: inset 0 1px 0 rgb(255 255 255 / .22), 0 1px 2px rgb(140 10 25 / .25);
+}
+
+/* ================= places: a hue each, lit from above =================
+   body[data-place] picks the hue (the alias roster reads as the Overview). The derived tokens are worked out on body, so
+   they follow whichever hue body holds: the light (--page-light: two soft radial washes from above the window's top
+   edge, round 6's, drawn once for the whole window by ui.css body::before, so the sidebar, the toolbar band, a list
+   column and the floor all catch the same light and no seam shows between them), the sidebar's current-place pill, a
+   chosen row and a range of cells (--sel), the focus ring, and a chart card's sheen and lit top edge. Light keeps the
+   same hues, darker where they are words and icons, quieter where they are light. */
+body[data-place='overview'], body[data-place='roster'] { --place: #ffa64d; --place-ink: #ffa64d; --place-rgb: 255 166 77; }
+body[data-place='lifters'], body[data-place='programs'], body[data-place='teams'] { --place: #38c6ff; --place-ink: #38c6ff; --place-rgb: 56 198 255; }
+body[data-place='meets'] { --place: #ffbf3c; --place-ink: #ffbf3c; --place-rgb: 255 191 60; }
+body[data-place='messages'], body[data-place='clients'] { --place: #34d982; --place-ink: #34d982; --place-rgb: 52 217 130; }
+body[data-place='settings'] { --place: #a77dff; --place-ink: #b394ff; --place-rgb: 167 125 255; }
+:root[data-theme='light'] body:is([data-place='overview'], [data-place='roster']) { --place: #f08a24; --place-ink: #9a4a00; --place-rgb: 240 138 36; }
+:root[data-theme='light'] body:is([data-place='lifters'], [data-place='programs'], [data-place='teams']) { --place: #19a9e6; --place-ink: #0a6890; --place-rgb: 25 169 230; }
+:root[data-theme='light'] body[data-place='meets'] { --place: #e5a51c; --place-ink: #8a5a00; --place-rgb: 229 165 28; }
+:root[data-theme='light'] body:is([data-place='messages'], [data-place='clients']) { --place: #1fb36a; --place-ink: #0b6b3c; --place-rgb: 31 179 106; }
+:root[data-theme='light'] body[data-place='settings'] { --place: #8b6cf0; --place-ink: #6a4fd6; --place-rgb: 139 108 240; }
+body {
+  --page-light:
+    radial-gradient(1100px 480px at 40% -140px, rgb(var(--place-rgb) / var(--a-light)), rgb(var(--place-rgb) / 0) 72%),
+    radial-gradient(620px 1000px at 72px -80px, rgb(var(--place-rgb) / var(--a-side)), rgb(var(--place-rgb) / 0) 72%);
+  --place-pill: rgb(var(--place-rgb) / var(--a-pill));
+  --place-sel: rgb(var(--place-rgb) / var(--a-sel));
+  --sel: var(--place-sel);
+  --place-sheen: linear-gradient(rgb(var(--place-rgb) / var(--a-sheen)), rgb(var(--place-rgb) / 0) 132px);
+  --place-rim: inset 0 1px 0 rgb(var(--place-rgb) / var(--a-rim));
+  --focus: rgb(var(--place-rgb) / .85);
+}
+:root[data-theme='light'] body { --focus: var(--place-ink); }

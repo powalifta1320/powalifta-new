@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta name="robots" content="noindex">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings, POWALIFTA Coach</title>
+<script>
+/* the theme before any CSS: ?theme= wins, then powa-r6-theme (auto follows the Mac), else dark */
+(function () { var t = null; var m = /[?&]theme=(light|dark)\b/.exec(location.search); if (m) t = m[1]; if (!t) { try { t = localStorage.getItem('powa-r6-theme'); } catch (e) { t = null; } } if (t === 'auto') { try { t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; } catch (e) { t = 'dark'; } } document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark'); })();
+</script>
+<link rel="stylesheet" href="../kit/r6/tokens.css">
+<link rel="stylesheet" href="../kit/r6/glass.css">
+<link rel="stylesheet" href="../kit/r6/ui.css">
+<link rel="stylesheet" href="../kit/r6/fix.css">
+<link rel="stylesheet" href="../kit/r6/newcoach.css">
+<style>
+  /* Settings (screens.md §8): the sections in a list that never hides, the chosen section beside it. One card a screen
+     (the section's work), groups inside it under 18/600 titles, rows on hairlines. No crimson on this page. Tokens only. */
+  .page { padding-bottom: 0; }
+  .st { align-items: start; }
+  .sl { position: sticky; top: calc(var(--edge-h) + var(--sp-3)); display: flex; flex-direction: column; gap: var(--sp-5); min-width: 0; padding: 0 var(--sp-4) var(--sp-6) 0; }
+  .sl h1 { margin: 0 var(--sp-3); font: 700 var(--fs-large)/var(--lh-large) var(--font); letter-spacing: var(--ls-large); }
+  .sl-l { display: flex; flex-direction: column; gap: 2px; }
+  .si {
+    position: relative; display: flex; align-items: center; min-height: 44px; padding: 0 var(--sp-3); border: 0; border-radius: var(--r-row);
+    background: none; color: var(--ink-2); font: 500 var(--fs-body)/var(--lh-tight) var(--font); text-align: left; cursor: pointer; outline: 0;
+    transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  }
+  .si[aria-selected='true'] { background: var(--place-sel); color: var(--ink); font-weight: 600; }
+  .si:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  @media (hover: hover) and (pointer: fine) { .si:not([aria-selected='true']):hover { background: var(--hover); color: var(--ink); } }
+
+  .sd { min-width: 0; min-height: calc(100dvh - var(--edge-h) - var(--sp-3)); padding: 0 0 var(--sp-8) var(--gutter); border-left: 1px solid var(--line); }
+  .sx { max-width: 760px; }
+  /* P47: Settings is the one large title; the section's own title is a 20 px section title whose top meets the list's
+     first item (the h1's height and the list's gap above it) */
+  .sx-t { display: flex; align-items: center; min-height: 44px; margin: calc(var(--fs-large) * var(--lh-large) + var(--sp-5)) 0 var(--sp-2) var(--sp-1); font: 700 calc(var(--fs-title) - var(--sp-1))/var(--lh-tight) var(--font); letter-spacing: var(--ls-head); text-wrap: balance; }
+  .sx-c { padding: var(--sp-2) var(--sp-6) var(--sp-4); }
+  .sx-note { margin: var(--sp-3) var(--sp-1) 0; color: var(--ink-3); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+
+  /* a group: an 18/600 title, then rows on hairlines */
+  .grp + .grp { margin-top: var(--sp-5); }
+  .gh { display: flex; align-items: center; gap: var(--sp-2); min-height: 36px; margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+  .gh .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .ghr { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+  .ghr + .row.ln { border-top: 1px solid var(--line); }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-4); min-height: 48px; padding: var(--sp-1) 0; }
+  .row + .row { border-top: 1px solid var(--line); }
+  .row .t { min-width: 0; color: var(--ink); font: 500 var(--fs-body)/var(--lh-tight) var(--font); }
+  .row .s { display: block; margin-top: 2px; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .row .s.cut { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .end { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }
+  .row .v { color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .line { margin: var(--sp-2) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+  .line.q { color: var(--ink-3); }
+  .err { margin: var(--sp-1) 0 0; color: var(--warn); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+
+  /* a switch: on wears the place's colour (a choice made, as a chosen row), off is the quiet fill */
+  .sw { position: relative; flex: none; width: 44px; height: 26px; padding: 0; border: 0; border-radius: var(--r-pill); background: var(--fill-2); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out); }
+  .sw::after { content: ''; position: absolute; inset: -7px -2px; }
+  .sw i { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: var(--r-pill); background: var(--ink-2); transition: transform var(--dur-snap) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+  .sw[aria-checked='true'] { background: var(--place); }
+  .sw[aria-checked='true'] i { transform: translateX(18px); background: var(--card); }
+  .sw:active { transform: scale(var(--press)); }
+
+  /* Plan and seats */
+  .plan { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-4); padding: var(--sp-3) 0 var(--sp-4); }
+  .plan .nm { display: block; font: 800 var(--fs-num)/var(--lh-num) var(--font); letter-spacing: var(--ls-num); }
+  .plan .pr { display: block; margin-top: var(--sp-1); color: var(--ink-2); font: 400 var(--fs-body)/var(--lh-body) var(--font); font-variant-numeric: tabular-nums; }
+  .plan .used { color: var(--ink-2); font: 400 var(--fs-body)/var(--lh-body) var(--font); white-space: nowrap; }
+  .plan .used b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .plan-n { margin: 0 0 var(--sp-3); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  /* P48: Plans sits 32 px under the rows above it */
+  .gh.plans { margin-top: var(--sp-7); }
+  /* a quiet action's words end on the section's right edge, like the links beside it (P48) */
+  .row .end .mv:last-child, .sx .tbl td:last-child .mv { margin-right: calc(var(--sp-2) * -1); }
+  .seats .row:first-child { border-top: 1px solid var(--line); }
+  .sx .tbl td { height: 48px; }
+  .sx .tbl th { height: 36px; }
+  .sx .tbl td:first-child, .sx .tbl th:first-child { padding-left: 0; }
+  .sx .tbl td:last-child, .sx .tbl th:last-child { padding-right: 0; text-align: right; }
+  .tbl td.p { color: var(--ink); font-weight: 600; }
+  .tbl td .why { color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); white-space: nowrap; }
+  .tbl td .mine { color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-label) var(--font); }
+  .pl-c1 { width: 26%; } .pl-c2 { width: 22%; } .pl-c3 { width: 24%; }
+
+  /* Packages: cells edit in place */
+  .pk col.c-pr { width: 88px; } .pk col.c-cu { width: 84px; } .pk col.c-ev { width: 120px; } .pk col.c-ln { width: 136px; } .pk col.c-mo { width: 44px; }
+  .pk th small { display: block; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); }
+  .pk th.ln { white-space: normal; line-height: var(--lh-tight); }
+  .pk td { padding-top: var(--sp-1); padding-bottom: var(--sp-1); height: 56px; }
+  .pk .nm2 { display: block; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; }
+  .cv {
+    display: inline-flex; align-items: center; max-width: calc(100% + 16px); min-width: 0; height: 36px; margin: 0 calc(var(--sp-2) * -1); padding: 0 var(--sp-2);
+    border: 0; border-radius: var(--r-field); background: none; color: var(--ink); font: 500 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; text-align: left; cursor: text;
+    transition: background-color var(--dur-fast) var(--ease-out);
+  }
+  .cv.nm { font-weight: 600; }
+  .cv.add { color: var(--ink-3); }
+  .cv span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (hover: hover) and (pointer: fine) { .cv:hover { background: var(--fill); } }
+  .ci { width: 100%; min-width: 0; }
+  .csel { width: 100%; height: 36px; margin: 0 calc(var(--sp-2) * -1); padding: 0 var(--sp-1); border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink); font: 500 var(--fs-sub)/var(--lh-tight) var(--font); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out); }
+  .csel option { background: var(--pop); color: var(--ink); }
+  @media (hover: hover) and (pointer: fine) { .csel:hover { background: var(--fill); } }
+  .pk tr.new td { vertical-align: top; padding-top: var(--sp-2); }
+  .pk tr.new .csel { background: var(--fill); }
+  .pk .btn.icon { --h: 32px; }
+  .foot { display: flex; align-items: center; gap: var(--sp-2); min-height: 52px; margin-top: var(--sp-1); border-top: 1px solid var(--line); }
+
+  /* Payment reminders and Your words: words you write, the buttons that insert a name, the message as it goes out */
+  .ta { display: block; width: 100%; }
+  .ins { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); margin-top: var(--sp-2); }
+  .ins .lb { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .pv { margin-top: var(--sp-4); }
+  .pv .to { display: block; margin: 0 0 var(--sp-2); color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .pv .bubble, #wd-pv .bubble { max-width: 560px; }
+  .pvh { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-3); padding-top: var(--sp-2); border-top: 1px solid var(--line); }
+  .pvh .to { margin: 0; min-width: 0; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .pvh .ins { margin: 0; }
+  #wd-pv { margin-top: var(--sp-1); }
+  .num { width: 64px; text-align: right; }
+  .tm { width: 104px; }
+
+  /* Loads and rules: the rules read as sentences with their numbers in them */
+  .rl { margin: var(--sp-2) 0 0; color: var(--ink); font: 500 var(--fs-body)/calc(var(--ctl-h) + var(--sp-3)) var(--font); text-wrap: pretty; }
+  .rl .input { width: 60px; height: 34px; margin: 0 2px; text-align: right; vertical-align: middle; }
+  .rl + .line { margin-top: 0; }
+  .rl-g + .rl-g { margin-top: var(--sp-3); padding-top: var(--sp-2); border-top: 1px solid var(--line); }
+  .seg-row { padding: var(--sp-1) 0 var(--sp-1); }
+
+  /* Your words */
+  .wd .row { grid-template-columns: 196px minmax(0, 1fr); }
+  .wd .row .input { width: 100%; }
+  .wd .row .link { justify-self: start; }
+  .sv .row { grid-template-columns: minmax(0, 1fr) auto; }
+  .sv .row .s { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sv-ed { display: grid; gap: var(--sp-2); padding: var(--sp-3) 0; }
+  .sv-ed .input { width: 100%; }
+  .sv-ed .acts { display: flex; gap: var(--sp-2); }
+  .sv-ed + .row, .row + .sv-ed, .ghr + .sv > .row:first-child, .ghr + .sv > .sv-ed:first-child { border-top: 1px solid var(--line); }
+
+  /* a switch row toggles from anywhere on it (F8.4) */
+  .row.swr { cursor: pointer; }
+  /* Intake: what every lifter is asked, read-only */
+  .row.ro .t { color: var(--ink-2); font-weight: 400; }
+  .qadd { display: flex; gap: var(--sp-2); padding: var(--sp-3) 0 var(--sp-1); border-top: 1px solid var(--line); }
+  .qadd .input { flex: 1; min-width: 0; }
+  .pk .wk { width: 100%; margin-top: var(--sp-1); }
+
+  @media (prefers-reduced-motion: reduce) { .sw, .sw i { transition: background-color 120ms linear; } .sw:active { transform: none; } }
+</style>
+</head>
+<body data-place="settings">
+<div id="page">
+  <main class="page" id="main">
+    <div class="split st">
+      <aside class="sl" data-crop="list" aria-label="Settings sections">
+        <h1 id="st-h">Settings</h1>
+        <div class="sl-l" id="sl" role="tablist" aria-orientation="vertical" aria-labelledby="st-h" data-list data-step="click"></div>
+      </aside>
+      <div class="sd" id="sd"></div>
+    </div>
+  </main>
+</div>
+<script src="../kit/data.js"></script>
+<script src="../kit/kit.js"></script>
+<script src="../kit/coach.js"></script>
+<script src="../kit/r6/block.js"></script>
+<script src="../kit/r6/store.js"></script>
+<script src="../kit/r6/desk.js"></script>
+<script src="../kit/r6/fix.js"></script>
+<script src="../kit/r6/newcoach.js"></script>
+<script>
+(function () {
+  'use strict';
+  var K = window.K, PL = window.PL, DESK = window.DESK, esc = K.esc;
+  var $ = function (s, r) { return (r || document).querySelector(s); }, $$ = function (s, r) { return [].slice.call((r || document).querySelectorAll(s)); };
+  var fn = function (o, k) { return !!o && typeof o[k] === 'function'; };
+  var data = function (r) { return r && !r.error ? r.data : null; };
+  var nf = function (v) { return v == null || v === '' || isNaN(v) ? '' : String(Math.round(Number(v) * 100) / 100); };   /* exact: 1.25 stays 1.25 */
+  /* the store writes a typographer's apostrophe; this page writes the plain one throughout */
+  var plain = function (s) { return String(s || '').replace(/[’‘]/g, '\''); };
+  var LIFTS = ['squat', 'bench', 'deadlift'];
+
+  var SECTIONS = [['plan', 'Plan and seats'], ['packages', 'Packages'], ['intake', 'Intake'], ['reminders', 'Payment reminders'], ['loads', 'Loads and rules'], ['words', 'Your words'], ['notifications', 'Notifications'], ['appearance', 'Appearance'], ['help', 'Help']];
+  var LABEL = {}; SECTIONS.forEach(function (s) { LABEL[s[0]] = s[1]; });
+  var SYM = { USD: '$', GBP: '£', EUR: '€', CAD: 'CA$', AUD: 'A$' };
+  var CURS = ['USD', 'GBP', 'EUR', 'CAD', 'AUD'];
+  var EVERY = [['weekly', 'Week'], ['fortnightly', '2 weeks'], ['4-weekly', '4 weeks'], ['monthly', 'Month'], ['quarterly', 'Quarter'], ['yearly', 'Year'], ['once', 'Once (fixed price)']];
+  var DELOADS = [['half-easier', 'Half the sets, 1.5 easier'], ['half', 'Half the sets, same RPE'], ['easier', 'Same sets, 1.5 easier']];
+  var STEPS = [2.5, 1.25, 0.5];
+  /* your drafts, one per kind of fix; each previews on the first lifter the desk has that fix for */
+  var KINDS = [['move', 'Move a session', ['move']], ['swap', 'Swap a lift', ['swap']], ['cap', 'Cap at an RPE', ['cap']], ['light', 'Make the week lighter', ['light']], ['checkin', 'Check in', ['nudge']], ['attempts', 'Attempts', ['safe']]];
+  var TOKENS = [['{first}', 'First name'], ['{day}', 'Day'], ['{load}', 'Load'], ['{lift}', 'Lift']];
+  var RM_TOKENS = [['{first}', 'First name'], ['{amount}', 'Amount'], ['{due}', 'Due date'], ['{link}', 'Payment link']];
+
+  /* what the coach has open: the section, a cell in edit, a new package, a saved reply in edit; kept across redraws */
+  var ui = { s: 'plan', edit: null, editErr: '', addPkg: null, addErr: '', wordKind: 'move', reply: null, replyErr: '', rulesErr: '', rmErr: '' };
+
+  var ordinal = function (n) { var w = ['', 'first', 'second', 'third', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th']; return w[n] || n + 'th'; };
+  var money = function (v, cur) { var s = Number(v) % 1 ? Number(v).toFixed(2) : Number(v).toLocaleString('en-US'); return (SYM[cur] || '$') + s; };
+  var settings = function () { return fn(PL.settings, 'get') ? data(PL.settings.get()) : null; };
+  var bsum = function () { return fn(PL.billing, 'summary') ? data(PL.billing.summary()) : null; };
+  var pkgs = function () { return fn(PL.billing, 'packages') ? data(PL.billing.packages()) || [] : []; };
+
+  /* every write: the store's words in a toast with its Undo (the store decides what Undo does) */
+  function said(r, text) {
+    if (!r || r.error || !r.meta || !r.meta.undo) return;
+    var tok = r.meta.undo;
+    DESK.toast(plain(text || r.meta.label), function () { return PL.undo(tok); });
+  }
+  function save(patch, text) {
+    if (!fn(PL.settings, 'set')) return { error: { message: 'Settings are not ready yet.' } };
+    var r = PL.settings.set(patch);
+    if (!r.error) said(r, text);
+    return r;
+  }
+
+  /* ---------------- the toolbar and the list ---------------- */
+  DESK.mount({ place: 'settings', title: 'Settings' });
+  DESK.keyMap([['↑ ↓', 'Move between sections in the list'], ['Enter', 'Save the field'], ['Esc', 'Put the field back']]);
+  DESK.actions(SECTIONS.map(function (s) { return { title: s[1], sub: 'Settings', run: function () { go(s[0], true); } }; }).concat([
+    { title: 'Add a package', run: function () { go('packages'); startPkg(); } },
+    { title: 'Add a saved reply', run: function () { go('words'); startReply(); } }
+  ]));
+
+  function paintList() {
+    $('#sl').innerHTML = SECTIONS.map(function (s) {
+      var on = s[0] === ui.s;
+      return '<button class="si" type="button" role="tab" id="tab-' + s[0] + '" data-row="' + s[0] + '" aria-selected="' + on + '" aria-controls="sx" tabindex="' + (on ? 0 : -1) + '"><span data-fact="name">' + s[1] + '</span></button>';
+    }).join('');
+  }
+  function fromHash() { var s = DESK.url.get().s; return LABEL[s] ? s : 'plan'; }
+  function go(s, focusTab) {
+    if (!LABEL[s]) return;
+    var moved = s !== ui.s;
+    ui.s = s; ui.edit = null; ui.editErr = '';
+    if (DESK.url.get().s !== s) DESK.url.set({ s: s });
+    paintList(); render();
+    if (moved) scrollTo(0, 0);
+    if (focusTab) { var t = $('#tab-' + s); if (t) t.focus({ preventScroll: true }); }
+  }
+  $('#sl').addEventListener('click', function (e) { var b = e.target.closest('[data-row]'); if (b) go(b.getAttribute('data-row'), document.activeElement && document.activeElement.closest('#sl')); });
+  $('#sl').addEventListener('keydown', function (e) {
+    var i = SECTIONS.map(function (s) { return s[0]; }).indexOf(ui.s), n = SECTIONS.length, to = null;
+    if (e.key === 'ArrowDown') to = (i + 1) % n; else if (e.key === 'ArrowUp') to = (i - 1 + n) % n; else if (e.key === 'Home') to = 0; else if (e.key === 'End') to = n - 1;
+    if (to == null) return;
+    e.preventDefault(); go(SECTIONS[to][0], true);
+  });
+  addEventListener('hashchange', function () { var s = fromHash(); if (s !== ui.s) go(s); });
+
+  /* ---------------- drawing a section, keeping the coach's place ---------------- */
+  var row = function (t, s, end, o) { o = o || {}; return '<div class="row' + (o.cls ? ' ' + o.cls : '') + '"' + (o.id ? ' id="' + o.id + '"' : '') + '><div class="t"' + (o.tid ? ' id="' + o.tid + '"' : '') + '>' + t + (s ? '<span class="s' + (o.cut ? ' cut' : '') + '"' + (o.title ? ' data-ellipsis title="' + esc(o.title) + '"' : '') + (o.quote ? ' data-quote' : '') + '>' + s + '</span>' : '') + '</div>' + (end != null ? '<div class="end">' + end + '</div>' : '') + '</div>'; };
+  var sw = function (k, on, label, o) { o = o || {}; return '<button class="sw" type="button" role="switch" aria-checked="' + !!on + '" data-k="' + k + '"' + (label ? ' aria-label="' + esc(label) + '"' : '') + (o.by ? ' aria-labelledby="' + o.by + '"' : '') + '><i></i></button>'; };
+  var seg = function (k, items, cur, label) { return '<div class="seg" role="group" aria-label="' + esc(label) + '" data-seg="' + k + '">' + items.map(function (x) { return '<button type="button" data-k="' + k + ':' + x[0] + '" data-v="' + x[0] + '" aria-pressed="' + (String(x[0]) === String(cur)) + '">' + esc(x[1]) + '</button>'; }).join('') + '</div>'; };
+  var group = function (title, body, o) { o = o || {}; var id = 'g-' + (o.id || title.toLowerCase().replace(/[^a-z]+/g, '-')); return '<div class="grp ' + (o.cls || '') + '" role="group" aria-labelledby="' + id + '"><div class="ghr"><h3 class="gh" id="' + id + '">' + esc(title) + (o.n != null ? ' <span class="n">' + o.n + '</span>' : '') + '</h3>' + (o.end || '') + '</div>' + body + '</div>'; };
+
+  function render() {
+    var box = $('#sd'), a = document.activeElement, key = a && box.contains(a) ? a.getAttribute('data-k') : null;
+    var val = key && 'value' in a ? a.value : null, sel = key && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null;
+    var body = '';
+    try { body = (BODY[ui.s] || BODY.plan)(); }
+    catch (err) { body = '<div class="card sx-c"><p class="line">This section could not be read.</p></div>'; if (window.console) console.error(err); }
+    box.innerHTML = '<div class="sx" id="sx" role="tabpanel" aria-labelledby="tab-' + ui.s + '" data-crop="section"><h2 class="sx-t">' + LABEL[ui.s] + '</h2>' + body + '</div>';
+    DESK.setTitle(LABEL[ui.s]);
+    $$('.seg', box).forEach(function (sg) { DESK.segSync(sg); });
+    if (key) {
+      var b = box.querySelector('[data-k="' + key + '"]');
+      if (b) { if (val != null && 'value' in b && b.value !== val && b === box.querySelector('[data-k="' + key + '"]') && (b.tagName === 'INPUT' || b.tagName === 'TEXTAREA')) b.value = val; b.focus({ preventScroll: true }); if (sel && b.setSelectionRange) try { b.setSelectionRange(sel[0], sel[1]); } catch (e) { /* a number field */ } }
+    }
+    if (ui.s === 'words') paintPreview();
+  }
+  var later = null;
+  function soon() { if (later) return; later = setTimeout(function () { later = null; render(); }, 0); }
+  PL.on('change', soon);
+  DESK.on('theme', function () { if (ui.s === 'appearance') render(); });
+
+  /* ---------------- Plan and seats (§8.2) ---------------- */
+  var BODY = {};
+  BODY.plan = function () {
+    var s = settings(), b = bsum(); if (!s) return '<div class="card sx-c"><p class="line">Plan and seats show once the store is ready.</p></div>';
+    var cur = s.plans.filter(function (p) { return p.current; })[0] || s.plans[2], seats = b && b.seats ? b.seats : { used: s.seats.used, limit: s.seats.limit, breakdown: null };
+    var free = cur.id === 'free' || cur.name === 'Free';
+    var used = seats.limit == null ? '<b>' + seats.used + '</b> seats used, no limit' : free ? '<b>' + seats.used + ' of ' + seats.limit + '</b> lifters' : '<b>' + seats.used + ' of ' + seats.limit + '</b> seats used';
+    var hero = '<div class="plan"><div><b class="nm acc">' + esc(cur.name) + '</b><span class="pr">' + (cur.price ? money(cur.price) + ' a month' : '$0') + '</span></div><span class="used">' + used + '</span></div>';
+    /* FTC §10.3: on Free, what the next lifter needs */
+    var up = free ? s.plans.filter(function (p) { return p.max == null || p.max > (cur.max || 0); })[0] : null;
+    if (up && cur.max != null) hero += '<p class="plan-n">' + esc('Your ' + ordinal(cur.max + 1) + ' lifter needs ' + up.name + ': ' + money(up.price) + ' a month for up to ' + (up.max == null ? 'any number' : up.max) + '.') + '</p>';
+    var bd = seats.breakdown || {}, rows = '', name = function (id) { var l = K.L(id); return l ? l.name : id; };
+    if (bd.paying) rows += row(K.plural(bd.paying, 'paying lifter'), '', '<a class="link" href="' + DESK.href('clients', 'view=everyone') + '">Open Clients</a>');
+    if (bd.pausedIds && bd.pausedIds.length) rows += row(esc(K.list(bd.pausedIds.map(name))) + ', paused', '', '<a class="link" href="' + DESK.href('clients', 'id=' + encodeURIComponent(bd.pausedIds[0])) + '" aria-label="Open ' + esc(name(bd.pausedIds[0])) + '\'s ledger in Clients">Open ledger</a>');
+    if (bd.noneIds && bd.noneIds.length) rows += row(esc(K.list(bd.noneIds.map(name))) + ', no price yet', '', '<a class="link" href="' + DESK.href('clients', 'id=' + encodeURIComponent(bd.noneIds[0])) + '">Set a package</a>');
+    var inv = b && b.invite;
+    /* P48: one quiet action per row, every one ending on the section's right edge (Cancel the link stays in Clients › Seats) */
+    if (inv && inv.link && !inv.cancelled) rows += row('1 open invite link', esc(inv.link), '<button class="mv" type="button" data-k="inv-copy" data-copy="' + esc(inv.url || inv.link) + '" aria-label="Copy the invite link">Copy</button>');
+    else if (inv) rows += row('No open invite link', '', '<button class="mv" type="button" data-k="inv-new">New invite link</button>');
+    var emailed = Math.max(0, (bd.invites || 0) - (bd.link || 0));
+    if (emailed) rows += row(K.plural(emailed, 'invite') + ' emailed, not accepted yet', '', '<a class="link" href="' + DESK.href('clients') + '">Open Clients</a>');
+    var range = function (p, i) { var lo = i ? (s.plans[i - 1].max || 0) + 1 : 0; return p.max == null ? lo + ' or more' : i === 0 ? 'Up to ' + p.max : lo + ' to ' + p.max; };
+    var trs = s.plans.map(function (p, i) {
+      /* a plan too small says why in plain sight, in place of a switch that cannot be pressed, counted as the seats above */
+      var why = p.fits ? '' : p.small || String(p.why || '');
+      var act = p.current ? '<span class="mine">Your plan</span>' : why ? '<span class="why" data-plan-why="' + p.id + '">' + esc(why) + '</span>' : '<button class="mv" type="button" data-k="plan:' + p.id + '" data-plan="' + p.id + '">Switch to ' + esc(p.name) + '</button>';
+      return '<tr><td class="p">' + esc(p.name) + '</td><td>' + range(p, i) + '</td><td class="v">' + (p.price ? money(p.price) + ' a month' : '$0') + '</td><td>' + act + '</td></tr>';
+    }).join('');
+    var table = '<table class="tbl"><colgroup><col class="pl-c1"><col class="pl-c2"><col class="pl-c3"><col></colgroup><thead><tr><th scope="col">Plan</th><th scope="col">Lifters</th><th scope="col">Price</th><th scope="col"><span class="sr">Change</span></th></tr></thead><tbody>' + trs + '</tbody></table>';
+    return '<div class="card sx-c">' + hero + '<div class="seats" role="group" aria-label="Who holds the seats">' + rows + '</div>' +
+      '<h3 class="gh plans" id="g-plans">Plans</h3>' + table + '</div>';
+  };
+
+  /* ---------------- Packages (§8.3) ---------------- */
+  var cadOpts = function (cur) { return EVERY.map(function (e) { return '<option value="' + e[0] + '"' + (e[0] === cur ? ' selected' : '') + '>' + e[1] + '</option>'; }).join(''); };
+  var curOpts = function (cur) { return CURS.map(function (c) { return '<option value="' + c + '"' + (c === cur ? ' selected' : '') + '>' + c + '</option>'; }).join(''); };
+  BODY.packages = function () {
+    var list = pkgs();
+    var cell = function (p, f, shown, cls) {
+      var k = p.id + '|' + f;
+      if (ui.edit && ui.edit.pid === p.id && ui.edit.f === f) {
+        var v = f === 'amount' ? nf(p.amount) : f === 'link' ? (p.link || '') : p.name;
+        var lab = f === 'amount' ? 'Price for ' + p.name : f === 'link' ? 'Payment link for ' + p.name : 'Rename ' + p.name;
+        return '<input class="input ci" data-k="e:' + k + '" data-commit="' + esc(k) + '" value="' + esc(v) + '" aria-label="' + esc(lab) + '"' + (f === 'amount' ? ' inputmode="decimal"' : f === 'link' ? ' inputmode="url" placeholder="https://"' : '') + '>' + (ui.editErr ? '<p class="err" role="alert">' + esc(ui.editErr) + '</p>' : '');
+      }
+      return '<button class="cv ' + (cls || '') + '" type="button" data-k="c:' + k + '" data-edit="' + esc(k) + '"' + (f === 'link' && p.link ? ' data-ellipsis title="' + esc(p.link) + '"' : '') + ' aria-label="' + esc((f === 'amount' ? 'Price of ' : f === 'link' ? 'Payment link of ' : 'Package ') + p.name + ': ' + (shown || 'none') + '. Change it') + '"><span>' + esc(shown) + '</span></button>';
+    };
+    var trs = list.map(function (p) {
+      return '<tr><td>' + cell(p, 'name', p.name, 'nm') + '<span class="nm2">' + K.plural(p.lifters || 0, 'lifter') + (p.cadence === 'once' && p.weeks ? ', ' + p.weeks + ' weeks' : '') + '</span></td>' +
+        '<td>' + cell(p, 'amount', money(p.amount, p.currency)) + '</td>' +
+        '<td><select class="csel" data-k="cur:' + p.id + '" data-pkg="' + p.id + '" data-f="currency" aria-label="Currency, ' + esc(p.name) + '">' + curOpts(p.currency || 'USD') + '</select></td>' +
+        '<td><select class="csel" data-k="cad:' + p.id + '" data-pkg="' + p.id + '" data-f="cadence" aria-label="Billed every, ' + esc(p.name) + '">' + cadOpts(p.cadence) + '</select></td>' +
+        '<td>' + (p.link ? cell(p, 'link', p.link) : cell(p, 'link', 'Add a link', 'add')) + '</td>' +
+        '<td><button class="btn quiet icon" type="button" data-more data-k="more:' + p.id + '" data-pkgmore="' + p.id + '" aria-haspopup="menu" aria-label="More for ' + esc(p.name) + '" title="More">' + DESK.ic('more') + '</button></td></tr>';
+    }).join('');
+    var n = ui.addPkg;
+    if (n) trs += '<tr class="new"><td><input class="input ci" data-k="np-name" data-np="name" data-field="name" aria-label="Name" placeholder="Name" value="' + esc(n.name) + '"></td>' +
+      '<td><input class="input ci" data-k="np-amount" data-np="amount" data-field="amount" aria-label="Price" placeholder="0" inputmode="decimal" value="' + esc(n.amount) + '"></td>' +
+      '<td><select class="csel" data-k="np-cur" data-np="currency" aria-label="Currency, new">' + curOpts(n.currency) + '</select></td>' +
+      '<td><select class="csel" data-k="np-cad" data-np="cadence" aria-label="Billed every, new">' + cadOpts(n.cadence) + '</select>' +
+      (n.cadence === 'once' ? '<input class="input ci wk" data-k="np-weeks" data-np="weeks" data-field="weeks" aria-label="Length in weeks" placeholder="Weeks" inputmode="numeric" value="' + esc(n.weeks || '') + '">' : '') + '</td>' +
+      '<td><input class="input ci" data-k="np-link" data-np="link" aria-label="Payment link, new" placeholder="https://" inputmode="url" value="' + esc(n.link) + '"></td><td></td></tr>';
+    var table = '<table class="tbl pk"><colgroup><col><col class="c-pr"><col class="c-cu"><col class="c-ev"><col class="c-ln"><col class="c-mo"></colgroup><thead><tr><th scope="col">Package</th><th scope="col">Price</th><th scope="col">Currency</th><th scope="col">Every</th><th scope="col" class="ln">Payment link<small>(you mark it paid)</small></th><th scope="col"><span class="sr">More</span></th></tr></thead><tbody>' + trs + '</tbody></table>';
+    var foot = n ? '<div class="foot"><button class="btn sm" type="button" data-k="np-save">Save the package</button><button class="btn quiet sm" type="button" data-k="np-cancel">Cancel</button>' + (ui.addErr ? '<p class="err" role="alert">' + esc(ui.addErr) + '</p>' : '') + '</div>'
+      : '<div class="foot"><button class="btn sm" type="button" data-k="np-start">Add a package</button></div>';
+    var empty = list.length ? '' : '<p class="line">No packages yet. Add one to price your lifters.</p>';
+    return '<div class="card sx-c">' + empty + table + foot + '</div><p class="sx-note">Lifters on a package keep their price until you change theirs.</p>';
+  };
+  function startPkg() { ui.addPkg = { name: '', amount: '', currency: 'USD', cadence: 'monthly', link: '', weeks: '' }; ui.addErr = ''; render(); var f = $('[data-np="name"]'); if (f) f.focus(); }
+  /* F8.4: Enter in Name moves to Price (Enter in any later field saves); an error shows when a field is left or on Save */
+  function npNext(k) { return k === 'name' ? $('[data-np="amount"]') : null; }
+  function npCheck(k, v) {
+    v = String(v || '').trim();
+    if (k === 'amount' && v && !(parseFloat(v.replace(/[^0-9.]/g, '')) > 0)) return 'Write the price as a number, like 150.';
+    if (k === 'weeks' && v && !(/^\d+$/.test(v) && +v >= 1 && +v <= 52)) return 'A once package runs 1 to 52 weeks.';
+    return '';
+  }
+  function savePkg() {
+    var n = ui.addPkg; if (!n) return;
+    var amt = parseFloat(String(n.amount).replace(/[^0-9.]/g, ''));
+    if (!String(n.name).trim()) { ui.addErr = 'Name the package first.'; render(); return; }
+    if (!(amt > 0)) { ui.addErr = 'Write the price as a number, like 150.'; render(); return; }
+    if (n.cadence === 'once' && npCheck('weeks', n.weeks)) { ui.addErr = npCheck('weeks', n.weeks); render(); return; }
+    var po = { name: String(n.name).trim(), amount: amt, cadence: n.cadence, currency: n.currency, link: String(n.link).trim() };
+    if (n.cadence === 'once' && String(n.weeks || '').trim()) po.weeks = parseInt(n.weeks, 10);
+    var r = PL.billing.savePackage(po);
+    if (r.error) { ui.addErr = r.error.message; render(); return; }
+    ui.addPkg = null; ui.addErr = ''; said(r); render();
+    var b = $('[data-k="np-start"]'); if (b) b.focus({ preventScroll: true });
+  }
+  function commitCell(k) {
+    if (!ui.edit || ui.edit.pid + '|' + ui.edit.f !== k) return;
+    var p = pkgs().filter(function (x) { return x.id === ui.edit.pid; })[0], inp = $('[data-commit="' + k + '"]'); if (!p || !inp) { ui.edit = null; render(); return; }
+    var o = { id: p.id, name: p.name, amount: p.amount, cadence: p.cadence, currency: p.currency || 'USD', link: p.link || '' }, v = inp.value.trim();
+    if (ui.edit.f === 'amount') { var a = parseFloat(v.replace(/[^0-9.]/g, '')); if (!(a > 0)) { ui.editErr = 'Write the price as a number, like 150.'; render(); return; } o.amount = a; }
+    else if (ui.edit.f === 'name') { if (!v) { ui.editErr = 'A package needs a name.'; render(); return; } o.name = v; }
+    else o.link = v;
+    var same = o.amount === p.amount && o.name === p.name && o.link === (p.link || '');
+    var f = ui.edit.f; ui.edit = null; ui.editErr = '';
+    if (!same) { var r = PL.billing.savePackage(o); if (r.error) { ui.edit = { pid: p.id, f: f }; ui.editErr = r.error.message; render(); return; } said(r); }
+    render();
+    var b = $('[data-edit="' + k + '"]'); if (b) b.focus({ preventScroll: true });
+  }
+  function pkgMenu(btn) {
+    var p = pkgs().filter(function (x) { return x.id === btn.getAttribute('data-pkgmore'); })[0]; if (!p) return;
+    var used = p.lifters > 0;
+    DESK.menu.open(btn, [{ id: 'link', label: p.link ? 'Change the payment link' : 'Add a payment link' }, { sep: true }, { id: 'remove', label: 'Remove', red: true, disabled: used, sub: used ? K.plural(p.lifters, 'lifter') + (p.lifters === 1 ? ' is' : ' are') + ' on it' : null }], {
+      label: 'More for ' + p.name, place: 'below-end',
+      run: function (id) {
+        if (id === 'link') { ui.edit = { pid: p.id, f: 'link' }; ui.editErr = ''; render(); var i = $('[data-commit="' + p.id + '|link"]'); if (i) { i.focus(); i.select(); } }
+        if (id === 'remove') { var r = PL.billing.removePackage(p.id); if (r.error) DESK.toast(plain(r.error.message)); else said(r); }
+      }
+    });
+  }
+
+  /* ---------------- Payment reminders (§8.4) ---------------- */
+  /* the first late lifter, and the template filled for them the way the store fills it (billing.remindDraft) */
+  function rmWho() { var b = bsum(), id = b && b.late && b.late[0]; if (!id && fn(PL.billing, 'todo')) { var t = (data(PL.billing.todo()) || []).filter(function (r) { return r.lifterId && r.due; })[0]; id = t && t.lifterId; } return id ? K.L(id) : null; }
+  function rmFill(tpl, l) {
+    var b = l.billing || {}, pk = pkgs().filter(function (p) { return p.name === b.pkg; })[0];
+    return String(tpl || '').replace(/\{first\}/g, l.first).replace(/\{amount\}/g, b.amount ? K.money(b.amount) : '').replace(/\{due\}/g, b.nextDue ? K.dm(b.nextDue) : '').replace(/\{link\}/g, pk && pk.link ? 'Pay here: ' + pk.link + '.' : '').replace(/\s{2,}/g, ' ').replace(/\s+([.,])/g, '$1').trim();
+  }
+  function nextAuto(s) {
+    var a = s.reminders.auto, now = fn(PL, 'now') ? String(PL.now()) : K.today + 'T07:20', today = now.slice(0, 10), hm = now.slice(11, 16), best = null;
+    (K.lifters || []).forEach(function (l) {
+      var b = l.billing; if (!b || !b.nextDue || (b.status && b.status.state === 'paused')) return;
+      var day = K.add(b.nextDue, a.days || 0); if (day < today) day = today;
+      if (day === today && hm >= a.at) day = K.add(today, 1);
+      if (a.skipMeetDay && l.meet && l.meet.date === day) day = K.add(day, 1);
+      if (!best || day < best.day) best = { day: day, l: l };
+    });
+    if (!best) return '';
+    var when = best.day === today ? 'today' : best.day === K.add(today, 1) ? 'tomorrow' : K.wd(best.day).slice(0, 3) + ' ' + K.dm(best.day);
+    return 'Next: ' + best.l.name + ', ' + when + ' ' + a.at + '.';
+  }
+  BODY.reminders = function () {
+    var s = settings(); if (!s) return '';
+    var l = rmWho(), tpl = s.reminders.template, a = s.reminders.auto || {};
+    var words = '<textarea class="input ta" rows="3" data-k="rm-t" data-rm="template" aria-label="Reminder words">' + esc(tpl) + '</textarea>' +
+      (ui.rmErr ? '<p class="err" role="alert">' + esc(ui.rmErr) + '</p>' : '') +
+      '<div class="ins" role="group" aria-label="Insert into the reminder"><span class="lb">Insert</span>' + RM_TOKENS.map(function (t) { return '<button class="btn quiet sm" type="button" data-k="rm-ins:' + t[0] + '" data-rmins="' + t[0] + '" title="Insert ' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>' +
+      (l ? '<div class="pv"><span class="to">To ' + esc(l.name) + '</span><p class="bubble me" id="rm-pv">' + esc(rmFill(tpl, l)) + '</p></div>' : '');
+    var auto = row('<span id="ra-l">Send them for me</span>', '', sw('ra-on', a.on, null, { by: 'ra-l' }), { cls: 'swr' });
+    if (a.on) {
+      auto += row('<label for="ra-d">Days after the due date</label>', '', '<input class="input num" id="ra-d" type="number" min="0" max="30" step="1" data-k="ra-d" data-ra="days" value="' + esc(a.days) + '">') +
+        row('<label for="ra-t">At</label>', '', '<input class="input tm" id="ra-t" type="time" data-k="ra-t" data-ra="at" value="' + esc(a.at) + '">') +
+        row('<span id="ra-m">Never on a lifter\'s meet day</span>', '', sw('ra-skip', a.skipMeetDay, null, { by: 'ra-m' }), { cls: 'swr' });
+      var nx = nextAuto(s); if (nx) auto += '<p class="line">' + esc(nx) + '</p>';
+    }
+    /* FTC §10.4, F8.4: a heads-up before the due date, off until the coach turns it on, with its own words */
+    var rb = s.remindBefore || { on: false, days: 2 }, before = row('<span id="rb-l">Send a heads-up before the due date</span>', '', sw('rb-on', rb.on, null, { by: 'rb-l' }), { cls: 'swr' });
+    if (rb.on) before += row('<label for="rb-d">Days before the due date</label>', '', '<input class="input num" id="rb-d" type="number" min="1" max="14" step="1" data-k="rb-d" data-rb="days" value="' + esc(rb.days || 2) + '">') +
+      '<label class="sr" for="rb-t">Heads-up words</label><textarea class="input ta" id="rb-t" rows="2" data-k="rb-t" data-rb="text">' + esc(rb.text || 'Hi {first}, a heads-up: {package} is due {day}.') + '</textarea>';
+    return '<div class="card sx-c">' + group('Reminder words', words, { id: 'rm' }) + group('After the due date', auto, { id: 'ra' }) + group('Before the due date', before, { id: 'rb' }) + '</div>';
+  };
+  function saveTemplate(ta) {
+    var v = ta.value.trim();
+    if (!v) { ui.rmErr = 'Write the reminder, or put back: Hi {first}, your {amount} due {due} is still open.'; soon(); return; }
+    var r = save({ reminders: { template: v } });
+    ui.rmErr = r.error ? r.error.message : ''; soon();
+  }
+
+  /* ---------------- Loads and rules (§8.5) ---------------- */
+  /* a rule's live line, read from the store: the lifter's top set as lifted and what next week takes */
+  function liveLine(want, prefer) {
+    var ids = [prefer].concat((data(PL.lifters.list({})) || []).map(function (x) { return x.id; })), seen = {};
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i]; if (!id || seen[id]) continue; seen[id] = 1;
+      var w = data(PL.lifters.week(id)), rows = w && w.rows ? w.rows : [];
+      var r = rows.filter(function (x) { return LIFTS.indexOf(x.lift) >= 0 && x.line === 0 && x.suggest && x.lifted && x.suggest.dir === want && x.felt && x.felt.values && x.felt.values.length && x.written && x.written.rpe != null; })[0];
+      if (!r) continue;
+      var l = K.L(id), felt = r.felt.values[r.felt.values.length - 1];
+      /* what next week really takes: a pain hold keeps the load where it was (shared.md §4.3), and the line says so */
+      var nx = r.next && (r.next.w != null || r.next.kg != null) ? Number(r.next.w != null ? r.next.w : r.next.kg) : r.suggest.kg;
+      var head = esc(l.first + '\'s ') + '<span data-lift="' + r.lift + '">' + esc(r.lift + ', ' + r.lifted.text) + '</span>' + esc(' felt ' + nf(felt) + ' against ' + nf(r.written.rpe) + ': ');
+      return head + esc(want === 'up' && nx < r.suggest.kg ? 'held at ' + nf(nx) + ', not ' + nf(r.suggest.kg) + '.' : nf(r.suggest.kg) + ' next week.');
+    }
+    return '';
+  }
+  var ownRules = function () {
+    return (K.lifters || []).map(function (l) { var g = l.program && fn(PL.programs, 'get') ? data(PL.programs.get(l.id)) : null; return g && g.rules && Object.keys(g.rules).length ? { l: l, r: g.rules } : null; }).filter(Boolean);
+  };
+  BODY.loads = function () {
+    var s = settings(); if (!s) return '';
+    var R = s.relRules, step = s.plateStep || 2.5;
+    var inp = function (k, v, label) { return '<input class="input" data-k="rl-' + k + '" data-rl="' + k + '"' + (LIFTS.indexOf(k) >= 0 ? ' data-lift="' + k + '"' : '') + ' inputmode="decimal" value="' + nf(v) + '" aria-label="' + esc(label) + '">'; };
+    var plate = '<div class="seg-row">' + seg('step', STEPS.map(function (x) { return [x, nf(x) + ' kg']; }), step, 'Plate step') + '</div>';
+    var under = liveLine('up', 'demo-d6'), over = liveLine('down', 'demo-d3');
+    var rules = '<div class="rl-g"><p class="rl">When the top set feels ' + inp('under', R.under, 'RPE under what you wrote') + ' or more under what you wrote: <span data-lift="squat">squat +</span>' + inp('squat', R.add.squat, 'Squat, add kg') + ', <span data-lift="bench">bench +</span>' + inp('bench', R.add.bench, 'Bench, add kg') + ', <span data-lift="deadlift">deadlift +</span>' + inp('deadlift', R.add.deadlift, 'Deadlift, add kg') + ' kg.</p>' + (under ? '<p class="line">' + under + '</p>' : '') + '</div>' +
+      '<div class="rl-g"><p class="rl">When it feels ' + inp('over', R.over, 'RPE over what you wrote') + ' or more over: take ' + inp('off', R.off, 'Take % off') + ' % off; back-offs follow.</p>' + (over ? '<p class="line">' + over + '</p>' : '') + '</div>' +
+      (ui.rulesErr ? '<p class="err" role="alert">' + esc(ui.rulesErr) + '</p>' : '');
+    var own = ownRules();
+    if (own.length) rules += own.map(function (o) {
+      var r = o.r, bits = LIFTS.filter(function (k) { return r.add && r.add[k] != null; }).map(function (k) { return '<span data-lift="' + k + '">' + esc(k + ' +' + nf(r.add[k])) + '</span>'; }); if (r.off != null) bits.push(esc(nf(r.off) + '% off'));
+      return row(esc('Rules for ' + o.l.first), bits.join(', '), '<button class="btn sm" type="button" data-k="own:' + o.l.id + '" data-own="' + o.l.id + '">Back to yours</button>');
+    }).join('');
+    return '<div class="card sx-c">' + group('Plate step', plate, { id: 'step' }) + group('Your rules', rules, { id: 'rules' }) +
+      group('Default deload', '<div class="seg-row">' + seg('deload', DELOADS, s.deload, 'Default deload') + '</div>', { id: 'deload' }) +
+      group('Units', row('Kilograms.', '', null, { cls: 'ln' }), { id: 'units' }) + '</div>';
+  };
+  function saveRules() {
+    var v = {}, bad = null;
+    $$('[data-rl]').forEach(function (i) { var x = parseFloat(String(i.value).replace(',', '.')); v[i.getAttribute('data-rl')] = x; if (isNaN(x) && !bad) bad = i; });
+    if (bad) { ui.rulesErr = 'Write a number in each box, like 2.5.'; render(); return; }
+    var r = save({ rules: [{ when: 'under', by: v.under, add: { squat: v.squat, bench: v.bench, deadlift: v.deadlift } }, { when: 'over', by: v.over, cut: v.off }] });
+    ui.rulesErr = r.error ? r.error.message : '';
+    render();
+  }
+
+  /* ---------------- Your words (§8.5a) ---------------- */
+  /* the fix each kind previews on: the first item on the desk with that move, read from the store */
+  function sample(kind) {
+    var acts = KINDS.filter(function (x) { return x[0] === kind; })[0][2], items = fn(PL.items, 'list') ? data(PL.items.list()) || [] : [];
+    for (var i = 0; i < items.length; i++) {
+      var a = (items[i].acts || []).filter(function (x) { return acts.indexOf(x.id) >= 0; })[0];
+      if (!a || items[i].done) continue;
+      var pv = fn(PL.items, 'preview') ? data(PL.items.preview(items[i].id, a.id)) : null;
+      if (pv && pv.tell) return pv;
+    }
+    return null;
+  }
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function fillWords(tpl, pv) {
+    var ch = (pv.changes || [])[0] || null, op = (pv.ops || [])[0] || {}, iso = ch ? (ch.field === 'date' ? ch.after : ch.date) : null;
+    var withLoad = (pv.changes || []).filter(function (c) { return c.load && c.load.after != null; })[0];
+    var lift = op.lift || (op.to && op.to.lift) || (String((ch && ch.label) || op.day || '').toLowerCase().split(/[ ,]/)[0]);
+    if (LIFTS.indexOf(lift) < 0) lift = '';
+    return String(tpl).replace(/\{first\}/g, pv.who || '').replace(/\{day\}/g, iso ? DAYS[K.d(iso).getDay()] : '').replace(/\{load\}/g, withLoad ? nf(withLoad.load.after) : '').replace(/\{lift\}/g, lift).replace(/\s{2,}/g, ' ').trim();
+  }
+  function paintPreview() {
+    var box = $('#wd-pv'); if (!box) return;
+    var k = ui.wordKind, pv = sample(k), inp = $('[data-word="' + k + '"]'), own = inp ? inp.value.trim() : '';
+    var to = $('#wd-to'), name = KINDS.filter(function (x) { return x[0] === k; })[0][1];
+    if (!pv) { if (to) to.textContent = name; box.innerHTML = '<p class="line">Nobody has this kind of fix right now.</p>'; return; }
+    var text = own ? fillWords(own, pv) : pv.tell.text;
+    if (to) to.textContent = name + ' for ' + pv.who + ': ' + (own ? 'your words' : 'the desk\'s draft');
+    box.innerHTML = '<p class="bubble me">' + esc(plain(text)) + '</p>';
+  }
+  BODY.words = function () {
+    var s = settings(); if (!s) return '';
+    var drafts = KINDS.map(function (x) {
+      return row('<label for="w-' + x[0] + '">' + x[1] + '</label>', '', '<input class="input" id="w-' + x[0] + '" data-k="w-' + x[0] + '" data-word="' + x[0] + '" value="' + esc(s.words[x[0]] || '') + '" placeholder="The desk\'s draft">');
+    }).join('');
+    var ins = '<div class="pvh"><span class="to" id="wd-to"></span><div class="ins" role="group" aria-label="Insert into your draft">' + TOKENS.map(function (t) { return '<button class="btn quiet sm" type="button" data-k="w-ins:' + t[0] + '" data-wins="' + t[0] + '" title="Insert ' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div></div><div id="wd-pv" aria-live="polite"></div>';
+    var saved = (s.saved || []).map(function (x, i) {
+      if (ui.reply && ui.reply.i === i) return replyEditor();
+      return row(esc(x.name), esc(x.text), '<button class="btn quiet icon" type="button" data-more data-k="sv:' + i + '" data-svmore="' + i + '" aria-haspopup="menu" aria-label="More for ' + esc(x.name) + '" title="More">' + DESK.ic('more') + '</button>', { cut: true, title: x.text, quote: true });
+    }).join('');
+    if (ui.reply && ui.reply.i == null) saved += replyEditor();
+    var add = ui.reply ? '' : '<button class="btn sm" type="button" data-k="sv-add">Add a saved reply</button>';
+    var none = !(s.saved || []).length && !ui.reply ? '<p class="line q">No saved replies yet. Save the words you send most.</p>' : '';
+    return '<div class="card sx-c">' + group('Your drafts', '<div class="wd">' + drafts + '</div>' + ins, { id: 'wd' }) + group('Saved replies', '<div class="sv">' + none + saved + '</div>', { id: 'sv', n: (s.saved || []).length || null, end: add }) + '</div>';
+  };
+  function replyEditor() {
+    var r = ui.reply;
+    return '<div class="sv-ed"><input class="input" data-k="rp-name" data-rp="name" aria-label="Reply name" placeholder="Reply name" value="' + esc(r.name) + '">' +
+      '<textarea class="input" rows="2" data-k="rp-text" data-rp="text" aria-label="Reply words" placeholder="The words">' + esc(r.text) + '</textarea>' +
+      (ui.replyErr ? '<p class="err" role="alert">' + esc(ui.replyErr) + '</p>' : '') +
+      '<div class="acts"><button class="btn sm" type="button" data-k="rp-save">Save the reply</button><button class="btn quiet sm" type="button" data-k="rp-cancel">Cancel</button></div></div>';
+  }
+  function startReply(i) { var s = settings(), x = i != null && s ? s.saved[i] : null; ui.reply = { i: i == null ? null : i, name: x ? x.name : '', text: x ? x.text : '' }; ui.replyErr = ''; render(); var f = $('[data-rp="name"]'); if (f) f.focus(); }
+  function saveReply(quiet) {
+    var r = ui.reply, s = settings(); if (!r || !s) return;
+    var name = String(r.name).trim(), text = String(r.text).trim();
+    if (!name || !text) { if (!quiet) { ui.replyErr = !name ? 'Name the reply.' : 'Write the words.'; render(); } return; }
+    var list = (s.saved || []).map(function (x) { return { name: x.name, text: x.text }; });
+    if (r.i == null) list.push({ name: name, text: text }); else list[r.i] = { name: name, text: text };
+    var res = save({ saved: list }, r.i == null ? 'Saved reply added: ' + name + '.' : 'Saved reply changed: ' + name + '.');
+    if (res.error) { ui.replyErr = res.error.message; render(); return; }
+    ui.reply = null; ui.replyErr = ''; soon();
+  }
+  function replyMenu(btn) {
+    var i = +btn.getAttribute('data-svmore'), s = settings(), x = s && s.saved[i]; if (!x) return;
+    DESK.menu.open(btn, [{ id: 'edit', label: 'Edit' }, { sep: true }, { id: 'remove', label: 'Remove', red: true }], {
+      label: 'More for ' + x.name, place: 'below-end',
+      run: function (id) {
+        if (id === 'edit') startReply(i);
+        if (id === 'remove') save({ saved: s.saved.filter(function (y, j) { return j !== i; }).map(function (y) { return { name: y.name, text: y.text }; }) }, 'Saved reply removed: ' + x.name + '.');
+      }
+    });
+  }
+  function insertAt(inp, tok) {
+    if (!inp) return;
+    var a = inp.selectionStart == null ? inp.value.length : inp.selectionStart, b = inp.selectionEnd == null ? a : inp.selectionEnd;
+    inp.setRangeText(tok, a, b, 'end'); inp.focus();
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  /* ---------------- Intake (FTC §10.4): what every lifter is asked, then the coach's own questions ---------------- */
+  var ALWAYS = ['Best squat, bench and deadlift', 'Bodyweight and class', 'Days and session length', 'Injuries or limits', 'Goals', 'Next meet'];
+  BODY.intake = function () {
+    var s = settings(); if (!s) return '';
+    var qs = s.intakeQs || [];
+    var always = ALWAYS.map(function (q) { return row(esc(q), '', null, { cls: 'ro' }); }).join('');
+    var mine = qs.map(function (q, i) { return row(esc(q), '', '<button class="mv" type="button" data-k="q-rm:' + i + '" data-qrm="' + i + '" aria-label="' + esc('Remove: ' + q) + '">Remove</button>'); }).join('') +
+      '<div class="qadd"><label class="sr" for="q-new">A question of your own</label><input class="input" id="q-new" data-k="q-new" data-qnew placeholder="A question of your own" value="' + esc(ui.qNew || '') + '">' +
+      '<button class="btn sm" type="button" data-k="q-add" data-qadd>Add a question</button></div>' + (ui.qErr ? '<p class="err" role="alert">' + esc(ui.qErr) + '</p>' : '');
+    return '<div class="card sx-c">' + group('Always asked', always, { id: 'qa' }) + group('Your questions', mine, { id: 'qy', n: qs.length || null }) + '</div>';
+  };
+  function addQ() {
+    var s = settings(), inp = $('[data-qnew]'), v = inp ? inp.value.trim() : ''; if (!s) return;
+    if (!v) { ui.qErr = 'Write the question first.'; render(); return; }
+    var r = save({ intakeQs: (s.intakeQs || []).concat([v]) }, 'Added to your intake: “' + v + '”');
+    if (r.error) { ui.qErr = plain(r.error.message); render(); return; }
+    ui.qNew = ''; ui.qErr = ''; render(); var f = $('[data-qnew]'); if (f) f.focus();
+  }
+
+  /* ---------------- Help (FTC §10.4): coaching words, Getting started, one-time tips ---------------- */
+  var TIPS = ['grid', 'needs', 'felt', 'attempts'];
+  BODY.help = function () {
+    var on = fn(DESK.terms, 'on') ? DESK.terms.on() : false;
+    var su = fn(PL.setup, 'get') ? data(PL.setup.get()) : null;
+    var seen = fn(DESK.tip, 'seen') ? TIPS.filter(function (k) { return DESK.tip.seen(k); }).length : 0;
+    var h = row('<span id="hp-x">Explain coaching words</span>', '<span>A dotted line under words like RPE and e1RM.</span> <span>Point at one to read it.</span>', sw('help-terms', on, null, { by: 'hp-x' }), { cls: 'swr' });
+    if (su) {
+      var last = su.steps.map(function (x) { return x.at; }).filter(Boolean).sort().pop();
+      var state = su.done >= su.of ? 'Done' + (last ? ' ' + K.wd3(String(last).slice(0, 10)) : '') : su.done + ' of ' + su.of + ' done';
+      h += row('Getting started', esc(state), '<button class="mv" type="button" data-k="setup" data-setup-toggle>' + (su.show ? 'Hide' : 'Show on Overview') + '</button>');
+    }
+    h += row('One-time tips', esc(seen + ' of ' + TIPS.length + ' seen'), '<button class="mv" type="button" data-k="tips" data-tips-reset' + (seen ? '' : ' disabled title="None seen yet."') + '>Show them again</button>');
+    return '<div class="card sx-c">' + h + '</div>';
+  };
+
+  /* ---------------- Notifications (§8.5b) and Appearance (§8.6) ---------------- */
+  BODY.notifications = function () {
+    var s = settings(); if (!s) return '';
+    var p = s.notifications.pushes || {}, dg = s.notifications.digest;
+    var r = row('<span id="nt-w">Push me when a lifter writes</span>', '', sw('nt:words', p.words, null, { by: 'nt-w' }), { cls: 'swr' }) +
+      row('<span id="nt-p">Push me on pain in a check-in</span>', '', sw('nt:pain', p.pain, null, { by: 'nt-p' }), { cls: 'swr' }) +
+      row('<span id="nt-s">Push me when a session is logged</span>', '', sw('nt:sessions', p.sessions, null, { by: 'nt-s' }), { cls: 'swr' }) +
+      row('<span id="nt-d">A morning digest at</span>', 'Who needs you, today\'s sessions and meets, money due.', '<input class="input tm" type="time" data-k="nt-at" data-digest-at aria-label="Digest time" value="' + esc(dg || ui.digestAt || '07:00') + '"' + (dg ? '' : ' disabled') + '>' + sw('nt:digest', !!dg, null, { by: 'nt-d' }));
+    return '<div class="card sx-c">' + r + '</div>';
+  };
+  var themeNow = function () { var t = null; try { t = localStorage.getItem('powa-r6-theme'); } catch (e) { t = null; } return t === 'auto' || t === 'light' || t === 'dark' ? t : DESK.theme.get(); };
+  BODY.appearance = function () {
+    return '<div class="card sx-c">' + row('<span id="ap-l">Look</span>', 'Automatic follows your Mac.', seg('theme', [['dark', 'Dark'], ['light', 'Light'], ['auto', 'Automatic']], themeNow(), 'Look')) + '</div>';
+  };
+  var mq = window.matchMedia ? matchMedia('(prefers-color-scheme: light)') : null;
+  function setTheme(t) {
+    if (t === 'auto') {
+      document.documentElement.setAttribute('data-theme', mq && mq.matches ? 'light' : 'dark');
+      try { localStorage.setItem('powa-r6-theme', 'auto'); } catch (e) { /* private window: this visit only */ }
+    } else DESK.theme.set(t);
+    if (fn(PL.settings, 'set')) PL.settings.set({ theme: t });
+    render();
+  }
+  if (mq && mq.addEventListener) mq.addEventListener('change', function () { if (themeNow() === 'auto') { document.documentElement.setAttribute('data-theme', mq.matches ? 'light' : 'dark'); } });
+
+  /* ---------------- one set of handlers for every section ---------------- */
+  var sd = $('#sd');
+  sd.addEventListener('mousedown', function (e) { if (e.target.closest('[data-wins], [data-rmins]')) e.preventDefault(); });   // keep the caret in the words
+  sd.addEventListener('click', function (e) {
+    var t = e.target, b;
+    if ((b = t.closest('[data-plan]'))) { if (b.disabled) return; var r = PL.settings.plan(b.getAttribute('data-plan')); if (r.error) DESK.toast(plain(r.error.message)); else said(r); return; }
+    if ((b = t.closest('[data-copy]'))) {
+      var url = b.getAttribute('data-copy'), ok = function () { DESK.toast('Copied ' + url.replace(/^https?:\/\//, '') + '.'); }, no = function () { DESK.toast('Copy it by hand: ' + url.replace(/^https?:\/\//, '')); };
+      try { navigator.clipboard.writeText(url).then(ok, no); } catch (err) { no(); }
+      return;
+    }
+    if (t.closest('[data-k="inv-cancel"]')) { var rc = PL.billing.inviteCancel(); if (rc.error) DESK.toast(plain(rc.error.message)); else said(rc); return; }
+    if (t.closest('[data-k="inv-new"]')) { var rn = PL.billing.inviteNew(); if (rn.error) DESK.toast(plain(rn.error.message)); else said(rn); return; }
+    if ((b = t.closest('[data-edit]'))) { var p = b.getAttribute('data-edit').split('|'); ui.edit = { pid: p[0], f: p[1] }; ui.editErr = ''; render(); var i = $('[data-commit="' + b.getAttribute('data-edit') + '"]'); if (i) { i.focus(); i.select(); } return; }
+    if ((b = t.closest('[data-pkgmore]'))) { pkgMenu(b); return; }
+    if (t.closest('[data-k="np-start"]')) { startPkg(); return; }
+    if (t.closest('[data-k="np-save"]')) { savePkg(); return; }
+    if (t.closest('[data-k="np-cancel"]')) { ui.addPkg = null; ui.addErr = ''; render(); var a0 = $('[data-k="np-start"]'); if (a0) a0.focus(); return; }
+    if ((b = t.closest('[data-rmins]'))) { insertAt($('[data-rm="template"]'), b.getAttribute('data-rmins')); return; }
+    if ((b = t.closest('[data-wins]'))) { insertAt($('[data-word="' + ui.wordKind + '"]'), b.getAttribute('data-wins')); return; }
+    if (t.closest('[data-k="sv-add"]')) { startReply(); return; }
+    if (t.closest('[data-k="rp-save"]')) { saveReply(); return; }
+    if (t.closest('[data-k="rp-cancel"]')) { ui.reply = null; ui.replyErr = ''; render(); return; }
+    if ((b = t.closest('[data-svmore]'))) { replyMenu(b); return; }
+    if ((b = t.closest('[data-own]'))) { var ro = PL.programs.change(b.getAttribute('data-own'), [{ op: 'rules', rule: null }], { label: 'Back to your rules' }); if (ro.error) DESK.toast(plain(ro.error.message)); else said(ro); return; }
+    if ((b = t.closest('.seg [data-v]'))) {
+      var sg = b.closest('[data-seg]').getAttribute('data-seg'), v = b.getAttribute('data-v');
+      if (b.getAttribute('aria-pressed') === 'true') return;
+      $$('button', b.parentNode).forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); DESK.segSync(b.parentNode, true);
+      if (sg === 'step') save({ plateStep: parseFloat(v) });
+      else if (sg === 'deload') save({ deload: v });
+      else if (sg === 'theme') setTheme(v);
+      return;
+    }
+    if ((b = t.closest('[data-qrm]'))) { var s1 = settings(), qi = +b.getAttribute('data-qrm'), q0 = s1 && s1.intakeQs[qi]; if (q0 != null) save({ intakeQs: s1.intakeQs.filter(function (x, j) { return j !== qi; }) }, 'Removed from your intake: “' + q0 + '”'); return; }
+    if (t.closest('[data-qadd]')) { addQ(); return; }
+    if (t.closest('[data-setup-toggle]')) { var su = data(PL.setup.get()), rs = su && su.show ? PL.setup.hide() : PL.setup.show(); if (rs && rs.error) DESK.toast(plain(rs.error.message)); else { said(rs, su && su.show ? 'Getting started is hidden.' : 'Getting started is back on Overview.'); render(); } return; }
+    if ((b = t.closest('[data-tips-reset]'))) { if (b.disabled) return; DESK.tip.reset(); DESK.toast('The four tips show again, one at a time.'); render(); return; }
+    /* a switch row toggles from anywhere on it: its words are part of the hit area (F8.4) */
+    if (!t.closest('.sw, button, a, input, textarea, select, label') && (b = t.closest('.row.swr'))) { var sw0 = b.querySelector('.sw'); if (sw0) sw0.click(); return; }
+    if ((b = t.closest('.sw'))) {
+      var k = b.getAttribute('data-k'), on = b.getAttribute('aria-checked') !== 'true', s = settings(); if (!s) return;
+      b.setAttribute('aria-checked', String(on));
+      if (k === 'help-terms') { DESK.terms.set(on); DESK.toast(on ? 'Explain coaching words: on.' : 'Explain coaching words: off.'); return; }
+      if (k === 'rb-on') { save({ remindBefore: { on: on } }); return; }
+      if (k === 'ra-on') save({ reminders: { auto: { on: on } } });
+      else if (k === 'ra-skip') save({ reminders: { auto: { skipMeetDay: on } } });
+      else if (k === 'nt:digest') { if (!on) ui.digestAt = s.notifications.digest || ui.digestAt; save({ notifications: { digest: on ? (ui.digestAt || '07:00') : false } }); }
+      else if (k.indexOf('nt:') === 0) { var pu = {}; pu[k.slice(3)] = on; save({ notifications: { pushes: pu } }); }
+      return;
+    }
+  });
+  sd.addEventListener('input', function (e) {
+    var t = e.target;
+    if (t.hasAttribute('data-np') && ui.addPkg) { ui.addPkg[t.getAttribute('data-np')] = t.value; return; }
+    if (t.hasAttribute('data-rp') && ui.reply) { ui.reply[t.getAttribute('data-rp')] = t.value; return; }
+    if (t.hasAttribute('data-qnew')) { ui.qNew = t.value; if (ui.qErr) { ui.qErr = ''; } return; }
+    if (t.matches('[data-rm="template"]')) { var l = rmWho(), pv = $('#rm-pv'); if (l && pv) pv.textContent = rmFill(t.value, l); return; }
+    if (t.hasAttribute('data-word')) { ui.wordKind = t.getAttribute('data-word'); paintPreview(); }
+  });
+  sd.addEventListener('focusout', function (e) {
+    var t = e.target; if (!t.hasAttribute || !t.hasAttribute('data-np') || !ui.addPkg) return;
+    var er = npCheck(t.getAttribute('data-np'), t.value); if (er !== ui.addErr && (er || ui.addErr)) { ui.addErr = er; soon(); }
+  });
+  sd.addEventListener('focusin', function (e) { var t = e.target; if (t.hasAttribute && t.hasAttribute('data-word') && ui.wordKind !== t.getAttribute('data-word')) { ui.wordKind = t.getAttribute('data-word'); paintPreview(); } });
+  sd.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.hasAttribute('data-pkg')) { var p = pkgs().filter(function (x) { return x.id === t.getAttribute('data-pkg'); })[0]; if (!p) return; var o = { id: p.id, name: p.name, amount: p.amount, cadence: p.cadence, currency: p.currency || 'USD', link: p.link || '' }; o[t.getAttribute('data-f')] = t.value; var r = PL.billing.savePackage(o); if (r.error) DESK.toast(plain(r.error.message)); else said(r); return; }
+    if (t.hasAttribute('data-np') && ui.addPkg) { ui.addPkg[t.getAttribute('data-np')] = t.value; if (t.getAttribute('data-np') === 'cadence') { render(); var wk = $('[data-np="weeks"]'); if (wk) wk.focus(); } return; }
+    if (t.hasAttribute('data-commit')) { var k = t.getAttribute('data-commit'); setTimeout(function () { commitCell(k); }, 0); return; }
+    if (t.matches('[data-rm="template"]')) { saveTemplate(t); return; }
+    if (t.hasAttribute('data-ra')) { var a = {}, v = t.getAttribute('data-ra') === 'days' ? parseInt(t.value, 10) : t.value; a[t.getAttribute('data-ra')] = v; var rr = save({ reminders: { auto: a } }); if (rr.error) DESK.toast(plain(rr.error.message)); return; }
+    if (t.hasAttribute('data-rl')) { setTimeout(saveRules, 0); return; }
+    if (t.hasAttribute('data-rb')) { var rbo = {}, rk = t.getAttribute('data-rb'); rbo[rk] = rk === 'days' ? parseInt(t.value, 10) : t.value.trim() || 'Hi {first}, a heads-up: {package} is due {day}.'; var rr2 = save({ remindBefore: rbo }); if (rr2.error) DESK.toast(plain(rr2.error.message)); return; }
+    if (t.hasAttribute('data-word')) { var w = {}; w[t.getAttribute('data-word')] = t.value.trim(); var rw = save({ words: w }); if (rw.error) DESK.toast(plain(rw.error.message)); return; }
+    if (t.hasAttribute('data-rp') && t.getAttribute('data-rp') === 'text') { ui.reply.text = t.value; saveReply(true); return; }
+    if (t.hasAttribute('data-digest-at')) { ui.digestAt = t.value; save({ notifications: { digest: t.value } }); return; }
+  });
+  sd.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (t.hasAttribute('data-commit')) {
+      if (e.key === 'Enter') { e.preventDefault(); commitCell(t.getAttribute('data-commit')); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); var k = t.getAttribute('data-commit'); ui.edit = null; ui.editErr = ''; render(); var b = $('[data-edit="' + k + '"]'); if (b) b.focus(); }
+      return;
+    }
+    if (t.hasAttribute('data-np')) {
+      if (e.key === 'Enter') { e.preventDefault(); var npk = t.getAttribute('data-np'); ui.addPkg[npk] = t.value; var nx = t.tagName === 'INPUT' ? npNext(npk) : null; if (nx) nx.focus(); else savePkg(); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ui.addPkg = null; ui.addErr = ''; render(); var a = $('[data-k="np-start"]'); if (a) a.focus(); }
+      return;
+    }
+    if (t.hasAttribute('data-rl')) {
+      if (e.key === 'Enter') { e.preventDefault(); saveRules(); }
+      else if (e.key === 'Escape') { e.preventDefault(); ui.rulesErr = ''; render(); }
+      return;
+    }
+    if (t.hasAttribute('data-rp')) {
+      if (e.key === 'Enter' && (t.tagName === 'INPUT' || e.metaKey || e.ctrlKey)) { e.preventDefault(); if (t.tagName === 'INPUT') { var ta = $('[data-rp="text"]'); if (ta) ta.focus(); } else { ui.reply.text = t.value; saveReply(); } }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ui.reply = null; ui.replyErr = ''; render(); }
+      return;
+    }
+    if (t.matches('[data-rm="template"]') && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveTemplate(t); return; }
+    if (t.hasAttribute('data-qnew') && e.key === 'Enter') { e.preventDefault(); addQ(); return; }
+    if (t.hasAttribute('data-word')) {
+      if (e.key === 'Enter') { e.preventDefault(); var w = {}; w[t.getAttribute('data-word')] = t.value.trim(); save({ words: w }); }
+      else if (e.key === 'Escape') { e.preventDefault(); var s = settings(); t.value = s ? s.words[t.getAttribute('data-word')] || '' : ''; paintPreview(); }
+    }
+  });
+
+  ui.s = fromHash();
+  paintList(); render();
+})();
+</script>
+</body>
+</html>

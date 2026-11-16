@@ -1,0 +1,930 @@
+/* ui.css: the desk's components on the obsidian floor, lit from above in the place's hue (13 Nov evening: the colour is
+   back; everything else of r6/spec-b/professional.md stays): a flush solid sidebar,
+   a solid toolbar band, at most a picture card and a work card a screen, rows on hairlines, one raised solid (--pop) for
+   popovers, menus, toasts and sheets, a flush inspector pane in the card's colour. No glass, no light, no faces, no
+   status glyphs, no lift dots before words: the name carries a row and the reason says its state in words. Every raw
+   value comes from tokens.css. Hover only under (hover: hover) and (pointer: fine); press is scale(.97). The crimson is
+   the last item of the toolbar's trailing group, once a screen. */
+
+/* ================= base ================= */
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--floor); color: var(--ink); -webkit-text-size-adjust: 100%; scroll-padding-top: calc(var(--edge-h) + var(--sp-4)); }
+body {
+  margin: 0; min-height: 100dvh; color: var(--ink);
+  background-color: var(--floor);
+  font: 400 var(--fs-body)/var(--lh-body) var(--font); letter-spacing: var(--ls-body);
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+a { color: inherit; }
+svg { display: block; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); }
+/* visually hidden, read aloud: clipped to nothing and transparent, so no check (or eye) takes it for cut-off text */
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; opacity: 0; pointer-events: none; }
+.none { color: var(--ink-4); }
+/* the quietest ink steps up one where it would fall under 4.5:1: on the raised solid (--pop: popovers, menus, toasts,
+   sheets) and on a selected or open row (--fill-2 over a card) */
+.pop, dialog.sheet, .toast, .lrow.is-sel, .tbl tr.is-sel, .vbtn.is-open { --ink-4: var(--ink-quiet); }
+@media (hover: hover) and (pointer: fine) { .lrow:hover, .tbl tr[data-row]:hover, .vbtn:hover { --ink-4: var(--ink-quiet); } }
+.grow { flex: 1 1 auto; min-width: 0; }
+[hidden] { display: none !important; }
+/* the place's light from above (tokens.css --page-light): one layer for the whole window, over the floor, the sidebar,
+   the toolbar band and the page, under the inspector, the popovers, the sheets and the toasts. It adds light to the dark
+   (screen) and tints the paper in light (multiply), so every solid under it, a list column or a fade in the floor's
+   colour included, catches the same light and no seam shows; white words stay white. It takes no pointer and holds no
+   words. */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: var(--z-light); pointer-events: none;
+  background: var(--page-light); background-repeat: no-repeat; mix-blend-mode: var(--light-blend);
+}
+@media print { body::before { display: none; } }
+@view-transition { navigation: auto; }
+/* a page change is a short cross-fade; the sidebar is the same on every page and holds still */
+::view-transition-group(root) { animation-duration: var(--dur-page); animation-timing-function: var(--ease-out); }
+::view-transition-group(sidebar), ::view-transition-old(sidebar), ::view-transition-new(sidebar) { animation: none; }
+@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation-duration: 120ms !important; } }
+
+/* ================= type ================= */
+.t-large { font: 700 var(--fs-large)/var(--lh-large) var(--font); letter-spacing: var(--ls-large); text-wrap: balance; }
+.t-title { font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); text-wrap: balance; }
+.t-head { font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+.t-body { font: 400 var(--fs-body)/var(--lh-body) var(--font); }
+.t-sub { font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+.t-label { font: 500 var(--fs-label)/var(--lh-label) var(--font); letter-spacing: var(--ls-label); }
+.t-cap { font: 500 var(--fs-cap)/var(--lh-cap) var(--font); letter-spacing: var(--ls-cap); }
+.t-num { font: 800 var(--fs-num)/var(--lh-num) var(--font); letter-spacing: var(--ls-num); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); }
+.t-hero { font: 800 var(--fs-hero)/var(--lh-hero) var(--font); letter-spacing: var(--ls-hero); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); }
+/* a unit after a big number: half the number's size, inside the number's own element (<b class="t-num">142<span
+   class="unit">kg</span></b>); never under the caption size, so a unit set beside a number in body text still reads */
+.unit { font-size: max(var(--fs-cap), var(--fs-unit)); font-weight: 600; color: var(--ink-3); letter-spacing: 0; margin-left: .2em; vertical-align: baseline; text-transform: lowercase; font-stretch: 100%; }
+/* on the number's baseline, its box reaching as low as the number's (half the size, so 1.5 lines tall): kg sits with
+   the number, never under it (function-polish PX8) */
+.unit { display: inline-block; line-height: 1.5; }
+
+/* ================= the shell ================= */
+/* the sidebar: flush to the window's top, left and bottom, solid --side (a step up from the floor), one hairline on its
+   right. No glass and no light (13 Nov). Every item's words start on one line (--gut): a place's icon hangs in the
+   gutter before them; Views have no icon and keep the gutter empty. */
+.side {
+  --gut: calc(var(--sp-3) * 2 + 19px);
+  position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w); z-index: var(--z-side);
+  display: flex; flex-direction: column; padding: var(--sp-3) var(--sp-2);
+  background: var(--side); box-shadow: inset -1px 0 0 var(--line);
+  view-transition-name: sidebar; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+}
+.side::-webkit-scrollbar { display: none; }
+.side .brand { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 var(--sp-3); color: var(--ink); text-decoration: none; border-radius: var(--r-row); }
+.side .brand .mark { width: 26px; height: 26px; flex: none; }
+.side .brand b { font: 800 var(--fs-label)/1 var(--font); letter-spacing: .03em; }
+.mark .ink { fill: currentColor; }
+.mark .plate { fill: var(--brand-plate); }
+/* Find is a field (a box you type into, the field radius), not a capsule */
+.side .find {
+  display: flex; align-items: center; gap: var(--sp-2); width: 100%; height: var(--ctl-s); margin: var(--sp-2) 0 var(--sp-3); padding: 0 var(--sp-3);
+  border: 0; border-radius: var(--r-field); background: var(--fill); color: var(--ink-3); font: 500 var(--fs-sub)/1 var(--font); cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.side .find svg { width: 16px; height: 16px; flex: none; }
+.side .find kbd { margin-left: auto; font: 500 var(--fs-label)/1 var(--font); color: var(--ink-3); }
+.side nav { display: flex; flex-direction: column; gap: 2px; }
+.side .it {
+  position: relative; display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: var(--ctl-h); padding: 0 var(--sp-3);
+  border: 0; border-radius: var(--r-row); background: transparent; color: var(--ink-2); text-decoration: none; text-align: left; cursor: pointer;
+  font: 500 var(--fs-sub)/1.2 var(--font);
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.side .it:not(:has(> svg)) { padding-left: var(--gut); }
+.side .it svg { width: 19px; height: 19px; flex: none; color: var(--ink-3); }
+.side .it .l { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side .it .n { font: 500 var(--fs-label)/1 var(--font); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.side .it .n.hot { color: var(--ink); font-weight: 700; }
+.side .it[aria-current='page'] { background: var(--place-pill); color: var(--ink); font-weight: 600; }
+.side .it[aria-current='page'] svg { color: var(--place-ink); }   /* the one coloured icon: the place you are in */
+.side .side-h { margin: var(--sp-5) var(--sp-3) var(--sp-2); font: 600 var(--fs-label)/1 var(--font); color: var(--ink-3); letter-spacing: var(--ls-label); }
+.side .spacer { flex: 1 1 var(--sp-4); }
+/* the coach: two lines of words over a hairline, no circle and no box. It opens the account menu (theme, keys). */
+.side .me {
+  position: relative; display: block; width: 100%; margin-top: var(--sp-4); padding: var(--sp-2) var(--sp-3);
+  border: 0; border-radius: var(--r-row); background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.side .me::before { content: ''; position: absolute; left: var(--sp-3); right: var(--sp-3); top: calc(var(--sp-2) * -1); height: 1px; background: var(--line); }
+.side .me b { display: block; font: 600 var(--fs-sub)/1.25 var(--font); color: var(--ink); }
+.side .me small { display: block; margin-top: 2px; font: 500 var(--fs-label)/1.25 var(--font); color: var(--ink-2); }
+@media (hover: hover) and (pointer: fine) {
+  .side .it:hover:not([aria-current='page']), .side .me:hover { background: var(--fill); color: var(--ink); }
+  .side .find:hover { background: var(--fill-2); }
+}
+.side .it:active, .side .find:active, .side .me:active { transform: scale(var(--press)); }
+@media (max-height: 760px) { .side .it { min-height: var(--ctl-s); } .side .side-h { margin-top: var(--sp-4); } .side .find { margin-bottom: var(--sp-2); } }
+@media (max-width: 1280px) { .side { --gut: calc(10px * 2 + 19px); padding-left: 6px; padding-right: 6px; } .side .it { gap: 10px; padding: 0 10px; } .side .it:not(:has(> svg)) { padding-left: var(--gut); } }
+/* the sidebar's rows are 40 px to hit (44 where there is room); Find's 32 px field reaches 40 with its hit area */
+.side .it { min-height: 40px; }
+.side .find { position: relative; }
+.side .find::after { content: ''; position: absolute; inset: -4px 0; }
+/* Settings, the last place, sits apart by space alone (function-polish F8.1: no rule line) */
+.side nav[aria-label='Places'] .it[data-place-link='settings'] { margin-top: calc(var(--sp-4) - 2px); }
+/* a View is words and a count (no icon): its words line up with the places' labels */
+.side nav[aria-labelledby='views-h'] .it { padding-left: var(--gut); }
+
+/* the toolbar: a solid band across the content's top in the floor's own colour, 56 px (--edge-h); a 16 px fade of the
+   floor under it once content passes beneath (glass.css). No capsules: buttons sit on the band. The leading group
+   (back, a counter, the collapsed title) at the start, the middle group (a view switch) on the content's centre line,
+   the trailing group (secondary buttons, then the crimson) at the end. */
+.tb {
+  position: fixed; top: 0; left: var(--sidebar-w); right: 0; height: var(--edge-h); z-index: var(--z-toolbar);
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  padding: 0 var(--gutter); background: var(--floor);
+}
+.tb-lead, .tb-trail { display: flex; align-items: center; gap: var(--sp-3); min-width: max-content; height: var(--tb-h); }
+.tb-lead { justify-content: flex-start; }
+.tb-trail { justify-self: end; transition: transform var(--dur-move) var(--ease-out); }
+.tb-mid {
+  display: flex; align-items: center; justify-content: center; min-width: 0; height: var(--tb-h); padding: 0 var(--sp-3);
+  translate: var(--mid-shift, 0px) 0;
+  transition: opacity var(--dur-fast) var(--ease-out), visibility var(--dur-fast), translate var(--dur-move) var(--ease-out);
+}
+/* with the inspector open the trailing group moves left of it (desk.js keeps the middle group in the room left) */
+.has-insp .tb-trail { transform: translateX(calc(var(--gutter) - var(--inspector-w) - var(--sp-3))); }
+.has-insp.tb-crowded .tb-mid { opacity: 0; visibility: hidden; }
+body:not(.is-scrolled) .tb { pointer-events: none; }
+body:not(.is-scrolled) :is(.tb-lead, .tb-mid, .tb-trail) { pointer-events: auto; }
+body.is-fixed .tb { pointer-events: auto; }
+.desk-top { position: absolute; top: 0; left: 0; width: 1px; height: 1px; pointer-events: none; }
+/* the collapsed title: plain words (18/600), faded in by glass.css once the large title has gone under the band */
+.tb-title {
+  position: relative; display: inline-flex; align-items: center; height: var(--ctl-h); padding: 0; margin-left: var(--title-x, 0px);
+  border: 0; border-radius: var(--r-field); background: none; color: var(--ink); font: 600 var(--fs-head)/1 var(--font); letter-spacing: var(--ls-head);
+  white-space: nowrap; cursor: pointer; opacity: 0; visibility: hidden;
+}
+/* its words start on the h1's own left edge (desk.js sets --title-x, function-polish PX5); the hover fill reaches 8 px
+   past them on both sides, so the box can sit flush and the words still breathe */
+.tb-title::before { content: ''; position: absolute; inset: 0 calc(var(--sp-2) * -1); border-radius: var(--r-field); background: transparent; transition: background-color var(--dur-fast) var(--ease-out); }
+.tb-title > span { position: relative; }
+@media (hover: hover) and (pointer: fine) { .tb-title:hover::before { background: var(--hover); } }
+/* a group is a row of buttons: no capsule, no fill, no rule between them (12 px apart; .sep adds 12 px more) */
+.cluster { display: inline-flex; align-items: center; gap: var(--sp-3); }
+.cluster .sep { width: var(--sp-3); height: 1px; background: none; flex: none; }
+/* icon-only buttons on the band are quiet (a fill under the pointer); a labelled button keeps its kind */
+.tb .btn.icon:not([data-primary]) { background: transparent; box-shadow: none; }
+@media (hover: hover) and (pointer: fine) { .tb .btn.icon:not([data-primary]):hover { background: var(--fill); } }
+
+/* the page: content starts 32 px right of the sidebar and 12 px under the toolbar band; one flat floor */
+.page { position: relative; z-index: var(--z-content); min-width: 0; padding: calc(var(--edge-h) + var(--sp-3)) var(--gutter) var(--sp-10) var(--col-l); }
+.lt { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-6); margin: 0 var(--sp-1) var(--sp-6); }
+.lt h1 { margin: 0; font: 700 var(--fs-large)/var(--lh-large) var(--font); letter-spacing: var(--ls-large); text-wrap: balance; }
+.lt .facts { margin: var(--sp-2) 0 0; font: 400 var(--fs-body)/var(--lh-body) var(--font); color: var(--ink-2); }
+.lt .facts b { color: var(--ink); font-weight: 600; }
+
+/* ================= surfaces: one level ================= */
+/* a card is the one raised surface on the floor: the card colour, the neutral lit hairline on top, a soft drop. Nothing
+   inside a card has its own fill or radius (rows, sections and columns use hairlines), and no card sits in a card. */
+.card { position: relative; border-radius: var(--r-card); background: var(--card); box-shadow: var(--card-lit), var(--shadow-card); }
+/* the card of charts (a page's picture tiles, .ch) catches the place's light along its top: a sheen of the one hue over
+   its top 132 px and a lit top edge, never a glow (round 6's hero card). [data-hero] asks for it on any other card. */
+.card:has(> .ch, > * > .ch), .card.hero, .card[data-hero] { background: var(--place-sheen), var(--card); box-shadow: var(--place-rim), var(--card-lit), var(--shadow-card); }
+.sec-h { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--ctl-h); margin: 0 var(--sp-1) var(--sp-3); }
+.sec-h h2 { display: flex; align-items: baseline; gap: var(--sp-2); margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); white-space: nowrap; }
+.sec-h h2 .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.sec-h .sub { font: 400 var(--fs-sub)/var(--lh-sub) var(--font); color: var(--ink-3); white-space: nowrap; }
+/* a card's foot holds a way on (a link or a button) over a hairline, never words about the interface (lint L13) */
+.card-f { display: flex; align-items: center; gap: var(--sp-3); min-height: 48px; padding: 0 var(--sp-6); border-top: 1px solid var(--line); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+.card-f .link { margin-left: auto; }
+
+/* ================= controls: one capsule shape in three kinds ================= */
+.btn {
+  --h: var(--ctl-h);
+  position: relative;   /* positioned, so it paints in source order and holds its hit area (::after) */
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); flex: none;
+  height: var(--h); padding: 0 var(--sp-4); border: 0; border-radius: var(--r-pill);
+  background: var(--btn-2); box-shadow: var(--btn-2-edge); color: var(--ink); font: 600 var(--fs-sub)/1 var(--font); letter-spacing: 0;
+  white-space: nowrap; text-decoration: none; cursor: pointer; user-select: none;
+  transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), filter var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+.btn svg { width: 18px; height: 18px; flex: none; }
+.btn.sm { --h: var(--ctl-s); padding: 0 14px; font-size: var(--fs-label); }
+.btn.sm svg { width: 16px; height: 16px; }
+.btn.lg { --h: var(--ctl-l); padding: 0 var(--sp-5); font-size: var(--fs-body); }
+.btn.icon { width: var(--h); padding: 0; }
+.btn.quiet { background: transparent; box-shadow: none; }
+.btn.icon::after { content: ''; position: absolute; inset: calc((40px - var(--h)) / -2); }   /* ≥ 40 px to hit, 36 px to see */
+/* every button reaches 40 px to hit (a 32 px small one too); a big one is its own size */
+.btn:not(.icon)::after { content: ''; position: absolute; inset: min(0px, calc((40px - var(--h)) / -2)) 0; }
+.btn[data-primary] { background: var(--crimson); color: var(--on-crimson); box-shadow: var(--crimson-lit); }
+[data-under] .btn[data-primary] { background: var(--btn-2); color: var(--ink); box-shadow: var(--btn-2-edge); }
+.btn:active:not(:disabled) { transform: scale(var(--press)); }
+.btn:disabled, .btn[aria-disabled='true'] { opacity: .45; cursor: default; }
+.btn.is-busy { pointer-events: none; opacity: .7; }
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled) { background-color: var(--btn-2-hover); }
+  .btn.quiet:hover:not(:disabled) { background-color: var(--fill); }
+  .btn[data-primary]:hover:not(:disabled) { filter: var(--crimson-hover); }
+  [data-under] .btn[data-primary]:hover { filter: none; background-color: var(--btn-2-hover); }
+}
+.link { display: inline-flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) 0; border: 0; background: none; color: var(--ink); font: 600 var(--fs-label)/1.2 var(--font); text-decoration: none; cursor: pointer; }
+.link svg { width: 16px; height: 16px; color: var(--ink-3); }
+@media (hover: hover) and (pointer: fine) { .link:hover { text-decoration: underline; text-underline-offset: 3px; } }
+
+/* the segmented Picker: a capsule track and a thumb that moves to the choice (160 ms, ease-out) */
+.seg { position: relative; display: inline-flex; align-items: center; padding: 3px; border-radius: var(--r-pill); background: var(--fill); isolation: isolate; max-width: 100%; }
+.seg > button {
+  position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 14px; border: 0; border-radius: var(--r-pill);
+  background: transparent; color: var(--ink-2); font: 500 var(--fs-label)/1 var(--font); white-space: nowrap; cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.seg > button .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.seg > button[aria-pressed='true'], .seg > button[aria-selected='true'] { color: var(--ink); }
+.seg > button[aria-pressed='true'] .n, .seg > button[aria-selected='true'] .n { color: var(--ink-2); }
+.seg > button svg { width: 14px; height: 14px; }
+.seg > button:active { transform: scale(var(--press)); }
+/* a 30 px choice reaches 40 px to hit, inside the track's own 3 px */
+.seg > button::after { content: ''; position: absolute; inset: -5px 0; }
+/* the thumb moves on click (160 ms); a 30 px pill animates its width cheaply, so the jump is never seen */
+.seg-thumb { position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 0; width: 0; border-radius: var(--r-pill); background: var(--thumb); box-shadow: var(--shadow-thumb); transition: transform var(--dur-snap) var(--ease-out), width var(--dur-snap) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) { .seg > button:hover:not([aria-pressed='true']):not([aria-selected='true']) { color: var(--ink); } }
+
+/* fields: a search field, a number box, a composer (a field is a box you type into: the field radius) */
+.field { display: inline-flex; align-items: center; gap: var(--sp-2); height: var(--ctl-h); padding: 0 var(--sp-3) 0 14px; border-radius: var(--r-field); background: var(--fill); color: var(--ink-3); transition: box-shadow var(--dur-fast) var(--ease-out); }
+.field svg { width: 17px; height: 17px; flex: none; }
+.field input { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 400 var(--fs-sub)/1 var(--font); }
+.field input::placeholder, .input::placeholder, textarea::placeholder { color: var(--ink-3); opacity: 1; }
+.field:focus-within { box-shadow: 0 0 0 2px var(--focus); }
+.input {
+  height: var(--ctl-h); padding: 0 var(--sp-3); border: 0; border-radius: var(--r-field); background: var(--fill); box-shadow: var(--shadow-field);
+  color: var(--ink); font: 500 var(--fs-sub)/1 var(--font); font-variant-numeric: tabular-nums; outline: 0;
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+.input:focus { box-shadow: inset 0 0 0 1px var(--line-2), 0 0 0 2px var(--focus); }
+.input.is-error { box-shadow: inset 0 0 0 1.5px var(--pain); }
+.input.changed { box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+textarea.input { height: auto; min-height: 76px; max-height: 40vh; padding: var(--sp-3); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); resize: vertical; field-sizing: content; }   /* grows with the words */
+.err { margin: var(--sp-2) 0 0; color: var(--pain); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+/* a tick (a button with role=checkbox): a change that rides along with a reply, on by default. An 18 px box, ink when
+   ticked, its 12 px check in the card's colour; ticks in a column sit 8 px apart */
+.tick { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); padding: 0; border: 0; background: none; color: var(--ink); font: 500 var(--fs-label)/var(--lh-label) var(--font); text-align: left; cursor: pointer; }
+.tick + .tick { margin-top: var(--sp-2); }
+.tick i { display: grid; place-items: center; flex: none; width: 18px; height: 18px; border-radius: var(--r-mark); background: transparent; box-shadow: var(--shadow-field); color: transparent; transition: background-color var(--dur-fast) var(--ease-out); }
+.tick i svg { width: 12px; height: 12px; }
+.tick[aria-checked='true'] i { background: var(--ink); color: var(--card); box-shadow: none; }
+.tick:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-mark); }
+.tick:active i { transform: scale(var(--press)); }
+
+/* ================= status in words ================= */
+/* the name carries the row; the reason says the state in words, in its tone (no faces, no status glyphs) */
+.tone-pain { --tone: var(--pain); } .tone-warn { --tone: var(--warn); } .tone-gold { --tone: var(--gold); } .tone-words { --tone: var(--words); }
+.tone-up { --tone: var(--up); } .tone-quiet { --tone: var(--ink-3); } .tone-bw { --tone: var(--bw); } .tone-ink { --tone: var(--ink-2); }
+/* a word in its status colour (<span class="tw tone-warn">12 days late</span>): one per row at most (lint L15) */
+.tw { color: var(--tone, inherit); }
+
+/* ================= lists: rows on hairlines ================= */
+.list { padding: var(--sp-2); }
+.lrow {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; column-gap: var(--sp-4);
+  min-height: var(--row-h); padding: var(--sp-2) var(--sp-4); border-radius: var(--r-row); cursor: pointer; outline: 0;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.lrow + .lrow::before { content: ''; position: absolute; top: 0; left: var(--sp-4); right: var(--sp-4); height: 1px; background: var(--line); transition: opacity var(--dur-fast) var(--ease-out); }
+.lrow.c3 { grid-template-columns: minmax(0, 1fr) auto; }
+.lrow.c2 { grid-template-columns: minmax(0, 1fr); }
+/* a two-line row (a thread, a program, a lifter): the name and its end item on line one, the reason or their words under */
+.lrow.two { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n e' 't t'; align-items: baseline; row-gap: 2px; padding-top: var(--sp-3); padding-bottom: var(--sp-3); }
+.lrow.two > .nm { grid-area: n; }
+.lrow.two > .when, .lrow.two > .ctx { grid-area: e; }
+.lrow.two > .why { grid-area: t; }
+.lrow.two .why .t { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-overflow: clip; text-wrap: pretty; }
+.lrow:focus-visible { box-shadow: inset 0 0 0 2px var(--focus); }
+.lrow.is-sel { background: var(--place-sel); }
+.lrow.is-sel::before, .lrow.is-sel + .lrow::before { opacity: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .lrow:where(:not(.is-sel)):hover { background: var(--hover); }
+  .lrow:hover::before, .lrow:hover + .lrow::before { opacity: 0; }
+}
+.lrow .who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lrow .nm { color: var(--ink); font: 600 var(--fs-body)/var(--lh-sub) var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lrow .why { display: block; min-width: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+.lrow .why .t { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* flat rows start under their heading (function-polish PX2): no inset at rest, the hover fill reaches 12 px out on both
+   sides; the hairlines between them run the whole width */
+.flat .lrow { padding-inline: 0; }
+.flat .lrow + .lrow::before { left: 0; right: 0; }
+@media (hover: hover) and (pointer: fine) { .flat .lrow:hover { margin-inline: calc(var(--sp-3) * -1); padding-inline: var(--sp-3); } }
+/* pain is the one reason that takes its colour, at 500 (triage: pain first); every other reason is words in ink-2 */
+.lrow .why[data-tone='pain'] { color: var(--pain); font-weight: 500; }
+/* a row's context is one quiet style (sub, 500, ink-3); only the figure inside it ("up 11", "12 days") steps up to ink-2
+   at the same size and weight, so the fix beside it stays the one ink-600 thing on the right */
+.lrow .ctx { color: var(--ink-3); font: 500 var(--fs-sub)/1.2 var(--font); text-align: right; white-space: nowrap; }
+.lrow .ctx .fig { color: var(--ink-2); font-weight: 500; font-variant-numeric: tabular-nums; }
+.lrow .when { color: var(--ink-3); font: 500 var(--fs-label)/1.2 var(--font); white-space: nowrap; }
+.lrow .act { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }
+/* a row's fix is the quiet text kind (ink, 600, no fill), so a list reads as words, not a column of pills. It fills as the
+   filled secondary only on the row in hand (the inspector's row, the walk's step) and under the pointer or the keys. */
+.lrow .fix { background: transparent; box-shadow: none; }
+.lrow.is-sel .fix, .lrow:focus-within .fix { background: var(--btn-2); box-shadow: var(--btn-2-edge); }
+@media (hover: hover) and (pointer: fine) { .lrow:hover .fix { background: var(--btn-2); box-shadow: var(--btn-2-edge); } .lrow .fix:hover:not(:disabled) { background-color: var(--btn-2-hover); } }
+/* a row that slid under a pointer that has not moved (a move redrew the list) is not under the coach's hand: it stays
+   unlit, its fix quiet, until the pointer moves. desk.js marks the redrawn [data-list] or [data-table] .is-still and
+   clears it on the next pointer move, so a picture after a move never shows a second row lit as if selected. */
+@media (hover: hover) and (pointer: fine) {
+  .is-still .lrow:not(.is-sel):hover { background: transparent; }
+  .is-still .lrow:not(.is-sel):not(.is-sel + .lrow):hover::before,
+  .is-still .lrow:not(.is-sel):hover + .lrow:not(.is-sel)::before { opacity: 1; }
+  .is-still .lrow:not(.is-sel):not(:focus-within):hover .fix:not(:hover, .is-open) { background: transparent; box-shadow: none; }
+  .is-still tr[data-row]:not(.is-sel):hover td { background: transparent; }
+  .is-still tr[data-row]:not(.is-sel):not(:focus-within):hover .fix:not(:hover, .is-open) { background: transparent; box-shadow: none; }
+}
+.done-tick { display: inline-flex; align-items: center; gap: 6px; max-width: 260px; color: var(--ink-2); font: 500 var(--fs-label)/1.2 var(--font); }
+.done-tick svg { width: 16px; height: 16px; color: var(--up); flex: none; }
+.done-tick span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the shared done row (shared.md §9): a move made on a row. The name stays; the reason and the fix give way to a 16 px
+   tick in the gain colour (the one icon a row may show), the act's done words, the time, a quiet Undo, then the read
+   receipt ("Not seen yet", "Seen 08:40"). One line, no middle dots: space separates them. In a two-line row it takes the
+   reason's line. <div class="done-row"><svg class="ok">…</svg><span class="dw">Moved to Saturday, told Kofi</span>
+   <time class="at">07:31</time><button class="btn quiet sm" data-undo>Undo</button><span class="rc">Not seen yet</span></div> */
+.done-row { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; color: var(--ink-2); font: 500 var(--fs-label)/1.3 var(--font); }
+.done-row > svg { width: 16px; height: 16px; flex: none; color: var(--up); }
+.done-row .dw { min-width: 0; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.done-row .at, .done-row time { flex: none; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.done-row .rc { flex: none; color: var(--ink-3); white-space: nowrap; }
+.done-row .btn { flex: none; margin: 0 calc(var(--sp-2) * -1); padding: 0 var(--sp-2); background: transparent; box-shadow: none; color: var(--ink); font-size: var(--fs-label); }
+@media (hover: hover) and (pointer: fine) { .done-row .btn:hover:not(:disabled) { background-color: var(--fill); } }
+.lrow.two > .done-row { grid-area: t; }
+.lrow > .done-row { grid-column: 2 / -1; }
+.lrow.c2 > .done-row, .lrow.two > .done-row { grid-column: auto; }
+
+/* ================= picture tiles: a card of charts, each tile a picture under its name and number, a sentence under it =================
+   The Roster's five charts, a lifter's four tiles, a team's three: each tile is one control for its people (a filter
+   toggle, aria-pressed, or a popover, .is-open), hairlines between tiles, the tile in hand on a fill. */
+.ch {
+  position: relative; display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; padding: var(--sp-4) var(--sp-4) var(--sp-4) var(--sp-5);
+  border: 0; border-radius: var(--r-row); background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.ch + .ch::before { content: ''; position: absolute; left: 0; top: var(--sp-6); bottom: var(--sp-6); width: 1px; background: var(--line); transition: opacity var(--dur-fast) var(--ease-out); }
+.ch[aria-pressed='true'], .ch.is-open { background: var(--place-sel); }
+.ch[aria-pressed='true']::before, .ch[aria-pressed='true'] + .ch::before, .ch.is-open::before, .ch.is-open + .ch::before { opacity: 0; }
+.ch:active { transform: scale(.985); }
+@media (hover: hover) and (pointer: fine) { .ch:where(:not([aria-pressed='true'], .is-open)):hover { background: var(--hover); } .ch:hover::before, .ch:hover + .ch::before { opacity: 0; } }
+.ch-h { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+.ch-h b { font: 600 var(--fs-sub)/var(--lh-tight) var(--font); white-space: nowrap; }
+.ch-h span { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); white-space: nowrap; }
+.ch-v { font: 800 var(--fs-num)/var(--lh-num) var(--font); letter-spacing: var(--ls-num); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); white-space: nowrap; }
+.ch-v.words { font-stretch: 100%; }
+.ch-f { min-height: 2.6em; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
+
+/* ================= Swift-Charts-like marks (charts.js draws them) ================= */
+.plot { position: relative; height: 64px; }
+/* bars: this week over last week's ghost, rounded marks, a label per day */
+.bars { display: grid; grid-template-columns: repeat(var(--n, 7), minmax(0, 1fr)); gap: 6px; height: 100%; }
+.bars .d { display: grid; grid-template-rows: minmax(0, 1fr) auto; justify-items: center; row-gap: 6px; min-width: 0; }
+.bars .b { position: relative; width: 100%; max-width: 16px; height: 100%; }
+.bars .b i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: var(--r-mark); }
+.bars .b .ghost { background: var(--fill-2); }
+.bars .b .now { background: var(--mark, var(--up)); }
+.bars .lab { color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); letter-spacing: var(--ls-cap); }
+.bars .today .lab { color: var(--ink); font-weight: 700; }
+/* horizontal bars, one per lift, labelled at the line end */
+.hbars { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-2); row-gap: 7px; height: 100%; align-content: center; }
+.hbars .k { display: inline-flex; align-items: center; gap: 6px; font: 500 var(--fs-label)/1 var(--font); color: var(--ink-2); white-space: nowrap; }
+.hbars .t { height: 8px; }
+.hbars .t i { display: block; height: 100%; border-radius: var(--r-pill); background: var(--lc, var(--place)); }
+.hbars .v { font: 600 var(--fs-label)/1 var(--font); color: var(--ink); font-variant-numeric: tabular-nums; text-align: right; }
+/* diverging columns around a rule: harder above, easier below */
+.div { position: relative; display: flex; align-items: stretch; gap: 3px; height: 100%; padding-right: 48px; }
+.div::before { content: ''; position: absolute; left: 0; right: 48px; top: 50%; height: 1px; background: var(--line-2); }
+.div .c { position: relative; flex: 1 1 0; max-width: 9px; min-width: 2px; }
+.div .c i { position: absolute; left: 0; right: 0; border-radius: var(--r-mark); background: var(--mark, var(--ink-3)); }
+.div .c i.up { bottom: 50%; --mark: var(--warn); }
+.div .c i.dn { top: 50%; --mark: var(--bw); }
+.div .c i.on { top: calc(50% - 2px); height: 4px; --mark: var(--up); }   /* as written: on the rule, in the gain colour (a session done as planned) */
+.div .ax { position: absolute; right: 0; font: 500 var(--fs-cap)/1 var(--font); color: var(--ink-3); }
+.div .ax.hi { top: 0; } .div .ax.lo { bottom: 0; }
+/* a dot per lifter */
+.waffle { display: grid; grid-template-columns: repeat(10, 12px); justify-content: space-between; align-content: center; row-gap: 10px; height: 100%; }
+.waffle i { width: 12px; height: 12px; border-radius: 50%; background: var(--tone, var(--ink-3)); }
+.waffle i.none { background: transparent; border: 1.5px solid var(--ink-4); }
+/* points on a time axis */
+.tl { position: relative; height: 100%; }
+.tl .ax { position: absolute; left: 0; right: 0; top: 22px; height: 2px; border-radius: var(--r-pill); background: var(--fill-2); }
+.tl .tk { position: absolute; top: 18px; width: 1px; height: 10px; background: var(--line-2); }
+.tl .m { position: absolute; top: 23px; display: grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; translate: -50% -50%; background: var(--gold-edge); color: var(--on-mark); font: 700 var(--fs-cap)/1 var(--font); }
+.tl .m.many { width: 24px; height: 24px; }
+/* today's meet: the same solid disc, 2 px larger, the count inside; no ring around it (function-polish P4) */
+.tl .m.now { width: 16px; height: 16px; }
+.tl .m.many.now { width: 26px; height: 26px; }
+.tl .lab { position: absolute; bottom: 0; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); white-space: nowrap; }
+.tl .lab.l { left: 0; } .tl .lab.r { right: 0; }
+/* a line chart (inline SVG), labelled at the line end, quiet grid */
+.lchart { position: relative; border-radius: var(--r-field); }
+.lchart:focus-visible { outline-offset: 4px; }
+.lchart svg { overflow: visible; }
+/* the readout (charts.js): a hairline at the point, the point ringed, its words on a small solid tag at the chart's top */
+.lchart .scrub { stroke: var(--line-2); stroke-width: 1; }
+.lchart .sdot { fill: var(--c, var(--place)); stroke: var(--pt-ring, var(--card)); stroke-width: 2; }
+.lchart .ch-tip { position: absolute; top: 0; z-index: 1; padding: 5px var(--sp-2); border-radius: var(--r-field); background: var(--card-3); box-shadow: var(--shadow-thumb); color: var(--ink); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+.lchart .grid { stroke: var(--line); stroke-width: 1; }
+.lchart .ln { fill: none; stroke: var(--c, var(--place)); stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.lchart .ln.ctx { opacity: .4; }   /* before the window a change is measured over (CH.line win): context, not the subject */
+.lchart .area { fill: var(--c, var(--place)); opacity: .12; }
+.lchart .pt { fill: var(--c, var(--place)); stroke: var(--pt-ring, var(--card)); stroke-width: 2; }
+.lchart .yl { position: absolute; right: 0; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-variant-numeric: tabular-nums; translate: 0 -50%; }
+.lchart .xl { display: flex; justify-content: space-between; margin-top: var(--sp-2); color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); }
+.legend { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-3); row-gap: var(--sp-1); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+/* a square swatch in the mark's colour, never a dot */
+.legend i { width: 8px; height: 8px; border-radius: var(--r-mark); background: var(--tone, var(--ink-3)); flex: none; }
+.legend i.ghost { background: var(--fill-2); }
+.legend i.none { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-4); }
+.legend i.lift { background: var(--lc); }   /* a lift's swatch (CH.legend { lift }) */
+.legend i.place { background: var(--place); }
+
+/* the lifts' colours: a class (.lc-squat) or an attribute (data-lift="squat") sets them for what is inside; text that
+   carries data-lift is written in the lift's ink (the end of this file). Sessions stay words ("1 of 3"), never pips, and
+   no dot stands before a lift's name: the name itself wears the colour. */
+.lc-squat, [data-lift='squat'] { --lc: var(--sq); --lc-ink: var(--sq-ink); }
+.lc-bench, [data-lift='bench'] { --lc: var(--bp); --lc-ink: var(--bp-ink); }
+.lc-deadlift, [data-lift='deadlift'] { --lc: var(--dl); --lc-ink: var(--dl-ink); }
+.lc-bw, [data-lift='bw'] { --lc: var(--bw); --lc-ink: var(--bw); }
+
+/* ================= the labelled table ================= */
+.tbl { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.tbl th { height: 44px; padding: 0 var(--sp-3); text-align: left; vertical-align: middle; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); letter-spacing: var(--ls-label); white-space: nowrap; }
+.tbl th.n, .tbl td.n { text-align: right; }
+/* the first left-aligned column after a right-aligned number keeps 32 px from it (function-polish PX9) */
+.tbl th.n + th:not(.n), .tbl td.n + td:not(.n) { padding-left: var(--sp-7); }
+.tbl th button {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 -6px; padding: 6px; border: 0; border-radius: var(--r-field); background: none;
+  color: inherit; font: inherit; cursor: pointer; white-space: nowrap; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.tbl th.n button { flex-direction: row-reverse; }
+.tbl th button svg { width: 14px; height: 14px; transition: transform var(--dur-snap) var(--ease-out); }
+.tbl th[aria-sort='ascending'] button, .tbl th[aria-sort='descending'] button { color: var(--ink); }
+.tbl th[aria-sort='ascending'] button svg { transform: rotate(180deg); }
+.tbl td { height: var(--trow-h); padding: 0 var(--sp-3); border-top: 1px solid var(--line); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); white-space: nowrap; vertical-align: middle; }
+.tbl td.v { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); }
+.tbl tr[data-row] { cursor: pointer; outline: 0; }
+.tbl tr[data-row]:focus-visible td { box-shadow: inset 0 2px 0 var(--focus), inset 0 -2px 0 var(--focus); }
+.tbl tr[data-row].is-sel td { background: var(--place-sel); }
+@media (hover: hover) and (pointer: fine) { .tbl tr[data-row]:where(:not(.is-sel)):hover td { background: var(--hover); } .tbl th button:hover { background: var(--fill); color: var(--ink); } }
+/* a row's fix in a table is the quiet text kind too, filled only on the row in hand, under the pointer or the keys (.lrow .fix) */
+.tbl tr[data-row] .fix { background: transparent; box-shadow: none; }
+.tbl tr[data-row].is-sel .fix, .tbl tr[data-row]:focus-within .fix { background: var(--btn-2); box-shadow: var(--btn-2-edge); }
+@media (hover: hover) and (pointer: fine) { .tbl tr[data-row]:hover .fix { background: var(--btn-2); box-shadow: var(--btn-2-edge); } .tbl tr[data-row] .fix:hover:not(:disabled) { background-color: var(--btn-2-hover); } }
+.tbl tr.grp td { height: 52px; padding-top: var(--sp-4); border-top: 0; color: var(--ink); font: 600 var(--fs-sub)/1 var(--font); }
+.tbl tr.grp td .n { margin-left: var(--sp-2); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.tbl .who { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.tbl .who b { min-width: 0; color: var(--ink); font: 600 var(--fs-sub)/1.2 var(--font); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbl .st { display: inline-flex; align-items: center; gap: 6px; max-width: calc(100% + 16px); min-width: 0; text-align: left; }
+.tbl .st .t { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vbtn {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; margin: -5px -8px; padding: 5px 8px; border: 0; border-radius: var(--r-field);
+  background: none; color: inherit; font: inherit; text-align: inherit; cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.tbl .vbtn { vertical-align: middle; }
+.tbl .st .t { line-height: 1.4; }
+.none-t { color: var(--ink-3); }
+.vbtn:active { transform: scale(var(--press)); }
+.vbtn.is-open { background: var(--fill-2); }
+@media (hover: hover) and (pointer: fine) { .vbtn:hover { background: var(--fill-2); } }
+.up-txt { color: var(--up); } .dn-txt { color: var(--warn); }
+/* a status word, never a tinted chip */
+.badge { display: inline-flex; align-items: center; height: auto; padding: 0; border-radius: 0; background: none; color: var(--tone, var(--ink-2)); font: 600 var(--fs-label)/1.2 var(--font); }
+.badge svg { display: none; }
+.empty { padding: var(--sp-7) var(--sp-6); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-align: center; }
+
+/* ================= floating: popover, inspector, toast, sheets ================= */
+/* a popover or a menu: the raised solid (--pop), a hairline ring and a soft drop, grown from its trigger. Never taller
+   than the room desk.js gives it; a long list scrolls in .pop-b between 12 px fades. */
+.pop[popover], .pop {
+  position: fixed; inset: auto; margin: 0; width: 352px; max-width: calc(100vw - 32px); max-height: calc(100dvh - var(--edge-h) - var(--sp-2) - var(--sp-3)); overflow: hidden;
+  padding: var(--sp-5); border: 0; border-radius: var(--r-pop); background: var(--pop); color: var(--ink); box-shadow: var(--shadow-pop); z-index: var(--z-pop);
+  transform-origin: var(--ox, 0) var(--oy, 0);
+  opacity: 0; transform: scale(.97);
+  transition: opacity var(--dur-exit-snap) var(--ease-out), transform var(--dur-exit-snap) var(--ease-out), display var(--dur-exit-snap) allow-discrete, overlay var(--dur-exit-snap) allow-discrete;
+}
+.pop:popover-open { opacity: 1; transform: none; transition-duration: var(--dur-snap); }
+@starting-style { .pop:popover-open { opacity: 0; transform: scale(.97); } }
+.pop:popover-open:has(> .pop-b) { display: flex; flex-direction: column; }
+.pop > .pop-b {
+  flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: calc(var(--sp-3) * -1) 0; padding: var(--sp-3) 0;
+  -webkit-mask-image: linear-gradient(transparent, #000 var(--sp-3), #000 calc(100% - var(--sp-3)), transparent);
+  mask-image: linear-gradient(transparent, #000 var(--sp-3), #000 calc(100% - var(--sp-3)), transparent);
+}
+/* a popover opened with { hold: true } belongs to the moment it opened in, as a Mac popover over scrolled content does:
+   it shows only while the page sits within 24 px of where it opened (a scroll-driven range, gone in the very frame the
+   page moves), and desk.js closes it once the page has moved (an IntersectionObserver, no scroll listener) */
+@supports (animation-timeline: scroll()) {
+  .pop.is-held { animation: r6-held linear both; animation-timeline: scroll(root block); animation-range: calc(var(--s0, 0px) - 24px) calc(var(--s0, 0px) + 24px); }
+}
+@keyframes r6-held { from, to { visibility: hidden; } 1%, 99% { visibility: visible; } }
+.pop.is-cut[popover], .pop.is-cut[popover]:not(:popover-open) { transition: none; }
+.pop-pin { position: absolute; left: 0; width: 1px; height: 1px; pointer-events: none; }   /* where a held popover from the toolbar watches the page */
+/* a person in a popover: a row per lifter (name, a sub-line, a value if it has one), each opening them; no face, no chevron */
+.pop .pick {
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-flow: column; grid-auto-columns: auto; align-items: center; column-gap: var(--sp-3);
+  width: 100%; min-height: 52px; padding: var(--sp-2) 0; border: 0; border-top: 1px solid var(--line); background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer;
+}
+.pop .pick .pk { min-width: 0; }
+.pop .pick b { display: block; font: 600 var(--fs-sub)/var(--lh-tight) var(--font); }
+.pop .pick small { display: block; margin-top: 2px; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+.pop .pick .v { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pop .pick:focus-visible { outline-offset: -2px; }
+.pop h3 { margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+.pop .who-l { margin: 2px 0 var(--sp-4); color: var(--ink-2); font: 500 var(--fs-label)/1.3 var(--font); }
+.pop .kv { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); padding: 9px 0; border-top: 1px solid var(--line); color: var(--ink-2); font: 500 var(--fs-sub)/1.3 var(--font); }
+.pop .kv b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.pop .kv small { color: var(--ink-3); font: 500 var(--fs-label)/1 var(--font); }
+.pop .lede { margin: var(--sp-3) 0; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+.pop .row-f { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-4); }
+.pop .row-f label { flex: 1; color: var(--ink-2); font: 500 var(--fs-label)/1.3 var(--font); }
+.pop .row-f .input { width: 96px; text-align: right; }
+.pop .acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-4); }
+.pop .note { margin: var(--sp-2) 0 0; color: var(--ink-3); font: 500 var(--fs-label)/1.3 var(--font); }
+.pop .days { display: flex; gap: 4px; margin: 2px 0 var(--sp-2) 22px; }
+.pop .days button { height: 28px; min-width: 38px; padding: 0 8px; border: 0; border-radius: var(--r-pill); background: var(--fill); color: var(--ink-2); font: 500 var(--fs-label)/1 var(--font); cursor: pointer; }
+.pop .days button:disabled { opacity: .45; cursor: default; }
+/* the day a session sits on now: the segmented thumb's look, so the pills read as one picker */
+.pop .days button[aria-pressed='true'] { background: var(--thumb); color: var(--ink); box-shadow: var(--shadow-thumb); }
+@media (hover: hover) and (pointer: fine) { .pop .days button:hover:not(:disabled):not([aria-pressed='true']) { background: var(--fill-2); color: var(--ink); } }
+
+/* a menu fits its words, 200 to 280 px (function-polish PX7), and hangs from its own button (desk.js) */
+.pop[data-layer='menu'] { width: max-content; min-width: 200px; max-width: min(280px, calc(100vw - 32px)); }
+/* menus in a popover (DESK.menu): a title, items with an optional second line, a tick for the chosen one, red words for
+   the destructive one (never a filled red), separators; ↑ ↓ Home End move between items */
+.mn { display: flex; flex-direction: column; gap: 2px; margin: calc(var(--sp-2) * -1) calc(var(--sp-3) * -1); }
+.mn-h { margin: var(--sp-1) var(--sp-3) var(--sp-2); color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-label) var(--font); }
+/* a note in a menu or picker sits at the inset of its heading and its items (the menu's negative margins would put a
+   bare paragraph 12 px out of line) */
+.mn > .note { margin: var(--sp-2) var(--sp-3) var(--sp-1); text-wrap: pretty; }
+.mi {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-3); min-height: 40px; padding: var(--sp-1) var(--sp-3);
+  border: 0; border-radius: var(--r-row); background: transparent; color: var(--ink); text-align: left; font: 500 var(--fs-sub)/var(--lh-label) var(--font); cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.mi > :first-child:last-child { grid-column: 1 / -1; }
+.mi[role='menuitemradio'] { grid-template-columns: minmax(0, 1fr) auto; }   /* the choice, then its tick at the end */
+.mi svg:not(.ck) { display: none; }   /* menu items are words; the check marks the chosen one */
+.mi small { display: block; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+.mi .mi-t { min-width: 0; }
+.mi .mi-t b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mi.is-red { color: var(--pain); }
+.mi:disabled { opacity: .45; cursor: default; }
+.mi .ck { width: 16px; height: 16px; color: transparent; }
+.mi[aria-checked='true'] .ck, .mi.is-cur .ck { color: var(--ink); }
+.mi.is-hi { background: var(--fill-2); }
+.mi:focus-visible { outline-offset: -2px; }
+.mn-sep { height: 1px; margin: var(--sp-1) var(--sp-3); background: var(--line); }
+@media (hover: hover) and (pointer: fine) { .mi:hover:not(:disabled) { background: var(--fill-2); } }
+.mi:active:not(:disabled) { background: var(--fill-3); }
+
+/* the inspector: a solid pane flush to the window's right edge, top to bottom, the card's colour, a hairline on its
+   left and a soft drop to its left; non-modal (the page beside it is data-under, its crimson quiet). It clips; only its
+   body scrolls, between fades. */
+.insp {
+  position: fixed; top: 0; right: 0; bottom: 0; width: var(--inspector-w); z-index: var(--z-insp);
+  display: flex; flex-direction: column; background: var(--card); box-shadow: inset 1px 0 0 var(--line), var(--shadow-pane); color: var(--ink); overflow: clip;
+  opacity: 1; transform: none;
+  transition: opacity var(--dur-move) var(--ease-out), transform var(--dur-move) var(--ease-out), display var(--dur-move) allow-discrete;
+}
+@starting-style { .insp { opacity: 0; transform: translateX(16px); } }
+.insp.is-leaving { opacity: 0; transform: translateX(16px); transition-duration: var(--dur-exit-move); pointer-events: none; }
+.insp-h { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; column-gap: var(--sp-4); padding: var(--sp-5) var(--sp-5) 0; }
+.insp-h .nm { margin: 0; font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.insp-h .facts { margin: 4px 0 0; color: var(--ink-2); font: 500 var(--fs-label)/1.35 var(--font); text-wrap: pretty; }
+.insp-h .facts .keep { white-space: nowrap; }
+.insp-h .links { display: flex; flex-wrap: wrap; column-gap: var(--sp-4); margin-top: 6px; }
+/* the body fades at both edges (scroll edges, no hairline): under the pinned head, a card scrolled up dissolves over 16 px
+   instead of being sliced, and above the walk controls the rest runs on under a fade. At rest each fade covers only the
+   body's own padding (16 px on top, the head's old gap; 48 px under the last box), so it shows only while content runs
+   under it. DESK.insp.reveal lands a target just under the top fade. */
+.insp-b {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-4) var(--sp-5) var(--sp-9); scrollbar-width: thin;
+  -webkit-mask-image: linear-gradient(transparent, #000 var(--sp-4), #000 calc(100% - var(--sp-8)), transparent);
+  mask-image: linear-gradient(transparent, #000 var(--sp-4), #000 calc(100% - var(--sp-8)), transparent);
+}
+/* the walk controls sit at the pane's foot over a hairline */
+.insp-f { position: relative; display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-top: 1px solid var(--line); }
+.insp-f .pos { flex: 1; min-width: 0; text-align: center; color: var(--ink-2); font: 500 var(--fs-label)/1.2 var(--font); }
+/* the numbers: one row of three with a hairline under it, no box */
+.istrip { display: grid; grid-template-columns: 1.3fr 1fr 1fr; column-gap: var(--sp-3); padding: 0 0 var(--sp-4); border-bottom: 1px solid var(--line); }
+.istrip > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.istrip .k { color: var(--ink-2); font: 500 var(--fs-cap)/var(--lh-cap) var(--font); letter-spacing: var(--ls-cap); white-space: nowrap; }
+.istrip .big { font: 800 var(--fs-num)/var(--lh-num) var(--font); letter-spacing: var(--ls-num); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); white-space: nowrap; }
+.istrip .mid { font: 600 var(--fs-body)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.istrip .nt { color: var(--ink-2); font: 500 var(--fs-cap)/var(--lh-cap) var(--font); text-wrap: pretty; }
+.istrip .chg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+/* a change in words, never a tinted pill: "+14.6 kg" in the gain colour */
+.pill { display: inline; height: auto; padding: 0; border-radius: 0; background: none; color: var(--tone, var(--ink-2)); font: 600 var(--fs-label)/1.2 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill.up { --tone: var(--up); }
+
+/* an item folded to one line in a pane: words only (no glyph, no chevron); it opens in place to its moves. The fill
+   under the pointer reaches 8 px past the words, so the words line up with the section's title. */
+.fold { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; width: calc(100% + var(--sp-4)); min-height: 44px; margin: 0 calc(var(--sp-2) * -1); padding: var(--sp-2); border: 0; border-radius: var(--r-row); background: none; color: var(--ink); text-align: left; font: 500 var(--fs-sub)/var(--lh-sub) var(--font); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out); }
+.fold:focus-visible { outline-offset: -2px; }
+.fold .t { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
+.fold .t b { font-weight: 600; }
+.fold .t span { color: var(--ink-2); }
+@media (hover: hover) and (pointer: fine) { .fold:hover { background: var(--hover); } }
+.fold-b { padding: 0 0 var(--sp-3); }
+.fold-b p { margin: 0; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+.fold-b .acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+.box > .fold + .fold, .box > .bi + .fold, .box > .fold-b + .fold, .box > .fold + .bi, .box > .fold-b + .bi { border-top: 1px solid var(--line); }
+.box > .done-line { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding-top: 6px; padding-bottom: 6px; }
+.ig { margin-top: var(--sp-6); }
+.ig-h { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); margin: 0 0 var(--sp-2); }
+.ig-h h3 { margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+.ig-h span { color: var(--ink-3); font: 500 var(--fs-label)/1 var(--font); white-space: nowrap; }
+/* a section in a pane: its rows on hairlines, no fill and no radius (13 Nov: no boxes in panels) */
+.box { border-radius: 0; background: none; overflow: visible; }
+.box > .bi { padding: var(--sp-3) 0; }
+.box > .bi + .bi { border-top: 1px solid var(--line); }
+.item h4 { display: block; margin: 0; font: 600 var(--fs-body)/var(--lh-sub) var(--font); text-wrap: pretty; }
+.item p { margin: 6px 0 0; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+.item .acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin: var(--sp-3) 0 2px; }
+.item.is-done h4 { color: var(--ink-2); }
+.kvr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; column-gap: var(--sp-3); padding: 10px 0; }
+.kvr + .kvr { border-top: 1px solid var(--line); }
+.kvr .k { display: block; min-width: 0; color: var(--ink-2); font: 500 var(--fs-sub)/1.3 var(--font); }
+.kvr .v { color: var(--ink); font: 600 var(--fs-sub)/1.3 var(--font); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.kvr .nt { grid-column: 1 / -1; color: var(--ink-3); font: 500 var(--fs-label)/1.3 var(--font); }
+.ses { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-3); padding: 10px 0; }
+.ses + .ses { border-top: 1px solid var(--line); }
+.ses .when { color: var(--ink-3); font: 500 var(--fs-label)/1.2 var(--font); white-space: nowrap; }
+.ses .what { min-width: 0; color: var(--ink); font: 600 var(--fs-sub)/1.3 var(--font); }
+.ses .what small { display: block; color: var(--ink-2); font: 500 var(--fs-label)/1.3 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ses .st { color: var(--tone, var(--ink-2)); font: 600 var(--fs-label)/1 var(--font); white-space: nowrap; }
+.ses .st svg { display: none; }   /* "As written", "To come": words */
+.insp .nx { display: grid; grid-template-columns: minmax(0, 1fr) auto 96px; align-items: center; column-gap: var(--sp-3); padding: 8px 0; }
+.insp .nx + .nx { border-top: 1px solid var(--line); }
+.insp .nx .ex { display: block; min-width: 0; color: var(--ink); font: 600 var(--fs-sub)/1.3 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.insp .nx .ex.then { color: var(--ink-3); font-weight: 500; padding-left: var(--sp-4); }
+.insp .nx .rx { color: var(--ink-2); font: 500 var(--fs-sub)/1 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.insp .nx .input { width: 100%; height: var(--ctl-s); text-align: right; }
+/* a message: theirs a raised card-2 bubble with a hairline, yours the lighter fill (on a card and in the inspector) */
+.bubble { padding: var(--sp-3) var(--sp-4); border-radius: var(--r-pop); background: var(--card-2); box-shadow: var(--shadow-field); color: var(--ink); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+.bubble.me { background: var(--fill-3); box-shadow: none; }
+.bubble small { display: block; margin-top: 6px; color: var(--ink-3); font: 500 var(--fs-label)/1 var(--font); }
+.bubble.me small { color: var(--ink-2); }
+.composer { margin-top: var(--sp-3); }
+.composer .input { width: 100%; }
+.composer .row { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); }
+.reply { display: flex; align-items: flex-end; gap: var(--sp-2); margin-top: var(--sp-3); }
+.reply textarea.input { flex: 1; min-height: var(--ctl-h); max-height: 30vh; padding: 8px var(--sp-3); resize: none; field-sizing: content; }
+
+/* toasts: what changed (and the exact words sent, in quotes), with Undo; never take focus. The raised solid, hanging
+   at the window's bottom left, over the sidebar's foot, so it never covers the toolbar, the crimson, a composer or a
+   facts panel (shared.md §9). */
+.toast {
+  position: fixed; left: var(--sp-4); bottom: var(--sp-4); z-index: var(--z-toast);
+  display: flex; align-items: center; gap: var(--sp-4); width: max-content; max-width: min(420px, calc(100vw - var(--sp-4) * 2)); min-height: 48px;
+  padding: 6px 6px 6px var(--sp-4); border-radius: var(--r-pop); background: var(--pop); box-shadow: var(--shadow-pop); color: var(--ink); font: 500 var(--fs-sub)/var(--lh-sub) var(--font);
+  transform-origin: 0 100%; opacity: 1; transform: none;
+  transition: opacity var(--dur-snap) var(--ease-out), transform var(--dur-snap) var(--ease-out);
+}
+/* bottom left in every state: no inspector offset */
+.toast .msg { min-width: 0; text-wrap: pretty; }
+.toast .btn { flex: none; }
+.toast.no-undo { padding-right: var(--sp-4); }
+@starting-style { .toast { opacity: 0; transform: translateY(6px); } }
+.toast.is-leaving { opacity: 0; transform: translateY(4px); transition-duration: var(--dur-exit-snap); }
+
+/* sheets (<dialog>, DESK.sheet): the raised solid, attached just under the toolbar band, never past the window. They
+   arrive in 220 ms and leave in 160 (a transition takes its timing from the state it goes to) */
+dialog.sheet {
+  position: fixed;
+  --sheet-top: calc(var(--edge-h) + var(--sp-2)); --sheet-max: calc(100dvh - var(--sheet-top) - var(--sp-6));
+  width: 600px; max-width: calc(100vw - 48px); max-height: var(--sheet-max); margin: var(--sheet-top) auto auto; padding: 0; border: 0;
+  border-radius: var(--r-pop); background: var(--pop); box-shadow: var(--shadow-pop); color: var(--ink); overflow: hidden;
+  opacity: 0; transform: scale(.98);
+  transition: opacity var(--dur-exit-move) var(--ease-out), transform var(--dur-exit-move) var(--ease-out), overlay var(--dur-exit-move) allow-discrete, display var(--dur-exit-move) allow-discrete;
+}
+dialog.sheet[open] { opacity: 1; transform: none; transition-duration: var(--dur-move); }
+@starting-style { dialog.sheet[open] { opacity: 0; transform: scale(.98); } }
+dialog.sheet::backdrop { background: var(--scrim); opacity: 0; transition: opacity var(--dur-exit-move) var(--ease-out), overlay var(--dur-exit-move) allow-discrete, display var(--dur-exit-move) allow-discrete; }
+dialog.sheet[open]::backdrop { opacity: 1; transition-duration: var(--dur-move); }
+@starting-style { dialog.sheet[open]::backdrop { opacity: 0; } }
+/* the finder and the keys open with a key, many times a day: they appear and go at once */
+dialog.sheet.is-instant, dialog.sheet.is-instant[open], dialog.sheet.is-instant::backdrop, dialog.sheet.is-instant[open]::backdrop { transition: none; }
+@starting-style { dialog.sheet.is-instant[open] { opacity: 1; transform: none; } dialog.sheet.is-instant[open]::backdrop { opacity: 1; } }
+.finder-q { display: flex; align-items: center; gap: var(--sp-3); height: 60px; padding: 0 var(--sp-5); border-bottom: 1px solid var(--line); }
+.finder-q svg { width: 20px; height: 20px; color: var(--ink-3); flex: none; }
+.finder-q input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: none; color: var(--ink); font: 500 var(--fs-head)/1 var(--font); }
+.finder-q input::placeholder { color: var(--ink-3); }
+/* the results end in a scroll edge (a fade, never a slice): desk.js fitFinder stops the box just before the next item's
+   words, so at rest the last row is whole and nothing of the next one shows; scrolled by hand, a row crossing the foot
+   fades out over the last 12 px. The padding under the last row is as deep as the fade, so the list's end is whole. */
+.finder-r {
+  position: relative; max-height: min(440px, 56dvh); overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-2) var(--sp-2) var(--sp-3);
+  -webkit-mask-image: linear-gradient(#000 calc(100% - var(--sp-3)), transparent); mask-image: linear-gradient(#000 calc(100% - var(--sp-3)), transparent);
+}
+.finder-r h4 { margin: var(--sp-3) var(--sp-3) var(--sp-1); color: var(--ink-3); font: 600 var(--fs-label)/1 var(--font); }
+.finder-r .fr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); min-height: 48px; padding: 6px var(--sp-3); border-radius: var(--r-row); color: var(--ink); text-decoration: none; cursor: pointer; }
+.finder-r .fr .fr-t { min-width: 0; }
+.finder-r .fr b { display: block; font: 600 var(--fs-sub)/1.25 var(--font); }
+.finder-r .fr small { display: block; color: var(--ink-2); font: 500 var(--fs-label)/1.3 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.finder-r .fr[aria-selected='true'] { background: var(--fill-2); }
+.finder-r .fr .go { color: var(--ink-3); font: 500 var(--fs-label)/1 var(--font); }
+/* on the chosen row's fill ink-3 measured 4.32:1 (13 Nov): its Open steps up to ink-2 */
+.finder-r .fr[aria-selected='true'] .go { color: var(--ink-2); }
+/* the keys: a column capped at the sheet's height. The heading and Done stay put and the list scrolls between them under
+   a fade, so the dialog itself never scrolls; a list of 12 or more sits in two columns, the first half down the left. */
+.keys { display: flex; flex-direction: column; max-height: var(--sheet-max); padding: var(--sp-5) var(--sp-6) var(--sp-6); }
+.keys h2 { flex: none; margin: 0 0 var(--sp-4); font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); }
+.keys-b { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 calc(var(--sp-2) * -1); padding: 0 var(--sp-2) var(--sp-4);
+  -webkit-mask-image: linear-gradient(#000 calc(100% - var(--sp-4)), transparent); mask-image: linear-gradient(#000 calc(100% - var(--sp-4)), transparent); }
+.keys-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--sp-8); }
+.keys dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-content: start; column-gap: var(--sp-5); row-gap: var(--sp-3); margin: 0; }
+.keys dt { color: var(--ink); font: 600 var(--fs-sub)/1.3 var(--font); }
+.keys dd { margin: 0; color: var(--ink-2); font: 500 var(--fs-sub)/1.3 var(--font); text-wrap: pretty; }
+.keys-end { flex: none; display: flex; justify-content: space-between; align-items: center; gap: var(--sp-5); margin-top: var(--sp-2); }
+/* the keys sheet's one option: a label row beside Done, its box in the ink (no blue), its words on two lines */
+.keys-opt { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; min-height: 40px; cursor: pointer; }
+.keys-opt input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--ink); cursor: pointer; }
+.keys-opt > span { min-width: 0; }
+.keys-opt b { display: block; color: var(--ink); font: 600 var(--fs-sub)/1.3 var(--font); }
+.keys-opt small { display: block; color: var(--ink-2); font: 500 var(--fs-label)/1.3 var(--font); text-wrap: pretty; }
+/* two columns want a wider sheet, still clear of the sidebar on both sides of the window */
+dialog.sheet:has(.keys-cols) { width: min(880px, calc(100vw - 2 * (var(--sidebar-w) + var(--sp-6)))); }
+/* Find (screens.md §3.2): a 640 px sheet 96 px from the top; group headings carry their count; an Answer's last row opens
+   the full list (words in ink-2); nothing found is one line */
+dialog.sheet:has(.finder-q) { --sheet-top: 96px; width: 640px; }
+.finder-r h4 .n { margin-left: var(--sp-1); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.finder-r .fr.is-more b { color: var(--ink-2); font-weight: 500; }
+.finder-r .empty, .finder-r .finder-empty { margin: 0; padding: var(--sp-4) var(--sp-3); color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); text-align: left; text-wrap: pretty; }
+
+/* ================= the Sheet: a grid built around powerlifting ================= */
+/* the maxes on top: three lift cards in a row, the block's one picture. A card holds the lift, the max the block is
+   written from (num 28/800) and the lifter's e1RM as a line in the lift's colour against that max (a flat line in ink-3),
+   their numbers at the line ends, no axes or grid; one sentence names the set behind the e1RM. The card is one control
+   (its max popover); a re-base offer is a quiet text button in its name row, the card button's sibling. */
+.lifts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-4); }
+.liftc { position: relative; }
+.liftc-b {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'n n' 'v p' 'e e'; align-items: center; column-gap: var(--sp-6); row-gap: 6px;
+  width: 100%; padding: var(--sp-4) var(--sp-5); border: 0; border-radius: inherit; background: transparent; color: var(--ink); text-align: left; font: inherit; cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.liftc-b:active { transform: scale(.985); }
+.liftc-b.is-open { background: var(--hover); }
+@media (hover: hover) and (pointer: fine) { .liftc-b:hover { background: var(--hover); } }
+.liftc-n { grid-area: n; display: flex; align-items: center; gap: var(--sp-2); min-height: 24px; font: 600 var(--fs-body)/1.2 var(--font); white-space: nowrap; }
+/* a card with a button beside its own (an offer such as "Use 220", "Set it", "Type a max") keeps its name row clear of it */
+.liftc:has(> .liftc-b + .btn) .liftc-n { padding-right: 112px; }
+.liftc-v { grid-area: v; color: var(--ink); font: 800 var(--fs-num)/var(--lh-num) var(--font); letter-spacing: var(--ls-num); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); white-space: nowrap; }
+.liftc-plot { grid-area: p; position: relative; display: block; height: 40px; min-width: 0; }
+.liftc-plot svg { position: absolute; inset: 0; overflow: visible; }
+.liftc-plot .ln { fill: none; stroke: var(--lc); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.liftc-plot .base { stroke: var(--ink-3); stroke-width: 1; }
+.liftc-plot .pt { fill: var(--lc); stroke: var(--card); stroke-width: 2; }
+.liftc-plot .hit { fill: transparent; }
+.liftc-plot .lab { position: absolute; right: 0; translate: 0 -50%; font: 600 var(--fs-cap)/1 var(--font); letter-spacing: var(--ls-cap); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.liftc-plot .lab.e1 { color: var(--lc-ink); }
+.liftc-plot .lab.base { color: var(--ink-3); }
+.liftc-e1 { grid-area: e; display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+.liftc-use { position: absolute; z-index: 1; top: var(--sp-3); right: var(--sp-3); }
+
+/* one card holds the block: the cell in hand on the card's own colour at its top, a hairline under it, then the grid, which scrolls inside
+   the card with its week headers and the exercise column pinned; the block's closing rows (the band) scroll with it, like
+   the totals under a block. The corners are the strip's and the scroller's own, so nothing clips a row's words. */
+.grid-card { position: relative; display: flex; flex-direction: column; border-radius: var(--r-card); }
+.fbar {
+  flex: none; display: grid; grid-template-columns: auto auto minmax(140px, 200px) minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-3);
+  min-height: 56px; padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-2); border-radius: var(--r-card) var(--r-card) 0 0; background: var(--card); box-shadow: inset 0 -1px 0 var(--line);
+}
+/* the cell in hand's address is a label, not a control: plain ink text at 600 (capsules stay for things you can press) */
+.fbar .addr { display: inline-flex; align-items: center; gap: var(--sp-2); height: var(--ctl-h); padding: 0 var(--sp-2) 0 var(--sp-3); color: var(--ink); font: 600 var(--fs-label)/1 var(--font); white-space: nowrap; }
+.fbar .fx { color: var(--ink-2); font: 600 var(--fs-sub)/1 var(--font); }
+.fbar .input { width: 100%; height: var(--ctl-h); font: 500 var(--fs-body)/1 var(--font); }
+.fbar .how { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 500 var(--fs-sub)/1.3 var(--font); }
+.fbar .how b { color: var(--ink); font: 800 var(--fs-head)/1 var(--font); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); }
+.fbar .how .k { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.fbar .how.is-error { color: var(--pain); }
+.fbar .decide { display: flex; align-items: center; gap: var(--sp-2); }
+.fbar .lock { display: inline-flex; align-items: center; gap: 6px; margin-right: var(--sp-2); color: var(--ink-3); vertical-align: -2px; }
+.fbar .lock svg { width: 15px; height: 15px; }
+/* a row the card's foot cuts fades out (a scroll edge, like the inspector's body); the padding under the last row keeps
+   it clear of the fade once scrolled to the end */
+.sheet-scroll {
+  position: relative; flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; outline: 0; border-radius: 0 0 var(--r-card) var(--r-card);
+  padding-bottom: var(--sp-6);
+  -webkit-mask-image: linear-gradient(#000 calc(100% - var(--sp-6)), transparent); mask-image: linear-gradient(#000 calc(100% - var(--sp-6)), transparent);
+}
+.sheet-scroll:focus-visible { outline: 0; }   /* the cell in hand shows where the keys go (aria-activedescendant) */
+.grid { border-collapse: separate; border-spacing: 0; table-layout: fixed; min-width: 100%; }
+.grid th, .grid td { height: var(--grow-h); padding: 0 var(--sp-3); white-space: nowrap; vertical-align: middle; text-align: left; }
+.grid thead th { position: sticky; top: 0; z-index: 3; background: var(--card); color: var(--ink-3); font: 500 var(--fs-label)/1.2 var(--font); }
+.grid thead tr.wk th { height: var(--gwk-h); color: var(--ink); font: 600 var(--fs-sub)/1.2 var(--font); }
+.grid thead tr.wk th small { margin-left: var(--sp-2); color: var(--ink-3); font: 500 var(--fs-label)/1.2 var(--font); }
+.grid thead tr.sub th { top: var(--gwk-h); height: var(--gsub-h); border-bottom: 1px solid var(--line-2); }
+.grid thead th.n, .grid td.n { text-align: right; }
+.grid .wk-sep { border-left: 1px solid var(--line-2); }
+.grid th.corner, .grid td.ex, .grid th.ex { background: var(--card); }
+/* the exercise column pins only while the weeks run wider than the card (the page sets .pin-x), so at rest its words
+   scroll with their row like every other cell */
+.grid.pin-x th.corner, .grid.pin-x td.ex, .grid.pin-x th.ex { position: sticky; left: 0; z-index: 2; }
+.grid thead th.corner { z-index: 4; }
+.grid td { border-top: 1px solid var(--line); color: var(--ink); font: 500 var(--fs-sub)/1.2 var(--font); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); }
+.grid td.ex { font-stretch: 100%; }
+.grid td.ex .exn { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; font: 600 var(--fs-sub)/1.2 var(--font); }
+.grid td.ex .exn .nm { flex: none; }
+.grid td.ex .exs { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-3); font: 500 var(--fs-label)/1.2 var(--font); }
+.grid tr.day td { height: var(--gday-h); border-top: 1px solid var(--line-2); background: var(--card-2); color: var(--ink); font: 600 var(--fs-sub)/1 var(--font); font-stretch: 100%; }
+.grid tr.day td.ex { background: var(--card-2); }
+.grid td.cell { position: relative; cursor: cell; outline: 0; }
+.grid td .w-sym { color: var(--ink-3); font-weight: 500; margin: 0 2px; }
+.grid td.cell.calc { color: var(--ink); }
+.grid td.cell.typed { color: var(--ink); }
+.grid td.ro { color: var(--ink-2); cursor: default; }
+.grid td.ro.lift-done { color: var(--ink); }
+.grid td .felt { display: inline-flex; align-items: center; gap: 6px; }
+.grid td .felt em { font-style: normal; color: var(--tone, var(--ink-3)); font: 600 var(--fs-label)/1 var(--font); }
+.grid td .come { color: var(--ink-4); font: 500 var(--fs-label)/1 var(--font); font-stretch: 100%; }
+.grid td.cell[aria-selected='true'] { background: var(--sel); }
+.grid td.cell.is-edit { padding: 0; }
+.grid td.cell .ed { width: 100%; height: 100%; padding: 0 var(--sp-3); border: 0; outline: 0; background: var(--thumb); color: var(--ink); font: 500 var(--fs-sub)/1 var(--font); border-radius: var(--r-field); box-shadow: inset 0 0 0 2px var(--ink); }
+.grid td.cell.flash { animation: r6-flash 900ms var(--ease-out) 1; }
+@keyframes r6-flash { from { background: var(--fill-3); } to { background: transparent; } }
+/* the selection: a neutral frame around the range (or the one cell), the cell in hand lit, a fill handle at the corner */
+.sel-box { position: absolute; z-index: 1; border-radius: var(--r-field); box-shadow: inset 0 0 0 2px var(--ink); pointer-events: none; }
+.sel-box .handle { position: absolute; right: -5px; bottom: -5px; width: 10px; height: 10px; border-radius: var(--r-mark); background: var(--ink); box-shadow: 0 0 0 2px var(--card); }
+.grid td.cell.is-cur { background: var(--thumb); }
+/* the band: the grid's closing rows, what each week asks of each lift in words ("7 hard · top 86%"); no colour, no
+   arrows, no verdicts. Its numbers in ink, its words in ink-2. */
+.grid tr.band-r td { color: var(--ink-2); font: 500 var(--fs-sub)/1.2 var(--font); font-stretch: 100%; }
+.grid tr.band-r td b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); }
+.grid tr.band-r td.ex { color: var(--ink); }
+.sheet-f { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-5); row-gap: var(--sp-2); margin: var(--sp-4) var(--sp-1) 0; color: var(--ink-3); font: 500 var(--fs-label)/1.3 var(--font); }
+.sheet-f span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.sheet-f b { color: var(--ink-2); font-weight: 600; }
+
+/* ================= list | detail: the list column stays beside its detail (it never hides by itself) ================= */
+.split { display: grid; grid-template-columns: var(--list-w) minmax(0, 1fr); align-items: start; }
+.pane-list {
+  position: sticky; top: var(--edge-h); height: calc(100dvh - var(--edge-h)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  padding: var(--sp-2) var(--sp-3) var(--sp-8) 0; box-shadow: inset -1px 0 0 var(--line);
+  -webkit-mask-image: linear-gradient(transparent, #000 var(--sp-3), #000 calc(100% - var(--sp-6)), transparent);
+  mask-image: linear-gradient(transparent, #000 var(--sp-3), #000 calc(100% - var(--sp-6)), transparent);
+}
+.pane-detail { min-width: 0; padding-left: var(--gutter); }
+/* one list head on every list (function-polish PX3, desk.js DESK.listHead): the list's name and count in a 20 px section
+   title, then its action slot at the end, 48 px tall, so every list's search field starts at one height. Scoped to
+   [data-list-head]: pages use .lh for their own headers. */
+.lh[data-list-head] { display: flex; align-items: center; gap: var(--sp-3); height: 48px; margin: 0; padding: 0 var(--sp-3) 0 var(--sp-4); }
+.lh[data-list-head] h2 { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; margin: 0; font: 700 calc(var(--fs-head) + 2px)/24px var(--font); letter-spacing: var(--ls-head); white-space: nowrap; }
+.lh[data-list-head] h2 .n { color: var(--ink-3); font-weight: 600; font-variant-numeric: tabular-nums; }
+.lh[data-list-head] > .btn, .lh[data-list-head] > .seg { flex: none; }
+/* a group heading in a list: words and a count, 14/600 */
+.list-h { display: flex; align-items: baseline; gap: var(--sp-2); margin: var(--sp-5) var(--sp-4) var(--sp-2); color: var(--ink-2); font: 600 var(--fs-label)/1.2 var(--font); }
+.list-h .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* ================= tabs: words with a 2 px ink underline on the chosen one (never a filled track) ================= */
+.tabs { display: flex; align-items: stretch; gap: var(--sp-6); height: 40px; box-shadow: inset 0 -1px 0 var(--line); }
+.tabs > [role='tab'] { position: relative; display: inline-flex; align-items: center; padding: 0; border: 0; background: none; color: var(--ink-2); font: 500 var(--fs-sub)/1 var(--font); white-space: nowrap; cursor: pointer; }
+.tabs > [role='tab'][aria-selected='true'] { color: var(--ink); font-weight: 600; }
+.tabs > [role='tab'][aria-selected='true']::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 1px; background: var(--ink); }
+.tabs > [role='tab']:focus-visible { outline-offset: 4px; border-radius: var(--r-mark); }
+@media (hover: hover) and (pointer: fine) { .tabs > [role='tab']:hover { color: var(--ink); } }
+
+/* ================= words on demand (first-time-coach §8.3, §8.4; newcoach.css may refine) ================= */
+/* a coaching word, explained once: a dotted underline that takes no room */
+.term-on { text-decoration: underline dotted; text-decoration-color: var(--ink-4); text-decoration-thickness: 1.5px; text-underline-offset: 3px; cursor: help; border-radius: var(--r-mark); }
+.term-on:focus-visible { outline-offset: 1px; }
+/* its popover: the label, then its one line; solid, 300 px at most, no buttons; it grows from the word and goes at once */
+.pop[data-term-pop] { width: max-content; max-width: min(300px, calc(100vw - 32px)); padding: var(--sp-3) var(--sp-4); pointer-events: auto; }
+.pop[data-term-pop]:not(:popover-open) { transition: none; }
+.pop[data-term-pop] .tp-l { display: block; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
+.pop[data-term-pop] .tp-x { margin: 2px 0 0; color: var(--ink); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+/* a one-time tip: a slim bar in flow under its anchor, the words then a quiet Got it; a band, never a card in a card */
+[data-tip] { display: flex; align-items: center; gap: var(--sp-3); min-height: 40px; padding: 0 var(--sp-1) 0 var(--sp-4); background: var(--fill); color: var(--ink); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+[data-tip] .tip-t { flex: 1; min-width: 0; margin: 0; text-wrap: pretty; }
+[data-tip] .btn { flex: none; }
+/* Find's word note: above every group, the label then its line */
+.finder-r .fterm { margin: var(--sp-2) var(--sp-3) var(--sp-1); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--line); }
+.finder-r .fterm b { display: block; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
+.finder-r .fterm p { margin: 2px 0 0; color: var(--ink); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+
+/* ================= reduced motion: short fades, no movement ================= */
+@media (prefers-reduced-motion: reduce) {
+  .btn, .seg > button, .vbtn, .side .it, .side .find, .side .me, .ch { transition: background-color 150ms linear, color 150ms linear, opacity 150ms linear; }
+  .btn:active:not(:disabled), .seg > button:active, .vbtn:active, .side .it:active, .side .find:active, .side .me:active, .ch:active, .tick:active i { transform: none; }
+  .tick i, .seg-thumb, .tb-trail { transition: none; }
+  .tb-mid { transition: opacity var(--dur-fast) linear, visibility var(--dur-fast); }
+  .pop, .pop:popover-open, .toast, .toast.is-leaving, .insp, .insp.is-leaving, dialog.sheet, dialog.sheet[open] { transform: none; transition-property: opacity, display, overlay; transition-duration: 150ms; }
+  dialog.sheet.is-instant, dialog.sheet.is-instant[open] { transition: none; }
+  @starting-style { .insp, .pop:popover-open, .toast, dialog.sheet[open] { transform: none; } }
+  .grid td.cell.flash { animation: none; }
+}
+
+/* ================= colour on words and numbers (13 Nov evening) =================
+   A lift named or numbered wears its lift's ink: put data-lift="squat|bench|deadlift" on the element that holds the words
+   (a name, a top set, a max, a column head, a table cell). desk.js tags a lift's name by itself where the words are
+   only that name, with a load or a top set after it ("Squat", "Paused squat", "Bench 80", "Deadlift: 175"); a page's own
+   data-lift always wins. Controls keep their own colours (a segmented choice, a button, a tab, a menu). A place's key
+   number or word wears the place's ink: .acc or data-acc. */
+[data-lift]:not(button, [role='tab'], [role='menuitem'], [role='menuitemradio'], .btn, .seg, .card, .mi) { color: var(--lc-ink); }
+.tbl td[data-lift], .tbl td.v[data-lift], .grid td[data-lift], .lrow [data-lift], .hbars .k[data-lift], .legend [data-lift] { color: var(--lc-ink); }
+.acc, [data-acc] { color: var(--place-ink); }
+.t-num.acc, .t-hero.acc, .ch-v.acc { color: var(--place-ink); }
+.liftc-v[data-lift] { color: var(--lc-ink); }
+/* the lift card's own name and number (the Sheet's maxes on top) wear the lift */
+.liftc .liftc-n { color: var(--lc-ink, var(--ink)); }

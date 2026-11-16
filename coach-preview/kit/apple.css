@@ -1,0 +1,108 @@
+/* APPLE PASS (11 Nov 2026). The owner: "use this now" (the apple-design skill), on the round-4 website as it stood.
+   A layer on top of pro.css, loaded by K.shell({ pro: true }); remove the two lines in kit.js and it is gone.
+   Depth instead of outlines (grouped cards with soft shadows on a calm grey, no borders), inset separators,
+   size-specific tracking, tinted buttons that answer on press, frosted materials only where something floats over
+   content (the bar that appears on scroll, popovers, the drawer, toasts), springy interruptible motion (apple.js). */
+
+html.pro, html.pro[data-theme="light"] {
+  --floor: #f5f5f7; --surface: #ffffff; --surface-2: #f7f7f9;
+  --side-bg: #ececf0; --sep: rgba(60, 60, 67, 0.12); --fill-a: rgba(118, 118, 128, 0.12); --fill-a2: rgba(118, 118, 128, 0.18);
+  --hair: rgba(60, 60, 67, 0.1); --border: rgba(60, 60, 67, 0.1);
+  --mat: rgba(245, 245, 247, 0.72); --mat-pop: rgba(255, 255, 255, 0.8); --mat-toast: rgba(30, 30, 32, 0.86);
+  --card-sh: 0 0 0 0.5px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 30px -16px rgba(0, 0, 0, 0.16);
+  --card-sh-hi: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.05), 0 20px 44px -18px rgba(0, 0, 0, 0.24);
+  --spring: cubic-bezier(0.2, 0.9, 0.25, 1);
+  --r-card: 16px; --r-ctl: 10px;
+}
+html.pro[data-theme="dark"] {
+  --floor: #0b0b0c; --surface: #1c1c1e; --surface-2: #232326;
+  --side-bg: #141416; --sep: rgba(84, 84, 88, 0.5); --fill-a: rgba(118, 118, 128, 0.24); --fill-a2: rgba(118, 118, 128, 0.32);
+  --hair: rgba(255, 255, 255, 0.07); --border: rgba(255, 255, 255, 0.08);
+  --mat: rgba(11, 11, 12, 0.72); --mat-pop: rgba(44, 44, 46, 0.82); --mat-toast: rgba(58, 58, 62, 0.88);
+  --card-sh: 0 0 0 0.5px rgba(255, 255, 255, 0.06); --card-sh-hi: 0 0 0 0.5px rgba(255, 255, 255, 0.1), 0 20px 44px -18px rgba(0, 0, 0, 0.8);
+}
+
+/* ---------- the shell: a sidebar of its own tone, the work on a calm grey ---------- */
+html.pro .main { background: var(--floor); }
+html.pro .side { background: var(--side-bg); border-right: 0; }
+html.pro .side .find { border: 0; background: var(--fill-a); box-shadow: none; border-radius: 9px; }
+html.pro .side .find:hover { background: var(--fill-a2); }
+html.pro .side .it { border-radius: 8px; transition: background-color 160ms ease, color 160ms ease; }
+html.pro .side .it:hover { background: rgba(0, 0, 0, 0.045); }
+html.pro[data-theme="dark"] .side .it:hover { background: rgba(255, 255, 255, 0.05); }
+html.pro .side .it.on { background: rgba(0, 0, 0, 0.075); box-shadow: none; }
+html.pro[data-theme="dark"] .side .it.on { background: rgba(255, 255, 255, 0.09); }
+html.pro .side .me { border-top: 0; }
+
+/* ---------- type: tracking by size (large tight, small open), hierarchy by weight + size ---------- */
+html.pro .pg-head h1 { font: 800 30px/1.1 'Archivo'; letter-spacing: -0.028em; transform-origin: left bottom; }
+html.pro .pg-head .sub { font-size: 14px; letter-spacing: -0.003em; }
+html.pro .card-h h2 { letter-spacing: -0.012em; }
+html.pro .kpi-v { letter-spacing: -0.03em; }
+html.pro .kpi-l span, html.pro .card-h .sub, html.pro small { letter-spacing: 0.005em; }
+
+/* ---------- grouped cards: depth, not outlines ---------- */
+html.pro .card, html.pro .kpi { border: 0; border-radius: var(--r-card); background: var(--surface); box-shadow: var(--card-sh); }
+html.pro .kpi { transition: box-shadow 420ms var(--spring), transform 420ms var(--spring); }
+html.pro .kpi:hover { border: 0; box-shadow: var(--card-sh-hi); transform: translateY(-1px); }
+html.pro .kpi:active { transform: scale(0.985); transition-duration: 90ms; }
+html.pro .kpi.on { box-shadow: var(--card-sh-hi), 0 0 0 2px var(--ink); }
+html.pro .card-h { border-bottom: 0; box-shadow: inset 0 -0.5px 0 var(--sep); }
+html.pro .card-f { border-top: 0; box-shadow: inset 0 0.5px 0 var(--sep); }
+/* inset separators: the line starts where the text starts, as in a grouped list */
+html.pro .nd-row, html.pro .td-row, html.pro .ms-row { position: relative; border-top: 0; }
+html.pro .nd-row + .nd-row::before, html.pro .td-row + .td-row::before, html.pro .ms-row + .ms-row::before { content: ''; position: absolute; top: 0; right: 0; height: 0.5px; background: var(--sep); }
+html.pro .nd-row + .nd-row::before { left: 70px; } html.pro .ms-row + .ms-row::before { left: 64px; } html.pro .td-row + .td-row::before { left: 44px; }
+html.pro .nd-row, html.pro .ms-row { transition: background-color 160ms ease; }
+html.pro .tbl td, html.pro .tbl th { border-bottom-color: var(--sep); }
+html.pro .tbl .grp td { background: var(--surface-2); }
+
+/* ---------- controls: tinted, they answer on press (pointer-down) and spring back ---------- */
+html.pro .btn { border-radius: var(--r-ctl); background: var(--fill-a); box-shadow: none; transition: transform 420ms var(--spring), background-color 160ms ease, filter 160ms ease; }
+html.pro .btn:hover { background: var(--fill-a2); box-shadow: none; }
+html.pro .btn:active { transform: scale(0.96); transition: transform 90ms ease-out; }
+html.pro .btn.primary { background: var(--crimson); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(150, 10, 25, 0.25), 0 6px 16px -8px rgba(196, 26, 44, 0.55); }
+html.pro .btn.primary:hover { background: var(--crimson); filter: brightness(1.06); }
+html.pro .btn.ghost, html.pro .btn.line { background: none; }
+html.pro .btn.ghost:hover, html.pro .btn.line:hover { background: var(--fill-a); }
+html.pro .btn.done { background: none; }
+html.pro .seg2 { background: var(--fill-a); box-shadow: none; border-radius: 10px; }
+html.pro .seg2 button { border-radius: 8px; transition: background-color 200ms ease, color 200ms ease, box-shadow 260ms var(--spring); }
+html.pro .seg2 button.on { background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04); }
+html.pro[data-theme="dark"] .seg2 button.on { background: #636366; color: #fff; }
+html.pro .qf input { background: var(--fill-a); box-shadow: none; border-radius: 9px; }
+html.pro .qf input:focus { background: var(--surface); box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--ink) 18%, transparent); }
+html.pro .face[class] { box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.04); }
+
+/* ---------- materials: only where something floats over content ---------- */
+/* the bar that appears when the large title scrolls away (apple.js) */
+.ap-bar { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 12px; height: 52px; margin-bottom: -52px; padding: 0 32px;
+  background: var(--mat); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  opacity: 0; pointer-events: none; transition: opacity 220ms ease, box-shadow 220ms ease; }
+.ap-bar.on { opacity: 1; pointer-events: auto; box-shadow: 0 0.5px 0 var(--sep); }
+.ap-bar b { font: 700 15px/1 'Archivo'; letter-spacing: -0.012em; color: var(--ink); }
+.ap-bar span { font: 500 13px/1 'Archivo'; color: var(--ink-3); }
+html.pro .v-pop { background: var(--mat-pop); -webkit-backdrop-filter: blur(28px) saturate(180%); backdrop-filter: blur(28px) saturate(180%); border-radius: 14px; box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 20px 50px -18px rgba(0, 0, 0, 0.35); animation: ap-pop 340ms var(--spring); }
+html.pro[data-theme="dark"] .v-pop { box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.12), 0 24px 60px -20px rgba(0, 0, 0, 0.9); }
+@keyframes ap-pop { from { opacity: 0; transform: scale(0.94); } }
+html.pro .toast { background: var(--mat-toast); color: #f5f5f7; -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); border-radius: 14px; box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 16px 40px -14px rgba(0, 0, 0, 0.5); transition: transform 460ms var(--spring), opacity 220ms ease; }
+/* the drawer: a sheet of material that follows the hand (apple.js drives its transform with a spring) */
+html.pro .v-drawer, html.pro .v-drawer.on { transition: none; opacity: 1; background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%); box-shadow: -0.5px 0 0 var(--sep), -30px 0 70px -30px rgba(0, 0, 0, 0.3); }
+html.pro .v-drawer .dh { cursor: grab; touch-action: pan-y; border-bottom: 0; box-shadow: inset 0 -0.5px 0 var(--sep); }
+html.pro .v-drawer .dh:active { cursor: grabbing; }
+html.pro .v-drawer .df { border-top: 0; box-shadow: inset 0 0.5px 0 var(--sep); }
+html.pro .v-drawer .x { background: var(--fill-a); transition: transform 420ms var(--spring), background-color 160ms ease; }
+html.pro .v-drawer .x:active { transform: scale(0.9); transition-duration: 90ms; }
+
+/* ---------- comfort settings ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html.pro .kpi, html.pro .kpi:hover, html.pro .kpi:active, html.pro .btn, html.pro .btn:active { transform: none; transition: background-color 160ms ease, box-shadow 160ms ease; }
+  html.pro .v-pop { animation: ap-fade 160ms ease; }
+  html.pro .toast { transition: opacity 200ms ease; }
+}
+@keyframes ap-fade { from { opacity: 0; } }
+@media (prefers-reduced-transparency: reduce) {
+  .ap-bar, html.pro .v-pop, html.pro .toast, html.pro .v-drawer { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .ap-bar { background: var(--floor); } html.pro .v-pop { background: var(--surface); } html.pro .v-drawer, html.pro .v-drawer.on { background: var(--surface); }
+}
+@media (prefers-contrast: more) { html.pro .card, html.pro .kpi { box-shadow: 0 0 0 1px var(--ink-3); } }

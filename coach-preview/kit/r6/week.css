@@ -1,0 +1,238 @@
+/* kit/r6/week.css: the Week view's grid (kit/r6/week.js; programs.md §5, professional.md §4 to §8.6). Rows, one cell
+   per field, on the work card: no card inside it, no fill of its own, rows on hairlines and the field columns divided by
+   hairlines, the way a coach's sheet reads. Day lines carry a stronger rule above them, never a box. The cell in hand
+   wears the focus ring; a range is the selection fill. Moves between cells never animate. Numbers are 15/500 tabular and
+   right-aligned; words are left-aligned. Colour only for state: unreadable text and a felt RPE over what was written in
+   --warn, a pain mark in --pain, one per row. Tokens only (kit/r6/tokens.css). */
+
+.wg {
+  --wg-row: 40px; --wg-day: 44px; --wg-head: 36px; --wg-status: 44px; --wg-shape: 40px;
+  --wg-pad: var(--sp-6); --wg-px: var(--sp-3); --wg-pr: var(--sp-2); --wg-pl: 2px; --wg-top: var(--edge-h);
+  position: relative; color: var(--ink);
+}
+.wg[data-density='compact'] { --wg-row: 32px; --wg-day: 36px; --wg-head: 32px; }
+
+/* ---------------- the status line: the cell in hand in one line, pinned with the column heads ---------------- */
+.wg-status {
+  position: sticky; top: var(--wg-top); z-index: 3;
+  display: flex; align-items: center; gap: var(--sp-3); height: var(--wg-status); min-width: 0;
+  padding: 0 var(--wg-pad); background: var(--card); border-bottom: 1px solid var(--line);
+}
+.wg-addr { flex: 0 1 auto; max-width: 200px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); letter-spacing: var(--ls-label); }
+.wg-addr:empty { display: none; }
+.wg-say { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; }
+.wg-say.is-warn { color: var(--warn); }
+.wg-acts { flex: none; display: flex; align-items: center; gap: var(--sp-2); }
+.wg-acts:empty { display: none; }
+
+/* ---------------- rows: one CSS grid per row on the same columns (week.js sets --wg-cols) ---------------- */
+.wg-grid { position: relative; outline: 0; }
+.wg-tr { display: grid; grid-template-columns: var(--wg-cols); align-items: stretch; position: relative; min-width: 0; }
+.wg-head { position: sticky; top: calc(var(--wg-top) + var(--wg-status)); z-index: 2; background: var(--card); }
+/* the scroll edge under the pinned heads: one colour fading out (a fade, not a line) */
+.wg-head::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: var(--sp-4); background: linear-gradient(var(--card), transparent); opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-out); }
+.wg.is-stuck-top .wg-head::after { opacity: 1; pointer-events: auto; }
+.wg-pin { display: block; height: 0; }
+.wg-hr { height: var(--wg-head); border-bottom: 1px solid var(--line-2); }
+.wg-h { display: flex; align-items: center; min-width: 0; padding: 0 var(--wg-px); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-none) var(--font); letter-spacing: var(--ls-label); white-space: nowrap; }
+.wg-h.is-num { justify-content: flex-end; padding: 0 var(--wg-pr) 0 var(--wg-pl); }
+.wg-h:first-child { padding-left: var(--wg-pad); }
+.wg-h.wg-k-note { padding-right: var(--wg-pad); }
+.wg-hb {
+  position: relative; display: inline-flex; align-items: center; height: 28px; margin-left: calc(var(--sp-2) * -1); padding: 0 var(--sp-2);
+  border: 0; border-radius: var(--r-pill); background: transparent; color: var(--ink-2); font: inherit; letter-spacing: inherit; white-space: nowrap; cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.wg-hb::after { content: ''; position: absolute; inset: -4px 0; }   /* 36 px to hit, an inline text button in a head */
+.wg-hb.is-open { background: var(--fill-2); color: var(--ink); }
+/* "Last lifted" with the week it shows under it (function-polish F3.4): two short lines in the 36 px head */
+.wg-hb.is-two { flex-direction: column; align-items: flex-start; justify-content: center; height: 34px; border-radius: var(--r-row); line-height: var(--lh-tight); }
+.wg-hs { color: var(--ink-3); font: 500 var(--fs-cap)/var(--lh-tight) var(--font); letter-spacing: var(--ls-cap); }
+/* a marked word in a head keeps the head's own look; its title (and, with Explain coaching words, the popover) explains it */
+.wg-h [data-term] { color: inherit; }
+
+/* a line: 40 px (32 compact), a hairline under it */
+.wg-line { min-height: var(--wg-row); border-bottom: 1px solid var(--line); }
+.wg-c {
+  position: relative; display: flex; align-items: center; min-width: 0; height: var(--wg-row); padding: 0 var(--wg-px);
+  color: var(--ink); font: 500 var(--fs-sub)/var(--lh-tight) var(--font); white-space: nowrap; outline: 0; cursor: cell;
+}
+.wg-c > .wg-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* numbers at the face's own width: the sheet's columns are narrow ("10-12" fits Reps at 56 px) */
+.wg-c.is-num { justify-content: flex-end; padding: 0 var(--wg-pr) 0 var(--wg-pl); font-variant-numeric: tabular-nums; }
+/* the field columns read as cells: a hairline between them */
+.wg-line > .wg-c.is-num, .wg-line > .wg-k-tempo, .wg-line > .wg-k-note:not(.wg-nl), .wg-line > .wg-k-rest, .wg-line > .wg-k-pauseAt, .wg-line > .wg-k-acc { border-left: 1px solid var(--line); }
+.wg-line > .wg-c:first-child { padding-left: var(--wg-pad); }
+.wg-line > .wg-k-ex { padding-right: var(--sp-2); }
+.wg-line > .wg-k-note:not(.wg-nl) { padding-right: calc(var(--wg-pad) + var(--sp-5)); }   /* room for the line's "…"; with notes on a second line the row ends in a 40 px track for it */
+
+/* the exercise: line 0 its name (16/600); the lines under it "Back-offs" or the name again, ink-2, 16 px in */
+.wg-k-ex .wg-t { font: 600 var(--fs-body)/var(--lh-tight) var(--font); letter-spacing: 0; }
+/* a main lift's line wears the lift's ink on its name (data-lift: week.js, or desk.js by the name); a back-off, a line
+   out this week, a lifted week and a cell to fix keep their own colour (the rules below win) */
+.wg-k-ex .wg-t[data-lift] { color: var(--lc-ink); }
+.wg-k-ex.is-sub .wg-t { padding-left: var(--sp-4); color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-tight) var(--font); }
+.wg-k-ex .wg-tp { flex: none; margin-left: var(--sp-2); color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-none) var(--font); font-variant-numeric: tabular-nums; }
+.wg-k-ex.no-tp .wg-tp { display: none; }   /* the tempo after a name yields to the name; the title and the status line keep it */
+.wg-k-ex .wg-off { flex: none; margin-left: var(--sp-2); color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-none) var(--font); }
+.wg-line.is-out .wg-k-ex .wg-t { color: var(--ink-2); }
+
+/* Last week: every set as lifted, compact, read-only */
+.wg-k-last { gap: 0.3em; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; cursor: default; }
+.wg-k-last .wg-ls { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wg-k-last .wg-lf, .wg-k-last .wg-lm { flex: none; }
+.wg-k-last.no-mark .wg-lm { display: none; }   /* a mark word only when it fits (programs.md §5.3); the title keeps it */
+.wg-k-last .wg-lm { color: var(--ink-3); }
+.wg-k-last .wg-lq { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-3); }
+.wg-k-last .tw { color: var(--tone); }
+
+/* a rule's step after the load, quiet: "135 +2.5" */
+.wg-dl { flex: none; margin-left: 3px; color: var(--ink-3); font: 500 var(--fs-cap)/var(--lh-none) var(--font); font-variant-numeric: tabular-nums; }
+.wg-c .is-quiet { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); }
+/* a back-off in words in the RPE or % column, "12% off top set" (function-polish F3.1): the label size, so it sits clear of the line */
+.wg-c.is-num .wg-t.is-words { font: 500 var(--fs-label)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; }
+.wg-c .tw { color: var(--tone); }
+/* text it could not read stays as typed, in --warn; a field changed after the week was sent is underlined */
+.wg-c.is-bad .wg-t { color: var(--warn); }
+.wg-c.is-chg .wg-t { text-decoration: underline 1px var(--ink-3); text-underline-offset: 3px; }
+
+/* Notes: the widest column, never under 220 px; with no room, a full-width second line under its row */
+.wg-k-note { font: 400 var(--fs-sub)/var(--lh-label) var(--font); }
+.wg-nl {
+  grid-column: 1 / -1; height: auto; min-height: 0; align-items: flex-start; padding: 0 var(--wg-pad) var(--sp-2) calc(var(--wg-pad) + var(--sp-4));
+  font: 500 var(--fs-label)/var(--lh-label) var(--font); white-space: normal;
+}
+.wg-nl > .wg-t { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; white-space: normal; text-wrap: pretty; }
+.wg-nl.is-empty { height: 0; padding-top: 0; padding-bottom: 0; overflow: hidden; }
+.wg-nl.is-empty.is-hand, .wg-nl.is-empty.is-editing { height: var(--wg-row); padding-bottom: 0; align-items: center; overflow: visible; }
+/* Compact rows are one line each (programs.md §5.4, 32 px): a second-line note folds away until its line is in hand,
+   where it opens under the row as it does in standard rows */
+.wg[data-density='compact'] .wg-nl:not(.is-hand):not(.is-editing) { height: 0; padding-top: 0; padding-bottom: 0; overflow: hidden; }
+.wg[data-density='compact'] .wg-nl.is-hand:not(.is-empty), .wg[data-density='compact'] .wg-nl.is-editing:not(.is-empty) { min-height: var(--wg-row); }
+
+/* read-only: a lifted week, a day under way */
+.wg-line.is-ro .wg-c { color: var(--ink-2); cursor: default; }
+.wg-line.is-ro .wg-k-ex .wg-t { color: var(--ink-2); }
+
+/* ---------------- the cell in hand, the range, editing ---------------- */
+.wg-c[aria-selected='true'].is-in { background: var(--sel); }
+.wg-c.is-hand { outline: 2px solid var(--focus); outline-offset: -2px; z-index: 1; }
+.wg-c.is-editing > :not(.wg-in) { visibility: hidden; }
+.wg-in {
+  position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; margin: 0; padding: 0 var(--wg-px);
+  border: 0; border-radius: 0; background: var(--card); color: var(--ink); font: inherit; letter-spacing: inherit;
+  outline: 2px solid var(--focus); outline-offset: -2px; text-overflow: clip;
+}
+.wg-c.is-num .wg-in { padding: 0 var(--wg-pr) 0 var(--wg-pl); text-align: right; font-variant-numeric: tabular-nums; }
+.wg-tr > .wg-c:first-child .wg-in { padding-left: var(--wg-pad); }
+.wg-k-ex .wg-in { font: 600 var(--fs-body)/var(--lh-tight) var(--font); }
+.wg-in::placeholder { color: var(--ink-3); opacity: 1; }
+
+/* the fill handle: the selection's corner, dragged down to fill */
+.wg-handle { position: absolute; z-index: 2; width: 9px; height: 9px; border: 1px solid var(--card); background: var(--ink); cursor: ns-resize; touch-action: none; }
+.wg-handle::after { content: ''; position: absolute; inset: -8px; }
+.wg-c.is-fillto { background: var(--sel); }
+.wg.is-filling, .wg.is-filling * { cursor: ns-resize; }
+
+/* ---------------- day lines: the date, the day's name, its sets; a stronger rule above, never a box ---------------- */
+.wg-day { min-height: var(--wg-day); border-top: 1px solid var(--line-2); }
+.wg-body > .wg-day:first-child { border-top: 0; }
+.wg-dc { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--sp-3); min-width: 0; height: var(--wg-day); padding: 0 var(--wg-pad); white-space: nowrap; }
+.wg-dd { flex: none; color: var(--ink); font: 600 var(--fs-body)/var(--lh-none) var(--font); letter-spacing: 0; }
+.wg-dn {
+  position: relative; display: inline-flex; flex: 0 1 auto; min-width: 0; margin: 0 calc(var(--sp-2) * -1); padding: 5px var(--sp-2);
+  border: 0; border-radius: var(--r-pill); background: transparent; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-tight) var(--font); text-align: left; white-space: nowrap;
+}
+.wg-dnt { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+button.wg-dn { cursor: text; transition: background-color var(--dur-fast) var(--ease-out); }
+button.wg-dn::after { content: ''; position: absolute; inset: -4px 0; }
+.wg-ds { flex: none; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-none) var(--font); font-variant-numeric: tabular-nums; }
+.wg-dst { flex: none; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-none) var(--font); }
+.wg-dst.tw { color: var(--tone); }
+.wg-dx { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-none) var(--font); }
+.wg-day.is-meet .wg-dn { color: var(--ink); font-weight: 600; }
+.wg-din { position: static; width: 220px; height: 28px; padding: 0 var(--sp-2); border-radius: var(--r-field); background: var(--fill); box-shadow: var(--shadow-field); outline: 2px solid var(--focus); font: 500 var(--fs-sub)/var(--lh-none) var(--font); }
+
+/* the add row: "Add an exercise" in the Exercise cell; folded in Compact rows until the cell in hand goes there */
+.wg-add { min-height: var(--wg-row); border-bottom: 1px solid var(--line); }
+.wg-add .wg-c:first-child { padding-left: var(--wg-pad); }
+.wg-add .wg-fill { grid-column: 2 / -1; cursor: cell; }   /* a click here starts the new line (week.js addExOf) */
+.wg-t.is-add { overflow: visible; }
+.wg-add.is-folded { display: none; }
+.wg-more-days { display: flex; align-items: center; min-height: var(--wg-row); padding: 0 var(--wg-pad); }
+.wg-more-days:empty { display: none; }
+.wg-tail:empty { display: none; }
+.wg-addday { min-height: 36px; }
+
+/* ---------------- one add-row style (function-polish PX6): "Add an exercise", "Add a day" in the Week and Block views
+   and on Teams. ink-3 at 500, the label size; a quiet "+" hangs before the words, so the words start on the exercise
+   names' line. The element keeps the box its place gives it (a cell's padding, a button's) ---------------- */
+.add-row {
+  position: relative; display: inline-flex; align-items: center; min-height: 36px; padding-left: 0; padding-right: 0; margin-left: 0; margin-right: 0;
+  border: 0; background: none; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); letter-spacing: 0;
+  text-decoration: none; text-align: left; white-space: nowrap; cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.add-row::before { content: '+'; position: absolute; right: 100%; top: 50%; margin: -0.6em 0.4em 0 0; color: inherit; font: 500 var(--fs-sub)/var(--lh-tight) var(--font); pointer-events: none; }
+button.add-row::after { content: ''; position: absolute; inset: -4px -8px; }   /* 44 px to hit, the words stay where they are */
+.wg-c > .wg-t.add-row { min-height: 0; }
+.wg-add .wg-k-ex .wg-t.add-row { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); letter-spacing: 0; }   /* over the name's 16/600 */
+@media (hover: hover) and (pointer: fine) { .add-row:hover, .wg-add:hover .add-row { color: var(--ink); } }
+.add-row:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; border-radius: var(--r-mark); }
+
+/* the slot under the column heads where a one-time tip sits (first-time-coach §8.4); empty, it takes no room */
+.wg-tip:empty { display: none; }
+/* the tip draws its own bar (newcoach.css [data-tip]); the slot only gives it the grid's width and a hairline under it */
+.wg-tip { position: relative; z-index: 1; border-bottom: 1px solid var(--line); }
+
+/* a line's and a day's "…": quiet, at the row's end, shown under the pointer and on the line in hand */
+.wg-more {
+  position: absolute; top: 50%; right: var(--sp-3); z-index: 2; display: grid; place-items: center; width: 28px; height: 28px; margin-top: -14px; padding: 0;
+  border: 0; border-radius: var(--r-pill); background: transparent; color: var(--ink-3); cursor: pointer; opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.wg-more::after { content: ''; position: absolute; inset: -6px; }   /* 40 px to hit */
+.wg-more svg { width: 18px; height: 18px; }
+.wg-line.is-hand .wg-more, .wg-more:focus-visible, .wg-more.is-open, .wg-day:focus-within .wg-more { opacity: 1; }
+.wg-dc > .wg-dm { position: relative; top: auto; right: auto; margin: 0 0 0 auto; }
+.wg[data-notes='line'] .wg-line .wg-more { top: calc(var(--wg-row) / 2); }
+
+@media (hover: hover) and (pointer: fine) {
+  .wg-line:hover, .wg-add:hover { background-color: var(--hover); }
+  .wg-line:hover .wg-more, .wg-day:hover .wg-more { opacity: 1; }
+  .wg-more:hover { background: var(--fill); color: var(--ink); }
+  .wg-hb:hover { background: var(--fill); color: var(--ink); }
+  button.wg-dn:hover { background: var(--fill); color: var(--ink); }
+}
+.wg-more:active, .wg-hb:active { transform: scale(var(--press)); }
+
+/* ---------------- the week's shape: the sticky foot ---------------- */
+.wg-shape {
+  position: sticky; bottom: 0; z-index: 3; display: flex; align-items: center; gap: var(--sp-4); min-height: var(--wg-shape); min-width: 0;
+  padding: 0 var(--wg-pad); background: var(--card); border-top: 1px solid var(--line);
+  color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums;
+}
+.wg-shape::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--sp-3); background: linear-gradient(transparent, var(--card)); opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-out); }
+.wg.is-stuck-bottom .wg-shape::before { opacity: 1; pointer-events: auto; }
+.wg-shape-t { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wg-sl { color: var(--ink-2); }
+.wg-sv { color: var(--ink); }
+.wg-sb, .wg-sc, .wg-sd { color: var(--ink-3); }
+.wg-shape-a { flex: none; display: flex; gap: var(--sp-2); }
+.wg-shape-a:empty { display: none; }
+
+/* ---------------- exercise names as you type (a menu on the raised solid, never the crimson) ---------------- */
+.wg-sug {
+  position: fixed; inset: auto; margin: 0; z-index: var(--z-menu); max-width: 360px; padding: var(--sp-1);
+  border: 0; border-radius: var(--r-pop); background: var(--pop); color: var(--ink); box-shadow: var(--shadow-pop);
+  --ink-4: var(--ink-quiet);
+}
+.wg-sug[hidden] { display: none; }
+.wg-opt { display: flex; align-items: center; min-height: 36px; padding: 0 var(--sp-3); border-radius: var(--r-row); font: 500 var(--fs-label)/var(--lh-tight) var(--font); white-space: nowrap; cursor: pointer; }
+.wg-opt.is-hi { background: var(--fill-2); }
+@media (hover: hover) and (pointer: fine) { .wg-opt:hover { background: var(--fill); } .wg-opt.is-hi:hover { background: var(--fill-2); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .wg-more, .wg-hb, button.wg-dn, .wg-head::after, .wg-shape::before { transition-duration: 0ms; }
+  .wg-more:active, .wg-hb:active { transform: none; }
+}

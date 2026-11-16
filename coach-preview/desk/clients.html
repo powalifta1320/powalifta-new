@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta name="robots" content="noindex">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clients, POWALIFTA Coach</title>
+<script>
+/* the theme before any CSS: ?theme= wins, then powa-r6-theme, else dark */
+(function () { var t = null; var m = /[?&]theme=(light|dark)\b/.exec(location.search); if (m) t = m[1]; if (!t) { try { t = localStorage.getItem('powa-r6-theme'); } catch (e) { t = null; } } document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark'); })();
+</script>
+<link rel="stylesheet" href="../kit/r6/tokens.css">
+<link rel="stylesheet" href="../kit/r6/glass.css">
+<link rel="stylesheet" href="../kit/r6/ui.css">
+<link rel="stylesheet" href="../kit/r6/fix.css">
+<link rel="stylesheet" href="../kit/r6/newcoach.css">
+<style>
+  /* Clients (screens.md §7, professional.md §10.9): who owes me, who wants in, who is leaving, how full am I. The To do
+     list is the work card in the list column (it scrolls inside itself, so it is always whole in the window and the
+     detail scrolls beside it); the detail is the month (the picture card), then Still to come this month and Seats on the
+     floor, or one lifter's ledger. The crimson is the store's next decision, in the toolbar. Tokens only; widths in px. */
+  .cv { display: grid; grid-template-columns: var(--list-w) minmax(0, 1fr); column-gap: var(--sp-6); align-items: start; }
+  .cv.is-wide { grid-template-columns: minmax(0, 1fr); }
+  /* the list column starts right under the toolbar band with its head (PX3: the same y on every list page); the page's
+     title and facts lead the detail column beside it */
+  .cv { margin-top: calc(var(--sp-3) * -1); }
+  .cl { position: sticky; top: var(--edge-h); display: flex; flex-direction: column; min-width: 0; max-height: calc(100dvh - var(--cl-top, 160px) - var(--sp-4)); }
+  .cl > .lh { flex: none; padding-left: var(--sp-3); }
+  .cl > .lh .link { white-space: nowrap; }
+  .cd { min-width: 0; padding-top: var(--sp-3); }
+  .cv.is-wide .cd, .cv.is-free .cd { padding-top: var(--sp-3); }
+
+  /* ---- To do: the work card; its list scrolls under a fade at either edge ---- */
+  .td { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+  .td-l {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-3) var(--sp-2);
+    -webkit-mask-image: linear-gradient(transparent, var(--ink) var(--sp-3), var(--ink) calc(100% - var(--sp-3)), transparent);
+    mask-image: linear-gradient(transparent, var(--ink) var(--sp-3), var(--ink) calc(100% - var(--sp-3)), transparent);
+  }
+  .td .lrow { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n e' 'w w' 'q q' 'm m'; align-items: baseline; row-gap: 2px; padding: var(--sp-3) var(--sp-3); }
+  .td .lrow + .lrow::before { left: var(--sp-3); right: var(--sp-3); }
+  .td .nm { grid-area: n; }
+  .td .amt { grid-area: e; color: var(--ink); font: 600 var(--fs-body)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .td .why { grid-area: w; text-wrap: pretty; }
+  .td .q { grid-area: q; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+  /* the moves under the words, their labels on the words' edge; the "…" ends the line */
+  .td .mv { grid-area: m; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); margin: var(--sp-2) calc(var(--sp-2) * -1) 0 calc(var(--sp-3) * -1); }
+  .td .mv .fix { padding: 0 var(--sp-3); }
+  .td .mv { padding-right: calc(var(--ctl-s) + var(--sp-1)); }
+  .td .mv .more { position: absolute; right: var(--sp-1); bottom: var(--sp-3); }
+  .td .done-row { grid-area: w; flex-wrap: wrap; row-gap: 2px; column-gap: var(--sp-3); margin-top: 2px; }
+  .td .done-row .dw { white-space: normal; text-wrap: pretty; flex: 1 1 100%; }
+  .td .done-tick { align-self: flex-start; margin-top: 1px; }
+  .td .done-row .lnk { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .late, .kvs dd.late, .tbl td.late { color: var(--warn); }
+  /* the row's "…" shows on the row in hand, under the pointer, or with the keys inside it */
+  .lrow .more { opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+  .lrow.is-sel .more, .lrow:focus-within .more, .lrow .more.is-open { opacity: 1; }
+  @media (hover: hover) and (pointer: fine) { .lrow:hover .more { opacity: 1; } }
+  .td-h { display: flex; align-items: baseline; gap: var(--sp-2); margin: var(--sp-5) var(--sp-3) var(--sp-1); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .td-h .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .td-empty { margin: 0; padding: var(--sp-5) var(--sp-4); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+
+  /* ---- the month: one number, one bar, three buttons, one line ---- */
+  .mo { padding: var(--sp-5) var(--sp-6) var(--sp-6); }
+  .mo-h { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: var(--ctl-h); }
+  .mo-h h2 { margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+  .mo-v { display: flex; align-items: baseline; gap: var(--sp-3); margin: var(--sp-3) 0 var(--sp-4); }
+  .mo-v b { font: 800 var(--fs-hero)/var(--lh-hero) var(--font); letter-spacing: var(--ls-hero); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); }
+  .mo-v span { color: var(--ink-2); font: 500 var(--fs-body)/var(--lh-body) var(--font); font-variant-numeric: tabular-nums; }
+  .mbar { display: flex; gap: var(--sp-1); height: 12px; border-radius: var(--r-pill); overflow: hidden; }
+  .mbar i { display: block; height: 100%; min-width: 6px; flex-basis: 0; }
+  .mbar .in { background: var(--up); }
+  .mbar .lt2 { background: var(--warn); }
+  .mbar .tc { background: var(--fill-3); }
+  /* the bar's legend (P44): a square in each bar colour, the words in ink-2, the amounts at 600; they do not filter */
+  .mo-k { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-6); margin: var(--sp-4) 0 0; padding: 0; list-style: none; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .mo-k li { display: inline-flex; align-items: center; gap: var(--sp-2); }
+  .mo-k i { display: block; flex: none; width: var(--sp-2); height: var(--sp-2); }
+  .mo-k i.in { background: var(--up); } .mo-k i.lt2 { background: var(--warn); } .mo-k i.tc { background: var(--fill-3); }
+  .mo-k b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .mo-k .moves { margin-left: auto; }
+  .mo-n { margin: var(--sp-4) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+
+  /* ---- under the month: Still to come this month | Seats, flat on the floor ---- */
+  .ov2 { display: grid; grid-template-columns: minmax(0, 1fr) 264px; gap: var(--sp-7); align-items: start; margin-top: var(--sp-7); }
+  @media (max-width: 1280px) { .ov2 { grid-template-columns: minmax(0, 1fr) 232px; gap: var(--sp-6); } }
+  .tc-l { padding: 0 var(--sp-1); }   /* the rows' words start under the title's (P46, PX2: .sec-h sits 4 px in) */
+  .tc-l .lrow { width: 100%; grid-template-columns: 96px minmax(0, 1fr) auto; min-height: 44px; padding: 0; border: 0; background-color: transparent; color: inherit; font: inherit; text-align: left; }
+  .tc-l .lrow + .lrow::before { left: 0; right: 0; }
+  .tc-l .d { color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tc-l .nm { font-size: var(--fs-sub); }
+  .tc-l .v { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .se-v { display: flex; align-items: baseline; gap: var(--sp-2); margin: 0 var(--sp-1); }
+  .se-v b { font: 800 var(--fs-num)/var(--lh-num) var(--font); letter-spacing: var(--ls-num); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); }
+  .se-v span { color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .se-l { margin: var(--sp-4) var(--sp-1) 0; padding: 0; list-style: none; }
+  .se-l li { display: flex; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) 0; border-top: 1px solid var(--line); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .se-l li b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .se-a { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); margin: var(--sp-4) 0 0; }
+  .se-a .btn { margin-left: calc(var(--sp-3) * -1); }
+
+  /* ---- one lifter's ledger ---- */
+  .lg { padding: var(--sp-5) var(--sp-6) var(--sp-6); }
+  .lg-h { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
+  .lg-h h2 { margin: 0; font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); text-wrap: balance; }
+  .lg-p { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-3); margin: var(--sp-1) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .kvs { display: grid; grid-template-columns: 160px minmax(0, 1fr); margin: var(--sp-5) 0 0; }
+  .kvs dt, .kvs dd { margin: 0; padding: var(--sp-3) 0; border-top: 1px solid var(--line); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .kvs dt { color: var(--ink-2); }
+  .kvs dd { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; text-wrap: pretty; }
+  .kvs dd q { quotes: '“' '”'; color: var(--ink); font-weight: 400; }
+  .lg-mv { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-5); }
+  .lg h3 { margin: var(--sp-7) 0 var(--sp-2); font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+  .pays { padding: 0; }
+  .pays .lrow { grid-template-columns: 112px 96px minmax(0, 1fr) auto; min-height: 48px; padding: 0 var(--sp-3); cursor: default; }
+  .pays .lrow .v { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; }
+  .pays .lrow .m { color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .pays .lrow .short { color: var(--warn); }
+  .lg-note { margin: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; max-width: 62ch; }
+  .lg .done-row { margin-top: var(--sp-5); flex-wrap: wrap; }
+  .lg .done-row .dw { white-space: normal; }
+
+  /* ---- Everyone: the ledger as tables (To collect, then Paid up), one card ---- */
+  .ev { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+  .ev h3 { display: flex; align-items: baseline; gap: var(--sp-2); margin: var(--sp-4) var(--sp-3) var(--sp-1); font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+  .ev h3 .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .ev .tbl + h3 { margin-top: var(--sp-6); }
+  .ev .tbl td:first-child { color: var(--ink); font-weight: 600; }
+  .ev col.c-who { width: 200px; } .ev col.c-pkg { width: 176px; } .ev col.c-amt { width: 104px; } .ev col.c-cad { width: 104px; }
+  .ev col.c-due { width: 112px; } .ev col.c-last { width: 104px; }
+  @media (max-width: 1280px) { .ev col.c-who { width: 176px; } .ev col.c-pkg { width: 152px; } .ev col.c-amt { width: 96px; } .ev col.c-cad { width: 92px; } .ev col.c-due { width: 100px; } .ev col.c-last { width: 96px; } }
+  .ev.is-narrow { max-height: calc(100dvh - var(--cl-top, 160px) - var(--sp-4)); overflow-y: auto; overscroll-behavior: contain;
+    -webkit-mask-image: linear-gradient(transparent, var(--ink) var(--sp-3), var(--ink) calc(100% - var(--sp-3)), transparent);
+    mask-image: linear-gradient(transparent, var(--ink) var(--sp-3), var(--ink) calc(100% - var(--sp-3)), transparent); }
+  .ev.is-narrow col.c-who { width: auto; } .ev.is-narrow col.c-due { width: 72px; } .ev.is-narrow col.c-st { width: 92px; }
+  .ev.is-narrow .tbl td, .ev.is-narrow .tbl th { padding: 0 var(--sp-2); }
+  .ev .tbl td[data-ellipsis] { overflow: hidden; text-overflow: ellipsis; }
+
+  /* ---- a coach who charges nobody (FTC §10.1): one flat section on the floor, no crimson ---- */
+  .free { max-width: 560px; margin: var(--sp-2) var(--sp-1) 0; }
+  .free h2 { margin: 0; font: 600 var(--fs-body)/var(--lh-body) var(--font); }
+  .free p { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+  .free .btn { margin-top: var(--sp-5); }
+
+  /* ---- sheets and popovers on this page ---- */
+  .fx-sf .fx-set { margin-right: auto; }
+  /* the package rows' words start on the labels' edge (Goal); the chosen row's tint reaches 12 px past it (P50) */
+  .pko-l { display: flex; flex-direction: column; margin: 0 calc(var(--sp-3) * -1); }
+  .pko { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: 44px; padding: 0 var(--sp-3); border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; color: var(--ink); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); text-align: left; cursor: pointer; }
+  .pko:last-child { border-bottom: 1px solid var(--line); }
+  .pko span { color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pko b { font-weight: 500; }
+  .pko[aria-checked='true'] { border-radius: var(--r-field); background: var(--place-sel); }
+  .pko[aria-checked='true'] b { font-weight: 600; }
+  .pko[aria-checked='true'], .pko[aria-checked='true'] + .pko { border-top-color: transparent; }
+  @media (hover: hover) and (pointer: fine) { .pko:not([aria-checked='true']):hover { border-radius: var(--r-field); background: var(--fill); } }
+  .pko:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--r-field); }
+  .ap { display: grid; grid-template-columns: 112px minmax(0, 1fr); margin: var(--sp-3) 0 0; }
+  .ap dt, .ap dd { margin: 0; padding: var(--sp-2) 0; border-top: 1px solid var(--line); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .ap dt { color: var(--ink-2); }
+  .ap dd { color: var(--ink); text-wrap: pretty; }
+  .row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-3); }
+  .ra { margin-top: var(--sp-5); }
+  .ra:first-child { margin-top: var(--sp-2); }
+  .ra h3 { margin: 0; font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .ra p { margin: 2px 0 var(--sp-2); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .pop .cmp textarea { width: 100%; margin-top: var(--sp-3); }
+  .pop .ef { display: flex; flex-direction: column; gap: var(--sp-1); margin-top: var(--sp-3); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .pop .ef .input { width: 100%; }
+  .pop .ef .seg { align-self: flex-start; }
+  .pop .pk-n { color: var(--ink-3); font-variant-numeric: tabular-nums; margin-left: var(--sp-1); }
+  .pop .err { margin-top: var(--sp-2); }
+</style>
+</head>
+<body data-place="clients">
+<div id="page">
+  <main class="page" id="main">
+    <div class="cv" id="cv">
+      <div class="cl" id="cl" data-crop="list"></div>
+      <div class="cd" id="cd">
+        <div class="lt"><div><h1>Clients</h1><p class="facts" id="facts" data-crop="sentence"></p></div></div>
+        <div id="cdb"></div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="../kit/data.js"></script>
+<script src="../kit/kit.js"></script>
+<script src="../kit/coach.js"></script>
+<script src="../kit/r6/block.js"></script>
+<script src="../kit/r6/store.js"></script>
+<script src="../kit/r6/desk.js"></script>
+<script src="../kit/r6/fix.js"></script>
+<script src="../kit/r6/newcoach.js"></script>
+<script>
+(function () {
+  'use strict';
+  var K = window.K, PL = window.PL, DESK = window.DESK, esc = K.esc;
+  var $ = function (s, r) { return (r || document).querySelector(s); }, $$ = function (s, r) { return [].slice.call((r || document).querySelectorAll(s)); };
+  var fn = function (o, k) { return !!o && typeof o[k] === 'function'; };
+  var data = function (r) { return r && !r.error ? r.data : null; };
+  var money = K.money;
+  var first = function (s) { return String(s || '').split(' ')[0]; };
+  var cap1 = function (s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); };
+  var day = function (iso) { return iso ? (K.daysTo(iso) === 0 ? 'Today' : K.wd3(iso) + ' ' + K.dm(iso)) : ''; };
+  var short = function (iso) { return iso ? K.dm(iso) : ''; };
+  /* a stored time as 07:21: a UTC stamp in local time, a local one as written */
+  var hm = function (iso) { if (!iso || String(iso).length < 16) return ''; if (/Z$/.test(iso)) { var d = new Date(iso); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); } return String(iso).slice(11, 16); };
+  var nowHm = function () { var n = fn(PL, 'now') ? PL.now() : null; n = n && n.data ? n.data : n; return hm(n); };
+  var ICON = { more: DESK.ic('more'), x: DESK.ic('x', 2), check: DESK.ic('check', 2.4) };
+  var METHOD = { bank: 'Bank', card: 'Card', paypal: 'PayPal', cash: 'Cash' };
+  var EVERY = { monthly: 'Month', '4-weekly': '4 weeks', fortnightly: '2 weeks', weekly: 'Week', quarterly: '3 months', yearly: 'Year', once: 'Once' };
+  /* a price in words: "$100 a month", "$600 once" (one table for the ledger and the sheets) */
+  var EVERYW = { monthly: ' a month', '4-weekly': ' every 4 weeks', fortnightly: ' every 2 weeks', weekly: ' a week', quarterly: ' a quarter', yearly: ' a year', once: ' once' };
+  var everyW = function (c) { return EVERYW[c] || ' a month'; };
+
+  /* ---------------- the store, read once per render ---------------- */
+  var SUM = function () { return data(PL.billing.summary()) || { month: { in: 0, late: 0, toCome: 0, total: 0, rows: { in: [], late: [], come: [] } }, seats: {} }; };
+  var TODO = function () { return data(PL.billing.todo()) || []; };
+  var LED = function (id) { return data(PL.billing.get(id)); };
+  var item = function (id) { return id && fn(PL.items, 'get') ? data(PL.items.get(id)) : null; };
+  var lifter = function (id) { return K.L(id); };
+  var times = {};   /* when the coach acted on a row this visit (the store's clock), for the done row */
+
+  var st = { view: 'todo', sel: null, sort: 'state' };
+  function readUrl() {
+    var u = DESK.url.get();
+    st.view = u.view === 'everyone' ? 'everyone' : 'todo';
+    st.sel = u.id || null;
+    return u;
+  }
+  function writeUrl(push) { DESK.url.set({ id: st.sel, view: st.view === 'everyone' ? 'everyone' : null }, push); }
+
+  /* ---------------- the toolbar: To do · Everyone, Add a lifter…, the crimson ---------------- */
+  DESK.mount({ place: 'clients', title: 'Clients',
+    mid: '<div class="seg" role="group" aria-label="Show" data-show-seg><button type="button" data-view="todo" aria-pressed="true">To do <span class="n" data-count="clientsToDo"></span></button><button type="button" data-view="everyone" aria-pressed="false">Everyone <span class="n" data-count="lifters"></span></button></div>',
+    trail: '<div class="cluster" role="group" aria-label="Clients actions"><button class="btn" type="button" data-add aria-haspopup="dialog">Add a lifter…</button>' +
+      '<button class="btn" type="button" data-primary data-crimson aria-keyshortcuts="E"></button></div>' });
+  DESK.keyMap([['J K', 'Next or previous decision'], ['E', 'Do what the red button says'], ['Enter', 'Open the ledger of the row in hand'], ['⌘↵', 'Send in a sheet'], ['Esc', 'Close the menu, the sheet, then the ledger']]);
+
+  /* ---------------- the facts line: the four answers ---------------- */
+  /* the seats in the coach's words (FTC §10.1): "Free, 1 of 3 lifters", "21 of 25 seats", from billing.summary only */
+  function seatWords() {
+    var se = SUM().seats || {};
+    if (se.unlimited) return K.plural(se.used || 0, 'lifter');
+    return (se.plan === 'Free' ? 'Free, ' + (se.used || 0) + ' of ' + se.limit + ' lifters' : (se.used || 0) + ' of ' + se.limit + ' seats');
+  }
+  /* nobody pays this coach yet: no lifter has a package and no application is open (FTC §10.1) */
+  function isFree() {
+    var rows = data(PL.billing.list({})) || [];
+    if (rows.some(function (r) { return !!r.pkg; })) return false;
+    return !TODO().some(function (r) { return r.kind === 'app' && !r.done; });
+  }
+  function paintFacts() {
+    if (isFree()) { $('#facts').textContent = seatWords() + ' · Nobody pays you yet'; return; }
+    var s = SUM(), td = TODO(), parts = [];
+    var apps = td.filter(function (r) { return r.kind === 'app' && !r.done; }).length, leaving = td.filter(function (r) { return r.kind === 'leaving'; }).length;
+    parts.push(s.month.late ? money(s.month.late) + ' late' : 'Nothing late');
+    if (apps) parts.push(apps + ' want in');
+    if (leaving) parts.push(leaving + ' leaving');
+    if (s.seats.unlimited) parts.push('no seat limit'); else parts.push(K.plural(s.seats.free || 0, 'seat') + ' free');
+    $('#facts').textContent = parts.join(', ');
+  }
+
+  /* ---------------- the crimson: the store's row, its move in a coach's words ---------------- */
+  function crimsonRow() { return TODO().filter(function (r) { return r.crimson; })[0] || null; }
+  function crimsonOf(r) {
+    if (!r) return null;
+    var f = first(r.name);
+    if (r.kind === 'late') return { act: 'remind', label: (actLabel(r, 'remind') === 'Remind tomorrow' ? 'Remind ' + f + ' tomorrow' : 'Remind ' + f) };
+    if (r.kind === 'app') return { act: 'accept', label: 'Accept ' + f + '…' };
+    if (r.dueToday) return { act: 'paid', label: 'Mark ' + f + ' paid' };
+    if (r.kind === 'none') return { act: 'package', label: 'Set ' + f + '\'s package…' };
+    if (r.kind === 'paused') return { act: 'checkin', label: 'Check in with ' + f };
+    if (r.kind === 'leaving') return { act: 'replyLeave', label: 'Reply to ' + f + '…' };
+    return null;
+  }
+  function paintCrimson() {
+    var b = $('[data-crimson]'), r = crimsonRow(), c = crimsonOf(r);
+    if (!c) { b.hidden = true; b.removeAttribute('data-primary'); return; }
+    b.hidden = false; b.setAttribute('data-primary', ''); b.textContent = c.label; b.title = c.label + ' (E)';
+    b.setAttribute('data-key', r.key);
+  }
+
+  /* ---------------- To do rows ---------------- */
+  function actLabel(r, id) { var a = (r.acts || []).filter(function (x) { return x.id === id; })[0]; return a ? a.label : ''; }
+  function lineOf(r) {
+    if (r.kind === 'late' || r.kind === 'soon' || r.dueToday) {
+      var t = cap1(String(r.text || '').replace(/^\$[\d,.]+,\s*/, ''));
+      if (r.kind === 'late') return '<span class="late">' + esc(t) + '</span>' + (r.context ? '. Lifts today' : '');
+      return esc(t);
+    }
+    if (r.kind === 'app') {
+      if (r.replied) return esc(r.replied.words || 'You asked ' + first(r.name) + '. Waiting for an answer.');
+      var it = item(r.itemId) || {};
+      return 'Wants to join' + (it.context ? ', ' + esc(it.context) : '') + '. Applied ' + esc(K.wd3(String(r.at || '').slice(0, 10)));
+    }
+    if (r.kind === 'paused') { var m = /paused\.\s*(.+)$/i.exec(r.text || ''); return 'Paused' + (m ? ', ' + esc(m[1]) : ''); }
+    if (r.kind === 'leaving') { var i = String(r.text).indexOf(': '); return esc(i > 0 ? r.text.slice(0, i) : r.text); }
+    return esc(r.text || '');
+  }
+  /* the row's visible moves (screens.md §7.1), in its words */
+  /* why a reminder waits for tomorrow: the lifter competes today (F8.5) */
+  function laterWhy(r) { var l = lifter(r.lifterId); return actLabel(r, 'remind') === 'Remind tomorrow' && r.context ? (l && l.sex === 'F' ? 'She' : l && l.sex === 'M' ? 'He' : 'They') + (l && (l.sex === 'F' || l.sex === 'M') ? ' competes today' : ' compete today') : ''; }
+  function movesOf(r) {
+    if (r.kind === 'late') return [['remind', actLabel(r, 'remind') === 'Remind tomorrow' ? 'Remind ' + first(r.name) + ' tomorrow' : actLabel(r, 'remind') || 'Remind', laterWhy(r)], ['paid', 'Mark paid']];   // FP F8.5
+    if (r.kind === 'soon' || r.dueToday) return [['paid', 'Mark paid']];
+    if (r.kind === 'app') return [['accept', 'Accept…'], ['replyApp', 'Reply']];
+    if (r.kind === 'none') return [['package', 'Set a package…']];
+    if (r.kind === 'paused') return [['checkin', 'Check in']];
+    if (r.kind === 'leaving') return [['replyLeave', 'Reply…'], ['end', actLabel(r, 'end') || 'Stop billing after']];
+    return [];
+  }
+  /* the row's "…": every move it has, then its ledger */
+  function menuOf(r) {
+    var it = [];
+    if (r.kind === 'late' || r.kind === 'soon') { it.push({ id: 'remind', label: actLabel(r, 'remind') === 'Remind tomorrow' ? 'Remind ' + first(r.name) + ' tomorrow' : actLabel(r, 'remind') || 'Remind', sub: laterWhy(r) || null }, { id: 'paid', label: 'Mark paid' }, { id: 'pause', label: 'Pause billing' }); }
+    else if (r.dueToday) it.push({ id: 'paid', label: 'Mark paid' });
+    else if (r.kind === 'app') it.push({ id: 'accept', label: 'Accept…' }, { id: 'replyApp', label: 'Reply' }, { id: 'decline', label: 'Decline…' });
+    else if (r.kind === 'none') it.push({ id: 'package', label: 'Set a package…' });
+    else if (r.kind === 'paused') { it.push({ id: 'checkin', label: 'Check in' }, { id: 'restart', label: 'Restart billing' }); if (actLabel(r, 'hold')) it.push({ id: 'hold', label: actLabel(r, 'hold') }); }
+    else if (r.kind === 'leaving') it.push({ id: 'replyLeave', label: 'Reply…' }, { id: 'end', label: actLabel(r, 'end') || 'Stop billing' });
+    it.push({ sep: true }, { id: 'ledger', label: r.kind === 'app' ? 'Open the application' : 'Open ledger' });
+    return it;
+  }
+  /* what a done row says, in the act's done words */
+  function doneOf(r) {
+    var d = r.done; if (!d) return null;
+    var at = times[r.key] || (String(d.at || '').length >= 16 ? hm(d.at) : ''), extra = [], words = d.label;
+    if (d.act === 'paid' && r.lifterId) {
+      var g = LED(r.lifterId), p = g && g.payments ? g.payments.filter(function (x) { return x.on === K.today; })[0] : null;
+      if (p) { words = 'Paid ' + money(p.amount) + ' today by ' + (METHOD[p.method] || p.method).replace(/^B/, 'b').replace(/^C/, 'c') + (p.short ? ', ' + money(p.short) + ' still due' : ''); extra.push('<button class="btn sm" type="button" data-edit-pay="' + esc(r.lifterId) + '" data-i="' + p.i + '">Edit</button>'); }
+      else words = String(d.label).replace(/\.\s*Next payment.*$/, '');
+    } else if (d.act === 'remind' && r.lifterId) {
+      var rem = (LED(r.lifterId) || {}).reminder;
+      if (rem && rem.when === 'tomorrow') { words = 'Reminder goes out tomorrow 08:00'; at = ''; }
+      else { words = 'Reminded'; at = rem ? hm(rem.at) : at; }
+    } else if (d.act === 'end') { words = 'Billing stops after ' + K.d(r.due).toLocaleString('en-GB', { month: 'short' }); }
+    else if (d.act === 'package') { var b = LED(r.lifterId) || {}; words = (b.pkg ? b.pkg + ', ' : '') + money(b.amount || 0) + ' from ' + day(b.nextDue || K.today); }
+    else if (d.act === 'yes' || d.act === 'invite') {
+      var m = /^(.*?),\s*(\d\d:\d\d)\.\s*Link\s*(\S+)$/.exec(d.label || '');
+      if (m) { words = m[1]; at = m[2]; extra.push('<span class="lnk">' + esc(m[3]) + '</span><button class="btn sm" type="button" data-copy="' + esc(m[3]) + '">Copy</button>'); }
+    } else if (d.act === 'no') words = 'Declined ' + first(r.name);
+    var undo = r.kind === 'invite' ? '' : '<button class="btn sm" type="button" data-undo="' + esc(r.key) + '" title="Undo (⌘Z)">Undo</button>';
+    var seen = d.act === 'remind' && words === 'Reminded' ? '<span class="rc">Not seen yet</span>' : '';
+    return '<div class="done-row" data-fact="reason"><span class="done-tick" aria-hidden="true">' + ICON.check + '</span><span class="dw">' + esc(words) + '</span>' +
+      (at ? '<time class="at">' + esc(at) + '</time>' : '') + extra.join('') + undo + seen + '</div>';
+  }
+  /* a row is named by its lifter when the lifter has one row (so a lifter's row is [data-row=<id>]), else by its key */
+  function rid(r) { var n = r.lifterId ? TODO().filter(function (x) { return x.lifterId === r.lifterId; }).length : 0; return n === 1 ? r.lifterId : r.key; }
+  function rowHtml(r) {
+    var sel = isSel(r), done = doneOf(r);
+    var h = '<div class="lrow' + (sel ? ' is-sel' : '') + '" data-row="' + esc(rid(r)) + '" tabindex="0"' + (sel ? ' aria-current="true"' : '') + '>' +
+      '<span class="nm" data-fact="name">' + esc(r.name) + '</span>' +
+      (r.amount != null ? '<span class="amt" data-fact="number">' + money(r.amount) + '</span>' : '');
+    if (done) return h + done + '</div>';
+    h += '<span class="why" data-fact="reason">' + lineOf(r) + '</span>';
+    /* their own words, under the line (a lifter who is leaving says why) */
+    var qi = r.kind === 'leaving' ? String(r.text).indexOf(': ') : -1;
+    if (qi > 0) h += '<span class="q" data-quote>' + esc(r.text.slice(qi + 2)) + '</span>';
+    h += '<div class="mv" data-fact="action">' + movesOf(r).map(function (m) { return '<button class="btn sm fix" type="button" data-do="' + m[0] + '"' + (m[2] ? ' title="' + esc(m[2]) + '"' : '') + '>' + esc(m[1]) + '</button>'; }).join('') +
+      '<button class="btn sm icon quiet more" type="button" data-more data-menu aria-haspopup="menu" aria-expanded="false" aria-label="More for ' + esc(r.name) + '" title="More">' + ICON.more + '</button></div>';
+    return h + '</div>';
+  }
+  function isSel(r) { return !!st.sel && (st.sel === r.key || st.sel === r.lifterId || st.sel === r.id); }
+  function rowByKey(k) { var all = TODO(); return all.filter(function (r) { return r.key === k; })[0] || all.filter(function (r) { return r.lifterId === k && rid(r) === k; })[0] || null; }
+  function rowFor(id) { return TODO().filter(function (r) { return r.key === id || r.lifterId === id || r.id === id; })[0] || null; }
+
+  /* rows keep their place for the visit; what was done before this visit folds into Done today (shared.md §9) */
+  var doneAtLoad = null;
+  function todoHtml() {
+    var rows = TODO();
+    if (!doneAtLoad) { doneAtLoad = {}; rows.forEach(function (r) { if (r.done) doneAtLoad[r.key] = true; }); }
+    var folded = rows.filter(function (r) { return r.done && doneAtLoad[r.key]; }), live = rows.filter(function (r) { return folded.indexOf(r) < 0; });
+    var open = live.filter(function (r) { return !r.done; }).length;
+    return '<div class="card td" data-crop="todo"><div class="list td-l" id="tdl" data-list data-step="click" aria-label="To do">' +
+      live.map(rowHtml).join('') + (!open ? '<p class="td-empty">Every decision is made.</p>' : '') +
+      (folded.length ? '<h3 class="td-h">Done today <span class="n">' + folded.length + '</span></h3>' + folded.map(function (r) { return rowHtml(r).replace(' data-row="', ' data-done-key="'); }).join('') : '') + '</div></div>';
+  }
+
+  /* ---------------- the month, still to come, seats ---------------- */
+  function monthHtml() {
+    var s = SUM(), m = s.month, line = String(m.words != null ? m.words : m.line || '').replace(/’/g, '\'');
+    var bar = function (cls, v) { return v > 0 ? '<i class="' + cls + '" style="flex-grow:' + Math.round(v) + '"></i>' : ''; };
+    return '<div class="card mo" data-hero data-crop="month" aria-labelledby="mo-h">' +
+      '<div class="mo-h"><h2 id="mo-h">' + esc(m.name || 'This month') + '</h2><button class="btn sm quiet" type="button" data-export>Export payments (CSV)</button></div>' +
+      '<p class="mo-v"><b class="acc">' + money(m.in) + '</b><span>of ' + money(m.total) + ' in</span></p>' +
+      '<div class="mbar" data-chart role="img" aria-label="' + esc(money(m.in) + ' in, ' + money(m.late) + ' late, ' + money(m.toCome) + ' to come') + '">' + bar('in', m.in) + bar('lt2', m.late) + bar('tc', m.toCome) + '</div>' +
+      '<ul class="mo-k">' +
+      '<li><i class="in" data-mark aria-hidden="true"></i><span><b>' + money(m.in) + '</b> in</span></li>' +
+      '<li><i class="lt2" data-mark aria-hidden="true"></i><span><b>' + money(m.late) + '</b> late</span></li>' +
+      '<li><i class="tc" data-mark aria-hidden="true"></i><span><b>' + money(m.toCome) + '</b> to come</span></li>' +
+      (m.late > 0 ? '<li class="moves"><button class="mv" type="button" data-part="late" aria-haspopup="dialog">See who is late</button></li>' : '') + '</ul>' +
+      (line ? '<p class="mo-n">' + esc(line) + '</p>' : '') + '</div>';
+  }
+  function comeHtml() {
+    var rows = SUM().month.rows.come || [];
+    return '<div class="sec flat" data-crop="thismonth" aria-labelledby="tc-h"><div class="sec-h"><h2 class="sec-t" id="tc-h">Still to come this month <span class="n">' + rows.length + '</span></h2></div>' +
+      (rows.length ? '<div class="list tc-l">' + rows.map(function (x) {
+        var l = lifter(x.id) || { name: x.id };
+        return '<button class="lrow" type="button" data-row="come-' + esc(x.id) + '-' + esc(x.date) + '" data-open="' + esc(x.id) + '"><span class="d">' + esc(K.wd3(x.date) + ' ' + K.d(x.date).getDate()) + '</span><span class="nm">' + esc(l.name) + '</span><span class="v">' + money(x.amount) + '</span></button>';
+      }).join('') + '</div>' : '<p class="td-empty">Nothing else is due this month.</p>') + '</div>';
+  }
+  function seatsHtml() {
+    var s = SUM(), se = s.seats || {}, bk = se.breakdown || {}, inv = s.invite || {};
+    var nm = function (ids) { return (ids || []).map(function (id) { var l = lifter(id); return l ? l.first : id; }).join(', '); };
+    var li = [];
+    if (bk.paying != null) li.push(['Paying', bk.paying]);
+    if (bk.paused) li.push(['Paused' + (bk.pausedIds ? ', ' + nm(bk.pausedIds) : ''), bk.paused]);
+    if (bk.none) li.push(['No price yet' + (bk.noneIds ? ', ' + nm(bk.noneIds) : ''), bk.none]);
+    if (bk.invites) li.push([bk.invites === 1 && bk.link ? 'Open invite link' : 'Invites out', bk.invites]);
+    return '<div class="sec" data-crop="seats" aria-labelledby="se-h"><div class="sec-h"><h2 id="se-h">Seats</h2></div>' +
+      '<p class="se-v"><b>' + (se.unlimited ? esc(String(se.used)) : esc(se.used + ' of ' + se.limit)) + '</b><span>' + (se.unlimited ? 'used, no limit' : 'seats used') + '</span></p>' +
+      '<ul class="se-l">' + li.map(function (x) { return '<li><span>' + esc(x[0]) + '</span><b>' + x[1] + '</b></li>'; }).join('') + '</ul>' +
+      '<div class="se-a">' + (inv.cancelled ? '<button class="btn sm quiet" type="button" data-link-new>New invite link</button>'
+        : '<button class="btn sm quiet" type="button" data-copy="' + esc(inv.link || '') + '" title="' + esc((inv.link || '') + '. An unused invite holds a seat.') + '">Copy the invite link</button><button class="btn sm quiet" type="button" data-link-cancel>Cancel the open link</button>') +
+      '<a class="btn sm quiet" href="' + esc(DESK.href('settings', 's=plan') || 'settings.html#s=plan') + '">Change plan</a></div></div>';
+  }
+
+  /* ---------------- one lifter's ledger, or an application ---------------- */
+  function ledgerHtml() {
+    var r = rowFor(st.sel), l = lifter(st.sel);
+    var head = function (title, sub) { return '<div class="lg-h"><div><h2>' + esc(title) + '</h2>' + (sub ? '<p class="lg-p">' + sub + '</p>' : '') + '</div><button class="btn icon quiet" type="button" data-close-ledger aria-label="Close the ledger" title="Close (Esc)">' + ICON.x + '</button></div>'; };
+    if (r && (r.kind === 'app' || r.kind === 'invite')) {
+      var it = item(r.itemId) || {}, ev = it.ev || [];
+      var q = function (w) { var e = ev.filter(function (x) { return x.when === w; })[0]; return e ? '<q data-quote>' + esc(e.text) + '</q>' : ''; };
+      var h = '<div class="card lg" data-crop="ledger">' + head(r.name, r.kind === 'app' ? 'Applied ' + esc(day(String(r.at || '').slice(0, 10))) : esc(r.text || ''));
+      if (r.kind === 'app') {
+        h += '<dl class="kvs"><dt>Lifting</dt><dd>' + esc(it.meaning || '') + '</dd>' + (q('Goal') ? '<dt>Goal</dt><dd>' + q('Goal') + '</dd>' : '') + (q('From the application') ? '<dt>Their words</dt><dd>' + q('From the application') + '</dd>' : '') + '</dl>';
+        h += r.done ? doneOf(r) : '<div class="lg-mv" data-key="' + esc(r.key) + '"><button class="btn" type="button" data-do="accept">Accept…</button><button class="btn" type="button" data-do="replyApp">Reply</button><button class="btn quiet" type="button" data-do="decline">Decline…</button></div>';
+      } else h += doneOf(r) || '';
+      return h + '</div>';
+    }
+    var g = l ? LED(l.id) : null; if (!g) return '';
+    var stText = g.status ? g.status.text : '', late = g.status && g.status.state === 'late';
+    var h2 = '<div class="card lg" data-crop="ledger">' + head(g.name, g.pkg ? esc(g.pkg + ', ' + money(g.amount) + everyW(g.cadence)) + '<button class="link" type="button" data-do="package" data-id="' + esc(g.id) + '">Change</button>' : 'No package yet <button class="link" type="button" data-do="package" data-id="' + esc(g.id) + '">Set a package…</button>');
+    var gDue = afterEnd(g) ? null : g.nextDue;
+    h2 += '<dl class="kvs"><dt>Next due</dt><dd>' + esc(gDue ? day(gDue) : 'Nothing due') + '</dd><dt>Status</dt><dd' + (late ? ' class="late"' : '') + '>' + esc(stText) + '</dd>';
+    if (g.owing) { var part = (g.payments || []).filter(function (p) { return p.short; })[0]; h2 += '<dt>Paid in part</dt><dd>' + esc(money(part ? part.amount : 0) + ' paid, ' + money(g.owing) + ' still due') + '</dd>'; }
+    if (g.ends) h2 += '<dt>Billing</dt><dd>Stops after ' + esc(K.dm(g.ends.after)) + '</dd>';
+    if (g.reminder) h2 += '<dt>Reminder</dt><dd>' + esc(g.reminder.when === 'tomorrow' ? 'Goes out tomorrow 08:00' : 'Sent ' + hm(g.reminder.at)) + (g.reminder.words ? ': <q data-quote>' + esc(g.reminder.words) + '</q>' : '') + '</dd>';
+    h2 += '</dl>';
+    if (r && !r.done) { var mv = movesOf(r).filter(function (m) { return m[0] !== 'package'; }); if (mv.length) h2 += '<div class="lg-mv" data-key="' + esc(r.key) + '">' + mv.map(function (m) { return '<button class="btn" type="button" data-do="' + m[0] + '">' + esc(m[1]) + '</button>'; }).join('') + '</div>'; }
+    else if (r && r.done) h2 += doneOf(r);
+    h2 += '<h3>Payments</h3>' + ((g.payments || []).length ? '<div class="list pays">' + g.payments.map(function (p) {
+      return '<div class="lrow"><span class="m">' + esc(short(p.on)) + '</span><span class="v">' + money(p.amount) + '</span><span class="m">' + esc(METHOD[p.method] || p.method) + (p.short ? ', <span class="short">' + money(p.short) + ' short</span>' : '') + '</span>' +
+        '<button class="btn sm icon quiet" type="button" data-more data-pay-more="' + esc(g.id) + '" data-i="' + p.i + '" aria-haspopup="menu" aria-label="' + esc('More for the ' + K.dm(p.on) + ' payment') + '" title="More">' + ICON.more + '</button></div>';
+    }).join('') + '</div>' : '<p class="lg-note">No payments yet.</p>');
+    if (g.note) h2 += '<h3>Note</h3><p class="lg-note">' + esc(g.note) + '</p>';
+    return h2 + '</div>';
+  }
+
+  /* ---------------- Everyone: the ledger as tables ---------------- */
+  /* billing that stops (Ryan, "Stop billing after Nov"): a due date after the last month is no due date; the status says when
+     they leave. The ledger row of PL.billing.list() carries no end yet, PL.billing.get() does */
+  function afterEnd(g) { return !!(g && g.ends && g.ends.after && g.nextDue && g.nextDue > g.ends.after); }
+  function endsOf(r) { var g = r && r.id ? LED(r.id) : null; return g && g.ends && g.ends.after ? g : null; }
+  var SORTS = [['name', 'Lifter'], ['amount', 'Amount ($)'], ['due', 'Next due'], ['state', 'Status']];
+  function everyHtml(narrow) {
+    var rows = data(PL.billing.list({ sort: st.sort })) || [];
+    /* an invited lifter reads the stage words, as in Lifters (F9): "Invited 07:21, not joined yet" */
+    var inv = {}; (fn(PL.invites, 'list') ? data(PL.invites.list()) || [] : []).forEach(function (x) { if (x.lifterId && x.stage === 'invited' && x.stageText) inv[x.lifterId] = x.stageText; });
+    rows = rows.map(function (r) { return inv[r.id] && !r.pkg ? Object.assign({}, r, { status: Object.assign({}, r.status, { text: inv[r.id] }) }) : r; });
+    var coll = rows.filter(function (r) { return r.status.state !== 'ok'; }), ok = rows.filter(function (r) { return r.status.state === 'ok'; });
+    var th = function (key, label, cls) {
+      var s = SORTS.filter(function (x) { return x[0] === key; })[0], on = st.sort.replace(/^-/, '') === key, dir = st.sort.charAt(0) === '-' ? 'descending' : 'ascending';
+      if (!s) return '<th scope="col"' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(label) + '</th>';
+      return '<th scope="col"' + (cls ? ' class="' + cls + '"' : '') + (on ? ' aria-sort="' + dir + '"' : '') + '><button type="button" data-sort="' + key + '">' + esc(label) + (on ? DESK.ic('down', 2) : '') + '</button></th>';
+    };
+    var table = function (list) {
+      var head = narrow ? '<colgroup><col class="c-who"><col class="c-due"><col class="c-st"></colgroup><thead><tr>' + th('name', 'Lifter') + th('due', 'Next due') + th('state', 'Status') + '</tr></thead>'
+        : '<colgroup><col class="c-who"><col class="c-pkg"><col class="c-amt"><col class="c-cad"><col class="c-due"><col class="c-st"><col class="c-last"></colgroup><thead><tr>' + th('name', 'Lifter') + th('pkg', 'Package') + th('amount', 'Amount ($)', 'n') + th('every', 'Every') + th('due', 'Next due') + th('state', 'Status') + th('last', 'Last paid') + '</tr></thead>';
+      return '<table class="tbl" data-table>' + head + '<tbody>' + list.map(function (r) {
+        var ge = endsOf(r);
+        if (ge) { r = Object.assign({}, r, { nextDue: afterEnd(Object.assign({}, ge, { nextDue: r.nextDue })) ? null : r.nextDue, status: Object.assign({}, r.status, { text: r.status.text + ', leaves ' + K.dm(ge.ends.after) }) }); }
+        var sel = st.sel === r.id, late = r.status.state === 'late';
+        var none = '<span class="sr">none</span>';
+        if (narrow) return '<tr data-row="' + esc(r.id) + '" tabindex="0"' + (sel ? ' class="is-sel" aria-current="true"' : '') + '><td data-fact="name" data-ellipsis title="' + esc(r.name) + '">' + esc(r.name) + '</td><td class="v" data-fact="number">' + (r.nextDue ? esc(short(r.nextDue)) : none) + '</td><td data-fact="reason"' + (late ? ' class="late"' : '') + '>' + esc(r.status.text) + '</td></tr>';
+        return '<tr data-row="' + esc(r.id) + '" tabindex="0"' + (sel ? ' class="is-sel" aria-current="true"' : '') + '><td data-ellipsis title="' + esc(r.name) + '">' + esc(r.name) + '</td><td>' + (r.pkg ? esc(r.pkg) : none) + '</td><td class="n v">' + (r.amount != null ? esc(String(r.amount)) : none) + '</td><td>' + (r.cadence ? esc(EVERY[r.cadence] || r.cadence) : none) + '</td>' +
+          '<td class="v">' + (r.nextDue ? esc(r.status.state === 'soon' && r.status.days === 0 ? 'Today' : short(r.nextDue)) : none) + '</td><td' + (late ? ' class="late"' : '') + '>' + esc(r.status.text) + '</td><td class="v">' + (r.lastPaid ? esc(short(r.lastPaid.on)) : none) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    };
+    return '<div class="card ev' + (narrow ? ' is-narrow' : '') + '" data-crop="' + (narrow ? 'everyone' : 'table') + '"' + (narrow ? ' data-list data-step="click" aria-label="Everyone"' : '') + '>' +
+      '<h3>To collect <span class="n">' + coll.length + '</span></h3>' + table(coll) + '<h3>Paid up <span class="n">' + ok.length + '</span></h3>' + table(ok) + '</div>';
+  }
+
+  /* ---------------- a coach who charges nobody (FTC §10.1) ---------------- */
+  var PKG_LINK = function () { return '<a class="link" href="' + esc(DESK.href('settings', 's=packages') || 'settings.html#s=packages') + '">Packages and reminders</a>'; };
+  function freeHtml() {
+    var n = (data(PL.billing.list({})) || []).length;
+    return '<div class="free" data-crop="free"><h2>Nobody pays you yet.</h2><p><span>POWALIFTA never charges your lifters.</span> <span>They pay you their usual way; you mark it paid.</span></p>' +
+      '<button class="btn" type="button" data-charge aria-haspopup="dialog"' + (n ? '' : ' disabled title="Add a lifter first."') + '>Charge a lifter…</button></div>';
+  }
+  function openCharge() {
+    if (!fn(DESK, 'charge')) return;
+    var rows = data(PL.billing.list({})) || [];
+    DESK.charge(rows.length === 1 ? rows[0].id : null);
+  }
+
+  /* ---------------- render ---------------- */
+  var lastFocus = null;
+  function render() {
+    var a = document.activeElement, row = a && a.closest ? a.closest('[data-row]') : null;
+    lastFocus = row && $('#cl').contains(row) ? { key: row.getAttribute('data-row'), self: a === row, act: a.getAttribute('data-do') } : null;
+    var tdl = $('#tdl'), top = tdl ? tdl.scrollTop : 0, evl = $('#cl .ev'), etop = evl ? evl.scrollTop : 0;
+    document.body.classList.toggle('is-everyone', st.view === 'everyone');
+    $$('[data-view]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-view') === st.view)); });
+    $$('.seg').forEach(function (s) { DESK.segSync(s); });
+    var cv = $('#cv'), cl = $('#cl'), cd = $('#cdb'), selValid = !!st.sel && (!!rowFor(st.sel) || !!lifter(st.sel));
+    if (!selValid) st.sel = null;
+    var free = isFree(), seg = $('[data-show-seg]');
+    if (seg) seg.hidden = free;
+    cv.classList.toggle('is-free', free);
+    if (free) {
+      /* FTC §10.1: one flat section; no To do / Everyone, no month, no seats, no crimson */
+      cv.classList.remove('is-wide'); cl.hidden = true; cl.innerHTML = '';
+      cd.innerHTML = st.sel && lifter(st.sel) && LED(st.sel) ? ledgerHtml() : freeHtml();
+    } else if (st.view === 'everyone' && !st.sel) {
+      cv.classList.add('is-wide'); cl.hidden = true; cl.innerHTML = ''; cd.innerHTML = everyHtml(false);
+    } else {
+      cv.classList.remove('is-wide'); cl.hidden = false;
+      cl.innerHTML = st.view === 'everyone' ? everyHtml(true) : todoHtml();
+      /* one list head (PX3): the list's name and count, then the way to the money settings (F8.2) */
+      DESK.listHead(cl, st.view === 'everyone' ? { name: 'Everyone', count: (PL.counts().data || {}).lifters || 0, countKey: 'lifters', action: PKG_LINK() }
+        : { name: 'To do', count: (PL.counts().data || {}).clientsToDo || 0, countKey: 'clientsToDo', action: PKG_LINK() });
+      cd.innerHTML = st.sel ? ledgerHtml() : monthHtml() + '<div class="ov2">' + comeHtml() + seatsHtml() + '</div>';
+    }
+    var t2 = $('#tdl'); if (t2) t2.scrollTop = top;
+    var e2 = $('#cl .ev'); if (e2) e2.scrollTop = etop;
+    paintFacts(); paintCrimson(); fitPane();
+    if (lastFocus) { var r2 = $('#cl [data-row="' + cssEsc(lastFocus.key) + '"]'); var f = r2 && (lastFocus.act ? r2.querySelector('[data-do="' + lastFocus.act + '"]') : null); (f || r2 || { focus: function () {} }).focus({ preventScroll: true }); }
+  }
+  var cssEsc = function (s) { return window.CSS && CSS.escape ? CSS.escape(s) : s; };
+  /* the list pane ends 16 px above the window's foot: its rest top, measured once laid out */
+  function fitPane() {
+    var cl = $('#cl'); if (!cl || cl.hidden) return;
+    var top = Math.round(cl.getBoundingClientRect().top + scrollY);
+    if (scrollY === 0 || !document.body.style.getPropertyValue('--cl-top')) document.body.style.setProperty('--cl-top', top + 'px');
+  }
+  addEventListener('resize', function () { var cl = $('#cl'); if (cl && !cl.hidden) { var y = scrollY; document.body.style.setProperty('--cl-top', Math.round(cl.getBoundingClientRect().top + y) + 'px'); } });
+
+  function select(id, o) {
+    o = o || {};
+    st.sel = id || null; writeUrl(!!o.push); render();
+    if (st.sel && !o.keepScroll) { var cd = $('#cd'); if (cd && cd.getBoundingClientRect().top < 0) scrollTo(0, 0); }
+  }
+
+  /* ---------------- moves ---------------- */
+  function toastRes(res, fallback) {
+    if (!res) return false;
+    if (res.error) { DESK.toast(res.error.message || 'That did not go through.'); return false; }
+    var tok = res.meta && res.meta.undo;
+    var text = (res.meta && res.meta.label) || fallback || '';
+    if (text) DESK.toast(text, tok ? function () { return PL.undo(tok); } : null);
+    return true;
+  }
+  function stamp(key) { times[key] = nowHm(); }
+  function rowEl(key) { var r = rowByKey(key); return r ? $('#cl [data-row="' + cssEsc(rid(r)) + '"]') : null; }
+  /* a fix sheet grows from the row's own button when the move came from the toolbar or a menu */
+  function fixTrigger(btn, anchor) { if (btn && anchor && anchor !== btn && !anchor.contains(btn)) { var own = $('.mv .fix', anchor); if (own) return own; } return btn; }
+  function doAct(act, r, btn) {
+    if (!r) return;
+    var id = r.lifterId, anchor = rowEl(r.key) || btn;
+    switch (act) {
+      case 'remind':
+        /* in place under the row (screens.md §7.2); from the ledger, under its moves */
+        if (fn(DESK, 'remind')) DESK.remind(btn, id, { anchor: rowEl(r.key) || (btn && btn.closest('.lg-mv')) || null }); else toastRes(PL.billing.remind(id));
+        return;
+      case 'paid': {
+        var res = PL.billing.markPaid(id, { amount: r.amount }); if (toastRes(res)) stamp(r.key); return;
+      }
+      case 'pause': if (toastRes(PL.billing.pause(id))) stamp(r.key); return;
+      case 'restart': if (toastRes(PL.billing.restart(id))) stamp(r.key); return;
+      case 'end': if (toastRes(PL.billing.end(id, { after: r.due }))) stamp(r.key); return;
+      case 'accept': openTerms({ mode: 'accept', row: r }); return;
+      case 'decline': openDecline(r); return;
+      case 'package': openTerms({ mode: 'package', id: id }); return;
+      case 'replyApp': if (fn(DESK.fix, 'open') && r.itemId) DESK.fix.open(fixTrigger(btn, anchor), { itemId: r.itemId, actId: 'msg', anchor: anchor }); return;
+      case 'checkin': if (fn(DESK.fix, 'open')) DESK.fix.open(fixTrigger(btn, anchor), { itemId: 'quiet-' + id, actId: 'msg', anchor: anchor }); return;
+      case 'hold': if (fn(DESK.fix, 'open')) DESK.fix.open(fixTrigger(btn, anchor), { itemId: 'quiet-' + id, actId: 'hold', anchor: anchor }); return;
+      case 'replyLeave': openReply(r, btn, anchor); return;
+      case 'ledger': select(r.lifterId || r.id, { push: true }); return;
+    }
+  }
+  if (DESK.fix || DESK.remind) document.addEventListener('desk:fix', function (e) { var d = e.detail || {}; var r = d.lifterId ? rowFor(d.lifterId) : d.itemId ? TODO().filter(function (x) { return x.itemId === d.itemId || 'quiet-' + x.lifterId === d.itemId; })[0] : null; if (r) stamp(r.key); render(); });
+
+  /* a reply to a lifter who is leaving: a composer grown from the row, the words drafted */
+  function openReply(r, btn, anchor) {
+    var f = first(r.name), when = r.due ? K.d(r.due).toLocaleString('en-GB', { month: 'long' }) : 'this month';
+    var draft = 'Thanks for telling me, ' + f + '. Let\'s finish ' + when + ' strong; I\'ll stop billing after it.';
+    var el = DESK.pop.open(btn, '<div class="cmp" data-compose="' + esc(r.key) + '"><h3>Reply to ' + esc(f) + '</h3><label class="sr" for="cmp-t">Message to ' + esc(f) + '</label><textarea class="input" id="cmp-t" rows="3">' + esc(draft) + '</textarea><p class="err" hidden></p>' +
+      '<div class="acts"><button class="btn quiet" type="button" data-pop-close>Cancel</button><button class="btn" type="button" data-send>Send to ' + esc(f) + '</button></div></div>', { label: 'Reply to ' + f, anchor: anchor, focus: 'textarea' });
+    var send = function () {
+      var t = $('textarea', el).value.trim(), er = $('.err', el);
+      if (!t) { er.textContent = 'Write a few words first.'; er.hidden = false; return; }
+      var res = PL.messages.send(r.lifterId, { text: t });
+      if (res && res.error) { er.textContent = res.error.message; er.hidden = false; return; }
+      DESK.pop.close();
+      var tok = res && res.meta && res.meta.undo;
+      DESK.toast('Sent to ' + f + ': “' + t + '”', tok ? function () { return PL.undo(tok); } : null);
+    };
+    el.addEventListener('click', function (e) { if (e.target.closest('[data-send]')) send(); if (e.target.closest('[data-pop-close]')) DESK.pop.close(); });
+    el.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); } });
+  }
+
+  /* ---------------- sheets: accept, invite, package (one form, three openings), decline, remind both ---------------- */
+  function sheet(name, label, html) {
+    if (DESK.pop.isOpen()) DESK.pop.close();
+    var d = DESK.sheet.open({ label: label, cls: 'fx-sheet', html: html, onClose: function () { d.removeAttribute('data-sheet'); if (name === 'invite') { var u = DESK.url.get(); if (u.invite) { delete u.invite; DESK.url.set(u); } } } });
+    d.setAttribute('data-sheet', name);
+    return d;
+  }
+  function pkgs() { return data(PL.billing.packages()) || []; }
+  function nextMonday(k) { var m = K.monday(K.today); return K.add(m, 7 * (k || 1)); }
+  function firstOfNext() { var x = K.d(K.today); return new Date(x.getFullYear(), x.getMonth() + 1, 1).toLocaleDateString('en-CA'); }
+  function every(p) { return everyW(p.cadence); }
+  /* mode: accept (an applicant), invite (someone who has not applied), package (a lifter's price and first payment) */
+  function openTerms(o) {
+    var list = pkgs(), r = o.row || null, l = o.id ? lifter(o.id) : null, g = o.id ? LED(o.id) : null;
+    var name = o.mode === 'accept' ? r.name : o.mode === 'package' ? l.name : '';
+    var it = r && r.itemId ? item(r.itemId) : null;
+    var pick0 = g && g.pkg ? list.filter(function (p) { return p.name === g.pkg; })[0] : null;
+    if (!pick0 && o.mode === 'accept' && it && /qualif|nationals|meet/i.test(((it.ev || [])[0] || {}).text || '')) pick0 = list.filter(function (p) { return /meet/i.test(p.name); })[0];
+    var f = { pkg: (pick0 || list[0] || {}).id || null, amount: pick0 && g && g.amount ? g.amount : (pick0 || list[0] || {}).amount, priceTouched: !!(g && g.amount), when: null, other: '', name: '', email: '', tell: true, note: null, noteTouched: false };
+    var whenOpts = o.mode === 'package'
+      ? [[K.today, 'Today'], [nextMonday(1), K.wd3(nextMonday(1)) + ' ' + K.dm(nextMonday(1))], [firstOfNext(), K.wd3(firstOfNext()) + ' ' + K.dm(firstOfNext())], ['pick', 'Pick a date']]
+      : [[nextMonday(1), K.wd3(nextMonday(1)) + ' ' + K.dm(nextMonday(1))], [nextMonday(2), K.wd3(nextMonday(2)) + ' ' + K.dm(nextMonday(2))], ['pick', 'Pick a date']];
+    if (o.mode === 'package' && g && g.nextDue && g.nextDue >= K.today && g.pkg) whenOpts.unshift([g.nextDue, day(g.nextDue)]);
+    f.when = whenOpts[0][0];
+    var fst = function () { return o.mode === 'invite' ? first(f.name.trim()) : first(name); };
+    var pk = function () { return list.filter(function (p) { return p.id === f.pkg; })[0] || null; };
+    var whenIso = function () { return f.when === 'pick' ? f.other : f.when; };
+    var whenWords = function () { var w = whenIso(); return !w ? 'a date to pick' : w === K.today ? 'today' : K.wd3(w) + ' ' + K.dm(w); };
+    var noteDraft = function () { var p = pk(); if (!p) return ''; return 'Welcome, ' + fst() + '. ' + p.name + ' is ' + money(f.amount || 0) + every(p) + ', first payment ' + whenWords() + '.' + (p.link ? ' Pay here: ' + p.link + '.' : ''); };
+    var priceLabel = function () { return fst() ? 'Price for ' + fst() + ' ($)' : 'Price ($)'; };
+    var mainLabel = function () {
+      if (o.mode === 'accept') return 'Accept and invite ' + fst();
+      if (o.mode === 'invite') return fst() ? 'Invite ' + fst() : 'Invite';
+      return (g && g.pkg ? 'Save ' : 'Set ') + fst() + '\'s package';
+    };
+    var title = o.mode === 'accept' ? 'Accept ' + name : o.mode === 'invite' ? 'Invite a lifter' : (g && g.pkg ? 'Change ' + first(name) + '\'s package' : 'Set ' + first(name) + '\'s package');
+    var who = o.mode === 'accept' ? esc((it && it.meaning) || '') : o.mode === 'package' ? esc(g && g.pkg ? g.pkg + ', ' + money(g.amount) + ' now' : 'No price yet') : '';
+    var d = sheet(o.mode, title, '<div class="fx-s" data-crop="' + o.mode + '"></div>'), box = $('.fx-s', d);
+    function paint() {
+      var p = pk(), h = '<div class="fx-sh"><h2 class="fx-st">' + esc(title) + '</h2>' + (who ? '<p class="fx-who">' + who + '</p>' : '') + '</div><div class="fx-sb">';
+      if (o.mode === 'accept' && it) {
+        var ev = it.ev || [], q = function (w) { var e = ev.filter(function (x) { return x.when === w; })[0]; return e ? '<q data-quote>' + esc(e.text) + '</q>' : ''; };
+        h += '<dl class="ap">' + (q('Goal') ? '<dt>Goal</dt><dd>' + q('Goal') + '</dd>' : '') + (q('From the application') ? '<dt>Their words</dt><dd>' + q('From the application') + '</dd>' : '') + '</dl>';
+      }
+      if (o.mode === 'invite') h += '<div class="row2"><label class="fx-f"><span class="fx-fl">Name</span><input class="input" type="text" data-f="name" autocomplete="off" value="' + esc(f.name) + '"></label><label class="fx-f"><span class="fx-fl">Email</span><input class="input" type="email" data-f="email" autocomplete="off" value="' + esc(f.email) + '"></label></div>';
+      if (!list.length) h += '<p class="fx-note">No packages yet. <a class="link" href="' + esc(DESK.href('settings', 's=packages') || 'settings.html#s=packages') + '">Add a package in Settings</a></p>';
+      else {
+        h += '<div class="fx-f"><span class="fx-fl" id="pk-l">Package</span><div class="pko-l" role="radiogroup" aria-labelledby="pk-l">' + list.map(function (x) {
+          return '<button class="pko" type="button" role="radio" data-pkg="' + esc(x.id) + '" aria-checked="' + (x.id === f.pkg) + '"><b>' + esc(x.name) + '</b><span>' + esc(money(x.amount) + every(x)) + '</span></button>';
+        }).join('') + '</div></div>';
+        h += '<label class="fx-f"><span class="fx-fl" data-plabel>' + esc(priceLabel()) + '</span><input class="input num" type="number" min="1" step="1" inputmode="decimal" data-f="amount" value="' + esc(String(f.amount || '')) + '"></label>';
+        h += '<div class="fx-f"><span class="fx-fl" id="wh-l">' + (o.mode === 'package' ? 'First payment' : 'Starts') + '</span><div class="seg" role="radiogroup" aria-labelledby="wh-l">' + whenOpts.map(function (w) {
+          return '<button type="button" role="radio" data-when="' + esc(w[0]) + '" aria-checked="' + (f.when === w[0]) + '" aria-pressed="' + (f.when === w[0]) + '">' + esc(w[1]) + '</button>';
+        }).join('') + '</div>' + (f.when === 'pick' ? '<label class="sr" for="wh-d">Date</label><input class="input num" id="wh-d" type="date" data-f="other" min="' + esc(K.today) + '" value="' + esc(f.other) + '">' : '') + '</div>';
+        if (o.mode === 'package') {
+          if (!f.noteTouched) f.note = noteDraft();
+          h += '<div class="fx-f"><button type="button" class="tick" role="checkbox" aria-checked="' + f.tell + '" data-tell><i>' + ICON.check + '</i><span>Tell ' + esc(fst()) + '</span></button>' +
+            (f.tell ? '<label class="sr" for="pk-n">Message to ' + esc(fst()) + '</label><textarea class="input fx-msg" id="pk-n" rows="3" data-f="note">' + esc(f.note) + '</textarea>' : '') + '</div>';
+        } else if (p) h += '<p class="fx-note" data-line>' + esc(p.name + ', ' + money(f.amount || 0) + every(p) + ', from ' + whenWords() + '.') + '</p>';
+      }
+      h += '<p class="fx-err" data-fx-err="sheet" hidden></p></div>';
+      h += '<div class="fx-sf">' + (o.mode === 'package' && list.length ? '<a class="link fx-set" href="' + esc(DESK.href('settings', 's=packages') || 'settings.html#s=packages') + '">Edit packages</a>' : '') + '<button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn" data-primary data-main' + (list.length ? '' : ' disabled title="Add a package in Settings first."') + '>' + esc(mainLabel()) + '</button></div>';
+      var foc = document.activeElement && box.contains(document.activeElement) ? (document.activeElement.getAttribute('data-f') || document.activeElement.getAttribute('data-pkg') || document.activeElement.getAttribute('data-when') || (document.activeElement.hasAttribute('data-tell') ? 'tell' : null)) : null;
+      var caret = document.activeElement && document.activeElement.selectionStart;
+      box.innerHTML = h;
+      DESK.segSync($('.seg', box));
+      if (foc) { var el = $('[data-f="' + foc + '"], [data-pkg="' + foc + '"], [data-when="' + foc + '"]', box) || (foc === 'tell' ? $('[data-tell]', box) : null); if (el) { el.focus({ preventScroll: true }); try { if (caret != null && el.setSelectionRange) el.setSelectionRange(caret, caret); } catch (e) { /* not a text field */ } } }
+    }
+    function err(t) { var e = $('[data-fx-err=sheet]', box); e.textContent = t || ''; e.hidden = !t; }
+    function soft() {   /* words that follow the fields without a repaint: the main button, the line, the untouched note */
+      var m = $('[data-main]', box); if (m) m.textContent = mainLabel();
+      var pl = $('[data-plabel]', box); if (pl) pl.textContent = priceLabel();
+      var p = pk(), ln = $('[data-line]', box); if (ln && p) ln.textContent = p.name + ', ' + money(f.amount || 0) + every(p) + ', from ' + whenWords() + '.';
+      var nt = $('[data-f=note]', box); if (nt && !f.noteTouched) { f.note = noteDraft(); nt.value = f.note; }
+    }
+    function submit() {
+      var p = pk(); if (!p) { err('Pick a package.'); return; }
+      if (!(f.amount > 0)) { err('Write a price over 0, like ' + p.amount + '.'); return; }
+      if (f.when === 'pick' && !f.other) { err('Pick a date.'); return; }
+      var res;
+      if (o.mode === 'accept') res = PL.billing.accept(r.id, { pkg: p.id, amount: f.amount, startsOn: whenIso() });
+      else if (o.mode === 'invite') res = PL.billing.invite({ name: f.name.trim(), email: f.email.trim(), pkg: p.id, amount: f.amount, startsOn: whenIso() });
+      else res = PL.billing.setPackage(o.id, { pkg: p.id, amount: f.amount, firstDue: whenIso(), note: f.tell ? String(f.note || '').trim() : '' });
+      if (!res || res.error) { err((res && res.error && res.error.message) || 'That did not go through.'); return; }
+      var key = o.mode === 'accept' ? r.key : o.mode === 'package' ? (rowFor(o.id) || {}).key : null;
+      if (key) stamp(key);
+      d.close(); toastRes(res);
+    }
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.hasAttribute('data-main')) { submit(); return; }
+      if (b.hasAttribute('data-pkg')) { f.pkg = b.getAttribute('data-pkg'); var p = pk(); if (!f.priceTouched && p) f.amount = p.amount; paint(); return; }
+      if (b.hasAttribute('data-when')) { f.when = b.getAttribute('data-when'); paint(); if (f.when === 'pick') { var dt = $('[data-f=other]', box); if (dt) dt.focus(); } return; }
+      if (b.hasAttribute('data-tell')) { f.tell = !f.tell; paint(); }
+    });
+    box.addEventListener('input', function (e) {
+      var k = e.target.getAttribute('data-f'); if (!k) return;
+      if (k === 'amount') { f.amount = Number(e.target.value); f.priceTouched = true; }
+      else if (k === 'note') { f.note = e.target.value; f.noteTouched = true; }
+      else f[k] = e.target.value;
+      err(''); soft();
+    });
+    d.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } });
+    paint();
+    /* FD16: a sheet opened with the mouse keeps the focus on its title (desk.js); only the invite starts in its Name field */
+    var f0 = o.mode === 'invite' ? $('[data-f=name]', box) : null; if (f0) f0.focus();
+    return d;
+  }
+  function openDecline(r) {
+    var it = item(r.itemId) || {}, goal = (((it.ev || []).filter(function (x) { return x.when === 'Goal'; })[0]) || {}).text || '';
+    var f = first(r.name), luck = /spring/i.test(goal) ? 'Good luck with the spring meet.' : /nationals/i.test(goal) ? 'Good luck qualifying for nationals.' : 'Good luck with your training.';
+    var draft = 'Thanks for applying, ' + f + '. I can\'t take you on right now. ' + luck;
+    var d = sheet('decline', 'Decline ' + r.name, '<div class="fx-s" data-crop="decline"><div class="fx-sh"><h2 class="fx-st">Decline ' + esc(r.name) + '</h2><p class="fx-who">' + esc(it.meaning || '') + '</p></div><div class="fx-sb">' +
+      '<label class="fx-f"><span class="fx-fl">Message to ' + esc(f) + '</span><textarea class="input fx-msg" rows="3" data-f="text">' + esc(draft) + '</textarea></label><p class="fx-err" data-fx-err="sheet" hidden></p></div>' +
+      '<div class="fx-sf"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn" data-primary data-main>Send and decline</button></div></div>'), box = $('.fx-s', d);
+    var go = function () {
+      var t = $('[data-f=text]', box).value.trim(); if (!t) { var e0 = $('[data-fx-err=sheet]', box); e0.textContent = 'Write a few words first.'; e0.hidden = false; return; }
+      var res = PL.billing.decline(r.id, { text: t }); if (!res || res.error) { var e1 = $('[data-fx-err=sheet]', box); e1.textContent = (res && res.error && res.error.message) || 'That did not go through.'; e1.hidden = false; return; }
+      stamp(r.key); d.close(); toastRes(res);
+    };
+    box.addEventListener('click', function (e) { if (e.target.closest('[data-main]')) go(); });
+    d.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); go(); } });
+  }
+  function openRemindAll() {
+    var s = SUM(), ids = s.late || [];
+    var items = ids.map(function (id) { var dr = data(PL.billing.remindDraft(id)) || {}, g = LED(id) || {}; return { id: id, name: g.name, line: money(g.amount) + ', ' + (g.status ? g.status.text : ''), text: dr.text || '', when: dr.when || 'now', why: dr.why }; });
+    if (!items.length) return;
+    var label = items.length === 2 ? 'Remind both' : 'Remind all ' + items.length;
+    var d = sheet('remind-all', label, '<div class="fx-s" data-crop="remind-all"><div class="fx-sh"><h2 class="fx-st">' + esc(label) + '</h2><p class="fx-who">' + esc(money(s.month.late) + ' late') + '</p></div><div class="fx-sb">' +
+      items.map(function (x, i) {
+        return '<div class="ra"><h3>' + esc(x.name) + '</h3><p>' + esc(x.line) + (x.when === 'tomorrow' ? '. Goes tomorrow 08:00: ' + esc(x.why || '') : '. Goes now') + '</p><label class="sr" for="ra-' + i + '">Reminder to ' + esc(first(x.name)) + '</label><textarea class="input fx-msg" id="ra-' + i + '" rows="2" data-i="' + i + '">' + esc(x.text) + '</textarea></div>';
+      }).join('') + '<p class="fx-err" data-fx-err="sheet" hidden></p></div>' +
+      '<div class="fx-sf"><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn" data-primary data-main>Send ' + items.length + '</button></div></div>'), box = $('.fx-s', d);
+    var go = function () {
+      var h = PL.hooks, prev = h ? h.toast : null, toks = [], bad = null;
+      if (h) h.toast = function () {};
+      try {
+        items.forEach(function (x, i) { var t = $('[data-i="' + i + '"]', box).value.trim(); if (!t) { bad = 'Write the reminder to ' + first(x.name) + '.'; return; } var res = PL.billing.remind(x.id, { text: t, when: x.when }); if (res && res.error) bad = res.error.message; else if (res && res.meta) { toks.push(res.meta.undo); var rr = rowFor(x.id); if (rr) stamp(rr.key); } });
+      } finally { if (h) h.toast = prev; }
+      if (bad && !toks.length) { var e0 = $('[data-fx-err=sheet]', box); e0.textContent = bad; e0.hidden = false; return; }
+      d.close();
+      DESK.toast(items.map(function (x) { return first(x.name) + (x.when === 'tomorrow' ? ' tomorrow 08:00' : ' now'); }).join(', ').replace(/^/, 'Reminders: ') + '.', function () { var last = null; toks.slice().reverse().forEach(function (t) { last = PL.undo(t); }); return last && !last.error ? { meta: { label: 'Reminders taken back.' } } : last; });
+    };
+    box.addEventListener('click', function (e) { if (e.target.closest('[data-main]')) go(); });
+    d.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); go(); } });
+  }
+
+  /* ---------------- popovers: a part of the month, a payment's edit ---------------- */
+  function partPop(btn, part) {
+    var s = SUM(), m = s.month, rows = (m.rows && m.rows[part]) || [];
+    var head = part === 'in' ? money(m.in) + ' in' : part === 'late' ? money(m.late) + ' late' : money(m.toCome) + ' to come';
+    var pick = function (x) {
+      var l = lifter(x.id) || { name: x.id }, sub = part === 'in' ? K.dm(x.on) + ', ' + (METHOD[x.method] || x.method) : part === 'late' ? K.dm(x.date) + ', ' + K.plural(-K.daysTo(x.date), 'day') + ' late' : day(x.date);
+      return '<button class="pick" type="button" data-pick="' + esc(x.id) + '"><span class="pk"><b>' + esc(l.name) + '</b><small>' + esc(sub) + '</small></span><span class="v">' + money(x.amount) + '</span></button>';
+    };
+    var acts = part === 'late' && rows.length ? '<div class="acts"><button class="btn" type="button" data-remind-all aria-haspopup="dialog">' + (rows.length === 2 ? 'Remind both…' : rows.length === 1 ? 'Remind ' + esc(first((lifter(rows[0].id) || {}).name)) + '…' : 'Remind all ' + rows.length + '…') + '</button></div>' : '';
+    var el = DESK.pop.open(btn, '<h3>' + esc(head) + '<span class="pk-n">' + rows.length + '</span></h3><div class="pop-b">' + (rows.length ? rows.map(pick).join('') : '<p class="lede">Nobody here this month.</p>') + '</div>' + acts, { label: head, anchor: btn });
+    el.addEventListener('click', function (e) {
+      var p = e.target.closest('[data-pick]'); if (p) { DESK.pop.close(); select(p.getAttribute('data-pick'), { push: true }); return; }
+      if (e.target.closest('[data-remind-all]')) { if (rows.length === 1) { DESK.pop.close(); var r1 = rowFor(rows[0].id); doAct('remind', r1, btn); } else openRemindAll(); }
+    });
+  }
+  function editPop(btn, id, i) {
+    var g = LED(id), p = g && (g.payments || []).filter(function (x) { return x.i === i; })[0]; if (!p) return;
+    var f = { amount: p.amount, on: p.on, method: p.method };
+    var el = DESK.pop.open(btn, '<h3>Edit the payment</h3><p class="who-l">' + esc(g.name + ', ' + K.dm(p.on)) + '</p>' +
+      '<label class="ef"><span>Amount ($)</span><input class="input num" type="number" min="1" step="1" data-e="amount" value="' + esc(String(p.amount)) + '"></label>' +
+      '<label class="ef"><span>Date</span><input class="input num" type="date" data-e="on" max="' + esc(K.today) + '" value="' + esc(p.on) + '"></label>' +
+      '<div class="ef"><span id="pm-l">Method</span><div class="seg" role="radiogroup" aria-labelledby="pm-l">' + ['bank', 'card', 'paypal', 'cash'].map(function (k) { return '<button type="button" role="radio" data-m="' + k + '" aria-checked="' + (k === f.method) + '" aria-pressed="' + (k === f.method) + '">' + METHOD[k] + '</button>'; }).join('') + '</div></div>' +
+      '<p class="err" hidden></p><div class="acts"><button class="btn quiet" type="button" data-pop-close>Cancel</button><button class="btn" type="button" data-save>Save</button></div>', { label: 'Edit the payment', anchor: btn.closest('[data-row]') || btn, focus: '[data-e=amount]' });
+    DESK.segSync($('.seg', el));
+    var save = function () {
+      var a = Number($('[data-e=amount]', el).value), on = $('[data-e=on]', el).value, er = $('.err', el);
+      if (!(a > 0)) { er.textContent = 'Write the amount paid, like ' + p.amount + '.'; er.hidden = false; return; }
+      var res = PL.billing.editPayment(id, i, { amount: a, on: on || p.on, method: f.method });
+      if (res && res.error) { er.textContent = res.error.message; er.hidden = false; return; }
+      DESK.pop.close(); toastRes(res);
+    };
+    el.addEventListener('click', function (e) {
+      var m = e.target.closest('[data-m]'); if (m) { f.method = m.getAttribute('data-m'); $$('[data-m]', el).forEach(function (b) { var on = b === m; b.setAttribute('aria-checked', String(on)); b.setAttribute('aria-pressed', String(on)); }); DESK.segSync($('.seg', el), true); return; }
+      if (e.target.closest('[data-save]')) save();
+      if (e.target.closest('[data-pop-close]')) DESK.pop.close();
+    });
+    el.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.matches('input')) { e.preventDefault(); save(); } });
+  }
+
+  /* ---------------- the CSV, the link ---------------- */
+  function exportCsv() {
+    var r = PL.billing.exportCsv(), text = r && r.data != null ? r.data : r, name = (r && r.meta && r.meta.filename) || 'payments.csv';
+    try {
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = name;
+      document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      DESK.toast('Saved ' + name + '.');
+    } catch (e) { DESK.toast('The file could not be saved here.'); }
+  }
+  function copy(text) {
+    var done = function () { var s = SUM(); DESK.toast('Copied ' + text + (s.seats && !s.seats.unlimited ? '. ' + K.plural(s.seats.free || 0, 'seat') + ' left.' : '.')); };
+    try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText('https://' + text).then(done, done); else done(); } catch (e) { done(); }
+  }
+
+  /* ---------------- events ---------------- */
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var v = t.closest('[data-view]'); if (v) { st.view = v.getAttribute('data-view'); if (st.view === 'everyone' && st.sel && !lifter(st.sel)) st.sel = null; writeUrl(true); render(); return; }
+    if (t.closest('[data-crimson]')) {
+      var r = rowByKey(t.closest('[data-crimson]').getAttribute('data-key')), c = crimsonOf(r); if (!c) return;
+      /* the row it acts on comes into view first, so a sheet that grows from it has a row to grow from (instant: no animation) */
+      var re = rowEl(r.key); if (re) re.scrollIntoView({ block: 'nearest' });
+      doAct(c.act, r, t.closest('[data-crimson]')); return;
+    }
+    if (t.closest('[data-add]')) { addLifter(); return; }
+    if (t.closest('[data-charge]')) { openCharge(); return; }
+    if (t.closest('[data-export]')) { exportCsv(); return; }
+    var cp = t.closest('[data-copy]'); if (cp) { copy(cp.getAttribute('data-copy')); return; }
+    if (t.closest('[data-link-cancel]')) { toastRes(PL.billing.inviteCancel()); return; }
+    if (t.closest('[data-link-new]')) { toastRes(PL.billing.inviteNew()); return; }
+    var pt = t.closest('[data-part]'); if (pt) { if (DESK.pop.justClosed(pt)) return; partPop(pt, pt.getAttribute('data-part')); return; }
+    if (t.closest('[data-close-ledger]')) { select(null); return; }
+    var srt = t.closest('[data-sort]'); if (srt) { var k = srt.getAttribute('data-sort'); st.sort = st.sort === k ? '-' + k : k; render(); return; }
+    var pm = t.closest('[data-pay-more]'); if (pm) {
+      if (DESK.pop.justClosed(pm)) return;
+      var pid = pm.getAttribute('data-pay-more'), pi = Number(pm.getAttribute('data-i'));
+      DESK.menu.open(pm, [{ id: 'edit', label: 'Edit' }, { id: 'remove', label: 'Remove', red: true }], { label: 'This payment', anchor: pm, run: function (mid) {
+        if (mid === 'edit') editPop(pm, pid, pi);
+        else if (mid === 'remove' && fn(PL.billing, 'removePayment')) toastRes(PL.billing.removePayment(pid, pi));
+      } });
+      return;
+    }
+    var ep = t.closest('[data-edit-pay]'); if (ep) { if (DESK.pop.justClosed(ep)) return; editPop(ep, ep.getAttribute('data-edit-pay'), Number(ep.getAttribute('data-i'))); return; }
+    var un = t.closest('[data-undo]'); if (un) {
+      var res = PL.billing.undo(un.getAttribute('data-undo'));
+      if (res && res.error) DESK.toast(res.error.message); else if (res) DESK.toast('Undone: ' + cap1(String((res.meta && res.meta.label) || 'the last move').replace(/^Undone:\s*/, '')));
+      return;
+    }
+    var mo = t.closest('[data-menu]'); if (mo) {
+      if (DESK.pop.justClosed(mo)) return;
+      var row = mo.closest('[data-row]'), rr = rowByKey(row.getAttribute('data-row'));
+      row.classList.add('is-open');
+      DESK.menu.open(mo, menuOf(rr), { label: 'Moves for ' + rr.name, anchor: mo, run: function (id) { doAct(id, rowByKey(rr.key), mo); } });
+      return;
+    }
+    var d = t.closest('[data-do]'); if (d) {
+      var host = d.closest('[data-row], [data-key]'), key = host ? host.getAttribute('data-row') || host.getAttribute('data-key') : null;
+      var r2 = key ? rowByKey(key) : null;
+      if (!r2 && d.getAttribute('data-do') === 'package') { openTerms({ mode: 'package', id: d.getAttribute('data-id') || st.sel }); return; }
+      doAct(d.getAttribute('data-do'), r2, d); return;
+    }
+    var op = t.closest('[data-open]'); if (op) { select(op.getAttribute('data-open'), { push: true }); return; }
+    var rw = t.closest('#cl [data-row], #cl [data-done-key]'); if (rw && !t.closest('button, a, input, textarea')) {
+      var key2 = rw.getAttribute('data-row') || rw.getAttribute('data-done-key'), r3 = rowByKey(key2);
+      select(r3 ? (r3.lifterId || r3.id) : key2, { push: true, keepScroll: true });
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    var a = document.activeElement, typing = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable);
+    var layer = DESK.pop.isOpen() || !!document.querySelector('dialog[open]');
+    if (e.key === 'Enter' && !typing && !layer && a && a.matches && a.matches('#cl [data-row], #cl [data-done-key]')) { e.preventDefault(); a.click(); return; }
+    if ((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey && !e.altKey && !typing && !layer) { var b = $('[data-crimson]'); if (b && !b.hidden) { e.preventDefault(); b.click(); } return; }
+  });
+  /* Esc: the menu, the sheet and the popover close themselves first; then the ledger */
+  addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    if (DESK.pop.isOpen() || document.querySelector('dialog[open]')) return;
+    var a = document.activeElement; if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+    if (st.sel) { e.preventDefault(); var was = st.sel; select(null); var rw0 = rowFor(was), r = $('#cl [data-row="' + cssEsc(rw0 ? rid(rw0) : was) + '"]'); if (r) r.focus({ preventScroll: true }); }
+  }, true);
+
+  addEventListener('hashchange', function () { var u = readUrl(); render(); if (u.invite && !document.querySelector('dialog[data-sheet=invite][open]')) openTerms({ mode: 'invite' }); });
+  PL.on('change', function () { render(); });
+  /* a row whose menu is open stays the row in hand until the menu closes */
+  DESK.on('pop:closed', function () { $$('#cl .lrow.is-open').forEach(function (r) { r.classList.remove('is-open'); }); });
+  /* one way in for a lifter (FTC §3.1): the shared add sheet; the old #invite=1 link still opens the invite with a price */
+  function addLifter() { if (fn(DESK, 'addLifter')) DESK.addLifter({ from: 'clients' }); else openTerms({ mode: 'invite' }); }
+  document.addEventListener('desk:newcoach', function () { render(); });
+  DESK.actions([
+    { title: 'Add a lifter…', run: addLifter },
+    { title: 'Charge a lifter…', run: openCharge },
+    { title: 'Remind everyone late…', run: openRemindAll },
+    { title: 'Show everyone', run: function () { st.view = 'everyone'; writeUrl(true); render(); } }
+  ]);
+
+  /* ---------------- first paint ---------------- */
+  var u0 = readUrl();
+  render();
+  if (u0.invite) openTerms({ mode: 'invite' });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { if (!scrollY) document.body.style.removeProperty('--cl-top'); fitPane(); });
+})();
+</script>
+</body>
+</html>
