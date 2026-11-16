@@ -47,10 +47,11 @@
   .ml-none { padding: var(--sp-5) var(--sp-3); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
   .ml-none .btn { margin-top: var(--sp-3); }
 
-  /* a thread row: the name and when (or "1 new"), their words under it; the row in hand on a fill */
+  /* a thread row, one shape for all (owner 16 Nov): the name and when on line 1; one line of their words and the one
+     status on line 2, the status always in the right-hand slot under the time. The row in hand as Lifters' row in hand. */
   .mr {
-    position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n w' 't t' 'd d'; align-items: baseline;
-    column-gap: var(--sp-3); row-gap: 2px; min-height: 64px; padding: var(--sp-3); border-radius: var(--r-row); cursor: pointer; outline: 0; user-select: none;
+    position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n w' 't s'; align-items: baseline; align-content: center;
+    column-gap: var(--sp-3); row-gap: 2px; min-height: 52px; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-row); cursor: pointer; outline: 0; user-select: none;
     transition: background-color var(--dur-fast) var(--ease-out);
   }
   .mr + .mr::before { content: ''; position: absolute; top: 0; left: var(--sp-3); right: var(--sp-3); height: 1px; background: var(--line); }
@@ -60,17 +61,23 @@
   .mr .nm:focus-visible { outline: 0; }
   .mr .nm { text-decoration: none; }
   @media (hover: hover) and (pointer: fine) { .mr:not([aria-current='true']):hover { background: var(--hover); } .mr:hover::before, .mr:hover + .mr::before { opacity: 0; } }
-  .mr .nm { grid-area: n; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 600 var(--fs-body)/var(--lh-sub) var(--font); }
-  .mr.is-unread .nm { font-weight: 700; }
-  .mr .wh { grid-area: w; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .mr .wh.new { color: var(--words); font-weight: 600; }
+  .mr .nm { grid-area: n; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 600 var(--fs-body)/var(--lh-tight) var(--font); }
+  .mr .wh { grid-area: w; justify-self: end; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mr .ln { grid-area: t; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .mr .st { grid-area: s; justify-self: end; color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* an empty slot still holds its line, so a row with no time or no status is as tall as the rest */
+  .mr .wh:empty::before, .mr .st:empty::before { content: '\200b'; }
+  .mr .st.pain { color: var(--pain); }
+  .mr .st.dl { color: var(--warn); }
+  .mr .st.new { color: var(--words); }
   /* on the chosen row's tint the green falls under 4.5:1 in light: the count reads in ink there */
-  .mr[aria-current='true'] .wh.new { color: var(--ink); }
-  .mr .ln { grid-area: t; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
-  .mr .ln.pain { color: var(--pain); font-weight: 500; }
-  .mr .dl { grid-area: d; color: var(--warn); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
-  .mr .done-row { grid-area: t; flex-wrap: nowrap; }
-  .mr .done-row .done-tick span { color: var(--ink-2); }
+  .mr[aria-current='true'] .st.new { color: var(--ink); }
+  .mr .ln .done-tick { max-width: 100%; vertical-align: bottom; font: inherit; }
+  /* Undo reads as the other statuses do, in the same slot; its hit area grows past the text, not the row */
+  .mr .undo { position: relative; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; cursor: pointer; }
+  .mr .undo::after { content: ''; position: absolute; inset: -10px -8px; }
+  .mr .undo:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-mark); }
+  @media (hover: hover) and (pointer: fine) { .mr .undo:hover { text-decoration: underline; text-underline-offset: 3px; } }
 
   /* ---------- the thread: the work card, fixed between the list and the facts ---------- */
   .th {
@@ -158,6 +165,9 @@
   .cmp-f [data-primary] span { overflow: hidden; text-overflow: ellipsis; }
 
   /* ---------- the facts pane (the flush inspector) ---------- */
+  /* its first line sits on the thread's name and the list's head (one top line across the three columns), not up in the
+     empty toolbar band */
+  body[data-place='messages'] .insp-h { padding-top: calc(var(--edge-h) + var(--sp-5)); }
   .fq { min-width: 0; padding-bottom: var(--sp-2); }
   .fq h2 { margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); text-wrap: balance; }
   .fq .q { margin: var(--sp-2) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
@@ -442,30 +452,39 @@
     if (!waiting && mine && mine.me && mine.type === 'text') return { text: 'You: ' + mine.body };
     if (!lw) { var lx = dataOf(PL.lifters.get(id)); return { text: it ? it.reason || it.title : lx && lx.reason && lx.reason.text ? lx.reason.text : 'No messages yet' }; }
     var m = lw.m;
-    if (m.type === 'checkin') return { text: it && it.reason ? it.reason : 'Check-in: ' + m.body.toLowerCase(), pain: !!(m.meta && m.meta.pain), at: m.at };
+    /* a check-in's line is what the store says it shows ("Low back 6/10 on deadlift"); when that only repeats the row's
+       status ("Pain on today's check-in" beside "Pain") it is her answers instead */
+    if (m.type === 'checkin') {
+      var pain = !!(m.meta && m.meta.pain), why = it && it.reason ? it.reason : '';
+      if (!why || (pain && /^pain\b/i.test(why))) { var cw = checkinWords(id, m).replace(/^pain yes(, )?/i, ''); why = cw ? 'Check-in: ' + cw.charAt(0).toLowerCase() + cw.slice(1) : 'Check-in: ' + m.body.toLowerCase(); }
+      return { text: why, pain: pain, at: m.at };
+    }
     if (m.type === 'note') return { text: 'Session note: “' + m.body + '”', at: m.at };
     if (m.type === 'voice') { var vid = lw.prev && lw.prev.type === 'video' && lw.prev.at === m.at; return { text: 'Voice note ' + (m.meta && m.meta.len || '') + (vid ? ' and a video' : ''), at: m.at }; }
     if (m.type === 'video') return { text: 'Video: ' + m.body, at: m.at };
     return { text: m.body, at: m.at };
   }
+  /* one row shape for every thread (owner 16 Nov, "think like a coach after five years of Excel"): line 1 the name and
+     when; line 2 one line of their words and, in the same right-hand slot on every row, the one status (Pain, the
+     deadline, "n new", or Undo on a row just answered) */
   function rowHtml(id, group) {
     var l = L(id); if (!l) return '';
     var waiting = isWaiting(id), t = thread(id), sel = id === S.id, d = S.done[id];
-    var h = '<div class="mr' + (t && t.unread && waiting ? ' is-unread' : '') + '" data-row="' + esc(id) + '"' + (sel ? ' aria-current="true"' : '') + '>' +
+    var h = '<div class="mr" data-row="' + esc(id) + '"' + (sel ? ' aria-current="true"' : '') + '>' +
       '<a class="nm" href="#id=' + esc(id) + '" data-fact="name" data-ellipsis title="' + esc(l.name) + '">' + esc(l.name) + '</a>';
     if (d && !waiting) {
-      return h + '<div class="done-row" data-fact="done"><span class="done-tick">' + ICK + '<span>Answered</span></span><time class="at">' + esc(d.at) + '</time>' +
-        '<button class="btn quiet sm" type="button" data-undo="' + esc(id) + '" data-fact="action" title="Take back what you sent">Undo</button>' + (d.seen ? '<span class="rc" data-fact="seen">' + esc(d.seen) + '</span>' : '') + '</div></div>';
+      return h + '<time class="wh" data-fact="when">' + esc(d.at) + '</time>' +
+        '<span class="ln" data-fact="done"><span class="done-tick">' + ICK + '<span>Answered' + (d.seen ? ', ' + esc(d.seen.charAt(0).toLowerCase() + d.seen.slice(1)) : '') + '</span></span></span>' +
+        '<span class="st"><button class="undo" type="button" data-undo="' + esc(id) + '" data-fact="action" title="Take back what you sent">Undo</button></span></div>';
     }
     var ln = rowLine(id, waiting), dl = waiting && t ? (list().data.filter(function (x) { return x.id === id; })[0] || {}).deadline : null;
     if (dl && !/\b\d\d:\d\d\b/.test(dl.text || '')) dl = null;
-    var unread = waiting && t && t.unread ? t.unread : 0, newTone = unread && !ln.pain && !dl;
-    /* every "n new" is the one green (function-polish P41); a row whose tone is its pain or its deadline (one tone a row)
-       says when the newest words came instead, in the grey it had */
-    var when = newTone ? (unread + ' new') : ln.at ? whenShort(ln.at) : '';
-    if (when) h += '<span class="wh' + (newTone ? ' new' : '') + '" data-fact="when">' + esc(when) + '</span>';
-    h += '<span class="ln' + (ln.pain ? ' pain' : '') + '" data-fact="words" data-quote data-ellipsis title="' + esc(ln.text) + '">' + esc(ln.text) + '</span>';
-    if (dl) h += '<span class="dl" data-fact="deadline">' + esc(dl.text) + '</span>';
+    var unread = waiting && t && t.unread ? t.unread : 0;
+    /* one status a row, in this order: pain, a deadline today, new words */
+    var st = ln.pain ? ['pain', 'Pain', 'pain'] : dl ? ['dl', dl.text, 'deadline'] : unread ? ['new', unread + ' new', 'new'] : null;
+    h += '<span class="wh" data-fact="when">' + esc(ln.at ? whenShort(ln.at) : '') + '</span>';
+    h += '<span class="ln" data-fact="words" data-quote data-ellipsis title="' + esc(ln.text) + '">' + esc(ln.text) + '</span>';
+    h += '<span class="st' + (st ? ' ' + st[0] : '') + '"' + (st ? ' data-fact="' + st[2] + '"' : '') + '>' + (st ? esc(st[1]) : '') + '</span>';
     return h + '</div>';
   }
   function renderList() {
@@ -528,7 +547,7 @@
       var it = m.meta && m.meta.itemId ? dataOf(PL.items.get(m.meta.itemId)) : null;
       return open + h + foot + '</div>' + (m.meta && m.meta.actId === 'safe' || (it && /openers/i.test(m.body)) ? attemptsCard(id, m.at) : '');
     }
-    if (m.type === 'checkin') h = '<div class="mc"><span class="k">Check-in, ' + esc(dayWords(day10(m.at))) + '</span>' + hl(checkinWords(id, m)) + '</div>';
+    if (m.type === 'checkin') h = '<div class="mc"><span class="k">Check-in</span>' + hl(checkinWords(id, m)) + '</div>';
     else if (m.type === 'payment') h = '<div class="mc"><span class="k">About the payment</span>' + hl(m.body) + '</div>';
     else if (m.type === 'cut') h = '<div class="mc"><span class="k">Cut plan</span>' + hl(m.body) + '</div>';
     else if (m.type === 'set') h = '<div class="bubble">' + hl(setWords(m)) + '</div>';

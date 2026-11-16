@@ -28,22 +28,41 @@
   /* the page's key count (how many need you) wears the Overview's warm colour */
   .sec-h h2 .n.acc { color: var(--place-ink); }
 
-  /* Needs you: who (the name, the reason under it) | the context, right-aligned against the fix | the fix in a fixed
-     track, so every decision starts on one vertical line. A done row is the name over the shared done row. */
-  .need { --fix-w: 216px; }
-  @media (max-width: 1280px) { .need { --fix-w: 212px; } }
-  /* 52 px rows (the Lifters list's two-line row): the whole list of 11 and its foot lines fit one window under the band */
+  /* Needs you reads as a sheet (owner, 16 Nov): four columns under one header line, every row built the same way.
+     Lifter (the name, the reason under it) | Context (left-aligned, one width, quiet) | Next step (the fix, the same quiet
+     text button on every row, its words on one vertical line) | a fixed slot for ⋯ (empty where a row has no more moves).
+     A done row is the name over the shared done row. */
+  .mid { --rh: 52px; }
+  .need { --ctx-w: 168px; --fix-w: 220px; --more-w: 32px; }
+  .need .lrow, .need .nhd { grid-template-columns: minmax(0, 1fr) var(--ctx-w) var(--fix-w) var(--more-w); column-gap: var(--sp-4); }
+  /* a laptop window: the context takes two lines before a reason is cut */
+  @media (max-width: 1280px) { .need { --ctx-w: 112px; --fix-w: 196px; } .need .lrow, .need .nhd { column-gap: var(--sp-3); } }
+  /* the header line: column names in ink-3, sentence case, on a hairline as between rows. It is one row tall, so the rows
+     under it keep the side column's rhythm (every hairline level across the page) */
+  .need .nhd { position: relative; display: grid; align-items: end; min-height: calc(var(--rh) + var(--sp-1)); padding: 0 var(--sp-4) var(--sp-2); margin: 0 var(--sp-2); color: var(--ink-3); font: 500 var(--fs-cap)/var(--lh-cap) var(--font); }
+  .need .nhd::after { content: ''; position: absolute; left: var(--sp-4); right: var(--sp-4); bottom: 0; height: 1px; background: var(--line); }
+  .need .nhd[hidden] { display: none; }
+  /* 52 px rows (the Lifters list's two-line row) */
   .need .list { padding-top: var(--sp-1); padding-bottom: var(--sp-1); }
-  .need .lrow { grid-template-columns: minmax(0, max-content) minmax(0, 1fr) var(--fix-w); min-height: 52px; padding-top: 5px; padding-bottom: 5px; }
+  .need .nhd:not([hidden]) + .list { padding-top: 0; }
+  .need .lrow { min-height: var(--rh); padding-top: 5px; padding-bottom: 5px; }
   .need .lrow .nm { line-height: var(--lh-tight); }
   .need .lrow .why { line-height: var(--lh-tight); }
   .need .lrow.c2 { grid-template-columns: minmax(0, 1fr); }
   .need .nm { text-decoration: none; }
-  .need .ctx { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .need .act { justify-content: flex-start; min-width: 0; }
-  .need .act .fix { min-width: 0; max-width: 100%; }
-  .need .act .fix span { overflow: hidden; text-overflow: ellipsis; }
-  .need .act .more { flex: none; margin-left: auto; }
+  /* the context: left-aligned in its own column, quiet, never cut (it wraps to a second line on a narrow window) */
+  .need .lrow .ctx { min-width: 0; text-align: left; white-space: normal; line-height: var(--lh-tight); text-wrap: pretty; }
+  .need .act { display: contents; }
+  /* the fix: the quiet text kind on every row, its words on the column's line (the button's padding hangs into the gap).
+     It never turns into a filled pill on one row: the row in hand shows by its own fill, a hovered fix by the quiet fill. */
+  .need .lrow .fix { justify-self: start; min-width: 0; max-width: calc(100% + 14px); margin-left: -14px; }
+  .need .lrow .fix span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .need .lrow.is-sel .fix, .need .lrow:focus-within .fix { background: transparent; box-shadow: none; }
+  @media (hover: hover) and (pointer: fine) {
+    .need .lrow:hover .fix { background: transparent; box-shadow: none; }
+    .need .lrow .fix:hover:not(:disabled) { background-color: var(--fill); }
+  }
+  .need .more, .need .more-slot { justify-self: end; width: var(--more-w); }
   /* a done row keeps the row's 64 px: the name over one line of done words, its Undo 24 px to see and 40 px to hit */
   .need .done-row { line-height: var(--lh-tight); }
   .need .done-row .btn.sm { --h: 20px; }
@@ -55,13 +74,26 @@
   .need .empty { margin: 0; padding: var(--sp-5) var(--sp-4); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
   .need .empty .btn { margin-top: var(--sp-3); }
 
-  /* Today and Messages: flat sections on the floor, rows on hairlines */
-  .flat .list { padding: 0; }
+  /* Today and Messages: flat sections on the floor, rows on hairlines, built as the Needs you rows (the name over one line
+     of words, 52 px) and on their rhythm: the first row starts level with the first Needs you row, and one row's height
+     between the two sections puts every Messages hairline level with a Needs you hairline. The right end of a row's first
+     line holds its action or its time; the ⋯ (the meet's only) sits after it. */
+  .col { gap: var(--rh); }
+  .flat .list { padding: var(--sp-1) 0 0; }
   .flat .sec-h { margin-left: 0; margin-right: 0; }
-  .lrow.duo { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n a' 'w w'; row-gap: 2px; padding-top: var(--sp-3); padding-bottom: var(--sp-3); }
-  .lrow.duo > .nm { grid-area: n; }
-  .lrow.duo > .why { grid-area: w; }
-  .lrow.duo > .acts { grid-area: a; display: flex; align-items: center; gap: var(--sp-1); }
+  .flat .lrow, .flat .lrow.two { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n a' 'w w'; align-items: center; row-gap: 2px; min-height: var(--rh); padding-top: 5px; padding-bottom: 5px; }
+  .flat .lrow > .nm { grid-area: n; line-height: var(--lh-tight); }
+  .flat .lrow > .why { grid-area: w; line-height: var(--lh-tight); }
+  .flat .lrow > .acts, .flat .lrow > .when { grid-area: a; }
+  .flat .lrow.two .why .t { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: none; line-clamp: none; }
+  .flat .lrow .when { font-size: var(--fs-label); line-height: var(--lh-tight); }
+  .flat .lrow.two > .nm, .flat .lrow.two > .when { align-self: baseline; }
+  /* the action sits in the name's line: the 32 px button hangs into the row's padding, so every row stays 52 px; its words
+     end on the column's right edge, as the times do */
+  .lrow.duo > .acts { display: flex; align-items: center; gap: var(--sp-1); margin: -8px 0; }
+  .lrow.duo .act-t { padding: 0 14px; color: var(--ink); font: 600 var(--fs-label)/var(--lh-tight) var(--font); white-space: nowrap; }
+  .lrow.duo .more-slot { flex: none; width: var(--ctl-s); }
+  .flat .empty { min-height: var(--rh); display: flex; align-items: center; }
   button.lrow { width: 100%; border: 0; background-color: transparent; color: inherit; font: inherit; text-align: left; }
   a.lrow { color: inherit; text-decoration: none; }
   .flat .empty { margin: 0; padding: var(--sp-3) 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
@@ -109,7 +141,7 @@
     <div class="mid" id="mid">
       <div class="sec need" aria-labelledby="need-h">
         <div class="sec-h" id="need-hd"><h2 id="need-h">Needs you <span class="n acc" data-count="needYou"></span></h2><span class="grow"></span><span class="sub" id="need-sum"><span data-count="doneToday"></span> done today</span></div>
-        <div class="card" data-crop="needs"><div class="list" id="need" data-list aria-label="Needs you"></div><div id="need-f"></div></div>
+        <div class="card" data-crop="needs"><div class="nhd" id="need-cols" aria-hidden="true"><span>Lifter</span><span>Context</span><span>Next step</span><span></span></div><div class="list" id="need" data-list aria-label="Needs you"></div><div id="need-f"></div></div>
       </div>
       <div class="col">
         <div class="sec flat" data-crop="today" aria-labelledby="today-h">
@@ -310,8 +342,9 @@
   PL.roster.needs().data.forEach(function (x) { if (x.done && lastLook && x.done.at && String(x.done.at) < lastLook) folded[x.id] = true; });
   function ctxHtml(c) {
     if (!c) return '<span class="ctx" data-fact="context"></span>';
+    c = cap1(c);
     var h = esc(c).replace(/(?:(?:up|down) )?\d+(?:[.,]\d+)?(?:\/\d+)?(?: ?(?:kg|days?|times|bpm|%))?/, function (m) { return '<span class="fig">' + m + '</span>'; });
-    return '<span class="ctx" data-fact="context" data-ellipsis title="' + esc(c) + '">' + h + '</span>';
+    return '<span class="ctx" data-fact="context">' + h + '</span>';
   }
   function doneRowHtml(x) {
     var d = x.done, rc = d.sent ? (d.seenAt ? 'Seen ' + hm(d.seenAt) : 'Not seen yet') : '';
@@ -323,9 +356,11 @@
     var why = x.reason, href = lifterHref(x.id, 'need'), nm = '<a class="nm" data-fact="name" href="' + esc(href) + '" tabindex="-1" data-ellipsis title="' + esc(x.name) + '">' + esc(x.name) + '</a>';
     if (x.done) return '<div class="lrow c2 is-done" data-row="' + esc(x.id) + '" tabindex="0" aria-label="' + esc(x.name + ', ' + x.done.label) + '"><span class="who">' + nm + doneRowHtml(x) + '</span></div>';
     var f = x.fix, tone = why && why.tone === 't-pain' ? ' data-tone="pain"' : '';
-    var more = menuOf(x).length ? '<button class="btn quiet sm icon more" type="button" data-more="' + esc(x.id) + '" aria-haspopup="menu" aria-label="' + esc('More for ' + x.first) + '" title="More">' + DESK.ic('more') + '</button>' : '';
+    var more = menuOf(x).length ? '<button class="btn quiet sm icon more" type="button" data-more="' + esc(x.id) + '" aria-haspopup="menu" aria-label="' + esc('More for ' + x.first) + '" title="More">' + DESK.ic('more') + '</button>' : '<span class="more-slot" aria-hidden="true"></span>';
+    /* the label in full: a trailing "…" (the store's "opens a sheet" mark) reads as cut words in a sheet's column */
+    var said = f ? String(f.short || f.label).replace(/\s*…$/, '') : '';
     var fix = f ? '<button class="btn sm fix" type="button" data-fact="action" data-fixbtn data-item="' + esc(f.itemId || '') + '" data-act="' + esc(f.actId || '') + '"' + (f.reminderId ? ' data-reminder="' + esc(f.reminderId) + '"' : '') +
-      ' data-for="' + esc(x.id) + '" data-ellipsis title="' + esc(f.label) + '"><span>' + esc(f.short || f.label) + '</span></button>' : '';
+      ' data-for="' + esc(x.id) + '" title="' + esc(String(f.label).replace(/\s*…$/, '')) + '"><span>' + esc(said) + '</span></button>' : '<span class="fix-none"></span>';
     return '<div class="lrow' + (here === x.id ? ' is-sel' : '') + '" data-row="' + esc(x.id) + '" tabindex="0" aria-label="' + esc(x.name + (why ? ', ' + why.text : '')) + '">' +
       '<span class="who">' + nm + (why ? '<span class="why" data-fact="reason"' + tone + '><span class="t" data-ellipsis title="' + esc(why.full || why.text) + '">' + esc(why.text) + '</span></span>' : '') + '</span>' +
       ctxHtml(x.context) + '<span class="act">' + fix + more + '</span></div>';
@@ -391,7 +426,7 @@
     var t = PL.roster.today().data, out = '';
     t.meets.forEach(function (m) {
       var cnt = m.ids.length, all = cnt === 1 ? firstOf(m.ids[0]) : cnt === 2 ? 'both' : cnt === 3 ? 'all three' : 'all ' + cnt;
-      var more = fn(PL.messages, 'sendMany') ? '<button class="btn quiet sm icon" type="button" data-more data-meetmore="' + esc(m.id) + '" aria-haspopup="menu" aria-label="' + esc('More for ' + m.name) + '" title="Message ' + esc(all) + '">' + DESK.ic('more') + '</button>' : '';
+      var more = fn(PL.messages, 'sendMany') ? '<button class="btn quiet sm icon" type="button" data-more data-meetmore="' + esc(m.id) + '" aria-haspopup="menu" aria-label="' + esc('More for ' + m.name) + '" title="Message ' + esc(all) + '">' + DESK.ic('more') + '</button>' : '<span class="more-slot" aria-hidden="true"></span>';
       var w = meetWords(m);
       out += '<div class="lrow duo" data-row="meet-' + esc(m.id) + '" data-meet="' + esc(m.id) + '" data-all="' + esc(all) + '"><span class="nm" data-fact="name">' + esc(m.name) + '</span>' +
         '<span class="acts"><a class="btn quiet sm" data-fact="action" href="' + esc(DESK.routes.meets + '#id=' + encodeURIComponent(m.id)) + '">Meet day</a>' + more + '</span>' +
@@ -406,6 +441,7 @@
       var line = [a, d, b].filter(Boolean).join(' ');
       if (words(line) > 8) line = [a, gone.length ? gone.length + ' done.' : '', toCome.length ? toCome.length + ' to come.' : ''].filter(Boolean).join(' ');
       out += '<button class="lrow duo" type="button" data-row="sessions-today" aria-haspopup="dialog"><span class="nm" data-fact="name">' + k + ' training today</span>' +
+        '<span class="acts"><span class="act-t">See who</span><span class="more-slot"></span></span>' +
         '<span class="why" data-fact="reason"><span class="t" data-ellipsis title="' + esc(line) + '">' + esc(line) + '</span></span></button>';
     }
     if (!t.meets.length && !k) out = '<p class="empty">Nothing on the plan today.</p>';
@@ -459,7 +495,7 @@
     if (last.type === 'voice') return 'Voice note ' + (last.len || '') + (theirs.some(function (m) { return m.type === 'video'; }) ? ' and a video' : '');
     if (last.type === 'video') return 'Video: ' + last.body;
     if (last.type === 'checkin') { var g = data(PL.lifters.get(x.id)); return 'Check-in: ' + (g && g.health && g.health.kind === 'pain' ? String(g.health.text).toLowerCase() : 'see their answers'); }
-    if (last.type === 'note') return 'Session note: ' + (sentences(last.body)[0] || last.body);
+    if (last.type === 'note') return 'Note: ' + (sentences(last.body)[0] || last.body);
     var s = sentences(last.body), q = s.filter(function (y) { return /\?$/.test(y); });
     return cap1(q.length ? q.join(' ') : String(last.body || ''));
   }
@@ -515,6 +551,7 @@
     var lost = !document.activeElement || document.activeElement === document.body || !!hadRow;
     $('#need').innerHTML = needHtml();
     $('#need-f').innerHTML = footHtml();
+    $('#need-cols').hidden = !$('#need .lrow:not(.c2)');
     $('#today').innerHTML = todayHtml();
     $('#msgs').innerHTML = msgsHtml();
     var back = rowId || (lost && here) || null, row = back ? rowEl(back) : null;
