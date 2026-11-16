@@ -193,12 +193,15 @@
   /* the two desks of this preview (first-time-coach §2.1): the fresh desk opens the example desk, the example desk starts a
      fresh one. data.js keeps the choice (sessionStorage powa-r6-desk). The fresh desk's item carries data-demo; on the
      example desk it does not, since the gate allows a demo control only where DEMO.fresh is true (FTC §16, FC-42). */
-  function deskSwitch() { return D.fresh ? { id: 'desk', label: 'Open the example desk', demo: true, title: 'Sam’s 20 lifters, to look around' } : { id: 'desk', label: 'Start a fresh desk', title: 'Sam’s desk with no lifters' }; }
+  /* the owner, 16 Nov: "why can a coach start a new desk". A coach has one desk, so the example desk offers no way to start
+     a fresh one; only the new coach's desk keeps "Open the example desk" (look around), with "‹ Your desk" to come back. */
+  function deskSwitch() { return D.fresh ? { id: 'desk', label: 'Open the example desk', demo: true, title: 'Sam’s 20 lifters, to look around' } : null; }
   function goDesk() { location.href = DESK.routes.overview + (D.fresh ? '?fresh=0' : '?fresh=1'); }
   /* the coach line's menu: Settings, Plan and seats, the desk switch, Keys, then the theme; never a "soon" item */
   function accountMenu(b) {
     var light = DESK.theme.get() === 'light', coach = D.coach || { name: 'Sam Ellis' };
-    DESK.menu.open(b, [{ id: 'settings', label: 'Settings' }, { id: 'plan', label: 'Plan and seats' }, deskSwitch(), { id: 'keys', label: 'Keys', title: 'Press ? or ⌘/ anywhere' }, { sep: true }, { id: 'theme', label: light ? 'Switch to dark mode' : 'Switch to light mode' }], {
+    /* Settings lives in the sidebar; the owner (16 Nov): "settings is there on sidebar and under profile too", so not here */
+    DESK.menu.open(b, [{ id: 'plan', label: 'Plan and seats' }, deskSwitch(), { id: 'keys', label: 'Keys', title: 'Press ? or ⌘/ anywhere' }, { sep: true }, { id: 'theme', label: light ? 'Switch to dark mode' : 'Switch to light mode' }].filter(Boolean), {
       label: coach.name, place: 'auto',
       run: function (id) {
         if (id === 'desk') goDesk();
@@ -1089,12 +1092,13 @@
     { words: 'message reply chat text answer', title: 'Answer a lifter', line: 'Messages: what they wrote, beside what they lifted.', run: go('messages') },
     { words: 'help start started getting guide new tour', title: 'Getting started', line: 'Five steps on Overview, from first lifter to first week.', run: function () { if (fn(PL.setup, 'show')) PL.setup.show(); DESK.go('overview'); } },
     { words: 'explain words glossary terms jargon meaning', title: 'Explain coaching words', line: 'Dotted lines under RPE, e1RM and more. Turn on or off.', run: function () { var on = DESK.terms.set(!DESK.terms.on()); DESK.toast(on ? 'Explain coaching words: on.' : 'Explain coaching words: off.'); } },
-    { words: 'example sample demo fresh empty', title: D.fresh ? 'Open the example desk' : 'Start a fresh desk', line: D.fresh ? 'Look around Sam’s 20 lifters.' : 'Sam’s desk with no lifters.', demo: !!D.fresh, run: goDesk },
+    D.fresh ? { words: 'example sample demo', title: 'Open the example desk', line: 'Look around Sam’s 20 lifters.', demo: true, run: goDesk } : null,
     { words: 'keys shortcuts keyboard help', title: 'Keys', line: '? or ⌘/ anywhere.', run: function () { DESK.keys(); } },
     { words: 'template templates new block reuse', title: 'Start from a template', line: 'Programs, Templates: pick one, then a lifter.', run: go('programs', 'tab=templates'), pri: 1 },
     { words: 'meet day board weigh-in flight', title: 'Open meet day', line: 'The board: weigh-ins, warm-ups, attempts by flight.', run: function () { var id = meetDayId(); DESK.go('meets', id ? 'id=' + encodeURIComponent(id) + '&stage=weigh' : ''); }, pri: 1 },
     { words: 'rules progression loads', title: 'Loads and rules', line: 'Settings, Loads: how loads move week to week.', run: go('settings', 's=loads'), pri: 1 }
   ];
+  DESK.howto = DESK.howto.filter(Boolean);
   DESK.howto.forEach(function (h, i) { h.n = i + 1; });
   var HOW_RX = /^\s*(how|can|where)\b|\bhelp\b/i;
   function howRows(raw, all, t) {
