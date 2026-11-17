@@ -1,0 +1,57 @@
+/* solo-start.css: a self-coached lifter's start (solo-start.js, athlete.html FIRST RUN), 17 Nov 2026.
+   The choice card (Log a session / Build me a program), the block preview sheet, the Add exercise sheet,
+   Train's Add exercise row and the typed reps box, and the set sheet's typed values. Only the app's own
+   parts and tokens: no new colours, light and dark from the shared tokens. */
+
+/* The choice and the setup: a quiet Back above the label; the two choices sit in the hero as rows. */
+.setup-card .ss-back { display: block; margin: -8px 0 4px -2px; padding: 8px 2px; font-size: var(--fs-sm, 14px); color: var(--text-3); }
+.setup-card.ss-choice .ui-list { margin-top: 4px; }
+.setup-card.ss-choice .ui-row { gap: 14px; min-height: 64px; }
+.setup-card.ss-choice .setup-sub { margin-bottom: 14px; }
+.setup-card .setup-days { width: 100%; }
+
+/* The preview: week 1 day by day, then each week's heaviest set per lift. */
+.pv-sheet .pv-h { margin: 18px 2px 8px; font-size: 15px; font-weight: 700; color: var(--text); }
+.pv-sheet .pv-day { margin: 0 0 8px; padding: 12px 14px; border-radius: var(--r-inner, 14px); background: var(--fill-1, rgba(255, 255, 255, 0.04)); }
+.pv-sheet .pv-day-name { margin: 0 0 6px; font-size: 14px; font-weight: 700; color: var(--text); }
+.pv-sheet .pv-ex { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 0; font-size: 14px; line-height: 1.35; }
+.pv-sheet .pv-ex + .pv-ex { border-top: 1px solid var(--line); }
+.pv-sheet .pv-ex-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; color: var(--text); font-weight: 600; }
+.pv-sheet .pv-ex-name .lift-dot { width: 8px; height: 8px; box-shadow: none; }
+.pv-sheet .pv-ex-sets { flex: none; max-width: 58%; text-align: right; color: var(--text-2); font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.pv-sheet .pv-weeks { display: grid; gap: 0; border-radius: var(--r-inner, 14px); background: var(--fill-1, rgba(255, 255, 255, 0.04)); padding: 4px 12px; }
+.pv-sheet .pv-wk-row { display: grid; grid-template-columns: 4.6em repeat(var(--pv-cols, 3), minmax(0, 1fr)); gap: 8px; align-items: center; min-height: 34px; font-size: 14px; font-family: var(--font-num); font-variant-numeric: tabular-nums; color: var(--text); }
+.pv-sheet .pv-wk-row + .pv-wk-row { border-top: 1px solid var(--line); }
+.pv-sheet .pv-wk-row > span { text-align: right; white-space: nowrap; }
+.pv-sheet .pv-wk-row > .pv-wk-n, .pv-sheet .pv-wk-head > span:first-child { text-align: left; color: var(--text-3); font-family: var(--font-body); font-size: 13px; }
+.pv-sheet .pv-wk-head > span { display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; font-family: var(--font-body); font-size: 12px; font-weight: 650; color: var(--text-3); }
+.pv-sheet .pv-wk-head .lift-dot { width: 7px; height: 7px; box-shadow: none; }
+.pv-sheet .pm-note { margin: 10px 4px 2px; }
+.pv-sheet .pv-go { margin-top: 18px; }
+.pv-sheet .pv-back { display: block; margin: 6px auto 0; padding: 12px 10px; }
+
+/* Add exercise: a search field, then the lifts in groups. */
+.aex-sheet input.aex-q, body.powa-app .aex-sheet input.aex-q { width: 100%; min-height: 46px; margin: 4px 0 6px; padding: 0 14px; border: 0; border-radius: var(--r-inner, 14px); background: var(--fill-2); color: var(--text); font-size: 16px; box-shadow: none; -webkit-appearance: none; appearance: none; }
+body.powa-app .aex-sheet input.aex-q:focus { border: 0; background: var(--fill-3); box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 45%, transparent); }
+.aex-sheet .aex-h { margin: 14px 4px 6px; font-size: 13px; font-weight: 650; color: var(--text-3); }
+.aex-sheet .aex-tile { width: 34px; height: 34px; font-size: 15px; }
+.aex-sheet .ui-row { gap: 12px; }
+
+/* Train: Add exercise under the session's lifts. */
+.tx-add-ex { width: 100%; margin: 10px 0 4px; }
+
+/* Train: the reps box beside the weight box (your own program): the weight box's look, a little narrower. */
+.tx-set .tx-w-input.tx-r-input { width: 2.6ch; min-width: 2.2ch; max-width: 4.2ch; margin: 0 0 0 2px; }
+
+/* The set sheet: the value between − and + is a box you type into, drawn as the number it was. */
+.set-sheet .ss-step-row input.ss-step-in, body.powa-app .set-sheet .ss-step-row input.ss-step-in {
+  width: 100%; min-width: 0; height: 40px; padding: 0 2px; border: 0; border-radius: 10px; background: transparent; box-shadow: none;
+  text-align: center; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 18px; font-weight: 750; color: var(--text);
+  -webkit-appearance: none; appearance: none; -moz-appearance: textfield;
+}
+.set-sheet .ss-step-row input.ss-step-in::-webkit-outer-spin-button, .set-sheet .ss-step-row input.ss-step-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+body.powa-app .set-sheet .ss-step-row input.ss-step-in:focus { outline: none; border: 0; background: var(--fill-2, rgba(255, 255, 255, 0.07)); box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--text) 45%, transparent); }
+.set-sheet .ss-step-row input.ss-step-in::placeholder { color: var(--text-3); }
+
+/* The setup's mode switch had no room under it before the title. */
+.setup-card .setup-mode + .setup-title { margin-top: 18px; }

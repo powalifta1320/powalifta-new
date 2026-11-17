@@ -28,6 +28,7 @@
 <link rel="stylesheet" href="challenges.css"><!-- COACH CHALLENGES: the coach's challenge at the top of Club (challenges.js) -->
 <link rel="stylesheet" href="notify.css"><!-- ALLOW NOTIFICATIONS: the card after a finished session (notify.js) -->
 <link rel="stylesheet" href="feedback.css"><!-- FEEDBACK: the idea / problem sheet (feedback.js) -->
+<link rel="stylesheet" href="solo-start.css"><!-- SOLO START: log without a program, the block preview, the exercise picker (solo-start.js) -->
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
@@ -300,41 +301,6 @@
   </div>
 </div>
 
-<!-- ADD EXERCISE MODAL (self-coached builder) -->
-<div class="modal-backdrop" id="sbAddExerciseModal">
-  <div class="modal">
-    <button class="modal-close" aria-label="Close" onclick="closeModal('sbAddExerciseModal')">&times;</button>
-    <h3>Add exercise</h3>
-    <p class="dim text-sm mb-16">Pick a lift type. Variants get the right multiplier applied automatically (so paused squat e1RM compares to comp squat).</p>
-    <div class="form-group">
-      <label>Lift type</label>
-      <select id="sbExLift" onchange="onSbLiftChange()">
-        <option value="squat">Squat (main lift)</option>
-        <option value="bench">Bench (main lift)</option>
-        <option value="deadlift">Deadlift (main lift)</option>
-        <option value="push">Push accessory</option>
-        <option value="pull">Pull accessory</option>
-        <option value="legs">Legs accessory</option>
-        <option value="cardio">Cardio</option>
-        <option value="other">Other</option>
-      </select>
-    </div>
-    <div class="form-group" id="sbVariantGroup">
-      <label>Variant</label>
-      <select id="sbExVariant"></select>
-    </div>
-    <div class="form-group" id="sbNameGroup" style="display:none">
-      <label id="sbNameLabel">Exercise name</label>
-      <input type="text" id="sbExName" list="sbExNameList" placeholder="e.g. Lat pulldown">
-      <datalist id="sbExNameList"></datalist>
-    </div>
-    <div class="flex gap-8 mt-16">
-      <button class="btn btn-block" onclick="closeModal('sbAddExerciseModal')">Cancel</button>
-      <button class="btn btn-primary btn-block" onclick="sbConfirmAddExercise()">Add exercise</button>
-    </div>
-  </div>
-</div>
-
 <div id="restTimerEl" class="hidden"></div>
 
 <script src="supabase.js"></script>
@@ -355,6 +321,7 @@
 <script src="busy-week.js"></script><!-- BUSY WEEKS: the days you can train this week, the plan, sent to your coach (BusyWeekUI: Train's row, the sheet, the picker's entry) -->
 <script src="notify.js"></script><!-- ALLOW NOTIFICATIONS: one calm ask after a finished session, with the reason that fits (PowaNotify.lifterCard) -->
 <script src="feedback.js"></script><!-- FEEDBACK: an idea or a problem to the founder, from You › Help (PowaFeedback: the sheet, the rows, the details) -->
+<script src="solo-start.js"></script><!-- SOLO START: a training log with no program, the first-run checks, the block preview, the exercise picker (window.SoloStart) -->
 <script>
 let user;
 // The full program's selected week number (survives re-renders) and its opened day ids. Up here because
@@ -364,6 +331,12 @@ const _fpOpen = new Set();
 // The same for the self-coached builder's week (?demo=1&solo=1&tab=program) and the marketplace's state
 // (?tab=marketplace): both screens can draw in that first render.
 let _selfBuilderActiveWeek = 0;
+// The solo first run (FIRST RUN below): days a week; null = the choice, 'new' = new to lifting, 'know' = has numbers;
+// the numbers typed are a 1, 3 or 5 rep max; a lifter with a training log asked for a program (Train shows the setup).
+let _setupDays = 4;
+let _setupMode = null;
+let _setupReps = 1;
+let _setupOpen = false;
 let _marketplaceCache = null;
 let _marketplaceStats = {};   // programId → { avg, count } for rating badges
 let _marketplaceDetailId = null;
@@ -2707,7 +2680,7 @@ function addExtraSet(exId) {
     idx = e.sets.length - 1;
   });
   renderToday();
-  if (idx >= 0) { try { hapticTick(); } catch (e) {} setTimeout(() => focusSetRow(exId, idx), 80); }
+  if (idx >= 0) { try { hapticTick(); } catch (e) {} setTimeout(() => focusSetRow(exId, idx, 'wt'), 80); }
 }
 function skipSet(exId, si, on) {
   _mutDayEx(exId, (e) => { const s = e.sets[si]; if (!s || s.completed) return; if (on) s.skipped = true; else { delete s.skipped; delete s.missed; } });
@@ -2902,11 +2875,35 @@ function buildExerciseCard(ex, cur, prog, nextKey) {
         persistProgram(prog.id);
       });
       loadEl.appendChild(wInp);
-      loadEl.insertAdjacentHTML('beforeend', '<small>' + unitLabel() + '</small><i>×</i><b>' + escHtml(String(set.reps)) + '</b>');
+      // Your own program: the reps are a box too, so a set takes its weight and reps on the row, at once.
+      let rInp = null;
+      if ((prog || {}).coachId === user.id) {
+        loadEl.insertAdjacentHTML('beforeend', '<small>' + unitLabel() + '</small><i>×</i>');
+        rInp = el('input', { type: 'number', step: '1', min: '1', max: '100', inputmode: 'numeric', class: 'tx-w-input tx-r-input', id: 'rp_' + ex.id + '_' + si,
+          'aria-label': 'Set ' + (si + 1) + ' reps', value: String(set.reps || ''), placeholder: '–' });
+        const fitR = () => { const t = String(rInp.value || rInp.placeholder || '').length; rInp.style.width = Math.max(2.2, t + 0.8) + 'ch'; };
+        fitR();
+        rInp.addEventListener('input', fitR);
+        rInp.addEventListener('change', (e) => {
+          const n = Math.round(Number(e.target.value));
+          if (!(n >= 1 && n <= 100)) { e.target.value = String(set.reps || ''); fitR(); return; }
+          Store.update(s => {
+            const p = s.programs.find(p => p.athleteId === user.id);
+            const wk = p.weeks.find(w => w.id === cur.week.id);
+            const d = wk.days.find(dd => dd.id === cur.day.id);
+            const e2 = d.exercises.find(e3 => e3.id === ex.id);
+            if (e2 && e2.sets[si]) e2.sets[si].reps = n;
+          });
+          persistProgram(prog.id);
+        });
+        loadEl.appendChild(rInp);
+      } else {
+        loadEl.insertAdjacentHTML('beforeend', '<small>' + unitLabel() + '</small><i>×</i><b>' + escHtml(String(set.reps)) + '</b>');
+      }
       // The box is 32 pt tall: its line answers a finger at 44 (styles.css "Train, 44 pt to the touch"), and a tap
       // anywhere on it ("kg × 5", or just above or below the box) puts the caret in the box.
       loadEl.classList.add('is-field');
-      loadEl.addEventListener('click', (e) => { if (e.target !== wInp) wInp.focus(); });
+      loadEl.addEventListener('click', (e) => { if (e.target !== wInp && e.target !== rInp) wInp.focus(); });
     } else {
       loadEl.innerHTML = (shownKg > 0 ? '<b>' + kgToDisplay(shownKg) + '</b><small>' + unitLabel() + '</small>' : (set.pct != null ? '<b class="dim">' + escHtml(_num(set.pct) + '%') + '</b>' : '<b class="dim">–</b>')) +
         '<i>×</i><b>' + escHtml(String(set.reps)) + '</b>';
@@ -3281,7 +3278,8 @@ function openSetSheet(ex, si) {
   // weight box (writing your own loads) is where a typed load lives, so start from it.
   const rowW = document.getElementById('wt_' + ex.id + '_' + si);
   let selKg = (rowW && Number(rowW.value) > 0) ? displayToKg(Number(rowW.value)) : wKg;
-  let selReps = Number(set.reps) || 0;
+  const rowR = document.getElementById('rp_' + ex.id + '_' + si);
+  let selReps = (rowR && Math.round(Number(rowR.value)) >= 1) ? Math.round(Number(rowR.value)) : (Number(set.reps) || 0);
   const stepKg = typeof loadStepKg === 'function' ? loadStepKg(getUnit()) : 2.5;
   uiSheet((set.attempt ? 'PR attempt' : set.extra ? 'Extra set' : 'Set ' + (si + 1)) + ' · ' + exTitleOf(ex), (sheet, close) => {
     const load = el('div', { class: 'set-sheet-load' });
@@ -3308,25 +3306,33 @@ function openSetSheet(ex, si) {
       sheet.appendChild(rm);
       return;
     }
-    // Before logging: steppers for what was actually lifted.
+    // Before logging: what was actually lifted. Each value is a box you type into (60 kg is two keys, not
+    // 24 taps), with − and + beside it for a small change.
     if (!set.completed && !isCardio) {
       const adj = el('div', { class: 'ss-adj' });
-      const stepper = (label, get, apply, delta, min, fmt) => {
+      const stepper = (label, unit, get, apply, delta, min, max, toShow, fromShow, mode) => {
         const w = el('div', { class: 'ss-step' });
-        w.appendChild(el('span', { class: 'ss-step-lbl' }, label));
+        const id = 'ss_' + label.toLowerCase() + '_' + ex.id + '_' + si;
+        w.appendChild(el('label', { class: 'ss-step-lbl', for: id }, label + (unit ? ' (' + unit + ')' : '')));
         const row = el('div', { class: 'ss-step-row' });
-        const val = el('b', { class: 'ss-step-val' }, fmt(get()));
+        const val = el('input', { type: 'number', id, class: 'ss-step-val ss-step-in', inputmode: mode, step: 'any', min: String(min), 'aria-label': label + (unit ? ' in ' + unit : ''), placeholder: '–', value: get() > 0 ? String(toShow(get())) : '' });
+        val.addEventListener('input', () => {
+          const n = Number(val.value);
+          apply(val.value !== '' && isFinite(n) && n >= 0 ? Math.min(max, fromShow(n)) : 0);
+          paintLoad();
+        });
+        val.addEventListener('focus', () => { try { val.select(); } catch (e) {} });
         const mk = (sign) => {
           const b = el('button', { class: 'ss-step-btn', type: 'button', 'aria-label': (sign > 0 ? 'More ' : 'Less ') + label.toLowerCase(), html: sign > 0 ? ICONS.plus : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>' });
-          b.addEventListener('click', () => { apply(Math.max(min, Math.round((get() + sign * delta) * 100) / 100)); val.textContent = fmt(get()); paintLoad(); try { hapticTick(); } catch (e) {} });
+          b.addEventListener('click', () => { apply(Math.min(max, Math.max(min, Math.round((get() + sign * delta) * 100) / 100))); val.value = get() > 0 ? String(toShow(get())) : ''; paintLoad(); try { hapticTick(); } catch (e) {} });
           return b;
         };
         row.appendChild(mk(-1)); row.appendChild(val); row.appendChild(mk(1));
         w.appendChild(row);
         return w;
       };
-      adj.appendChild(stepper('Weight', () => selKg, (v) => { selKg = v; }, stepKg, 0, (v) => v > 0 ? kgToDisplay(v) + ' ' + unitLabel() : '–'));
-      adj.appendChild(stepper('Reps', () => selReps, (v) => { selReps = v; }, 1, 1, (v) => String(v)));
+      adj.appendChild(stepper('Weight', unitLabel(), () => selKg, (v) => { selKg = v; }, stepKg, 0, 1000, (v) => kgToDisplay(v), (n) => displayToKg(n), 'decimal'));
+      adj.appendChild(stepper('Reps', '', () => selReps, (v) => { selReps = Math.round(v); }, 1, 1, 100, (v) => v, (n) => Math.round(n), 'numeric'));
       sheet.appendChild(adj);
     }
     if (sm && sm.fromKg > 0) sheet.appendChild(el('p', { class: 'ui-sheet-sub tx-smart-note' }, 'Moved from ' + formatWeight(sm.fromKg) + '. ' + smartWhy(ex, si) + '.'));
@@ -3360,7 +3366,10 @@ function openSetSheet(ex, si) {
       // The row's own weight box follows the sheet's weight, so the logged load is the one chosen.
       const w = document.getElementById('wt_' + ex.id + '_' + si);
       if (w && selKg > 0) w.value = String(kgToDisplay(selKg));
+      const rb = document.getElementById('rp_' + ex.id + '_' + si);
+      if (rb && selReps > 0) rb.value = String(selReps);
       if (!(selKg > 0) && MAIN_LIFTS.includes(ex.lift) && liftWritesLoad(ex, set)) { toast('Add the weight first'); return; }
+      if (!(selReps >= 1)) { toast('Add the reps first'); return; }
       close();
       const opts = { rpe: r };
       if (!isCardio && selKg > 0 && Math.abs(selKg - wKg) > 0.01) opts.weightKg = selKg;
@@ -3485,17 +3494,47 @@ async function sendSessionToCoach(cur) {
   return _postToCoach(body, { type: 'session', name: cur.day.name, sets: rows.length, tonnageKg: ton, best: top, date: getSessionDate() });
 }
 
-// FIRST RUN (self-coached, no program yet): three numbers and a day count build
-// a real 8-week block with the same generator coaches use, then drop the lifter
-// straight into their first session. "Build it myself" keeps the manual builder.
-let _setupDays = 4;
-// 'new' = never trained with a barbell / no idea of a max; 'know' = has numbers.
-// First run with nothing logged starts on 'new'. One tap switches.
-let _setupMode = null;
+// FIRST RUN (self-coached, no program yet): a choice first, never a program unasked (the owner,
+// 17 Nov: it "force-fed a program without asking").
+//   Log a session        a training log (solo-start.js): today's session, empty, lifts added as you go.
+//   Build me a program   your numbers (or "new to lifting"), then the whole block shown before it
+//                        starts (openProgramPreview), Undo on the toast after, Delete in Program's ⋯.
+// Under the card, "Or start another way": write my own, find a coach, (web) a ready-made plan.
+// (_setupDays, _setupMode, _setupReps and _setupOpen are declared next to `let user`: Train reads them in the demo's first render.)
+function _hasOwnLogs() { return (Store.get().workoutLogs || []).some(l => l.athleteId === user.id); }
+function _setupTile(tint, d) { return el('span', { class: 'yr-ic t-' + tint, html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>' }); }
+// One row of choices that flip in place (no re-render, so typed numbers stay).
+function _setupSeg(label, opts, get, set, cls) {
+  const g = el('div', { class: 'ui-seg setup-days' + (cls ? ' ' + cls : ''), role: 'radiogroup', 'aria-label': label });
+  opts.forEach(([v, text]) => {
+    const b = el('button', { type: 'button', role: 'radio', class: get() === v ? 'on' : '', 'aria-checked': get() === v ? 'true' : 'false' }, text);
+    b.addEventListener('click', () => {
+      set(v);
+      g.querySelectorAll('button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
+    });
+    g.appendChild(b);
+  });
+  return g;
+}
+function _openSetup() { _setupMode = _hasOwnLogs() ? 'know' : 'new'; _setupOpen = true; renderToday(); window.scrollTo(0, 0); }
+function buildStartChoice() {
+  const card = el('div', { class: 'ui-hero setup-card ss-choice' });
+  card.appendChild(el('div', { class: 'ui-hero-label' }, 'Start training'));
+  card.appendChild(el('h3', { class: 'setup-title' }, 'How do you want to train?'));
+  card.appendChild(el('p', { class: 'setup-sub' }, 'Log what you lift as you go, or get a program built from your numbers. You can switch any time.'));
+  card.appendChild(uiList([
+    uiRow({ lead: _setupTile('teal', '<path d="M12 5v14M5 12h14"/>'), title: 'Log a session', sub: 'Add lifts and sets as you go. No program needed.', chevron: true, onClick: () => startLogSession() }),
+    uiRow({ lead: _setupTile('iris', '<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/>'), title: 'Build me a program', sub: 'From your lifts, 2 to 6 days a week. You see it before it starts.', chevron: true, onClick: _openSetup })
+  ]));
+  return setupWrap(card);
+}
 function buildFirstProgramSetup() {
-  if (!_setupMode) _setupMode = (Store.get().workoutLogs || []).some(l => l.athleteId === user.id) ? 'know' : 'new';
+  if (!_setupMode) return buildStartChoice();
   const card = el('div', { class: 'ui-hero setup-card' });
-  card.appendChild(el('div', { class: 'ui-hero-label' }, 'Set up your program'));
+  const back = el('button', { class: 'ui-text-btn ss-back', type: 'button', 'aria-label': 'Back' }, '‹ Back');
+  back.addEventListener('click', () => { _setupMode = null; _setupOpen = false; renderToday(); });
+  card.appendChild(back);
+  card.appendChild(el('div', { class: 'ui-hero-label' }, 'Build me a program'));
   const mode = el('div', { class: 'ui-seg setup-mode', role: 'radiogroup', 'aria-label': 'How much have you lifted?' });
   [['new', 'I\'m new to lifting'], ['know', 'I know my lifts']].forEach(([k, label]) => {
     const b = el('button', { type: 'button', role: 'radio', class: _setupMode === k ? 'on' : '', 'aria-checked': _setupMode === k ? 'true' : 'false' }, label);
@@ -3505,30 +3544,23 @@ function buildFirstProgramSetup() {
   card.appendChild(mode);
   if (_setupMode === 'new') return buildStarterSetup(card);
   card.appendChild(el('h3', { class: 'setup-title' }, 'Your best lifts'));
-  card.appendChild(el('p', { class: 'setup-sub' }, 'A one-rep max or a good guess.'));
+  card.appendChild(el('p', { class: 'setup-sub' }, 'Your heaviest recent set of each. A good guess is fine.'));
   const u = unitLabel();
   const ph = u === 'lbs' ? { squat: 310, bench: 225, deadlift: 400 } : { squat: 140, bench: 100, deadlift: 180 };
   const grid = el('div', { class: 'setup-lifts' });
   ['squat', 'bench', 'deadlift'].forEach(lift => {
     const row = el('label', { class: 'setup-lift', for: 'setup-' + lift });
     row.appendChild(el('span', { class: 'setup-lift-name' }, LIFT_LABELS[lift]));
-    row.appendChild(el('input', { id: 'setup-' + lift, type: 'number', inputmode: 'decimal', step: '2.5', min: '0', placeholder: String(ph[lift]) }));
+    row.appendChild(el('input', { id: 'setup-' + lift, type: 'number', inputmode: 'decimal', step: '2.5', min: '0', placeholder: 'e.g. ' + ph[lift] }));
     row.appendChild(el('span', { class: 'setup-unit' }, u));
     grid.appendChild(row);
   });
   card.appendChild(grid);
+  card.appendChild(el('div', { class: 'setup-days-label' }, 'Reps in those sets'));
+  card.appendChild(_setupSeg('Reps in those sets', [[1, '1 rep'], [3, '3 reps'], [5, '5 reps']], () => _setupReps, v => { _setupReps = v; }));
   card.appendChild(el('div', { class: 'setup-days-label' }, 'Days a week'));
-  const days = el('div', { class: 'ui-seg setup-days', role: 'radiogroup', 'aria-label': 'Training days per week' });
-  [3, 4, 5].forEach(n => {
-    const b = el('button', { type: 'button', role: 'radio', class: n === _setupDays ? 'on' : '', 'aria-checked': n === _setupDays ? 'true' : 'false' }, String(n));
-    b.addEventListener('click', () => {
-      _setupDays = n;
-      days.querySelectorAll('button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
-    });
-    days.appendChild(b);
-  });
-  card.appendChild(days);
-  const go = el('button', { class: 'btn btn-primary ui-btn-wide setup-go', type: 'button' }, 'Build my program');
+  card.appendChild(_setupSeg('Training days per week', [2, 3, 4, 5, 6].map(n => [n, String(n)]), () => _setupDays, v => { _setupDays = v; }));
+  const go = el('button', { class: 'btn btn-primary ui-btn-wide setup-go', type: 'button' }, 'See my program');
   go.addEventListener('click', buildFirstProgram);
   card.appendChild(go);
   return setupWrap(card);
@@ -3543,7 +3575,7 @@ function buildStarterSetup(card) {
   const grid = el('div', { class: 'setup-lifts' });
   const row = el('label', { class: 'setup-lift', for: 'setup-bw' });
   row.appendChild(el('span', { class: 'setup-lift-name' }, 'Bodyweight'));
-  const bwIn = el('input', { id: 'setup-bw', type: 'number', inputmode: 'decimal', step: '0.1', min: '0', placeholder: u === 'lbs' ? '170' : '78' });
+  const bwIn = el('input', { id: 'setup-bw', type: 'number', inputmode: 'decimal', step: '0.1', min: '0', placeholder: u === 'lbs' ? 'e.g. 170' : 'e.g. 78' });
   const lastBw = latestBodyweight(user.id);
   if (lastBw) bwIn.value = String(kgToDisplay(lastBw));
   row.appendChild(bwIn);
@@ -3562,7 +3594,7 @@ function buildStarterSetup(card) {
     sex.appendChild(b);
   });
   card.appendChild(sex);
-  const go = el('button', { class: 'btn btn-primary ui-btn-wide setup-go', type: 'button' }, 'Start my first program');
+  const go = el('button', { class: 'btn btn-primary ui-btn-wide setup-go', type: 'button' }, 'See my program');
   go.addEventListener('click', buildStarterFirstProgram);
   card.appendChild(go);
   return setupWrap(card);
@@ -3573,42 +3605,291 @@ function setupWrap(card) {
   wrap.appendChild(card);
   const tab = (id) => () => { const t = document.getElementById('tab-' + id); if (t) t.click(); };
   const inShell = document.documentElement.classList.contains('native');
-  const tile = (tint, d) => el('span', { class: 'yr-ic t-' + tint, html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>' });
   wrap.appendChild(uiLabel('Or start another way'));
   wrap.appendChild(uiList([
-    uiRow({ lead: tile('sky', '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), title: 'Write my own program', sub: 'Your weeks, days and sets', chevron: true, onClick: tab('program') }),
-    uiRow({ lead: tile('green', '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>'), title: 'Find a coach', sub: 'Get programmed by a real coach', chevron: true, onClick: tab('coach') }),
-    inShell ? null : uiRow({ lead: tile('orange', '<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>'), title: 'Get a ready-made plan', sub: 'Programs from coaches on the marketplace', chevron: true, onClick: tab('marketplace') })
+    uiRow({ lead: _setupTile('sky', '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), title: 'Write my own program', sub: 'Your weeks, days and sets', chevron: true, onClick: tab('program') }),
+    uiRow({ lead: _setupTile('green', '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>'), title: 'Find a coach', sub: 'Get programmed by a real coach', chevron: true, onClick: tab('coach') }),
+    inShell ? null : uiRow({ lead: _setupTile('orange', '<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>'), title: 'Get a ready-made plan', sub: 'Programs from coaches on the marketplace', chevron: true, onClick: tab('marketplace') })
   ]));
   return wrap;
 }
 function buildFirstProgram() {
   const val = (lift) => { const v = Number((document.getElementById('setup-' + lift) || {}).value); return v > 0 ? displayToKg(v) : 0; };
-  const e1rms = { squat: val('squat'), bench: val('bench'), deadlift: val('deadlift') };
-  if (!(e1rms.squat || e1rms.bench || e1rms.deadlift)) { toast('Enter at least one lift'); return; }
-  const prog = generateProgram({ weeks: 8, daysPerWeek: _setupDays, e1rms, athleteId: user.id, coachId: user.id });
+  const typed = { squat: val('squat'), bench: val('bench'), deadlift: val('deadlift') };
+  const chk = SoloStart.checkSetupLifts(typed, _setupReps);
+  if (!chk.ok) {
+    const name = LIFT_LABELS[chk.lift].toLowerCase();
+    toast(chk.why === 'missing' ? 'Add your ' + name + ' too. A good guess is fine'
+      : chk.why === 'high' ? 'Check your ' + name + ': ' + formatWeight(typed[chk.lift]) + ' is more than anyone has lifted'
+      : 'Your ' + name + ' looks light for a max. New to the barbell? Pick "I\'m new to lifting"');
+    const inp = document.getElementById('setup-' + chk.lift);
+    if (inp) { try { inp.focus(); } catch (e) {} }
+    return;
+  }
+  const prog = generateProgram({ weeks: 8, daysPerWeek: _setupDays, e1rms: chk.e1rms, athleteId: user.id, coachId: user.id });
   if (!prog || !prog.weeks || !prog.weeks.length) { toast('Could not build that. Try again.'); return; }
   prog.name = prog.name || '8-week strength block';
-  installFirstProgram(prog, 'Your ' + prog.weeks.length + '-week program is ready');
+  openProgramPreview(prog, {
+    sub: 'Loads from your estimated maxes: ' + MAIN_LIFTS.map(l => LIFT_LABELS[l] + ' ' + formatWeight(chk.e1rms[l])).join(' · ') + '.',
+    onStart: () => _replaceSoloProgram(prog, 'Your ' + prog.weeks.length + '-week program is ready')
+  });
 }
 function buildStarterFirstProgram() {
   const v = Number((document.getElementById('setup-bw') || {}).value);
   const prog = generateStarterProgram({ weeks: 8, bodyweightKg: v > 0 ? displayToKg(v) : null, sex: getSexPref(), unit: getUnit(), athleteId: user.id, coachId: user.id });
-  setSimpleEffort(true);   // new lifters log "reps left"; You → Rest and sets switches it off
-  installFirstProgram(prog, 'Your starter program is ready. Go light and tell it how each set felt');
+  if (!prog || !prog.weeks || !prog.weeks.length) { toast('Could not build that. Try again.'); return; }
+  openProgramPreview(prog, {
+    sub: 'Starting light on purpose: each session tells the next one what to lift.',
+    onStart: () => {
+      setSimpleEffort(true);   // new lifters log "reps left"; You → Rest and sets switches it off
+      _replaceSoloProgram(prog, 'Your starter program is ready. Go light and tell it how each set felt');
+    }
+  });
 }
 window.buildStarterFirstProgram = buildStarterFirstProgram;
-function installFirstProgram(prog, msg) {
-  Store.update(s => { s.programs = s.programs.filter(x => x.athleteId !== user.id).concat([prog]); });
-  persistProgram(prog.id);
-  populateDaySelect();
-  autoSelectFirstIncompleteDay();
-  document.getElementById('sessionDate').value = todayISO();
-  renderToday();
+window.buildFirstProgram = buildFirstProgram;
+
+// THE PREVIEW: a generated block, seen before it is anyone's program. Week 1 in full (every exercise
+// and its sets), then each week's heaviest set per lift, so the climb and the lighter last week show.
+// o: { sub, note, startLabel, backLabel, onStart }
+function openProgramPreview(prog, o) {
+  o = o || {};
+  const sum = SoloStart.previewSummary(prog);
+  const outline = SoloStart.weekOutline(prog);
+  return uiSheet(prog.name || 'Your program', (sheet, close) => {
+    const line = sum.daysPerWeek + (sum.daysPerWeek === 1 ? ' day' : ' days') + ' a week · ' + sum.weeks + (sum.weeks === 1 ? ' week' : ' weeks');
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, line + (o.sub ? '. ' + o.sub : '')));
+    const w1 = (prog.weeks || [])[0];
+    if (w1) {
+      sheet.appendChild(el('div', { class: 'pv-h' }, 'Week 1'));
+      (w1.days || []).filter(d => (d.exercises || []).length).forEach(d => {
+        const box = el('div', { class: 'pv-day' });
+        box.appendChild(el('div', { class: 'pv-day-name' }, d.name || 'Day'));
+        d.exercises.forEach(ex => {
+          const r = el('div', { class: 'pv-ex' });
+          r.appendChild(el('span', { class: 'pv-ex-name' }, MAIN_LIFTS.includes(ex.lift) ? el('span', { class: 'lift-dot lift-' + ex.lift, 'aria-hidden': 'true' }) : null, exTitleOf(ex)));
+          r.appendChild(el('span', { class: 'pv-ex-sets' }, _fpSetsLine(ex)));
+          box.appendChild(r);
+        });
+        sheet.appendChild(box);
+      });
+    }
+    const lifts = MAIN_LIFTS.filter(l => outline.some(w => w.lifts[l]));
+    if (outline.length > 1 && lifts.length) {
+      sheet.appendChild(el('div', { class: 'pv-h' }, 'Heaviest set each week'));
+      const tbl = el('div', { class: 'pv-weeks', role: 'table', 'aria-label': 'Heaviest set each week', style: '--pv-cols:' + lifts.length });
+      const head = el('div', { class: 'pv-wk-row pv-wk-head', role: 'row' });
+      head.appendChild(el('span', { role: 'columnheader' }, ''));
+      lifts.forEach(l => head.appendChild(el('span', { role: 'columnheader' }, el('span', { class: 'lift-dot lift-' + l, 'aria-hidden': 'true' }), LIFT_LABELS[l])));
+      tbl.appendChild(head);
+      outline.forEach(w => {
+        const r = el('div', { class: 'pv-wk-row', role: 'row' });
+        r.appendChild(el('span', { class: 'pv-wk-n', role: 'rowheader' }, 'Week ' + w.number));
+        lifts.forEach(l => { const t = w.lifts[l]; r.appendChild(el('span', { role: 'cell' }, t ? kgToDisplay(t.kg) + ' × ' + t.reps : '–')); });
+        tbl.appendChild(r);
+      });
+      sheet.appendChild(tbl);
+      sheet.appendChild(el('p', { class: 'pm-note' }, 'In ' + unitLabel() + '. You can change any set in the Program tab, before or after you start.'));
+    }
+    if (o.note) sheet.appendChild(el('p', { class: 'pm-note' }, o.note));
+    const go = el('button', { class: 'btn btn-primary btn-lg btn-block pv-go', type: 'button' }, o.startLabel || 'Start this program');
+    go.addEventListener('click', () => { close(); setTimeout(() => { if (o.onStart) o.onStart(); }, 60); });
+    sheet.appendChild(go);
+    const back = el('button', { class: 'ui-text-btn pv-back', type: 'button' }, o.backLabel || 'Change my answers');
+    back.addEventListener('click', close);
+    sheet.appendChild(back);
+  }, { cls: 'pv-sheet' });
+}
+
+// Put a new program in place of the lifter's own (or none), keeping its row id when there is one.
+// A program with sets logged in it is kept as a past block first (app.js archiveProgramIfTrained);
+// the toast's Undo puts back exactly what was there, past block and all.
+async function _replaceSoloProgram(prog, msg) {
+  if (user.coachId) { toast('Your coach manages your program'); return; }
+  const raw = Store.get().programs.find(p => p.athleteId === user.id) || null;
+  const prev = raw ? JSON.parse(JSON.stringify(raw)) : null;
+  const kept = await _keepAsPastBlock(raw);
+  const next = Object.assign({}, prog, { id: prev ? prev.id : (prog.id || uid('prog')), athleteId: user.id, coachId: user.id });
+  if (prev && prev.rev != null) next.rev = prev.rev;
+  Store.update(s => { s.programs = (s.programs || []).filter(p => p.athleteId !== user.id).concat([next]); });
+  persistProgram(next.id);
+  _setupMode = null; _setupOpen = false;
+  _selfBuilderActiveWeek = 0; window._sbWeekChosen = false;
+  const sd = document.getElementById('sessionDate'); if (sd) sd.value = todayISO();
+  _refreshSoloViews(true);
   window.scrollTo(0, 0);
+  toastAction(msg, 'Undo', () => _restoreSoloProgram(prev, next.id, kept, prev ? 'Your old program is back' : 'Undone. No program yet'), 8000);
+}
+// Archive a trained program as a past block. → the ids of the blocks it made (for Undo).
+async function _keepAsPastBlock(raw) {
+  if (!raw || typeof archiveProgramIfTrained !== 'function') return [];
+  const before = new Set((Store.get().programBlocks || []).map(b => b.id));
+  try { await archiveProgramIfTrained(raw); } catch (e) { console.warn('keep past block', e); }
+  return (Store.get().programBlocks || []).filter(b => !before.has(b.id)).map(b => b.id);
+}
+function _restoreSoloProgram(prev, droppedId, keptBlocks, msg) {
+  Store.update(s => {
+    s.programs = (s.programs || []).filter(p => p.athleteId !== user.id);
+    if (prev) s.programs.push(prev);
+    if (keptBlocks && keptBlocks.length) s.programBlocks = (s.programBlocks || []).filter(b => !keptBlocks.includes(b.id));
+  });
+  if (!window._demoMode) {
+    if (prev) persistProgram(prev.id);
+    // The new program's save may still be on its way (persistProgram waits 350 ms): delete after it.
+    else if (droppedId) setTimeout(() => { if (!(Store.get().programs || []).some(p => p.id === droppedId)) DB.deleteProgram(droppedId).catch(e => console.error('undo program', e)); }, 1500);
+    (keptBlocks || []).forEach(id => { if (DB.deleteProgramBlock) DB.deleteProgramBlock(id).catch(() => {}); });
+  }
+  _refreshSoloViews(true);
   toast(msg);
 }
-window.buildFirstProgram = buildFirstProgram;
+// Train, the day picker and (when it's open) the Program tab, after the program changed under them.
+function _refreshSoloViews(firstDay) {
+  populateDaySelect();
+  if (firstDay) autoSelectFirstIncompleteDay();
+  try { refreshPinButtons(); } catch (e) {}
+  renderToday();
+  const pp = document.getElementById('pane-program');
+  if (pp && !pp.classList.contains('hidden') && typeof renderProgramTab === 'function') { try { renderProgramTab(); } catch (e) {} }
+}
+// Delete the lifter's own program, from the Program tab's ⋯. Asked in the app's own sheet; logged
+// sets stay in Progress, and a trained block is kept as a past block. Undo on the toast.
+function confirmDeleteSoloProgram() {
+  const raw = Store.get().programs.find(p => p.athleteId === user.id);
+  if (!raw || user.coachId) return;
+  const trained = typeof programHasTraining === 'function' && programHasTraining(raw);
+  uiSheet('Delete this program?', (sheet, close) => {
+    sheet.appendChild(el('p', { class: 'ui-sheet-sub' }, trained
+      ? 'It leaves Train and Program. Every set you logged stays in Progress, and the block is kept with your past blocks.'
+      : 'It leaves Train and Program. You can log a session, build a program or write one any time.'));
+    const del = el('button', { class: 'btn btn-lg btn-block btn-danger pv-go', type: 'button' }, 'Delete program');
+    del.addEventListener('click', () => { close(); setTimeout(_deleteSoloProgram, 60); });
+    sheet.appendChild(del);
+    const keep = el('button', { class: 'ui-text-btn pv-back', type: 'button' }, 'Keep it');
+    keep.addEventListener('click', close);
+    sheet.appendChild(keep);
+  }, { cls: 'pv-sheet' });
+}
+window.confirmDeleteSoloProgram = confirmDeleteSoloProgram;
+async function _deleteSoloProgram() {
+  const raw = Store.get().programs.find(p => p.athleteId === user.id);
+  if (!raw) return;
+  const prev = JSON.parse(JSON.stringify(raw));
+  const kept = await _keepAsPastBlock(raw);
+  Store.update(s => { s.programs = (s.programs || []).filter(p => p.athleteId !== user.id); });
+  if (!window._demoMode) DB.deleteProgram(prev.id).catch(e => console.error('delete program', e));
+  _setupMode = null; _setupOpen = false;
+  _selfBuilderActiveWeek = 0; window._sbWeekChosen = false;
+  const t = document.getElementById('tab-today');
+  if (t) t.click();
+  _refreshSoloViews(true);
+  window.scrollTo(0, 0);
+  toastAction('Program deleted', 'Undo', () => {
+    Store.update(s => {
+      s.programs = (s.programs || []).filter(p => p.athleteId !== user.id).concat([prev]);
+      if (kept.length) s.programBlocks = (s.programBlocks || []).filter(b => !kept.includes(b.id));
+    });
+    if (!window._demoMode) { persistProgram(prev.id); kept.forEach(id => { if (DB.deleteProgramBlock) DB.deleteProgramBlock(id).catch(() => {}); }); }
+    _refreshSoloViews(true);
+    toast('Your program is back');
+  }, 8000);
+}
+
+// LOG A SESSION (no program needed): today's session in the lifter's training log (solo-start.js
+// addLogSession), opened on Train, empty, with Add exercise. A lifter with a program they wrote or
+// built just goes to Train (their session is there).
+function startLogSession() {
+  if (user.coachId) { toast('Your coach writes your program.'); return; }
+  const date = getSessionDate();
+  const own = Store.get().programs.find(p => p.athleteId === user.id);
+  const tab = document.getElementById('tab-today');
+  const pane = document.getElementById('pane-today');
+  if (tab && pane && pane.classList.contains('hidden')) tab.click();
+  if (own && !SoloStart.isLogProgram(own) && !SoloStart.isEmptyProgram(own)) { renderToday(); return; }
+  let key = null, progId = null;
+  Store.update(s => {
+    let p = s.programs.find(x => x.athleteId === user.id);
+    if (!p) { p = { id: uid('prog'), athleteId: user.id, coachId: user.id, name: 'Training log', weeks: [] }; s.programs.push(p); }
+    else if (!SoloStart.isLogProgram(p)) { p.weeks = []; p.name = 'Training log'; }   // an empty program: nothing in it to lose
+    const r = SoloStart.addLogSession(p, date, { uid, day: newDay });
+    if (r) { key = _dayKey(r.week, r.day); progId = p.id; }
+  });
+  if (!key) return;
+  persistProgram(progId);
+  _setupMode = null; _setupOpen = false;
+  populateDaySelect();
+  const sel = document.getElementById('daySelect');
+  if (sel) sel.value = key;
+  try { refreshPinButtons(); } catch (e) {}
+  renderToday();
+  window.scrollTo(0, 0);
+}
+window.startLogSession = startLogSession;
+
+// ADD EXERCISE (Train and the solo builder): one sheet, a search box over the big three, their
+// variations, accessories and cardio; a name that isn't listed is added as typed. onPick(choice).
+function openAddExerciseSheet(onPick) {
+  const items = SoloStart.exerciseChoices({ variants: { squat: variantsFor('squat'), bench: variantsFor('bench'), deadlift: variantsFor('deadlift') }, accessories: ACCESSORY_EXERCISES, cardio: CARDIO_TYPES });
+  uiSheet('Add exercise', (sheet, close) => {
+    const q = el('input', { type: 'search', class: 'aex-q', placeholder: 'Find or type an exercise', 'aria-label': 'Find or type an exercise', autocomplete: 'off', autocapitalize: 'words', spellcheck: 'false', enterkeyhint: 'done' });
+    sheet.appendChild(q);
+    const host = el('div', { class: 'aex-list' });
+    sheet.appendChild(host);
+    const pick = (it) => { close(); setTimeout(() => onPick(it), 60); };
+    const paint = () => {
+      const hits = SoloStart.filterChoices(items, q.value);
+      host.innerHTML = '';
+      let g = null, rows = [];
+      const flush = () => { if (rows.length) { host.appendChild(el('div', { class: 'aex-h' }, g)); host.appendChild(uiList(rows)); } rows = []; };
+      hits.forEach(it => {
+        if (it.group !== g) { flush(); g = it.group; }
+        rows.push(uiRow({
+          lead: el('span', { class: 'tx-tile aex-tile' + (MAIN_LIFTS.includes(it.lift) ? ' lift-' + it.lift : ' lift-acc'), 'aria-hidden': 'true', html: it.lift === 'cardio' ? ICONS.flame : escHtml((it.title || '?').trim().charAt(0).toUpperCase()) }),
+          title: it.custom ? 'Add “' + it.title + '”' : it.title,
+          onClick: () => pick(it)
+        }));
+      });
+      flush();
+    };
+    paint();
+    let tm = null;
+    q.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(paint, 60); });
+    q.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const hits = SoloStart.filterChoices(items, q.value);
+      if (q.value.trim() && hits.length) pick(hits[0]);
+    });
+  }, { cls: 'aex-sheet' });
+}
+// A new exercise with its first sets (solo-start.js seedSets): 3 × 5 @ 7 for the big three, 3 × 10 @ 8
+// otherwise. kg: the load to start from (0 = the lifter types it; Train's box suggests one).
+function _newExerciseFrom(it, kg) {
+  const ex = newExercise(it.lift, it.variant || '', it.name || '');
+  ex.sets = SoloStart.seedSets(it.lift, kg).map(s => newSet(s.weight, s.reps, s.rpe));
+  return ex;
+}
+// Train: add it to today's session, then put the caret in its first weight box.
+function addExerciseToToday() {
+  const cur = getCurrentDay(), prog = getProgram();
+  if (!cur || !prog || user.coachId) return;
+  openAddExerciseSheet((it) => {
+    const ex = _newExerciseFrom(it, 0);
+    let ok = false;
+    Store.update(s => {
+      const p = s.programs.find(x => x.id === prog.id);
+      const wk = p && p.weeks.find(w => w.id === cur.week.id);
+      const d = wk && wk.days.find(dd => dd.id === cur.day.id);
+      if (d) { d.exercises.push(ex); ok = true; }
+    });
+    if (!ok) return;
+    persistProgram(prog.id);
+    populateDaySelect();
+    renderToday();
+    try { hapticTick(); } catch (e) {}
+    setTimeout(() => focusSetRow(ex.id, 0, it.lift === 'cardio' ? null : 'wt'), 80);
+  });
+}
+window.addExerciseToToday = addExerciseToToday;
 
 function renderToday() {
   refreshRestBtn();
@@ -3649,7 +3930,10 @@ function renderToday() {
     return;
   }
 
-  if (!prog) {
+  // A solo lifter with nothing written yet (no program, or the builder's blank one) chooses how to start;
+  // one with a training log who asked for a program sees the setup over it.
+  const _soloStart = !user.coachId && (!prog || (SoloStart.isEmptyProgram(prog) && !SoloStart.isLogProgram(prog)) || (_setupOpen && !!_setupMode));
+  if (!prog || _soloStart) {
     if (user.coachId) {
       renderTodayHeader(null, date, 'Train');
       _ciAlone();
@@ -3672,6 +3956,30 @@ function renderToday() {
   // completed on it). If neither, this date has no training — say so cleanly
   // instead of pretending Day X belongs here.
   if (!_dayBound(cur, date)) {
+    // A training log: this date's session if there is one, else one tap starts it.
+    if (!user.coachId && SoloStart.isLogProgram(prog)) {
+      const have = SoloStart.logDayFor(prog, date);
+      const sel = document.getElementById('daySelect');
+      if (have && sel && sel.value !== _dayKey(have.week, have.day)) { sel.value = _dayKey(have.week, have.day); renderToday(); return; }
+      renderTodayHeader(null, date, date === todayISO() ? 'Ready to train?' : 'Nothing logged');
+      _ciAlone();
+      const e = el('div', { class: 'empty today-start' });
+      const n = SoloStart.isLogProgram(prog) ? prog.weeks.reduce((a, w) => a + (w.days || []).filter(d => (d.exercises || []).some(x => (x.sets || []).some(st => st.completed))).length, 0) : 0;
+      e.appendChild(el('div', { class: 'ts-eyebrow' }, 'Training log' + (n ? ' · ' + n + (n === 1 ? ' session' : ' sessions') : '')));
+      e.appendChild(el('h3', {}, date === todayISO() ? 'Log today\'s session' : 'Log ' + new Date(date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long' }) + '\'s session'));
+      e.appendChild(el('p', {}, 'Add lifts and sets as you go.'));
+      const go = el('button', { class: 'btn btn-primary btn-lg', type: 'button' }, 'Log a session');
+      go.addEventListener('click', startLogSession);
+      e.appendChild(go);
+      const build = el('button', { class: 'ts-link', type: 'button' }, 'Build me a program instead');
+      build.addEventListener('click', _openSetup);
+      e.appendChild(build);
+      const rest = el('button', { class: 'ts-link', type: 'button' }, 'Resting today? Mark a rest day');
+      rest.addEventListener('click', toggleRestDay);
+      e.appendChild(rest);
+      area.appendChild(e);
+      return;
+    }
     renderTodayHeader(cur, date, date === todayISO() ? 'Ready to train?' : 'Nothing logged');
     _ciAlone();
     const e = el('div', { class: 'empty today-start' });
@@ -3735,6 +4043,18 @@ function renderToday() {
   cur.day.exercises.forEach(ex => ensureExerciseShape(ex));
 
   if (!cur.day.exercises.length) {
+    // A solo lifter's empty session (a training log's, or a day they haven't written): add the first lift here.
+    if (!user.coachId && !/\b(rest|off|recovery)\b/i.test(cur.day.name || '')) {
+      const e = el('div', { class: 'empty today-start' });
+      e.appendChild(el('div', { class: 'ts-eyebrow' }, cur.day.log ? 'Training log' : cur.day.name || 'Session'));
+      e.appendChild(el('h3', {}, 'Add your first lift'));
+      e.appendChild(el('p', {}, 'Pick one, then type each set\'s weight and reps as you go.'));
+      const add = el('button', { class: 'btn btn-primary btn-lg', type: 'button' }, 'Add exercise');
+      add.addEventListener('click', addExerciseToToday);
+      e.appendChild(add);
+      area.appendChild(e);
+      return;
+    }
     area.appendChild(el('div', { class: 'empty' }, el('h3', {}, 'Rest day'), el('p', {}, 'No exercises scheduled.')));
     return;
   }
@@ -3828,6 +4148,13 @@ function renderToday() {
   const exCount = cur.day.exercises.length;
   area.appendChild(uiLabel(exCount === 1 ? 'The lift' : 'The session'));
   cur.day.exercises.forEach(ex => area.appendChild(buildExerciseCard(ex, cur, prog, nextKey)));
+  // Training on your own: another lift goes into today's session from here (no trip to the builder).
+  if (!user.coachId) {
+    const addEx = el('button', { class: 'pb-add-ex2 tx-add-ex', type: 'button' });
+    addEx.innerHTML = ICONS.plus + '<span>Add exercise</span>';
+    addEx.addEventListener('click', addExerciseToToday);
+    area.appendChild(addEx);
+  }
   // Stopping early: once a set is in and some are left, the end of the list offers to finish.
   const _all = cur.day.exercises.flatMap(e => e.sets);
   if (_all.some(st => st.completed) && _all.some(setOpen)) {
@@ -3925,6 +4252,10 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
       const wIn = document.getElementById('wt_' + exerciseId + '_' + setIndex);
       const display = Number(wIn?.value);
       if (display > 0) set.weight = displayToKg(display);
+      // Your own program: the reps typed on the row are the set's (a change not yet saved by its box counts too).
+      const rIn = selfCoached ? document.getElementById('rp_' + exerciseId + '_' + setIndex) : null;
+      const rv = Math.round(Number(rIn?.value));
+      if (rIn && rv >= 1 && rv <= 100 && !(opts && opts.reps)) set.reps = rv;
       // The big three need a load; accessories can be bodyweight (push-ups, dips,
       // planks), so a blank load there just logs the reps.
       if ((!set.weight || set.weight <= 0) && MAIN_LIFTS.includes(ex.lift)) {
@@ -4619,13 +4950,18 @@ function openFirstMeetSheet() {
       const e1 = {};
       MAIN_LIFTS.forEach(l => { e1[l] = bestE1RM(user.id, l) || est[l]; });
       const prog = generateMeetPrep({ weeks: w, e1rms: e1, unit: getUnit(), athleteId: user.id, coachId: user.id, meetDate: di.value });
-      const install = () => {
-        try { localStorage.setItem('powa-meet-date', di.value); } catch (e) {}
-        close();
-        installFirstProgram(prog, 'Your ' + w + '-week meet plan is ready. Meet mode opens on meet day');
-      };
-      if (getProgram()) uiActionSheet('This replaces your current program. Your logged sets stay in your history.', [{ label: 'Build the meet plan', onClick: install }]);
-      else install();
+      // Seen before it starts (openProgramPreview); a program already there is replaced only from the preview's button.
+      const had = !!getProgram();
+      const date = di.value;
+      close();
+      setTimeout(() => openProgramPreview(prog, {
+        startLabel: had ? 'Replace my program' : 'Start this meet plan',
+        note: had ? 'This replaces your current program. Every set you logged stays in your history.' : '',
+        onStart: () => {
+          try { localStorage.setItem('powa-meet-date', date); } catch (e) {}
+          _replaceSoloProgram(prog, 'Your ' + w + '-week meet plan is ready. Meet mode opens on meet day');
+        }
+      }), 220);
     });
     sheet.appendChild(go);
   }, { cls: 'first-meet-sheet' });
@@ -7183,7 +7519,8 @@ function renderProgress() {
       icon: ICONS.chart,
       title: 'Your progress starts here',
       text: 'Log one set and your e1RM, total and PRs show up.',
-      primary: { label: 'Log your first set', onClick: () => document.getElementById('tab-today')?.click() },
+      // On your own: straight into a session (a training log needs no program). Coached: Train, where the program is.
+      primary: user.coachId ? { label: 'Log your first set', onClick: () => document.getElementById('tab-today')?.click() } : { label: 'Log a session', onClick: () => startLogSession() },
       secondary: { label: 'Import history', onClick: () => (window.SwitchKit && SwitchKit.openMyImport ? SwitchKit.openMyImport() : openImportModal()) }   // IMPORTS hook: the import intake (old modal as fallback)
     }));
     return;
@@ -8683,7 +9020,8 @@ function renderSelfBuilder() {
   progMore.addEventListener('click', () => uiActionSheet(prog.name || 'Program', [
     blockOpen ? { label: 'Build a new block…', icon: ICONS.program, onClick: () => openSoloBlockSheet() } : null,
     { label: 'Add week', icon: ICONS.plus, onClick: () => sbAddWeek(prog.id) },
-    { label: 'Export as a CSV file', icon: ICONS.program, onClick: () => exportProgramCsv() }
+    { label: 'Export as a CSV file', icon: ICONS.program, onClick: () => exportProgramCsv() },
+    _sbSets.length || prog.weeks.length ? { label: 'Delete program', icon: ICONS.trash, danger: true, onClick: () => confirmDeleteSoloProgram() } : null
   ]));
   headRow.appendChild(progMore);
   head.appendChild(headRow);
@@ -8714,6 +9052,13 @@ function renderSelfBuilder() {
   const builder = el('div', { class: 'builder' });
   const aside = el('div', { class: 'builder-aside' });
   const weekNav = el('div', { class: 'week-nav' });
+  // First time here: the week Train is on, not Week 1 (mid-block the week you're in is the one you edit).
+  if (!window._sbWeekChosen) {
+    window._sbWeekChosen = true;
+    const cd = getCurrentDay();
+    const at = cd ? prog.weeks.findIndex(w => w.id === cd.week.id) : -1;
+    if (at >= 0) _selfBuilderActiveWeek = at;
+  }
   if (_selfBuilderActiveWeek >= prog.weeks.length) _selfBuilderActiveWeek = 0;
   prog.weeks.forEach((wk, wi) => {
     const totalSets = wk.days.flatMap(d => d.exercises).flatMap(e => e.sets).length;
@@ -8799,7 +9144,7 @@ function buildSbExercise(prog, wi, day, di, ex, ei) {
   const isMain = MAIN_LIFTS.includes(ex.lift);
   const openSet = _sbOpenSet();
   const open = openSet.has(ex.id);
-  const row = el('div', { class: 'pb-ex' + (open ? ' is-open' : '') + (isMain ? ' lift-' + ex.lift : ' lift-acc') });
+  const row = el('div', { class: 'pb-ex' + (open ? ' is-open' : '') + (isMain ? ' lift-' + ex.lift : ' lift-acc'), 'data-ex': ex.id });
   let title = '', badge = '';
   if (isMain) { title = ex.variant + ' ' + LIFT_LABELS[ex.lift]; }
   else if (ACCESSORY_LIFTS.includes(ex.lift)) { title = ex.exerciseName; badge = LIFT_LABELS[ex.lift]; }
@@ -8928,21 +9273,26 @@ function openSoloBlockSheet() {
       return row;
     };
     sheet.appendChild(seg('Weeks', [[4, '4'], [6, '6'], [8, '8']], () => weeks, v => { weeks = v; }));
-    sheet.appendChild(seg('Days a week', [[3, '3'], [4, '4'], [5, '5']], () => days, v => { days = v; }));
+    sheet.appendChild(seg('Days a week', [[2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']], () => days, v => { days = v; }));
     sheet.appendChild(seg('Focus', [['', 'Even'], ['squat', 'Squat'], ['bench', 'Bench'], ['deadlift', 'Deadlift']], () => focus, v => { focus = v; }));
     const known = MAIN_LIFTS.filter(l => e1rms[l]);
     sheet.appendChild(el('p', { class: 'pm-note' }, known.length
       ? 'Loads from your best: ' + known.map(l => LIFT_LABELS[l] + ' ' + formatWeight(Math.round(e1rms[l]))).join(' · ') + '.'
       : 'No estimated maxes yet, so loads stay blank: work up to each set\'s RPE.'));
-    const go = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'Build it');
+    const go = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, 'See the block');
     go.addEventListener('click', () => {
       const cur = getProgram();
-      const hasContent = cur && (cur.weeks || []).some(w => (w.days || []).some(d => (d.exercises || []).length));
-      if (hasContent && !confirm('This replaces your current program. Your logged sets stay in your history. Build it?')) return;
+      const hasContent = !!cur && !SoloStart.isEmptyProgram(cur);
       const prog = generateProgram({ weeks, daysPerWeek: days, focus: focus || undefined, e1rms, athleteId: user.id, coachId: user.id,
         name: weeks + '-week ' + (focus ? LIFT_LABELS[focus].toLowerCase() + ' ' : '') + 'block' });
       close();
-      setTimeout(() => { _selfBuilderActiveWeek = 0; window.__applyAIProgram(prog); }, 220);
+      // Seen in full before it replaces anything (no browser confirm); Undo on the toast after.
+      setTimeout(() => openProgramPreview(prog, {
+        startLabel: hasContent ? 'Replace my program' : 'Start this block',
+        backLabel: 'Not now',
+        note: hasContent ? 'This replaces your current program. Every set you logged stays in your history.' : '',
+        onStart: () => _replaceSoloProgram(prog, 'Your ' + weeks + '-week block is ready')
+      }), 220);
     });
     sheet.appendChild(go);
   }, { cls: 'plate-sheet sb-build-sheet' });
@@ -9008,84 +9358,38 @@ function sbDeleteExercise(progId, wi, di, ei) {
   renderSelfBuilder();
 }
 
-// Open the proper "add exercise" modal (no more browser prompts)
-let _sbAddCtx = null;
+// Add exercise (the builder): the same sheet as Train's (openAddExerciseSheet). The new exercise opens
+// at once with its set boxes, and the caret waits in its first load box: no second tap to edit it.
 function sbOpenAddExercise(progId, wi, di) {
-  _sbAddCtx = { progId, wi, di };
-  // Reset modal inputs
-  document.getElementById('sbExLift').value = 'squat';
-  document.getElementById('sbExName').value = '';
-  onSbLiftChange();
-  openModal('sbAddExerciseModal');
+  openAddExerciseSheet((it) => {
+    const kg = MAIN_LIFTS.includes(it.lift) ? suggestNewLoad(user.id, it.lift, it.variant, it.name, 5, 7) : 0;
+    const ex = _newExerciseFrom(it, kg);
+    let ok = false;
+    Store.update(s => {
+      const p = s.programs.find(p => p.id === progId);
+      const d = p && p.weeks[wi] && p.weeks[wi].days[di];
+      if (d) { d.exercises.push(ex); ok = true; }
+    });
+    if (!ok) return;
+    sbPersist(progId);
+    _sbOpenSet().add(ex.id);
+    renderSelfBuilder();
+    _sbFocusLoad(ex.id);
+  });
 }
 window.sbOpenAddExercise = sbOpenAddExercise;
-
-// Show / hide the right fields based on lift type + populate variant/name lists
-function onSbLiftChange() {
-  const lift = document.getElementById('sbExLift').value;
-  const variantGroup = document.getElementById('sbVariantGroup');
-  const nameGroup = document.getElementById('sbNameGroup');
-  const nameLabel = document.getElementById('sbNameLabel');
-  const variantSel = document.getElementById('sbExVariant');
-  const nameList = document.getElementById('sbExNameList');
-
-  if (MAIN_LIFTS.includes(lift)) {
-    // Main lift — show variant dropdown, hide name
-    variantGroup.style.display = 'block';
-    nameGroup.style.display = 'none';
-    variantSel.innerHTML = '';
-    variantsFor(lift).forEach(v => {
-      const opt = document.createElement('option');
-      opt.value = v; opt.textContent = v;
-      variantSel.appendChild(opt);
-    });
-  } else {
-    // Accessory / cardio / other — show name input, hide variant
-    variantGroup.style.display = 'none';
-    nameGroup.style.display = 'block';
-    nameLabel.textContent = lift === 'cardio' ? 'Cardio type' : 'Exercise name';
-    // Datalist suggestions
-    nameList.innerHTML = '';
-    let suggestions = [];
-    if (ACCESSORY_LIFTS.includes(lift)) suggestions = exercisesFor(lift);
-    else if (lift === 'cardio') suggestions = CARDIO_TYPES;
-    suggestions.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s;
-      nameList.appendChild(opt);
-    });
-  }
+// Scroll an exercise in the builder into view and put the caret in its last row's first box (the load;
+// cardio's minutes).
+function _sbFocusLoad(exId) {
+  setTimeout(() => {
+    const row = [...document.querySelectorAll('.pb-ex')].find(r => r.getAttribute('data-ex') === String(exId));
+    if (!row) return;
+    const ins = [...row.querySelectorAll('.uniform-row input[aria-label^="Load"], .set-row input[aria-label="Minutes"]')];
+    const inp = ins[ins.length - 1];
+    try { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+    if (inp) setTimeout(() => { try { inp.focus({ preventScroll: true }); if (inp.select) inp.select(); } catch (e) {} }, 320);
+  }, 60);
 }
-window.onSbLiftChange = onSbLiftChange;
-
-function sbConfirmAddExercise() {
-  if (!_sbAddCtx) { closeModal('sbAddExerciseModal'); return; }
-  const { progId, wi, di } = _sbAddCtx;
-  const lift = document.getElementById('sbExLift').value;
-  const variant = MAIN_LIFTS.includes(lift) ? document.getElementById('sbExVariant').value : '';
-  const exerciseName = MAIN_LIFTS.includes(lift) ? '' : document.getElementById('sbExName').value.trim();
-  if (!MAIN_LIFTS.includes(lift) && !exerciseName) return toast('Enter an exercise name.');
-
-  Store.update(s => {
-    const p = s.programs.find(p => p.id === progId);
-    if (!p) return;
-    const ex = newExercise(lift, variant, exerciseName);
-    // Seed with one block of 3 sets so the inputs show at once, loaded from the lifter's own
-    // history (blank when there's none: they write it).
-    if (lift === 'cardio') {
-      ex.sets = [newSet(30, 5, null)]; // 30 min / 5 km / no RPE
-    } else {
-      const w = suggestNewLoad(user.id, lift, variant, exerciseName, 5, 7);
-      ex.sets = [newSet(w, 5, 7), newSet(w, 5, 7), newSet(w, 5, 7)];
-    }
-    p.weeks[wi].days[di].exercises.push(ex);
-  });
-  sbPersist(progId);
-  closeModal('sbAddExerciseModal');
-  _sbAddCtx = null;
-  renderSelfBuilder();
-}
-window.sbConfirmAddExercise = sbConfirmAddExercise;
 
 function sbUpdateSet(progId, wi, di, ei, si, field, val) {
   Store.update(s => { const p = s.programs.find(p => p.id === progId); if (p) p.weeks[wi].days[di].exercises[ei].sets[si][field] = val; });
@@ -9102,6 +9406,8 @@ function sbAddSet(progId, wi, di, ei) {
   });
   sbPersist(progId);
   renderSelfBuilder();
+  const ex = sbProg() && sbProg().weeks[wi] && sbProg().weeks[wi].days[di].exercises[ei];
+  if (ex) _sbFocusLoad(ex.id);
 }
 function sbDeleteSet(progId, wi, di, ei, si) {
   Store.update(s => { const p = s.programs.find(p => p.id === progId); if (p) p.weeks[wi].days[di].exercises[ei].sets.splice(si, 1); });
@@ -9147,6 +9453,8 @@ function sbAddBlock(progId, wi, di, ei) {
   });
   sbPersist(progId);
   renderSelfBuilder();
+  const ex = sbProg() && sbProg().weeks[wi] && sbProg().weeks[wi].days[di].exercises[ei];
+  if (ex) _sbFocusLoad(ex.id);
 }
 function sbDeleteBlock(progId, wi, di, ei, startIdx, count) {
   Store.update(s => {

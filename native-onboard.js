@@ -159,6 +159,7 @@
     };
     back.addEventListener('click', function () {
       haptic('light');
+      if (api.onBack) { api.onBack(); return; }
       if (api.at > 0) api.go(api.at - 1); else if (onBackAtStart) onBackAtStart(); else closeSheet();
     });
     return api;
@@ -319,6 +320,7 @@
     s1.appendChild(h('p', { class: 'ob-lead', text: 'Pick one. You can change it later.' }));
     var choices = roleCards(st, function () {
       codeWrap.style.display = st.role === 'athlete' ? '' : 'none';
+      lead2.textContent = nameLead(st.role);
       setTimeout(function () { api.go(1); }, reduce ? 0 : 230);
     });
     s1.appendChild(choices);
@@ -327,7 +329,11 @@
     // Step 2 — name (+ coach code for coached lifters)
     var s2 = api.add(h('div', { class: 'ob-step' }));
     s2.appendChild(h('h2', { text: 'What should we call you?' }));
-    s2.appendChild(h('p', { class: 'ob-lead', text: 'Your coach and your club see this name.' }));
+    // Who sees the name depends on who they are: a lifter on their own has no coach to see it.
+    function nameLead(role) {
+      return role === 'coach' ? 'Your lifters see this name.' : role === 'athlete' ? 'Your coach and your club see this name.' : 'It goes on your profile, and your club sees it if you join one.';
+    }
+    var lead2 = s2.appendChild(h('p', { class: 'ob-lead', text: nameLead(st.role) }));
     var name = h('input', { class: 'ob-input', type: 'text', autocomplete: 'name', autocapitalize: 'words', enterkeyhint: 'next', placeholder: 'Full name', 'data-autofocus': '1', 'aria-label': 'Full name' });
     s2.appendChild(field('Name', name));
     var code = h('input', { class: 'ob-input ob-code', type: 'text', maxlength: '6', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', placeholder: 'CODE', 'aria-label': 'Coach code' });
@@ -418,7 +424,7 @@
     }, function () { return err3; });
     if (social3) { s3.appendChild(social3); s3.appendChild(orDivider()); }
     var email = h('input', { class: 'ob-input', type: 'email', inputmode: 'email', autocomplete: 'email', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'next', placeholder: 'you@email.com', 'data-autofocus': '1', 'aria-label': 'Email' });
-    var pwd = h('input', { class: 'ob-input has-eye', type: 'password', autocomplete: 'new-password', enterkeyhint: 'go', placeholder: 'At least 6 characters', 'aria-label': 'Password' });
+    var pwd = h('input', { class: 'ob-input has-eye', type: 'password', autocomplete: 'new-password', enterkeyhint: 'go', placeholder: 'At least ' + (window.POWA_PWD_MIN || 8) + ' characters', 'aria-label': 'Password' });
     s3.appendChild(field('Email', email));
     s3.appendChild(field('Password', pwd, eyeToggle(pwd)));
     var meterFill = h('div', { class: 'ob-meter-fill' });
@@ -450,26 +456,29 @@
       if (!st.role) { api.go(0); return; }
       if (!nm) { api.go(1); return; }
       if (!EMAIL_RE.test(em)) { err3.textContent = 'That email doesn\'t look right.'; haptic('error'); email.focus(); return; }
-      if (pw.length < 6) { err3.textContent = 'Use at least 6 characters.'; haptic('error'); pwd.focus(); return; }
+      var pwBad = typeof pwdProblem === 'function' ? pwdProblem(pw) : (pw.length < 8 ? 'Use at least 8 characters.' : '');
+      if (pwBad) { err3.textContent = pwBad; haptic('error'); pwd.focus(); return; }
       if (!ageBox.checked) { err3.textContent = 'Please confirm you\'re 16 or older.'; haptic('error'); return; }
       var consent = { age_16_plus: true, terms_accepted_at: new Date().toISOString() };
       err3.textContent = '';
       busy(create, true, 'Creating account…');
       try {
+        // The coach code and the welcome email ride with the account (db.js powaSignupMeta): handled now when Auth
+        // signs them straight in, else at the first log-in after they confirm the email.
         if (st.role === 'coach') await DB.signUpCoach(nm, em, pw, '', consent);
         else await DB.signUpAthlete(nm, em, pw, st.role === 'athlete' ? cd : '', consent);
-        try { if (typeof sendWelcomeEmail === 'function') sendWelcomeEmail(em, nm, st.role === 'coach' ? 'coach' : 'athlete'); } catch (e) {}
-        var session = await DB.getSession();
-        haptic('success');
-        if (!session) { showConfirm(api, em); busy(create, false); return; }
+        // This phone's choices keep through a confirmation round trip too.
         try { localStorage.setItem('powa-last-role', st.role === 'coach' ? 'coach' : 'athlete'); } catch (e) {}
         try { if (st.unit === 'lbs' || st.unit === 'kg') localStorage.setItem('powa-unit', st.unit); } catch (e) {}
+        var session = await DB.getSession();
+        haptic('success');
+        if (!session) { showConfirm(api, em, !!(st.role === 'athlete' && cd)); busy(create, false); return; }
         location.href = st.role === 'coach' ? 'coach.html'
           : (st.role === 'athlete' && !cd) ? 'athlete.html?tab=coach'
           : 'athlete.html';
       } catch (e) {
         haptic('error');
-        err3.textContent = (e && e.message) || 'Could not create your account. Try again.';
+        err3.textContent = typeof authErrorText === 'function' ? authErrorText(e, 'Could not create your account. Try again.') : ((e && e.message) || 'Could not create your account. Try again.');
         busy(create, false);
       }
     }
@@ -480,15 +489,33 @@
     s1.querySelector('[data-login]').addEventListener('click', function (e) { e.preventDefault(); openLogin({ email: email.value }); });
     if (st.role) { codeWrap.style.display = st.role === 'athlete' ? '' : 'none'; api.go(1); }
   }
-  function showConfirm(api, em) {
+  // Confirm email is on (security audit M1): no session came back. The link opens the website in Safari, which
+  // says the email is confirmed and offers this app; logging in here then claims the coach code and sends the welcome.
+  function showConfirm(api, em, hasCode) {
     var s = api.add(h('div', { class: 'ob-step' }));
     s.appendChild(h('div', { class: 'ob-done-ic', html: I.mail }));
     s.appendChild(h('h2', { text: 'Check your email' }));
-    s.appendChild(h('p', { class: 'ob-lead', text: 'We sent a confirmation link to ' + em + '. Tap it, then log in here.' }));
+    s.appendChild(h('p', { class: 'ob-lead', text: 'We sent a confirmation link to ' + em + '. Tap it, then come back and log in here.' + (hasCode ? ' Your coach code is saved: you join them when you log in.' : '') }));
     var b = h('button', { class: 'nw-btn nw-btn-primary', type: 'button', text: 'Log in' });
     b.addEventListener('click', function () { openLogin({ email: em }); });
     s.appendChild(b);
+    s.appendChild(resendLink(em, 'Nothing after a few minutes? Check spam, or send it again'));
+    // No way back to the form from here: the account exists. A wrong address starts again from the welcome.
+    api.onBack = closeSheet;
     api.go(api.track.children.length - 1);
+  }
+  // "Send it again" for the confirmation email (DB.resendConfirmation); says how it went in its own line.
+  function resendLink(em, label) {
+    var b = h('button', { class: 'ob-link', type: 'button', text: label || 'Send the link again' });
+    b.addEventListener('click', function () {
+      var addr = typeof em === 'function' ? em() : em;
+      if (!EMAIL_RE.test(String(addr || ''))) { b.textContent = 'Enter your email above first'; return; }
+      busy(b, true, 'Sending…');
+      Promise.resolve(window.DB && DB.resendConfirmation ? DB.resendConfirmation(addr) : null)
+        .then(function () { haptic('success'); b.disabled = false; b.textContent = 'Sent. Check your inbox'; },
+          function (e) { haptic('error'); b.disabled = false; b.textContent = typeof authErrorText === 'function' ? authErrorText(e, 'Could not send it. Try again') : 'Could not send it. Try again'; });
+    });
+    return b;
   }
 
   // ---------- Log in ----------
@@ -496,8 +523,8 @@
     opts = opts || {};
     var api = makeSheet('Log in', 1);
     var s1 = api.add(h('div', { class: 'ob-step' }));
-    s1.appendChild(h('h2', { text: 'Welcome back' }));
-    s1.appendChild(h('p', { class: 'ob-lead', text: 'Log in to pick up where you left off.' }));
+    s1.appendChild(h('h2', { text: opts.confirmed ? 'Email confirmed' : 'Welcome back' }));
+    s1.appendChild(h('p', { class: 'ob-lead', text: opts.confirmed ? 'Log in to carry on.' : 'Log in to pick up where you left off.' }));
     // Continue with Apple / Google. A first-time account gets the role step in this sheet.
     var socialL = socialRow(api, function () { return { from: 'login' }; }, function () { return err; });
     if (socialL) { s1.appendChild(socialL); s1.appendChild(orDivider()); }
@@ -508,6 +535,10 @@
     s1.appendChild(field('Password', pwd, eyeToggle(pwd)));
     var err = h('div', { class: 'ob-err', role: 'alert' });
     s1.appendChild(err);
+    // Shown only when Auth says the email isn't confirmed yet.
+    var resend = resendLink(function () { return email.value.trim().toLowerCase(); });
+    resend.style.display = 'none';
+    s1.appendChild(resend);
     var go = h('button', { class: 'nw-btn nw-btn-primary', type: 'button', text: 'Log in' });
     s1.appendChild(go);
     var forgot = h('button', { class: 'ob-link', type: 'button', text: 'Forgot password?' });
@@ -531,6 +562,7 @@
       if (!EMAIL_RE.test(em)) { err.textContent = 'Enter the email you signed up with.'; haptic('error'); email.focus(); return; }
       if (!pw) { err.textContent = 'Enter your password.'; haptic('error'); pwd.focus(); return; }
       err.textContent = '';
+      resend.style.display = 'none';
       busy(go, true, 'Logging in…');
       try {
         await DB.signIn(em, pw);
@@ -550,7 +582,9 @@
       } catch (e) {
         haptic('error');
         var m = (e && e.message) || '';
-        err.textContent = /invalid login|invalid credentials/i.test(m) ? 'That email and password don\'t match.' : (m || 'Could not log in. Try again.');
+        if (typeof authErrorText === 'function') err.textContent = authErrorText(e, 'Could not log in. Try again.');
+        else err.textContent = /invalid login|invalid credentials/i.test(m) ? 'That email and password don\'t match.' : (m || 'Could not log in. Try again.');
+        if (typeof authEmailUnconfirmed === 'function' && authEmailUnconfirmed(e)) { resend.style.display = ''; resend.disabled = false; resend.textContent = 'Send the link again'; }
         busy(go, false);
       }
     }
@@ -593,9 +627,14 @@
   // "Open it and join" on the invite page opens powalifta://join?code=ABC123. The native link
   // catcher (WidgetBridgePlugin) holds the URL; a signed-out welcome screen takes it here and goes
   // straight to the coached sign-up with the code filled in.
+  // "Open the POWALIFTA app" on the website after the confirmation email's link (index.html showEmailConfirmedLogin)
+  // opens powalifta://login: the log-in sheet, saying the email is confirmed.
   function routeAppLink(url) {
-    var m = /^powalifta:\/\/join\?(?:.*&)?code=([A-Za-z0-9]{6})/i.exec(String(url || ''));
-    if (m && !root.classList.contains('has-session')) window.obOpen('signup', { role: 'athlete', code: m[1].toUpperCase() });
+    if (root.classList.contains('has-session')) return;
+    var u = String(url || '');
+    var m = /^powalifta:\/\/join\?(?:.*&)?code=([A-Za-z0-9]{6})/i.exec(u);
+    if (m) { window.obOpen('signup', { role: 'athlete', code: m[1].toUpperCase() }); return; }
+    if (/^powalifta:\/\/login\b/i.test(u)) window.obOpen('login', { confirmed: true });
   }
   function takeAppLink() {
     try {

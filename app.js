@@ -4705,7 +4705,7 @@ function ensureSettingsModal() {
       '</div></details>' +
       '<details class="set-group" id="sgSecurity"><summary>Security</summary><div class="sg-body">' +
         '<div class="form-group"><label>Account email</label><input type="email" id="setEmail" disabled style="opacity:0.5"></div>' +
-        '<div class="form-group"><label>New password (leave blank to keep current)</label><input type="password" id="setPwd" placeholder="At least 6 chars"></div>' +
+        '<div class="form-group"><label>New password (leave blank to keep current)</label><input type="password" id="setPwd" placeholder="At least 8 characters"></div>' +
         '<p class="dim text-xs mb-8" style="line-height:1.5">A new password is applied when you hit Save above.</p>' +
         '<div id="setMfaBox" class="mt-12"></div>' +
       '</div></details>' +
@@ -6548,7 +6548,7 @@ async function saveSettings() {
   const countrySel = document.getElementById('setCountry');
   const country = countrySel ? (countrySel.value || null) : null;
   if (!name) return toast('Name required');
-  if (pwd && pwd.length < 6) return toast('Password must be at least 6 chars');
+  if (pwd && pwdProblem(pwd)) return toast(pwdProblem(pwd));
 
   try {
     const patch = { name, country_code: country };
@@ -7373,10 +7373,19 @@ function exerciseCueBodyHtml(e) {
 
 // =========================================================
 // E1RM (RPE-percentage / Tuchscherer-style)
+// Reps past 10 say less and less about a max (a set of 20 is a conditioning test, not a
+// strength one), so they count half up to 14 and no more after that: no set counts as more
+// than 12 reps. 60 kg × 20 @ RPE 6 reads as 120, not 150; sets of 10 or fewer are unchanged.
 // =========================================================
+const E1RM_FULL_REPS = 10, E1RM_MAX_REPS = 12;
+function e1rmReps(reps) {
+  const r = Number(reps) || 0;
+  if (r <= E1RM_FULL_REPS) return r;
+  return Math.min(E1RM_MAX_REPS, E1RM_FULL_REPS + (r - E1RM_FULL_REPS) / 2);
+}
 function calcE1RM(weight, reps, rpe) {
   if (!weight || !reps || !rpe) return 0;
-  const adj = (reps - 1) + (10 - rpe);
+  const adj = (e1rmReps(reps) - 1) + (10 - rpe);
   if (adj <= 0) return weight;
   const pct = 1 - adj * 0.0333;
   if (pct < 0.4) return weight / 0.4;
@@ -7386,6 +7395,8 @@ function calcE1RM(weight, reps, rpe) {
 function calcCompE1RM(weight, reps, rpe, lift, variant) {
   return calcE1RM(weight, reps, rpe) * multiplierFor(lift, variant);
 }
+if (typeof window !== 'undefined') window.e1rmReps = e1rmReps;
+
 
 // =========================================================
 // SMART NEXT SET — autoregulation. When a set feels harder or easier than its
@@ -8541,91 +8552,220 @@ if (typeof window !== 'undefined') {
   window.feasibleTargets = feasibleTargets;
 }
 
+// =========================================================
+// BLOCK GENERATOR (rebuilt 17 Nov 2026). What it writes is what an experienced coach would
+// hand a beginner-to-intermediate lifter, not a spreadsheet's idea of volume:
+// - Each training day carries two (sometimes three) main lifts in a ROLE:
+//     H heavy:     one top set, then 2–3 lighter back-offs (top RPE 7.5 → 9, back-offs 1.5 RPE under)
+//     V volume:    3–4 straight sets of 6 → 4 at RPE 6.5 → 7.5
+//     L technique: 3 paused triples at RPE 6 (the paused variant, its own load)
+//   No lift gets more than 5 working sets in a session.
+// - Squat and bench are trained twice or more a week on every day count, deadlift twice from
+//   3 days (once, heavy, on 2 days, where squat carries the leg work).
+// - Accessories are FIXED for the whole block, one or two a day (an upper-back pull every day),
+//   3 × 8–12 at RPE 7 → 8, with a load where the main lifts can sensibly give one.
+// - The last week (blocks of 4+ weeks) deloads: 2–3 easy triples at 65% of the max, lighter
+//   than any working set of the block, and two easy accessory sets.
+// - A lift with no number is estimated from the others (and said so on its first set); with no
+//   numbers at all the loads stay blank and every set is "work up to the RPE".
+//   opts = { weeks=4 (1..16), daysPerWeek=4 (2..6), focus?, e1rms?, targets?, experience?
+//            ('new' | 'beginner' | 'intermediate' | 'advanced'), name?, athleteId?, coachId? }
+// Pure + deterministic apart from uids: unit-tested in tests.html.
+// =========================================================
+const GEN_MAX_SETS = 5;   // working sets of one lift in one session, whatever else is asked
+const GEN_DAY_PLANS = {
+  2: [[['squat', 'H'], ['bench', 'H']],
+      [['deadlift', 'H'], ['bench', 'V'], ['squat', 'L']]],
+  3: [[['squat', 'H'], ['bench', 'V']],
+      [['deadlift', 'H'], ['bench', 'H']],
+      [['squat', 'V'], ['bench', 'L'], ['deadlift', 'L']]],
+  4: [[['squat', 'H'], ['bench', 'V']],
+      [['bench', 'H'], ['deadlift', 'L']],
+      [['squat', 'V'], ['bench', 'L']],
+      [['deadlift', 'H'], ['bench', 'V']]],
+  5: [[['squat', 'H'], ['bench', 'V']],
+      [['bench', 'H'], ['deadlift', 'L']],
+      [['squat', 'V'], ['bench', 'L']],
+      [['deadlift', 'H'], ['bench', 'V']],
+      [['squat', 'L'], ['bench', 'V']]],
+  6: [[['squat', 'H'], ['bench', 'V']],
+      [['bench', 'H'], ['deadlift', 'L']],
+      [['squat', 'V'], ['bench', 'L']],
+      [['deadlift', 'H'], ['bench', 'V']],
+      [['squat', 'L'], ['bench', 'V']],
+      [['deadlift', 'V'], ['bench', 'L']]]
+};
+// The accessories, fixed per day slot for the whole block. `from` + `ratio`: the main lift whose
+// max gives this movement a starting load (its 1RM-equivalent = ratio × that max); none = RPE only
+// (machines, dumbbells and split squats vary too much between gyms to guess a number).
+const GEN_ACCESSORIES = {
+  row:      { name: 'Barbell Row', grp: 'pull', reps: 8, from: 'bench', ratio: 0.8 },
+  pulldown: { name: 'Lat Pulldown', grp: 'pull', reps: 10 },
+  cablerow: { name: 'Cable Row', grp: 'pull', reps: 10 },
+  rdl:      { name: 'Romanian Deadlift', grp: 'legs', reps: 8, from: 'deadlift', ratio: 0.65 },
+  split:    { name: 'Bulgarian Split Squats', grp: 'legs', reps: 8 },
+  legpress: { name: 'Leg Press', grp: 'legs', reps: 10 },
+  ohp:      { name: 'Overhead Press', grp: 'push', reps: 8, from: 'bench', ratio: 0.6 },
+  dbbench:  { name: 'Dumbbell Bench Press', grp: 'push', reps: 10 },
+  pushdown: { name: 'Tricep Pushdown', grp: 'push', reps: 12 }
+};
+const GEN_DAY_ACCESSORIES = {
+  2: [['row', 'rdl'], ['pulldown']],
+  3: [['row', 'split'], ['pulldown', 'ohp'], ['cablerow']],
+  4: [['row', 'split'], ['pulldown', 'pushdown'], ['cablerow', 'rdl'], ['row', 'ohp']],
+  5: [['row', 'split'], ['pulldown', 'pushdown'], ['cablerow', 'rdl'], ['row', 'ohp'], ['pulldown', 'dbbench']],
+  6: [['row', 'split'], ['pulldown', 'pushdown'], ['cablerow', 'rdl'], ['row', 'ohp'], ['pulldown', 'dbbench'], ['cablerow', 'legpress']]
+};
+const GEN_EXPERIENCE = {
+  beginner:     { backoffs: 2, topRepsMin: 3, topRpeMax: 8.5, volSets: 3 },
+  intermediate: { backoffs: 3, topRepsMin: 2, topRpeMax: 9,   volSets: 4 },
+  advanced:     { backoffs: 3, topRepsMin: 1, topRpeMax: 9,   volSets: 4 }
+};
+// Typical raw ratios between the three lifts (squat = 1). Used only to estimate a lift the
+// lifter left blank, and then 10% under, because too light is fixed by the next set and too
+// heavy is a missed rep.
+const GEN_LIFT_RATIO = { squat: 1, bench: 0.72, deadlift: 1.2 };
+const GEN_DELOAD_PCT = 0.65;
+function genEstimateMissing(e1) {
+  const out = {}, estimated = [];
+  const known = MAIN_LIFTS.filter(l => Number(e1[l]) > 0);
+  MAIN_LIFTS.forEach(l => { out[l] = Number(e1[l]) > 0 ? Number(e1[l]) : 0; });
+  if (!known.length) return { e1: out, estimated };
+  const squatEq = known.reduce((a, l) => a + out[l] / GEN_LIFT_RATIO[l], 0) / known.length;
+  MAIN_LIFTS.forEach(l => {
+    if (out[l]) return;
+    out[l] = squatEq * GEN_LIFT_RATIO[l] * 0.9;
+    estimated.push(l);
+  });
+  return { e1: out, estimated };
+}
 function generateProgram(opts) {
   opts = opts || {};
   const weeks = Math.max(1, Math.min(16, Math.round(opts.weeks || 4)));
   const dpw = Math.max(2, Math.min(6, Math.round(opts.daysPerWeek || 4)));
   const focus = (opts.focus && MAIN_LIFTS.indexOf(opts.focus) !== -1) ? opts.focus : null;
-  const e1 = opts.e1rms || {};
-  // Optional GOAL. Without it the block holds today's e1RM flat and only waves
-  // RPE — which is exactly why generated loads never climbed toward anything.
-  // With it, each week's prescription comes from an e1RM interpolated between
-  // where the lifter is and where they're going, so the numbers on the page
-  // walk to the target instead of restating the present.
-  // Expects targets already filtered through feasibleTargets(); this function
-  // trusts them and does not re-judge whether the goal is sane.
+  const expKey = opts.experience === 'new' ? 'beginner' : (GEN_EXPERIENCE[opts.experience] ? opts.experience : 'intermediate');
+  const X = GEN_EXPERIENCE[expKey];
+  const est = genEstimateMissing(opts.e1rms || {});
+  const e1 = est.e1;
+  // Optional GOAL: each week's prescription comes from an e1RM interpolated between where the
+  // lifter is and where they're going (targets already filtered through feasibleTargets()).
   const targets = opts.targets || null;
   function e1At(lift, weekIdx) {
     const from = e1[lift] || 0;
-    const to = targets && targets[lift];
+    const to = targets && Number(targets[lift]);
     if (!from || !to) return from;
     const p = weeks <= 1 ? 1 : weekIdx / (weeks - 1);
     return from + (to - from) * p;
   }
 
-  // RPE/rep wave across the block: build → overreach, last week deloads (≥4wk).
+  // The week's sessions: the plan for this day count, with the focus lift trained harder.
+  const plan = GEN_DAY_PLANS[dpw].map(day => day.map(x => x.slice()));
+  if (focus) {
+    plan.forEach(day => day.forEach(x => { if (x[0] === focus && x[1] === 'L') x[1] = 'V'; }));
+    const freq = plan.filter(day => day.some(x => x[0] === focus)).length;
+    if (freq < 2) {
+      const spare = plan.filter(day => !day.some(x => x[0] === focus)).sort((a, b) => a.length - b.length)[0];
+      if (spare) spare.push([focus, 'V']);
+    }
+  }
+  const freqOf = {};
+  MAIN_LIFTS.forEach(l => { freqOf[l] = plan.filter(day => day.some(x => x[0] === l)).length; });
+
   const lastIsDeload = weeks >= 4;
-  const span = Math.max(1, (lastIsDeload ? weeks - 1 : weeks) - 1);
+  const working = lastIsDeload ? weeks - 1 : weeks;
+  const span = Math.max(1, working - 1);
   const isDeloadWeek = (w) => lastIsDeload && w === weeks - 1;
-  function mainScheme(w) {
-    if (isDeloadWeek(w)) return { sets: 3, reps: 3, rpe: 6 };
-    const f = span ? w / span : 0;                  // 0..1 across working weeks
-    return { sets: 4, reps: Math.max(2, Math.round(5 - f * 3)), rpe: Math.round((7 + f * 1.5) * 2) / 2 };
+  const half = (v) => Math.round(v * 2) / 2;
+  function scheme(role, lift, w) {
+    const f = Math.min(1, w / span);
+    if (role === 'H') {
+      const reps = Math.max(X.topRepsMin, Math.round(5 - f * 3));
+      const rpe = Math.min(X.topRpeMax, half(7.5 + f * 1.5));
+      const n = Math.min(GEN_MAX_SETS - 1, X.backoffs + (lift === focus ? 1 : 0));
+      return { top: { reps, rpe }, back: { sets: n, reps: reps + 1, rpe: Math.max(6, rpe - 1.5) } };
+    }
+    if (role === 'V') {
+      const sets = Math.min(GEN_MAX_SETS, freqOf[lift] >= 4 ? 3 : X.volSets);
+      return { straight: { sets, reps: Math.round(6 - f * 2), rpe: half(6.5 + f) } };
+    }
+    return { straight: { sets: 3, reps: 3, rpe: 6 } };
   }
-  function backoffScheme(w) {
-    if (isDeloadWeek(w)) return null;
-    const f = span ? w / span : 0;
-    return { sets: 3, reps: Math.max(4, Math.round(6 - f * 2)), rpe: Math.round((7 + f) * 2) / 2 };
-  }
+  const roleName = (lift, role) => role === 'H' ? 'Heavy ' + LIFT_LABELS[lift].toLowerCase()
+    : role === 'V' ? LIFT_LABELS[lift] + ' volume' : 'Paused ' + LIFT_LABELS[lift].toLowerCase();
+  const dayName = (day) => {
+    const first = roleName(day[0][0], day[0][1]);
+    const rest = day.slice(1).map(x => LIFT_LABELS[x[0]].toLowerCase());
+    const s = first + (rest.length ? ' + ' + rest.join(' + ') : '');
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  };
+  const accLoad = (a, rpe, w) => {
+    if (!a.from || !(e1[a.from] > 0)) return 0;
+    return weightForTarget(e1At(a.from, w) * a.ratio, a.reps, rpe);
+  };
 
-  // Which main lift(s) anchor each training day. Focus lift gets an extra day.
-  const rot = {
-    2: [['squat', 'bench'], ['deadlift', 'bench']],
-    3: [['squat'], ['bench'], ['deadlift']],
-    4: [['squat'], ['bench'], ['deadlift'], ['bench']],
-    5: [['squat'], ['bench'], ['deadlift'], ['squat'], ['bench']],
-    6: [['squat'], ['bench'], ['deadlift'], ['squat'], ['bench'], ['deadlift']]
-  }[dpw].map(a => a.slice());
-  if (focus && rot.length) {
-    rot[rot.length - 1] = [focus];
-    rot.sort((a, b) => (b[0] === focus) - (a[0] === focus));
-  }
-  const accessoryByMain = { squat: 'legs', bench: 'push', deadlift: 'pull' };
-  const dayName = (mains) => mains.map(m => LIFT_LABELS[m]).join(' / ') + ' day';
-
+  const minWork = {};   // each lift's lightest working set so far: the deload must sit under it
+  const step = loadStepKg(typeof getUnit === 'function' && getUnit() === 'lbs' ? 'lbs' : 'kg');
   const wks = [];
   for (let w = 0; w < weeks; w++) {
-    const days = [];
-    for (let d = 0; d < dpw; d++) {
-      const mains = rot[d] || [MAIN_LIFTS[d % 3]];
-      const day = newDay(dayName(mains));
-      mains.forEach(m => {
-        const e = e1At(m, w);
-        const ex = newExercise(m, 'Competition', '');
-        const ms = mainScheme(w);
-        for (let s = 0; s < ms.sets; s++) ex.sets.push(newSet(weightForTarget(e, ms.reps, ms.rpe), ms.reps, ms.rpe, ''));
-        const bs = backoffScheme(w);
-        if (bs) for (let s = 0; s < bs.sets; s++) ex.sets.push(newSet(weightForTarget(e, bs.reps, bs.rpe), bs.reps, bs.rpe, ''));
-        day.exercises.push(ex);
-        // One matched accessory (RPE-free hypertrophy work).
-        const grp = accessoryByMain[m];
-        const list = (ACCESSORY_EXERCISES[grp]) || [];
-        if (list.length) {
-          const accEx = newExercise(grp, '', list[(w + d) % list.length]);
-          for (let s = 0; s < 3; s++) accEx.sets.push(newSet(0, 8, null, ''));
-          day.exercises.push(accEx);
+    const deload = isDeloadWeek(w);
+    const days = plan.map((dayPlan, d) => {
+      const day = newDay(dayName(dayPlan) + (deload ? ' · deload' : ''));
+      dayPlan.forEach(([lift, role]) => {
+        const paused = role === 'L' && !deload;
+        const e = e1At(lift, w) / (paused ? multiplierFor(lift, 'Paused') : 1);   // a paused lift's own max
+        const ex = newExercise(lift, paused ? 'Paused' : 'Competition', '');
+        if (deload) {
+          let kg = _roundToPlate(e1At(lift, 0) * GEN_DELOAD_PCT);
+          if (minWork[lift] > 0 && kg >= minWork[lift]) kg = Math.max(0, minWork[lift] - step);
+          for (let s = 0; s < (role === 'L' ? 2 : 3); s++) ex.sets.push(newSet(kg, 3, 6, ''));
+          ex.sets[0].note = 'Deload: easy, fast reps';
+        } else {
+          const sc = scheme(role, lift, w);
+          if (sc.top) {
+            const top = newSet(weightForTarget(e, sc.top.reps, sc.top.rpe), sc.top.reps, sc.top.rpe, '');
+            top.note = 'Top set';
+            ex.sets.push(top);
+            for (let s = 0; s < sc.back.sets; s++) {
+              const b = newSet(weightForTarget(e, sc.back.reps, sc.back.rpe), sc.back.reps, sc.back.rpe, '');
+              if (s === 0) b.note = 'Back-off sets';
+              ex.sets.push(b);
+            }
+          } else {
+            for (let s = 0; s < sc.straight.sets; s++) ex.sets.push(newSet(weightForTarget(e, sc.straight.reps, sc.straight.rpe), sc.straight.reps, sc.straight.rpe, ''));
+          }
+          if (paused && ex.sets[0]) ex.sets[0].note = 'Pause 2 s at the bottom';
+          ex.sets.forEach(st => { if (st.weight > 0 && !(minWork[lift] <= st.weight)) minWork[lift] = st.weight; });
+          if (est.estimated.indexOf(lift) !== -1 && ex.sets[0]) {
+            ex.sets[0].note = (ex.sets[0].note ? ex.sets[0].note + '. ' : '') + 'Estimated load: adjust after this set';
+          }
         }
+        day.exercises.push(ex);
       });
-      days.push(day);
-    }
+      // Fewer accessories on a three-lift day; the same ones every week.
+      (GEN_DAY_ACCESSORIES[dpw][d] || []).slice(0, dayPlan.length >= 3 ? 1 : 2).forEach(key => {
+        const a = GEN_ACCESSORIES[key];
+        const ex = newExercise(a.grp, '', a.name);
+        const rpe = deload ? 6 : half(7 + Math.min(1, w / span));
+        const kg = deload ? _roundToPlate(accLoad(a, 7, 0) * 0.9) : accLoad(a, rpe, w);
+        for (let s = 0; s < (deload ? 2 : 3); s++) ex.sets.push(newSet(kg, a.reps, rpe, ''));
+        day.exercises.push(ex);
+      });
+      return day;
+    });
     wks.push({ id: uid('wk'), number: w + 1, days });
   }
 
   const name = (opts.name && String(opts.name).trim())
     || ((focus ? LIFT_LABELS[focus] + '-focus ' : '') + weeks + '-week block');
-  return { id: uid('prog'), athleteId: opts.athleteId || null, coachId: opts.coachId || null, name, weeks: wks };
+  const out = { id: uid('prog'), athleteId: opts.athleteId || null, coachId: opts.coachId || null, name, weeks: wks };
+  if (est.estimated.length) out.estimated = est.estimated.slice();
+  return out;
 }
-if (typeof window !== 'undefined') { window.generateProgram = generateProgram; window.weightForTarget = weightForTarget; }
+if (typeof window !== 'undefined') {
+  window.generateProgram = generateProgram; window.weightForTarget = weightForTarget;
+  window.GEN_DAY_PLANS = GEN_DAY_PLANS; window.GEN_MAX_SETS = GEN_MAX_SETS;
+}
 
 // STARTER PROGRAM — for someone new to the barbell who doesn't know a max (and
 // shouldn't be testing one). No numbers needed: starting weights come from
@@ -8672,60 +8812,106 @@ function generateStarterProgram(opts) {
 }
 if (typeof window !== 'undefined') { window.generateStarterProgram = generateStarterProgram; window.starterE1rms = starterE1rms; }
 
-// FIRST MEET — a block that ends on meet week (8–16 weeks, 12 by default):
-// base (5s at RPE 7 → 7.5), strength (triples at 7.5 → 8.5), peak (a heavy
-// single at RPE 8 → 9 plus doubles), then meet week: openers early in the week
-// (a single at RPE 7 ≈ 90%), light technique after. Meet day itself is meet
-// mode (attempts + judges' lights), not a session. Three days a week: squat +
-// bench, deadlift + bench, squat + bench. Loads come from the lifter's e1RMs,
-// nudged up ~1% a week. Pure: unit-tested.
+// FIRST MEET (rebuilt 17 Nov 2026) — a block that ends on meet week (8–16 weeks, 12 by default).
+// Loads come from the lifter's CURRENT e1RMs, with no assumed gain: getting stronger shows up in
+// the logged sets (the smart next set moves the load), never as a number the plan made up.
+//   base     (first half to the peak) a top set of 5 at RPE 7 → 8, then 3 × 5 one RPE under
+//   strength                          a top triple at RPE 7.5 → 8.5, then 3 × 3 one RPE under
+//   peak     (3 weeks)                a heavy single at RPE 8 → 9 once a week per lift, never past
+//                                     95% of the max, then doubles at RPE 7.5 (fewer in the last week)
+//   the week before meet week         the deadlift opener: one fast single at 91%
+//   meet week                         the squat opener and the bench opener on separate days (91%,
+//                                     RPE 7), light doubles beside them, no deadlift
+// Three days a week: squat + bench, deadlift + bench, squat + bench, one fixed accessory each
+// until the peak. `attempts` is a starting plan for the day (opener ~91%, second ~95.5%, third no
+// higher than today's max): meet mode re-plans it from the recent heavy sets. Pure: unit-tested.
+const MEET_OPENER_PCT = 0.91;
+const MEET_PEAK_SINGLE_MAX = 0.95;
 function generateMeetPrep(opts) {
   opts = opts || {};
   const W = Math.max(8, Math.min(16, Math.round(opts.weeks || 12)));
   const e1 = opts.e1rms || {};
-  const bar = opts.unit === 'lbs' ? 45 * KG_PER_LB : 20;
+  const unit = opts.unit === 'lbs' ? 'lbs' : 'kg';
+  const bar = unit === 'lbs' ? 45 * KG_PER_LB : 20;
   const strengthStart = Math.round((W - 4) / 2), peakStart = W - 4, meetWk = W - 1;
   const half = (v) => Math.round(v * 2) / 2;
   const at = (w, a, b, from, to) => half(a + (b - a) * (to > from ? (w - from) / (to - from) : 1));
-  const load = (lift, w, reps, rpe) => Math.max(bar, weightForTarget((Number(e1[lift]) || 0) * (1 + 0.01 * Math.min(w, 10)), reps, rpe));
-  // [sets, reps, rpe] for the day's main lift and its second lift, by week.
-  function scheme(w, second) {
-    if (w < strengthStart) return second ? [3, 6, 7] : [4, 5, at(w, 7, 7.5, 0, strengthStart - 1)];
-    if (w < peakStart) return second ? [3, 4, 7.5] : [4, 3, at(w, 7.5, 8.5, strengthStart, peakStart - 1)];
-    return second ? [3, 3, 7.5] : null;   // peak: built below (single + doubles)
+  const max = (lift) => Number(e1[lift]) || 0;
+  const load = (lift, reps, rpe) => Math.max(bar, weightForTarget(max(lift), reps, rpe));
+  const pctLoad = (lift, pct) => Math.max(bar, _roundToPlate(max(lift) * pct));
+  const set = (kg, reps, rpe, note) => { const s = newSet(kg, reps, rpe, ''); if (note) s.note = note; return s; };
+  const opener = (lift, note) => set(pctLoad(lift, MEET_OPENER_PCT), 1, 7, note);
+  // A top set and back-offs one RPE under: [top reps, top rpe, back-off sets].
+  function mainSets(lift, w, d) {
+    const ex = newExercise(lift, 'Competition', '');
+    if (w < peakStart) {
+      const base = w < strengthStart;
+      const reps = base ? 5 : 3;
+      const rpe = base ? at(w, 7, 8, 0, strengthStart - 1) : at(w, 7.5, 8.5, strengthStart, peakStart - 1);
+      ex.sets.push(set(load(lift, reps, rpe), reps, rpe, 'Top set'));
+      for (let s = 0; s < 3; s++) ex.sets.push(set(load(lift, reps, rpe - 1), reps, rpe - 1, s ? '' : 'Back-off sets'));
+      return ex;
+    }
+    if (lift === 'deadlift' && w === meetWk - 1) {
+      ex.sets.push(opener(lift, 'Deadlift opener: fast and easy. Your last heavy pull before the meet'));
+      ex.sets.push(set(pctLoad(lift, 0.75), 2, 6, ''));
+      return ex;
+    }
+    const n = w === meetWk - 1 ? 2 : 3;
+    if (d === 2) {   // the week's second squat session: doubles only, one heavy single a week is plenty
+      for (let s = 0; s < n; s++) ex.sets.push(set(load(lift, 2, 7), 2, 7, s ? '' : 'Easy doubles: keep them fast'));
+      return ex;
+    }
+    const rpe = at(w, 8, 9, peakStart, meetWk - 1);
+    ex.sets.push(set(Math.min(load(lift, 1, rpe), pctLoad(lift, MEET_PEAK_SINGLE_MAX)), 1, rpe, 'Heavy single'));
+    for (let s = 0; s < n; s++) ex.sets.push(set(load(lift, 2, 7.5), 2, 7.5, ''));
+    return ex;
   }
+  // The day's second lift: straight sets, lighter than the first.
+  function secondSets(lift, w) {
+    const ex = newExercise(lift, 'Competition', '');
+    const sc = w < strengthStart ? [3, 6, 7] : w < peakStart ? [3, 4, 7.5] : [w === meetWk - 1 ? 2 : 3, 3, 7];
+    for (let s = 0; s < sc[0]; s++) ex.sets.push(set(load(lift, sc[1], sc[2]), sc[1], sc[2], ''));
+    return ex;
+  }
+  const light = (lift) => { const ex = newExercise(lift, 'Competition', ''); for (let s = 0; s < 2; s++) ex.sets.push(set(pctLoad(lift, 0.7), 2, 6, '')); return ex; };
+  const ACC = [GEN_ACCESSORIES.row, GEN_ACCESSORIES.rdl, GEN_ACCESSORIES.pulldown];
   const rot = [['squat', 'bench'], ['deadlift', 'bench'], ['squat', 'bench']];
-  const NAMES = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
   const wks = [];
   for (let w = 0; w < W; w++) {
     const days = [];
     if (w === meetWk) {
-      const op = newDay('Openers');
-      ['squat', 'bench'].forEach(l => { const ex = newExercise(l, 'Competition', ''); ex.sets.push(newSet(load(l, w, 1, 7), 1, 7, '')); op.exercises.push(ex); });
-      const dl = newExercise('deadlift', 'Competition', ''); dl.sets.push(newSet(load('deadlift', w, 1, 7), 1, 7, '')); op.exercises.push(dl);
-      const lt = newDay('Light technique');
-      ['squat', 'bench'].forEach(l => { const ex = newExercise(l, 'Competition', ''); for (let s = 0; s < 2; s++) ex.sets.push(newSet(load(l, w, 2, 6), 2, 6, '')); lt.exercises.push(ex); });
-      days.push(op, lt);
+      const a = newDay('Squat opener'); a.exercises.push((() => { const ex = newExercise('squat', 'Competition', ''); ex.sets.push(opener('squat', 'Squat opener: fast and easy')); return ex; })(), light('bench'));
+      const b = newDay('Bench opener'); b.exercises.push((() => { const ex = newExercise('bench', 'Competition', ''); ex.sets.push(opener('bench', 'Bench opener: fast and easy')); return ex; })(), light('squat'));
+      days.push(a, b);
     } else {
       rot.forEach((pair, d) => {
-        const day = newDay(pair.map(l => NAMES[l]).join(' + '));
-        pair.forEach((l, i) => {
-          const ex = newExercise(l, 'Competition', '');
-          const sc = scheme(w, i > 0);
-          if (sc) { for (let s = 0; s < sc[0]; s++) ex.sets.push(newSet(load(l, w, sc[1], sc[2]), sc[1], sc[2], '')); }
-          else {
-            const top = at(w, 8, 9, peakStart, meetWk - 1);
-            ex.sets.push(newSet(load(l, w, 1, top), 1, top, ''));
-            for (let s = 0; s < 3; s++) ex.sets.push(newSet(load(l, w, 2, 8), 2, 8, ''));
-          }
+        const day = newDay(pair.map(l => LIFT_LABELS[l]).join(' + '));
+        day.exercises.push(mainSets(pair[0], w, d), secondSets(pair[1], w));
+        if (w < peakStart) {
+          const a = ACC[d];
+          const ex = newExercise(a.grp, '', a.name);
+          const rpe = w < strengthStart ? 7 : 8;
+          const kg = a.from && max(a.from) > 0 ? weightForTarget(max(a.from) * a.ratio, a.reps, rpe) : 0;
+          for (let s = 0; s < 3; s++) ex.sets.push(set(kg, a.reps, rpe, ''));
           day.exercises.push(ex);
-        });
+        }
         days.push(day);
       });
     }
     wks.push({ id: uid('wk'), number: w + 1, days });
   }
-  return { id: uid('prog'), athleteId: opts.athleteId || null, coachId: opts.coachId || null, name: 'First meet · ' + W + ' weeks', meetPrep: true, meetDate: opts.meetDate || null, weeks: wks };
+  const step = unit === 'lbs' ? 5 * KG_PER_LB : 2.5;
+  const attempts = {};
+  MAIN_LIFTS.forEach(l => {
+    const m = max(l);
+    if (!(m > 0)) return;
+    const third = Math.floor(m / step + 1e-9) * step;   // never past today's max
+    const first = Math.min(roundMeet(m * MEET_OPENER_PCT, unit), third);
+    const second = Math.min(Math.max(first, roundMeet(m * 0.955, unit)), third);
+    attempts[l] = [first, second, third];
+  });
+  return { id: uid('prog'), athleteId: opts.athleteId || null, coachId: opts.coachId || null, name: 'First meet · ' + W + ' weeks', meetPrep: true, meetDate: opts.meetDate || null, attempts, weeks: wks };
 }
 if (typeof window !== 'undefined') window.generateMeetPrep = generateMeetPrep;
 
@@ -8815,7 +9001,7 @@ function ensureGoalModal() {
           '<div class="form-group"><label for="goalWeeks">Weeks</label>' +
             '<input type="number" id="goalWeeks" min="3" max="16" step="1" value="10"></div>' +
           '<div class="form-group"><label for="goalDays">Days / week</label>' +
-            '<select id="goalDays"><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option></select></div>' +
+            '<select id="goalDays"><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option></select></div>' +
         '</div>' +
         '<div id="goalReadout" class="goal-readout"></div>' +
         '<div class="flex gap-8 mt-16">' +
@@ -8842,7 +9028,7 @@ function openGoalModal(athleteId) {
   ensureGoalModal();
   window._goalAthleteId = athleteId || null;
   GOAL_LIFTS.forEach(l => {
-    const best = athleteId && typeof bestE1RM === 'function' ? bestE1RM(athleteId, l) : 0;
+    const best = athleteId && typeof trainingMaxE1RM === 'function' ? trainingMaxE1RM(athleteId, l) : 0;   // recent, not all-time
     const now = document.getElementById('goalNow-' + l);
     const tgt = document.getElementById('goalTgt-' + l);
     if (now) now.value = best ? Math.round(kgToDisplay(best) * 2) / 2 : '';
@@ -8958,7 +9144,7 @@ function buildFromGoal() {
   const capped = feas && GOAL_LIFTS.filter(l => feas.perLift[l] && feas.perLift[l].verdict === 'unrealistic');
   toast(capped && capped.length
     ? 'Built ' + weeks + ' weeks: ' + capped.map(l => LIFT_LABELS[l] || l).join(' & ') + ' capped to what is reachable.'
-    : 'Built ' + weeks + ' weeks. Loads climb to the target.');
+    : 'Built ' + weeks + ' weeks.' + (targets ? ' Loads climb to the target.' : ' Loads come from today\'s numbers.'));
 }
 
 window.openGoalModal = openGoalModal;
@@ -8999,7 +9185,6 @@ function generatePeakingBlock(opts) {
     3: [['squat'], ['bench'], ['deadlift']],
     4: [['squat'], ['bench'], ['deadlift'], ['bench']]
   }[dpw].map(a => a.slice());
-  const accessoryByMain = { squat: 'legs', bench: 'push', deadlift: 'pull' };
   const dayName = (mains, isMeet) =>
     mains.map(m => LIFT_LABELS[m]).join(' / ') + (isMeet ? ' · openers' : ' day');
 
@@ -9014,21 +9199,24 @@ function generatePeakingBlock(opts) {
         const e = e1[m] || 0;
         const ex = newExercise(m, 'Competition', '');
         if (isMeet) {
-          ex.sets.push(newSet(weightForTarget(e, 1, OPENER_RPE), 1, OPENER_RPE, 'Opener: fast and easy'));
+          const op = newSet(weightForTarget(e, 1, OPENER_RPE), 1, OPENER_RPE, '');
+          op.note = 'Opener: fast and easy';
+          ex.sets.push(op);
         } else {
           const ts = topScheme(w);
-          for (let s = 0; s < ts.sets; s++) ex.sets.push(newSet(weightForTarget(e, ts.reps, ts.rpe), ts.reps, ts.rpe, s === 0 ? 'Top set' : ''));
+          for (let s = 0; s < ts.sets; s++) { const t = newSet(weightForTarget(e, ts.reps, ts.rpe), ts.reps, ts.rpe, ''); if (s === 0) t.note = 'Top set'; ex.sets.push(t); }
           const bs = backoffScheme(w);
           if (bs) for (let s = 0; s < bs.sets; s++) ex.sets.push(newSet(weightForTarget(e, bs.reps, bs.rpe), bs.reps, bs.rpe, ''));
         }
         day.exercises.push(ex);
         // Accessory volume tapers out as the meet nears; none in the meet week.
         const accSets = isMeet ? 0 : Math.max(0, 3 - Math.round((last ? w / last : 0) * 3));
-        const grp = accessoryByMain[m];
-        const list = (ACCESSORY_EXERCISES[grp]) || [];
-        if (accSets && list.length) {
-          const accEx = newExercise(grp, '', list[(w + d) % list.length]);
-          for (let s = 0; s < accSets; s++) accEx.sets.push(newSet(0, 8, null, ''));
+        // The same accessory every week for this lift (an upper-back pull on bench days), with an RPE.
+        const acc = GEN_ACCESSORIES[{ squat: 'split', bench: 'row', deadlift: 'rdl' }[m]];
+        if (accSets && acc) {
+          const accEx = newExercise(acc.grp, '', acc.name);
+          const kg = acc.from && e1[acc.from] > 0 ? weightForTarget(e1[acc.from] * acc.ratio, acc.reps, 7) : 0;
+          for (let s = 0; s < accSets; s++) accEx.sets.push(newSet(kg, acc.reps, 7, ''));
           day.exercises.push(accEx);
         }
       });
@@ -9828,7 +10016,7 @@ function suggestNewLoad(athleteId, lift, variant, exerciseName, reps, rpe) {
   const last = athleteId ? getLastSetForExercise(athleteId, lift, variant, exerciseName) : null;
   if (last && Number(last.weight) > 0) return Number(last.weight);
   if (athleteId && MAIN_LIFTS.includes(lift) && reps > 0 && rpe > 0) {
-    const e1 = bestE1RM(athleteId, lift);
+    const e1 = trainingMaxE1RM(athleteId, lift);   // the recent max, not an all-time high
     if (e1 > 0) {
       const step = loadStepKg(getUnit() === 'lbs' ? 'lbs' : 'kg');
       return Math.round(e1 / multiplierFor(lift, variant) * rpeLoadPct(reps, rpe) / step) * step;
@@ -10389,12 +10577,45 @@ function initials(name) {
   return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
 }
 
-// Password strength hint (pure). Hand-rolled, no libs. 6 chars is the signup
-// floor; below that = "Too short" (score 0). Otherwise score 1..4 from length
+// The shortest password the app takes (security audit 2026-11-16, M4): sign-up, the Security sheet, Settings and
+// native-onboard.js. Supabase Auth's own minimum (Authentication → Policies) should be the same 8, or more.
+var POWA_PWD_MIN = 8;
+// What's wrong with a new password, in words, or '' when it will do (pure).
+function pwdProblem(pw) {
+  pw = String(pw || '');
+  if (!pw) return 'Choose a password.';
+  if (pw.length < POWA_PWD_MIN) return 'Use at least ' + POWA_PWD_MIN + ' characters.';
+  return '';
+}
+window.pwdProblem = pwdProblem;
+
+// What Supabase Auth's refusal of a log-in or sign-up means, in words (pure; e: the AuthError, or anything thrown).
+// Codes first (supabase-js 2.110 gives e.code), the message as the fallback; anything else keeps its own message.
+function authEmailUnconfirmed(e) {
+  return !!e && (e.code === 'email_not_confirmed' || /email not confirmed/i.test(String(e.message || '')));
+}
+function authErrorText(e, fallback) {
+  const code = (e && e.code) || '', m = String((e && e.message) || '');
+  if (authEmailUnconfirmed(e)) return 'Confirm your email first: tap the link we sent you, then log in. Not there? Check spam, or send it again.';
+  if (code === 'invalid_credentials' || /invalid login|invalid credentials/i.test(m)) return 'That email and password don\'t match.';
+  if (code === 'user_already_exists' || code === 'email_exists' || /already registered|already been registered|already exists/i.test(m)) return 'That email already has an account. Log in instead.';
+  if (code === 'same_password' || /should be different from the old/i.test(m)) return 'That\'s your current password. Choose a new one.';
+  if (code === 'weak_password' || /password should be|password is too weak|weak password/i.test(m)) return 'Choose a stronger password: at least ' + POWA_PWD_MIN + ' characters, with letters and numbers. Avoid one used on other sites.';
+  if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit' || /rate limit|too many/i.test(m)) return 'Too many tries just now. Wait a minute, then try again.';
+  if (code === 'captcha_failed' || /captcha/i.test(m)) return 'We couldn\'t check this was you and not a bot. Reload the page and try again.';
+  if (code === 'signup_disabled' || /signups not allowed/i.test(m)) return 'New accounts are paused for a moment. Try again later.';
+  if (code === 'email_address_invalid' || /email address .* is invalid|invalid email/i.test(m)) return 'That email doesn\'t look right.';
+  return m || fallback || 'Something went wrong. Try again.';
+}
+window.authEmailUnconfirmed = authEmailUnconfirmed;
+window.authErrorText = authErrorText;
+
+// Password strength hint (pure). Hand-rolled, no libs. POWA_PWD_MIN (8) is the
+// signup floor; below that = "Too short" (score 0). Otherwise score 1..4 from length
 // + character variety. Purely advisory UI — never blocks submit.
 function pwdStrength(pw) {
   pw = String(pw || '');
-  if (pw.length < 6) return { score: 0, label: 'Too short', pct: 12 };
+  if (pw.length < POWA_PWD_MIN) return { score: 0, label: 'Too short', pct: 12 };
   let s = 0;
   if (pw.length >= 8) s++;
   if (pw.length >= 12) s++;
@@ -11564,10 +11785,34 @@ function setGoals(athleteId, patch) {
   });
 }
 
+// A logged set's e1RM under today's maths: the lower of what was stored and what its own
+// weight × reps @ RPE gives now, so a set saved before the rep cap (60 × 20 stored as 150)
+// can't hold the best forever.
+function _logE1(l) {
+  const stored = Number(l.e1rmComp) || 0;
+  const rec = (Number(l.weight) > 0 && Number(l.reps) > 0 && Number(l.rpe) > 0)
+    ? calcCompE1RM(Number(l.weight), Number(l.reps), Number(l.rpe), l.lift, l.variant || 'Competition') : 0;
+  return stored > 0 && rec > 0 ? Math.min(stored, rec) : (stored || rec);
+}
 function bestE1RM(athleteId, lift) {
   const logs = Store.get().workoutLogs.filter(l => l.athleteId === athleteId && l.lift === lift);
-  return logs.length ? Math.max(...logs.map(l => l.e1rmComp)) : 0;
+  return logs.length ? Math.max(...logs.map(_logE1)) : 0;
 }
+// The number to PROGRAM from: the best e1RM of the last 8 weeks, not the all-time best (a max
+// from last spring is not today's). Nothing recent → the all-time best less 5%. 0 = no sets.
+function trainingMaxE1RM(athleteId, lift, opts) {
+  opts = opts || {};
+  const since = _addDaysISO(opts.today || todayISO(), -(opts.days || 56));
+  let recent = 0, all = 0;
+  (Store.get().workoutLogs || []).forEach(l => {
+    if (l.athleteId !== athleteId || l.lift !== lift) return;
+    const e = _logE1(l);
+    if (e > all) all = e;
+    if (String(l.date || '') >= since && e > recent) recent = e;
+  });
+  return recent > 0 ? recent : Math.round(all * 0.95 * 10) / 10;
+}
+if (typeof window !== 'undefined') window.trainingMaxE1RM = trainingMaxE1RM;
 
 // The heaviest single actually lifted, competition lift only: a logged 1-rep set or a meet
 // result. { kg, date, source: 'training' | 'meet', meet } or null. The e1RM estimates; this is
@@ -15795,7 +16040,7 @@ function openSecuritySheet() {
   const u = getCurrentUser(); if (!u) return;
   uiSheet('Security', (sheet) => {
     sheet.appendChild(uiList([uiRow({ title: 'Account email', end: u.email || '–' })]));
-    const pwd = el('input', { type: 'password', autocomplete: 'new-password', placeholder: 'At least 6 characters', 'aria-label': 'New password' });
+    const pwd = el('input', { type: 'password', autocomplete: 'new-password', placeholder: 'At least ' + POWA_PWD_MIN + ' characters', 'aria-label': 'New password' });
     const f = el('div', { class: 'ui-list ps-form' });
     f.appendChild(_fieldRow('New password', pwd, true));
     sheet.appendChild(f);
@@ -15803,10 +16048,10 @@ function openSecuritySheet() {
     save.addEventListener('click', async () => {
       if (window._demoMode) { toast('Preview only in demo mode'); return; }
       const v = pwd.value;
-      if (!v || v.length < 6) { toast('Use at least 6 characters'); pwd.focus(); return; }
+      if (pwdProblem(v)) { toast(pwdProblem(v)); pwd.focus(); return; }
       save.disabled = true;
       try { const { error } = await sb.auth.updateUser({ password: v }); if (error) throw error; pwd.value = ''; toast('Password changed'); }
-      catch (e) { toast(e.message || 'Could not change it'); }
+      catch (e) { toast(authErrorText(e, 'Could not change it')); }
       finally { save.disabled = false; }
     });
     sheet.appendChild(save);

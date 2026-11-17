@@ -947,6 +947,13 @@
   <div class="modal">
     <button class="modal-close" aria-label="Close" onclick="closeModal('loginModal')">&times;</button>
     <h3>Log in</h3>
+    <!-- Said once, above the form: back from the confirmation email's link, or a log-in Auth refused because the
+         address isn't confirmed yet (then with "Send it again"). Filled by showLoginNote(). -->
+    <div id="loginNote" class="dim text-sm mb-16" role="status" hidden>
+      <p id="loginNoteText"></p>
+      <p id="loginNoteApp" style="margin-top:8px" hidden><a href="powalifta://login">Open the POWALIFTA app</a> to log in there.</p>
+      <p id="loginNoteResend" style="margin-top:8px" hidden><a href="#" onclick="resendConfirmEmail('login'); return false;">Send the link again</a></p>
+    </div>
     <!-- Continue with Apple / Google (social-auth.js fills the row; a first-time account is asked
          the sign-up's questions when it comes back). The email form below is unchanged. -->
     <div class="sa-row" data-social-buttons="login"></div>
@@ -994,6 +1001,15 @@
 <div class="modal-backdrop" id="signupModal">
   <div class="modal">
     <button class="modal-close" aria-label="Close" onclick="closeModal('signupModal')">&times;</button>
+    <!-- After an email sign-up that needs confirming (Supabase "Confirm email" on): what to do next, in place of the form. -->
+    <div id="signupSent" hidden>
+      <h3>Check your email</h3>
+      <p class="dim text-sm mb-16">We sent a link to <b id="signupSentTo"></b>. Tap it to confirm your account, then log in.</p>
+      <button class="btn btn-primary btn-lg btn-block" type="button" onclick="signupSentToLogin()">Log in</button>
+      <p class="dim text-sm center" style="margin-top:14px">Nothing after a few minutes? Check spam, or <a href="#" onclick="resendConfirmEmail('signup'); return false;">send it again</a>.</p>
+      <p class="dim text-sm center" style="margin-top:8px">Wrong email? <a href="#" onclick="signupShowForm(); return false;">Go back</a></p>
+    </div>
+    <div id="signupForm">
     <h3 id="signupTitle">Sign up</h3>
     <div class="auth-seg auth-seg-3" data-for="signupType" role="radiogroup" aria-label="I am a">
       <button type="button" data-v="solo" class="on"><b>Lifter</b><span>On my own</span></button>
@@ -1019,7 +1035,7 @@
     </div>
     <div class="form-group">
       <label>Password</label>
-      <input type="password" id="signupPwd" placeholder="At least 6 chars" autocomplete="new-password">
+      <input type="password" id="signupPwd" placeholder="At least 8 characters" autocomplete="new-password">
       <div class="pwd-meter" id="pwdMeter" aria-live="polite" hidden>
         <div class="pwd-meter-track"><div class="pwd-meter-fill" id="pwdMeterFill"></div></div>
         <span class="pwd-meter-label" id="pwdMeterLabel"></span>
@@ -1035,12 +1051,19 @@
       <p class="faint text-xs" id="codeWho" style="margin-top:8px;display:none"></p>
       <p class="faint text-xs" id="codeHint" style="margin-top:6px">Optional. You can add it later.</p>
     </div>
+    <!-- A field people never see or reach (off-screen, out of the tab order, hidden from screen readers): a form-filling
+         bot fills it, and a filled one creates nothing (doSignup). Supabase's CAPTCHA is the real gate (owner step). -->
+    <div aria-hidden="true" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden">
+      <label for="signupHp">Leave this empty</label>
+      <input type="text" id="signupHp" name="powa_hp" tabindex="-1" autocomplete="off">
+    </div>
     <label class="age-check" for="signupAge">
       <input type="checkbox" id="signupAge">
       <span>I'm 16 or older and I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</span>
     </label>
     <button class="btn btn-primary btn-lg btn-block" onclick="doSignup()">Create account</button>
     <p class="dim text-sm center" style="margin-top:14px">Already have one? <a href="#" onclick="closeModal('signupModal'); openLoginModal(); return false;">Log in</a></p>
+    </div>
   </div>
 </div>
 
@@ -1246,7 +1269,7 @@ function homeBoot() {
     }
     // Signed out without choosing it (app.js), or back from an email-confirmation link (db.js): say so once.
     if (typeof showSignedOutNote === 'function') showSignedOutNote();
-    if (window._powaEmailConfirmed && !window._user) toast('Your email is confirmed. Log in to carry on.', 6000);
+    if (window._powaEmailConfirmed && !window._user) showEmailConfirmedLogin();
     // The bar's account end (a signed-in visitor gets their dashboard) and, on the website, the programs count
     // that shows the programs band (app.js renderNav, siteProgramsReady).
     renderNav('#nav');
@@ -1266,6 +1289,45 @@ function openModal(id) {
 }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function openLoginModal() { openModal('loginModal'); }
+// The log-in's note (#loginNote): text, plus "Open the app" (signed up in the iPhone app) or "Send the link again".
+function showLoginNote(text, o) {
+  o = o || {};
+  const box = document.getElementById('loginNote');
+  if (!box) return;
+  document.getElementById('loginNoteText').textContent = text || '';
+  document.getElementById('loginNoteApp').hidden = !o.app;
+  document.getElementById('loginNoteResend').hidden = !o.resend;
+  box.hidden = !text;
+}
+// Back from the confirmation email (db.js refused the link's session and set _powaEmailConfirmed): the log-in, saying so.
+function showEmailConfirmedLogin() {
+  const fromApp = /[?&]from=app\b/.test(location.search);
+  showLoginNote('Your email is confirmed. Log in to carry on.', { app: fromApp });
+  openLoginModal();
+}
+window.showEmailConfirmedLogin = showEmailConfirmedLogin;
+// "Send it again": the confirmation email to the address on the step that asked (the sign-up's, or the log-in's).
+async function resendConfirmEmail(from) {
+  const email = from === 'signup' ? (document.getElementById('signupSentTo').textContent || '').trim()
+    : document.getElementById('loginEmail').value.trim().toLowerCase();
+  if (!email) return toast('Enter your email first');
+  try { await DB.resendConfirmation(email); toast('Sent. Check your inbox (and spam).'); }
+  catch (e) { toast(typeof authErrorText === 'function' ? authErrorText(e, 'Could not send it') : (e.message || 'Could not send it')); }
+}
+window.resendConfirmEmail = resendConfirmEmail;
+function signupShowForm() {
+  document.getElementById('signupSent').hidden = true;
+  document.getElementById('signupForm').hidden = false;
+}
+function signupSentToLogin() {
+  const em = (document.getElementById('signupSentTo').textContent || '').trim();
+  closeModal('signupModal');
+  const le = document.getElementById('loginEmail');
+  if (le && em) le.value = em;
+  showLoginNote('');
+  openLoginModal();
+  setTimeout(() => { const p = document.getElementById('loginPwd'); if (p) p.focus(); }, 60);
+}
 function openForgotModal() {
   // Pre-fill from login email if it's there
   const loginEmail = document.getElementById('loginEmail');
@@ -1295,6 +1357,7 @@ function openSignupModal(type) {
   // type: 'solo' | 'athlete' | 'coach'
   const valid = ['solo', 'athlete', 'coach'];
   document.getElementById('signupType').value = valid.includes(type) ? type : 'solo';
+  signupShowForm();
   onSignupTypeChange();
   if (window._syncSeg_signupType) window._syncSeg_signupType();
   openModal('signupModal');
@@ -1339,7 +1402,9 @@ async function doLogin() {
     try { localStorage.setItem('powa-last-role', profile.user_type); } catch (e) {}
     location.replace(profile.user_type === 'coach' ? 'coach.html' : profile.user_type === 'admin' ? 'admin.html' : 'athlete.html');
   } catch (e) {
-    toast(e.message || 'Login failed');
+    // Not confirmed yet (Supabase "Confirm email" on): say so where they're looking, with "Send the link again".
+    if (typeof authEmailUnconfirmed === 'function' && authEmailUnconfirmed(e)) showLoginNote(authErrorText(e), { resend: true });
+    else toast(typeof authErrorText === 'function' ? authErrorText(e, 'Login failed') : (e.message || 'Login failed'));
     if (btn) { btn.disabled = false; btn.textContent = 'Log in'; }
   }
 }
@@ -1356,7 +1421,7 @@ async function doSignup() {
   const bio = document.getElementById('signupBio').value.trim();
   const code = document.getElementById('signupCode').value.trim().toUpperCase();
   if (!name || !email || !pwd) return toast('Name, email, password required');
-  if (pwd.length < 6) return toast('Password must be at least 6 chars');
+  if (pwdProblem(pwd)) return toast(pwdProblem(pwd));
   if (!document.getElementById('signupAge').checked) return toast('Please confirm you\'re 16 or older.');
   if (!checkUserText([name], { name: true })) return;          // the content filter: no slurs as a name
   const bioOk = type === 'coach' ? checkUserText([bio]) : [''];
@@ -1365,8 +1430,13 @@ async function doSignup() {
   // Athlete-with-coach: the invite code is OPTIONAL. Without it they sign up
   // unattached and can link to a coach anytime from the dashboard Coach tab
   // (athlete.html joinCoach → DB.claimInviteCode). No hard block here.
+  // The hidden field only a bot fills: it looks as if the sign-up worked, and nothing is created.
+  const hp = document.getElementById('signupHp');
+  if (hp && hp.value) { document.getElementById('signupSentTo').textContent = email; document.getElementById('signupForm').hidden = true; document.getElementById('signupSent').hidden = false; return; }
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
   try {
+    // The invite code (a coached lifter's) and the welcome email ride with the account (db.js powaSignupMeta): now
+    // when Auth signs them straight in, else at their first log-in after confirming the email.
     if (type === 'coach') {
       await DB.signUpCoach(name, email, pwd, bioOk[0], consent);
     } else if (type === 'athlete') {
@@ -1375,14 +1445,14 @@ async function doSignup() {
       // Solo — same as athlete but no code claimed
       await DB.signUpAthlete(name, email, pwd, '', consent);
     }
-    // Map to the canonical type stored in profiles for the welcome email
-    const emailType = (type === 'coach') ? 'coach' : 'athlete';
-    sendWelcomeEmail(email, name, emailType);
     // signUp may auto-sign-in OR require email confirmation depending on Auth settings
     const session = await DB.getSession();
     if (!session) {
-      toast('Account created: check your email to confirm, then log in.');
-      closeModal('signupModal');
+      // Confirm email is on: the modal says what to do next and stays until they're done with it.
+      document.getElementById('signupSentTo').textContent = email;
+      document.getElementById('signupForm').hidden = true;
+      document.getElementById('signupSent').hidden = false;
+      const le = document.getElementById('loginEmail'); if (le) le.value = email;
       if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
       return;
     }
@@ -1390,27 +1460,16 @@ async function doSignup() {
       : (type === 'athlete' && !code) ? 'athlete.html?tab=coach'
       : 'athlete.html';
   } catch (e) {
-    toast(e.message || 'Signup failed');
+    toast(typeof authErrorText === 'function' ? authErrorText(e, 'Signup failed') : (e.message || 'Signup failed'));
     if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
   }
 }
 
-// Fire-and-forget welcome email via the send-welcome Edge Function.
+// Fire-and-forget welcome email (db.js DB.sendWelcome, the send-welcome Edge Function). An email sign-up no longer
+// calls it: db.js sends it once the account has a session (finishSignup). Apple / Google (social-auth.js) still do.
 // Failures are logged but never block signup.
 function sendWelcomeEmail(email, name, type) {
-  try {
-    const url = SUPABASE_URL + '/functions/v1/send-welcome';
-    fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({ email, name, type })
-    }).then(r => {
-      if (!r.ok) console.warn('welcome email status', r.status);
-    }).catch(err => console.warn('welcome email failed', err));
-  } catch (e) { console.warn('welcome email setup failed', e); }
+  try { if (window.DB && DB.sendWelcome) DB.sendWelcome(email, name, type); } catch (e) { console.warn('welcome email setup failed', e); }
 }
 
 // ===== The max calculator (the eighth question, "How does the app work out a max?") =====

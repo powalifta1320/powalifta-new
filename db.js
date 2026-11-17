@@ -96,6 +96,35 @@ function _powaSocialPending() { try { return sessionStorage.getItem(POWA_SOCIAL_
   } catch (e) {}
 })();
 
+// ---- Sign-up with email confirmation (security audit 2026-11-16 M1, scan blocker 1). Pure: test/signup-confirm.test.cjs.
+// Where the confirmation email's link lands: the website's home page, which refuses the link's session (above),
+// opens the log-in and says the email is confirmed. From the iPhone app (capacitor://) the website too, with
+// ?from=app so it can offer to open the app (the link is opened from Mail, in Safari). Its address must be on
+// Supabase's Redirect URLs list; one that isn't falls back to the Site URL, which says the same.
+function powaSignupRedirect(loc) {
+  loc = loc || {};
+  const web = /^https?:$/.test(String(loc.protocol || '')) && loc.origin;
+  return web ? loc.origin + '/index.html' : 'https://www.powalifta.com/index.html?from=app';
+}
+// The metadata a sign-up sends: the profile's fields plus what the first signed-in moment owes (the welcome email,
+// and a coach's invite code when one was given). An invite code is six letters or digits, or nothing.
+function powaSignupMeta(base, code) {
+  const meta = Object.assign({}, base || {});
+  meta.powa_welcome = meta.user_type === 'coach' ? 'coach' : 'athlete';
+  const c = String(code || '').trim().toUpperCase();
+  if (/^[A-Z0-9]{6}$/.test(c)) meta.powa_invite = c;
+  return meta;
+}
+// What a user's sign-up still owes, from their metadata: { welcome, invite, name } or null for nothing.
+function powaSignupOwed(user) {
+  const m = (user && user.user_metadata) || {};
+  const welcome = m.powa_welcome === 'coach' || m.powa_welcome === 'athlete' ? m.powa_welcome : null;
+  const c = String(m.powa_invite || '').toUpperCase();
+  const invite = /^[A-Z0-9]{6}$/.test(c) ? c : null;
+  if (!welcome && !invite) return null;
+  return { welcome, invite, name: String(m.name || '') };
+}
+
 if (!window.supabase || !window.supabase.createClient) {
   console.error('Supabase JS not loaded. Make sure <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> is included BEFORE db.js');
 }
@@ -1312,10 +1341,57 @@ const DB = {
       return { ok: false, reason: String((e && e.message) || e) };
     }
   },
+  // A password log-in. The first one after an email confirmation also finishes the sign-up (finishSignup below):
+  // the coach's invite code is claimed and the welcome email goes out.
   async signIn(email, password) {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    try { if (data && data.user) await this.finishSignup(data.user); } catch (e) { console.warn('finish sign-up', e && e.message); }
     return data;
+  },
+  // The confirmation email again ("Send it again" on the check-your-email step and on a log-in Auth refused
+  // because the address isn't confirmed yet).
+  async resendConfirmation(email) {
+    const { error } = await sb.auth.resend({ type: 'signup', email, options: { emailRedirectTo: powaSignupRedirect(location) } });
+    if (error) throw error;
+  },
+  // The welcome email (send-welcome edge function). The signed-in person's token rides along when there is one,
+  // so the function can later insist on it (security audit 2026-11-16, Low 1). Fire and forget: never blocks.
+  sendWelcome(email, name, type) {
+    try {
+      Promise.resolve(sb.auth.getSession()).catch(() => null).then((r) => {
+        const tok = r && r.data && r.data.session && r.data.session.access_token;
+        const headers = { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY };
+        if (tok) headers.Authorization = 'Bearer ' + tok;
+        return fetch(SUPABASE_URL + '/functions/v1/send-welcome', {
+          method: 'POST', headers, body: JSON.stringify({ email, name, type: type === 'coach' ? 'coach' : 'athlete' })
+        });
+      }).then((res) => { if (res && !res.ok) console.warn('welcome email status', res.status); })
+        .catch((e) => console.warn('welcome email failed', e && e.message));
+    } catch (e) { console.warn('welcome email setup failed', e); }
+  },
+  // What a sign-up still owes once the account is real (it has a session): the auth user's metadata carries it from
+  // signUpAthlete / signUpCoach (powaSignupMeta), so it survives the email-confirmation round trip on any device.
+  // Claims the invite code, sends the welcome, then clears both so neither happens twice. A user without them
+  // (every account made before this, Apple / Google) costs nothing: no request at all.
+  // → { invite, claimed } (claimed: the coach id claim_invite returned, or null).
+  async finishSignup(user) {
+    const owed = powaSignupOwed(user);
+    if (!owed) return { invite: null, claimed: null };
+    let claimed = null;
+    if (owed.invite) {
+      try {
+        const { data, error } = await sb.rpc('claim_invite', { invite_code: owed.invite });
+        if (error) console.warn('Could not claim the invite code:', error.message);
+        else claimed = data || null;
+      } catch (e) { console.warn('Could not claim the invite code:', e && e.message); }
+    }
+    try {
+      const { error } = await sb.auth.updateUser({ data: { powa_welcome: null, powa_invite: null } });
+      if (error) console.warn('sign-up markers', error.message);
+    } catch (e) { console.warn('sign-up markers', e && e.message); }
+    if (owed.welcome && user.email) this.sendWelcome(user.email, owed.name, owed.welcome);
+    return { invite: owed.invite, claimed };
   },
   async signUp(email, password) {
     const { data, error } = await sb.auth.signUp({ email, password });
@@ -1453,30 +1529,28 @@ const DB = {
 
   // `consent` ({ age_16_plus, terms_accepted_at }) rides in the auth user's metadata: the record
   // that they confirmed they're 16+ and accepted the Terms at sign-up (privacy.html "Children").
-  async signUpCoach(name, email, password, bio, consent) {
-    // Profile row is created by the on_auth_user_created trigger using this metadata.
+  // Both sign-ups work with "Confirm email" on or off (security audit 2026-11-16, M1):
+  //   · off: Auth answers with a session, and the invite claim + welcome happen now (finishSignup).
+  //   · on: a user and no session. The invite code and the welcome wait in the user's metadata, the email's
+  //     link comes back to the website (powaSignupRedirect), and the first log-in finishes them (signIn).
+  // → the auth user, with .needsConfirm true when the email has to be confirmed before anyone can log in.
+  async _signUp(email, password, meta) {
     const { data, error } = await sb.auth.signUp({
       email, password,
-      options: { data: { name, user_type: 'coach', bio: bio || '', ...(consent || {}) } }
+      options: { emailRedirectTo: powaSignupRedirect(location), data: meta }
     });
     if (error) throw error;
     if (!data.user) throw new Error('Signup did not return a user.');
+    if (data.session) { try { await this.finishSignup(data.user); } catch (e) { console.warn('finish sign-up', e && e.message); } }
+    data.user.needsConfirm = !data.session;
     return data.user;
   },
+  async signUpCoach(name, email, password, bio, consent) {
+    // Profile row is created by the on_auth_user_created trigger using this metadata.
+    return this._signUp(email, password, powaSignupMeta({ name, user_type: 'coach', bio: bio || '', ...(consent || {}) }, ''));
+  },
   async signUpAthlete(name, email, password, code, consent) {
-    const { data, error } = await sb.auth.signUp({
-      email, password,
-      options: { data: { name, user_type: 'athlete', ...(consent || {}) } }
-    });
-    if (error) throw error;
-    if (!data.user) throw new Error('Signup did not return a user.');
-    if (code) {
-      // claim_invite needs the user to be authenticated. Only works if email
-      // confirmation is OFF (immediate session). If ON, claim happens after first login.
-      try { await sb.rpc('claim_invite', { invite_code: code }); }
-      catch (e) { console.warn('Could not claim code now (will retry after login):', e.message); }
-    }
-    return data.user;
+    return this._signUp(email, password, powaSignupMeta({ name, user_type: 'athlete', ...(consent || {}) }, code));
   },
   async claimInviteCode(code) {
     const { data, error } = await sb.rpc('claim_invite', { invite_code: code });

@@ -1615,19 +1615,20 @@ test('readiness: beat up takes ~5% off to the nearest loadable weight, always li
   eq(readinessLoad(20, 'rough', 'kg'), 17.5);
   eq(readinessLoad(0, 'rough', 'kg'), null);
 });
-test('first meet prep: ends on meet week (openers + light), peaks with singles, climbs', () => {
+test('first meet prep: ends on meet week (openers on their own days), peaks with singles', () => {
   const p = generateMeetPrep({ weeks: 12, e1rms: { squat: 180, bench: 120, deadlift: 220 }, unit: 'kg' });
   eq(p.weeks.length, 12); eq(p.meetPrep, true);
   const meet = p.weeks[11];
-  eq(meet.days.map(d => d.name).join(','), 'Openers,Light technique');
+  eq(meet.days.map(d => d.name).join(','), 'Squat opener,Bench opener');
   const opener = meet.days[0].exercises.find(e => e.lift === 'squat').sets[0];
   eq(opener.reps, 1); eq(opener.rpe, 7);
-  eq(Math.abs(opener.weight - 180 * 1.1 * 0.9) < 5, true);            // ≈ 90% of the (nudged) e1RM
+  eq(Math.abs(opener.weight - 180 * 0.91) < 2.5, true);                // ≈ 91% of today's e1RM, no assumed gain
   const peak = p.weeks[9].days[0].exercises[0].sets;                    // week 10: squat day
   eq(peak[0].reps, 1); eq(peak.slice(1).every(st => st.reps === 2), true);
   const base = p.weeks[0].days[0].exercises[0].sets;
   eq(base.length, 4); eq(base[0].reps, 5); eq(base[0].rpe, 7);
-  eq(p.weeks.every(w => w.days.every(d => d.exercises.every(e => e.sets.every(st => st.weight >= 20)))), true);
+  eq(base.slice(1).every(st => st.weight < base[0].weight && st.rpe === 6), true);   // a top set, then back-offs
+  eq(p.weeks.every(w => w.days.every(d => d.exercises.filter(e => MAIN_LIFTS.includes(e.lift)).every(e => e.sets.every(st => st.weight >= 20)))), true);
   eq(generateMeetPrep({ weeks: 8, e1rms: { squat: 100 } }).weeks.length, 8);
 });
 test('reaction summary: one per person, counts by key, my pick, nulls ignored', () => {
@@ -1940,6 +1941,179 @@ test('generatePeakingBlock: unknown e1RM → weight 0 (pure work-up-to-RPE)', ()
   const p = generatePeakingBlock({ weeks: 3, daysPerWeek: 3 });   // no e1rms
   eq(p.weeks[0].days[0].exercises[0].sets[0].weight, 0);
 });
+test('generatePeakingBlock: the same accessory every week with an RPE; labels are notes, not tempo', () => {
+  const p = generatePeakingBlock({ weeks: 4, daysPerWeek: 3, e1rms: { squat: 200, bench: 140, deadlift: 240 } });
+  const acc = (w, d) => p.weeks[w].days[d].exercises.filter(e => !MAIN_LIFTS.includes(e.lift));
+  [0, 1, 2].forEach(d => eq(acc(0, d)[0].exerciseName, acc(1, d)[0].exerciseName));
+  eq(p.weeks.every(w => w.days.every(d => d.exercises.every(e => e.sets.every(st => st.rpe != null && st.tempo === '')))), true);
+  eq(p.weeks[0].days[0].exercises[0].sets[0].note, 'Top set');
+  eq(p.weeks[3].days[0].exercises[0].sets[0].note, 'Opener: fast and easy');
+});
+
+// ===== THE BLOCK GENERATOR (17 Nov 2026): what an experienced coach would write =====
+group('block generator (generateProgram)');
+(() => {
+  const E = { squat: 150, bench: 107, deadlift: 193 };
+  const mainsOf = (day) => day.exercises.filter(e => MAIN_LIFTS.includes(e.lift));
+  const accsOf = (day) => day.exercises.filter(e => !MAIN_LIFTS.includes(e.lift));
+  test('2 to 6 days: no lift gets more than 5 working sets in a session', () => {
+    [2, 3, 4, 5, 6].forEach(n => {
+      const p = generateProgram({ weeks: 8, daysPerWeek: n, e1rms: E });
+      eq(p.weeks[0].days.length, n, n + ' days');
+      p.weeks.forEach(w => w.days.forEach(d => mainsOf(d).forEach(e => assert(e.sets.length <= GEN_MAX_SETS, n + ' days, ' + d.name + ': ' + e.sets.length + ' ' + e.lift + ' sets'))));
+      p.weeks.forEach(w => w.days.forEach(d => {
+        const lifts = mainsOf(d).map(e => e.lift);
+        eq(new Set(lifts).size, lifts.length, 'one entry per lift per day');
+      }));
+    });
+    eq(generateProgram({ daysPerWeek: 1 }).weeks[0].days.length, 2);
+    eq(generateProgram({ daysPerWeek: 9 }).weeks[0].days.length, 6);
+  });
+  test('squat and bench twice or more a week on every day count, deadlift too from 3 days', () => {
+    [2, 3, 4, 5, 6].forEach(n => {
+      const wk = generateProgram({ weeks: 4, daysPerWeek: n, e1rms: E }).weeks[0];
+      const freq = (l) => wk.days.filter(d => mainsOf(d).some(e => e.lift === l)).length;
+      assert(freq('squat') >= 2, n + ' days: squat ' + freq('squat'));
+      assert(freq('bench') >= 2, n + ' days: bench ' + freq('bench'));
+      assert(freq('deadlift') >= (n >= 3 ? 2 : 1), n + ' days: deadlift ' + freq('deadlift'));
+    });
+  });
+  test('a heavy day is one top set, then lighter back-offs at a lower RPE', () => {
+    const d = generateProgram({ weeks: 8, daysPerWeek: 4, e1rms: E }).weeks[0].days[0];
+    const sq = mainsOf(d).find(e => e.lift === 'squat').sets;
+    eq(sq.length, 4); eq(sq[0].note, 'Top set');
+    eq(sq.slice(1).every(st => st.weight < sq[0].weight && st.rpe < sq[0].rpe), true);
+  });
+  test('day names are distinct, and each day keeps the same accessories every week, each with an RPE', () => {
+    [2, 3, 4, 5, 6].forEach(n => {
+      const p = generateProgram({ weeks: 8, daysPerWeek: n, e1rms: E });
+      const names = p.weeks[0].days.map(d => d.name);
+      eq(new Set(names).size, names.length, n + ' days: ' + names.join(' / '));
+      p.weeks[0].days.forEach((d, i) => {
+        const a0 = accsOf(d).map(e => e.exerciseName).join(',');
+        assert(a0.length > 0, 'day ' + (i + 1) + ' has an accessory');
+        p.weeks.forEach(w => eq(accsOf(w.days[i]).map(e => e.exerciseName).join(','), a0));
+      });
+      eq(p.weeks.every(w => w.days.every(d => accsOf(d).every(e => e.sets.every(st => st.rpe >= 6)))), true);
+    });
+    const row = accsOf(generateProgram({ weeks: 4, daysPerWeek: 4, e1rms: E }).weeks[0].days[0]).find(e => e.exerciseName === 'Barbell Row');
+    assert(row && row.sets[0].weight > 0, 'a barbell accessory gets a load from the main lifts');
+  });
+  test('loads build across the block and the deload is lighter than every working set', () => {
+    [2, 3, 4, 5, 6].forEach(n => {
+      const p = generateProgram({ weeks: 8, daysPerWeek: n, e1rms: E });
+      MAIN_LIFTS.forEach(l => {
+        const sets = (ws) => ws.flatMap(w => w.days.flatMap(d => mainsOf(d).filter(e => e.lift === l).flatMap(e => e.sets)));
+        const work = sets(p.weeks.slice(0, 7)), dl = sets([p.weeks[7]]);
+        assert(dl.length > 0, 'the deload trains ' + l);
+        const minWork = Math.min(...work.map(st => st.weight)), maxDl = Math.max(...dl.map(st => st.weight));
+        assert(maxDl < minWork, n + ' days ' + l + ': deload ' + maxDl + ' vs lightest working ' + minWork);
+        assert(dl.every(st => st.rpe <= 6), 'easy');
+      });
+      const top = (w) => mainsOf(p.weeks[w].days[0])[0].sets[0];
+      assert(top(6).weight > top(0).weight && top(6).rpe > top(0).rpe, 'intensity climbs');
+      eq(p.weeks[7].days[0].name.indexOf('deload') !== -1, true);
+    });
+  });
+  test('experience: a beginner gets fewer back-offs and no top set past RPE 8.5', () => {
+    const b = generateProgram({ weeks: 8, daysPerWeek: 3, e1rms: E, experience: 'beginner' });
+    const i = generateProgram({ weeks: 8, daysPerWeek: 3, e1rms: E });
+    eq(mainsOf(b.weeks[0].days[0])[0].sets.length, 3);
+    eq(mainsOf(i.weeks[0].days[0])[0].sets.length, 4);
+    eq(b.weeks.slice(0, 7).every(w => w.days.every(d => mainsOf(d).every(e => e.sets.every(st => st.rpe <= 8.5)))), true);
+    eq(generateProgram({ weeks: 4, daysPerWeek: 3, e1rms: E, experience: 'new' }).weeks[0].days[0].exercises[0].sets.length, 3);
+  });
+  test('focus: the lift gets more work, still within 5 sets a session', () => {
+    const p = generateProgram({ weeks: 6, daysPerWeek: 2, e1rms: E, focus: 'deadlift' });
+    const wk = p.weeks[0];
+    eq(wk.days.filter(d => mainsOf(d).some(e => e.lift === 'deadlift')).length, 2);
+    eq(wk.days.every(d => mainsOf(d).every(e => e.sets.length <= GEN_MAX_SETS)), true);
+    eq(/^Deadlift-focus/.test(p.name), true);
+  });
+  test('one lift typed: the others are estimated from it, lighter, and say so', () => {
+    const p = generateProgram({ weeks: 4, daysPerWeek: 3, e1rms: { squat: 145 } });
+    eq(p.estimated.join(','), 'bench,deadlift');
+    const all = p.weeks[0].days.flatMap(mainsOf);
+    eq(all.every(e => e.sets[0].weight > 0), true);
+    const dl = all.find(e => e.lift === 'deadlift' && e.variant === 'Competition');
+    eq(/Estimated load/.test(dl.sets[0].note), true);
+    const sq = all.find(e => e.lift === 'squat' && e.variant === 'Competition');
+    eq(/Estimated/.test(sq.sets[0].note), false);
+    eq(generateProgram({ weeks: 4, daysPerWeek: 3 }).weeks[0].days[0].exercises[0].sets[0].weight, 0);   // nothing typed: work up to the RPE
+    eq(generateProgram({ weeks: 4, daysPerWeek: 3 }).estimated, undefined);
+  });
+  test('a goal still pulls the loads toward the target', () => {
+    const flat = generateProgram({ weeks: 8, daysPerWeek: 4, e1rms: E });
+    const goal = generateProgram({ weeks: 8, daysPerWeek: 4, e1rms: E, targets: { squat: 165 } });
+    assert(goal.weeks[6].days[0].exercises[0].sets[0].weight > flat.weeks[6].days[0].exercises[0].sets[0].weight, 'target climbs');
+  });
+})();
+
+group('first meet plan: openers, peak singles, attempts');
+test('openers ~91% of today\'s max, each on its own day; deadlift opener the week before', () => {
+  const E = { squat: 150, bench: 107, deadlift: 193 };
+  const p = generateMeetPrep({ weeks: 12, e1rms: E, unit: 'kg' });
+  const meet = p.weeks[11];
+  meet.days.forEach(d => eq(d.exercises.filter(e => e.sets.some(st => st.reps === 1)).length, 1, d.name + ': one opener'));
+  ['squat', 'bench'].forEach(l => {
+    const op = meet.days.flatMap(d => d.exercises).find(e => e.lift === l && e.sets[0].reps === 1).sets[0];
+    const pct = op.weight / E[l];
+    assert(pct >= 0.88 && pct <= 0.93, l + ' opener ' + Math.round(pct * 100) + '%');
+  });
+  eq(meet.days.some(d => d.exercises.some(e => e.lift === 'deadlift')), false);
+  const dlOp = p.weeks[10].days.flatMap(d => d.exercises).find(e => e.lift === 'deadlift').sets[0];
+  eq(dlOp.reps, 1); assert(dlOp.weight / E.deadlift <= 0.93 && dlOp.weight / E.deadlift >= 0.88, 'deadlift opener');
+});
+test('no single above 95% of today\'s max anywhere, and one heavy single a week per lift', () => {
+  [8, 12, 16].forEach(W => {
+    const E = { squat: 180, bench: 120, deadlift: 220 };
+    const p = generateMeetPrep({ weeks: W, e1rms: E, unit: 'kg' });
+    p.weeks.forEach(w => w.days.forEach(d => d.exercises.forEach(e => e.sets.forEach(st => {
+      if (MAIN_LIFTS.includes(e.lift) && st.reps === 1) assert(st.weight <= E[e.lift] * 0.95 + 1.25, W + 'wk ' + e.lift + ' single ' + st.weight);
+      if (MAIN_LIFTS.includes(e.lift)) assert(st.weight <= E[e.lift], 'nothing past the max');
+    }))));
+    p.weeks.slice(W - 4, W - 1).forEach(w => {
+      const singles = w.days.filter(d => d.exercises.some(e => e.lift === 'squat' && e.sets[0].reps === 1)).length;
+      eq(singles, 1, 'week ' + w.number + ' squat singles');
+    });
+  });
+});
+test('attempts: opener ~91%, third never past today\'s max', () => {
+  const p = generateMeetPrep({ weeks: 12, e1rms: { squat: 151, bench: 107, deadlift: 193 }, unit: 'kg' });
+  eq(p.attempts.squat.join(','), '137.5,145,150');
+  MAIN_LIFTS.forEach(l => {
+    const a = p.attempts[l];
+    assert(a[0] <= a[1] && a[1] <= a[2], 'climbing');
+    assert(a[2] <= ({ squat: 151, bench: 107, deadlift: 193 })[l], l + ' third ' + a[2]);
+  });
+  eq(Object.keys(generateMeetPrep({ weeks: 8, e1rms: { squat: 100 } }).attempts).join(','), 'squat');
+});
+
+group('e1RM: the rep cap');
+test('reps past 10 count half, and nothing counts past 12', () => {
+  eq(e1rmReps(5), 5); eq(e1rmReps(10), 10); eq(e1rmReps(12), 11); eq(e1rmReps(14), 12); eq(e1rmReps(30), 12);
+  close(calcE1RM(100, 5, 8), 124.97, 0.1);                  // ordinary sets unchanged
+  close(calcE1RM(60, 20, 6), 119.9, 0.2);                    // was 150
+  assert(calcE1RM(60, 20, 6) === calcE1RM(60, 14, 6), 'a set of 20 counts as a set of 14');
+  assert(calcE1RM(100, 11, 8) > calcE1RM(100, 10, 8), 'still climbs a little past 10');
+});
+test('bestE1RM re-reads old sets under the cap; the training max is the recent one', () => {
+  resetState();
+  const d = (n) => { const x = new Date(); x.setDate(x.getDate() - n); return isoLocal(x); };
+  seed({ workoutLogs: [
+    { id: 'h1', athleteId: 'a1', lift: 'squat', variant: 'Competition', weight: 60, reps: 20, rpe: 6, e1rmComp: 150, date: d(3) },
+    { id: 'h2', athleteId: 'a1', lift: 'squat', variant: 'Competition', weight: 100, reps: 5, rpe: 8, e1rmComp: calcE1RM(100, 5, 8), date: d(5) },
+    { id: 'o1', athleteId: 'a1', lift: 'bench', variant: 'Competition', weight: 100, reps: 1, rpe: 10, e1rmComp: 100, date: d(200) },
+    { id: 'n1', athleteId: 'a1', lift: 'bench', variant: 'Competition', weight: 80, reps: 5, rpe: 8, e1rmComp: calcE1RM(80, 5, 8), date: d(10) }
+  ] });
+  close(bestE1RM('a1', 'squat'), 124.97, 0.1);              // the 60 × 20 no longer reads as 150
+  eq(bestE1RM('a1', 'bench'), 100);
+  close(trainingMaxE1RM('a1', 'bench'), calcE1RM(80, 5, 8), 0.1);   // last spring's single is not today's max
+  seed({ workoutLogs: [{ id: 'o2', athleteId: 'a2', lift: 'deadlift', variant: 'Competition', weight: 200, reps: 1, rpe: 10, e1rmComp: 200, date: d(300) }] });
+  eq(trainingMaxE1RM('a2', 'deadlift'), 190);                // nothing recent: the old best less 5%
+  eq(trainingMaxE1RM('a2', 'squat'), 0);
+  resetState();
+});
 
 group('athlete compare');
 test('compareMetricRows: per-lift leader + total derived from SBD', () => {
@@ -2244,13 +2418,15 @@ test('setGymPlates keeps the unit\'s own sizes and never stores an empty set', (
 });
 
 group('password strength');
-test('below 6 chars → score 0 "Too short"', () => {
+test('below 8 chars → score 0 "Too short" (the floor is POWA_PWD_MIN, 8)', () => {
+  eq(POWA_PWD_MIN, 8);
   eq(pwdStrength('abc').score, 0);
   eq(pwdStrength('abc').label, 'Too short');
+  eq(pwdStrength('abcdefg').score, 0, '7 characters is too short now');
   eq(pwdStrength('').score, 0);
 });
 test('score clamps to 1..4 and pct tracks score', () => {
-  const weak = pwdStrength('abcdef');   // 6 lowercase → min score 1
+  const weak = pwdStrength('abcdefgh');   // 8 lowercase → min score 1
   eq(weak.score, 1); eq(weak.label, 'Weak'); eq(weak.pct, 25);
   const strong = pwdStrength('Abcdefgh1!xyz'); // long + mixed + digit + symbol
   eq(strong.score, 4); eq(strong.label, 'Strong'); eq(strong.pct, 100);
@@ -2261,6 +2437,37 @@ test('variety raises score', () => {
 test('null/undefined safe', () => {
   eq(pwdStrength(null).score, 0);
   eq(pwdStrength(undefined).label, 'Too short');
+});
+test('pwdProblem: 8 characters or more, else says so', () => {
+  eq(pwdProblem(''), 'Choose a password.');
+  eq(pwdProblem(null), 'Choose a password.');
+  eq(pwdProblem('abcdef'), 'Use at least 8 characters.', 'the old 6-character minimum no longer passes');
+  eq(pwdProblem('abcdefg'), 'Use at least 8 characters.');
+  eq(pwdProblem('abcdefgh'), '');
+  eq(pwdProblem('a much longer pass phrase'), '');
+});
+
+group('auth errors in words (sign-up and log-in)');
+test('an unconfirmed email is told apart by code or message', () => {
+  eq(authEmailUnconfirmed({ code: 'email_not_confirmed', message: 'Email not confirmed' }), true);
+  eq(authEmailUnconfirmed({ message: 'Email not confirmed' }), true, 'an older client with no code');
+  eq(authEmailUnconfirmed({ code: 'invalid_credentials', message: 'Invalid login credentials' }), false);
+  eq(authEmailUnconfirmed(null), false);
+  eq(authEmailUnconfirmed(undefined), false);
+});
+test('authErrorText says what happened and what to do', () => {
+  assert(/Confirm your email first/.test(authErrorText({ code: 'email_not_confirmed', message: 'Email not confirmed' })));
+  eq(authErrorText({ code: 'invalid_credentials', message: 'Invalid login credentials' }), 'That email and password don\'t match.');
+  eq(authErrorText({ message: 'Invalid login credentials' }), 'That email and password don\'t match.');
+  eq(authErrorText({ message: 'User already registered' }), 'That email already has an account. Log in instead.');
+  eq(authErrorText({ code: 'user_already_exists', message: 'x' }), 'That email already has an account. Log in instead.');
+  assert(/at least 8 characters/.test(authErrorText({ code: 'weak_password', message: 'Password should be at least 8 characters.' })));
+  assert(/Wait a minute/.test(authErrorText({ code: 'over_email_send_rate_limit', message: 'email rate limit exceeded' })));
+  assert(/not a bot/.test(authErrorText({ code: 'captcha_failed', message: 'captcha protection: request disallowed' })));
+  assert(/current password/.test(authErrorText({ code: 'same_password', message: 'New password should be different from the old password.' })));
+  eq(authErrorText({ message: 'Network down' }), 'Network down', 'anything else keeps its own words');
+  eq(authErrorText(null, 'Login failed'), 'Login failed');
+  eq(authErrorText({}), 'Something went wrong. Try again.');
 });
 
 group('IPF GL points');
