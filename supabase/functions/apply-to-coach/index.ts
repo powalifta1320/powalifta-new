@@ -8,7 +8,8 @@
 //         only on true, so the form never goes live before this function and the migration both do (review B1).
 //   { action: 'apply', coachId, name, email, trainingYears, squat, bench, deadlift, bodyweight (kg), nextMeet
 //     ('YYYY-MM-DD'), goals, note, company (a field people never see: a bot fills it) }
-//       → 200 { ok: true }: stored unconfirmed, and the applicant is emailed a link (48 hours). Nothing reaches the coach
+//       → 200 { ok: true }: stored unconfirmed, and the applicant is emailed a link (48 hours; the email repeats only
+//         the numbers, never their name, goals, note or a link of theirs: audit 16 Nov, M2). Nothing reaches the coach
 //         until it's opened, so nobody can apply as someone else (M2). The same answer for every case past the checks:
 //         a filled-in company field, or a 4th application from one email in a day, is dropped silently, so the answer
 //         never tells anyone what an email has done (m4).
@@ -71,12 +72,19 @@ const num = (v: unknown): number | null => {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // The applicant's email: open the link and the application goes to the coach.
-// It shows what would be sent (the name, the line, the note's start), so someone whose email a stranger used can tell
-// it isn't theirs and simply not open it.
+// Nobody has proved they own that address yet, so the email repeats none of the caller's own words (name, goals,
+// note) and carries no link but ours (security audit 16 Nov 2026, M2: they let anyone relay a sentence and a URL to
+// any inbox from noreply@powalifta.com). It shows only the numbers, formatted here (years, lifts, bodyweight, next
+// meet), so someone whose email a stranger used can still tell it isn't theirs and simply not open it.
+// Anything link-like that ever reaches `summary` is dropped here too.
+export function mailFacts(v: unknown): string {
+  return String(v == null ? '' : v).replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/https?:\/\/\S+/gi, '').replace(/www\.\S+/gi, '')
+    .replace(/\S*[a-z0-9-]\.[a-z]{2,}\S*/gi, '').replace(/\s{2,}/g, ' ').trim().slice(0, 200);
+}
 export function confirmEmail(o: { coach: string; link: string; summary?: string }): { subject: string; html: string; text: string } {
   const coach = mailName(o.coach, 'the coach');
   const subject = `Confirm your application to ${coach}`;
-  const what = String(o.summary || '').slice(0, 400);
+  const what = mailFacts(o.summary);
   const text = `You applied to train with ${coach} on POWALIFTA.${what ? '\n\nWhat you sent: ' + what : ''}
 
 Open this link to send it. ${coach} sees nothing until you do, and the link works for 48 hours:
@@ -189,9 +197,8 @@ async function apply(admin: any, req: Request, p: any): Promise<Response> {
   }
   const row = (Array.isArray(data) ? data[0] : data) || {};
   const link = `${SITE}/coach-profile.html?id=${encodeURIComponent(coachId)}#confirm=${token}`;
-  const note = String(p?.note || '').replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/\s+/g, ' ').trim();
-  const summary = [mailName(p?.name, ''), leadSummary({ training_years: num(p?.trainingYears), squat_kg: num(p?.squat), bench_kg: num(p?.bench), deadlift_kg: num(p?.deadlift), bodyweight_kg: num(p?.bodyweight), next_meet: meet }),
-    String(p?.goals || '').replace(/[\p{Cc}\p{Cf}]/gu, ' ').trim().slice(0, 120), note ? '\u201c' + note.slice(0, 140) + (note.length > 140 ? '\u2026' : '') + '\u201d' : ''].filter(Boolean).join(' \u00b7 ');
+  // Only the numbers, formatted here: never the caller's name, goals or note (M2, see confirmEmail).
+  const summary = leadSummary({ training_years: num(p?.trainingYears), squat_kg: num(p?.squat), bench_kg: num(p?.bench), deadlift_kg: num(p?.deadlift), bodyweight_kg: num(p?.bodyweight), next_meet: meet });
   const sent = await sendMail(email, confirmEmail({ coach: String(row.coach_name || ''), link, summary }));
   if (!sent) return json(502, { error: 'email_failed', message: 'We couldn’t send the email. Try again in a few minutes.' });
   return json(200, { ok: true });

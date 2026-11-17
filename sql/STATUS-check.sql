@@ -240,6 +240,10 @@ with checks(n, migration, applied) as (values
         and (select count(*) from pg_policies where schemaname = 'public' and tablename = 'feedback'
               and policyname in ('feedback_insert', 'feedback_select', 'feedback_update', 'feedback_delete')) = 4
         and coalesce(not has_table_privilege('anon', to_regclass('public.feedback'), 'insert'), false)
-        and coalesce(not has_table_privilege('anon', to_regclass('public.feedback'), 'select'), false))
+        and coalesce(not has_table_privilege('anon', to_regclass('public.feedback'), 'select'), false)),
+  (66, 'migration-avatars-limits-2026-11-17.sql  (the public avatars bucket takes only jpeg, png and webp pictures up to 2 MB; security audit 16 Nov, M5)',
+        exists (select 1 from storage.buckets where id = 'avatars' and file_size_limit = 2097152
+                 and allowed_mime_types @> array['image/jpeg', 'image/png', 'image/webp']
+                 and allowed_mime_types <@ array['image/jpeg', 'image/png', 'image/webp']))
 )
 select n, migration, applied from checks order by n;

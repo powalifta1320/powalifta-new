@@ -144,12 +144,25 @@ await t('apply: stored unconfirmed with the hash of a fresh token; the applicant
   ok(!SENT.some(m => m.to[0] === 'sam@coach.test') && !__PUSH.length, 'the coach hears nothing before the link is opened');
   eq(W.apps[0].p.p_bodyweight, 82.4); eq(W.apps[0].p.p_next_meet, '2026-12-12');
 });
-await t('the applicant\'s email shows what would be sent, so someone whose email was used can tell it isn\'t theirs', async () => {
+await t('the applicant\'s email shows only the numbers, never their own words (audit 16 Nov, M2)', async () => {
   world(); SENT.length = 0;
   await call(Object.assign({}, MIA, { note: 'Knee was cranky last year. <b>Fine now.</b>' }));
   const m = SENT[0];
-  ok(/What you sent: Mia Lane · 3 years training · 140 \/ 82\.5 \/ 170 kg · 82\.4 kg bodyweight · next meet 2026-12-12 · First meet in spring · “Knee was cranky last year\. <b>Fine now\.<\/b>”/.test(m.text), m.text.split('\n').slice(0, 4).join(' | '));
-  ok(/What you sent: Mia Lane/.test(m.html) && !/<b>Fine/.test(m.html) && /&lt;b&gt;Fine/.test(m.html), 'escaped in the HTML');
+  ok(/What you sent: 3 years training · 140 \/ 82\.5 \/ 170 kg · 82\.4 kg bodyweight · next meet 2026-12-12\n/.test(m.text), m.text.split('\n').slice(0, 4).join(' | '));
+  ok(/What you sent: 3 years training/.test(m.html), 'the numbers in the HTML');
+  ok(!/Mia|First meet|Knee|Fine now/.test(m.text + m.html), 'no name, goals or note');
+});
+await t('a stranger can\'t relay a sentence or a link through the applicant\'s email', async () => {
+  world(); SENT.length = 0;
+  await call(Object.assign({}, MIA, { name: 'Claim your prize http://evil.example/x', goals: 'Win money at https://evil.example now', note: 'Visit www.evil.example or evil.example today' }));
+  const m = SENT[0];
+  eq(SENT.length, 1);
+  ok(!/evil|prize|money|Visit/i.test(m.subject + m.text + m.html), m.text.split('\n').slice(0, 4).join(' | '));
+  const links = (m.html.match(/https?:\/\/[^\s"<]+/g) || []);
+  ok(links.length && links.every((u) => u.startsWith('https://www.powalifta.com/coach-profile.html?id=')), 'the only link is ours: ' + links.join(' '));
+  const { mailFacts } = await import('../supabase/functions/apply-to-coach/index.ts');
+  eq(mailFacts('3 years training · see evil.example and https://x.test/y www.z.example'), '3 years training · see and');
+  eq(mailFacts('82.4 kg bodyweight · next meet 2026-12-12'), '82.4 kg bodyweight · next meet 2026-12-12');
 });
 await t('two applications get two different tokens', async () => {
   world(); SENT.length = 0;
