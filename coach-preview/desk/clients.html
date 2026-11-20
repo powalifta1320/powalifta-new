@@ -237,7 +237,7 @@
 
   /* ---------------- the toolbar: To do · Everyone, Add a lifter…, the crimson ---------------- */
   DESK.mount({ place: 'clients', title: 'Clients',
-    mid: '<div class="seg" role="group" aria-label="Show" data-show-seg><button type="button" data-view="todo" aria-pressed="true">To do <span class="n" data-count="clientsToDo"></span></button><button type="button" data-view="everyone" aria-pressed="false">Everyone <span class="n" data-count="lifters"></span></button></div>',
+    mid: '<div class="seg" role="group" aria-label="Show" data-show-seg><button type="button" data-view="todo" aria-pressed="true">To do</button><button type="button" data-view="everyone" aria-pressed="false">Everyone</button></div>',
     trail: '<div class="cluster" role="group" aria-label="Clients actions"><button class="btn" type="button" data-add aria-haspopup="dialog">Add a lifter…</button>' +
       '<button class="btn" type="button" data-primary data-crimson aria-keyshortcuts="E"></button></div>' });
   DESK.keyMap([['J K', 'Next or previous decision'], ['E', 'Do what the red button says'], ['Enter', 'Open the ledger of the row in hand'], ['⌘↵', 'Send in a sheet'], ['Esc', 'Close the menu, the sheet, then the ledger']]);

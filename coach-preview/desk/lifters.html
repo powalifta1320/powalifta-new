@@ -197,7 +197,7 @@
   .tot { padding: var(--sp-6); }
   .hero-top { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: var(--sp-6); align-items: center; }
   .hero-k { margin: 0; font: 600 var(--fs-body)/var(--lh-body) var(--font); }
-  .hero-v { margin: var(--sp-2) 0 0; font: 800 var(--fs-hero)/var(--lh-hero) var(--font); font-stretch: 112%; letter-spacing: var(--ls-hero); font-variant-numeric: tabular-nums; }
+  .hero-v { margin: var(--sp-2) 0 0; font: 800 var(--fs-hero)/var(--lh-hero) var(--font); font-stretch: 112%; letter-spacing: var(--ls-hero); font-variant-numeric: tabular-nums; white-space: nowrap; }   /* the unit never drops under its number */
   .hero-v .unit { color: var(--ink-2); }
   .hero-c { margin: var(--sp-2) 0 0; font: 500 var(--fs-sub)/var(--lh-sub) var(--font); color: var(--ink-2); }
   .hero-c.up-t { color: var(--up); }
@@ -232,6 +232,7 @@
     .tile:first-child { border-radius: var(--r-card) 0 0 0; } .tile:nth-child(2) { border-radius: 0 var(--r-card) 0 0; }
     .tile:nth-child(3) { border-radius: 0 0 0 var(--r-card); } .tile:last-child { border-radius: 0 0 var(--r-card) 0; }
     .hero-top { grid-template-columns: 200px minmax(0, 1fr); }
+    .hero-v { font-size: 44px; }   /* a four-figure total and its unit fit the 200 px column */
   }
 
   /* 6. Messages */

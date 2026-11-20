@@ -544,8 +544,8 @@
     return '<div class="seg" role="group" aria-label="Show" data-list-tab><button type="button" data-list-tab="lifters" aria-pressed="' + (st.tab === 'lifters') + '">Lifters</button>' +
       '<button type="button" data-list-tab="templates" aria-pressed="' + (st.tab === 'templates') + '">Templates</button></div>';
   }
-  function searchHtml(ph, extra) {
-    return '<div class="ql-q"><label class="field">' + K.ic('find', 2) + '<input type="search" id="ql-q" placeholder="' + esc(ph) + '" aria-label="' + esc(ph) + '" value="' + esc(st.q) + '" autocomplete="off"></label>' + (extra || '') + '</div>';
+  function searchHtml(ph, extra, hint) {
+    return '<div class="ql-q"><label class="field">' + K.ic('find', 2) + '<input type="search" id="ql-q" placeholder="' + esc(hint || ph) + '" aria-label="' + esc(ph) + '" value="' + esc(st.q) + '" autocomplete="off"></label>' + (extra || '') + '</div>';
   }
   function paintQueue() {
     var q = queue(), rows = q.data, openId = cur && cur.id ? cur.id : null, openTeam = null;
@@ -583,7 +583,7 @@
     var none = !lifterCount();
     /* To do is the list's first group: its head is the list head (PX3), then the search and New block… */
     var head = DESK.listHead(null, { name: 'To do', count: st.ids ? T.length : q.meta.left, countKey: st.ids ? null : 'programsDue', action: segTabs() });
-    html += '<div class="ql-g" data-group="todo">' + head + (none ? '' : searchHtml('Find a lifter', '<button class="btn quiet sm ql-new" type="button" data-new-block aria-haspopup="dialog">New block…</button>')) +
+    html += '<div class="ql-g" data-group="todo">' + head + (none ? '' : searchHtml('Find a lifter', '<button class="btn quiet sm ql-new" type="button" data-new-block aria-haspopup="dialog">New block…</button>', 'Search')) +
       (st.ids ? '<p class="ql-pick">' + esc(plural(st.ids.length, 'lifter') + ' from Lifters') + '<button class="link" type="button" data-ids-clear>Show everyone</button></p>' : '') +
       '<div data-list role="listbox" aria-label="To do">' + T.map(function (r) { var id = r.lifterId || 'team:' + r.teamId; return rowHtml(r, id === openId || (openTeam && id === openTeam)); }).join('') + '</div>' +
       (!T.length && !st.q && !none ? '<p class="ql-empty">Nothing to write or send.</p>' : '') + '</div>';
