@@ -216,7 +216,7 @@ window.DEMO = {"made":"2026-11-10T07:20","today":"2026-11-10","unit":"kg","coach
     ['racks', 'Rack heights', '', 'The squat and bench rack settings, handed in at the weigh-in.'],
     ['intake', 'Intake', '', 'Their answers when they join: best lifts, days, injuries, goals, next meet.'],
     ['topshare', 'Top set share', '', 'The heaviest top set as a share of the training max.'],
-    ['total4wk', 'Total, 4 wk', '', 'How much their total e1RM moved in the last 4 weeks.'],
+    ['total4wk', 'Total, 4 weeks', '', 'How much their total e1RM moved in the last 4 weeks.'],
     ['lastheavy', 'Last heavy singles', '', 'The last heavy work before a meet, 6 to 14 days out.'],
     ['openerpractice', 'Opener practice', '', 'Their opener, lifted a few days before the meet.'],
     ['effort', 'Felt as written', 'effort', 'Sets where the lifter’s RPE matched what you wrote.'],

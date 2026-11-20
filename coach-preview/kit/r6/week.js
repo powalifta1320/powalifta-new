@@ -752,7 +752,7 @@
       var bad = f && typeof b.badField === 'function' ? b.badField(r, m.c, f) : null;
       if (bad != null) { var ck = checksOf(m.c).filter(function (k) { return k.r === r && k.kind === 'unread' && (k.field === f || !k.field); })[0]; return { addr: addr, say: ck ? ck.words : 'Could not read \u201c' + bad + '\u201d.', acts: ['Clear'], warn: true }; }
       if (col === 'last') { var ls = lastSay(m, r); return { addr: addr, say: ls.say, acts: ls.acts }; }
-      if (b.isRO(r, m.c)) return { addr: addr, say: 'Lifted. Change a week still to come.', acts: [] };
+      if (b.isRO(r, m.c)) return { addr: addr, say: 'Already lifted. Only weeks still to come can change.', acts: [] };
       var chk = checksOf(m.c).filter(function (k) { return k.r === r; });
       /* one check at a time, "1 of 2: …" (first-time-coach §7.3); its place among the checks of its kind (BLOCK.CHECK_GROUP) */
       var nth = function (k) { return k && k.of > 1 ? k.i + ' of ' + k.of + ': ' : ''; };
@@ -863,7 +863,7 @@
       if (!editable(h.key, h.col)) {
         if (h.col === 'last') return lastAct();
         var r = rowAt(h.key);
-        st.msg = { key: h.key, col: h.col, say: mode === 'team' && h.col === 'load' ? 'Each lifter\u2019s own load, from their max.' : 'Lifted. Change a week still to come.' };
+        st.msg = { key: h.key, col: h.col, say: mode === 'team' && h.col === 'load' ? 'Each lifter\u2019s own load, from their max.' : 'Already lifted. Only weeks still to come can change.' };
         paintStatus(); return false;
       }
       var cell = cellEl(h.key, h.col); if (!cell) return false;
@@ -1056,7 +1056,7 @@
     function clearSel() {
       var R = rect(); if (!R) return;
       var c = st.c, cells = cellsOf(R).filter(function (x) { return x.col !== 'last' && editable(x.key, x.col); });
-      if (!cells.length) { st.msg = st.hand ? { key: st.hand.key, col: st.hand.col, say: 'Lifted. Change a week still to come.' } : null; paintStatus(); return; }
+      if (!cells.length) { st.msg = st.hand ? { key: st.hand.key, col: st.hand.col, say: 'Already lifted. Only weeks still to come can change.' } : null; paintStatus(); return; }
       var res = write(function (bb) {
         return batch(bb, 'Clear ' + plural(cells.length, 'cell'), function () {
           cells.forEach(function (x) {

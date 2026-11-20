@@ -1079,7 +1079,7 @@
     if (pr) { say = pr; q = null; }
     else if (q && /^(words|busy)-/.test(it.id)) { say = '“' + q.text + '”'; who = l.first + ', ' + (/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/.test(q.when || '') ? q.when : low1(q.when || '')); }
     else if (pain && pain.reports && pain.reports.length) { var pr0 = pain.reports[0]; say = pr0.part + ' ' + nf(pr0.sev) + '/10 on ' + low1(pr0.lift || 'training') + (pain.reports.length > 1 ? ', ' + (pain.reports.length === 2 ? 'twice' : pain.reports.length + ' times') + ' in 7 days.' : '.'); }
-    else if (/^pain-/.test(it.id)) say = (it.reason || 'Pain') + '. Where and how bad: not said yet.';
+    else if (/^pain-/.test(it.id)) say = (it.reason || 'Pain') + '. They haven\u2019t said where or how bad yet.';
     else if (/^over-/.test(it.id)) say = it.meaning || it.title;
     else say = it.title;
     var acts = [], main = mainAct(it), lifter = l.first;

@@ -553,7 +553,7 @@
        crimson does that on an empty desk); "Total, 4 wk" names the row numbers, right over them (P12) */
     var add = noone ? '' : '<button class="btn quiet sm" type="button" data-add aria-haspopup="dialog" aria-label="Add a lifter…" title="Add a lifter…"><span class="t" aria-hidden="true">Add a lifter…</span><span class="ic" aria-hidden="true">' + ic('adduser', 1.9) + '</span></button>';
     var nums = (dat(PL.lifters.list({})) || []).some(function (x) { return x.number && x.number.text; });
-    var cap = S.f === 'since' || S.f === 'changed' || !nums ? '' : '<span class="lh-k" data-term="total4wk">Total, 4 wk</span>';
+    var cap = S.f === 'since' || S.f === 'changed' || !nums ? '' : '<span class="lh-k" data-term="total4wk">Total, 4 weeks</span>';
     var head = DESK.listHead(null, { name: viewLabel(S.f), count: cnt, action: add + cap }).replace(/^<([a-z0-9]+) class="lh"/, viewLabel(S.f).length > 10 ? '<$1 class="lh is-long"' : '<$1 class="lh"')
       .replace(/<h2>[\s\S]*?<\/h2>/, '<h2><button class="ll-v" type="button" data-view-btn aria-haspopup="menu" aria-expanded="false" title="Views: ' + esc(viewLabel(S.f)) + '"><span class="vt" data-ellipsis title="' + esc(viewLabel(S.f)) + '">' + esc(viewLabel(S.f)) + '</span> <span class="n" data-count-list>' + cnt + '</span></button></h2>') +
       '<div class="ll-h"><label class="field">' + ic('find', 2) + '<input type="search" data-search placeholder="Search lifters" aria-label="Search lifters" autocomplete="off" spellcheck="false" value="' + esc(S.qRaw != null ? S.qRaw : S.q) + '"></label>' +

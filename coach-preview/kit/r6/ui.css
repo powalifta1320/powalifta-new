@@ -174,7 +174,9 @@ body.is-fixed .tb { pointer-events: auto; }
 /* the page: content starts 32 px right of the sidebar and 12 px under the toolbar band; one flat floor */
 .page { position: relative; z-index: var(--z-content); min-width: 0; padding: calc(var(--edge-h) + var(--sp-3)) var(--gutter) var(--sp-10) var(--col-l); }
 .lt { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-6); margin: 0 var(--sp-1) var(--sp-6); }
-.lt h1 { margin: 0; font: 700 var(--fs-large)/var(--lh-large) var(--font); letter-spacing: var(--ls-large); text-wrap: balance; }
+.lt h1 { margin: 0; font: 800 var(--fs-large)/var(--lh-large) var(--font); font-stretch: var(--display-stretch, 125%); letter-spacing: var(--ls-large); text-wrap: balance; }
+/* a page's own title, wherever a page draws it (Meets, Settings): the same display cut. A lifter's or a team's name is not a page title and keeps the body cut. */
+:root h1.pt { font-weight: 800; font-stretch: var(--display-stretch, 125%); }   /* :root, so a page's own h1 rule does not undo it */
 .lt .facts { margin: var(--sp-2) 0 0; font: 400 var(--fs-body)/var(--lh-body) var(--font); color: var(--ink-2); }
 .lt .facts b { color: var(--ink); font-weight: 600; }
 
@@ -209,13 +211,16 @@ body.is-fixed .tb { pointer-events: auto; }
 .btn.lg { --h: var(--ctl-l); padding: 0 var(--sp-5); font-size: var(--fs-body); }
 .btn.icon { width: var(--h); padding: 0; }
 .btn.quiet { background: transparent; box-shadow: none; }
+.btn.quiet:not(.icon) { text-decoration: underline; text-decoration-color: var(--ink-4); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .btn.icon::after { content: ''; position: absolute; inset: calc((40px - var(--h)) / -2); }   /* ≥ 40 px to hit, 36 px to see */
 /* every button reaches 40 px to hit (a 32 px small one too); a big one is its own size */
 .btn:not(.icon)::after { content: ''; position: absolute; inset: min(0px, calc((40px - var(--h)) / -2)) 0; }
 .btn[data-primary] { background: var(--crimson); color: var(--on-crimson); box-shadow: var(--crimson-lit); }
 [data-under] .btn[data-primary] { background: var(--btn-2); color: var(--ink); box-shadow: var(--btn-2-edge); }
 .btn:active:not(:disabled) { transform: scale(var(--press)); }
-.btn:disabled, .btn[aria-disabled='true'] { opacity: .45; cursor: default; }
+/* off is said three ways: a flat fill, quiet ink and the arrow cursor (never by fading alone) */
+.btn:disabled, .btn[aria-disabled='true'] { background: var(--fill); box-shadow: none; color: var(--ink-4); cursor: default; text-decoration: none; }
+.btn[data-primary]:disabled, .btn[data-primary][aria-disabled='true'] { background: var(--fill); color: var(--ink-4); box-shadow: none; }
 .btn.is-busy { pointer-events: none; opacity: .7; }
 @media (hover: hover) and (pointer: fine) {
   .btn:hover:not(:disabled) { background-color: var(--btn-2-hover); }
@@ -223,9 +228,15 @@ body.is-fixed .tb { pointer-events: auto; }
   .btn[data-primary]:hover:not(:disabled) { filter: var(--crimson-hover); }
   [data-under] .btn[data-primary]:hover { filter: none; background-color: var(--btn-2-hover); }
 }
-.link { display: inline-flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) 0; border: 0; background: none; color: var(--ink); font: 600 var(--fs-label)/1.2 var(--font); text-decoration: none; cursor: pointer; }
+/* an action in words is underlined at rest (20 Nov): it was drawn exactly like a bold name or a figure, and only showed
+   itself under the pointer. Still words, never a column of pills. */
+.link { display: inline-flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) 0; border: 0; background: none; color: var(--ink); font: 600 var(--fs-label)/1.2 var(--font); text-decoration: underline; text-decoration-color: var(--ink-4); text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; }
 .link svg { width: 16px; height: 16px; color: var(--ink-3); }
-@media (hover: hover) and (pointer: fine) { .link:hover { text-decoration: underline; text-underline-offset: 3px; } }
+@media (hover: hover) and (pointer: fine) { .link:hover { text-decoration-color: currentColor; } }
+/* a label wrapped in its own span is a flex item, which an underline on the button does not reach: the span draws it */
+.lrow .fix > span, .btn.quiet:not(.icon) > span, .link > span { text-decoration: underline; text-decoration-color: var(--ink-4); text-decoration-thickness: 1px; text-underline-offset: 3px; line-height: 1.5; }   /* the taller line keeps the underline inside a label that clips its overflow */
+.lrow.is-sel .fix > span, .lrow:focus-within .fix > span, .btn:disabled > span, .btn[aria-disabled='true'] > span { text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { .lrow:hover .fix > span { text-decoration: none; } }
 
 /* the segmented Picker: a capsule track and a thumb that moves to the choice (160 ms, ease-out) */
 .seg { position: relative; display: inline-flex; align-items: center; padding: 3px; border-radius: var(--r-pill); background: var(--fill); isolation: isolate; max-width: 100%; }
@@ -304,7 +315,8 @@ textarea.input { height: auto; min-height: 76px; max-height: 40vh; padding: var(
 .lrow .who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .lrow .nm { color: var(--ink); font: 600 var(--fs-body)/var(--lh-sub) var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lrow .why { display: block; min-width: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
-.lrow .why .t { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* a reason runs to two lines before it is cut (at 1180 "Pain on today's ..." lost its last word on one line) */
+.lrow .why .t { min-width: 0; overflow: hidden; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
 /* flat rows start under their heading (function-polish PX2): no inset at rest, the hover fill reaches 12 px out on both
    sides; the hairlines between them run the whole width */
 .flat .lrow { padding-inline: 0; }
@@ -320,9 +332,9 @@ textarea.input { height: auto; min-height: 76px; max-height: 40vh; padding: var(
 .lrow .act { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }
 /* a row's fix is the quiet text kind (ink, 600, no fill), so a list reads as words, not a column of pills. It fills as the
    filled secondary only on the row in hand (the inspector's row, the walk's step) and under the pointer or the keys. */
-.lrow .fix { background: transparent; box-shadow: none; }
-.lrow.is-sel .fix, .lrow:focus-within .fix { background: var(--btn-2); box-shadow: var(--btn-2-edge); }
-@media (hover: hover) and (pointer: fine) { .lrow:hover .fix { background: var(--btn-2); box-shadow: var(--btn-2-edge); } .lrow .fix:hover:not(:disabled) { background-color: var(--btn-2-hover); } }
+.lrow .fix { background: transparent; box-shadow: none; text-decoration: underline; text-decoration-color: var(--ink-4); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.lrow.is-sel .fix, .lrow:focus-within .fix { background: var(--btn-2); box-shadow: var(--btn-2-edge); text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { .lrow:hover .fix { background: var(--btn-2); box-shadow: var(--btn-2-edge); text-decoration: none; } .lrow .fix:hover:not(:disabled) { background-color: var(--btn-2-hover); } }
 /* a row that slid under a pointer that has not moved (a move redrew the list) is not under the coach's hand: it stays
    unlit, its fix quiet, until the pointer moves. desk.js marks the redrawn [data-list] or [data-table] .is-still and
    clears it on the next pointer move, so a picture after a move never shows a second row lit as if selected. */
@@ -369,7 +381,7 @@ textarea.input { height: auto; min-height: 76px; max-height: 40vh; padding: var(
 .ch-h { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
 .ch-h b { font: 600 var(--fs-sub)/var(--lh-tight) var(--font); white-space: nowrap; }
 .ch-h span { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); white-space: nowrap; }
-.ch-v { font: 800 var(--fs-num)/var(--lh-num) var(--font); letter-spacing: var(--ls-num); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); white-space: nowrap; }
+.ch-v { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-2); font: 800 var(--fs-num)/var(--lh-num) var(--font); letter-spacing: var(--ls-num); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); white-space: nowrap; }   /* the unit drops under its number on a narrow laptop instead of running out of the tile */
 .ch-v.words { font-stretch: 100%; }
 .ch-f { min-height: 2.6em; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
 

@@ -129,7 +129,9 @@
   function sidebarHtml() {
     var c = counts();
     var due = Object.prototype.hasOwnProperty.call(c, 'programsDue');
-    var key = { overview: null, lifters: 'lifters', programs: due ? 'programsDue' : 'programsToWrite', teams: 'teams', meets: 'meetsSoon', messages: 'waitingThreads', clients: 'clientsToDo' };
+    /* a number in the sidebar is work waiting (weeks to send, replies, client tasks, meets coming), never a head count:
+       "Lifters 20" and "Teams 1" sat beside "Messages 6" as if 20 lifters were waiting (20 Nov) */
+    var key = { overview: null, lifters: null, programs: due ? 'programsDue' : 'programsToWrite', teams: null, meets: 'meetsSoon', messages: 'waitingThreads', clients: 'clientsToDo' };
     /* every badge says what it counts (a total, or what waits on the coach) */
     var what = { overview: '', lifters: 'lifters', programs: due ? 'weeks and changes to send' : 'programs to write', teams: 'teams', meets: 'meets in the next 8 weeks', messages: 'lifters waiting for a reply', clients: 'client tasks to do' };
     var it = function (p) {

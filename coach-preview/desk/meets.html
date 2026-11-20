@@ -532,8 +532,8 @@
   function overviewHtml() {
     var c = counts(), tm = todayMeet(), h = '';
     /* first-time-coach §6: nothing booked is one line, and the crimson is the way to start */
-    if (!meets().length) return '<div class="hd"><div><h1 tabindex="-1">Meets</h1></div></div><p class="line">No meets booked.</p>';
-    h += '<div class="hd"><div><h1 tabindex="-1">Meets</h1><p class="facts">' + esc(K.wd(K.today) + ' ' + K.dm(K.today)) + ' · <span data-count="meetsSoon">' + (c.meetsSoon || 0) + '</span> meets in 8 weeks</p></div></div>';
+    if (!meets().length) return '<div class="hd"><div><h1 class="pt" tabindex="-1">Meets</h1></div></div><p class="line">No meets booked.</p>';
+    h += '<div class="hd"><div><h1 class="pt" tabindex="-1">Meets</h1><p class="facts">' + esc(K.wd(K.today) + ' ' + K.dm(K.today)) + ' · <span data-count="meetsSoon">' + (c.meetsSoon || 0) + '</span> meets in 8 weeks</p></div></div>';
     if (tm) {
       var g = meetGet(tm.id), b = boardOf(tm.id), st = b && b.stages ? b.stages : [], sq = st.filter(function (s) { return s.id === 'squat'; })[0], w8 = st.filter(function (s) { return s.id === 'weigh'; })[0];
       var wi = g && g.lifters && g.lifters[0] && g.lifters[0].weighIn === '24h' ? '24-hour weigh-in' : '2-hour weigh-in';
@@ -733,7 +733,7 @@
   }
   function prepHtml() {
     var id = prepLifter(), m = meetRow(S.id), l = L(id), h = '';
-    if (!id || !l) return '<div class="hd"><div><h1 tabindex="-1">' + esc(m ? m.name : 'Meets') + '</h1><p class="facts">No lifter is booked in.</p></div></div>';
+    if (!id || !l) return '<div class="hd"><div><h1 tabindex="-1"' + (m ? '' : ' class="pt"') + '>' + esc(m ? m.name : 'Meets') + '</h1><p class="facts">No lifter is booked in.</p></div></div>';
     var several = m && m.lifterIds && m.lifterIds.length > 1 && m.days > 0;
     var lm = lifterMeet(id), pl = isNext(id, S.id) ? planOf(id) : null;
     var tabs = several ? '<div class="tabs lt-tabs" role="tablist" aria-label="Lifters at ' + esc(m.name) + '">' + m.lifterIds.map(function (x) { return '<button type="button" role="tab" data-lt="' + esc(x) + '" aria-selected="' + (x === id) + '">' + esc(L(x).name) + '</button>'; }).join('') + '</div>' : '';

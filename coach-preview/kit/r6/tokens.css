@@ -68,8 +68,8 @@
   --light-blend: screen;   /* light adds to the dark (ui.css body::before) */
   --a-pill: .16;       /* the current place in the sidebar */
   --a-sel: .12;        /* a chosen row, a range of cells */
-  --a-sheen: .06;      /* a chart card's top 132 px */
-  --a-rim: .30;        /* a chart card's lit top edge */
+  --a-sheen: 0;        /* a chart card's top 132 px: off (20 Nov). The page is already lit from above in the place's colour; a second sheen and a coloured rim on the card read as glow */
+  --a-rim: 0;          /* a chart card's lit top edge: off, as the light theme already has it */
 
   --focus: rgb(243 243 245 / .55);
   --scrim: rgb(0 0 0 / .45);
@@ -94,6 +94,7 @@
   --fs-unit: 0.5em;
   --lh-tight: 1.2; --lh-none: 1;
   --num-stretch: 112%;
+  --display-stretch: 125%;   /* the page title, the brand's display cut: Archivo wide and heavy, one per screen */
 
   /* ---- shape: one scale. Cards 20, floating layers 16, rows 12, fields 10, marks 3, buttons and chips a pill ---- */
   --r-card: 20px; --r-pop: 16px; --r-row: 12px; --r-field: 10px; --r-mark: 3px; --r-pill: 999px;

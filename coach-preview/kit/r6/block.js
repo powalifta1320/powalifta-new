@@ -2363,7 +2363,7 @@
     var row = this.rows[r], w = this.weeks[c]; if (!row || !w) return { text: '', acts: [] };
     var x = row.cells[w.uid], y = w.why && w.why[row.key], L = this.load(r, c), lf = liftWord(row.lift), l = lifterOf(this);
     if (!x) return { text: this.isRO(r, c) ? 'Nothing was written here.' : 'Empty. Type the sets, reps and RPE or %.', acts: [] };
-    if (x.lifted) return { text: 'Lifted. Change a week still to come.', acts: [] };
+    if (x.lifted) return { text: 'Already lifted. Only weeks still to come can change.', acts: [] };
     var kg = L.kg != null ? nf(L.kg) : null;
     if (y && y.kind === 'held') return { text: (kg || '') + ', held: ' + y.why + '.' + (y.add ? ' Your rule would add ' + nf(y.add) + '.' : ''), acts: (y.acts || []).concat(y.add ? ['Add the ' + nf(y.add)] : []) };
     if (y && y.kind === 'swap-held') return { text: y.text, acts: y.acts || [] };

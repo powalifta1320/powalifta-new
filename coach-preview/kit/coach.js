@@ -137,7 +137,7 @@
       add({ id: 'pain-' + l.id, ids: [l.id], group: 'hurt', tone: 't-pain', kicker: 'Pain', at: ord('pain', l), later: later('pain', l),
         reason: 'Pain on today’s check-in', context: onDay ? l.meet.name + ' today' : 'No place yet',
         title: 'Pain on today’s check-in' + (onDay ? ', meet today' : ''),
-        meaning: 'No place or score yet.' + (top ? ' ' + (/opener/i.test(sq.name) ? 'Openers' : sq.name) + ' on ' + K.wd(day10(sq.date)) + ': ' + n(top.set.w) + ' × ' + top.set.r + ' @' + n(top.set.felt != null ? top.set.felt : top.set.rpe) + '.' : ''),
+        meaning: 'They haven\u2019t said where it hurts yet.' + (top ? ' ' + (/opener/i.test(sq.name) ? 'Openers' : sq.name) + ' on ' + K.wd(day10(sq.date)) + ': ' + n(top.set.w) + ' × ' + top.set.r + ' @' + n(top.set.felt != null ? top.set.felt : top.set.rpe) + '.' : ''),
         rec: onDay ? 'Safe openers until you know where it hurts.' : 'Ask where and how bad before the next session.',
         ev: [{ t: 'check', l: l }, top ? { t: 'sets', l: l, day: sq, title: sq.name + ', ' + K.when(sq.date, { bare: true }) } : null],
         acts: (onDay ? [{ id: 'safe', kind: 'primary', label: 'Use Safe openers, ask ' + l.first, button: 'Use these and ask ' + l.first, silent: 'Use these openers', done: 'Safe openers, asked ' + l.first,
@@ -220,7 +220,7 @@
     var nextN = l.review ? l.review.next + 1 : l.program.weekIdx + 2, nw = l.program.weeks[nextN - 1], nd = nw ? nw.days.filter(function (d) { return d.name === row.day; })[0] : null, rk = nd ? rowKey(nd, row.lift) : null;
     var ask = 'That ' + lw + ' looked heavier than it should. How are you sleeping?';
     add({ id: 'over-' + l.id, ids: [l.id], group: 'train', tone: 't-warn', kicker: 'Harder than written', at: ord('overshoot', l), later: later('overshoot', l),
-      reason: row.title + ' felt ' + n(row.logged.rpe) + ', not ' + n(rpe), context: hr ? 'RHR up ' + hr[1] : K.When(day10(day.date)),
+      reason: row.title + ' felt ' + n(row.logged.rpe) + ', not ' + n(rpe), context: hr ? 'Resting heart rate up ' + hr[1] : K.When(day10(day.date)),
       title: row.title + ' felt ' + n(row.logged.rpe) + ', you wrote ' + n(rpe),
       meaning: n(row.logged.w) + ' × ' + row.logged.r + ' on ' + K.wd(day10(day.date)) + '.' + (hr ? ' Resting heart rate up ' + hr[1] + ' bpm for ' + hr[2] + ' days.' : ''),
       rec: 'Next week ' + n(use) + ' × ' + r + ' @' + n(rpe) + ', not ' + n(keepKg) + '.',
@@ -404,7 +404,7 @@
     o = o || {}; var k = l.intake || {}, inj = k.injuries && k.injuries.parts && k.injuries.parts.length ? k.injuries : null, send = o.stage === 'send';
     var inOn = k.at ? day10(k.at) : null, wn = o.weeks || 4, sat = K.add(K.today, ((6 - K.d(K.today).getDay() + 7) % 7) || 7);
     var weeksTo = wn > 1 ? 'weeks 1 to ' + wn : 'week 1';
-    var context = send ? (o.startsOn ? 'Starts ' + dmy(o.startsOn) : 'Not sent yet') : k.by === 'coach' ? 'Added by you' : inOn ? 'Intake in ' + (inOn === K.today ? 'today' : K.wd3(inOn)) : 'Intake in';
+    var context = send ? (o.startsOn ? 'Starts ' + dmy(o.startsOn) : 'Not sent yet') : k.by === 'coach' ? 'Added by you' : inOn ? 'Intake came ' + (inOn === K.today ? 'today' : K.wd3(inOn)) : 'Intake in';
     var facts = (k.daysPerWeek ? k.daysPerWeek + ' days a week' : '') + (k.sessionMinutes ? ', ' + k.sessionMinutes + ' minutes' : '');
     var said = k.by === 'coach' ? 'Typed by you' : inOn ? 'Answered ' + (inOn === K.today ? 'today' : dmy(inOn)) : 'From the intake';
     return { id: 'first-' + l.id, ids: [l.id], group: 'write', tone: 't-write', kicker: send ? 'Not sent' : 'No block yet', person: l.name,
@@ -491,7 +491,7 @@
       var capWords = capOrder.map(function (c) { return c.lift + (lt[c.lift] ? ' ' + n(lt[c.lift]) : ''); });
       var dlCap = caps.filter(function (c) { return c.lift === 'deadlift' && c.date && c.date >= K.today; })[0];
       add({ id: 'low-' + l.id, ids: [l.id], group: 'quiet', tone: 't-warn', kicker: 'Run down', at: ord('checkin', l), later: later('checkin', l),
-        reason: 'Slept ' + (sl ? n(sl.num) : '5') + ' h', context: hr ? 'RHR up ' + hr[1] : '',
+        reason: 'Slept ' + (sl ? n(sl.num) : '5') + ' h', context: hr ? 'Resting heart rate up ' + hr[1] : '',
         title: 'Slept ' + (sl ? n(sl.num) : '5') + ' h, ' + (missed ? 'missed yesterday’s session' : 'no session since ' + (l.lastDate ? K.wd3(l.lastDate) : 'last week')),
         meaning: (hr ? 'Resting heart rate up ' + hr[1] + ' bpm for ' + hr[2] + ' days. ' : '') + (l.week ? l.week.done + ' of ' + l.week.planned + ' this week.' : ''),
         rec: 'Take the edge off this week: top sets at RPE 7.',
@@ -504,7 +504,7 @@
     if (jq) {
       var T0 = D.team, onTeam = !!(T0 && l.program && T0.members.some(function (m) { return m.id === l.id; })), nowW = onTeam ? Math.max(0, Math.min(T0.weeks.length - 1, Math.floor(-K.daysTo(T0.startsOn) / 7))) : null, hw = onTeam && nowW + 2 <= T0.weeks.length ? nowW + 2 : null;
       add({ id: 'quiet-' + l.id, ids: [l.id], group: 'quiet', tone: 't-quiet', kicker: 'Gone quiet', at: ord('quiet', l), later: later('quiet', l),
-        reason: K.plural(l.ago, 'day') + ' since a session', context: 'Since ' + K.dm(l.lastDate),
+        reason: K.plural(l.ago, 'day') + ' since a session', context: 'Last session ' + K.dm(l.lastDate),
         title: 'No session in ' + K.plural(l.ago, 'day'),
         meaning: 'No session or message since ' + K.dm(l.lastDate) + '.',
         rec: 'Check in before you write anything new.',
