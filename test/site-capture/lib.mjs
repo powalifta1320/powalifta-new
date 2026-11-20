@@ -6,6 +6,8 @@
 //   CHROME_PATH a Chromium for playwright-core (optional)
 //   THEME       the desk's theme for the laptop pictures: dark (the homepage is all dark, 30 Oct) or light
 // Nothing reaches the live services: Supabase and Plausible are refused in every context.
+// The coach's side of the homepage is the NEW coach website since 20 Nov (kitCtx / kitPage at the end of this file, cap-desk2.mjs,
+// cap-week2.mjs, cap-clients2.mjs); the lifter's phone pictures still come from athlete.html's demo on the fixed day below.
 import fs from 'node:fs';
 import path from 'node:path';
 let chromium;
@@ -33,7 +35,9 @@ export async function phoneCtx(browser, { theme = 'dark', dpr = 3, w = 393, h = 
   } catch (e) {} }, theme);
   await ctx.addInitScript(() => { window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {}, isPluginAvailable: () => false }; });
   await ctx.addInitScript(() => { document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.textContent = '.demo-banner,.pn-host{display:none!important}'; document.head.appendChild(s); }); });
-  await ctx.clock.setFixedTime(new Date('2026-10-28T10:30:00Z'));
+  // DAY: another fixed day for the phone (the hero's phone is taken on the new coach site's own day, Tue 10 Nov 2026,
+  // so the phone and the laptop beside it show one date).
+  await ctx.clock.setFixedTime(new Date(process.env.DAY || '2026-10-28T10:30:00Z'));
   return ctx;
 }
 export async function safeAreas(ctx, page) {
@@ -86,3 +90,32 @@ export function mute(page, redRe, quietRe) {
 }
 // The coach's note on Arjun's Train screen, the one the thread and the desk quote.
 export const NOTE = 'Top set today is 182.5 for 5 at 8. Film it and send it over, I want eyes on your brace out of the hole.';
+
+// ---- The NEW coach website (coach-preview/desk/*.html on coach-preview/kit/, 20 Nov): what the homepage's "Try the demo:
+// Coach" opens. Its demo is kit/data.js with its own day (Tue 10 Nov 2026) and its own clock (PL.now), so no clock is fixed
+// here; its theme is dark unless the URL says ?theme=light (THEME=light takes the light pictures that way). Captured as it
+// is: nothing under coach-preview/ is edited, and the only capture-time changes are made through the page's own store or
+// URL (each one checked in the capture that makes it) plus mute() below for a second crimson.
+export async function kitCtx(browser, { dpr = 2, w = 1440, h = 900, theme = THEME } = {}) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: dpr, colorScheme: theme, serviceWorkers: 'block' });
+  await guard(ctx);
+  await ctx.addInitScript(() => { document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.textContent = '::-webkit-scrollbar{display:none} *{scrollbar-width:none}'; document.head.appendChild(s); }); });
+  return ctx;
+}
+// Opens one of the new site's pages (name: overview, lifters, programs, clients; hash: its own route) and waits for its
+// fonts and first paint. Page errors are collected into errs.
+export async function kitPage(ctx, name, hash = '', { theme = THEME, errs = [] } = {}) {
+  const p = await ctx.newPage();
+  p.on('pageerror', (e) => errs.push(e.message.slice(0, 160)));
+  await p.goto(BASE + 'coach-preview/desk/' + name + '.html' + (theme === 'light' ? '?theme=light' : '') + (hash ? '#' + hash : ''), { waitUntil: 'load' });
+  await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(1500);
+  const t = await p.evaluate(() => document.documentElement.getAttribute('data-theme'));
+  if (t !== theme) throw new Error('site-capture: the new coach site opened ' + t + ', asked for ' + theme);
+  await p.mouse.move(1436, 896); await p.waitForTimeout(200);
+  return p;
+}
+// A rectangle in desk px, to one decimal.
+export const rectOf = (page, sel, re) => page.evaluate(({ sel, src }) => {
+  const e = [...document.querySelectorAll(sel)].filter((x) => x.offsetParent).find((x) => !src || new RegExp(src).test(x.textContent.replace(/\s+/g, ' ').trim()));
+  if (!e) return null; const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map((v) => Math.round(v * 10) / 10);
+}, { sel, src: re ? re.source : '' });

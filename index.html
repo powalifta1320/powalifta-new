@@ -63,7 +63,7 @@
   var light = !!(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches), img = light ? '/site-img/home-light/' : '/site-img/home/';
   var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', light ? '#f4f4f6' : '#0b0b0c');
   document.write('<link rel="preload" href="/fonts/archivo-tw.woff2" as="font" type="font/woff2" crossorigin>' +
-    '<link rel="preload" as="image" type="image/avif" imagesrcset="' + img + 'desk-before-960.avif 960w, ' + img + 'desk-before-1440.avif 1440w, ' + img + 'desk-before-1920.avif 1920w" imagesizes="(min-width: 1100px) 49vw, 92vw" media="(min-width: 760px)" fetchpriority="high">' +
+    '<link rel="preload" as="image" type="image/avif" imagesrcset="' + img + 'desk2-before-960.avif 960w, ' + img + 'desk2-before-1440.avif 1440w, ' + img + 'desk2-before-1920.avif 1920w" imagesizes="(min-width: 1100px) 49vw, 92vw" media="(min-width: 760px)" fetchpriority="high">' +
     '<link rel="preload" as="image" type="image/avif" imagesrcset="' + img + 'lifter-train-590.avif 590w, ' + img + 'lifter-train-786.avif 786w, ' + img + 'lifter-train-1179.avif 1179w" imagesizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" fetchpriority="high">' +
     '<link rel="stylesheet" href="/site.css"><link rel="stylesheet" href="/home.css">' +
     '<script defer src="/home.js"><\/script>');
@@ -129,7 +129,7 @@
       "installUrl": "https://apps.apple.com/app/powalifta/id6788506689",
       "image": "https://www.powalifta.com/og-home.jpg",
       "screenshot": [
-        "https://www.powalifta.com/site-img/home/desk-before-1920.webp",
+        "https://www.powalifta.com/site-img/home/desk2-before-1920.webp",
         "https://www.powalifta.com/site-img/home/lifter-train-1179.webp",
         "https://www.powalifta.com/site-img/home/thread2-1179.webp"
       ],
@@ -280,9 +280,10 @@
 
 <!-- =====================================================================================================
      ACT ONE. What it is and who it is for, both real sides of the app in the first frame. Then one set, in place:
-     Arjun logs his top set on his phone and the app works out his max beside it; the set flies to Arjun's page on
-     Sam's laptop (the window zooms from Sam's whole screen to Arjun's page as it rises); then the same screen's list,
-     the lifters who need Sam first, each with the fix. No held screens: every part is in the page's flow, and
+     Arjun logs his top set on his phone and the app works out his max beside it; the set flies to Sam's laptop, into
+     his list of who trained since he looked (the window zooms from Sam's whole screen to that list as it rises); then
+     his Overview's Needs you, the lifters who need Sam first, each with the fix. Sam's screens are the new coach website
+     (coach-preview/desk/, test/site-capture/cap-desk2.mjs, 20 Nov). No held screens: every part is in the page's flow, and
      without motion every part shows its last frame.
      ===================================================================================================== -->
 <section class="act t-dark" id="top" aria-labelledby="open-h">
@@ -299,7 +300,9 @@
       <p class="cta-note">Free for lifters. Coach three lifters free.</p>
     </div>
 
-    <!-- Sam's laptop: the real coach app (his lifters, worst first, and Arjun's page), a device with a lid and a base. -->
+    <!-- Sam's laptop: the real coach website, its Overview (what Try the demo: Coach opens), before Arjun's set: a device
+         with a lid and a base. #ltLive: the Training tile a moment later (7 of 52 sessions becomes 8), shown as Log set is
+         tapped (home.js); desk px, scaled with the laptop. -->
     <figure class="laptop" id="laptop">
       <div class="lt-shadow" aria-hidden="true"></div>
       <div class="lt-cam" id="ltCam">
@@ -308,12 +311,16 @@
           <div class="lt-base" aria-hidden="true"></div>
           <picture class="lt-screen" id="ltScreen">
             <source media="(max-width: 759px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
-            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk-before-960.avif 960w, /site-img/home-light/desk-before-1440.avif 1440w, /site-img/home-light/desk-before-1920.avif 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
-            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk-before-960.webp 960w, /site-img/home-light/desk-before-1440.webp 1440w, /site-img/home-light/desk-before-1920.webp 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
-            <source type="image/avif" srcset="/site-img/home/desk-before-960.avif 960w, /site-img/home/desk-before-1440.avif 1440w, /site-img/home/desk-before-1920.avif 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
-            <img src="/site-img/home/desk-before-1440.webp" srcset="/site-img/home/desk-before-960.webp 960w, /site-img/home/desk-before-1440.webp 1440w, /site-img/home/desk-before-1920.webp 1920w" sizes="(min-width: 1100px) 49vw, 92vw" width="1440" height="900" fetchpriority="high" loading="lazy" decoding="async"
-              alt="The coach app on Sam’s laptop. Left, his lifters, the ones who need him first: Priya Shah, pain on her check-in; Sarah Kim, low back 6 of 10; Tom Boyle, meet today; Elena Rossi, 1.4 kg over the 57 class; Marcus Doyle, bench at RPE 9.5 where Sam wrote 8; Arjun Mehta, wrote you a day ago. Right, Arjun Mehta’s page: total estimated max 651 kg, squat 223 kg, bench 150 kg, deadlift 278 kg.">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk2-before-960.avif 960w, /site-img/home-light/desk2-before-1440.avif 1440w, /site-img/home-light/desk2-before-1920.avif 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk2-before-960.webp 960w, /site-img/home-light/desk2-before-1440.webp 1440w, /site-img/home-light/desk2-before-1920.webp 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
+            <source type="image/avif" srcset="/site-img/home/desk2-before-960.avif 960w, /site-img/home/desk2-before-1440.avif 1440w, /site-img/home/desk2-before-1920.avif 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
+            <img src="/site-img/home/desk2-before-1440.webp" srcset="/site-img/home/desk2-before-960.webp 960w, /site-img/home/desk2-before-1440.webp 1440w, /site-img/home/desk2-before-1920.webp 1920w" sizes="(min-width: 1100px) 49vw, 92vw" width="1440" height="900" fetchpriority="high" loading="lazy" decoding="async"
+              alt="The coach website on Sam’s laptop, the Overview: Tuesday 10 November, 11 need you. Five charts for the whole roster: training, 7 of 52 sessions this week; strength, up 2.9% on average in 4 weeks; effort, 99% felt as written; health, 2 in pain; 6 meets in the next 8 weeks. Under them Needs you, a table of lifter, why now and next step: Priya Shah, pain on today’s check-in; Sarah Kim, low back 6 of 10 on deadlift; Mei Tanaka, left knee tight on squats; Tom Boyle, 0.3 kg over; Nina Petrova, can only train Thursday and Saturday; Elena Rossi, 1.4 kg over the 57 kg class; Marcus Doyle, bench felt 9.5, not 8. Beside it, Today and Messages.">
           </picture>
+          <div class="lt-live" id="ltLive" aria-hidden="true">
+            <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk2-now.webp"><img class="now" src="/site-img/home/desk2-now.webp" style="left:280em;top:166.4em;width:224em;height:220.2em" alt="" loading="lazy" decoding="async"></picture>
+            <svg class="ring" style="left:280em;top:166.4em;width:224em;height:220.2em" viewBox="0 0 224 220.2" preserveAspectRatio="none"><rect x="1" y="1" width="222" height="218.2" rx="14" ry="14" pathLength="100"/></svg>
+          </div>
         </div>
       </div>
     </figure>
@@ -373,8 +380,9 @@
     </div>
 
     <!-- Today: the set lands on Sam's laptop, then the lifters who need him first. On a laptop with motion the two are
-         one row (the list's words beside one window onto Sam's screen, which zooms in to Arjun's page, takes the set,
-         then pans along the same screen to the list), and the landing's words sit beside Arjun's phone above it. -->
+         one row (the list's words beside one window onto Sam's screen, which zooms in to his list of who trained since he
+         looked, takes the set, then moves on to his Overview's Needs you), and the landing's words sit beside Arjun's
+         phone above it. -->
     <div class="today-ch">
     <!-- Today, 1: the set lands on Sam's laptop. -->
     <div class="land t-desk" id="today">
@@ -386,77 +394,80 @@
       <figure class="fw fw-a" id="fwA">
         <div class="fw-port">
           <picture class="fw-still">
-            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/win-after-756.avif 756w, /site-img/home-light/win-after-1512.avif 1512w" sizes="(min-width: 760px) 756px, 92vw">
-            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/win-after-756.webp 756w, /site-img/home-light/win-after-1512.webp 1512w" sizes="(min-width: 760px) 756px, 92vw">
-            <source type="image/avif" srcset="/site-img/home/win-after-756.avif 756w, /site-img/home/win-after-1512.avif 1512w" sizes="(min-width: 760px) 756px, 92vw">
-            <img src="/site-img/home/win-after-756.webp" srcset="/site-img/home/win-after-756.webp 756w, /site-img/home/win-after-1512.webp 1512w" sizes="(min-width: 760px) 756px, 92vw" width="756" height="576" loading="lazy" decoding="async"
-              alt="The coach app on Sam’s laptop, Arjun Mehta’s page: total estimated max 656 kg, up 21 kg in 4 weeks. Squat 228 kg, a PR, from 182.5 kg for 5 at RPE 8 today. Bench 150 kg and deadlift 278 kg, both PRs.">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk2-win-756.avif 756w, /site-img/home-light/desk2-win-1512.avif 1512w" sizes="(min-width: 760px) 756px, 92vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk2-win-756.webp 756w, /site-img/home-light/desk2-win-1512.webp 1512w" sizes="(min-width: 760px) 756px, 92vw">
+            <source type="image/avif" srcset="/site-img/home/desk2-win-756.avif 756w, /site-img/home/desk2-win-1512.avif 1512w" sizes="(min-width: 760px) 756px, 92vw">
+            <img src="/site-img/home/desk2-win-756.webp" srcset="/site-img/home/desk2-win-756.webp 756w, /site-img/home/desk2-win-1512.webp 1512w" sizes="(min-width: 760px) 756px, 92vw" width="756" height="576" loading="lazy" decoding="async"
+              alt="The coach website on Sam’s laptop, Lifters, Trained since you looked: 9. One line a lifter, what was written, then what was lifted and how it felt: Elena Rossi, Monday Bench Day, 1 × 3 at RPE 8, 62.5 kg for 3, felt 8; Kofi Mensah, Squat Day, 150 kg for 3, felt 7; Arjun Mehta, Squat Day, written 1 × 5 at RPE 8, lifted 182.5 kg for 5, felt 8; Ines Duarte, Bench Day, 75 kg for 3, felt 8.5; Leo Grant; Dev Patel. Beside the list, Elena Rossi’s page, open: total estimated max 343.5 kg.">
           </picture>
-          <!-- The live window: Sam's whole screen in desk px (the same capture with the changing numbers left out), held
-               on Arjun's page at its real size; with motion it zooms in from the whole screen as it rises. -->
+          <!-- The live window: Sam's whole screen in desk px (Lifters, Trained since you looked, with Arjun's set in), held
+               on the list at its real size; with motion it zooms in from the whole screen as it rises. What it showed a
+               moment before (the list without Arjun, "1 of 8": the same screen captured before the set, cap-desk2.mjs)
+               lies on it until the set lands, and his row is ringed once. Then the window moves on to the Overview
+               (#fwOv, the same demo, after the set) for Needs you. No number here is drawn by the page. -->
           <div class="fw-live" id="fwLive" aria-hidden="true">
             <div class="fw-desk" id="fwDesk">
               <picture>
-                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk-live-1440.avif 1440w, /site-img/home-light/desk-live-2880.avif 2880w" sizes="1440px">
-                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk-live-1440.webp 1440w, /site-img/home-light/desk-live-2880.webp 2880w" sizes="1440px">
-                <source type="image/avif" srcset="/site-img/home/desk-live-1440.avif 1440w, /site-img/home/desk-live-2880.avif 2880w" sizes="1440px">
-                <img class="fw-base" src="/site-img/home/desk-live-1440.webp" srcset="/site-img/home/desk-live-1440.webp 1440w, /site-img/home/desk-live-2880.webp 2880w" sizes="1440px" width="1440" height="900" alt="" loading="lazy" decoding="async">
+                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk2-live-1440.avif 1440w, /site-img/home-light/desk2-live-2880.avif 2880w" sizes="1440px">
+                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk2-live-1440.webp 1440w, /site-img/home-light/desk2-live-2880.webp 2880w" sizes="1440px">
+                <source type="image/avif" srcset="/site-img/home/desk2-live-1440.avif 1440w, /site-img/home/desk2-live-2880.avif 2880w" sizes="1440px">
+                <img class="fw-base" src="/site-img/home/desk2-live-1440.webp" srcset="/site-img/home/desk2-live-1440.webp 1440w, /site-img/home/desk2-live-2880.webp 2880w" sizes="1440px" width="1440" height="900" alt="" loading="lazy" decoding="async">
               </picture>
-              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/was-hero2.webp"><img class="was" src="/site-img/home/was-hero2.webp" style="left:905px;top:194.5px;width:482px;height:188.2px" alt="" loading="lazy" decoding="async"></picture>
-              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/was-sq2.webp"><img class="was" src="/site-img/home/was-sq2.webp" style="left:679px;top:494.8px;width:210px;height:44px" alt="" loading="lazy" decoding="async"></picture>
-              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/was-tr2.webp"><img class="was" src="/site-img/home/was-tr2.webp" style="left:679px;top:679.5px;width:210px;height:60px" alt="" loading="lazy" decoding="async"></picture>
-              <svg class="ring" id="fwRing" style="left:664px;top:411.8px;width:240px;height:166.8px" viewBox="0 0 240 166.8" preserveAspectRatio="none"><rect x="1" y="1" width="238" height="164.8" rx="21" ry="21" pathLength="100"/></svg>
-              <span class="ov ov-total" style="left:687px;top:230.5px"><span class="num" data-from="651" data-to="656">656</span></span>
-              <span class="ov ov-chip" style="left:687px;top:294.5px"><svg viewBox="0 0 24 24"><path d="m4 16 5-5 4 3 7-7"/><path d="M15 7h5v5"/></svg><span><span class="num" data-from="16" data-to="21" data-fmt="plus">+21</span> kg in 4 weeks</span></span>
-              <span class="ov ov-pr" style="left:857.1px;top:428.3px"><i></i>PR</span>
-              <span class="ov ov-sq" style="left:681px;top:458.8px"><span class="num" data-from="223" data-to="228">228</span></span>
-              <span class="ov ov-d" style="left:868.6px;top:464.8px"><span class="num" data-from="6" data-to="8" data-fmt="plus">+8</span></span>
-              <span class="ov ov-foot swap" style="left:681px;top:544.8px"><span>175 × 5 @7.5 · Wed, Oct 21</span><span>182.5 × 5 @8 · today</span></span>
-              <span class="ov ov-tr" style="left:681px;top:643.5px"><span class="num" data-from="10" data-to="11">11</span></span>
-              <span class="ov ov-trf swap" style="left:681px;top:738.5px"><span>2 of 3 in the last 7 days</span><span>3 of 3 in the last 7 days</span></span>
-              <span class="ov ov-row" style="left:547.8px;top:552px"><span class="num" data-from="16" data-to="21" data-fmt="plus">+21</span></span>
-              <!-- The order, explained on the real list (a laptop with motion): a ring and a number per group. -->
-              <span class="grp" data-mk="1" style="left:257px;top:211px;width:349px;height:128px"></span>
-              <span class="grp" data-mk="2" style="left:257px;top:339px;width:349px;height:64px"></span>
-              <span class="grp" data-mk="3" style="left:257px;top:403px;width:349px;height:64px"></span>
-              <span class="grp" data-mk="4" style="left:257px;top:467px;width:349px;height:64px"></span>
-              <span class="grp" data-mk="5" style="left:257px;top:531px;width:349px;height:128px"></span>
-              <span class="grp" data-mk="6" style="left:257px;top:659px;width:349px;height:64px"></span>
-              <span class="mk" data-mk="1" style="left:232px;top:264px"></span>
-              <span class="mk" data-mk="2" style="left:232px;top:360px"></span>
-              <span class="mk" data-mk="3" style="left:232px;top:424px"></span>
-              <span class="mk" data-mk="4" style="left:232px;top:488px"></span>
-              <span class="mk" data-mk="5" style="left:232px;top:584px"></span>
-              <span class="mk" data-mk="6" style="left:232px;top:680px"></span>
+              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk2-was-list.webp"><img class="was" src="/site-img/home/desk2-was-list.webp" style="left:244px;top:56px;width:356px;height:844px" alt="" loading="lazy" decoding="async"></picture>
+              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk2-was-pos.webp"><img class="was" src="/site-img/home/desk2-was-pos.webp" style="left:314px;top:8px;width:148px;height:40px" alt="" loading="lazy" decoding="async"></picture>
+              <svg class="ring" id="fwRing" style="left:264px;top:324.4px;width:315px;height:78.2px" viewBox="0 0 315 78.2" preserveAspectRatio="none"><rect x="1" y="1" width="313" height="76.2" rx="14" ry="14" pathLength="100"/></svg>
+              <picture class="fw-ov" id="fwOv">
+                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk2-ov-1440.avif 1440w, /site-img/home-light/desk2-ov-2880.avif 2880w" sizes="1440px">
+                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk2-ov-1440.webp 1440w, /site-img/home-light/desk2-ov-2880.webp 2880w" sizes="1440px">
+                <source type="image/avif" srcset="/site-img/home/desk2-ov-1440.avif 1440w, /site-img/home/desk2-ov-2880.avif 2880w" sizes="1440px">
+                <img class="fw-base" src="/site-img/home/desk2-ov-1440.webp" srcset="/site-img/home/desk2-ov-1440.webp 1440w, /site-img/home/desk2-ov-2880.webp 2880w" sizes="1440px" width="1440" height="900" alt="" loading="lazy" decoding="async">
+              </picture>
+              <!-- The order, on the real table (with motion): a ring and a number per row, in the Overview's desk px. -->
+              <span class="grp" data-mk="1" style="left:278px;top:530.5px;height:52px;--w:752px;--wp:444px"></span>
+              <span class="grp" data-mk="2" style="left:278px;top:582.5px;height:52px;--w:752px;--wp:444px"></span>
+              <span class="grp" data-mk="3" style="left:278px;top:634.5px;height:52px;--w:752px;--wp:444px"></span>
+              <span class="grp" data-mk="4" style="left:278px;top:686.5px;height:52px;--w:752px;--wp:444px"></span>
+              <span class="grp" data-mk="5" style="left:278px;top:738.5px;height:52px;--w:752px;--wp:444px"></span>
+              <span class="grp" data-mk="6" style="left:278px;top:790.5px;height:52px;--w:752px;--wp:444px"></span>
+              <span class="mk" data-mk="1" style="left:242px;top:545.5px"></span>
+              <span class="mk" data-mk="2" style="left:242px;top:597.5px"></span>
+              <span class="mk" data-mk="3" style="left:242px;top:649.5px"></span>
+              <span class="mk" data-mk="4" style="left:242px;top:701.5px"></span>
+              <span class="mk" data-mk="5" style="left:242px;top:753.5px"></span>
+              <span class="mk" data-mk="6" style="left:242px;top:805.5px"></span>
             </div>
           </div>
         </div>
       </figure>
     </div>
 
-    <!-- Today, 2: the same screen, the other half: who needs Sam first, in the app's order (pain first). -->
+    <!-- Today, 2: who needs Sam first, in the coach website's own order (pain first): its Overview's Needs you table, a row a
+         step, each named by what its row says (cap-desk2.mjs checks the six rows; mkimg.py prints the pins). -->
     <div class="who t-desk" id="who">
       <h2 class="h2" id="who-h">The lifters who need you come&nbsp;first.</h2>
       <p class="sub">Ranked from every set, note and check-in, by what needs you&nbsp;today.</p>
       <ol class="chain" id="chain" aria-label="Who comes first today, in order">
-        <li data-mk="1"><b>Pain</b><span class="ch-av" role="img" aria-label="Priya and Sarah"><i class="av av-h3" data-i="PS"></i><i class="av av-h6" data-i="SK"></i></span></li>
-        <li data-mk="2"><b>A meet today</b><span class="ch-av" role="img" aria-label="Tom"><i class="av av-h1" data-i="TB"></i></span></li>
-        <li data-mk="3"><b>Over their class</b><span class="ch-av" role="img" aria-label="Elena"><i class="av av-h3" data-i="ER"></i></span></li>
-        <li data-mk="4"><b>A set over plan</b><span class="ch-av" role="img" aria-label="Marcus"><i class="av av-h3" data-i="MD"></i></span></li>
-        <li data-mk="5"><b>Their words, waiting</b><span class="ch-av" role="img" aria-label="Arjun and Kofi"><i class="av av-h0" data-i="AM"></i><i class="av av-h4" data-i="KM"></i></span></li>
-        <li data-mk="6"><b>Harder than written</b><span class="ch-av" role="img" aria-label="Ines"><i class="av av-h0" data-i="ID"></i></span></li>
+        <li data-mk="1"><b>Priya, pain on today’s check-in</b><span class="ch-av" role="img" aria-label="Priya"><i class="av av-h3" data-i="PS"></i></span></li>
+        <li data-mk="2"><b>Sarah, low back 6/10 on deadlift</b><span class="ch-av" role="img" aria-label="Sarah"><i class="av av-h6" data-i="SK"></i></span></li>
+        <li data-mk="3"><b>Mei, left knee tight on squats</b><span class="ch-av" role="img" aria-label="Mei"><i class="av av-h6" data-i="MT"></i></span></li>
+        <li data-mk="4"><b>Tom, 0.3&nbsp;kg over, asks if OK</b><span class="ch-av" role="img" aria-label="Tom"><i class="av av-h1" data-i="TB"></i></span></li>
+        <li data-mk="5"><b>Nina, can only train Thu and Sat</b><span class="ch-av" role="img" aria-label="Nina"><i class="av av-h3" data-i="NP"></i></span></li>
+        <li data-mk="6"><b>Elena, 1.4&nbsp;kg over the 57&nbsp;kg class</b><span class="ch-av" role="img" aria-label="Elena"><i class="av av-h3" data-i="ER"></i></span></li>
       </ol>
       <figure class="fw fw-b">
         <div class="fw-port fw-port-list">
           <picture>
-            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/win-list-386.avif 386w, /site-img/home-light/win-list-772.avif 772w, /site-img/home-light/win-list-1158.avif 1158w" sizes="(min-width: 760px) 386px, 92vw">
-            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/win-list-386.webp 386w, /site-img/home-light/win-list-772.webp 772w, /site-img/home-light/win-list-1158.webp 1158w" sizes="(min-width: 760px) 386px, 92vw">
-            <source type="image/avif" srcset="/site-img/home/win-list-386.avif 386w, /site-img/home/win-list-772.avif 772w, /site-img/home/win-list-1158.avif 1158w" sizes="(min-width: 760px) 386px, 92vw">
-            <img src="/site-img/home/win-list-772.webp" srcset="/site-img/home/win-list-386.webp 386w, /site-img/home/win-list-772.webp 772w, /site-img/home/win-list-1158.webp 1158w" sizes="(min-width: 760px) 386px, 92vw" width="386" height="700" loading="lazy" decoding="async"
-              alt="The coach app’s list of lifters, Need you: 12, worst first: Priya Shah, pain on her check-in; Sarah Kim, low back 6 of 10 on deadlift; Tom Boyle, meet today at the Autumn Open; Elena Rossi, 1.4 kg over the 57 class; Marcus Doyle, bench at RPE 9.5 where Sam wrote 8; Arjun Mehta and Kofi Mensah, wrote you a day ago; Ines Duarte, RPE half a point over what was written.">
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/needs2-ph-330.avif 330w, /site-img/home-light/needs2-ph-660.avif 660w, /site-img/home-light/needs2-ph-912.avif 912w" sizes="92vw" width="330" height="313">
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/needs2-ph-330.webp 330w, /site-img/home-light/needs2-ph-660.webp 660w, /site-img/home-light/needs2-ph-912.webp 912w" sizes="92vw" width="330" height="313">
+            <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/needs2-ph-330.avif 330w, /site-img/home/needs2-ph-660.avif 660w, /site-img/home/needs2-ph-912.avif 912w" sizes="92vw" width="330" height="313">
+            <source media="(max-width: 759px)" type="image/webp" srcset="/site-img/home/needs2-ph-330.webp 330w, /site-img/home/needs2-ph-660.webp 660w, /site-img/home/needs2-ph-912.webp 912w" sizes="92vw" width="330" height="313">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/needs2-560.avif 560w, /site-img/home-light/needs2-1120.avif 1120w, /site-img/home-light/needs2-1560.avif 1560w" sizes="(min-width: 1100px) min(46vw, 560px), (min-width: 760px) 560px, 92vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/needs2-560.webp 560w, /site-img/home-light/needs2-1120.webp 1120w, /site-img/home-light/needs2-1560.webp 1560w" sizes="(min-width: 1100px) min(46vw, 560px), (min-width: 760px) 560px, 92vw">
+            <source type="image/avif" srcset="/site-img/home/needs2-560.avif 560w, /site-img/home/needs2-1120.avif 1120w, /site-img/home/needs2-1560.avif 1560w" sizes="(min-width: 1100px) min(46vw, 560px), (min-width: 760px) 560px, 92vw">
+            <img src="/site-img/home/needs2-1120.webp" srcset="/site-img/home/needs2-560.webp 560w, /site-img/home/needs2-1120.webp 1120w, /site-img/home/needs2-1560.webp 1560w" sizes="(min-width: 1100px) min(46vw, 560px), (min-width: 760px) 560px, 92vw" width="560" height="316" loading="lazy" decoding="async"
+              alt="The coach website’s Overview, Needs you: 11, a table of lifter, why now and next step. Priya Shah, pain on today’s check-in, Autumn Open today: use Safe openers, ask Priya. Sarah Kim, low back 6 of 10 on deadlift, twice in 7 days: swap to block pulls at RPE 6. Mei Tanaka, left knee tight on squats, 2 days: cap squats at RPE 7. Tom Boyle, 0.3 kg over, asks if OK, Autumn Open today: reply to Tom. Nina Petrova, can only train Thursday and Saturday, double shifts: approve Thursday and Saturday. Elena Rossi, 1.4 kg over the 57 kg class, in 12 days: plan the cut.">
           </picture>
-          <span class="fpin" style="--y: 89" data-n="1" aria-hidden="true"></span><span class="fpin" style="--y: 185" data-n="2" aria-hidden="true"></span><span class="fpin" style="--y: 249" data-n="3" aria-hidden="true"></span>
-          <span class="fpin" style="--y: 313" data-n="4" aria-hidden="true"></span><span class="fpin" style="--y: 409" data-n="5" aria-hidden="true"></span><span class="fpin" style="--y: 505" data-n="6" aria-hidden="true"></span>
+          <span class="fpin" style="--y: 144" data-n="1" aria-hidden="true"></span><span class="fpin" style="--y: 196" data-n="2" aria-hidden="true"></span><span class="fpin" style="--y: 248" data-n="3" aria-hidden="true"></span><span class="fpin" style="--y: 300" data-n="4" aria-hidden="true"></span><span class="fpin" style="--y: 352" data-n="5" aria-hidden="true"></span><span class="fpin" style="--y: 404" data-n="6" aria-hidden="true"></span>
         </div>
       </figure>
     </div>
@@ -512,7 +523,8 @@
 </section>
 
 <!-- =====================================================================================================
-     NEXT WEEK (the coach's graphite): written against lifted, the suggestion taken, the week published. The real desk.
+     NEXT WEEK (the coach's graphite): what last week lifted beside what next week says, the changes ready to send. The
+     real coach website's Programs sheet.
      ===================================================================================================== -->
 <section class="next t-desk" id="program" aria-labelledby="next-h">
   <div class="wrap">
@@ -521,38 +533,29 @@
       <p class="lead">Where a set ran heavy or light, your own rule suggests next week’s&nbsp;load.</p>
     </header>
     <figure class="wk" id="wk">
-      <!-- Sam's Programs editor (desk-program.js), Marcus's week at his Bench Day (its day chip: the sticky head, the days'
-           chips, the bench day): the still is the editor after Take 1 suggestion (week 3, his rule's 145 written in, what week
-           2 lifted under it); with motion his week 2 as lifted sits on it first (the bench he logged at @9.5 where Sam
-           wrote 8: "+1.5" in amber under the line), then gives way as Take presses. The editor's crimson action is the page's own (#pub), so one crimson per
-           screen holds; its label changes as the app's does. Positions in the crop's per cent (cap-program.mjs, mkimg.py). -->
-      <div class="wk-port" id="wkPort" tabindex="0" role="region" aria-label="Marcus’s week in Sam’s program editor">
+      <!-- Sam's Programs sheet on the new coach website (cap-week2.mjs), Marcus's week 3 as the page opens it for his job: what
+           week 2 lifted on each line beside week 3's load, his rule's 145 on the bench (the page's own selection on it), 4 changes
+           to send. One real picture: with motion a ring finds why (152.5 x 3 @9.5 where 8 was written), then where the 145 is.
+           The sheet's crimson action is the page's own (#pub), so one crimson per screen holds; phones see the sheet from its
+           status line to the end of the bench day, without the top bar (no action there). Positions in each frame's per
+           cent (mkimg.py week2). -->
+      <div class="wk-port" id="wkPort" tabindex="0" role="region" aria-label="Marcus’s week 3 in Sam’s Programs sheet">
         <div class="wk-in" id="wkIn">
           <picture>
-            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/prog-card-taken-phone-590.avif 590w, /site-img/home-light/prog-card-taken-phone-786.avif 786w, /site-img/home-light/prog-card-taken-phone-1179.avif 1179w" sizes="100vw" width="590" height="680">
-            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/prog-card-taken-phone-590.webp 590w, /site-img/home-light/prog-card-taken-phone-786.webp 786w, /site-img/home-light/prog-card-taken-phone-1179.webp 1179w" sizes="100vw" width="590" height="680">
-            <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/prog-card-taken-phone-590.avif 590w, /site-img/home/prog-card-taken-phone-786.avif 786w, /site-img/home/prog-card-taken-phone-1179.avif 1179w" sizes="100vw" width="590" height="680">
-            <source media="(max-width: 759px)" type="image/webp" srcset="/site-img/home/prog-card-taken-phone-590.webp 590w, /site-img/home/prog-card-taken-phone-786.webp 786w, /site-img/home/prog-card-taken-phone-1179.webp 1179w" sizes="100vw" width="590" height="680">
-            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/prog-card-taken-800.avif 800w, /site-img/home-light/prog-card-taken-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
-            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/prog-card-taken-800.webp 800w, /site-img/home-light/prog-card-taken-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
-            <source type="image/avif" srcset="/site-img/home/prog-card-taken-800.avif 800w, /site-img/home/prog-card-taken-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
-            <img src="/site-img/home/prog-card-taken-800.webp" srcset="/site-img/home/prog-card-taken-800.webp 800w, /site-img/home/prog-card-taken-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px" width="800" height="560" loading="lazy" decoding="async"
-              alt="Sam’s program editor on his laptop, Marcus Doyle, Strength Block, week 2 of 4. His week 2 bench was written 152.5 kg for 3 at RPE 8 and lifted at 9.5; Sam’s rule took one suggestion into week 3: bench 145 kg for 3 at 8 and back-offs 140 for 5 at 7. The action now reads Send the changes to Marcus.">
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/week2-phone-590.avif 590w, /site-img/home-light/week2-phone-786.avif 786w, /site-img/home-light/week2-phone-1179.avif 1179w" sizes="100vw" width="590" height="403">
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/week2-phone-590.webp 590w, /site-img/home-light/week2-phone-786.webp 786w, /site-img/home-light/week2-phone-1179.webp 1179w" sizes="100vw" width="590" height="403">
+            <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/week2-phone-590.avif 590w, /site-img/home/week2-phone-786.avif 786w, /site-img/home/week2-phone-1179.avif 1179w" sizes="100vw" width="590" height="403">
+            <source media="(max-width: 759px)" type="image/webp" srcset="/site-img/home/week2-phone-590.webp 590w, /site-img/home/week2-phone-786.webp 786w, /site-img/home/week2-phone-1179.webp 1179w" sizes="100vw" width="590" height="403">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/week2-800.avif 800w, /site-img/home-light/week2-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/week2-800.webp 800w, /site-img/home-light/week2-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
+            <source type="image/avif" srcset="/site-img/home/week2-800.avif 800w, /site-img/home/week2-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
+            <img src="/site-img/home/week2-800.webp" srcset="/site-img/home/week2-800.webp 800w, /site-img/home/week2-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px" width="800" height="560" loading="lazy" decoding="async"
+              alt="Sam’s Programs sheet on his laptop, Marcus Doyle, week 3, Friday 13 to Wednesday 18 November: 4 changes to send. Bench, Sunday 15 November: 155 to 145. His message to Marcus with the change: that bench looked heavier than it should; next week’s top set is 145 × 3, back-offs 120. Each line shows what week 2 lifted beside week 3: squat 212.5 × 3 at RPE 8, now 215; bench 152.5 × 3 at RPE 9.5 where 8 was written, now 145; bench back-offs 125 × 5, now 120. The action reads Send 4 changes to Marcus.">
           </picture>
-          <picture class="wk-before" aria-hidden="true">
-            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/prog-card-lifted-phone-590.avif 590w, /site-img/home-light/prog-card-lifted-phone-786.avif 786w, /site-img/home-light/prog-card-lifted-phone-1179.avif 1179w" sizes="100vw" width="590" height="680">
-            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/prog-card-lifted-phone-590.webp 590w, /site-img/home-light/prog-card-lifted-phone-786.webp 786w, /site-img/home-light/prog-card-lifted-phone-1179.webp 1179w" sizes="100vw" width="590" height="680">
-            <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/prog-card-lifted-phone-590.avif 590w, /site-img/home/prog-card-lifted-phone-786.avif 786w, /site-img/home/prog-card-lifted-phone-1179.avif 1179w" sizes="100vw" width="590" height="680">
-            <source media="(max-width: 759px)" type="image/webp" srcset="/site-img/home/prog-card-lifted-phone-590.webp 590w, /site-img/home/prog-card-lifted-phone-786.webp 786w, /site-img/home/prog-card-lifted-phone-1179.webp 1179w" sizes="100vw" width="590" height="680">
-            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/prog-card-lifted-800.avif 800w, /site-img/home-light/prog-card-lifted-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
-            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/prog-card-lifted-800.webp 800w, /site-img/home-light/prog-card-lifted-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
-            <source type="image/avif" srcset="/site-img/home/prog-card-lifted-800.avif 800w, /site-img/home/prog-card-lifted-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
-            <img src="/site-img/home/prog-card-lifted-800.webp" srcset="/site-img/home/prog-card-lifted-800.webp 800w, /site-img/home/prog-card-lifted-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px" width="800" height="560" alt="" loading="lazy" decoding="async">
-          </picture>
-          <!-- Why (the bench as lifted, @9.5 where Sam wrote 8), then where his rule's 145 lands: two rings in the crop's points. -->
+          <!-- Why (what week 2 lifted on his bench, @9.5 where Sam wrote 8), then where his rule's 145 is: two rings. -->
           <span class="why" id="wkWhy" aria-hidden="true"></span>
           <span class="tap" id="wkTap" aria-hidden="true"></span>
-          <span class="pub" id="pub"><span class="swap"><span>Take 1 suggestion</span><span>Send the changes to Marcus</span></span></span>
+          <span class="pub" id="pub">Send 4 changes to Marcus</span>
         </div>
       </div>
     </figure>
@@ -762,18 +765,16 @@
       <figure class="cl">
         <div class="sheet-crop sheet-desk">
           <picture>
-            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/clients-ph-251.avif 251w, /site-img/home-light/clients-ph-502.avif 502w" sizes="251px" width="251" height="328">
-            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/clients-ph-251.webp 251w, /site-img/home-light/clients-ph-502.webp 502w" sizes="251px" width="251" height="328">
-            <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/clients-ph-251.avif 251w, /site-img/home/clients-ph-502.avif 502w" sizes="251px" width="251" height="328">
-            <source media="(max-width: 759px)" srcset="/site-img/home/clients-ph-251.webp 251w, /site-img/home/clients-ph-502.webp 502w" sizes="251px" width="251" height="328">
-            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/clients-992.avif 992w, /site-img/home-light/clients-1984.avif 1984w" sizes="(min-width: 1240px) 860px, 92vw">
-            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/clients-992.webp 992w, /site-img/home-light/clients-1984.webp 1984w" sizes="(min-width: 1240px) 860px, 92vw">
-            <source type="image/avif" srcset="/site-img/home/clients-992.avif 992w, /site-img/home/clients-1984.avif 1984w" sizes="(min-width: 1240px) 860px, 92vw">
-            <img src="/site-img/home/clients-992.webp" srcset="/site-img/home/clients-992.webp 992w, /site-img/home/clients-1984.webp 1984w" sizes="(min-width: 1240px) 860px, 92vw" width="992" height="358" loading="lazy" decoding="async"
-              alt="Clients on the coach’s laptop. This month, October: $2,650 of $3,240 in, 82%, $590 to come. Overdue: 2, $370, Tomas 12 days and Tom 5 days. Due this week: 2, $440. Recurring: $3,248 a month. Tomas Novak, online coaching at $150 a month, overdue 12 days, with Mark paid and Remind; Tom Boyle, meet prep at $220 a month, overdue 5 days.">
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/clients2-ph-251.avif 251w, /site-img/home-light/clients2-ph-502.avif 502w" sizes="251px" width="251" height="328">
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/clients2-ph-251.webp 251w, /site-img/home-light/clients2-ph-502.webp 502w" sizes="251px" width="251" height="328">
+            <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/clients2-ph-251.avif 251w, /site-img/home/clients2-ph-502.avif 502w" sizes="251px" width="251" height="328">
+            <source media="(max-width: 759px)" type="image/webp" srcset="/site-img/home/clients2-ph-251.webp 251w, /site-img/home/clients2-ph-502.webp 502w" sizes="251px" width="251" height="328">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/clients2-992.avif 992w, /site-img/home-light/clients2-1984.avif 1984w" sizes="(min-width: 1240px) 860px, 92vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/clients2-992.webp 992w, /site-img/home-light/clients2-1984.webp 1984w" sizes="(min-width: 1240px) 860px, 92vw">
+            <source type="image/avif" srcset="/site-img/home/clients2-992.avif 992w, /site-img/home/clients2-1984.avif 1984w" sizes="(min-width: 1240px) 860px, 92vw">
+            <img src="/site-img/home/clients2-992.webp" srcset="/site-img/home/clients2-992.webp 992w, /site-img/home/clients2-1984.webp 1984w" sizes="(min-width: 1240px) 860px, 92vw" width="992" height="333" loading="lazy" decoding="async"
+              alt="Clients on the coach website. To do: 9. Tomas Novak, $150, 12 days late, with Remind and Mark paid; Tom Boyle, $220, 5 days late, lifts today; Jonas Berg wants to join. November: $980 of $3,480 in, $370 late, $2,130 to come; it includes Tomas’s late October $150 and two payments from Ines.">
           </picture>
-          <div class="cl-live cl-live-d" aria-hidden="true"><i class="cl-patch cl-pn"></i><span class="cl-n"><span class="num" data-from="0" data-to="2650" data-fmt="usd">$2,650</span></span><i class="cl-patch cl-pb"></i><i class="cl-patch cl-pr"></i><span class="cl-n cl-n2"><span class="num" data-from="0" data-to="3248" data-fmt="usd">$3,248</span></span></div>
-          <div class="cl-live cl-live-p" aria-hidden="true"><i class="cl-patch cl-pn"></i><span class="cl-n"><span class="num" data-from="0" data-to="2650" data-fmt="usd">$2,650</span></span><i class="cl-patch cl-pb"></i></div>
         </div>
       </figure>
     </div>

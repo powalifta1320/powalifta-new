@@ -1,3 +1,5 @@
+// Since 20 Nov the homepage's laptop pictures come from the new coach website (cap-desk2.mjs); this one captures the old
+// dashboard (coach.html) and its pictures (desk-before-*, desk-live-*, win-*, was-*) are no longer on the page.
 // Sam's laptop (the coach's desk, 1440 x 900 at 2x, dark: THEME=light for a light version): Lifters with Arjun's page open, before and after his top set
 // (182.5 kg x 5 at RPE 8) lands, and once more with the numbers that change left out (the homepage draws them live).
 // Also records where everything is (desk-values.json): the changing numbers and their regions on Arjun's page, and the

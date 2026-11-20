@@ -1,6 +1,9 @@
 # Cuts the captures (test/site-capture/cap-*.mjs) into the homepage's pictures: AVIF + WebP at the widths index.html
 # asks for, into site-img/home/. Run the capture first, then: python3 test/site-capture/mkimg.py [desk phone thread
 # brand program clients import lifter] (all by default). CAP as for the captures; OUT defaults to <repo>/site-img/home/.
+# The coach's side since 20 Nov is the NEW coach website (coach-preview/): cap-*2.mjs and the sections at the end of this
+# file (desk2 clients2 week2), new file names so a cached old picture never meets new positions. For the light pictures run
+# the captures with THEME=light into another CAP and this with OUT=<repo>/site-img/home-light/.
 # After a desk re-take, desk-values.json says where index.html's live numbers, rings and pins go (mkimg prints them).
 import json, os, sys
 from PIL import Image
@@ -23,7 +26,7 @@ def one(im, name, q=88):   # a small layer: WebP only, at the capture's own 2x o
 def crop2(im, x, y, w, h):   # desk px (1440 x 900) to the 2x capture
     return im.crop((round(x * 2), round(y * 2), round((x + w) * 2), round((y + h) * 2)))
 
-what = sys.argv[1:] or ['desk', 'phone', 'thread', 'brand', 'program', 'program-phone', 'clients', 'import', 'lifter']
+what = sys.argv[1:] or ['desk', 'phone', 'thread', 'brand', 'program', 'program-phone', 'clients', 'import', 'lifter', 'desk2', 'clients2', 'week2']
 
 # --- Sam's laptop (cap-desk.mjs): the opening's screen, the camera's window, the list, what the window showed before.
 if 'desk' in what:
@@ -158,3 +161,80 @@ if 'program-phone' in what:
     for kk in ('take', 'send'):
         x, y, w, h = g[kk]
         print('   .pub (%s) right: %s; top: %s; width: %s; height: calc(%g / %g * 1cqw)' % (kk, pc(X0 + W - x - w, W), pc(y - Y0, H), pc(w, W), h, W / 100))
+
+# =====================================================================================================================
+# The NEW coach website (coach-preview/desk/*.html), 20 Nov. Every cut is the capture's own (its *.json): none is typed here.
+# =====================================================================================================================
+def cropj(im, box, k=2):   # a [x, y, w, h] in desk px, as a capture's json gives it, out of the capture at k x
+    x, y, w, h = box
+    return im.crop((round(x * k), round(y * k), round((x + w) * k), round((y + h) * k)))
+pcj = lambda v, d: '%.3f%%' % (v / d * 100)
+
+# --- Clients (cap-clients2.mjs): the To do list beside the month's money, from under the top bar to just under the month
+# card (at 992 and 1984); for phones the list card's top at the old phone picture's 251 : 328.
+if 'clients2' in what:
+    g = json.load(open(CAP + 'clients2.json')); im = Image.open(CAP + 'clients2.png')
+    d = cropj(im, g['desk']); save(d, 'clients2', [992, 1984], q_webp=86, q_avif=62)
+    print('   index.html .cl img: width="992" height="%d" (the cut is %g x %g desk px)' % (round(992 * d.height / d.width), g['desk'][2], g['desk'][3]))
+    ph = cropj(im, g['phone']); save(ph, 'clients2-ph', [251, 502], q_webp=86, q_avif=62)
+    print('   index.html .cl phone sources: width="251" height="%d" (the cut is %g x %g desk px)' % (round(251 * ph.height / ph.width), g['phone'][2], g['phone'][3]))
+
+# --- Next week (cap-week2.mjs): Marcus's week 3 in the new Programs sheet, the 10:7 frame (at 800 and 1600) and the phone's
+# narrower frame (at a phone's 1.5x, 2x and 3x). The rings and the page's own action in each frame's per cent
+# (1cqw = W / 100 desk px), for home.css.
+if 'week2' in what:
+    g = json.load(open(CAP + 'week2.json')); im = Image.open(CAP + 'week2.png')
+    for nm, key, widths in (('week2', 'frame', [800, 1600]), ('week2-phone', 'phone', [590, 786, 1179])):
+        X0, Y0, W, H = g[key]
+        c = cropj(im, g[key]); save(c, nm, widths, q_webp=86, q_avif=62)
+        print('   %s: desk %g..%g x %g..%g (%g x %g): .wk-in aspect-ratio: %g / %g; picture %d x %d' % (key, X0, X0 + W, Y0, Y0 + H, W, H, W, H, widths[0], round(widths[0] * c.height / c.width)))
+        for k2, cls in (('why', '.why'), ('tap', '.tap')):
+            x, y, w, h = g[k2]
+            print('   %-5s left: %s; top: %s; width: %s; height: %s; border-radius: calc(8 / %g * 1cqw)' % (cls, pcj(x - X0, W), pcj(y - Y0, H), pcj(w, W), pcj(h, H), W / 100))
+        x, y, w, h = g['send']
+        if x >= X0 and x + w <= X0 + W and y >= Y0 and y + h <= Y0 + H:
+            st = g['sendStyle']
+            print('   .pub  right: %s; top: %s; width: %s; height: calc(%g / %g * 1cqw); padding: 0 calc(%g / %g * 1cqw); font-size: calc(%g / %g * 1cqw); font-weight: %s  ("%s")' % (pcj(X0 + W - x - w, W), pcj(y - Y0, H), pcj(w, W), h, W / 100, float(st['padding-left'][:-2]), W / 100, float(st['font-size'][:-2]), W / 100, st['font-weight'], g['sendText']))
+        else:
+            print('   .pub  not in this frame: the page draws no action here')
+
+# --- Sam's laptop (cap-desk2.mjs): the opening's laptop (Overview, before the set) and its Training tile after it; the
+# Today window (Lifters, Trained since you looked, after), what it showed a moment before (the list and "1 of 8", faded
+# away as the set lands), the window's own still; its second screen (Overview, after) for the pan to Needs you, and the
+# Needs you table as a figure of its own (the still; phones get the lifter and why-now columns). The before and after
+# captures may differ only inside the patches: anything else stops the cut.
+if 'desk2' in what:
+    from PIL import ImageChops
+    g = json.load(open(CAP + 'desk2.json'))
+    ovB = Image.open(CAP + 'desk2-ov-before.png').convert('RGB'); ovA = Image.open(CAP + 'desk2-ov-after.png').convert('RGB')
+    siB = Image.open(CAP + 'desk2-since-before.png').convert('RGB'); siA = Image.open(CAP + 'desk2-since-after.png').convert('RGB')
+    def only_in(a, b, boxes, what_):   # every pixel that differs lies in one of the boxes (desk px)
+        d = ImageChops.difference(a, b)
+        for x, y, w, h in boxes: d.paste((0, 0, 0), (round(x * 2), round(y * 2), round((x + w) * 2), round((y + h) * 2)))
+        bb = d.getbbox()
+        if bb: raise SystemExit('mkimg: %s differ outside the patches, at desk px %s' % (what_, [v / 2 for v in bb]))
+    only_in(ovB, ovA, [g['tile']], 'the Overview before and after'); only_in(siB, siA, [g['wasList'], g['wasPos']], 'the list before and after')
+    # The opening's laptop: Overview before the set; the Training tile after it, laid over as Log set is tapped.
+    save(ovB, 'desk2-before', [960, 1440, 1920])
+    one(cropj(ovA, g['tile']), 'desk2-now', q=90)
+    x, y, w, h = g['tile']
+    print('   index.html #ltLive .now, .ring: left:%gpx;top:%gpx;width:%gpx;height:%gpx  (%s -> %s)' % (x, y, w, h, g['before']['training'][:34], g['after']['training'][:34]))
+    # The window: the list after the set, the whole screen in desk px; what it showed before, as layers.
+    save(siA, 'desk2-live', [1440, 2880], q_avif=60)
+    for key, nm in (('wasList', 'desk2-was-list'), ('wasPos', 'desk2-was-pos')):
+        x, y, w, h = g[key]; one(cropj(siB, g[key]), nm, q=90)
+        print('   index.html #fwDesk .was (%s): left:%gpx;top:%gpx;width:%gpx;height:%gpx' % (nm, x, y, w, h))
+    x, y, w, h = g['ring']
+    print('   index.html #fwRing: left:%gpx;top:%gpx;width:%gpx;height:%gpx  viewBox 0 0 %g %g, rect %g x %g' % (x, y, w, h, w, h, w - 2, h - 2))
+    X0, Y0, W, H = g['hold']
+    save(cropj(siA, g['hold']), 'desk2-win', [756, 1512], q_webp=86, q_avif=62)
+    print('   home.css .fw-desk, home.js deskHold: x -%g, y -%g (the window at rest: desk %g..%g x %g..%g)' % (X0, Y0, X0, X0 + W, Y0, Y0 + H))
+    # The window's second screen and the list's own figure.
+    save(ovA, 'desk2-ov', [1440, 2880], q_avif=60)
+    print('   home.js deskList: from x %g, %g desk px wide (phones: %g), bottom of the screen' % (g['listWide']['x'], g['listWide']['w'], g['listPhone']['w']))
+    for i, (a, m) in enumerate(zip(g['grp'], g['mk'])):
+        print('   .grp %d: left:%gpx;top:%gpx;height:%gpx;--w:%gpx;--wp:%gpx   .mk %d: left:%gpx;top:%gpx   %s' % (i + 1, a['left'], a['top'], a['h'], a['w'], a['wp'], i + 1, m['left'], m['top'], g['needRows'][i]['who']))
+    nd = cropj(ovA, g['needs']); save(nd, 'needs2', [560, 1120, 1560], q_webp=86, q_avif=62)
+    nph = cropj(ovA, g['needsPh']); save(nph, 'needs2-ph', [330, 660, 912], q_webp=86, q_avif=62)
+    print('   index.html .fw-port-list: picture %g x %g desk px (width="560" height="%d"); phones %g x %g (width="330" height="%d")' % (g['needs'][2], g['needs'][3], round(560 * nd.height / nd.width), g['needsPh'][2], g['needsPh'][3], round(330 * nph.height / nph.width)))
+    print('   index.html .fpin --y (out of %g): %s' % (g['needs'][3], ', '.join('%g' % v for v in g['pins'])))

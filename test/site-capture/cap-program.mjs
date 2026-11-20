@@ -1,3 +1,5 @@
+// Since 20 Nov the homepage's Next week picture comes from the new coach website (cap-week2.mjs); this one captures the old
+// dashboard's editor and its pictures (prog-card-*) are no longer on the page.
 // Marcus's week in the Programs editor (desk-program.js, rebuilt 3 Nov), the desk at 1440 x 900, 2x, dark (THEME=light for a
 // light version), the fixed day (lib.mjs). The editor jumps to his Bench Day by its day chip (the app's own jump: the sticky
 // head and the days' chips stay, the card comes up under them), so the frame is the head plus the bench day:

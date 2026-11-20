@@ -10,8 +10,7 @@
      headlines rising word by word, lines and screens rising 12 to 40 px, lists building in their order, numbers
      counting from the old value to the new, a message arriving, a press;
    - a short scrubbed touch, tied to the reader's scroll: the depth between the laptop and the phone, the set's flight
-     from Arjun's phone to his page, the window zooming from Sam's whole screen to Arjun's page, the week panning on
-     a phone.
+     from Arjun's phone to Sam's list, the window zooming from Sam's whole screen to that list, then on to Needs you.
    Only transform, opacity and clip-path move (plus two small SVG strokes drawing). Curves: cubic-bezier(0.22, 1, 0.36,
    1) for anything entering, (0.77, 0, 0.175, 1) for moves between stops, the app's (0.23, 1, 0.32, 1) for presses and
    state; no overshoot, text never from scale 0. Without JavaScript, with reduced motion, or if GSAP misses its 4 s,
@@ -220,7 +219,7 @@
   if (lightMQ && lightMQ.addEventListener) lightMQ.addEventListener('change', function () { barColour(); retheme.forEach(function (f) { f(); }); });
 
   /* --- Try it: Log set on Arjun's phone is a real button (clear, over the app's own Log set). With the score running it
-     plays the set's moment (the score's tap.fx: it logs on the phone and lands on Sam's laptop, his numbers counting up);
+     plays the set's moment (the score's tap.fx: it logs on the phone and lands on Sam's laptop, his week's sessions one more);
      without motion, or before the score has started, the phone and the laptop simply show it logged (the score takes
      that over when it starts). Either way one line tells a screen reader. --- */
   var tap = { fx: null, still: false };
@@ -236,15 +235,8 @@
     if (heroNext && !heroNext.getAttribute('srcset')) heroNext.srcset = themed(heroNext.dataset.fallback);
     var shown = function () { heroPh.classList.add('is-logged'); };
     if (heroNext && heroNext.decode) heroNext.decode().then(shown, shown); else shown();
-    var lt = $('#ltBody');
-    if (!lt || small()) return;   // on a phone Sam's laptop isn't in the opening
-    var after = document.createElement('img');
-    after.className = 'lt-after'; after.alt = ''; after.setAttribute('aria-hidden', 'true'); after.decoding = 'async';
-    after.sizes = '(min-width: 1100px) 26vw, 48vw';
-    var pick = function () { after.srcset = themed('/site-img/home/win-after-756.webp 756w, /site-img/home/win-after-1512.webp 1512w'); after.src = themed('/site-img/home/win-after-756.webp'); };
-    pick(); retheme.push(pick);
-    var put = function () { if (tap.still) lt.appendChild(after); };
-    if (after.decode) after.decode().then(put, put); else put();
+    var lp = $('#laptop');
+    if (lp && !small()) lp.classList.add('is-landed');   // Sam's Overview with the session counted (on a phone his laptop isn't in the opening)
   }
   if (heroNext) retheme.push(function () { var s = heroNext.getAttribute('srcset'); if (s) heroNext.srcset = themed(s); });
   if (logTap) logTap.addEventListener('click', function () {
@@ -342,8 +334,8 @@
   function avif(cb) { var p = new Image(); p.onload = function () { cb(true); }; p.onerror = function () { cb(false); }; p.src = AVIF; }
 
   /* =====================================================================
-     ACT ONE: the set. Arjun logs it on his phone, the app works out his max beside it, the set flies to his page on
-     Sam's laptop; the window zooms from Sam's whole screen to Arjun's page; his total ticks up.
+     ACT ONE: the set. Arjun logs it on his phone, the app works out his max beside it, the set flies to Sam's laptop;
+     the window zooms from Sam's whole screen to his list of who trained since he looked; Arjun's row arrives.
      ===================================================================== */
   var phone = $('#phone'), logB = $('#logBtn'), next = $('.ph-next', phone), laptop = $('#laptop');
   var max = $('#max'), maxTags = $('.max-tags', max), strip = $('.odo-strip', max);
@@ -446,10 +438,10 @@
     return function () { m.kill(); LG.maxIn = false; };
   });
 
-  /* --- The set's flight (scrubbed): it lifts off Arjun's set card and is carried to his squat card on Sam's laptop. Its
-     two ends are wherever the page has them this frame. --- */
+  /* --- The set's flight (scrubbed): it lifts off Arjun's set card and is carried to his row on Sam's laptop. Its two
+     ends are wherever the page has them this frame. --- */
   var F = { p: 0 }, phBody = $('#phBody');   // the phone itself (its figure also holds the legend on phones and tablets)
-  /* A set card in flight at p (0 to 1) from the phone's set card (a: the phone's box) to a squat card (b: its ring's box). */
+  /* A set card in flight at p (0 to 1) from the phone's set card (a: the phone's box) to where it lands (b: its ring's box). */
   function flyAt(el, p, a, b) {
     var fw = el.offsetWidth, fh = el.offsetHeight;
     var sx = a.left + a.width * (196 / 393), sy = a.top + a.height * (236 / 852);
@@ -462,9 +454,9 @@
   }
   function placeFly() { flyAt(fly, F.p, phBody.getBoundingClientRect(), ring.getBoundingClientRect()); }
   /* Where the window sits, and when each beat of it happens (scroll positions, from its layout). The window rises zoomed
-     out on Sam's whole screen and zooms in to Arjun's page as it comes up; the set lands there and the total ticks;
-     then, as the list's words come level (on a laptop) or come up under it (stacked), it pans along the same screen to
-     the list. */
+     out on Sam's whole screen (Lifters, Trained since you looked) and zooms in to that list as it comes up; the set lands
+     there (Arjun's row arrives); then, as the list's words come level (on a laptop) or come up under it (stacked), it
+     moves on to his Overview's Needs you: the same camera, the second screen brought in over the first. */
   var winTop = function () { return layoutTop(fwPort); };
   var crossStart = function () { return logStart() + (small() ? 140 : wide() ? 200 : 160); };
   var landAt = function () { return Math.max(crossStart() + 320, winTop() - vhOf() * (wide() ? 0.4 : 0.34)); };
@@ -473,74 +465,58 @@
     .fromTo(fly, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.02 }, 0)
     .to(fly, { autoAlpha: 0, duration: 0.02 }, 0.98);
 
-  /* --- The window: Sam's whole screen, zoomed in to Arjun's page at its real size, then panned to the list:
-     one scrubbed timeline, so its three states never fight. The squat card is ringed once as the set lands, then the
-     total ticks up 651 to 656. --- */
-  /* Zoomed out: Sam's screen covering the window (no empty bands), centred on the line between his list and Arjun's page. */
+  /* --- The window: Sam's whole screen, zoomed in to his list at its real size, then moved on to Needs you: one scrubbed
+     timeline, so its three states never fight. Arjun's row is ringed once as the set lands. The numbers below are the
+     captures' own (test/site-capture/cap-desk2.mjs, mkimg.py desk2). --- */
+  /* Zoomed out: Sam's screen covering the window (no empty bands), centred on the list and the page beside it. */
   function deskFit() {
-    var w = fwPort.clientWidth, h = fwPort.clientHeight, s = Math.max(w / 1440, h / 900), seen = w / s, cx = wide() ? 720 : 632;
+    var w = fwPort.clientWidth, h = fwPort.clientHeight, s = Math.max(w / 1440, h / 900), seen = w / s, cx = wide() ? 720 : 618;
     return { x: -clamp(0, 1440 - seen, cx - seen / 2) * s, y: -(900 - h / s) / 2 * s, s: s };
   }
-  function deskHold() { var k = fk(); return { x: -648 * k, y: -16 * k, s: k }; }   // Arjun's page from 632, 16 px in
-  /* The list's view: "Need you" to Ines, its group numbers clear of the window's edge (scaled a touch on a phone so its
-     numbers' column stays in). */
-  function deskList() { var s = Math.min(fk(), fwPort.clientWidth / 398); return { x: -222 * s, y: -180 * s, s: s }; }
+  function deskHold() { var k = fk(); return { x: -240 * k, y: -56 * k, s: k }; }   // the list from the sidebar's edge, under the top bar
+  /* Needs you on the Overview: from 236 desk px (room for the rows' numbers), 780 wide (on a phone 492: the lifter and
+     why now, so the words stay readable), down to the bottom of Sam's screen. */
+  function deskList() {
+    var w = fwPort.clientWidth, h = fwPort.clientHeight, s = Math.min(1, fk(), w / (small() ? 492 : 780));
+    return { x: -236 * s, y: -Math.max(0, 900 * s - h), s: s };
+  }
   gsap.set(fwDesk, { transformOrigin: '0 0' });
+  var fwOv = $('#fwOv');
   var listAt = function () { return winTop() - vhOf() * 0.08; };
   mm.add({ side: '(min-width: 1100px)', stack: '(max-width: 1099px)' }, function (ctx) {
     var at = function (f, k) { return function () { return f()[k]; }; };
-    /* In vh of scroll before the window's top reaches 8% of the screen: zoom in as it rises, hold while the set lands and
-       the total ticks, then pan to the list. */
+    /* In vh of scroll before the window's top reaches 8% of the screen: zoom in as it rises, hold while the set lands,
+       then move on to Needs you (the Overview comes in over the list in the first part of the move). */
     var A = ctx.conditions.side ? [1, 0.44, 0.3] : [0.92, 0.4, 0.24];
     gsap.timeline({ scrollTrigger: { start: function () { return winTop() - vhOf() * A[0]; }, end: listAt, scrub: 0.6, invalidateOnRefresh: true } })
       .fromTo(fwDesk, { x: at(deskFit, 'x'), y: at(deskFit, 'y'), scale: at(deskFit, 's') }, { x: at(deskHold, 'x'), y: at(deskHold, 'y'), scale: at(deskHold, 's'), ease: INOUT, duration: A[0] - A[1] }, 0)
-      .to(fwDesk, { x: at(deskList, 'x'), y: at(deskList, 'y'), scale: at(deskList, 's'), ease: INOUT, duration: A[2] - 0.08 }, A[0] - A[2]);
+      .to(fwDesk, { x: at(deskList, 'x'), y: at(deskList, 'y'), scale: at(deskList, 's'), ease: INOUT, duration: A[2] - 0.08 }, A[0] - A[2])
+      .fromTo(fwOv, { autoAlpha: 0 }, { autoAlpha: 1, ease: 'none', duration: (A[2] - 0.08) * 0.5 }, A[0] - A[2] + (A[2] - 0.08) * 0.12);
   });
   var desk = $('#fwDesk');
-  /* The landing, on Sam's screen (root: the window's, or the opening laptop's copy of it): the line drawn round the squat
-     card, its number 223 to 228 and +6 to +8, the PR mark, the set line; the week's training count and Arjun's row on the
-     list move with it (a). Then his total, 651 to 656, and the four weeks' gain, as the set's line is drawn (b). */
-  function landing(root) {
-    var ovs = function (c) { return $('.' + c + ' .num', root); }, wasEl = function (n) { return $('.was[src*="' + n + '"]', root); };
-    var rg = $('.ring', root), rgRect = $('.ring rect', root), pr = $('.ov-pr', root), sw = [$('.ov-foot', root), $('.ov-trf', root)];
+  /* The landing, on one of Sam's screens: what it showed a moment before gives way to the screen with the set in, and a
+     line is drawn once round where it landed. In the window (.was): the list without Arjun and "1 of 8", laid over the
+     list with him in it. On the opening's laptop (.now): its Training tile with the session counted, brought in over
+     "7 of 52". Every word and number is the capture's own; the page draws none. */
+  function landing(root, sel) {
+    var rg = $('.ring', root), rgRect = $('.ring rect', root), lay = $$(sel, root), from = sel === '.was' ? 1 : 0;
     gsap.set(rg, { autoAlpha: 0 }); gsap.set(rgRect, { strokeDasharray: 100, strokeDashoffset: 100 });
-    gsap.set(pr, { autoAlpha: 0, scale: 0.9, transformOrigin: '0% 50%' });
-    sw.forEach(swapStart);
-    var w1 = [wasEl('was-sq2'), wasEl('was-tr2')], w2 = [wasEl('was-hero2')];
-    gsap.set(w1.concat(w2), { opacity: 1 });
+    gsap.set(lay, { opacity: from });
     var a = gsap.timeline({ paused: true })
       .set(rg, { autoAlpha: 1 }, 0)
       .to(rgRect, { strokeDashoffset: 0, duration: 0.6, ease: INOUT }, 0)
       .to(rg, { autoAlpha: 0, duration: 0.8, ease: INOUT }, 1.4)
-      .to(w1, { opacity: 0, duration: 0.5, ease: OUT }, 0.12)
-      .to(pr, { autoAlpha: 1, scale: 1, duration: 0.36, ease: OUT }, 0.5);
-    [ovs('ov-sq'), ovs('ov-d'), ovs('ov-tr'), ovs('ov-row')].forEach(function (el, i) { count(a, el, 0.1 + i * 0.04, 0.8); });
-    sw.forEach(function (el, i) { swapIn(a, el, 0.16 + i * 0.05); });
-    var b = gsap.timeline({ paused: true }).to(w2, { opacity: 0, duration: 0.5, ease: OUT }, 0.08);
-    count(b, ovs('ov-total'), 0.05, 0.9); count(b, $('.ov-chip .num', root), 0.12, 0.9);
-    return { a: a, b: b, ring: rg };
+      .to(lay, { opacity: 1 - from, duration: 0.5, ease: OUT }, 0.12);
+    return { a: a, ring: rg, lay: lay };
   }
-  /* Sam's laptop in the opening, live for Try it: a copy of the window's screen (the same pictures, already fetched for
-     it), without the list's marks, laid over the laptop's picture; at rest it is that picture. Made before the window's
-     landing sets its own first frame, so the copy starts from the screen as captured. */
-  var heroDesk = null, ltCam = $('#ltCam');
-  if (desk && $('#ltBody')) {
-    heroDesk = desk.cloneNode(true);
-    heroDesk.removeAttribute('id'); heroDesk.removeAttribute('style'); heroDesk.className = 'lt-live'; heroDesk.setAttribute('aria-hidden', 'true');   // the laptop's picture says it
-    $$('[id]', heroDesk).forEach(function (e) { e.removeAttribute('id'); });
-    $$('.grp, .mk', heroDesk).forEach(function (e) { e.parentNode.removeChild(e); });
-    $('#ltBody').appendChild(heroDesk);
-  }
-  var L = landing(desk), HL = heroDesk ? landing(heroDesk) : null;
+  /* Sam's laptop in the opening, live for Try it (index.html #ltLive): at rest it is the laptop's picture. */
+  var heroLive = $('#ltLive'), heroLaptop = $('#laptop');
+  var L = landing(desk, '.was'), HL = heroLive ? landing(heroLive, '.now') : null;
   onState(L.a, { start: landAt, end: 'max' });
-  onState(L.b, { start: function () { return landAt() + 30; }, end: 'max' });
-  function fitHero() { if (heroDesk && ltCam) heroDesk.style.setProperty('--ltk', String(ltCam.offsetWidth / 1440)); }
-  fitHero();
-  window.addEventListener('resize', fitHero, { passive: true });
 
   /* --- Try it (the page layer's Log set button). A tap logs the set (the ring, where it's on Log set, rides into the
      press); then, where Sam's laptop is in the opening and his screen in view, a copy of the set lifts off the phone and
-     lands on Arjun's squat card there: the card is ringed, his squat counts 223 to 228 and his total 651 to 656. On a
+     lands on his Overview's Training tile there: the tile is ringed and its week's sessions read one more. On a
      phone (no laptop in the opening) the phone and the max say it. A tap again, once it has landed, plays it all again. */
   var fly2 = fly.cloneNode(true), T = { p: 0 }, tapRun = null;
   fly2.removeAttribute('id'); fly.parentNode.insertBefore(fly2, fly.nextSibling);
@@ -549,14 +525,12 @@
   function heroLand(now) {
     if (!HL || small()) return;
     var b = HL.ring.getBoundingClientRect(), mid = (b.top + b.bottom) / 2;
-    gsap.set(heroDesk, { opacity: 1 });   // the same screen, live: at rest exactly the laptop's picture (drawn ahead)
-    if (now || mid < 64 || mid > vhOf()) { HL.a.progress(1); HL.b.progress(1); return; }   // out of view: simply there
+    if (now || mid < 64 || mid > vhOf()) { HL.a.progress(1); return; }   // out of view: simply there
     tapRun = gsap.timeline()
       .fromTo(T, { p: 0 }, { p: 1, duration: 1.0, ease: 'none', onUpdate: placeTap, immediateRender: false }, 0.3)
       .fromTo(fly2, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.06, immediateRender: false }, 0.3)
       .to(fly2, { autoAlpha: 0, duration: 0.14 }, 1.26)
       .add(function () { HL.a.timeScale(1).restart(); }, 1.22)
-      .add(function () { HL.b.timeScale(1).restart(); }, 1.27)
       .to({}, { duration: 1.5 }, 1.27);   // the landing's own time: a tap meanwhile waits for it
   }
   /* Back to the set as written, quickly, for a tap again: the phone to set 1, the max to 223, the laptop to its picture. */
@@ -567,7 +541,7 @@
     gsap.to(next, { autoAlpha: 0, duration: d, ease: OUT });
     gsap.to(logB, { scale: 1, duration: d, ease: OUT });
     LG.max.pause(); gsap.to(LG.max, { progress: 0, duration: d, ease: OUT });
-    if (heroDesk) gsap.to(heroDesk, { opacity: 0, duration: d, ease: OUT, onComplete: function () { HL.a.pause(0); HL.b.pause(0); } });
+    if (HL) { HL.a.pause(); gsap.to(HL.lay, { opacity: 0, duration: d, ease: OUT, onComplete: function () { HL.a.pause(0); } }); gsap.set(HL.ring, { autoAlpha: 0 }); }
     gsap.delayedCall(d + 0.08, done);
   }
   var resetting = false;
@@ -580,7 +554,7 @@
   if (tap.still) {
     tap.still = false;
     heroPh.classList.remove('is-logged');
-    $$('.lt-after').forEach(function (e) { e.parentNode.removeChild(e); });
+    if (heroLaptop) heroLaptop.classList.remove('is-landed');
     logSet('tap', true); heroLand(true);
   }
 
@@ -590,11 +564,10 @@
   rise([$('#fwA')], { y: 36, start: 'top 96%', dur: 0.8 });
 
   /* =====================================================================
-     TODAY: the lifters who need Sam first, in the app's order, pain first (the desk v3 list's Need you: Priya and Sarah,
-     then Tom's meet, Elena over her class, Marcus over plan, the two who wrote, Ines running harder than written; a busy
-     week now sits under Quiet). The window has panned to Sam's list: each group is
-     ringed and numbered in turn, and its reason lights in the chain beside it (below it on a phone) as its lifters'
-     faces arrive. No sentences: the order is the explanation. The list's own figure is the still's.
+     TODAY: the lifters who need Sam first, in the coach website's own order, pain first (its Overview's Needs you: Priya,
+     Sarah, Mei, Tom, Nina, Elena). The window has moved on to that table: each row is ringed and numbered in turn, and
+     its line lights in the chain beside it (below it on a phone) as its lifter's face arrives. No sentences: the order
+     is the explanation. The table's own figure is the still's.
      ===================================================================== */
   words($('#who-h'), { start: 'top 94%' });
   rise([$('.who .sub')], { trigger: $('.who .sub'), start: 'top 94%' });
@@ -633,33 +606,23 @@
   onState(threadTl, { trigger: '#thread', start: function () { return small() ? 'top 62%' : 'top 70%'; } });
 
   /* =====================================================================
-     NEXT WEEK: Sam's Programs editor, Marcus's week at his Bench Day (cap-program.mjs). As it arrives a ring finds why:
-     his bench as lifted, @9.5 where Sam wrote 8. His rule's suggestion is ready: Take 1 suggestion arrives in the head,
-     the one crimson here; Take presses; week 3 comes up with the 145 his rule wrote, what week 2 lifted under it, ringed
-     as it lands; the action becomes Send the changes to Marcus, at its own width as the editor's is. (The editor takes the
-     suggestion from the lifted week, so there is no card to show between.)
+     NEXT WEEK: Sam's Programs sheet on the coach website, Marcus's week 3 (cap-week2.mjs). As it arrives a ring finds why:
+     what week 2 lifted on his bench, @9.5 where Sam wrote 8. Then one finds week 3's load on the same line, his rule's
+     145, and the sheet's action arrives in its top bar, the one crimson here: Send 4 changes to Marcus. One real
+     picture: the new sheet has no step to press between (the 145 is an unsent change when the page opens).
      ===================================================================== */
   words($('#next-h'));
   rise([$('.next-head .lead')], { start: 'top 92%' });
-  var wkPort = $('#wkPort'), wkTap = $('#wkTap'), wkWhy = $('#wkWhy'), wkB = $('.wk-before'), pub = $('#pub'), pubSw = $('.swap', pub);
+  var wkPort = $('#wkPort'), wkTap = $('#wkTap'), wkWhy = $('#wkWhy'), pub = $('#pub');
   rise([wkPort], { y: 30, start: 'top 94%', dur: 0.8 });
-  swapStart(pubSw);
-  // home.css --w-take, --w-send: the crimson is cut from the left by Take's share of the box (--pub-k), then opens to Send's
-  // width; the box never changes size, so the page never shifts.
-  var pubK = function () { var cs = getComputedStyle(pub); return 1 - parseFloat(cs.getPropertyValue('--w-take')) / parseFloat(cs.getPropertyValue('--w-send')); };
-  gsap.set(pub, { autoAlpha: 0, y: 6, transformOrigin: '100% 50%', '--pub-k0': pubK, '--pub-k': pubK });
-  var takeTl = gsap.timeline({ paused: true })
+  gsap.set(pub, { autoAlpha: 0, y: 6, transformOrigin: '100% 50%' });
+  var weekTl = gsap.timeline({ paused: true })
     .fromTo(wkWhy, { autoAlpha: 0, scale: 1.05 }, { autoAlpha: 1, scale: 1, duration: 0.34, ease: ENTER, immediateRender: false }, 0)
-    .to(pub, { autoAlpha: 1, y: 0, duration: 0.4, ease: ENTER }, 0.45)
     .to(wkWhy, { autoAlpha: 0, duration: 0.4, ease: OUT }, 1.0)
-    .to(pub, { scale: 0.97, duration: 0.11, ease: OUT }, 1.25)
-    .to(pub, { scale: 1, duration: 0.28, ease: OUT }, 1.37)
-    .fromTo(wkB, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.45, ease: OUT, immediateRender: false }, 1.4)
-    .fromTo(wkTap, { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.3, ease: OUT, immediateRender: false }, 1.7)
-    .to(wkTap, { opacity: 0, duration: 0.5, ease: OUT }, 2.5)
-    .fromTo(pub, { '--pub-k': pubK }, { '--pub-k': 0, duration: 0.3, ease: OUT, immediateRender: false }, 1.6);
-  swapIn(takeTl, pubSw, 1.6);
-  onState(takeTl, { trigger: wkPort, start: function () { return small() ? 'bottom 92%' : 'bottom 88%'; } });
+    .fromTo(wkTap, { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.3, ease: OUT, immediateRender: false }, 1.15)
+    .to(wkTap, { opacity: 0, duration: 0.5, ease: OUT }, 2.0)
+    .to(pub, { autoAlpha: 1, y: 0, duration: 0.4, ease: ENTER }, 1.5);
+  onState(weekTl, { trigger: wkPort, start: function () { return small() ? 'bottom 92%' : 'bottom 88%'; } });
 
   /* =====================================================================
      MEET DAY: a chapter like the others. As the platform arrives the three lights come on one by one: good lift. Tom's
@@ -772,19 +735,9 @@
   onState(impTl, { trigger: '#imp', start: 'top 88%' });
   rise([$('.move-foot')], { start: 'top 96%' });
 
-  /* KNOW WHO HAS PAID: the month's paid total counts up to $2,650 as its bar fills to 82%; Recurring to $3,248 (on a
-     laptop); then the live numbers hand over to the capture's own (they match it). */
+  /* KNOW WHO HAS PAID: the words, then Clients rises (the coach website's own screen; the page draws nothing over it). */
   rise([$('#money-h'), $('.money-copy p')], { trigger: $('#money-h'), start: 'top 90%' });
   rise([$('.cl')], { y: 30, start: 'top 94%', dur: 0.8 });
-  var clTl = gsap.timeline({ paused: true });
-  $$('.cl-live').forEach(function (live) {
-    var pb = $('.cl-pb', live);
-    gsap.set(live, { autoAlpha: 1 });
-    clTl.fromTo(pb, { clipPath: 'inset(0% 0% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 100%)', duration: 1.3, ease: OUT, immediateRender: true }, 0.15);
-    $$('.cl-n .num', live).forEach(function (n, i) { count(clTl, n, 0.15 + i * 0.12, 1.3, OUT); });
-    clTl.to(live, { autoAlpha: 0, duration: 0.35, ease: OUT }, 1.75);
-  });
-  onState(clTl, { trigger: '.cl', start: 'top 92%' });
 
   /* =====================================================================
      PRICING: the offer settles (its words, Start coaching free, the branded phone rising; a ring visits what branding

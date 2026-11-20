@@ -202,16 +202,18 @@ html.m .log { will-change: transform; }
 
 /* Try it: Log set is a real button (home.js), clear over the app's own Log set, so the page's one crimson stays its Start
    free; a focus ring the button's shape. With JavaScript only. Logged without motion, the phone simply shows the moment
-   after (set 2 up, the rest timer docked) and Sam's laptop Arjun's page with the set in it. */
+   after (set 2 up, the rest timer docked) and Sam's laptop the Overview with the session counted. */
 .log-tap { display: none; }
 html.js .log-tap { display: block; position: absolute; z-index: 4; left: 2.1875em; top: 25.575em; width: 20.1875em; height: 3.25em; margin: 0; padding: 0; border: 0; border-radius: 999px; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 html.js .log-tap:focus-visible { outline: 2px solid #f4f4f6; outline-offset: 3px; border-radius: 999px; }
 @media (hover: hover) and (pointer: fine) { .ph-scr:has(> .log-tap:hover) .log { filter: brightness(1.07); } }
 .hphone.is-logged .ph-next { display: block; visibility: visible; opacity: 1; }
-.lt-after { position: absolute; z-index: 1; left: 648em; top: 16em; width: 756em; height: 576em; max-width: none; pointer-events: none; }
-/* With motion, Sam's laptop live: the Today window's own screen (home.js clones it), scaled onto this laptop (--ltk). */
-.lt-live { position: absolute; z-index: 1; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; transform: scale(var(--ltk, 0.49)); border-radius: 14px; overflow: hidden; opacity: 0; will-change: opacity; pointer-events: none; }   /* drawn ahead, clear: a tap shows it without painting it */
-.lt-live picture:where(:not(.layer)) { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; }
+/* Sam's laptop a moment later: the Overview's Training tile after the set (8 of 52 sessions), over the picture (7 of 52),
+   in the laptop's own em (1em is a desk px), and the ring drawn round it. Clear until Log set is tapped: with motion the
+   script fades it in as the set lands; without, .is-landed shows it. */
+.lt-live { position: absolute; z-index: 1; inset: 0; border-radius: 14em; overflow: hidden; pointer-events: none; }
+.lt-live .now { position: absolute; max-width: none; opacity: 0; }
+.laptop.is-landed .now { opacity: 1; }
 
 /* The set card's anatomy, shown rather than labelled: with motion a light ring travels from the load and reps to how hard
    it felt to Log set, and stays there until the set is logged (home.js). The rings sit in the screen's own points (out
@@ -269,36 +271,25 @@ html.m .hl { display: block; position: absolute; z-index: 2; left: calc(var(--x)
 .fw-live { display: none; position: absolute; inset: 0; overflow: hidden; background: var(--screen); }
 html.m .fw-a .fw-still { display: none; }
 html.m .fw-a .fw-live { display: block; }
-.fw-desk { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; transform: translate(calc(-648px * var(--fk, 1)), calc(-16px * var(--fk, 1))) scale(var(--fk, 1)); }
+.fw-desk { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; transform: translate(calc(-240px * var(--fk, 1)), calc(-56px * var(--fk, 1))) scale(var(--fk, 1)); }
 .fw-desk picture:where(:not(.layer)), .fw-base { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; max-width: none; }
-/* The list, with the chain's numbers beside its rows (a margin keeps them clear of the screen's own edge). Cut under
-   the sixth group (Ines): every lifter the chain names is in view. */
-.fw-port-list { width: 420px; aspect-ratio: auto; padding-left: 34px; overflow: visible; background: transparent; box-shadow: none; border-radius: 0; }
-.fw-port-list picture { display: block; overflow: hidden; aspect-ratio: 386 / 540; border-radius: 16px; background: var(--screen); box-shadow: var(--pane); }
+.fw-ov { opacity: 0; }   /* the Overview, over the list's screen: the script brings it in as the window moves on to Needs you */
+/* Needs you as a figure of its own (the still), the chain's numbers beside its rows (a margin keeps them clear of the
+   screen's own edge): the Overview's table from its title to under the sixth row, 780 x 440 desk px at up to 0.72
+   (phones: the lifter and why-now columns, 464 x 440). Every lifter the chain names is in view. */
+.fw-port-list { width: min(46vw, 594px); max-width: 594px; aspect-ratio: auto; padding-left: 34px; overflow: visible; background: transparent; box-shadow: none; border-radius: 0; }
+.fw-port-list picture { display: block; overflow: hidden; aspect-ratio: 780 / 440; border-radius: 16px; background: var(--screen); box-shadow: var(--pane); }
 .fw-port-list img { width: 100%; }
-/* The pins beside the list's rows: light discs with ink numbers, as the phone's (the rows' own geometry, out of 540). */
-.fpin { position: absolute; left: 0; top: calc(var(--y) / 540 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); }
+/* The pins beside the table's rows: light discs with ink numbers, as the phone's (the rows' own geometry, out of 440). */
+.fpin { position: absolute; left: 0; top: calc(var(--y) / 440 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); }
 .fpin::before { content: attr(data-n); }
 .fw-b .cap { margin-top: 14px; padding-left: 34px; }
 .was { position: absolute; max-width: none; opacity: 0; pointer-events: none; }
 .grp, .mk { display: none; }
-/* The squat card ringed as the set lands: the desk's "up" green, a crisp line drawn round it once, no halo. */
+/* Arjun's row ringed as his set lands (and the Training tile on the opening's laptop): the desk's "up" green, a crisp line drawn round it once, no halo. */
 .ring { position: absolute; overflow: visible; opacity: 0; pointer-events: none; }
 .ring rect { fill: none; stroke: rgba(52, 217, 130, 0.85); stroke-width: 2; vector-effect: non-scaling-stroke; }
 
-/* Live numbers over the capture, in the desk's own type (dark theme, measured from the app: cap-desk's desk-values.json). */
-.ov { position: absolute; display: flex; align-items: center; white-space: nowrap; color: #f3f3f5; font-family: var(--font-num); pointer-events: none; }
-.ov-total { font-size: 56px; font-weight: 800; font-stretch: 104%; letter-spacing: -1.96px; line-height: 53.2px; }
-.ov-chip { gap: 6px; height: 28px; padding: 0 10px; font: 700 13px/20.8px var(--font-body); letter-spacing: -0.08px; color: #34d982; }
-.ov-chip svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.ov-pr { gap: 6px; height: 20.8px; font: 600 13px/20.8px var(--font-body); letter-spacing: -0.08px; color: #c2c2cb; }
-.ov-pr i { width: 6px; height: 6px; border-radius: 50%; background: #ffc23d; }
-.ov-sq { font-size: 28px; font-weight: 800; font-stretch: 104%; letter-spacing: -0.84px; line-height: 28px; }
-.ov-d { font: 700 15px/24px var(--font-body); letter-spacing: -0.08px; color: #34d982; }
-.ov-foot, .ov-trf { font: 400 13px/20.8px var(--font-body); letter-spacing: -0.08px; color: #9a9aa5; }
-.ov-trf { line-height: 17.55px; }
-.ov-tr { font-size: 28px; font-weight: 800; font-stretch: 104%; letter-spacing: -0.84px; line-height: 28px; }
-.ov-row { font: 600 15px/20px var(--font-body); font-stretch: 104%; color: #34d982; }
 /* Two-state words: the still shows the last state; with motion the script plays the first to the last. */
 .swap { display: inline-grid; }
 .swap > * { grid-area: 1 / 1; }
@@ -318,8 +309,8 @@ html.m .fw-a .fw-live { display: block; }
 .av::before { content: attr(data-i); }
 
 /* Today on a laptop with motion: one row. The landing's words sit beside Arjun's phone (the column under its labels),
-   right above the window they introduce; the list's words beside the window, which zooms in to Arjun's page, takes the
-   set, then pans along Sam's same screen to his list, ringed group by group in its order (home.js). (Stacked, the same
+   right above the window they introduce; the list's words beside the window, which zooms in to who trained since Sam
+   looked, takes the set, then moves on to his Overview's Needs you, ringed row by row in its order (home.js). (Stacked, the same
    window does the same above the list's words. The still keeps the two panels and the list's own figure.) */
 @media (min-width: 1100px) {
   html.m .today-ch { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: clamp(40px, 4.45vw, 64px); align-items: center;
@@ -337,7 +328,7 @@ html.m .fw-a .fw-live { display: block; }
 }
 /* With motion (every width) the window pans to the list, so the list's own figure is the still's. */
 html.m .who .fw { display: none; }
-html.m .grp { display: block; position: absolute; border-radius: 14px; box-shadow: inset 0 0 0 1.5px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
+html.m .grp { display: block; position: absolute; width: var(--w); border-radius: 14px; box-shadow: inset 0 0 0 1.5px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
 html.m .mk { display: grid; place-items: center; position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); opacity: 0; }
 .mk::before { content: attr(data-mk); }
 
@@ -382,31 +373,20 @@ html.m .tl-bub img { width: 100%; aspect-ratio: 393 / 852; }
 .next-head .h2 { grid-column: 1 / span 6; }
 .next-head .lead { grid-column: 7 / span 6; max-width: 36em; }
 .wk { margin-top: var(--s4); width: min(100%, 880px); }
-/* A window onto Sam's Programs editor, jumped to Marcus's Bench Day (the crop is 875 x 612.5 desk px: the sticky head with
-   its action, the days' chips, the bench day; the page's 10:7): the still is the editor after Take; with motion week 2
-   as lifted lies on it first. 1cqw here is 8.75 desk px, so the page's own parts are drawn in the editor's px. */
+/* A window onto Sam's Programs sheet on the new coach website, Marcus's week 3 (the crop is 844 x 590.8 desk px: the top
+   bar with its action, the week's bar, his message, the squat day and the bench day; the page's 10:7). 1cqw here is 8.44
+   desk px, so the page's own parts are drawn in the sheet's px (cap-week2.mjs, mkimg.py week2). */
 .wk-port { position: relative; overflow: hidden; border-radius: 18px; outline-offset: 4px; background: var(--screen); box-shadow: var(--pane); }
 .wk-in { position: relative; aspect-ratio: 800 / 560; container-type: inline-size; }
 .wk-in picture, .wk-in img { position: absolute; inset: 0; width: 100%; height: 100%; }
-.wk-before { display: none; }
-html.m .wk-before { display: block; }
-/* What week 2 lifted on his bench (the line under its top set: @9.5 where Sam wrote 8, +1.5), then week 3's bench, where
-   his rule's 145 lands over what week 2 lifted. */
-.why { position: absolute; left: 17.086%; top: 51.429%; width: 22.434%; height: 4.898%; border-radius: calc(9 / 8.75 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; visibility: hidden; pointer-events: none; }
-.tap { position: absolute; left: 26.914%; top: 46.367%; width: 9.371%; height: 6.531%; border-radius: calc(9 / 8.75 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
-/* The editor's own action (desk-program.js, the crimson primary in its sticky head), drawn by the page so one crimson per
-   screen holds: Take 1 suggestion, then Send the changes to Marcus, each at the editor's width (Preview sits just left of
-   the first; the still is the second). Right-aligned where the editor has it. The box is always Send's width: its crimson
-   (::before) is cut from the left to Take's width by --pub-k (1 - take / send, set by home.js) and opens as the label
-   changes, so nothing on the page moves (a widening box is a layout shift). Each label is centred in its own part of the
-   box: Send in all of it, Take in the part right of --pub-k0 (Take's cut). The drop shadow is a filter, so it follows
-   the cut. */
-.pub { position: absolute; right: 5.429%; top: 2.286%; --w-take: 16.446%; --w-send: 23.371%; --pub-k: 0; --pub-k0: 0; width: var(--w-send); height: calc(36 / 8.75 * 1cqw); display: inline-flex; align-items: center; justify-content: center; padding: 0 calc(18 / 8.75 * 1cqw); border-radius: 999px;
-  color: #fff; font-size: calc(13 / 8.75 * 1cqw); font-weight: 600; white-space: nowrap; isolation: isolate; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45)); }
-.pub::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2); clip-path: inset(0 0 0 calc(var(--pub-k) * 100%) round 999px); }
-.pub .swap { position: absolute; inset: 0; display: block; }
-.pub .swap > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-.pub .swap > :first-child { left: calc(var(--pub-k0) * 100%); }
+/* What week 2 lifted on his bench (152.5 x 3 @9.5 where Sam wrote 8), then week 3's load on the same line, his rule's 145. */
+.why { position: absolute; left: 22.275%; top: 87.745%; width: 13.389%; height: 4.875%; border-radius: calc(8 / 8.44 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; visibility: hidden; pointer-events: none; }
+.tap { position: absolute; left: 63.626%; top: 86.290%; width: 10.664%; height: 7.786%; border-radius: calc(8 / 8.44 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
+/* The sheet's own action (the crimson primary in its top bar, left out of the picture), drawn by the page so one crimson
+   per screen holds: Send 4 changes to Marcus, where the sheet has it, in its type (15 px, 600, a 36 px pill). */
+.pub { position: absolute; right: 1.896%; top: 1.693%; width: 25.261%; height: calc(36 / 8.44 * 1cqw); display: inline-flex; align-items: center; justify-content: center; padding: 0 calc(16 / 8.44 * 1cqw); border-radius: 999px;
+  color: #fff; font-size: calc(15 / 8.44 * 1cqw); font-weight: 600; white-space: nowrap; isolation: isolate; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45)); }
+.pub::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2); }
 
 /* =====================================================================
    MEET DAY: the striking moment. A black stage: Tom's phone (left), the platform (three lights, then the minute),
@@ -586,20 +566,6 @@ html.m .lf-l { display: block; position: absolute; z-index: 2; left: calc(var(--
 .cl { grid-column: 5 / span 8; width: 100%; }
 .sheet-desk { position: relative; background: var(--screen); }
 /* The month's total and its paid bar, live over the capture while motion plays (patches of the card's own ground). */
-.cl-live { display: none; }
-html.m .cl-live { position: absolute; inset: 0; container-type: inline-size; pointer-events: none; }
-html.m .cl-live-d { display: block; }
-.cl-patch { position: absolute; display: block; background: rgb(26, 25, 30); }
-.cl-pb { background: rgb(42, 42, 44); border-radius: 999px 0 0 999px; }
-.cl-n { position: absolute; display: flex; align-items: baseline; white-space: nowrap; color: #f4f4f6; font-family: var(--font-num); font-weight: 800; font-stretch: 104%; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
-.cl-live-d .cl-pn { left: calc(34 / 1984 * 100%); top: calc(124 / 716 * 100%); width: calc(198 / 1984 * 100%); height: calc(70 / 716 * 100%); }
-.cl-live-d .cl-n { left: calc(39 / 1984 * 100%); top: calc(128.5 / 716 * 100%); font-size: calc(27.2 / 992 * 100cqw); }
-.cl-live-d .cl-pb { left: calc(37 / 1984 * 100%); top: calc(213 / 716 * 100%); width: calc(331 / 1984 * 100%); height: calc(14 / 716 * 100%); }
-.cl-live-d .cl-pr { left: calc(1543 / 1984 * 100%); top: calc(124 / 716 * 100%); width: calc(198 / 1984 * 100%); height: calc(70 / 716 * 100%); }
-.cl-live-d .cl-n2 { left: calc(1548 / 1984 * 100%); }
-.cl-live-p .cl-pn { left: calc(46 / 502 * 100%); top: calc(122 / 656 * 100%); width: calc(196 / 502 * 100%); height: calc(70 / 656 * 100%); }
-.cl-live-p .cl-n { left: calc(51 / 502 * 100%); top: calc(126.5 / 656 * 100%); font-size: calc(27.2 / 251 * 100cqw); }
-.cl-live-p .cl-pb { left: calc(49 / 502 * 100%); top: calc(211 / 656 * 100%); width: calc(331 / 502 * 100%); height: calc(14 / 656 * 100%); }
 
 /* =====================================================================
    PRICING (the coach's graphite): one roster scale, four bands, Sam's twenty lifters filling it.
@@ -831,6 +797,8 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .fw-still { display: block; width: 756px; }
   .fw-still img { width: 756px; max-width: none; }
   .fw-port-list { width: 100%; height: auto; padding-left: 32px; }
+  .fw-port-list picture { aspect-ratio: 464 / 440; }
+  html.m .grp { width: var(--wp); }
   .chain { margin-top: var(--s3); }
   .chain li { column-gap: 12px; min-height: 44px; }
   .chain b { font-size: 16px; }
@@ -841,16 +809,15 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .answers-copy .lead { margin-top: var(--s2); }
   .next-head .h2, .next-head .lead { grid-column: 1 / -1; }
   .next-head .lead { margin-top: 14px; }
-  /* The week on a phone: its own pictures (index.html's phone sources), the app's own narrow layout (a 1024 px laptop
-     window with the sidebar open: an editor of 480 px, what was lifted under each line, Preview, the crimson and
-     ⋯ on a line under the name), the whole frame edge to edge at 0.79. Its rings and action where that layout has them
-     (cap-program.mjs PHONE=1, mkimg.py program-phone): 1cqw here is 4.96 desk px. */
+  /* The week on a phone: a narrower window of the same sheet (index.html's phone sources: from its status line to the
+     end of the bench day, the exercise to the load, 608 x 415 desk px edge to edge at about 0.65). Its rings where that
+     window has them (mkimg.py week2): 1cqw here is 6.08 desk px. The top bar is not in it, so no action is drawn. */
   .wk { width: auto; margin-inline: -16px; }
   .wk-port { border-radius: 0; }
-  .wk-in { aspect-ratio: 496 / 572; }
-  .why { left: 16.129%; top: 67.657%; width: 39.577%; height: 5.245%; border-radius: calc(9 / 4.96 * 1cqw); }
-  .tap { left: 32.661%; top: 62.238%; width: 16.532%; height: 6.993%; border-radius: calc(9 / 4.96 * 1cqw); }
-  .pub { right: 9.677%; top: 10.140%; --w-take: 29.012%; --w-send: 41.23%; height: calc(36 / 4.96 * 1cqw); padding: 0 calc(18 / 4.96 * 1cqw); font-size: calc(13 / 4.96 * 1cqw); }
+  .wk-in { aspect-ratio: 608 / 415; }
+  .why { left: 26.974%; top: 71.711%; width: 18.586%; height: 6.940%; border-radius: calc(8 / 6.08 * 1cqw); }
+  .tap { left: 84.375%; top: 69.639%; width: 14.803%; height: 11.084%; border-radius: calc(8 / 6.08 * 1cqw); }
+  .pub { display: none; }
   .meet-lead { margin-top: 14px; margin-bottom: var(--s3); }
   .scene { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "phone" "board"; row-gap: 22px; }
   .mid { padding-bottom: 0; }
@@ -879,8 +846,6 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .money { margin-top: 30px; padding-top: 30px; }
   .money-copy p { font-size: 16px; }
   .cl .sheet-crop { width: 251px; border-radius: 14px; }
-  html.m .cl-live-d { display: none; }
-  html.m .cl-live-p { display: block; }
   /* The four plans as a 2 x 2: each reads as one block, its rule and name, its price, then the lifters it seats. */
   .bands { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; row-gap: 24px; }
   .band { padding-right: 0; display: flex; flex-direction: column; }
@@ -1032,19 +997,14 @@ body.home .foot { padding: 48px 0 32px; }
   html:not(.native) .up-tag { background: rgba(15, 125, 71, 0.1); color: #0c6b3c; }
   html:not(.native) #maxGrad stop { stop-color: var(--sq); }
 
-  /* Today: white paper with hairlines; Sam's light desk set into it as panes; his list's numbers and the rings in ink;
-     the live numbers in the light desk's own colours (cap-desk's desk-values.json, THEME=light). */
+  /* Today: white paper with hairlines; Sam's light desk set into it as panes (the coach website's own light theme,
+     cap-desk2.mjs THEME=light); his table's numbers and the rings in ink. */
   html:not(.native) .land { box-shadow: inset 0 1px 0 rgba(11, 11, 13, 0.07); background-image: none; }
   html:not(.native) .who { box-shadow: inset 0 1px 0 var(--hair), inset 0 -1px 0 rgba(11, 11, 13, 0.06); }
   html:not(.native) .fw-port, html:not(.native) .fw-port-list picture, html:not(.native) .wk-port, html:not(.native) .sheet-crop {
     --pane: 0 0 0 1px rgba(11, 11, 13, 0.08), 0 1px 2px rgba(11, 11, 13, 0.04), 0 24px 48px -32px rgba(15, 15, 25, 0.22); }
   html:not(.native) .fpin, html:not(.native) .chain li::before, html:not(.native) .sn { background: #0b0b0d; color: #f4f4f6; }
   html:not(.native) .ring rect { stroke: rgba(15, 125, 71, 0.85); }
-  html:not(.native) .ov { color: #0b0b0d; }
-  html:not(.native) .ov-chip, html:not(.native) .ov-d, html:not(.native) .ov-row { color: #0f7d47; }
-  html:not(.native) .ov-pr { color: #34343c; }
-  html:not(.native) .ov-pr i { background: #8a5a00; }
-  html:not(.native) .ov-foot, html:not(.native) .ov-trf { color: #55555e; }
   html.m:not(.native) .grp { box-shadow: inset 0 0 0 1.5px rgba(11, 11, 13, 0.8); }
   html.m:not(.native) .mk { background: #0b0b0d; color: #f4f4f6; }
   /* Avatars as the light desk draws them (a pale ground, a deep ink, AA on each other). */
@@ -1072,12 +1032,9 @@ body.home .foot { padding: 48px 0 32px; }
   html:not(.native) .lf-n { color: #16161a; }
   html:not(.native) .lf-d { background: rgba(26, 127, 75, 0.1); color: #146c3f; }   /* the app's light green since its 4.5:1 pass (4 Nov) */
 
-  /* Moving over and the money: the import sheet's white; the month's patches the light card's own ground and paid bar. */
+  /* Moving over and the money: the import sheet's white; Clients on the light desk's own ground. */
   html:not(.native) .sheet-crop { background: #ffffff; }
   html:not(.native) .sheet-desk { background: var(--screen); }
-  html:not(.native) .cl-patch { background: rgb(254, 254, 254); }
-  html:not(.native) .cl-pb { background: rgb(236, 236, 236); }
-  html:not(.native) .cl-n { color: #0b0b0d; }
 
   /* Pricing: Sam's lifters as pale avatars on white, each with a hairline; the plan in force ruled in ink. */
   html:not(.native) .s-home .prices { box-shadow: inset 0 1px 0 rgba(11, 11, 13, 0.07); background-image: none; }

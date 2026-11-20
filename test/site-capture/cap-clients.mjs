@@ -1,3 +1,5 @@
+// Since 20 Nov the homepage's Clients picture comes from the new coach website (cap-clients2.mjs); this one captures the old
+// dashboard and its pictures (clients-*, clients-ph-*) are no longer on the page.
 // -> cl-before.png: site-img/home/clients-*, clients-ph-* (mkimg.py clients).
 // Clients on the desk (1440x900, dark (THEME=light for a light version), 2x): before and after Sam marks Tomas's payment as paid.
 import { writeFileSync } from 'node:fs';
