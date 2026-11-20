@@ -41,6 +41,7 @@
     up: '<path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/>',
     send2: '<path d="M5 12h13M13 6l6 6-6 6"/>',
     top: '<path d="M6 15l6-6 6 6"/>',
+    me: '<circle cx="12" cy="8.5" r="3.6"/><path d="M5 19.5a7 7 0 0 1 14 0"/>',
     pause: '<path d="M9 6.5v11M15 6.5v11" stroke-width="2.4"/>'   /* beside K.ic play (filled): two round strokes, as heavy */
   };
   DESK.ic = function (k, w) {
@@ -139,19 +140,60 @@
       if (!href) return '';   /* a place without a page is not in the sidebar: no dead ends */
       if (p[0] === 'lifters') href = liftersHref();
       return '<a class="it" href="' + href + '" data-place-link="' + p[0] + '"' + (what[p[0]] ? ' data-what="' + what[p[0]] + '"' : '') + (v ? ' title="' + v + ' ' + what[p[0]] + '"' : '') + '>' + DESK.ic(p[2]) + '<span class="l">' + p[1] + '</span>' +
-        (k ? '<span class="n' + (p[0] === 'messages' ? ' hot' : '') + '" data-count="' + k + '">' + badge(v) + '</span>' : '') + '</a>';
+        (k ? '<span class="n' + (p[0] === 'messages' ? ' hot' : '') + '" data-count="' + k + '">' + badge(v) + '</span>' : '') +
+        (p[0] === 'messages' ? '<span class="pip" data-count="' + k + '" aria-hidden="true">' + badge(v) + '</span>' : '') + '</a>';
     };
     /* a View is words and a count: no icon, no colour */
     var view = function (x) { return '<a class="it" href="' + DESK.routes.lifters + '#f=' + x[0] + '" data-view="' + x[0] + '"><span class="l">' + x[1] + '</span><span class="n" data-count="' + x[2] + '">' + badge(c[x[2]]) + '</span></a>'; };
     var coach = D.coach || { name: 'Sam Ellis', plan: 'Pro' };
+    /* three groups, set apart by space: the day's work, the people side, then the tool. Messages carries its count on the
+       icon too (.pip), so a folded rail still says a lifter is waiting. */
+    var GROUPS = [['overview', 'lifters', 'programs', 'teams', 'meets'], ['messages', 'clients'], ['settings']];
+    var byKey = {}; PLACES.forEach(function (p) { byKey[p[0]] = p; });
+    var navs = GROUPS.map(function (g, i) {
+      return '<nav' + (i === 0 ? ' aria-label="Places"' : i === 1 ? ' aria-label="Lifters and clients"' : ' aria-label="Settings"') + '>' + g.map(function (k) { return it(byKey[k]); }).join('') + '</nav>';
+    });
+    var pinned = isPinned();
     return '<aside class="side" data-crop="sidebar" aria-label="Coach desk">' +
-      '<a class="brand" href="' + DESK.routes.overview + '" aria-label="POWALIFTA, the Overview">' + DESK.mark + '<b>POWALIFTA</b></a>' +
-      '<button class="find" type="button" data-find aria-keyshortcuts="Meta+K">' + DESK.ic('find', 2) + '<span>Find</span><kbd>⌘K</kbd></button>' +
-      '<nav aria-label="Places">' + PLACES.map(it).join('') + '</nav>' +
-      '<div class="side-h" id="views-h"' + (viewsShown(c) ? '' : ' hidden') + '>Views</div><nav aria-labelledby="views-h"' + (viewsShown(c) ? '' : ' hidden') + '>' + VIEWS.map(view).join('') + '</nav>' +
-      '<div class="spacer"></div>' +
-      '<button class="me" type="button" data-account aria-haspopup="menu" aria-expanded="false" aria-label="' + esc(coach.name + ', account') + '"><b>' + esc(coach.name) + '</b><small>' + esc(seatsLine()) + '</small></button>' +
+      '<div class="top"><a class="brand" href="' + DESK.routes.overview + '" aria-label="POWALIFTA, the Overview">' + DESK.mark + '<b>POWALIFTA</b></a>' +
+      '<button class="pin" type="button" data-side-pin aria-pressed="' + pinned + '" aria-label="Keep the sidebar open" title="' + (pinned ? 'Fold the sidebar' : 'Keep the sidebar open') + '">' + DESK.ic('sidebar') + '</button></div>' +
+      '<button class="find" type="button" data-find aria-keyshortcuts="Meta+K" aria-label="Find">' + DESK.ic('find', 2) + '<span>Find</span><kbd>⌘K</kbd></button>' +
+      navs[0] + navs[1] +
+      '<div class="side-h" id="views-h"' + (viewsShown(c) ? '' : ' hidden') + '>Lifters who</div><nav aria-labelledby="views-h"' + (viewsShown(c) ? '' : ' hidden') + '>' + VIEWS.map(view).join('') + '</nav>' +
+      '<div class="spacer"></div>' + navs[2] +
+      '<button class="me" type="button" data-account aria-haspopup="menu" aria-expanded="false" aria-label="' + esc(coach.name + ', account') + '">' + DESK.ic('me') + '<span class="who"><b>' + esc(coach.name) + '</b><small>' + esc(seatsLine()) + '</small></span></button>' +
       '</aside>';
+  }
+  /* the sidebar folds to a rail and opens under the pointer or the keyboard (ui.css); the pin keeps it open and the page
+     makes room (tokens.css :root.side-pinned), remembered in localStorage powa-r6-side */
+  var SIDE_KEY = 'powa-r6-side';
+  function isPinned() { return store.get('localStorage', SIDE_KEY) === 'open'; }
+  function setPinned(on) {
+    store.set('localStorage', SIDE_KEY, on ? 'open' : null);
+    document.documentElement.classList.toggle('side-pinned', !!on);
+    var b = $('.side [data-side-pin]'); if (b) { b.setAttribute('aria-pressed', String(!!on)); b.title = on ? 'Fold the sidebar' : 'Keep the sidebar open'; }
+    dispatchEvent(new Event('resize'));
+  }
+  if (isPinned()) document.documentElement.classList.add('side-pinned');
+  DESK.side = { pinned: isPinned, pin: setPinned };
+  /* going to another place from the open sidebar: the next page draws it open (no fold-then-open flicker) and lets it
+     fold once the pointer has left it */
+  var HOLD_KEY = 'powa-r6-side-hold';
+  function sideBehaviour() {
+    var side = $('.side'); if (!side) return;
+    side.addEventListener('click', function (e) {
+      var pin = e.target.closest('[data-side-pin]');
+      if (pin) { setPinned(!isPinned()); return; }
+      if (e.target.closest('a[href]') && !isPinned()) store.set('sessionStorage', HOLD_KEY, String(Date.now()));
+    });
+    var held = +store.get('sessionStorage', HOLD_KEY) || 0; store.set('sessionStorage', HOLD_KEY, null);
+    if (held && Date.now() - held < 4000 && !isPinned()) {
+      side.classList.add('is-open');
+      var off = function (e) { if (e.type === 'mousemove' && side.contains(e.target)) return; side.classList.remove('is-open'); removeEventListener('mousemove', off, true); removeEventListener('keydown', off, true); };
+      addEventListener('mousemove', off, true); addEventListener('keydown', off, true);
+    }
+    /* Escape folds it again when the keyboard is what opened it */
+    side.addEventListener('keydown', function (e) { if (e.key === 'Escape' && side.contains(document.activeElement) && !isPinned() && !$('[data-layer]')) document.activeElement.blur(); });
   }
   /* the coach line's plan and seats, from the store (an accepted application holds a seat) */
   function seatsLine() {
@@ -223,6 +265,7 @@
     var page = document.getElementById('page');
     if (o.fixed) document.body.classList.add('is-fixed');
     document.body.insertAdjacentHTML('afterbegin', sidebarHtml());
+    sideBehaviour();
     /* a view switch sits in the leading group, right after back and the arrows (function-polish PX4): what a page gives as
        mid goes there, before the collapsed title; the middle group stays empty. Arriving at the example desk from the
        fresh one, the Overview leads with a quiet way back (first-time-coach §2.1). */
@@ -404,7 +447,7 @@
     var t = trigger.getBoundingClientRect(), a = o.anchor && o.anchor.isConnected ? o.anchor.getBoundingClientRect() : t;
     var W = document.documentElement.clientWidth, H = innerHeight, w = el.offsetWidth, h = el.offsetHeight;
     var m = 12, gap = 8, aside = 12, top = px('--edge-h', 56) + gap, lo = m, hi = W - m;
-    var side = $('.side'); if (side) { var sr = side.getBoundingClientRect(); if (t.left >= sr.right) lo = Math.max(lo, sr.right + gap); }
+    var side = $('.side'); if (side) { var sw = px('--sidebar-w', 68), inSide = !!(trigger && trigger.closest && trigger.closest('.side')); if (!inSide && t.left >= sw) lo = Math.max(lo, sw + gap); }
     if (DESK.insp.isOpen()) { var ir = DESK.insp.el().getBoundingClientRect(); if (t.right <= ir.left) hi = Math.min(hi, ir.left - gap); }
     var cx = function (x) { return Math.max(lo, Math.min(hi - w, x)); }, cy = function (y) { return Math.max(top, Math.min(H - m - h, y)); };
     var below = a.bottom + gap, above = a.top - gap - h, fitsBelow = below + h <= H - m, fitsAbove = above >= top;

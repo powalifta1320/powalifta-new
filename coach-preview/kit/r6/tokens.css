@@ -103,7 +103,11 @@
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-7: 32px; --sp-8: 40px; --sp-9: 48px; --sp-10: 64px;
 
   /* ---- layout ---- */
-  --sidebar-w: 240px; --list-w: 300px; --inspector-w: 420px; --facts-w: 360px;   /* one list width on every page (shared.md §9) */
+  /* the sidebar is folded to a rail of icons and opens over the page under the pointer or the keyboard (20 Nov, the
+     owner: "it should go inside when you hover your cursor over it. It opens up again so you can read what's going on").
+     --sidebar-w is the room the layout keeps for it: the rail, or the open width when the coach pins it open. */
+  --rail-w: 68px; --side-open: 248px; --sidebar-w: var(--rail-w);
+  --list-w: 340px; --inspector-w: 420px; --facts-w: 360px;   /* one list width on every page */
   --inset: 8px; --gutter: 32px;
   --col-l: calc(var(--sidebar-w) + var(--gutter));
   --tb-h: 48px;    /* the toolbar's row of buttons */
@@ -139,8 +143,10 @@
 
 /* ---- the laptop below 1281 px ---- */
 @media (max-width: 1280px) {
-  :root { --sidebar-w: 224px; --list-w: 272px; --inspector-w: 380px; --facts-w: 340px; }
+  :root { --rail-w: 64px; --side-open: 236px; --list-w: 304px; --inspector-w: 380px; --facts-w: 340px; }
 }
+/* pinned open (the button at the sidebar's top, remembered in powa-r6-side): the page makes room for it, as before */
+:root.side-pinned { --sidebar-w: var(--side-open); }
 @media (max-width: 1280px), (max-height: 740px) {
   :root { --grow-h: 40px; --gday-h: 32px; --gwk-h: 36px; --gsub-h: 28px; }
 }
@@ -203,16 +209,38 @@
    column and the floor all catch the same light and no seam shows between them), the sidebar's current-place pill, a
    chosen row and a range of cells (--sel), the focus ring, and a chart card's sheen and lit top edge. Light keeps the
    same hues, darker where they are words and icons, quieter where they are light. */
-body[data-place='overview'], body[data-place='roster'] { --place: #ffa64d; --place-ink: #ffa64d; --place-rgb: 255 166 77; }
-body[data-place='lifters'], body[data-place='programs'], body[data-place='teams'] { --place: #38c6ff; --place-ink: #38c6ff; --place-rgb: 56 198 255; }
-body[data-place='meets'] { --place: #ffbf3c; --place-ink: #ffbf3c; --place-rgb: 255 191 60; }
-body[data-place='messages'], body[data-place='clients'] { --place: #34d982; --place-ink: #34d982; --place-rgb: 52 217 130; }
-body[data-place='settings'] { --place: #a77dff; --place-ink: #b394ff; --place-rgb: 167 125 255; }
-:root[data-theme='light'] body:is([data-place='overview'], [data-place='roster']) { --place: #f08a24; --place-ink: #9a4a00; --place-rgb: 240 138 36; }
-:root[data-theme='light'] body:is([data-place='lifters'], [data-place='programs'], [data-place='teams']) { --place: #19a9e6; --place-ink: #0a6890; --place-rgb: 25 169 230; }
-:root[data-theme='light'] body[data-place='meets'] { --place: #e5a51c; --place-ink: #8a5a00; --place-rgb: 229 165 28; }
-:root[data-theme='light'] body:is([data-place='messages'], [data-place='clients']) { --place: #1fb36a; --place-ink: #0b6b3c; --place-rgb: 31 179 106; }
-:root[data-theme='light'] body[data-place='settings'] { --place: #8b6cf0; --place-ink: #6a4fd6; --place-rgb: 139 108 240; }
+/* one hue a place, so eight places are eight colours (20 Nov, the owner: "some way where they're more easily
+   distinguishable"): until now Lifters, Programs and Teams shared the cyan and Messages and Clients the green. --pl-* is
+   the mark, --pl-*-ink the shade that reads as words and icons; the sidebar wears them on every icon (ui.css), and
+   body[data-place] hands the page its own. Settings is a tool, not a place of work: it stays neutral. */
+:root {
+  --pl-overview: #ffa64d; --pl-overview-ink: #ffa64d; --pl-overview-rgb: 255 166 77;
+  --pl-lifters: #38c6ff;  --pl-lifters-ink: #38c6ff;  --pl-lifters-rgb: 56 198 255;
+  --pl-programs: #7da2ff; --pl-programs-ink: #8fafff; --pl-programs-rgb: 125 162 255;
+  --pl-teams: #2fd1c5;    --pl-teams-ink: #2fd1c5;    --pl-teams-rgb: 47 209 197;
+  --pl-meets: #ffbf3c;    --pl-meets-ink: #ffbf3c;    --pl-meets-rgb: 255 191 60;
+  --pl-messages: #34d982; --pl-messages-ink: #34d982; --pl-messages-rgb: 52 217 130;
+  --pl-clients: #b394ff;  --pl-clients-ink: #b99dff;  --pl-clients-rgb: 179 148 255;
+  --pl-settings: #9a9aa5; --pl-settings-ink: #c2c2cb; --pl-settings-rgb: 154 154 165;
+}
+:root[data-theme='light'] {
+  --pl-overview: #f08a24; --pl-overview-ink: #9a4a00; --pl-overview-rgb: 240 138 36;
+  --pl-lifters: #19a9e6;  --pl-lifters-ink: #0a6890;  --pl-lifters-rgb: 25 169 230;
+  --pl-programs: #4f7df0; --pl-programs-ink: #2c53c4; --pl-programs-rgb: 79 125 240;
+  --pl-teams: #12a594;    --pl-teams-ink: #0a6c61;    --pl-teams-rgb: 18 165 148;
+  --pl-meets: #e5a51c;    --pl-meets-ink: #8a5a00;    --pl-meets-rgb: 229 165 28;
+  --pl-messages: #1fb36a; --pl-messages-ink: #0b6b3c; --pl-messages-rgb: 31 179 106;
+  --pl-clients: #8b6cf0;  --pl-clients-ink: #6347d1;  --pl-clients-rgb: 139 108 240;
+  --pl-settings: #6c6c76; --pl-settings-ink: #34343c; --pl-settings-rgb: 108 108 118;
+}
+body[data-place='overview'], body[data-place='roster'] { --place: var(--pl-overview); --place-ink: var(--pl-overview-ink); --place-rgb: var(--pl-overview-rgb); }
+body[data-place='lifters'] { --place: var(--pl-lifters); --place-ink: var(--pl-lifters-ink); --place-rgb: var(--pl-lifters-rgb); }
+body[data-place='programs'] { --place: var(--pl-programs); --place-ink: var(--pl-programs-ink); --place-rgb: var(--pl-programs-rgb); }
+body[data-place='teams'] { --place: var(--pl-teams); --place-ink: var(--pl-teams-ink); --place-rgb: var(--pl-teams-rgb); }
+body[data-place='meets'] { --place: var(--pl-meets); --place-ink: var(--pl-meets-ink); --place-rgb: var(--pl-meets-rgb); }
+body[data-place='messages'] { --place: var(--pl-messages); --place-ink: var(--pl-messages-ink); --place-rgb: var(--pl-messages-rgb); }
+body[data-place='clients'] { --place: var(--pl-clients); --place-ink: var(--pl-clients-ink); --place-rgb: var(--pl-clients-rgb); }
+body[data-place='settings'] { --place: var(--pl-settings); --place-ink: var(--pl-settings-ink); --place-rgb: var(--pl-settings-rgb); }
 body {
   --page-light:
     radial-gradient(1100px 480px at 40% -140px, rgb(var(--place-rgb) / var(--a-light)), rgb(var(--place-rgb) / 0) 72%),

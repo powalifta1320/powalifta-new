@@ -1,0 +1,118 @@
+/* simple.css: the Simple view of a lifter's week on Programs (simple.js). One day on screen, each lift a block of plain
+   fields on the card's own colour (no card inside the card: lifts are set apart by hairlines), the lift's name in its
+   colour, one form under the day that adds a lift. Every value comes from tokens.css. */
+.sv { padding: 0 var(--sp-6) var(--sp-6); }
+
+/* the days: one tab a day, the day's name over its date and how much it holds */
+/* the week bar scrolls away with the page of lifts; the days stay pinned at the card's top */
+.pg-frame .wk.is-rows.is-simple > .wb { position: static; }
+.sv-tabs { position: sticky; top: 0; z-index: 2; display: flex; gap: var(--sp-2); margin: 0 calc(var(--sp-6) * -1); padding: var(--sp-3) var(--sp-6); background: var(--card); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.sv-tabs::-webkit-scrollbar { display: none; }
+.sv-tab { flex: none; display: grid; gap: 2px; min-width: 132px; min-height: 52px; padding: var(--sp-2) var(--sp-4); border: 0; border-radius: var(--r-row); background: transparent; color: var(--ink-2); text-align: left; cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.sv-tab b { font: 600 var(--fs-sub)/var(--lh-tight) var(--font); color: inherit; white-space: nowrap; }
+.sv-tab span { font: 500 var(--fs-cap)/var(--lh-cap) var(--font); color: var(--ink-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sv-tab[aria-selected='true'] { background: var(--place-sel); color: var(--ink); }
+.sv-tab[aria-selected='true'] span { color: var(--ink-2); }
+.sv-tab-add { min-width: 0; color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--line-2); }
+@media (hover: hover) and (pointer: fine) { .sv-tab:hover:not([aria-selected='true']) { background: var(--fill); color: var(--ink); } }
+
+/* the day's head */
+.sv-dh { display: flex; align-items: center; gap: var(--sp-3); min-height: 56px; padding-top: var(--sp-2); }
+.sv-dh h3 { margin: 0; font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); }
+.sv-dh h3 button { padding: 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; cursor: text; border-radius: var(--r-field); }
+.sv-dd { color: var(--ink-3); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; }
+.sv-dh .sv-more { margin-left: auto; }
+.sv-none { margin: var(--sp-4) 0; color: var(--ink-2); font: 400 var(--fs-body)/var(--lh-body) var(--font); }
+
+/* a lift: its name in its colour, last week beside it, then its fields on one row */
+.sv-list { list-style: none; margin: 0; padding: 0; }
+.sv-ex { padding: var(--sp-4) 0 var(--sp-5); border-top: 1px solid var(--line); }
+.sv-eh { display: flex; align-items: baseline; gap: var(--sp-3); min-height: 36px; }
+.sv-name { margin: 0; font: 700 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); color: var(--ink); }
+.sv-name[data-lift='squat'] { color: var(--sq-ink); }
+.sv-name[data-lift='bench'] { color: var(--bp-ink); }
+.sv-name[data-lift='deadlift'] { color: var(--dl-ink); }
+.sv-var { color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); }
+.sv-last { margin-left: auto; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sv-lk { color: var(--ink-3); }
+.sv-more { flex: none; align-self: center; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink-3); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.sv-more svg { width: 20px; height: 20px; }
+@media (hover: hover) and (pointer: fine) { .sv-more:hover { background: var(--fill); color: var(--ink); } }
+
+/* the fields: a label over each box, the boxes one height, numbers tabular */
+.sv-line { display: flex; align-items: flex-end; gap: var(--sp-3); margin-top: var(--sp-2); }
+/* a second line of the same lift (back-offs): its name over the same four boxes, on the same columns */
+.sv-line.is-sub { position: relative; margin-top: var(--sp-4); padding-top: 26px; }
+.sv-line.is-sub .sv-k { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.sv-sub { position: absolute; top: 0; left: 0; white-space: nowrap; color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-label) var(--font); }
+.sv-line.is-sub .sv-more { align-self: flex-end; height: var(--ctl-l); }
+.sv-f { display: grid; gap: 6px; min-width: 0; }
+.sv-k { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); letter-spacing: var(--ls-label); white-space: nowrap; }
+.sv-in, .sv-note {
+  width: 100%; height: var(--ctl-l); padding: 0 var(--sp-3); border: 0; border-radius: var(--r-field); background: var(--fill); box-shadow: var(--shadow-field);
+  color: var(--ink); font: 600 var(--fs-body)/1 var(--font); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch);
+  transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.sv-in::placeholder, .sv-note::placeholder { color: var(--ink-3); font-weight: 500; opacity: 1; }
+.sv-in:focus, .sv-note:focus { outline: 2px solid var(--focus); outline-offset: 0; background: var(--fill-2); }
+.sv-in:disabled, .sv-note:disabled { color: var(--ink-2); background: transparent; box-shadow: inset 0 0 0 1px var(--line); cursor: default; }
+.sv-in[aria-invalid='true'] { box-shadow: inset 0 0 0 1.5px var(--warn); }
+.sv-f-sets, .sv-f-reps { flex: 0 0 132px; }
+.sv-f-effort { flex: 0 0 148px; }
+.sv-f-load { flex: 0 0 148px; }
+.sv-f-note { flex: 1 1 200px; }
+.sv-f-effort .sv-in, .sv-f-load .sv-in { text-align: right; }
+/* a stepper: one box, the number in the middle, a quiet minus and plus at its ends */
+.sv-step { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: stretch; height: var(--ctl-l); border-radius: var(--r-field); background: var(--fill); box-shadow: var(--shadow-field); }
+.sv-step .sv-in { height: 100%; padding: 0; background: transparent; box-shadow: none; text-align: center; border-radius: 0; }
+.sv-step:focus-within { outline: 2px solid var(--focus); background: var(--fill-2); }
+.sv-step .sv-in:focus { outline: 0; background: transparent; }
+.sv-step button { border: 0; background: transparent; color: var(--ink-2); font: 500 20px/1 var(--font); cursor: pointer; border-radius: var(--r-field); transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.sv-step button:disabled { color: var(--ink-4); opacity: .45; cursor: default; }
+@media (hover: hover) and (pointer: fine) { .sv-step button:hover:not(:disabled) { background: var(--fill-2); color: var(--ink); } }
+.sv-step button:active:not(:disabled) { transform: scale(var(--press)); }
+/* the load: kg inside the box; a load worked out from the max shows as the quiet number until one is typed */
+.sv-kg { position: relative; display: block; }
+.sv-kg .sv-in { padding-right: 38px; }
+.sv-kg i { position: absolute; right: var(--sp-3); top: 50%; translate: 0 -50%; color: var(--ink-3); font: 500 var(--fs-label)/1 var(--font); font-style: normal; pointer-events: none; }
+.sv-kg.is-auto .sv-in::placeholder { color: var(--ink-2); font-weight: 600; }
+.sv-why { margin: var(--sp-2) 0 0; color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; max-width: 62ch; }
+.sv-ef { display: flex; align-items: center; gap: var(--sp-4); margin-top: var(--sp-3); }
+.sv-in.sv-note { font: 400 var(--fs-sub)/1 var(--font); font-stretch: 100%; }
+.sv-link { flex: none; padding: 0; border: 0; background: none; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); text-decoration: underline; text-decoration-color: var(--ink-4); text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; border-radius: var(--r-mark); min-height: 32px; }
+@media (hover: hover) and (pointer: fine) { .sv-link:hover { text-decoration-color: currentColor; } }
+
+/* add a lift: the same row of fields, the exercise first, then the button */
+.sv-add { margin-top: var(--sp-2); padding: var(--sp-5) 0 var(--sp-2); border-top: 1px solid var(--line); }
+.sv-add h4 { margin: 0 0 var(--sp-1); font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+.sv-add .sv-line { flex-wrap: wrap; row-gap: var(--sp-3); }
+.sv-combo { position: relative; flex: 1 1 220px; min-width: 200px; max-width: 320px; }
+.sv-f-name .sv-in { font-stretch: 100%; font-weight: 500; }
+.sv-add .sv-f-sets, .sv-add .sv-f-reps { flex: 0 0 76px; }
+.sv-add .sv-f-sets .sv-in, .sv-add .sv-f-reps .sv-in { text-align: center; }
+.sv-add .btn { height: var(--ctl-l); }
+.sv-sug { position: absolute; z-index: 3; left: 0; right: 0; top: calc(100% + 6px); margin: 0; padding: 6px; list-style: none; border-radius: var(--r-pop); background: var(--pop); box-shadow: var(--shadow-pop); max-height: 300px; overflow-y: auto; }
+.sv-sug li { display: flex; align-items: baseline; gap: var(--sp-3); min-height: 36px; padding: 8px var(--sp-3); border-radius: var(--r-field); color: var(--ink); font: 500 var(--fs-sub)/1.3 var(--font); cursor: pointer; }
+.sv-sug li[data-lift='squat'] > span { color: var(--sq-ink); }
+.sv-sug li[data-lift='bench'] > span { color: var(--bp-ink); }
+.sv-sug li[data-lift='deadlift'] > span { color: var(--dl-ink); }
+.sv-sug li small { margin-left: auto; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); white-space: nowrap; }
+.sv-sug li[aria-selected='true'] { background: var(--fill-2); }
+@media (hover: hover) and (pointer: fine) { .sv-sug li:hover { background: var(--fill); } }
+
+.sv-foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3) var(--sp-5); margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+.sv-adv { margin-left: auto; color: var(--ink-3); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+.sv .wg-tail:not(:empty) { margin-top: var(--sp-4); }
+.sv .wg-tail .wk-f { padding-left: 0; padding-right: 0; }
+
+@media (max-width: 1280px) {
+  .sv-f-sets, .sv-f-reps { flex-basis: 116px; }
+  .sv-f-effort { flex-basis: 132px; }
+  .sv-f-load { flex-basis: 124px; }
+  .sv-f-note { flex-basis: 120px; }
+  .sv-last { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .sv * { transition-duration: 1ms !important; } }
+
+/* the sheet's own switch (Week | Block) sits a step after Simple | Advanced on the toolbar */
+.tb .seg-sub { margin-left: var(--sp-3); }

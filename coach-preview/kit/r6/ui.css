@@ -64,70 +64,121 @@ body::before {
 .unit { display: inline-block; line-height: 1.5; }
 
 /* ================= the shell ================= */
-/* the sidebar: flush to the window's top, left and bottom, solid --side (a step up from the floor), one hairline on its
-   right. No glass and no light (13 Nov). Every item's words start on one line (--gut): a place's icon hangs in the
-   gutter before them; Views have no icon and keep the gutter empty. */
+/* the sidebar (20 Nov): folded to a rail of icons, each place in its own colour; it opens over the page while the
+   pointer or the keyboard is in it, and a pin keeps it open (then the page makes room). The element is always the open
+   width and is clipped to the rail, so opening moves no layout: only clip-path and opacity change. Every icon sits on
+   the rail's centre line; the words start on one line beside them. */
 .side {
-  --gut: calc(var(--sp-3) * 2 + 19px);
-  position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w); z-index: var(--z-side);
-  display: flex; flex-direction: column; padding: var(--sp-3) var(--sp-2);
-  background: var(--side); box-shadow: inset -1px 0 0 var(--line);
-  view-transition-name: sidebar; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+  --icon: 20px; --pad: 10px; --it-pad: calc((var(--rail-w) - var(--pad) * 2 - var(--icon)) / 2);
+  --tile: calc(var(--rail-w) - var(--pad) * 2);
+  position: fixed; top: 0; left: 0; bottom: 0; width: var(--side-open); z-index: var(--z-side);
+  display: flex; flex-direction: column; padding: var(--sp-3) var(--pad);
+  background: var(--side);
+  clip-path: inset(0 calc(100% - var(--rail-w)) 0 0);
+  transition: clip-path var(--dur-exit-move) var(--ease-out) 60ms;
+  view-transition-name: sidebar; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: none;
 }
 .side::-webkit-scrollbar { display: none; }
-.side .brand { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 var(--sp-3); color: var(--ink); text-decoration: none; border-radius: var(--r-row); }
+/* its right edge: one hairline that rides with the fold (a transform, never a width) */
+.side::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: var(--line); pointer-events: none;
+  transform: translateX(calc(var(--rail-w) - 1px)); transition: transform var(--dur-exit-move) var(--ease-out) 60ms;
+}
+.side:is(:hover, :focus-within, .is-open), .side-pinned .side {
+  clip-path: inset(0 -48px 0 0); transition-duration: var(--dur-move); transition-delay: 90ms;
+}
+.side:is(:hover, :focus-within, .is-open)::after, .side-pinned .side::after { transform: translateX(calc(var(--side-open) - 1px)); transition-duration: var(--dur-move); transition-delay: 90ms; }
+/* open over the page it casts a drop to its right; pinned it is part of the layout and casts none */
+:root:not(.side-pinned) .side:is(:hover, :focus-within, .is-open) { box-shadow: 24px 0 48px -28px rgb(0 0 0 / .55); }
+/* what only the open sidebar shows: words, counts, the Views. They fade with the fold. */
+.side :is(.brand b, .find span, .find kbd, .it .l, .it .n, .side-h, .me .who, .pin) { opacity: 0; transition: opacity var(--dur-exit-snap) var(--ease-out); }
+.side:is(:hover, :focus-within, .is-open) :is(.brand b, .find span, .find kbd, .it .l, .it .n, .side-h, .me .who, .pin),
+.side-pinned .side :is(.brand b, .find span, .find kbd, .it .l, .it .n, .side-h, .me .who, .pin) { opacity: 1; transition: opacity var(--dur-move) var(--ease-out) 120ms; }
+.side .top { display: flex; align-items: center; min-height: 40px; }
+.side .brand { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; min-height: 40px; padding: 0 calc((var(--tile) - 26px) / 2); color: var(--ink); text-decoration: none; border-radius: var(--r-row); }
 .side .brand .mark { width: 26px; height: 26px; flex: none; }
 .side .brand b { font: 800 var(--fs-label)/1 var(--font); letter-spacing: .03em; }
 .mark .ink { fill: currentColor; }
 .mark .plate { fill: var(--brand-plate); }
-/* Find is a field (a box you type into, the field radius), not a capsule */
+/* the pin: keep the sidebar open, or let it fold again */
+.side .pin { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink-3); cursor: pointer; }
+.side .pin svg { width: 18px; height: 18px; }
+.side .pin[aria-pressed='true'] { color: var(--ink); background: var(--fill); }
+/* Find: an icon on the rail, a field once the sidebar is open */
 .side .find {
-  display: flex; align-items: center; gap: var(--sp-2); width: 100%; height: var(--ctl-s); margin: var(--sp-2) 0 var(--sp-3); padding: 0 var(--sp-3);
-  border: 0; border-radius: var(--r-field); background: var(--fill); color: var(--ink-3); font: 500 var(--fs-sub)/1 var(--font); cursor: pointer;
+  position: relative; display: flex; align-items: center; gap: var(--sp-3); width: 100%; height: var(--ctl-h); margin: var(--sp-2) 0 var(--sp-3); padding: 0 var(--it-pad);
+  border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink-3); font: 500 var(--fs-sub)/1 var(--font); cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
-.side .find svg { width: 16px; height: 16px; flex: none; }
+.side:is(:hover, :focus-within, .is-open) .find, .side-pinned .side .find { background: var(--fill); }
+.side .find svg { width: var(--icon); height: var(--icon); flex: none; }
 .side .find kbd { margin-left: auto; font: 500 var(--fs-label)/1 var(--font); color: var(--ink-3); }
 .side nav { display: flex; flex-direction: column; gap: 2px; }
+/* the places come in three groups, set apart by space: the day's work, the people side, then the tool */
+.side nav + nav { margin-top: var(--sp-4); }
 .side .it {
-  position: relative; display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: var(--ctl-h); padding: 0 var(--sp-3);
+  position: relative; display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 40px; padding: 0 var(--it-pad);
   border: 0; border-radius: var(--r-row); background: transparent; color: var(--ink-2); text-decoration: none; text-align: left; cursor: pointer;
-  font: 500 var(--fs-sub)/1.2 var(--font);
-  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+  font: 500 var(--fs-sub)/1.2 var(--font); isolation: isolate;
+  transition: color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
-.side .it:not(:has(> svg)) { padding-left: var(--gut); }
-.side .it svg { width: 19px; height: 19px; flex: none; color: var(--ink-3); }
+/* a place's fill (the current one, or the one under the pointer): a tile round the icon on the rail, the whole row
+   when open. One layer, clipped, so the fold never animates a width. */
+.side .it::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; border-radius: var(--r-row); background: transparent;
+  clip-path: inset(0 calc(100% - var(--tile)) 0 0 round var(--r-row));
+  transition: clip-path var(--dur-exit-move) var(--ease-out) 60ms, background-color var(--dur-fast) var(--ease-out);
+}
+.side:is(:hover, :focus-within, .is-open) .it::before, .side-pinned .side .it::before { clip-path: inset(0 0 0 0 round var(--r-row)); transition-duration: var(--dur-move), var(--dur-fast); transition-delay: 90ms, 0ms; }
+.side .it svg { width: var(--icon); height: var(--icon); flex: none; color: var(--it-ink, var(--ink-3)); }
 .side .it .l { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.side .it .n { font: 500 var(--fs-label)/1 var(--font); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.side .it .n { font: 600 var(--fs-label)/1 var(--font); color: var(--ink-2); font-variant-numeric: tabular-nums; padding-right: var(--sp-1); }
 .side .it .n.hot { color: var(--ink); font-weight: 700; }
-.side .it[aria-current='page'] { background: var(--place-pill); color: var(--ink); font-weight: 600; }
-.side .it[aria-current='page'] svg { color: var(--place-ink); }   /* the one coloured icon: the place you are in */
-.side .side-h { margin: var(--sp-5) var(--sp-3) var(--sp-2); font: 600 var(--fs-label)/1 var(--font); color: var(--ink-3); letter-spacing: var(--ls-label); }
+/* each place's icon wears its own colour, always: eight places, eight hues, so the rail reads without its words */
+.side .it[data-place-link='overview'] { --it-ink: var(--pl-overview-ink); --it-rgb: var(--pl-overview-rgb); }
+.side .it[data-place-link='lifters'] { --it-ink: var(--pl-lifters-ink); --it-rgb: var(--pl-lifters-rgb); }
+.side .it[data-place-link='programs'] { --it-ink: var(--pl-programs-ink); --it-rgb: var(--pl-programs-rgb); }
+.side .it[data-place-link='teams'] { --it-ink: var(--pl-teams-ink); --it-rgb: var(--pl-teams-rgb); }
+.side .it[data-place-link='meets'] { --it-ink: var(--pl-meets-ink); --it-rgb: var(--pl-meets-rgb); }
+.side .it[data-place-link='messages'] { --it-ink: var(--pl-messages-ink); --it-rgb: var(--pl-messages-rgb); }
+.side .it[data-place-link='clients'] { --it-ink: var(--pl-clients-ink); --it-rgb: var(--pl-clients-rgb); }
+.side .it[data-place-link='settings'] { --it-ink: var(--pl-settings-ink); --it-rgb: var(--pl-settings-rgb); }
+.side .it[aria-current='page'] { color: var(--ink); font-weight: 650; }
+.side .it[aria-current='page']::before { background: rgb(var(--it-rgb, var(--place-rgb)) / var(--a-pill)); }
+/* on the rail, what waits in Messages shows as a small count on the icon; open, the row's own count takes over */
+.side .it .pip {
+  position: absolute; left: calc(var(--it-pad) + var(--icon) - 6px); top: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+  display: grid; place-items: center; background: var(--ink); color: var(--side); font: 700 11px/1 var(--font); font-variant-numeric: tabular-nums;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.side .it .pip:empty { display: none; }
+.side:is(:hover, :focus-within, .is-open) .it .pip, .side-pinned .side .it .pip { opacity: 0; }
+.side .side-h { margin: var(--sp-5) var(--it-pad) var(--sp-2); font: 600 var(--fs-label)/1 var(--font); color: var(--ink-3); letter-spacing: var(--ls-label); white-space: nowrap; }
 .side .spacer { flex: 1 1 var(--sp-4); }
-/* the coach: two lines of words over a hairline, no circle and no box. It opens the account menu (theme, keys). */
+/* a View is words and a count (no icon): its words line up with the places' labels, and it is out of the tab order
+   and out of sight while the sidebar is folded */
+.side nav[aria-labelledby='views-h'] .it { padding-left: calc(var(--it-pad) + var(--icon) + var(--sp-3)); min-height: 36px; }
+.side:not(:hover, :focus-within, .is-open) nav[aria-labelledby='views-h'], .side:not(:hover, :focus-within, .is-open) .side-h { visibility: hidden; }
+.side-pinned .side nav[aria-labelledby='views-h'], .side-pinned .side .side-h { visibility: visible; }
+/* the coach: a quiet mark on the rail, name and plan beside it when open. It opens the account menu (theme, keys). */
 .side .me {
-  position: relative; display: block; width: 100%; margin-top: var(--sp-4); padding: var(--sp-2) var(--sp-3);
+  position: relative; display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 48px; margin-top: var(--sp-2); padding: var(--sp-1) var(--it-pad);
   border: 0; border-radius: var(--r-row); background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
-.side .me::before { content: ''; position: absolute; left: var(--sp-3); right: var(--sp-3); top: calc(var(--sp-2) * -1); height: 1px; background: var(--line); }
+.side .me svg { width: var(--icon); height: var(--icon); flex: none; color: var(--ink-3); }
+.side .me .who { min-width: 0; white-space: nowrap; }
 .side .me b { display: block; font: 600 var(--fs-sub)/1.25 var(--font); color: var(--ink); }
-.side .me small { display: block; margin-top: 2px; font: 500 var(--fs-label)/1.25 var(--font); color: var(--ink-2); }
+.side .me small { display: block; margin-top: 1px; font: 500 var(--fs-cap)/1.25 var(--font); color: var(--ink-3); }
 @media (hover: hover) and (pointer: fine) {
-  .side .it:hover:not([aria-current='page']), .side .me:hover { background: var(--fill); color: var(--ink); }
+  .side .it:hover:not([aria-current='page'])::before { background: var(--fill); }
+  .side .it:hover { color: var(--ink); }
+  .side .me:hover, .side .pin:hover { background: var(--fill); color: var(--ink); }
   .side .find:hover { background: var(--fill-2); }
 }
-.side .it:active, .side .find:active, .side .me:active { transform: scale(var(--press)); }
-@media (max-height: 760px) { .side .it { min-height: var(--ctl-s); } .side .side-h { margin-top: var(--sp-4); } .side .find { margin-bottom: var(--sp-2); } }
-@media (max-width: 1280px) { .side { --gut: calc(10px * 2 + 19px); padding-left: 6px; padding-right: 6px; } .side .it { gap: 10px; padding: 0 10px; } .side .it:not(:has(> svg)) { padding-left: var(--gut); } }
-/* the sidebar's rows are 40 px to hit (44 where there is room); Find's 32 px field reaches 40 with its hit area */
-.side .it { min-height: 40px; }
-.side .find { position: relative; }
-.side .find::after { content: ''; position: absolute; inset: -4px 0; }
-/* Settings, the last place, sits apart by space alone (function-polish F8.1: no rule line) */
-.side nav[aria-label='Places'] .it[data-place-link='settings'] { margin-top: calc(var(--sp-4) - 2px); }
-/* a View is words and a count (no icon): its words line up with the places' labels */
-.side nav[aria-labelledby='views-h'] .it { padding-left: var(--gut); }
+.side .it:active, .side .find:active, .side .me:active, .side .pin:active { transform: scale(var(--press)); }
+@media (max-height: 700px) { .side .it { min-height: 36px; } .side nav + nav { margin-top: var(--sp-3); } .side .find { margin-bottom: var(--sp-2); } }
+@media (prefers-reduced-motion: reduce) { .side, .side::after, .side .it::before, .side * { transition-duration: 1ms !important; transition-delay: 0ms !important; } }
 
 /* the toolbar: a solid band across the content's top in the floor's own colour, 56 px (--edge-h); a 16 px fade of the
    floor under it once content passes beneath (glass.css). No capsules: buttons sit on the band. The leading group
