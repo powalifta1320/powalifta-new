@@ -147,7 +147,7 @@ body::before {
 .side .it[aria-current='page']::before { background: rgb(var(--it-rgb, var(--place-rgb)) / var(--a-pill)); }
 /* on the rail, what waits in Messages shows as a small count on the icon; open, the row's own count takes over */
 .side .it .pip {
-  position: absolute; left: calc(var(--it-pad) + var(--icon) - 6px); top: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+  position: absolute; left: calc(var(--it-pad) + var(--icon) - 6px); top: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r-pill);
   display: grid; place-items: center; background: var(--ink); color: var(--side); font: 700 11px/1 var(--font); font-variant-numeric: tabular-nums;
   transition: opacity var(--dur-fast) var(--ease-out);
 }

@@ -139,7 +139,7 @@
       var href = DESK.routes[p[0]], k = key[p[0]], v = k ? c[k] : null;
       if (!href) return '';   /* a place without a page is not in the sidebar: no dead ends */
       if (p[0] === 'lifters') href = liftersHref();
-      return '<a class="it" href="' + href + '" data-place-link="' + p[0] + '"' + (what[p[0]] ? ' data-what="' + what[p[0]] + '"' : '') + (v ? ' title="' + v + ' ' + what[p[0]] + '"' : '') + '>' + DESK.ic(p[2]) + '<span class="l">' + p[1] + '</span>' +
+      return '<a class="it" href="' + href + '" data-place-link="' + p[0] + '"' + (what[p[0]] ? ' data-what="' + what[p[0]] + '"' : '') + ' data-label="' + p[1] + '" title="' + p[1] + (v ? ': ' + v + ' ' + what[p[0]] : '') + '">' + DESK.ic(p[2]) + '<span class="l">' + p[1] + '</span>' +
         (k ? '<span class="n' + (p[0] === 'messages' ? ' hot' : '') + '" data-count="' + k + '">' + badge(v) + '</span>' : '') +
         (p[0] === 'messages' ? '<span class="pip" data-count="' + k + '" aria-hidden="true">' + badge(v) + '</span>' : '') + '</a>';
     };
@@ -167,9 +167,9 @@
   /* the sidebar folds to a rail and opens under the pointer or the keyboard (ui.css); the pin keeps it open and the page
      makes room (tokens.css :root.side-pinned), remembered in localStorage powa-r6-side */
   var SIDE_KEY = 'powa-r6-side';
-  function isPinned() { return store.get('localStorage', SIDE_KEY) === 'open'; }
+  function isPinned() { var v = store.get('localStorage', SIDE_KEY); if (v === 'open') return true; if (v === 'fold') return false; try { return matchMedia('(hover: none)').matches; } catch (e) { return false; } }
   function setPinned(on) {
-    store.set('localStorage', SIDE_KEY, on ? 'open' : null);
+    store.set('localStorage', SIDE_KEY, on ? 'open' : 'fold');
     document.documentElement.classList.toggle('side-pinned', !!on);
     var b = $('.side [data-side-pin]'); if (b) { b.setAttribute('aria-pressed', String(!!on)); b.title = on ? 'Fold the sidebar' : 'Keep the sidebar open'; }
     dispatchEvent(new Event('resize'));
@@ -229,7 +229,7 @@
       var side = el.closest('.side'), t = side ? badge(v) : String(v);
       if (t !== el.textContent) el.textContent = t;
       var a = side && el.closest('.it[data-what]');
-      if (a) { if (v) a.setAttribute('title', v + ' ' + a.getAttribute('data-what')); else a.removeAttribute('title'); }
+      if (a) a.setAttribute('title', a.getAttribute('data-label') + (v ? ': ' + v + ' ' + a.getAttribute('data-what') : ''));
     });
     emit('counts', c);
   }

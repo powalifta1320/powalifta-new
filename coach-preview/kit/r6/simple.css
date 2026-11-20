@@ -33,7 +33,9 @@
 .sv-name[data-lift='bench'] { color: var(--bp-ink); }
 .sv-name[data-lift='deadlift'] { color: var(--dl-ink); }
 .sv-var { color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); }
-.sv-last { margin-left: auto; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sv-eh > .sv-more { margin-left: auto; }
+.sv-last + .sv-more { margin-left: 0; }
+.sv-last { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sv-lk { color: var(--ink-3); }
 .sv-more { flex: none; align-self: center; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink-3); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
 .sv-more svg { width: 20px; height: 20px; }
@@ -42,11 +44,11 @@
 /* the fields: a label over each box, the boxes one height, numbers tabular */
 .sv-line { display: flex; align-items: flex-end; gap: var(--sp-3); margin-top: var(--sp-2); }
 /* a second line of the same lift (back-offs): its name over the same four boxes, on the same columns */
-.sv-line.is-sub { position: relative; margin-top: var(--sp-4); padding-top: 26px; }
+.sv-line.is-sub { position: relative; margin-top: var(--sp-4); padding-top: 28px; }
 .sv-line.is-sub .sv-k { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .sv-sub { position: absolute; top: 0; left: 0; white-space: nowrap; color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-label) var(--font); }
 .sv-line.is-sub .sv-more { align-self: flex-end; height: var(--ctl-l); }
-.sv-f { display: grid; gap: 6px; min-width: 0; }
+.sv-f { display: grid; gap: var(--sp-2); min-width: 0; }
 .sv-k { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); letter-spacing: var(--ls-label); white-space: nowrap; }
 .sv-in, .sv-note {
   width: 100%; height: var(--ctl-l); padding: 0 var(--sp-3); border: 0; border-radius: var(--r-field); background: var(--fill); box-shadow: var(--shadow-field);
@@ -73,7 +75,7 @@
 .sv-step button:active:not(:disabled) { transform: scale(var(--press)); }
 /* the load: kg inside the box; a load worked out from the max shows as the quiet number until one is typed */
 .sv-kg { position: relative; display: block; }
-.sv-kg .sv-in { padding-right: 38px; }
+.sv-kg .sv-in { padding-right: 40px; }
 .sv-kg i { position: absolute; right: var(--sp-3); top: 50%; translate: 0 -50%; color: var(--ink-3); font: 500 var(--fs-label)/1 var(--font); font-style: normal; pointer-events: none; }
 .sv-kg.is-auto .sv-in::placeholder { color: var(--ink-2); font-weight: 600; }
 .sv-why { margin: var(--sp-2) 0 0; color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; max-width: 62ch; }
@@ -91,7 +93,7 @@
 .sv-add .sv-f-sets, .sv-add .sv-f-reps { flex: 0 0 76px; }
 .sv-add .sv-f-sets .sv-in, .sv-add .sv-f-reps .sv-in { text-align: center; }
 .sv-add .btn { height: var(--ctl-l); }
-.sv-sug { position: absolute; z-index: 3; left: 0; right: 0; top: calc(100% + 6px); margin: 0; padding: 6px; list-style: none; border-radius: var(--r-pop); background: var(--pop); box-shadow: var(--shadow-pop); max-height: 300px; overflow-y: auto; }
+.sv-sug { position: absolute; z-index: 3; left: 0; right: 0; top: calc(100% + 6px); margin: 0; padding: var(--sp-2); list-style: none; border-radius: var(--r-pop); background: var(--pop); box-shadow: var(--shadow-pop); max-height: 300px; overflow-y: auto; }
 .sv-sug li { display: flex; align-items: baseline; gap: var(--sp-3); min-height: 36px; padding: 8px var(--sp-3); border-radius: var(--r-field); color: var(--ink); font: 500 var(--fs-sub)/1.3 var(--font); cursor: pointer; }
 .sv-sug li[data-lift='squat'] > span { color: var(--sq-ink); }
 .sv-sug li[data-lift='bench'] > span { color: var(--bp-ink); }
@@ -110,7 +112,6 @@
   .sv-f-effort { flex-basis: 132px; }
   .sv-f-load { flex-basis: 124px; }
   .sv-f-note { flex-basis: 120px; }
-  .sv-last { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .sv * { transition-duration: 1ms !important; } }
 
