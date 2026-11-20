@@ -54,6 +54,8 @@
     }
     function exHtml(bb, r, subs) {
       var row = bb.rows[r], w = bb.weeks[ci], lw = bb.lastWeek ? bb.lastWeek(r, ci) : null, why = bb.loadWords ? bb.loadWords(r, ci) : null, ro = bb.isRO(r, ci);
+      /* a line already lifted this week says what was lifted, where a line still to come says last week's */
+      var cx = row.cells[w.uid] || null, done = cx && cx.lifted && bb.lastWeek ? bb.lastWeek(r, ci, { from: ci }) : null;
       var bits = [];
       if (row.variant && row.variant !== 'Competition' && row.name.toLowerCase().indexOf(row.variant.toLowerCase()) < 0) bits.push(row.variant);
       if (row.pause) bits.push(row.pause + ' s pause');
@@ -62,7 +64,7 @@
       return '<li class="sv-ex"' + (row.lift ? ' data-lift="' + esc(row.lift) + '"' : '') + ' data-ex="' + esc(row.key) + '">' +
         '<div class="sv-eh"><h4 class="sv-name"' + (row.lift ? ' data-lift="' + esc(row.lift) + '"' : '') + '>' + esc(row.name) + '</h4>' +
         (bits.length ? '<span class="sv-var">' + esc(bits.join(', ')) + '</span>' : '') +
-        (lw && lw.text ? '<span class="sv-last"><span class="sv-lk">Last week</span> ' + esc(lw.text) + '</span>' : '') +
+        (done && done.text ? '<span class="sv-last is-done"><span class="sv-lk">Lifted</span> ' + esc(done.text) + '</span>' : lw && lw.text ? '<span class="sv-last"><span class="sv-lk">Last week</span> ' + esc(lw.text) + '</span>' : '') +
         '<button class="sv-more" type="button" data-sv-rowmenu data-more aria-haspopup="menu" aria-label="' + esc(row.name + ' moves') + '">' + MORE + '</button></div>' +
         lineHtml(bb, r, '') +
         (why && why.text ? '<p class="sv-why">' + esc(why.text) + '</p>' : '') +
