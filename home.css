@@ -113,17 +113,17 @@ body.home::before, body.home::after { content: none; display: none; }   /* the a
 .act-btn:active { transform: scale(0.97); }
 @media (hover: hover) and (pointer: fine) { .act-btn:hover { filter: brightness(1.07); } }
 .act-btn:focus-visible { outline: 2px solid var(--text, #f4f4f6); outline-offset: 3px; border-radius: 999px; }
-.quiet { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 600; color: var(--text); text-decoration: none; }
-.quiet .arr { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--t-state) var(--ease-out); }
-@media (hover: hover) and (pointer: fine) { .quiet:hover .arr { transform: translateX(3px); } }
+/* A second-rank link: its own words, underlined at rest (a thin line, full ink under the pointer). No arrow beside it.
+   44 px tall to the touch without moving the lines around it. */
+.quiet { display: inline-block; margin: -11px 0; padding: 11px 0; font-size: 16px; font-weight: 600; line-height: 22px; color: var(--text); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-color: color-mix(in srgb, currentColor 42%, transparent); transition: text-decoration-color var(--t-state) ease; }
+@media (hover: hover) and (pointer: fine) { .quiet:hover { text-decoration-color: currentColor; } }
 .cta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2) var(--s4); }
 .cta-note { font-size: 14px; font-weight: 550; color: var(--text-3); }
 /* The three demos beside Start free: quiet words, never a second red. Each link is 44 px tall to the touch. */
-.demo-pick { display: inline-flex; align-items: center; flex-wrap: wrap; column-gap: 6px; font-size: 16px; font-weight: 600; }
-.demo-pick .dp-l { color: var(--text-3); font-weight: 550; }
-.demo-pick a { position: relative; padding: 11px 9px; line-height: 22px; color: var(--text); text-decoration: none; }
-.demo-pick a + a::before { content: "·"; position: absolute; left: -6px; width: 6px; text-align: center; color: var(--text-3); pointer-events: none; }
-@media (hover: hover) and (pointer: fine) { .demo-pick a:hover { text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 5px; } }
+.demo-pick { display: inline-flex; align-items: center; flex-wrap: wrap; column-gap: 2px; font-size: 16px; font-weight: 600; }
+.demo-pick .dp-l { margin-right: 2px; color: var(--text-3); font-weight: 550; }
+.demo-pick a { padding: 11px 8px; line-height: 22px; color: var(--text); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-color: color-mix(in srgb, currentColor 42%, transparent); transition: text-decoration-color var(--t-state) ease; }
+@media (hover: hover) and (pointer: fine) { .demo-pick a:hover { text-decoration-color: currentColor; } }
 
 /* ---------- The bar (site.css) on the homepage: with JavaScript, transparent over the top of the opening, then the app's
    dark glass over every chapter (home.js sets is-on). Without JavaScript it is always the dark glass. While a page
@@ -158,9 +158,6 @@ html.js .bar:not(.has-pill) .bar-pill { opacity: 0; transform: translateY(-4px);
    ===================================================================== */
 .s-home .act { position: relative; z-index: 3; isolation: isolate; padding: 0; }
 .stage { position: relative; padding-top: calc(var(--fold) - var(--ph) * var(--pin) + var(--ph) + 44px); }
-/* The lifter app's warm light from the top of the screen (Train), never behind a device. */
-.glow-top { position: absolute; inset: 0 0 auto; height: var(--fold); pointer-events: none; z-index: -1;
-  background: radial-gradient(42% 46% at 36% -16%, rgba(255, 59, 74, 0.13), transparent 70%); }
 .open-copy { position: absolute; left: calc(var(--fx) + var(--gut)); top: calc(64px + clamp(32px, 8vh, 96px)); width: min(var(--fw) * 0.37, 548px); z-index: 4; }
 .lede { margin-top: var(--s3); max-width: 25em; font-size: clamp(17px, 0.95rem + 0.3vw, 19px); line-height: 1.5; color: var(--text-2); text-wrap: pretty; }
 .lede b { color: var(--text); font-weight: 650; }
@@ -227,7 +224,7 @@ html.m .hl { display: block; position: absolute; z-index: 2; left: calc(var(--x)
 .max-k { margin-bottom: 4px; font-size: 16px; font-weight: 650; color: var(--text); text-wrap: pretty; }
 .max-k .dot { margin: 0 10px 1px 0; vertical-align: middle; }
 .max-k2 { font-weight: 500; color: var(--text-3); }
-.max-num { margin-top: 2px; display: flex; align-items: baseline; font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: clamp(96px, 10.6vw, 160px); font-weight: 800; line-height: 1; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+.max-num { margin-top: 2px; display: flex; align-items: baseline; font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: clamp(72px, 6.7vw, 96px); font-weight: 800; line-height: 1; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
 .max-num small { margin-left: 0.12em; font-family: var(--font-body); font-stretch: 100%; font-size: 0.17em; font-weight: 600; letter-spacing: 0; color: var(--text-3); }
 /* The odometer: three cells the width of a digit; only the last one rolls (its strip holds 3 to 8). */
 .odo { display: flex; }
@@ -250,8 +247,7 @@ html.m .hl { display: block; position: absolute; z-index: 2; left: calc(var(--x)
 /* Today: two graphite panels below the opening (the landing, then the list), the desk's lit rim along the top of the
    first and its shadowed rim under the second. The sides alternate: words then screen, screen then words. */
 .land, .who { position: relative; padding: var(--sec) calc(var(--fx) + var(--gut)); }
-.land { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "copy fw"; column-gap: clamp(40px, 4.45vw, 64px); align-content: center; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  background-image: radial-gradient(52% 70% at 18% 0%, rgba(236, 240, 255, 0.05), transparent 72%); }   /* the screen's cool light over the words */
+.land { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "copy fw"; column-gap: clamp(40px, 4.45vw, 64px); align-content: center; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07); }
 .land-copy { grid-area: copy; align-self: center; }
 .land .sub { margin-top: var(--s2); max-width: 26em; }
 .land .fw { grid-area: fw; }
@@ -314,7 +310,7 @@ html.m .fw-a .fw-live { display: block; }
    window does the same above the list's words. The still keeps the two panels and the list's own figure.) */
 @media (min-width: 1100px) {
   html.m .today-ch { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: clamp(40px, 4.45vw, 64px); align-items: center;
-    padding: var(--sec) calc(var(--fx) + var(--gut)); background: radial-gradient(52% 70% at 80% 0%, rgba(236, 240, 255, 0.05), transparent 72%), var(--desk);
+    padding: var(--sec) calc(var(--fx) + var(--gut)); background: var(--desk);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -1px 0 rgba(0, 0, 0, 0.45); }
   html.m .today-ch > .land, html.m .today-ch > .who { padding: 0; background: none; box-shadow: none; }
   html.m .land { position: static; display: block; grid-column: 2; grid-row: 1; }
@@ -336,7 +332,6 @@ html.m .mk { display: grid; place-items: center; position: absolute; width: 22px
    ANSWERS (dark): the lifter's phone, the reply arriving; their words next to what they lifted.
    ===================================================================== */
 .s-home .answers { position: relative; padding: var(--sec) 0; isolation: isolate; }
-.answers::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(40% 48% at 26% -10%, rgba(255, 59, 74, 0.08), transparent 70%); }
 .answers-in { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: center; }
 .thread { grid-column: 8 / span 4; grid-row: 1; justify-self: center; --pw: min(372px, 25.8vw); width: var(--pw); }
 /* The crop ends under Sam's reply (626 of the screen's 852 pt), on a hairline. */
@@ -410,7 +405,7 @@ html.m .tl-bub img { width: 100%; aspect-ratio: 393 / 852; }
 .judges i.is-off { background: rgba(255, 255, 255, 0.045); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
 .verdict { margin-top: 16px; font-size: clamp(18px, 0.9rem + 0.6vw, 22px); font-weight: 750; letter-spacing: -0.015em; }
 .clock { display: flex; flex-direction: column; align-items: center; margin-top: clamp(14px, 3vh, 30px); }
-.clock-n { font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: clamp(80px, 2rem + 6vw, 128px); font-weight: 800; line-height: 0.9; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.clock-n { font-family: var(--font-num); font-stretch: var(--num-stretch); font-size: clamp(64px, 2rem + 4vw, 96px); font-weight: 800; line-height: 0.9; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 .clock-l { margin-top: 12px; font-size: 15px; font-weight: 600; color: #b8b8c0; }
 .clock-bar { position: relative; width: min(360px, 70vw); height: 6px; margin-top: 14px; border-radius: 3px; background: rgba(255, 255, 255, 0.09); overflow: hidden; }
 .clock-bar i { position: absolute; inset: 0; border-radius: inherit; background: #f4f4f6; transform-origin: 0 50%; transform: scaleX(0.6833); }
@@ -511,7 +506,6 @@ html.m .tl-bub img { width: 100%; aspect-ratio: 393 / 852; }
    each screen as captured.
    ===================================================================== */
 .s-home .lifter { position: relative; padding: var(--sec) 0; isolation: isolate; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
-.lifter::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(34% 46% at 78% -8%, rgba(242, 194, 91, 0.07), transparent 70%); }   /* over the words, never behind a phone */
 .lifter-in { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: center; }
 .lf-phones { grid-column: 1 / span 7; display: flex; gap: clamp(28px, 3.34vw, 48px); --pw: clamp(260px, 21vw, 300px); }
 .lifter-copy { grid-column: 8 / span 5; padding-left: clamp(0px, 2.2vw, 32px); }
@@ -570,8 +564,7 @@ html.m .lf-l { display: block; position: absolute; z-index: 2; left: calc(var(--
 /* =====================================================================
    PRICING (the coach's graphite): one roster scale, four bands, Sam's twenty lifters filling it.
    ===================================================================== */
-.s-home .prices { padding: var(--sec) 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  background-image: radial-gradient(40% 520px at 16% 0%, rgba(255, 226, 190, 0.05), transparent 72%); }   /* a warm lamp over the offer */
+.s-home .prices { padding: var(--sec) 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07); }
 .plans-top { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--cg); align-items: start; }
 .plans-head { grid-column: 1 / span 7; }
 .plans-head .lead { margin-top: var(--s3); }
@@ -648,9 +641,8 @@ details.q:not([open]) > .qa { display: none; }   /* closed: not laid out either 
    CLOSE (dark): one line, one action.
    ===================================================================== */
 .s-home .close { position: relative; padding: clamp(56px, 5.56vw, 80px) 0; isolation: isolate; overflow: hidden; }
-.glow-close { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(38% 60% at 30% -10%, rgba(255, 59, 74, 0.12), transparent 70%); }
 .close-in { position: relative; z-index: 1; }
-.close-h { font-size: clamp(40px, 1rem + 3.4vw, 66px); line-height: 0.99; letter-spacing: -0.036em; max-width: 11em; }
+.close-h { font-size: clamp(36px, 1.15rem + 2.75vw, 58px); line-height: 1.03; letter-spacing: -0.034em; max-width: 12em; }   /* the opening line's own size, never louder than it */
 .close .lead { margin-top: var(--s3); }
 .close .cta { margin-top: 32px; }
 
@@ -671,25 +663,13 @@ html.m .fly { display: block; visibility: hidden; }
 .fy-rpe { align-self: center; margin-left: 8px; padding: 4px 9px; border-radius: 999px; background: #232327; color: #f4f4f6; font-family: var(--font-body); font-size: 13px; font-weight: 700; }
 .fy-fly { background: #101012; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sq) 72%, transparent), 0 30px 60px -20px rgba(0, 0, 0, 0.85), 0 8px 18px -6px rgba(0, 0, 0, 0.5); }
 
-/* ---------- The arrival (motion only, CSS from the first paint, so nothing waits on a script): the headline rises word
-   by word, the two lines follow, Start free settles, then the laptop and the phone ease up 24 px. Text rises 12 px with
-   its opacity, never from scale 0. The pictures never fade (they are the page's largest paint): they only move, on the
-   individual translate property, so the score's own transforms (the depth parallax) compose with it. Without motion
-   every word is simply there. The motion layer (GSAP) loads once this has finished. */
-@keyframes riseIn { from { opacity: 0; transform: translateY(12px); } }
-@keyframes settleIn { from { opacity: 0; translate: 0 8px; scale: 0.96; } }   /* individual properties: the press keeps its transform */
+/* ---------- The arrival (motion only, CSS from the first paint, so nothing waits on a script): the words are simply
+   there, readable at once; the laptop and the phone ease up 24 px. The pictures never fade (they are the page's largest
+   paint): they only move, on the individual translate property, so the score's own transforms (the depth parallax)
+   compose with it. The motion layer (GSAP) loads once this has finished. */
 @keyframes easeUp { from { translate: 0 24px; } }
-@keyframes glowUp { from { opacity: 0.4; } }
-html.m .h1 .w { display: inline-block; animation: riseIn 640ms var(--ease-enter) calc(60ms + var(--i) * 60ms) both; }
-html.m .lede { animation: riseIn 620ms var(--ease-enter) 460ms both; }
-html.m #heroCta .act-btn { animation: settleIn 600ms var(--ease-enter) 640ms both; }
-html.m #heroCta .quiet, html.m #heroCta .demo-pick { animation: riseIn 560ms var(--ease-enter) 700ms both; }
-html.m .open-copy .cta-note { animation: riseIn 560ms var(--ease-enter) 760ms both; }
 html.m .laptop { animation: easeUp 1100ms var(--ease-enter) 220ms both; }
 html.m .hphone { animation: easeUp 1200ms var(--ease-enter) 320ms both; }
-html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
-/* Words the score splits to rise in turn (section headlines): whole words, so the lines break where they did. */
-.s-home .w { display: inline-block; }
 
 /* ---------- Touch and pointer feedback (with or without the score): presses give way, links lean toward where they go. */
 .act-btn, .bar .bar-pill, .pub { transition: transform var(--t-press) var(--ease-out), translate var(--t-state) var(--ease-out), filter var(--t-press) ease; }
@@ -721,7 +701,6 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
 @media (max-width: 1099px) and (min-width: 760px) {
   :root { --pw: min(340px, 40vw); --pl: 0px; }
   .stage { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--s6); padding: 112px var(--gut) 0; }
-  .glow-top { height: 100%; }
   .open-copy { position: static; width: min(680px, 100%); }
   /* The phone and what it worked out side by side; the opening's words, the laptop and Today span the row. */
   .open-copy, .laptop, .today-ch { grid-column: 1 / -1; }
@@ -772,7 +751,6 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   :root { --pw: min(290px, 74vw); --pl: 0px; --sec: 44px; }
   body { font-size: 16px; }
   .stage { padding: 84px 16px 0; }
-  .glow-top { height: 100%; }
   .open-copy { position: static; width: auto; }
   .h1 { font-size: clamp(31px, 8.6vw, 38px); line-height: 1.04; }
   .h2 { font-size: clamp(28px, 7.6vw, 32px); }
@@ -785,7 +763,7 @@ html.m .glow-top { animation: glowUp 1300ms var(--ease-enter) both; }
   .laptop { display: none; }
   .hphone { position: relative; left: auto; top: auto; margin: 40px auto 0; width: var(--pw); }
   .max { position: static; width: auto; margin-top: 40px; padding-bottom: 40px; }
-  .max-num { font-size: clamp(88px, 27vw, 120px); }
+  .max-num { font-size: clamp(72px, 22vw, 96px); }
   .max-chart { height: 96px; }
   .land, .who { margin: 0 -16px; padding: var(--sec) 16px; grid-template-columns: minmax(0, 1fr); }
   .land { grid-template-areas: "copy" "fw"; }
@@ -938,9 +916,8 @@ body.home .foot { padding: 48px 0 32px; }
 .mx .mx-att { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 14px; font-size: 15px; color: var(--text-2); }
 .mx .mx-att b { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
 .mx .mx-bar { margin-top: 6px; font-size: 14px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-.mx .mx-share { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; padding: 0; border: 0; background: none; font-size: 15px; font-weight: 650; color: var(--text); cursor: pointer; }
-.mx .mx-share .arr { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--t-state) var(--ease-out); }
-@media (hover: hover) and (pointer: fine) { .mx .mx-share:hover .arr { transform: translateX(3px); } }
+.mx .mx-share { display: inline-block; margin-top: 16px; padding: 0; border: 0; background: none; font-size: 15px; font-weight: 650; color: var(--text); cursor: pointer; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-color: color-mix(in srgb, currentColor 42%, transparent); }
+@media (hover: hover) and (pointer: fine) { .mx .mx-share:hover { text-decoration-color: currentColor; } }
 @media (max-width: 759px) {
   .qa .mx { padding: 16px; }
   .mx .mx-f input { width: 84px; }
@@ -989,8 +966,7 @@ body.home .foot { padding: 48px 0 32px; }
   html:not(.native) .sb-bat:not(.meet *)::before { background: #0b0b0d; }
   html:not(.native) .sb-bat:not(.meet *)::after { background: rgba(11, 11, 13, 0.45); }
 
-  /* Act one: daylight from the top (no colour), the laptop's shadow soft; the ring that reads the set card in ink. */
-  html:not(.native) .glow-top { background: radial-gradient(42% 46% at 36% -16%, rgba(255, 255, 255, 0.9), transparent 70%); }
+  /* Act one: the laptop's shadow soft; the ring that reads the set card in ink. */
   html:not(.native) .lt-shadow { background: radial-gradient(closest-side, rgba(15, 15, 25, 0.22), rgba(15, 15, 25, 0)); }
   html.js:not(.native) .log-tap:focus-visible { outline-color: #0b0b0d; }
   html.m:not(.native) .hl { box-shadow: 0 0 0 1.5px rgba(11, 11, 13, 0.85), 0 0 0 5px rgba(11, 11, 13, 0.06); }
@@ -999,7 +975,7 @@ body.home .foot { padding: 48px 0 32px; }
 
   /* Today: white paper with hairlines; Sam's light desk set into it as panes (the coach website's own light theme,
      cap-desk2.mjs THEME=light); his table's numbers and the rings in ink. */
-  html:not(.native) .land { box-shadow: inset 0 1px 0 rgba(11, 11, 13, 0.07); background-image: none; }
+  html:not(.native) .land { box-shadow: inset 0 1px 0 rgba(11, 11, 13, 0.07); }
   html:not(.native) .who { box-shadow: inset 0 1px 0 var(--hair), inset 0 -1px 0 rgba(11, 11, 13, 0.06); }
   html:not(.native) .fw-port, html:not(.native) .fw-port-list picture, html:not(.native) .wk-port, html:not(.native) .sheet-crop {
     --pane: 0 0 0 1px rgba(11, 11, 13, 0.08), 0 1px 2px rgba(11, 11, 13, 0.04), 0 24px 48px -32px rgba(15, 15, 25, 0.22); }
@@ -1014,7 +990,6 @@ body.home .foot { padding: 48px 0 32px; }
   html:not(.native) .av-h6 { background: #e9e5fb; color: #4a37a6; } html:not(.native) .av-h7 { background: #f6e3f4; color: #86287d; }
 
   /* Answers and next week: no tinted light; the thread's own ground under its messages; the rings in ink. */
-  html:not(.native) .answers::before, html:not(.native) .lifter::before { background: none; }
   html.m:not(.native) .tl-patch { background: #f7f7f9; }
   /* Arjun's set card glows green in the light app, 12 pt past its sides and 26 pt below: its patch and its cut take the
      glow in, so nothing shows where it lands before it arrives, and it arrives with its glow (the dark card has none). */
@@ -1037,7 +1012,7 @@ body.home .foot { padding: 48px 0 32px; }
   html:not(.native) .sheet-desk { background: var(--screen); }
 
   /* Pricing: Sam's lifters as pale avatars on white, each with a hairline; the plan in force ruled in ink. */
-  html:not(.native) .s-home .prices { box-shadow: inset 0 1px 0 rgba(11, 11, 13, 0.07); background-image: none; }
+  html:not(.native) .s-home .prices { box-shadow: inset 0 1px 0 rgba(11, 11, 13, 0.07); }
   html:not(.native) .f[class*="av-h"] { box-shadow: inset 0 0 0 1px rgba(15, 15, 25, 0.05); }
   html:not(.native) .f-open, html:not(.native) .f.is-open { box-shadow: inset 0 0 0 1.5px rgba(11, 11, 13, 0.16); }
   html:not(.native) .band-k { border-top-color: rgba(11, 11, 13, 0.12); }
@@ -1047,7 +1022,6 @@ body.home .foot { padding: 48px 0 32px; }
   /* Questions, the close, the max calculator. */
   html:not(.native) .s-home .faq { box-shadow: inset 0 -1px 0 rgba(11, 11, 13, 0.06); }
   html:not(.native) .qi { background: rgba(11, 11, 13, 0.06); }
-  html:not(.native) .glow-close { background: radial-gradient(38% 60% at 30% -10%, rgba(255, 255, 255, 0.9), transparent 70%); }
   html:not(.native) .mx .mx-f input { background: #ffffff; box-shadow: inset 0 0 0 1px rgba(11, 11, 13, 0.14), inset 0 1px 2px rgba(11, 11, 13, 0.04); }
   html:not(.native) .mx .mx-unit { background: rgba(118, 118, 128, 0.12); box-shadow: none; }
   html:not(.native) .mx .mx-unit button.active { background: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(0, 0, 0, 0.04); }

@@ -7,8 +7,8 @@
    The score (the owner, 31 Oct: a landing page that moves as it scrolls, never a held stage): every chapter is in the
    page's flow and complete at any scroll position; its motion plays in place as it arrives. Two kinds of moment:
    - a state change, played forward as its block arrives and back (faster) if the reader scrolls back above it:
-     headlines rising word by word, lines and screens rising 12 to 40 px, lists building in their order, numbers
-     counting from the old value to the new, a message arriving, a press;
+     a screen easing up 30 to 40 px as it arrives (it only moves; the page's words never animate), lists building in
+     their order, numbers counting from the old value to the new, a message arriving, a press;
    - a short scrubbed touch, tied to the reader's scroll: the depth between the laptop and the phone, the set's flight
      from Arjun's phone to Sam's list, the window zooming from Sam's whole screen to that list, then on to Needs you.
    Only transform, opacity and clip-path move (plus two small SVG strokes drawing). Curves: cubic-bezier(0.22, 1, 0.36,
@@ -300,35 +300,17 @@
       onLeaveBack: function () { tl.timeScale(Math.max(1.6, tl.duration() / 0.9)).reverse(); }
     }, o));
   }
-  /* Blocks rising into place in turn: 12 px and their opacity (screens a little further), never from scale 0. */
+  /* A screen easing up into place as it arrives: it only moves, the way the laptop and the phone arrive at the top (never
+     a fade, never a scale), so no picture waits on a script to be seen. The page's words do not animate at all. */
   function rise(targets, o) {
     o = o || {};
     targets = (targets || []).filter(Boolean);
     if (!targets.length) return null;
     var tl = gsap.timeline({ paused: true })
-      .fromTo(targets, { autoAlpha: 0, y: o.y || 12 }, { autoAlpha: 1, y: 0, duration: o.dur || 0.64, stagger: o.stagger == null ? 0.07 : o.stagger, ease: ENTER });
-    onState(tl, { trigger: o.trigger || targets[0], start: o.start || 'top 90%' });
+      .fromTo(targets, { y: o.y || 30 }, { y: 0, duration: o.dur || 0.8, stagger: o.stagger || 0, ease: ENTER });
+    onState(tl, { trigger: o.trigger || targets[0], start: o.start || 'top 94%' });
     return tl;
   }
-  /* A headline rising word by word: whole words (a no-break space keeps its pair), so the lines break where they did. */
-  function splitWords(el) {
-    if (!el) return [];
-    if (el.dataset.split) return $$('.w', el);
-    var out = [];
-    Array.prototype.slice.call(el.childNodes).forEach(function (n) {
-      if (n.nodeType !== 3) return;
-      var frag = document.createDocumentFragment();
-      n.textContent.split(/( +)/).forEach(function (p) {
-        if (!p) return;
-        if (/^ +$/.test(p)) { frag.appendChild(document.createTextNode(p)); return; }
-        var s = document.createElement('span'); s.className = 'w'; s.textContent = p; frag.appendChild(s); out.push(s);
-      });
-      el.replaceChild(frag, n);
-    });
-    el.dataset.split = '1';
-    return out;
-  }
-  function words(el, o) { return el ? rise(splitWords(el), Object.assign({ trigger: el, stagger: 0.05, dur: 0.6 }, o || {})) : null; }
   /* AVIF where it decodes (a one-pixel probe), WebP otherwise. */
   var AVIF = 'data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUIAAADybWV0YQAAAAAAAAAoaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAGxpYmF2aWYAAAAADnBpdG0AAAAAAAEAAAAeaWxvYwAAAABEAAABAAEAAAABAAABGgAAAB0AAAAoaWluZgAAAAAAAQAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAamlwcnAAAABLaXBjbwAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAAAxhdjFDgQ0MAAAAABNjb2xybmNseAACAAIAAYAAAAAXaXBtYQAAAAAAAAABAAEEAQKDBAAAACVtZGF0EgAKCBgANogQEAwgMg8f8D///8WfhwB8+ErK42A=';
   function avif(cb) { var p = new Image(); p.onload = function () { cb(true); }; p.onerror = function () { cb(false); }; p.src = AVIF; }
@@ -401,8 +383,7 @@
   var logStart = function () { return Math.max(40, layoutTop(logB) + logB.offsetHeight / 2 - vhOf() * (small() ? 0.62 : 0.5)); };
   /* The ring starts once the whole card is in view; untapped, the set logs as Log set reaches the middle. */
   var setStart = function () { return Math.max(24, logStart() - vhOf() * (wide() ? 0.45 : 0.24)); };
-  /* The 228 panel rises as it arrives (24 px), showing last week's 223 until the set is logged. */
-  rise([max], { y: 24, start: 'top 92%', dur: 0.7 });
+  /* The max panel shows last week's 223 until the set is logged (LG.max). */
   var back = function (tl) { return tl.timeScale(Math.max(1.6, tl.duration() / 0.9)).reverse(); };
   /* by: null (not logged), 'scroll' or 'tap'; side: the max beside the phone (laptops); maxIn: stacked, the max on screen. */
   var LG = { ring: ringTl(), max: maxTl(), press: null, by: null, side: false, maxIn: false };
@@ -558,9 +539,7 @@
     logSet('tap', true); heroLand(true);
   }
 
-  /* The landing's words, and the window rising into the page. */
-  words($('#land-h'), { start: 'top 94%' });
-  rise([$('.land .sub')], { trigger: $('.land .sub'), start: 'top 94%' });
+  /* The window eases up into the page. */
   rise([$('#fwA')], { y: 36, start: 'top 96%', dur: 0.8 });
 
   /* =====================================================================
@@ -569,8 +548,6 @@
      its line lights in the chain beside it (below it on a phone) as its lifter's face arrives. No sentences: the order
      is the explanation. The table's own figure is the still's.
      ===================================================================== */
-  words($('#who-h'), { start: 'top 94%' });
-  rise([$('.who .sub')], { trigger: $('.who .sub'), start: 'top 94%' });
   var chainLis = $$('#chain li'), grps = $$('.grp', desk), mks = $$('.mk', desk);
   gsap.set(chainLis, { opacity: 0.34 });
   gsap.set($$('#chain .av'), { autoAlpha: 0, scale: 0.8 });
@@ -587,11 +564,9 @@
   onState(listTl, { start: listAt, end: 'max' });
 
   /* =====================================================================
-     ANSWERS: the thread rises beside the words; Sam's note, then Arjun's set arrive the way messages do; Sent becomes
+     ANSWERS: the thread eases up beside the words; Sam's note, then Arjun's set arrive the way messages do; Sent becomes
      Seen; Sam's reply lands under it.
      ===================================================================== */
-  words($('#answers-h'));
-  rise([$('.answers-copy .lead')], { trigger: $('.answers-copy .lead'), start: 'top 92%' });
   rise([$('#thread .th-crop')], { trigger: $('#thread'), y: 40, start: 'top 94%', dur: 0.8 });
   gsap.fromTo('#thread', { y: 26 }, { y: -26, ease: 'none', scrollTrigger: { trigger: '#answers', start: 'top bottom', end: 'bottom top', scrub: 0.4 } });
   var sent = $('.tl-sent'), seen = $('.tl-seen'), reply = $('#reply'), tlNote = $('.tl-note'), tlSet = $('.tl-set');
@@ -611,8 +586,6 @@
      145, and the sheet's action arrives in its top bar, the one crimson here: Send 4 changes to Marcus. One real
      picture: the new sheet has no step to press between (the 145 is an unsent change when the page opens).
      ===================================================================== */
-  words($('#next-h'));
-  rise([$('.next-head .lead')], { start: 'top 92%' });
   var wkPort = $('#wkPort'), wkTap = $('#wkTap'), wkWhy = $('#wkWhy'), pub = $('#pub');
   rise([wkPort], { y: 30, start: 'top 94%', dur: 0.8 });
   gsap.set(pub, { autoAlpha: 0, y: 6, transformOrigin: '100% 50%' });
@@ -630,8 +603,6 @@
      the call: Declare presses and becomes Declared 215, the board's 2nd fills, and Tom's phone has it (its card rings
      green, "not declared yet" clears, he is one out). No captions say so: the stage does.
      ===================================================================== */
-  words($('#meet-h'));
-  rise([$('.meet-lead')], { start: 'top 92%' });
   var scene = $('#scene'), judgesBox = $('#judges'), judges = $$('#judges i');
   var cell1 = $('#cell1'), cell2 = $('#cell2'), dec = $('#decBtn');
   var clockN = $('#clockN'), clockBar = $('#clockBar'), mpOn = $('#mpOn');
@@ -678,16 +649,13 @@
   swapIn(meetTl, $('#slabDec'), C + 0.3);
   swapIn(meetTl, $('#slabOut'), C + 0.36);
   onState(meetTl, { trigger: scene, start: function () { return small() ? 'top 74%' : 'top 66%'; } });
-  rise($$('#meet .side > .cap'), { trigger: scene, start: 'top 90%', stagger: 0.1 });
 
   /* =====================================================================
-     FOR LIFTERS: Arjun's own app after that set. The words rise; the two phones rise into place; the PR moment plays as
+     FOR LIFTERS: Arjun's own app after that set. The two phones ease up into place; the PR moment plays as
      the app plays it (styles.css .pr-moment: the plate rolls in from the screen's left edge and lands with a squash, the
      number counts up from his old best, 223 to 228, then the jump shows); then Progress draws its line up to his new
      total. Side by side (760 and up) one beat, the moment then the line; stacked, each as its phone comes up.
      ===================================================================== */
-  words($('#lifter-h'));
-  rise([$('.lifter-copy .lead'), $('.lf-try')], { trigger: $('.lifter-copy .lead'), start: 'top 92%', stagger: 0.08 });
   var lfPr = $('#lfPr'), lfProg = $('#lfProg'), lfPlate = $('.lf-plate', lfPr), lfN = $('.lf-n', lfPr), lfD = $('.lf-d', lfPr), lfLine = $('.lf-line', lfProg);
   rise([$('.lf-crop', lfPr), $('.lf-crop', lfProg)], { trigger: '.lf-phones', y: 40, start: 'top 94%', dur: 0.8, stagger: 0.12 });
   lfN.dataset.from = '223'; lfN.dataset.to = '228';
@@ -714,45 +682,22 @@
     var b1 = onState(p1, { trigger: lfPr, start: 'center 62%' }), b2 = onState(p2, { trigger: lfProg, start: 'bottom 92%' });
     return function () { b1.kill(); b2.kill(); p1.kill(); p2.kill(); };
   });
-  /* Training on your own: the band's line and its link rise as it arrives. */
-  rise([$('.solo-in p'), $('.solo-in .quiet')], { trigger: '.solo', start: 'top 94%', stagger: 0.08 });
 
   /* =====================================================================
-     MOVING OVER: the three steps tick in, one after another (the number, then its line); the import's preview rises
-     beside them, unrolling to show what one old log becomes.
+     MOVING OVER: the three steps are simply there; the import's preview eases up beside them.
      ===================================================================== */
-  words($('#moving-h'));
-  var stepsTl = gsap.timeline({ paused: true });
-  $$('#steps .step-i').forEach(function (s, i) {
-    var at = i * 0.2;
-    stepsTl.fromTo($('.sn', s), { autoAlpha: 0, scale: 0.7 }, { autoAlpha: 1, scale: 1, duration: 0.42, ease: ENTER }, at)
-      .fromTo($('.st p', s), { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 0.55, ease: ENTER }, at + 0.05);
-  });
-  onState(stepsTl, { trigger: '#steps', start: 'top 84%' });
-  var impTl = gsap.timeline({ paused: true })
-    .fromTo('#imp', { autoAlpha: 0, y: 32 }, { autoAlpha: 1, y: 0, duration: 0.8, ease: ENTER }, 0)
-    .fromTo('#imp .sheet-crop', { clipPath: 'inset(0% 0% 100% 0% round 18px)' }, { clipPath: 'inset(0% 0% 0% 0% round 18px)', duration: 0.9, ease: INOUT }, 0.08);
-  onState(impTl, { trigger: '#imp', start: 'top 88%' });
-  rise([$('.move-foot')], { start: 'top 96%' });
+  rise([$('#imp')], { y: 32, start: 'top 92%' });
 
-  /* KNOW WHO HAS PAID: the words, then Clients rises (the coach website's own screen; the page draws nothing over it). */
-  rise([$('#money-h'), $('.money-copy p')], { trigger: $('#money-h'), start: 'top 90%' });
+  /* KNOW WHO HAS PAID: Clients eases up (the coach website's own screen; the page draws nothing over it). */
   rise([$('.cl')], { y: 30, start: 'top 94%', dur: 0.8 });
 
   /* =====================================================================
-     PRICING: the offer settles (its words, Start coaching free, the branded phone rising; a ring visits what branding
-     changes: the team's name and logo, then Log set in its colour); the plans arrive left to right, and Sam's roster
-     fills from 11 to 20 lifters on Pro, a seat at a time.
+     PRICING: the branded phone eases up; a ring visits what branding changes (the team's name and logo, then Log set in
+     its colour); Sam's roster fills from 11 to 20 lifters on Pro, a seat at a time.
      ===================================================================== */
-  words($('#plans-h'));
-  rise([$('.plans-head .lead')], { start: 'top 92%' });
-  var plansTl = gsap.timeline({ paused: true })
-    .fromTo('#plansCta .act-btn', { autoAlpha: 0, y: 8, scale: 0.96 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, ease: ENTER }, 0);
-  onState(plansTl, { trigger: '#plansCta', start: 'top 94%' });
   var bpHls = $$('.brand-ph .hl');
   gsap.set(bpHls, { autoAlpha: 0 });
-  var bpTl = gsap.timeline({ paused: true }).fromTo('.brand-ph .bp-crop', { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.8, ease: ENTER }, 0);
-  onState(bpTl, { trigger: '.brand-ph', start: 'top 90%' });
+  rise([$('.brand-ph .bp-crop')], { trigger: '.brand-ph', y: 40, start: 'top 92%' });
   /* The ring plays once the whole screen is in view (its second stop, Log set, is at the crop's foot). */
   var bpRings = gsap.timeline({ paused: true });
   bpHls.forEach(function (h, i) {
@@ -761,7 +706,6 @@
       .to(h, i ? { autoAlpha: 0, duration: 0.5, ease: OUT } : { autoAlpha: 0, y: 10, duration: 0.32, ease: INOUT }, at + (i ? 1.0 : 0.6));
   });
   onState(bpRings, { trigger: '.brand-ph', start: 'bottom 92%' });
-  rise($$('#scale .band'), { trigger: '#scale', start: 'top 92%', stagger: 0.08, y: 14 });
   var seats = $$('#scale .f:not(.f-open)'), bands = $$('#scale .band'), scN = $('#scN'), plan = $('#scPlan');
   var planKids = plan ? Array.prototype.slice.call(plan.children) : [];
   var shown = -1;
@@ -777,25 +721,14 @@
   var R = { n: 11 };
   var rosterTl = gsap.timeline({ paused: true }).fromTo(R, { n: 11 }, { n: 20, duration: 1.35, ease: 'power1.inOut', onUpdate: function () { paintRoster(Math.round(R.n)); } }, 0.1);
   onState(rosterTl, { trigger: '#scale', start: function () { return small() ? 'top 70%' : 'top 76%'; } });
-  rise([$('.scale-cap')], { trigger: $('.scale-cap'), start: 'top 97%' });
 
   /* =====================================================================
-     QUESTIONS: they arrive in turn, all closed (each opens only for the reader, its answer arriving: the page layer).
+     QUESTIONS: all closed; each opens only for the reader, its answer arriving (the page layer).
      ===================================================================== */
-  words($('#faq-h'));
-  rise([$('.faq-demo')], { start: 'top 94%' });
-  rise($$('.qs .q > summary'), { trigger: '.qs-cols', start: 'top 90%', stagger: 0.045 });
 
   /* =====================================================================
-     THE LAST CALL: the line rises, then Start coaching free settles; the footer comes to rest under it.
+     THE LAST CALL: still. The line, Start coaching free and the footer are simply there.
      ===================================================================== */
-  words($('#close-h'), { start: 'top 88%', stagger: 0.06 });
-  rise([$('.close .lead')], { start: 'top 94%' });
-  var closeTl = gsap.timeline({ paused: true })
-    .fromTo('#closeCta .act-btn', { autoAlpha: 0, y: 8, scale: 0.96 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, ease: ENTER }, 0)
-    .fromTo('#closeCta .quiet', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.5, stagger: 0.08, ease: ENTER }, 0.12);
-  onState(closeTl, { trigger: '#closeCta', start: 'top 96%' });
-  rise([$('.foot-brand')].concat($$('.foot-cols > div'), [$('.foot-c')]), { trigger: '.foot', start: 'top 96%', stagger: 0.07, y: 16 });
 
   /* Every trigger refreshes in page order; the page map is re-read after each refresh. The boot ends two frames after
      the first refresh: from then on every moment plays as its block arrives. */
