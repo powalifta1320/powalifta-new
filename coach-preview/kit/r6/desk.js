@@ -51,6 +51,42 @@
   DESK.mark = '<svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect class="ink" x="1.5" y="14.6" width="29" height="2.8" rx="1.4"/><rect class="plate" x="8" y="3" width="7.5" height="26" rx="2.2"/><rect class="ink" x="17" y="7.5" width="4" height="17" rx="1.6"/><rect class="ink" x="22.5" y="12" width="2.6" height="8" rx="1.1"/></svg>';
   DESK.esc = esc;
 
+  /* ---------------- a person's photo ----------------
+     Beside a person's name, wherever a page lists people (the owner, 21 Nov: "beside each person's name, maybe there
+     can be a small profile photo of them"): their own profile photo when they have one, else their initials on their
+     own tint ("just like initial or smth na"). A record's own .photo (a URL) wins; PHOTOS maps a lifter's id to a file
+     in kit/faces/ (none yet: the demo's people are made up). A plain round shape: no ring, no gradient, no status mark
+     (what was called cheap on 13 Nov was the ring and the loud fill). The name is always beside it, so both the picture
+     and the initials are silent to a screen reader. */
+  var FACES = (function () { var s = document.currentScript; return s && s.src ? s.src.replace(/r6\/desk\.js.*$/, 'faces/') : '../kit/faces/'; })();
+  var PHOTOS = {};
+  DESK.photos = PHOTOS;
+  DESK.photoUrl = function (who) { if (!who) return ''; if (who.photo) return String(who.photo); var f = PHOTOS[who.id]; return f ? FACES + f : ''; };
+  function iniOf(who) {
+    var s = who.ini || String(who.name || who.lifter || '').split(/\s+/).filter(Boolean).map(function (w) { return w.charAt(0); }).join('');
+    return s.length > 2 ? (s.charAt(0) + s.charAt(s.length - 1)).toUpperCase() : s.toUpperCase();
+  }
+  /* the tint is the record's own hue (the data gives each lifter one of eight); a record without one gets a steady one from its name */
+  function hueOf(who) {
+    if (typeof who.hue === 'number' && who.hue >= 0) return who.hue % 8;
+    var s = String(who.name || who.lifter || who.id || ''), h = 0, i;
+    for (i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return h % 8;
+  }
+  DESK.photo = function (who, size, cls) {
+    if (!who) return '';
+    var u = DESK.photoUrl(who), s = size || 36, c = cls ? ' ' + cls : '', ini = iniOf(who), h = hueOf(who);
+    if (u) return '<span class="ph' + c + '" style="--s:' + s + 'px" data-ini="' + esc(ini) + '" data-h="' + h + '"><img src="' + esc(u) + '" alt="" width="' + s + '" height="' + s + '" loading="lazy" decoding="async" draggable="false"></span>';
+    if (!ini) return '';
+    return '<span class="ph ini h' + h + c + '" style="--s:' + s + 'px" aria-hidden="true">' + esc(ini) + '</span>';
+  };
+  /* a picture that fails to load gives way to the initials (an image's error does not bubble: caught on the way down) */
+  document.addEventListener('error', function (e) {
+    var t = e.target, p = t && t.parentNode;
+    if (!t || t.tagName !== 'IMG' || !p || !p.classList || !p.classList.contains('ph')) return;
+    p.classList.add('ini', 'h' + (p.getAttribute('data-h') || 0)); p.setAttribute('aria-hidden', 'true'); p.textContent = p.getAttribute('data-ini') || '';
+  }, true);
+
   /* ---------------- places, pages and where they live ----------------
      DESK.pages names every page of the desk; DESK.routes every page that is built (all of them), plus the two old names
      as aliases: roster → overview.html, lifter → lifters.html, so DESK.go('lifter', …), DESK.routes.lifter and

@@ -340,6 +340,19 @@ textarea.input { height: auto; min-height: 76px; max-height: 40vh; padding: var(
 /* a word in its status colour (<span class="tw tone-warn">12 days late</span>): one per row at most (lint L15) */
 .tw { color: var(--tone, inherit); }
 
+/* ================= a person's photo ================= */
+/* their own profile photo beside their name (desk.js DESK.photo): a plain round crop at --s, no ring and no status
+   mark. The quiet fill shows only while the picture loads. */
+.ph { flex: none; display: inline-block; width: var(--s, 36px); height: var(--s, 36px); border-radius: 50%; overflow: hidden; background: var(--fill-2); vertical-align: middle; }
+.ph img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* no photo yet: their initials on their own tint (tokens.css --av-0..7, the lifter app's avatar colours). Flat: no ring,
+   no gradient, no dot. The name is always beside it, so the initials are for the eye only (aria-hidden). */
+.ph.ini { display: inline-grid; place-items: center; background: var(--av, var(--fill-2)); color: var(--av-ink, var(--ink-2)); font: 700 max(10px, calc(var(--s, 36px) * 0.36))/1 var(--font); letter-spacing: 0.02em; user-select: none; }
+.ph.h0 { --av: var(--av-0); --av-ink: var(--av-0-ink); } .ph.h1 { --av: var(--av-1); --av-ink: var(--av-1-ink); }
+.ph.h2 { --av: var(--av-2); --av-ink: var(--av-2-ink); } .ph.h3 { --av: var(--av-3); --av-ink: var(--av-3-ink); }
+.ph.h4 { --av: var(--av-4); --av-ink: var(--av-4-ink); } .ph.h5 { --av: var(--av-5); --av-ink: var(--av-5-ink); }
+.ph.h6 { --av: var(--av-6); --av-ink: var(--av-6-ink); } .ph.h7 { --av: var(--av-7); --av-ink: var(--av-7-ink); }
+
 /* ================= lists: rows on hairlines ================= */
 .list { padding: var(--sp-2); }
 .lrow {

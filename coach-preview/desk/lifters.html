@@ -72,13 +72,13 @@
   .ll-empty { padding: var(--sp-6) var(--sp-3); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
   .ll-empty .btn { margin-top: var(--sp-3); }
 
-  /* a row: the name and one number on line one, the active view's reason under it; no face, no ring, no glyph, no dot */
-  .lr { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; grid-template-areas: 'g n v' 'g r r'; align-items: center; column-gap: var(--sp-3); row-gap: 3px; min-height: 60px; padding: 10px var(--sp-3); border-radius: var(--r-row); cursor: pointer; outline: 0; user-select: none; }
+  /* a row: the lifter's photo (or their initials) first, the name and the total on line one, the active view's reason
+     under it; no ring, no glyph, no dot */
+  .lr { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; grid-template-areas: 'g n v' 'g r r'; align-items: center; column-gap: var(--sp-3); row-gap: 3px; min-height: 60px; padding: 10px var(--sp-3); border-radius: var(--r-row); cursor: pointer; outline: 0; user-select: none; }
   .lr.has-total { grid-template-areas: 'g n t' 'g r v'; }
   .lr.one { grid-template-areas: 'g n v'; min-height: 48px; }
-  /* the lifter's three lifts as three bars (squat, bench, deadlift), in the lifts' colours */
-  .lr .lb { grid-area: g; align-self: center; overflow: visible; }
-  .lr .lb .sq { fill: var(--sq); } .lr .lb .bp { fill: var(--bp); } .lr .lb .dl { fill: var(--dl); } .lr .lb .no { fill: var(--fill-3); }
+  /* who it is, before the name (desk.js DESK.photo): their own photo, or their initials until they add one */
+  .lr .ph { grid-area: g; align-self: center; }
   .lr .tv { grid-area: t; justify-self: end; display: inline-flex; align-items: baseline; gap: 3px; color: var(--ink); white-space: nowrap; }
   .lr .tv b { font: 800 17px/var(--lh-tight) var(--font); letter-spacing: -0.01em; }
   .lr .tv i { color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-style: normal; }
@@ -105,8 +105,10 @@
   .lr .rs.ses { color: var(--ink); }
   .lr .done-tick { max-width: 100%; }
   .lr .rs .at { margin-left: var(--sp-2); color: var(--ink-3); font-variant-numeric: tabular-nums; }
-  .ll.is-compact .lr, .ll.is-compact .lr.has-total { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'n r v'; min-height: 32px; padding-top: 0; padding-bottom: 0; }
-  .ll.is-compact .lr .lb, .ll.is-compact .lr .tv { display: none; }
+  /* the tight list keeps the photo, small, in a column of its own before the name */
+  .ll.is-compact .lr, .ll.is-compact .lr.has-total { grid-template-columns: 22px auto minmax(0, 1fr) auto; grid-template-areas: 'g n r v'; column-gap: var(--sp-2); min-height: 32px; padding-top: 0; padding-bottom: 0; }
+  .ll.is-compact .lr .tv { display: none; }
+  .ll.is-compact .lr .ph { --s: 22px !important; }
   .ll.is-compact .lr .nm { font-size: var(--fs-sub); }
   .ll.is-compact .lr .rs { font-size: var(--fs-label); }
   .ll.is-compact .ll-gh { min-height: 24px; margin-top: var(--sp-1); font-size: var(--fs-label); }
@@ -129,6 +131,9 @@
   @media (hover: hover) and (pointer: fine) { .fact:not(.flat):hover { background: var(--hover); color: var(--ink); } }
   .lh-t { display: flex; align-items: center; gap: var(--sp-4); }
   .lh-t h1 { min-width: 0; }
+  /* the lifter's photo sits before their name, when they have one */
+  .lh-t .ph + h1 { margin-left: calc(var(--sp-1) * -1); }
+  table.tv td .ph { margin-right: var(--sp-2); }
   .lh-t .rec { margin-left: auto; flex: none; color: var(--ink-2); }
   .lh .tabs { margin-top: var(--sp-4); }
   .ld .tabs { gap: var(--sp-5); }
@@ -529,18 +534,9 @@
     if (!seen && e.kind === 'program' && fn(PL.programs, 'weeks')) (dat(PL.programs.weeks(id)) || []).forEach(function (wk) { if (!seen && wk.seenAt && String(wk.seenAt) >= String(e.at)) seen = wk.seenAt; });
     return { text: K.wd3(String(e.at).slice(0, 10)) + ': ' + low1(t), seen: seen };
   }
-  /* a lifter's mark in the list (20 Nov, the owner: the names looked "very plain"): their three lifts as three bars in the
-     lifts' own colours, each as tall as the lift is strong against the strongest lift on the desk. It is their numbers,
-     not a face or initials; a lifter with no numbers yet gets three low neutral bars. */
-  var TOPE1 = 0;
-  function liftBars(x) {
-    var e = x.e1 || {}, vs = [e.squat, e.bench, e.deadlift], any = vs.some(function (v) { return v > 0; }), H = 30;
-    var bars = vs.map(function (v, i) {
-      var h = any && v > 0 && TOPE1 ? Math.max(4, Math.round(H * v / TOPE1)) : 4;
-      return '<rect class="' + (any && v > 0 ? ['sq', 'bp', 'dl'][i] : 'no') + '" x="' + i * 9 + '" y="' + (H - h) + '" width="6" height="' + h + '" rx="2"/>';
-    }).join('');
-    return '<svg class="lb" viewBox="0 0 24 30" width="24" height="30" aria-hidden="true">' + bars + '</svg>';
-  }
+  /* a lifter's mark in the list (21 Nov, the owner: "beside each person's name, maybe there can be a small profile photo
+     of them"): DESK.photo, their photo or their initials. It took the place of the three lift bars of 20 Nov; a lifter's
+     three lifts are the first thing on their own page. */
   var TONE = { 't-pain': ' pain', 't-meet': ' meet', 't-bw': ' bw', 't-warn': ' warn', 't-msg': ' msg' };
   function rowHtml(r) {
     var x = r.x, sel = r.id === selRowId() || S.multi.indexOf(r.lid) >= 0, two = true, num = x.number && x.number.text ? { text: x.number.text, title: 'Total e1RM ' + x.number.text + ' in 4 weeks' } : { text: '', title: '' }, line = '', lineTitle = '', cls = '', total = '';
@@ -572,7 +568,7 @@
     var title = lineTitle || '';
     var dir = /^[−-]/.test(num.text) ? ' down' : /^\+/.test(num.text) ? ' up' : '';
     return '<div class="lr' + (two || compact ? '' : ' one') + (total ? ' has-total' : '') + '" role="option" tabindex="' + (sel && r.id === selRowId() ? '0' : '-1') + '" data-row="' + esc(r.id) + '" data-lifter="' + esc(r.lid) + '" aria-selected="' + sel + '"' + (title ? ' title="' + esc(title) + '"' : '') + '>' +
-      liftBars(x) +
+      DESK.photo(x, 36) +
       '<span class="nm" data-fact="name" data-ellipsis title="' + esc(name) + '">' + esc(name) + (r.s ? '<span class="sr">,</span>' : '') + '</span>' + total +
       '<span class="nv' + (total ? dir : '') + '" data-fact="number" title="' + esc(num.title || '') + '">' + (num.text ? esc(num.text) : none) + '</span>' + rs + '</div>';
   }
@@ -585,7 +581,6 @@
     box.classList.toggle('is-compact', compact);
     M = model();
     if (!shown) return;
-    TOPE1 = (dat(PL.lifters.list({})) || []).reduce(function (a, l) { var e = l.e1 || {}; return Math.max(a, e.squat || 0, e.bench || 0, e.deadlift || 0); }, 0);
     var sc = $('.ll-s', box), top = sc ? sc.scrollTop : 0;
     var cnt = viewCount(M), noone = !(dat(PL.lifters.list({})) || []).length;
     /* the one list head (PX3): the view's name and count opens the views; the action slot adds a lifter (FTC §3.1; the
@@ -730,8 +725,8 @@
   function headHtml(l) {
     /* Record pain… left the facts line (P9): a quiet move at the end of the name's line */
     var rec = l.stage === 'invited' ? '' : '<button class="btn quiet sm rec" type="button" data-pain-btn>Record pain…</button>';
- if (l.stage === 'invited') return '<header class="lh" data-crop="header" data-sec="header"><div class="lh-t"><h1 tabindex="-1" id="lname">' + esc(l.name) + '</h1></div>' + factsHtml(l) + '</header>';
-    return '<header class="lh" data-crop="header" data-sec="header"><div class="lh-t"><h1 tabindex="-1" id="lname">' + esc(l.name) + '</h1>' + rec + '</div>' + factsHtml(l) +
+ if (l.stage === 'invited') return '<header class="lh" data-crop="header" data-sec="header"><div class="lh-t">' + DESK.photo(l, 48) + '<h1 tabindex="-1" id="lname">' + esc(l.name) + '</h1></div>' + factsHtml(l) + '</header>';
+    return '<header class="lh" data-crop="header" data-sec="header"><div class="lh-t">' + DESK.photo(l, 48) + '<h1 tabindex="-1" id="lname">' + esc(l.name) + '</h1>' + rec + '</div>' + factsHtml(l) +
       '<div class="tabs" role="tablist" aria-label="' + esc(l.name) + '">' + TABS.map(function (t) { var on = S.tab === t[0]; return '<button type="button" role="tab" id="tab-' + t[0] + '" data-tab="' + t[0] + '" aria-selected="' + on + '" tabindex="' + (on ? 0 : -1) + '" aria-controls="panel">' + t[1] + '</button>'; }).join('') + '</div></header>';
   }
 
@@ -1249,7 +1244,7 @@
     var body = rows.map(function (x) {
       var rr = rowReason(x), e = x.e1 || {};
       var mo = x.meet ? outText(x.meet.days) : '', mt = x.meet ? x.meet.name + ' ' + mo : '';
-      return '<tr data-row="' + esc(x.id) + '" tabindex="-1"><td title="' + esc(x.name) + '" data-ellipsis><b>' + esc(x.name) + '</b></td><td class="st2' + (rr && rr.pain ? ' pain-t' : '') + '" data-ellipsis title="' + esc(rr ? rr.text : '') + '">' + (rr ? esc(rr.text) : none) + '</td>' +
+      return '<tr data-row="' + esc(x.id) + '" tabindex="-1"><td title="' + esc(x.name) + '" data-ellipsis>' + DESK.photo(x, 24) + '<b>' + esc(x.name) + '</b></td><td class="st2' + (rr && rr.pain ? ' pain-t' : '') + '" data-ellipsis title="' + esc(rr ? rr.text : '') + '">' + (rr ? esc(rr.text) : none) + '</td>' +
         '<td>' + (x.program ? esc(x.program.week + ' of ' + x.program.of) : none) + '</td><td>' + (x.week && x.week.of ? esc(x.week.done + ' of ' + x.week.of) : none) + '</td>' +
         LIFTS.map(function (k) { return '<td class="n" data-lift="' + k + '">' + (e[k] != null ? esc(n(Math.round(e[k]))) : none) + '</td>'; }).join('') +
         '<td class="n">' + (x.total != null ? esc(n(Math.round(x.total))) : none) + '</td><td class="n">' + (x.change != null ? esc(signed(x.change)) : none) + '</td><td class="nm-t" data-ellipsis title="' + esc(mt) + '">' + (mt ? esc(x.meet.name) + ' <span class="q3">' + esc(mo) + '</span>' : none) + '</td></tr>';

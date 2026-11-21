@@ -222,6 +222,12 @@
   --pl-messages: #34d982; --pl-messages-ink: #34d982; --pl-messages-rgb: 52 217 130;
   --pl-clients: #b394ff;  --pl-clients-ink: #b99dff;  --pl-clients-rgb: 179 148 255;
   --pl-settings: #9a9aa5; --pl-settings-ink: #c2c2cb; --pl-settings-rgb: 154 154 165;
+  /* a person's initials, where they have no photo yet: the lifter app's own eight avatar tints (styles.css .av-h0..7),
+     a flat quiet fill and its ink. The first is stone, never red: red is the logo and the one action. */
+  --av-0: #2b2926; --av-0-ink: #d8d1c8;  --av-1: #38231a; --av-1-ink: #ffbe94;
+  --av-2: #342a14; --av-2-ink: #f2cd78;  --av-3: #172e20; --av-3-ink: #94dfab;
+  --av-4: #132e2d; --av-4-ink: #86ddd2;  --av-5: #16273b; --av-5-ink: #93c6ff;
+  --av-6: #231d3a; --av-6-ink: #bcaeff;  --av-7: #331a37; --av-7-ink: #f0a8e8;
 }
 :root[data-theme='light'] {
   --pl-overview: #f08a24; --pl-overview-ink: #9a4a00; --pl-overview-rgb: 240 138 36;
@@ -232,6 +238,10 @@
   --pl-messages: #1fb36a; --pl-messages-ink: #0b6b3c; --pl-messages-rgb: 31 179 106;
   --pl-clients: #8b6cf0;  --pl-clients-ink: #6347d1;  --pl-clients-rgb: 139 108 240;
   --pl-settings: #6c6c76; --pl-settings-ink: #34343c; --pl-settings-rgb: 108 108 118;
+  --av-0: #ece8e2; --av-0-ink: #4d463f;  --av-1: #fcebde; --av-1-ink: #93380a;
+  --av-2: #f8efd3; --av-2-ink: #6f4c00;  --av-3: #e0f2e6; --av-3-ink: #155f36;
+  --av-4: #dcf1ee; --av-4-ink: #0e5f59;  --av-5: #e1ebfb; --av-5-ink: #1c4f9c;
+  --av-6: #e9e5fb; --av-6-ink: #4a37a6;  --av-7: #f6e3f4; --av-7-ink: #86287d;
 }
 body[data-place='overview'], body[data-place='roster'] { --place: var(--pl-overview); --place-ink: var(--pl-overview-ink); --place-rgb: var(--pl-overview-rgb); }
 body[data-place='lifters'] { --place: var(--pl-lifters); --place-ink: var(--pl-lifters-ink); --place-rgb: var(--pl-lifters-rgb); }
