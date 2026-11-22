@@ -97,19 +97,28 @@
   .ql-foot { display: flex; margin: var(--sp-3) var(--sp-4) 0; }
 
   /* ---------------- the header: flat on the floor ---------------- */
-  .hd { margin: 0 var(--sp-1) var(--sp-5); }
-  .hd h1 { margin: 0; font: 700 var(--fs-large)/var(--lh-large) var(--font); letter-spacing: var(--ls-large); text-wrap: balance; }
-  .hd .facts { margin: var(--sp-2) 0 0; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
-  .hd-line { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-5); row-gap: var(--sp-1); margin-top: var(--sp-3); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); }
+  /* 22 Nov (the owner: "wasted space … awkward controls … should feel like a premium coaching software"): the header is
+     one size down and tighter, so the week starts higher, and everything in it that does something is a button with a
+     shape, not an underlined word in a line of text */
+  .hd { margin: 0 var(--sp-1) var(--sp-4); }
+  .hd h1 { margin: 0; font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); text-wrap: balance; }
+  .hd .facts { margin: 2px 0 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
+  .hd-line { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-3); row-gap: var(--sp-2); margin-top: var(--sp-3); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); }
   .hd-line .say { color: var(--ink); text-wrap: pretty; }
   .hd-line .who { color: var(--ink-3); }
-  .hd-line .acts { display: inline-flex; flex-wrap: wrap; column-gap: var(--sp-5); row-gap: var(--sp-1); }
+  .hd-line .acts { display: inline-flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-2); row-gap: var(--sp-2); }
   .hd-line .done-say { color: var(--ink-2); }
-  .hd .link { position: relative; font-size: var(--fs-sub); }
-  .hd .link::after { content: ''; position: absolute; inset: -8px -4px; }
+  .hd .link, .wb .link {
+    position: relative; height: 28px; padding: 0 var(--sp-3); border-radius: var(--r-pill); background: var(--fill); font: 600 var(--fs-label)/1 var(--font); text-decoration: none; white-space: nowrap;
+    transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+  }
+  .hd .link::after, .wb .link::after { content: ''; position: absolute; inset: -6px 0; }
+  .hd .link *, .wb .link * { text-decoration: none; }   /* a word the desk can explain keeps its meaning, not its underline, inside a button */
+  .hd .link:active, .wb .link:active { transform: scale(var(--press)); }
+  @media (hover: hover) and (pointer: fine) { .hd .link:hover, .wb .link:hover { background: var(--fill-2); } }
   .hd-limits { color: var(--ink-2); }
   .hd-maxes .mx-l { color: var(--ink-2); }
-  .hd-maxes .acts { column-gap: var(--sp-6); }
+  .hd-maxes .acts { column-gap: var(--sp-2); }
   .hd-maxes .mx { font-variant-numeric: tabular-nums; }
   .hd-maxes .mx b { font-weight: 600; }
   .hd-maxes .quiet { color: var(--ink-2); font-weight: 500; }
@@ -137,7 +146,7 @@
      and what waits on a session on a quieter second line, only when there is any */
   .wb { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-bottom: 1px solid var(--line); }
   .wb-r1 { grid-column: 1; grid-row: 1; display: flex; align-items: center; column-gap: var(--sp-3); min-width: 0; min-height: 52px; padding: 0 0 0 var(--sp-4); }
-  .wb-r2 { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-5); row-gap: var(--sp-1); min-height: 28px; margin-top: calc(var(--sp-2) * -1); padding: 0 var(--sp-6) var(--sp-2); }
+  .wb-r2 { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-2); row-gap: var(--sp-1); min-height: 28px; margin-top: calc(var(--sp-1) * -1); padding: 0 var(--sp-6) var(--sp-3); }
   .wb > .wb-end { grid-column: 2; grid-row: 1; margin-right: var(--sp-3); }
   .wk.is-compact .wb-r1 { min-height: 44px; }
   .wk.is-compact .wb-r2 { min-height: 24px; margin-top: calc(var(--sp-1) * -1); padding-bottom: var(--sp-1); }
@@ -150,8 +159,7 @@
   .wb .wb-sep { margin: 0 calc(var(--sp-2) * -1); }
   .wb .wb-st.is-strong { color: var(--ink); font-weight: 600; }
   .wb .wb-w { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
-  .wb .link { position: relative; font-size: var(--fs-label); white-space: nowrap; }
-  .wb .link::after { content: ''; position: absolute; inset: -8px -4px; }
+  .wb .link { height: 26px; }
 
   .wk-f { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4) var(--sp-6) var(--sp-5); border-top: 1px solid var(--line); }
   /* under a sheet the page is dimmed and inert: its pinned foot steps out of the way */

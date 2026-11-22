@@ -111,6 +111,31 @@ const w7 = await week();
 ok('Duplicate the day adds a day with the same lifts', w7.dayNames.includes('Squat Day 2') && JSON.stringify(w7.days['Squat Day 2']) === JSON.stringify(w7.days['Squat Day']), w7.dayNames.join(', '));
 await shot(p, '5-after.png');
 
+// 7b. pick lifts, copy them, paste them on another day; and rows copied out of a spreadsheet
+const copyFrom = (sel) => p.evaluate((q) => { const el = document.querySelector(q), dt = new DataTransfer(); el.focus(); el.dispatchEvent(new ClipboardEvent('copy', { clipboardData: dt, bubbles: true, cancelable: true })); return { text: dt.getData('text/plain'), lines: dt.getData('application/x-powa-lines') }; }, sel);
+const pasteInto = (sel, data) => p.evaluate(([q, d]) => { const el = document.querySelector(q), dt = new DataTransfer(); if (d.text) dt.setData('text/plain', d.text); if (d.lines) dt.setData('application/x-powa-lines', d.lines); el.focus(); el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); }, [sel, data]);
+const dl = '.sv-day[data-sv-day="Deadlift Day"]';
+const grips = p.locator('.sv-day[data-sv-day="Squat Day"] [data-sv-grip]');
+await p.locator('.sv-day[data-sv-day="Squat Day"] .sv-ex').first().hover(); await grips.first().click(); await p.waitForTimeout(150);
+await p.locator('.sv-day[data-sv-day="Squat Day"] .sv-ex').nth(1).hover(); await grips.nth(1).click({ modifiers: ['Shift'] }); await p.waitForTimeout(150);
+ok('a click on a grip picks the lift, shift picks the run to it', await p.locator('.sv-ex.is-picked').count() === 2 && /2 lifts picked/.test(await p.locator('[data-sv-status]').innerText()));
+const clip = await copyFrom('.sv-day[data-sv-day="Squat Day"] .sv-name');
+const copied = JSON.parse(clip.lines || '[]');
+ok('⌘C copies the picked lifts with every line of theirs, and as plain rows too', copied.length >= 2 && clip.text.split('\n').length === copied.length && /\t/.test(clip.text), clip.text.replace(/\t/g, ' | ').replace(/\n/g, ' // '));
+const dBefore = (await week()).days['Deadlift Day'];
+await pasteInto(dl + ' .sv-row [data-sv-field="sets"]', clip); await p.waitForTimeout(450);
+const dAfter = (await week()).days['Deadlift Day'];
+const mains = copied.filter((x) => !x.line).map((x) => x.name);
+ok('⌘V pastes them under the line in hand on another day', dAfter.length === dBefore.length + mains.length && dAfter.slice(1, 1 + mains.length).join() === mains.join(), dAfter.join(', '));
+ok('with their sets as they were', (await line('Deadlift Day', mains[0])).text === copied[0].text, JSON.stringify(await line('Deadlift Day', mains[0])));
+await pasteInto(dl + ' .sv-row [data-sv-field="sets"]', { text: 'Hack squat\t3x10 @8\nLeg extension\t3x15' }); await p.waitForTimeout(450);
+const dSheet = (await week()).days['Deadlift Day'];
+ok('rows copied out of a spreadsheet paste in as lifts', dSheet.includes('Hack squat') && dSheet.includes('Leg extension') && (await line('Deadlift Day', 'Hack squat')).text === '3x10 @8', dSheet.join(', '));
+await p.locator(dl + ' .sv-row [data-sv-field="reps"]').first().focus();
+await pasteInto(dl + ' .sv-row [data-sv-field="reps"]', { text: '7' }); await p.waitForTimeout(200);
+ok('one value pasted into a field stays the field’s own business', (await week()).days['Deadlift Day'].length === dSheet.length);
+await p.keyboard.press('Escape'); await p.waitForTimeout(100);
+
 // 8. undo everything, back to where the week began
 let n = 0;
 for (; n < 40; n++) { const s = (await week()).snap; if (s === start.snap) break; await p.locator('.sv-chip').first().focus(); await p.keyboard.press('Meta+z'); await p.waitForTimeout(180); }

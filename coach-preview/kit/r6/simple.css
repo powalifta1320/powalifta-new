@@ -26,6 +26,12 @@
 .sv-chip:active { transform: scale(var(--press)); }
 @media (hover: hover) and (pointer: fine) { .sv-chip:hover { background: var(--fill-2); color: var(--ink); } }
 .sv-status { flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; color: var(--ink-3); font: 400 var(--fs-label)/20px var(--font); text-align: right; white-space: nowrap; text-overflow: ellipsis; }
+/* undo and redo, where they can be seen: two quiet buttons at the end of the bar */
+.sv-hist { flex: none; display: inline-flex; gap: 2px; }
+.sv-hist button { display: grid; place-items: center; width: var(--ctl-s); height: var(--ctl-s); padding: 0; border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink-2); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out); }
+.sv-hist button svg { width: 18px; height: 18px; }
+.sv-hist button:active { transform: scale(var(--press)); }
+@media (hover: hover) and (pointer: fine) { .sv-hist button:hover { background: var(--fill); color: var(--ink); } }
 .sv-status b { color: var(--ink-2); font-weight: 600; }
 
 /* a day: its name, its date and how much it holds, then its lifts */
@@ -50,7 +56,7 @@
 .sv-heads .n { text-align: center; }
 .sv-heads span:nth-child(6), .sv-heads span:nth-child(7) { text-align: right; }
 .sv-ex { border-top: 1px solid var(--line); }
-.sv-row { min-height: 36px; }
+.sv-row { min-height: 40px; }
 .sv-row > * { min-width: 0; }
 
 /* the exercise: a word you click. Its lift's colour; what marks its variant beside it, quieter */
@@ -71,13 +77,13 @@
 
 /* the fields: plain numbers until the line is reached, then boxes one height */
 .sv-in {
-  width: 100%; height: var(--ctl-s); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink);
+  width: 100%; height: var(--ctl-s); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-field); background: var(--fill); color: var(--ink);
   font: 600 var(--fs-sub)/1 var(--font); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); text-align: right; outline: 0;
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 .sv-in::placeholder { color: var(--ink-3); font-weight: 500; opacity: 1; }
 .sv-in:focus { background: var(--fill-2); outline: 2px solid var(--focus); outline-offset: 0; }
-.sv-in:disabled { color: var(--ink-2); cursor: default; }
+.sv-in:disabled { background: transparent; color: var(--ink-2); cursor: default; }
 .sv-in[aria-invalid='true'] { box-shadow: inset 0 0 0 1.5px var(--warn); }
 .sv-x { color: var(--ink-3); font: 500 var(--fs-label)/1 var(--font); font-style: normal; text-align: center; }
 /* sets and reps: the number in the middle, a quiet minus and plus at its ends once the line is reached */
@@ -107,7 +113,8 @@
 .sv-last.is-done { color: var(--ink); }
 .sv-lk { color: var(--up-ink); }
 /* the note: words, left; its prompt shows only when the line is reached */
-.sv-in.sv-note { font: 400 var(--fs-label)/1 var(--font); font-stretch: 100%; text-align: left; }
+.sv-in.sv-note { background: transparent; font: 400 var(--fs-label)/1 var(--font); font-stretch: 100%; text-align: left; }
+.sv-in.sv-note:not(:placeholder-shown), .sv-row:focus-within .sv-in.sv-note { background: var(--fill); }
 .sv-in.sv-note::placeholder { color: transparent; }
 .sv-row:focus-within .sv-in.sv-note::placeholder { color: var(--ink-3); }
 
@@ -121,7 +128,7 @@
 
 /* a line under the pointer shows what can be changed on it (a pointer that hovers; a finger sees it always) */
 @media (hover: hover) and (pointer: fine) {
-  .sv-row:hover .sv-in:not(:disabled):not(:focus) { background: var(--fill); }
+  .sv-row:hover .sv-in:not(:disabled):not(:focus) { background: var(--fill-2); }
   .sv-row:hover .sv-name { background: var(--fill); }
   .sv-row .sv-name:hover { background: var(--fill-2); }
   .sv-row:hover .sv-step button, .sv-row:hover .sv-grip { opacity: 1; }
@@ -149,6 +156,9 @@
 
 /* a line being moved: the copy under the pointer, the place it left, and the rule where it will land */
 .sv-ex.is-drag { opacity: .35; }
+/* lifts picked to copy (a click on the grip; shift for a run, command for one more) */
+.sv-ex.is-picked { background: var(--sel); }
+.sv-ex.is-picked .sv-grip { opacity: 1; color: var(--ink); }
 .is-dragging, .is-dragging * { cursor: grabbing !important; user-select: none; }
 .sv-ghost { --sv-cols: none; position: fixed; z-index: var(--z-toast); display: grid; align-items: center; border-radius: var(--r-row); background: var(--pop); box-shadow: var(--shadow-pop); pointer-events: none; will-change: transform; }
 .sv-ghost .sv-ex { border-top: 0; }

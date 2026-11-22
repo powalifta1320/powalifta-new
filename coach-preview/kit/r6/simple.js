@@ -31,7 +31,9 @@
   var MORE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18.5" cy="12" r="1.7"/></svg>';
   var GRIP = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6.5" r="1.5"/><circle cx="15" cy="6.5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="17.5" r="1.5"/><circle cx="15" cy="17.5" r="1.5"/></svg>';
   var PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5.5v13M5.5 12h13"/></svg>';
-  var HINT = 'Click a lift to change it. Tab moves across a line, Enter moves down, ↑ and ↓ step a number.';
+  var UNDO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8h7a5 5 0 0 1 0 10H9M8 8l3.5-3.5M8 8l3.5 3.5"/></svg>';
+  var REDO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 8H9a5 5 0 0 0 0 10h6M16 8l-3.5-3.5M16 8l-3.5 3.5"/></svg>';
+  var HINT = 'Click any lift or number to change it.';
   var LIFTED = 'This week was lifted. It stays as it was.';
   var still = function () { try { return W.matchMedia && W.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
 
@@ -120,7 +122,8 @@
       var chips = '<div class="sv-bar"><div class="sv-days" role="group" aria-label="Days of the week">' + days.map(function (d) {
         return '<button class="sv-chip" type="button" data-sv-go="' + esc(d.name) + '" data-f="' + esc('day|' + d.name) + '"' + (d.off ? ' data-off' : '') + '><b>' + esc(dShort(d.iso) || 'No date') + '</b><span>' + esc(sentence(d.name)) + '</span></button>';
       }).join('') + (lifted ? '' : '<button class="sv-chip sv-chip-add" type="button" data-sv-addday data-f="day|+">' + PLUS + '<span>Add a day</span></button>') + '</div>' +
-        '<p class="sv-status" data-sv-status aria-live="polite">' + esc(lifted ? LIFTED : HINT) + '</p></div>';
+        '<p class="sv-status" data-sv-status aria-live="polite">' + esc(lifted ? LIFTED : HINT) + '</p>' +
+        (lifted ? '' : '<span class="sv-hist"><button type="button" data-sv-undo aria-label="Undo" title="Undo (\u2318Z)">' + UNDO + '</button><button type="button" data-sv-redo aria-label="Redo" title="Redo (\u21e7\u2318Z)">' + REDO + '</button></span>') + '</div>';
       var body = days.length ? days.map(function (d) { return dayHtml(bb, d, lifted); }).join('') : '<p class="sv-none">This block has no days yet. Add the first one.</p>';
       var foot = '<div class="sv-foot">' + (o.onSaveTemplate ? '<button class="btn quiet sm" type="button" data-sv-tpl>Save this block as a template…</button>' : '') +
         (o.onAdvanced ? '<span class="sv-adv">Ranges, formulas, every week side by side: <button class="sv-link" type="button" data-sv-adv>open Advanced</button></span>' : '') + '</div>';
@@ -146,6 +149,7 @@
       fit();
       take(h);
       status(document.activeElement);
+      paintPicked();
     }
     /* the columns the room allows (simple.css): all of them from 918 px, narrower ones from 820, last week gives way under that */
     function fit() {
@@ -237,6 +241,75 @@
       return res;
     }
 
+    /* ---------- picking lifts, copying and pasting them (the owner: "copy paste") ----------
+       A click on a lift's grip picks it (shift picks the run to it, command one more); ⌘C copies the picked lifts, or
+       the one whose name is in hand, with every line of theirs; ⌘V pastes under the line in hand. What is copied is
+       also plain rows of exercise, sets and note, so it pastes into a spreadsheet, and rows copied out of a spreadsheet
+       paste in here the same way (read by kit/r6/import.js). In a field, ⌘C and ⌘V stay the field's own. */
+    var picked = [];
+    function exEls() { return [].slice.call(host.querySelectorAll('.sv-ex')); }
+    function paintPicked() {
+      picked = picked.filter(function (k) { return rowIx(k) >= 0; });
+      exEls().forEach(function (x) { x.classList.toggle('is-picked', picked.indexOf(x.getAttribute('data-ex')) >= 0); });
+      var s = host.querySelector('[data-sv-status]');
+      if (picked.length && s) s.textContent = K.plural(picked.length, 'lift') + ' picked. \u2318C copies, \u2318V pastes under the line in hand, Esc lets go.';
+    }
+    function pick(key, extend, toggle) {
+      var all = exEls().map(function (x) { return x.getAttribute('data-ex'); });
+      if (extend && picked.length) { var a = all.indexOf(picked[picked.length - 1]), z = all.indexOf(key); if (a >= 0 && z >= 0) picked = all.slice(Math.min(a, z), Math.max(a, z) + 1); }
+      else if (toggle) { var i = picked.indexOf(key); if (i >= 0) picked.splice(i, 1); else picked.push(key); }
+      else picked = picked.length === 1 && picked[0] === key ? [] : [key];
+      paintPicked(); if (!picked.length) status(document.activeElement);
+    }
+    function linesOf(keys) {
+      var bb = b(), w = bb.weeks[ci], out = [];
+      keys.forEach(function (key) {
+        var r = rowIx(key), row = bb.rows[r]; if (!row) return;
+        bb.rows.forEach(function (y, i) { if (y.day !== row.day || y.ex !== row.ex || !y.cells[w.uid]) return; out.push({ name: y.name, lift: y.lift || null, variant: y.variant || '', line: y.line, text: BL.text(BL.cellOf(y.cells[w.uid])), note: bb.fieldText(i, ci, 'note') || '' }); });
+      });
+      return out;
+    }
+    function onCopy(e) {
+      var t = e.target, cd = e.clipboardData; if (!cd || !t.closest) return;
+      if (!picked.length && t.matches('input')) return;                       /* a field's own text */
+      var rowEl = t.closest('.sv-row'), keys = picked.length ? picked.slice() : rowEl ? [rowEl.closest('.sv-ex').getAttribute('data-ex')] : [];
+      var items = linesOf(keys); if (!items.length) return;
+      e.preventDefault();
+      cd.setData('text/plain', items.map(function (x) { return [x.name, x.text, x.note].join('\t'); }).join('\n'));
+      cd.setData('application/x-powa-lines', JSON.stringify(items));
+      say(K.plural(keys.length, 'lift') + ' copied.');
+    }
+    function onPaste(e) {
+      var t = e.target, cd = e.clipboardData; if (!cd || !t.closest) return;
+      var raw = cd.getData('application/x-powa-lines'), text = cd.getData('text/plain') || '', items = null, inField = t.matches('input');
+      if (inField && !picked.length && !/[\t\n]/.test(text.trim())) return;   /* one value into a field */
+      if (raw) { try { items = JSON.parse(raw); } catch (x) { items = null; } }
+      if (!items && W.IMPORT && text.trim()) {
+        var res = W.IMPORT.read(text);
+        if (res && res.ok) { items = []; res.lines.forEach(function (l) { if (l.cells[1]) items.push({ name: l.name, line: l.line, text: l.cells[1], note: (l.notes && l.notes[1]) || '' }); }); }
+      }
+      if (!items || !items.length) { if (!inField) say('Nothing copied reads as lifts. Copy a lift here, or rows with an exercise and its sets.'); return; }
+      e.preventDefault(); flush();
+      var rowEl = t.closest('.sv-row'), secEl = t.closest('[data-sv-day]'), bb0 = b();
+      var day = secEl ? secEl.getAttribute('data-sv-day') : lastDay || ((bb0.daysOf(ci).filter(function (d) { return !d.off; })[0]) || {}).name; if (!day) return;
+      var afterKey = rowEl ? rowEl.closest('.sv-ex').getAttribute('data-ex') : null, firstKey = null, n = 0;
+      var out = apply(function (bb) {
+        return bb.batch('Paste into ' + day, function () {
+          var idx = afterKey ? blockIndex(bb, day, '\u0000', null, afterKey) : 1e9, curKey = null, err = null;
+          items.forEach(function (it) {
+            if (err || !it || !it.name || !it.text) return;
+            if (it.line && curKey) { var a = bb.addLine(ixIn(bb, curKey)); if (a && !a.error) bb.set(a.data.r, ci, String(it.text)); return; }
+            var a0 = bb.addExercise(day, String(it.name).slice(0, 80), it.lift !== undefined ? { lift: it.lift, variant: it.variant || undefined } : {}); if (!a0 || a0.error) { err = a0; return; }
+            var key = bb.rows[a0.data.r].key; bb.set(a0.data.r, ci, String(it.text));
+            if (it.note) bb.setField(ixIn(bb, key), ci, 'note', String(it.note).slice(0, 160));
+            bb.moveRowTo(ixIn(bb, key), day, idx); idx++; curKey = key; if (!firstKey) firstKey = key; n++;
+          });
+          return err || { data: { n: n } };
+        });
+      }, 'Paste', { say: null });
+      if (out && !out.error && n) { say(K.plural(n, 'lift') + ' pasted into ' + low1(sentence(day)) + '.'); picked = []; paintPicked(); var f2 = firstKey && byF(firstKey + '|sets'); if (f2) f2.focus(); }
+    }
+
     /* ---------- moving a line ---------- */
     /* the place among ALL of a day's exercises (the block's, not only this week's) that sits before the line shown at
        `beforeKey`, or after the one at `afterKey`: what moveRowTo counts in */
@@ -285,7 +358,7 @@
       if (ev.button !== 0 || drag) return;
       var exEl = grip.closest('.sv-ex'); if (!exEl) return;
       flush();
-      var sx = ev.clientX, sy = ev.clientY;
+      var sx = ev.clientX, sy = ev.clientY, mods = { shift: ev.shiftKey, more: ev.metaKey || ev.ctrlKey };
       drag = { key: exEl.getAttribute('data-ex'), id: ev.pointerId, moved: false, ghost: null, mark: null, drop: null, x: sx, y: sy, sc: scroller(host), raf: 0 };
       try { grip.setPointerCapture(ev.pointerId); } catch (e) { /* a pointer already gone */ }
       ev.preventDefault();
@@ -336,6 +409,7 @@
         if (d.mark) d.mark.remove();
         exEl.classList.remove('is-drag'); host.classList.remove('is-dragging');
         if (dropIt && d.moved && d.drop) moveTo(d.key, d.drop.day, d.drop.before, d.drop.after, from);
+        else if (dropIt && !d.moved) pick(d.key, mods.shift, mods.more);   /* a click on the grip picks the lift */
       };
       var onMove = function (e) {
         if (!drag) return;
@@ -367,6 +441,8 @@
     function onClick(e) {
       var t = e.target, x;
       if ((x = t.closest('[data-sv-go]'))) { goDay(x.getAttribute('data-sv-go'), true); return; }
+      if (t.closest('[data-sv-undo]')) { walk('undo'); return; }
+      if (t.closest('[data-sv-redo]')) { walk('redo'); return; }
       if ((x = t.closest('[data-sv-addday]'))) { flush(); var res = apply(function (bb) { return bb.addDay(); }, null, 'Day added. Add its first exercise.'); if (res && res.data && res.data.day) { var sec = goDay(res.data.day, false), ad = sec && sec.querySelector('[data-sv-add]'); if (ad) ad.focus({ preventScroll: true }); } return; }
       if ((x = t.closest('[data-sv-step]'))) { var inp = x.parentNode.querySelector('input'); if (inp && !inp.disabled) { stepField(inp, +x.getAttribute('data-sv-step')); inp.focus({ preventScroll: true }); } return; }
       if ((x = t.closest('[data-sv-rowmenu]'))) { flush(); var r = rowIx(x.closest('.sv-row').getAttribute('data-row')); if (r >= 0 && o.onRowMenu) o.onRowMenu(r, x); return; }
@@ -397,6 +473,7 @@
     function onKey(e) {
       var t = e.target, k = e.key, meta = e.metaKey || e.ctrlKey;
       if (drag || !t || !t.matches) return;
+      if (k === 'Escape' && picked.length) { picked = []; paintPicked(); status(t); e.stopPropagation(); return; }
       var isField = t.matches('[data-sv-field]'), typed = isField && pendingEl !== t && t.value !== (t.getAttribute('data-v') || '');
       /* undo and redo: the field's own while something is half typed, the week's otherwise */
       if (meta && !e.altKey && k.toLowerCase() === 'z' && !typed) { e.preventDefault(); e.stopPropagation(); walk(e.shiftKey ? 'redo' : 'undo'); return; }
@@ -427,6 +504,8 @@
     host.addEventListener('focusin', onFocusIn);
     host.addEventListener('keydown', onKey);
     host.addEventListener('pointerdown', onPointerDown);
+    host.addEventListener('copy', onCopy);
+    host.addEventListener('paste', onPaste);
 
     return {
       render: render,
@@ -451,6 +530,7 @@
         if (ro) ro.disconnect();
         host.removeEventListener('click', onClick); host.removeEventListener('change', onChange); host.removeEventListener('focusin', onFocusIn);
         host.removeEventListener('keydown', onKey); host.removeEventListener('pointerdown', onPointerDown);
+        host.removeEventListener('copy', onCopy); host.removeEventListener('paste', onPaste);
       }
     };
   }
