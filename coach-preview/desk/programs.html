@@ -1662,7 +1662,9 @@
       sendWeek: function () { return cur.sendC; },
       onSend: function () { goPrimary(); },
       onLifter: function (step) { stepLifter(step); },
-      onWeekMenu: function (c, btn) { cur.c = c; weekMenu(btn); }
+      onWeekMenu: function (c, btn) { cur.c = c; weekMenu(btn); },
+      /* 22 Nov: the line's moves from a right click in the Block view, for the week the click was in */
+      onRowMenu: function (r, btn, c) { if (c != null && cur.b.weeks[c]) cur.c = c; rowMenu(r, btn); }
     });
     if (cur.grid.render) cur.grid.render();
     if (cur.grid.select) { var hand = initialHand(o); var r = hand ? rowIx(cur.b, hand.key) : 0; cur.grid.select(Math.max(0, r), cur.c); }

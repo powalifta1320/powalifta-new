@@ -843,14 +843,52 @@
       opts.onOpenWeek(c, arg);
       return true;
     }
-    /* a typed character, Enter or F2 on a cell: that cell in the Week view, the character kept */
+    /* 22 Nov (the owner: "the advanced spreadsheet … everything should be editable easily … It feels like a rip-off"): a
+       cell is written where it stands. A typed character replaces what it holds; Enter, F2 or a double click opens it
+       with its text kept. Enter saves and goes down, Tab right, Esc puts it back; while a typed character began it the
+       arrows save and move, as in any sheet. It used to throw the coach over to the Week view on every keystroke. */
+    var ed = null;
+    function cellText(r, c) { var B = b(), row = B.rows[r], u = B.weeks[c].uid; return row.bad && row.bad[u] != null ? row.bad[u] : S.text(cellOf(row.cells[u] || null)) || ''; }
     function write1(seed) {
       var B = b(), r = st.cur.r, c = st.cur.c;
+      if (ed) return true;
       if (B.isRO(r, c)) { toast(LIFTED); return false; }
-      return openWeek(c, { r: r, field: 'sets', seed: seed });
+      var el = cellEl(r, c); if (!el) return false;
+      var input = document.createElement('input'), was = cellText(r, c);
+      input.className = 'sx-ed'; input.type = 'text'; input.autocomplete = 'off'; input.spellcheck = false; input.setAttribute('autocapitalize', 'off');
+      input.setAttribute('aria-label', 'Write ' + S.where(B, r, c));
+      input.value = seed != null ? String(seed) : was;
+      el.appendChild(input); el.classList.add('is-editing');
+      ed = { r: r, c: c, input: input, was: was, mode: seed != null ? 'enter' : 'edit', done: false };
+      input.focus({ preventScroll: true });
+      if (seed != null) { try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) { /* not text */ } } else input.select();
+      input.addEventListener('keydown', onEdKey);
+      input.addEventListener('blur', function () { endEdit(true); });
+      return true;
     }
-    /* nothing is ever half typed here: the Week view holds the cell being written (kept for the page's calls) */
-    function flush() {}
+    function endEdit(save, move) {
+      var e0 = ed; if (!e0 || e0.done) return; e0.done = true; ed = null;
+      var text = e0.input.value.trim(), cell = e0.input.parentNode;
+      if (cell) cell.classList.remove('is-editing');
+      e0.input.remove();
+      if (save && text !== String(e0.was).trim()) {
+        var res = text ? S.set(b(), e0.r, e0.c, text) : S.clear(b(), { r0: e0.r, r1: e0.r, c0: e0.c, c1: e0.c });
+        write(res, { kind: text ? 'set' : 'clear' });
+        api.render();
+      }
+      gridEl.focus({ preventScroll: true });
+      if (move) go(move[0], move[1]);
+    }
+    function onEdKey(e) {
+      var k = e.key; if (!ed) return;
+      e.stopPropagation();
+      if (k === 'Enter') { e.preventDefault(); endEdit(true, [e.shiftKey ? -1 : 1, 0]); }
+      else if (k === 'Tab') { e.preventDefault(); endEdit(true, [0, e.shiftKey ? -1 : 1]); }
+      else if (k === 'Escape') { e.preventDefault(); endEdit(false); }
+      else if (ed.mode === 'enter' && /^Arrow(Up|Down|Left|Right)$/.test(k) && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); endEdit(true, k === 'ArrowUp' ? [-1, 0] : k === 'ArrowDown' ? [1, 0] : k === 'ArrowLeft' ? [0, -1] : [0, 1]); }
+    }
+    /* a cell half typed is saved before the page moves on (a switch of view, the next lifter) */
+    function flush() { if (ed) endEdit(true); }
 
     /* ---------- the moves ---------- */
     function write(res, how) { opts.done(res, how || {}); }
@@ -1018,9 +1056,28 @@
       if ((el = t.closest('[data-ex-open]'))) { gridEl.focus({ preventScroll: true }); selectRow(+el.getAttribute('data-ex-open')); return; }
       if ((el = t.closest('[data-add-ex]'))) {
         var day = el.getAttribute('data-add-ex');
+        /* 22 Nov: an exercise is added here, through the picker, and its cell in the week to write opens for typing */
+        if (window.PICK && typeof b().addExercise === 'function') {
+          var at = el;
+          window.PICK.open(at, { block: b(), c: st.cw >= 0 ? st.cw : st.cur.c, title: 'Add to ' + String(day).toLowerCase(), onPick: function (ex) {
+            var res = b().addExercise(day, ex.name, { lift: ex.lift, variant: ex.variant || undefined });
+            write(res, { kind: 'add' }); api.render();
+            if (res && !res.error && res.data && res.data.r != null) { gridEl.focus({ preventScroll: true }); select(res.data.r, st.cw >= 0 ? st.cw : st.cur.c); write1(null); }
+          } });
+          return;
+        }
         openWeek(st.cw >= 0 ? st.cw : st.cur.c, { day: day, add: true, field: 'ex' });
         return;
       }
+    });
+    /* a right click on a line (its name or one of its cells): the line's moves, the same menu the other views open */
+    host.addEventListener('contextmenu', function (e) {
+      if (typeof opts.onRowMenu !== 'function' || ed) return;
+      var cellX = e.target.closest('.sx-c'), exX = e.target.closest('[data-ex-open]'), r = cellX ? +cellX.getAttribute('data-r') : exX ? +exX.getAttribute('data-ex-open') : -1;
+      if (!(r >= 0) || !b().rows[r]) return;
+      e.preventDefault();
+      if (cellX) select(r, +cellX.getAttribute('data-c'), { reveal: false });
+      opts.onRowMenu(r, cellX || exX, cellX ? +cellX.getAttribute('data-c') : null);
     });
 
     /* ---------- the cell in hand's field: it reads the cell; a typed character opens the Week view ---------- */

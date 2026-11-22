@@ -11,6 +11,8 @@
 // one fixed host, follows Google's own redirect to its download host and nowhere else, keeps nothing,
 // logs nothing about the sheet, and answers only this site's own pages. The id comes in the body, never
 // in the address, because a link-shared sheet's id is its key.
+// Not for the iPhone app as written: its web view calls from another origin, and this sends no CORS headers
+// and refuses cross-site requests (api/opl.js does the opposite, on purpose). Import lives on the laptop site.
 'use strict';
 
 const DOCS = 'https://docs.google.com';
@@ -69,6 +71,21 @@ async function readBody(req) {
   try { return JSON.parse(raw || '{}'); } catch (e) { return {}; }
 }
 const looksHtml = (buf) => /<html|<!doctype/i.test(buf.slice(0, 200).toString('utf8'));
+// The body, read as it arrives and dropped the moment it passes the cap: Google sends no Content-Length on some
+// exports, and a whole oversized sheet must never sit in the function's memory. → Buffer, or null when too big.
+async function readCapped(r, max) {
+  if (!r.body || typeof r.body.getReader !== 'function') { const all = Buffer.from(await r.arrayBuffer()); return all.length > max ? null : all; }
+  const reader = r.body.getReader(), chunks = [];
+  let n = 0;
+  for (;;) {
+    const step = await reader.read();
+    if (step.done) break;
+    n += step.value.length;
+    if (n > max) { try { await reader.cancel(); } catch (e) { /* already closed */ } return null; }
+    chunks.push(Buffer.from(step.value));
+  }
+  return Buffer.concat(chunks);
+}
 // One hop at a time, so a redirect is only ever followed to Google's download host.
 async function fetchSheet(ref, timeoutMs) {
   const ctl = new AbortController();
@@ -91,8 +108,8 @@ async function fetchSheet(ref, timeoutMs) {
       if (!r.ok) return { status: 502, error: 'upstream' };
       const len = Number(r.headers.get('content-length') || 0);
       if (len > MAX_BYTES) return { status: 413, error: 'big' };
-      const buf = Buffer.from(await r.arrayBuffer());
-      if (buf.length > MAX_BYTES) return { status: 413, error: 'big' };
+      const buf = await readCapped(r, MAX_BYTES);
+      if (!buf) return { status: 413, error: 'big' };
       // An .xlsx is a zip. Anything else (Google's sign-in page as HTML, an error page) is not the sheet.
       if (buf.length < 4 || buf[0] !== 0x50 || buf[1] !== 0x4b) return looksHtml(buf) ? { status: 403, error: 'private' } : { status: 502, error: 'upstream' };
       return { status: 200, bytes: buf };
@@ -119,6 +136,14 @@ async function handler(req, res) {
   const h = req.headers || {};
   const site = String(h['sec-fetch-site'] || '').toLowerCase();
   if (site && site !== 'same-origin' && site !== 'none') return send(res, 403, { error: 'origin' });
+  // A request that names where it came from must name this site (a browser always does on a POST; a script
+  // that sends none is held only by the limiter, which is per running instance: a courtesy, not a cap).
+  if (h.origin) {
+    let from = '';
+    try { from = new URL(String(h.origin)).host.toLowerCase(); } catch (e) { from = ''; }
+    const here = String(h['x-forwarded-host'] || h.host || '').split(',')[0].trim().toLowerCase();
+    if (!from || (from !== here && !/^(www\.)?powalifta\.com$/.test(from))) return send(res, 403, { error: 'origin' });
+  }
   if (!/^application\/json\b/i.test(String(h['content-type'] || ''))) return send(res, 415, { error: 'type' });
   let body;
   try { body = await readBody(req); } catch (e) { return send(res, 400, { error: 'link' }); }

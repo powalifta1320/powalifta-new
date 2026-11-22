@@ -22,7 +22,7 @@
   var NAMES = 'powa-r6-import-names';
   var HOME = (function () { var s = document.currentScript; return s && s.src ? s.src.replace(/coach-preview\/kit\/r6\/importer\.js.*$/, '') : '../../'; })();
   var LIBS = ['import-lib-fflate.js', 'import-lib-xlsx.js', 'switch-kit.js', 'import-core.js'];
-  var MAX_ROWS = 80, MAX_FILE = 6 * 1024 * 1024;
+  var MAX_ROWS = 80, MAX_FILE = 6 * 1024 * 1024, MAX_TABS = 12, MAX_READ = 3000;   /* rows shown; a file's size; tabs and rows taken from a workbook */
   var plural = function (n, w, ws) { return n + ' ' + (n === 1 ? w : (ws || w + 's')); };
   var low = function (s) { return String(s == null ? '' : s).toLowerCase().replace(/\s+/g, ' ').trim(); };
   var libsP = null;
@@ -58,7 +58,8 @@
     }
     /* the tab that reads as the most programme goes first */
     function setTables(tables, from) {
-      S.tables = (tables || []).filter(function (t) { return t && t.rows && t.rows.length; }).map(function (t) { return { name: String(t.name || 'Sheet'), rows: t.rows }; });
+      /* a workbook is a zip: a small file can hold a very large sheet. Only so many tabs and rows are ever taken from it */
+      S.tables = (tables || []).filter(function (t) { return t && t.rows && t.rows.length; }).slice(0, MAX_TABS).map(function (t) { return { name: String(t.name || 'Sheet').slice(0, 60), rows: t.rows.slice(0, MAX_READ), cut: t.rows.length > MAX_READ }; });
       S.over = {}; S.err = ''; S.from = from || '';
       var best = 0, most = -1;
       S.tables.forEach(function (t, i) { var r = IM.read(t.rows, { names: names }); var n = r.ok ? r.lines.length : -1; if (n > most) { most = n; best = i; } });

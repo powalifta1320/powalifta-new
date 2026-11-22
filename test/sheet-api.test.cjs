@@ -42,6 +42,8 @@ const call = (body, o) => new Promise((resolve) => {
   assert.strictEqual((await call({ id: ID }, { method: 'GET' })).status, 405);
   assert.strictEqual((await call({ id: ID }, { headers: { 'sec-fetch-site': 'cross-site' } })).status, 403);
   assert.strictEqual((await call({ id: ID }, { headers: { 'content-type': 'text/plain' } })).status, 415);
+  assert.strictEqual((await call({ id: ID }, { headers: { origin: 'https://evil.example', host: 'www.powalifta.com' } })).status, 403, 'another site\u2019s page');
+  assert.strictEqual((await call({ id: ID }, { headers: { origin: 'null', host: 'www.powalifta.com' } })).status, 403, 'a page with no origin of its own');
   for (const body of [{}, { id: 'short' }, { id: '../../../etc/passwd' }, { id: 'https://evil.example/x' }, { url: 'https://evil.example/x' }, { id: 12345 }, { pub: 'nope' }, null]) assert.strictEqual((await call(body)).status, 400, JSON.stringify(body));
   assert.strictEqual(calls.length, 0, 'nothing was fetched for any of those');
 
@@ -67,6 +69,15 @@ const call = (body, o) => new Promise((resolve) => {
   assert.strictEqual((await call({ id: ID })).status, 413);
   mock([['https://docs.google.com/', 200, {}, Buffer.concat([XLSX, Buffer.alloc(4 * 1024 * 1024 + 8)])]]);
   assert.strictEqual((await call({ id: ID })).status, 413);
+  // no Content-Length: the body is read as it arrives and dropped once it passes 4 MB, never held whole
+  let pulled = 0, cancelled = false;
+  global.fetch = async () => ({ status: 200, ok: true, headers: { get: () => null }, body: { getReader: () => ({ read: async () => { pulled++; return pulled > 400 ? { done: true } : { done: false, value: new Uint8Array(64 * 1024) }; }, cancel: async () => { cancelled = true; } }) } });
+  assert.strictEqual((await call({ id: ID })).status, 413);
+  assert.ok(cancelled && pulled < 80, 'it stopped reading at the cap: ' + pulled + ' chunks');
+  // this site's own page, by its Origin
+  mock([['https://docs.google.com/', 200, {}, XLSX]]);
+  assert.strictEqual((await call({ id: ID }, { headers: { origin: 'https://www.powalifta.com', host: 'www.powalifta.com' } })).status, 200);
+  assert.strictEqual((await call({ id: ID }, { headers: { origin: 'http://127.0.0.1:4320', host: '127.0.0.1:4320' } })).status, 200);
   // not a workbook
   mock([['https://docs.google.com/', 200, {}, 'a,b,c']]);
   assert.strictEqual((await call({ id: ID })).status, 502);

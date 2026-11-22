@@ -63,9 +63,9 @@
     return BL.readTable(t);
   }
   function norm(raw) {
-    var rows = (raw || []).map(function (ln) { ln = Array.isArray(ln) ? ln : ln && ln.cells ? ln.cells : []; return ln.map(function (x) { return x == null ? '' : String(x).replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim(); }); });
+    var rows = (raw || []).slice(0, 5000).map(function (ln) { ln = Array.isArray(ln) ? ln : ln && ln.cells ? ln.cells : []; return ln.slice(0, 80).map(function (x) { return x == null ? '' : String(x).slice(0, 400).replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim(); }); });
     while (rows.length && !rows[rows.length - 1].some(Boolean)) rows.pop();
-    var width = rows.reduce(function (m, r) { for (var i = r.length; i > 0; i--) if (r[i - 1]) return Math.max(m, i); return m; }, 0);
+    var width = Math.min(80, rows.reduce(function (m, r) { for (var i = r.length; i > 0; i--) if (r[i - 1]) return Math.max(m, i); return m; }, 0));   /* no programme is 80 columns wide */
     return rows.map(function (r) { r = r.slice(0, width); while (r.length < width) r.push(''); return r; });
   }
 
