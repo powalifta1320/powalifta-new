@@ -42,7 +42,7 @@ body.site { --font-display: 'Archivo', 'Archivo Fallback', 'Arial Black', system
   transition: background-color var(--bar-t) ease, box-shadow var(--bar-t) ease, color var(--bar-t) ease;
 }
 body.site .bar { position: sticky; }
-.bar-brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+.bar-brand { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; color: inherit; text-decoration: none; }   /* 44 px to tap: the mark alone is 24 */
 .bar-mark { display: block; flex: none; width: 26px; height: 26px; }
 .bar-word { font-family: var(--bar-font); font-weight: 800; font-stretch: 125%; font-size: 16px; letter-spacing: 0.01em; }
 .bar-r { display: flex; align-items: center; gap: 28px; margin: 0; padding: 0; }

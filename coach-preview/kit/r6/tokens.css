@@ -123,6 +123,7 @@
      1280: "1 to come this week" read 4.39 in a 40 px drop); the 1 px ring is what separates the layer */
   --shadow-pop: 0 14px 28px -14px rgb(0 0 0 / .7), 0 0 0 1px rgb(255 255 255 / .10);
   --shadow-pane: -24px 0 48px -28px rgb(0 0 0 / .7);
+  --shadow-side: 24px 0 48px -28px rgb(0 0 0 / .55);   /* the sidebar, open over the page: the pane's drop, mirrored */
   --shadow-thumb: 0 1px 2px rgb(0 0 0 / .35), inset 0 1px 0 rgb(255 255 255 / .07);
   --shadow-field: inset 0 0 0 1px var(--line-2);
 
@@ -198,6 +199,7 @@
      5.9 and ink-4 4.5 at the darkest pixel the drop leaves on the floor (measured 13 Nov; .22 over 40 px left ink-4 at 4.1) */
   --shadow-pop: 0 12px 32px -14px rgb(20 20 40 / .16), 0 0 0 1px rgb(11 11 13 / .08);
   --shadow-pane: -24px 0 48px -30px rgb(20 20 40 / .22);
+  --shadow-side: 24px 0 48px -30px rgb(20 20 40 / .22);
   --shadow-thumb: 0 1px 3px rgb(20 20 40 / .16), 0 0 0 .5px rgb(11 11 13 / .06);
   --crimson-lit: inset 0 1px 0 rgb(255 255 255 / .22), 0 1px 2px rgb(140 10 25 / .25);
 }

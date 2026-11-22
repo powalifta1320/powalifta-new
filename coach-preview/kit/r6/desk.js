@@ -203,7 +203,7 @@
   /* the sidebar folds to a rail and opens under the pointer or the keyboard (ui.css); the pin keeps it open and the page
      makes room (tokens.css :root.side-pinned), remembered in localStorage powa-r6-side */
   var SIDE_KEY = 'powa-r6-side';
-  function isPinned() { var v = store.get('localStorage', SIDE_KEY); if (v === 'open') return true; if (v === 'fold') return false; try { return matchMedia('(hover: none)').matches; } catch (e) { return false; } }
+  function isPinned() { var v = store.get('localStorage', SIDE_KEY); if (v === 'open') return true; if (v === 'fold') return false; try { return matchMedia('(hover: none) and (min-width: 1100px)').matches; } catch (e) { return false; } }   /* a touch screen has no hover to open it, so it starts open, but only where there is room: on a tablet held upright it stays a rail (22 Nov) */
   function setPinned(on) {
     store.set('localStorage', SIDE_KEY, on ? 'open' : 'fold');
     document.documentElement.classList.toggle('side-pinned', !!on);

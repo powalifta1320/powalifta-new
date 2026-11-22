@@ -9,6 +9,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Overview, POWALIFTA Coach</title>
 <script>
+/* a phone gets the coach's phone app: this desk is a laptop screen (22 Nov: at 393 px its menu filled the page and the
+   rest overlapped). A phone held sideways counts too. ?desk=1 keeps the desk. */
+(function () { try { if (window.matchMedia && matchMedia('(max-width: 760px), (pointer: coarse) and (max-height: 520px)').matches && !/[?&]desk=1\b/.test(location.search)) location.replace('/coach.html?demo=1'); } catch (e) {} })();
+/* the sidebar's pin before any paint, so a desk kept open does not slide sideways as it loads (desk.js isPinned holds the same rule) */
+(function () { try { var v = localStorage.getItem('powa-r6-side'); if (v === 'open' || (v !== 'fold' && window.matchMedia && matchMedia('(hover: none) and (min-width: 1100px)').matches)) document.documentElement.classList.add('side-pinned'); } catch (e) {} })();
 /* the theme before any CSS: ?theme= wins, then powa-r6-theme, else dark */
 (function () { var t = null; var m = /[?&]theme=(light|dark)\b/.exec(location.search); if (m) t = m[1]; if (!t) { try { t = localStorage.getItem('powa-r6-theme'); } catch (e) { t = null; } } document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark'); })();
 </script>
@@ -23,8 +28,20 @@
   body { --side-col: 340px; }
   @media (max-width: 1280px) { body { --side-col: 312px; } }
   .charts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: var(--sp-2); }
+  /* the card is drawn a moment after the page: it holds its height from the start, so the list under it does not jump
+     down 220 px when the charts land (22 Nov: a layout shift of 0.35 on the first screen of the demo) */
+  .charts:empty { min-height: 236px; }
+  @media (max-width: 1240px) { .charts:empty { min-height: 254px; } }   /* narrower tiles wrap their sentence onto another line */
+  @media (max-width: 1100px) { .charts:empty { min-height: 277px; } }
+  @media (max-width: 900px) { .charts:empty { min-height: 297px; } }
+  /* with the sidebar kept open the page is 180 px narrower, so the tiles wrap sooner */
+  @media (max-width: 1400px) { :root.side-pinned .charts:empty { min-height: 277px; } }
+  @media (max-width: 1140px) { :root.side-pinned .charts:empty { min-height: 297px; } }
   .ch-f .said { display: block; margin-top: var(--sp-1); }
   .mid { display: grid; grid-template-columns: minmax(0, 1fr) var(--side-col); gap: var(--sp-7); align-items: start; margin-top: var(--sp-7); }
+  /* a tablet held upright: one column, so the Needs-you list keeps its name column (22 Nov: at 820 px the fixed
+     columns took the whole card and every lifter's name was squeezed to nothing) */
+  @media (max-width: 960px) { .mid { grid-template-columns: minmax(0, 1fr); } }
   .col { display: flex; flex-direction: column; gap: var(--sp-7); min-width: 0; }
   .sec { min-width: 0; }
   .sec-h .sub [data-count] { font-variant-numeric: tabular-nums; }

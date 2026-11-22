@@ -142,7 +142,8 @@ body.site .btn:disabled { opacity: 0.5; cursor: default; }
 body.site .btn-primary:disabled { background: rgba(255, 255, 255, 0.08); color: var(--text-3); opacity: 1; box-shadow: none; filter: none; }
 html[data-theme="light"] body.site .btn-primary:disabled { background: rgba(15, 15, 25, 0.06); }
 @media (prefers-color-scheme: light) { html:not(.native) body.site .btn-primary:disabled { background: rgba(15, 15, 25, 0.06); } }
-body.site .quiet { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 600; line-height: 1.3; color: var(--text); text-decoration: none; }
+/* a link in words is 21 px of text: it takes 44 px to tap, without moving anything around it */
+body.site .quiet { display: inline-flex; align-items: center; gap: 6px; margin-block: -12px; padding-block: 12px; font-size: 16px; font-weight: 600; line-height: 1.3; color: var(--text); text-decoration: none; }
 body.site .quiet .arr { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--t-state) var(--ease-out); }
 @media (hover: hover) and (pointer: fine) { body.site .quiet:hover .arr { transform: translateX(3px); } }
 body.site .quiet-back .arr { transform: scaleX(-1); }
@@ -233,7 +234,7 @@ body.site .guide-wrap { box-sizing: border-box; width: 100%; max-width: calc(var
 body.site .guide-wrap > * { max-width: var(--col); }
 body.site .guide-wrap.wide > * { max-width: none; }
 body.site .guide-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 28px; font-size: 14px; color: var(--text-3); }
-body.site .guide-crumbs a { color: var(--text-2); font-weight: 550; text-decoration: none; }
+body.site .guide-crumbs a { display: inline-block; margin-block: -11px; padding-block: 11px; color: var(--text-2); font-weight: 550; text-decoration: none; }
 @media (hover: hover) and (pointer: fine) { body.site .guide-crumbs a:hover { color: var(--text); } }
 body.site .guide-crumbs .sep { color: var(--text-3); }
 body.site .guide-crumbs .here { color: var(--text-3); }
@@ -306,7 +307,9 @@ body.site .guide-wrap.wide .guide-cta { max-width: var(--col); }
    THE PROGRAMS SHOP (marketplace.html): the page head, filters, the programs as the app's cards; one program and its
    one crimson action (Buy program); the reviews.
    ===================================================================== */
-body.site #mkRoot { min-height: 60vh; }
+/* the programs arrive after the page: the page keeps a screen's height from the start, so the footer waits below the
+   fold instead of jumping down when they land (22 Nov: it moved 190 px on a phone) */
+body.site #mkRoot { min-height: 100vh; min-height: 100svh; }
 body.site .mk-body { padding-bottom: var(--end); }
 body.site .mk-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 16px; }
 body.site .mk-filters.mk-cat-row { margin: 0 0 28px; }
