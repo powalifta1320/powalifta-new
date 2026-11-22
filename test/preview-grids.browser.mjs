@@ -56,6 +56,22 @@ const after = await day('Squat Day');
 ok('⌥⇧↓ moves the line down one place, and the lifter stays', after[0] === before[1] && after[1] === before[0] && (await lifter()) === who, after.join(', ') + ' · ' + await lifter());
 await p.keyboard.press('Alt+Shift+ArrowUp'); await p.waitForTimeout(400);
 ok('⌥⇧↑ moves it back', (await day('Squat Day')).join() === before.join());
+// a head's edge sizes its column; the corner's menu shows and hides columns; both are remembered
+const wEx = () => p.evaluate(() => Math.round(document.querySelector('#wg .wg-h.wg-k-ex').getBoundingClientRect().width));
+const w0 = await wEx(), hb = await p.locator('#wg .wg-h.wg-k-ex [data-rz]').boundingBox();
+await p.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2); await p.mouse.down(); await p.mouse.move(hb.x + hb.width / 2 + 60, hb.y + 10, { steps: 4 }); await p.mouse.up(); await p.waitForTimeout(250);
+ok('dragging a head’s edge sizes the column', Math.abs((await wEx()) - (w0 + 60)) <= 2, w0 + ' → ' + await wEx());
+await p.reload({ waitUntil: 'load' }); await p.waitForTimeout(800);
+await p.locator('.tb [data-mode="advanced"]').click().catch(() => {}); await p.waitForTimeout(300); await p.locator('.tb [data-view="week"]').click().catch(() => {}); await p.waitForTimeout(400);
+ok('and the width is kept', Math.abs((await wEx()) - (w0 + 60)) <= 2, String(await wEx()));
+await p.locator('#wg .wg-h.wg-k-ex [data-rz]').dblclick(); await p.waitForTimeout(250);
+ok('a double click on the edge puts the column back', (await wEx()) === w0, String(await wEx()));
+await p.locator('#wg [data-cols-menu]').click(); await p.waitForTimeout(250);
+await p.locator('.pop .mi', { hasText: 'Last week' }).click(); await p.waitForTimeout(300);
+ok('the columns menu hides Last week', (await p.locator('#wg .wg-h.wg-k-last').count()) === 0);
+await p.locator('#wg [data-cols-menu]').click(); await p.waitForTimeout(250);
+await p.locator('.pop .mi', { hasText: 'Put the columns back' }).click(); await p.waitForTimeout(300);
+ok('and puts the columns back', (await p.locator('#wg .wg-h.wg-k-last').count()) === 1);
 await shot('grids-week.png');
 
 // ---------------------------------------------------------------- the Block grid

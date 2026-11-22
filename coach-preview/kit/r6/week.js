@@ -58,7 +58,7 @@
   var LIFTS = ['squat', 'bench', 'deadlift'];
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  var KEY_LAST = 'powa-r6-prog-last', KEY_DENSITY = 'powa-r6-prog-density';
+  var KEY_LAST = 'powa-r6-prog-last', KEY_DENSITY = 'powa-r6-prog-density', KEY_COLS = 'powa-r6-prog-cols';
   var isNum = function (v) { return typeof v === 'number' && isFinite(v); };
   var plural = function (k, w, ws) { return k + ' ' + (k === 1 ? w : (ws || w + 's')); };
   var cap1 = function (s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); };
@@ -244,16 +244,21 @@
     }
 
     /* the column set for this window (programs.md §5.3), the Notes floor, the tempo that follows a name */
+    /* 22 Nov (a cold review: "no column resize, hide"): the coach's own widths (a drag on a head's edge; a double click
+       puts the column back) and which of Last week and Tempo show, kept on this laptop for every lifter */
+    function colPrefs() { var j = null; try { j = JSON.parse(store.get(KEY_COLS) || 'null'); } catch (e) { j = null; } return j && typeof j === 'object' ? { w: j.w && typeof j.w === 'object' ? j.w : {}, hide: j.hide && typeof j.hide === 'object' ? j.hide : {}, show: j.show && typeof j.show === 'object' ? j.show : {} } : { w: {}, hide: {}, show: {} }; }
+    function saveColPrefs(pf) { var empty = !Object.keys(pf.w).length && !Object.keys(pf.hide).length && !Object.keys(pf.show).length; store.set(KEY_COLS, empty ? null : JSON.stringify(pf)); }
     function layout() {
-      var w = W.innerWidth || 1440, band = w <= 1280 ? 'narrow' : w >= 1600 ? 'wide' : 'mid', nb = band === 'narrow';
+      var w = W.innerWidth || 1440, band = w <= 1280 ? 'narrow' : w >= 1600 ? 'wide' : 'mid', nb = band === 'narrow', pf = colPrefs();
       var on = (opts.columns || []).map(function (x) { return typeof x === 'string' ? x : x && x.key; });
       var cols = ['ex'];
-      if (mode !== 'team' && mode !== 'template') cols.push('last');
+      if (mode !== 'team' && mode !== 'template' && !pf.hide.last) cols.push('last');
       cols.push('sets', 'reps', 'effort', 'load');
-      var tempo = on.indexOf('tempo') >= 0 || band === 'wide';
-      if (tempo && !(nb && on.indexOf('tempo') < 0)) cols.push('tempo');
+      var tempo = on.indexOf('tempo') >= 0 || band === 'wide' || !!pf.show.tempo;
+      if (tempo && !(nb && on.indexOf('tempo') < 0 && !pf.show.tempo) && !pf.hide.tempo) cols.push('tempo');
       on.forEach(function (k) { if (EXTRA[k] && BL.FIELDS.indexOf(k) >= 0 && cols.indexOf(k) < 0) cols.push(k); });
       var widths = cols.map(function (k) {
+        if (isNum(pf.w[k])) return Math.max(36, Math.min(480, Math.round(pf.w[k])));
         if (k === 'last' && st.last === '3') return nb ? 172 : 184;
         if (k === 'load' && mode === 'team') return 136;
         if (COL[k]) return nb ? COL[k].wn : COL[k].w;
@@ -264,10 +269,12 @@
       /* a host far narrower than the desk's detail column (a page that did not plan for the grid) puts the notes on a
          second line rather than spill: within 96 px the columns keep their sizes, as the desk's own pages give them */
       var room = budget - sum, notes = !nb && room >= NOTES_MIN && !(avail && avail < budget - 96) ? 'col' : 'line';
+      /* with widths of the coach's own, the notes keep their column while the sheet has 140 px left for them */
+      if (!nb && avail && Object.keys(pf.w).length) notes = avail - 30 - sum >= 140 ? 'col' : 'line';
       /* notes on a second line: the Exercise and Last week columns share the room, and the row ends in a 40 px track that
          holds the line's "…" (so it never sits on a number) */
       var tpl = widths.map(function (x, i) { return notes === 'line' && (cols[i] === 'ex' || cols[i] === 'last') ? 'minmax(' + x + 'px, 1fr)' : x + 'px'; });
-      if (notes === 'col') { cols.push('note'); tpl.push('minmax(' + NOTES_MIN + 'px, 1fr)'); }
+      if (notes === 'col') { cols.push('note'); tpl.push('minmax(' + (Object.keys(pf.w).length ? 140 : NOTES_MIN) + 'px, 1fr)'); }
       else tpl.push('40px');
       return { band: band, cols: cols, tpl: tpl.join(' '), notes: notes, tempoIn: cols.indexOf('tempo') < 0 };
     }
@@ -395,9 +402,9 @@
             : '<span>' + words + '</span>';
         } else if (k === 'effort') inner = '<span>' + termHtml('rpe', 'RPE') + ' or ' + termHtml('pct', '%') + '</span>';   /* F11 rpe, pct */
         else inner = '<span>' + esc(k === 'load' && mode === 'team' ? 'Load' : COL[k] ? COL[k].head : EXTRA[k] || k) + '</span>';
-        return '<div class="wg-h wg-k-' + k + (COL[k] && COL[k].num ? ' is-num' : '') + '" role="columnheader" data-col="' + k + '" aria-colindex="' + (i + 1) + '">' + inner + '</div>';
+        return '<div class="wg-h wg-k-' + k + (COL[k] && COL[k].num ? ' is-num' : '') + '" role="columnheader" data-col="' + k + '" aria-colindex="' + (i + 1) + '">' + inner + (k !== 'note' ? '<i class="wg-rz" data-rz="' + k + '" aria-hidden="true" title="Drag to size the column. Double-click puts it back."></i>' : '') + '</div>';
       }).join('');
-      return '<div class="wg-tr wg-hr" role="row" aria-rowindex="1"><div class="wg-g" aria-hidden="true"></div>' + cells + '</div>';
+      return '<div class="wg-tr wg-hr" role="row" aria-rowindex="1"><button class="wg-g wg-gc" type="button" data-cols-menu aria-haspopup="menu" aria-label="Columns" title="Columns: show, hide, put the widths back">' + (D && D.ic ? D.ic('more') : K.ic('more')) + '</button>' + cells + '</div>';
     }
     function exHtml(m, r, ci, ro, o) {
       var p = exParts(m, r);
@@ -1491,6 +1498,37 @@
        cell in hand, so the grid keeps the focus and what is typed next goes into the new line */
     function addExOf(t) { var f = t && t.closest && t.closest('.wg-fill'); var tr = f && elBody.contains(f) ? f.closest('[data-add-row]') : null; return tr ? tr.querySelector('.wg-k-ex[data-col]') : null; }
     function keyOfCell(cell) { var tr = cell.closest('.wg-tr'); if (!tr) return null; if (tr.hasAttribute('data-add-row')) return '+' + tr.getAttribute('data-add-row'); return tr.getAttribute('data-row'); }
+    /* a head's edge dragged sizes its column (the template follows the pointer; the rows are not redrawn until it is let go) */
+    var colRz = null, lastRz = { k: null, t: 0 };
+    function onRzMove(e) { if (!colRz) return; var wv = Math.max(36, Math.min(480, Math.round(colRz.w0 + e.clientX - colRz.x0))); colRz.w = wv; var parts = colRz.tpl.slice(); parts[colRz.i] = wv + 'px'; root.style.setProperty('--wg-cols', parts.join(' ')); }
+    function onRzUp() { if (!colRz) return; var r0 = colRz; colRz = null; root.classList.remove('is-sizing'); document.removeEventListener('pointermove', onRzMove); document.removeEventListener('pointerup', onRzUp); if (isNum(r0.w) && r0.w !== r0.w0) { var pf = colPrefs(); pf.w[r0.k] = r0.w; saveColPrefs(pf); } paint(true); }
+    root.addEventListener('pointerdown', function (e) {
+      var h = e.target.closest && e.target.closest('[data-rz]'); if (!h || e.button !== 0) return;
+      e.preventDefault(); e.stopPropagation(); if (st.ed) commit(null);
+      var k = h.getAttribute('data-rz'), i = st.cols.indexOf(k), cell = h.parentNode; if (i < 0) return;
+      /* a second press on the same edge within a moment: the column goes back to its own width */
+      if (lastRz.k === k && Date.now() - lastRz.t < 450) { lastRz = { k: null, t: 0 }; var pfd = colPrefs(); delete pfd.w[k]; saveColPrefs(pfd); paint(true); return; }
+      lastRz = { k: k, t: Date.now() };
+      colRz = { k: k, i: i, x0: e.clientX, w0: Math.round(cell.getBoundingClientRect().width), w: null, tpl: root.style.getPropertyValue('--wg-cols').match(/minmax\([^)]*\)|\S+/g) || [] };
+      root.classList.add('is-sizing'); document.addEventListener('pointermove', onRzMove); document.addEventListener('pointerup', onRzUp);
+    });
+    function colsMenu(btn) {
+      if (!D || !D.menu) return;
+      var pf = colPrefs(), has = function (k) { return st.cols.indexOf(k) >= 0; }, items = [];
+      if (mode !== 'team' && mode !== 'template') items.push({ id: 'last', label: 'Last week', checked: has('last') });
+      items.push({ id: 'tempo', label: 'Tempo', checked: has('tempo') });
+      items.push({ sep: true });
+      items.push({ id: 'compact', label: 'Compact rows', checked: st.density === 'compact' });
+      items.push({ id: 'reset', label: 'Put the columns back', disabled: !Object.keys(pf.w).length && !Object.keys(pf.hide).length && !Object.keys(pf.show).length });
+      D.menu.open(btn, items, { title: 'Columns', label: 'Columns', run: function (id) {
+        var p2 = colPrefs();
+        if (id === 'reset') p2 = { w: {}, hide: {}, show: {} };
+        else if (id === 'compact') { api.density(st.density === 'compact' ? 'standard' : 'compact'); return; }
+        else if (has(id)) { p2.hide[id] = 1; delete p2.show[id]; } else { delete p2.hide[id]; p2.show[id] = 1; }
+        saveColPrefs(p2); if (st.hand && st.cols.indexOf(st.hand.col) >= 0 && (id === st.hand.col)) st.hand.col = 'ex';
+        paint(true);
+      } });
+    }
     /* whole lines, from the gutter or ⇧Space: every column of the line, from the line taken first to this one */
     function selectLines(key, extend) {
       if (!key || isAdd(key) || navIdx(key) < 0) return;
@@ -1533,6 +1571,7 @@
     document.addEventListener('mousemove', onDragMove);
     document.addEventListener('mouseup', onDragUp);
     root.addEventListener('dblclick', function (e) {
+      if (e.target.closest && e.target.closest('[data-rz]')) { e.preventDefault(); return; }   /* the edge's own second press put the column back */
       var cell = cellOfEvent(e.target) || addExOf(e.target); if (!cell || st.ed) return;
       e.preventDefault();
       setHand(keyOfCell(cell), cell.getAttribute('data-col'));
@@ -1553,6 +1592,7 @@
       var t = e.target, b;
       if ((b = t.closest('[data-act]'))) { var a = st.acts[+b.getAttribute('data-act')]; if (a) runAct(a); return; }
       if ((b = t.closest('[data-last-menu]'))) { if (D && D.pop && D.pop.justClosed && D.pop.justClosed(b)) return; lastMenu(b); return; }
+      if ((b = t.closest('[data-cols-menu]'))) { if (D && D.pop && D.pop.justClosed && D.pop.justClosed(b)) return; colsMenu(b); return; }
       if ((b = t.closest('[data-wg-send]'))) { send(); return; }
       if ((b = t.closest('[data-add-day]'))) { if (typeof opts.onAddDay === 'function') opts.onAddDay(); else after(write(function (bb) { return bb.addDay(); }, { kind: 'add-day' })); return; }
       if ((b = t.closest('[data-row-menu]'))) { var tr = b.closest('[data-row]'), r = rowAt(tr.getAttribute('data-row')); if (r >= 0) { setHand(tr.getAttribute('data-row'), st.hand && st.hand.key === tr.getAttribute('data-row') ? st.hand.col : 'ex', { scroll: false }); if (typeof opts.onRowMenu === 'function') opts.onRowMenu(r, b); } return; }

@@ -64,7 +64,7 @@
   .ql-g > .lh[data-list-head] .seg > button { padding: 0 5px; }
   .ql-new { flex: none; height: 32px; padding: 0 var(--sp-2); }
   .ql-q { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-2); }
-  .ql-q .field { flex: 1; min-width: 0; height: 32px; }
+  .ql-q .field { flex: 1; min-width: 0; height: var(--ctl-h); }
   .ql-q .field::after { content: ''; }
   .ql-g { display: flex; flex-direction: column; }
   .ql-h { display: flex; align-items: baseline; gap: var(--sp-2); min-height: 32px; margin: var(--sp-3) var(--sp-4) var(--sp-1); color: var(--ink-2); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); }
@@ -1481,6 +1481,7 @@
     if (cur && cur.grid && cur.grid.flush) cur.grid.flush();
     st.mode = m; ls.set('powa-r6-prog-mode', m);
     paintAll({ focus: false });
+    fadeIn($('#wg'));   /* the same week, written another way: it arrives, it does not snap (150 ms; 100 with reduced motion) */
   }
   function mountSimple(host, o) {
     cur.grid = W.SIMPLE.grid(host, {
@@ -3113,6 +3114,7 @@
     if (cur && cur.grid && cur.grid.flush) cur.grid.flush();
     st.view = v; ls.set('powa-r6-prog-view', v);
     paintAll({ focus: false });
+    fadeIn($('#wg'));
   }
   DESK.listStepper = function (dir) { stepLifter(dir); return true; };
 

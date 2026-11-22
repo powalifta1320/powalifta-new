@@ -293,3 +293,15 @@ button.add-row::after { content: ''; position: absolute; inset: -4px -8px; }   /
 .wg-line.is-cut > .wg-c { color: var(--ink-3); }
 .wg-line.is-cut { outline: 1px dashed var(--ink-3); outline-offset: -1px; }
 .wg-line.is-cut .wg-k-ex .wg-t[data-lift] { color: var(--ink-3); }
+/* a head's edge sizes its column: a 9 px handle on the rule between two heads */
+.wg-h { position: relative; }
+.wg-rz { position: absolute; top: 0; bottom: 0; right: -5px; z-index: 1; width: 9px; cursor: col-resize; touch-action: none; }
+.wg-rz::after { content: ''; position: absolute; top: 4px; bottom: 4px; left: 4px; width: 1px; background: transparent; transition: background-color var(--dur-fast) var(--ease-out); }
+.wg.is-sizing, .wg.is-sizing * { cursor: col-resize !important; user-select: none; }
+.wg.is-sizing .wg-rz::after { background: var(--focus); }
+@media (hover: hover) and (pointer: fine) { .wg-rz:hover::after { background: var(--ink-3); } }
+/* the corner over the gutter: the columns' own menu */
+.wg-gc { padding: 0; border: 0; background: transparent; color: var(--ink-4); cursor: pointer; }
+.wg-gc svg { width: 14px; height: 14px; }
+.wg-gc.is-open { color: var(--ink); }
+@media (hover: hover) and (pointer: fine) { .wg-gc:hover { color: var(--ink); } }
