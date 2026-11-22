@@ -1330,10 +1330,16 @@
       var lifts = LIFTS.filter(function (L) { return now.hard[L] != null; });
       /* function-polish P28: the line stays; "Hard sets" and "Top set" carry their words' titles (F11 hardsets, topshare)
          and the first bracket says what it is, "(7 last week)" */
-      var hard = function (long) { return lifts.map(function (L, i) { return '<span class="wg-sv">' + L + ' ' + now.hard[L] + '</span>' + (was && was.hard[L] != null ? ' <span class="wg-sb">(' + was.hard[L] + (i || !long ? '' : ' last week') + ')</span>' : ''); }).join('<span class="wg-sc">, </span>'); };
-      var tops = LIFTS.filter(function (L) { return now.top[L] != null; }).map(function (L) { return '<span class="wg-sv">' + L + ' ' + now.top[L] + '%</span>'; }).join('<span class="wg-sc">, </span>');
-      var lab = function (key, words) { var tt = termTitle(key); return '<span class="wg-sl" data-term="' + key + '"' + (tt ? ' title="' + attr(tt) + '"' : '') + '>' + esc(words) + ':</span>'; };
-      var shape = function (long) { elShapeT.innerHTML = lab('hardsets', 'Hard sets') + ' ' + (hard(long) || '<span class="wg-sv">none</span>') + (tops ? '<span class="wg-sd"> \u00b7 </span>' + lab('topshare', 'Top set') + ' ' + tops : ''); elShapeT.title = elShapeT.textContent.replace(/\s+/g, ' ').trim(); };
+      /* 22 Nov, the redo: each lift is its name in its colour and its number, with the change from last week beside it
+         (the line was one run of coloured words) */
+      var delta = function (L) { if (!was || was.hard[L] == null) return ''; var d = now.hard[L] - was.hard[L]; return '<i title="' + attr(was.hard[L] + ' last week') + '">' + (d === 0 ? 'same' : (d > 0 ? '+' : '−') + Math.abs(d)) + '</i>'; };
+      var hard = function () { return lifts.map(function (L) { return '<span class="ws-i" data-lift="' + L + '"><small>' + esc(L.charAt(0).toUpperCase() + L.slice(1)) + '</small><b>' + now.hard[L] + '</b>' + delta(L) + '</span>'; }).join(''); };
+      var tops = LIFTS.filter(function (L) { return now.top[L] != null; }).map(function (L) { return '<span class="ws-i" data-lift="' + L + '"><small>' + esc(L.charAt(0).toUpperCase() + L.slice(1)) + '</small><b>' + now.top[L] + '%</b></span>'; }).join('');
+      var lab = function (key, words) { var tt = termTitle(key); return '<span class="wg-sl" data-term="' + key + '"' + (tt ? ' title="' + attr(tt) + '"' : '') + '>' + esc(words) + '</span>'; };
+      var shape = function () {
+        elShapeT.innerHTML = '<span class="ws-g">' + lab('hardsets', 'Hard sets') + (hard() || '<span class="ws-i"><b>none</b></span>') + '</span>' + (tops ? '<span class="ws-g">' + lab('topshare', 'Top set, of max') + tops + '</span>' : '');
+        elShapeT.title = 'Hard sets: ' + lifts.map(function (L) { return L + ' ' + now.hard[L] + (was && was.hard[L] != null ? ' (' + was.hard[L] + ' last week)' : ''); }).join(', ') + (tops ? '. Top set: ' + LIFTS.filter(function (L) { return now.top[L] != null; }).map(function (L) { return L + ' ' + now.top[L] + '%'; }).join(', ') : '');
+      };
       shape(true); elShapeT.setAttribute('data-ellipsis', '');
       if (mode === 'lifter' && !m.lifted) {
         var sent = typeof b.isSent === 'function' && b.isSent(m.c), ch = typeof b.changes === 'function' ? b.changes(m.c) : { n: 0 };

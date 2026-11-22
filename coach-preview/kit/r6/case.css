@@ -4,6 +4,7 @@
    after ui.css and never restyle these from scratch: a page-only variation goes in the page's own <style>. */
 /* the kind of case: a word on its own tint, the one colour signal in the row */
 .tg { flex: 0 1 auto; min-width: 0; max-width: 60%; padding: 2px var(--sp-2); border-radius: var(--r-pill); background: var(--fill); color: var(--ink-2); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg[data-tone='up'] { background: var(--up-tint); color: var(--up); }
 .tg[data-tone='pain'] { background: var(--pain-tint); color: var(--pain); }
 .tg[data-tone='warn'] { background: var(--warn-tint); color: var(--warn); }
 .tg[data-tone='gold'] { background: var(--gold-tint); color: var(--gold); }

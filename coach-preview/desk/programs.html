@@ -22,14 +22,15 @@
      never answered from an old copy. Change the number whenever one of these files changes. -->
 <link rel="stylesheet" href="../kit/r6/tokens.css">
 <link rel="stylesheet" href="../kit/r6/glass.css">
-<link rel="stylesheet" href="../kit/r6/ui.css?v=1122b">
-<link rel="stylesheet" href="../kit/r6/week.css?v=1122b">
-<link rel="stylesheet" href="../kit/r6/sheet.css?v=1122b">
-<link rel="stylesheet" href="../kit/r6/simple.css?v=1122b">
-<link rel="stylesheet" href="../kit/r6/picker.css?v=1122b">
-<link rel="stylesheet" href="../kit/r6/importer.css?v=1122b">
+<link rel="stylesheet" href="../kit/r6/ui.css?v=1122c">
+<link rel="stylesheet" href="../kit/r6/week.css?v=1122c">
+<link rel="stylesheet" href="../kit/r6/sheet.css?v=1122c">
+<link rel="stylesheet" href="../kit/r6/simple.css?v=1122c">
+<link rel="stylesheet" href="../kit/r6/picker.css?v=1122c">
+<link rel="stylesheet" href="../kit/r6/importer.css?v=1122c">
 <link rel="stylesheet" href="../kit/r6/fix.css">
 <link rel="stylesheet" href="../kit/r6/newcoach.css">
+<link rel="stylesheet" href="../kit/r6/case.css">
 <style>
   /* Programs (r6/spec-b/programs.md): the queue of weeks to write beside the week in hand. The queue is the desk's one
      list width and never hides; the detail is the lifter's header, flat on the floor, then one work card: the week bar,
@@ -341,6 +342,75 @@
   .pop .row-f .input.lf-felt { width: 64px; }
   .sp-kv .tick { margin-top: 0; }
   .pop .pick-l { display: flex; flex-direction: column; }
+
+  /* ================= 22 Nov, the redo (owner: "redo it all ... from a professional coach's perspective") =================
+     The lifter is a band: the face, the name over where they are in the block, and the three training maxes as labelled
+     numbers. What they said is one notice with the kind of case as a tag and real buttons. The week bar shows the whole
+     block as a strip of weeks, so the coach sees where the week sits and jumps to any other in one click. The list
+     wears faces, as every list of people on the desk does. */
+  .ql .qrow.has-ph { grid-template-columns: 32px minmax(0, 1fr) auto; grid-template-areas: 'p n e' 'p t t'; column-gap: var(--sp-3); }
+  .ql .qrow.has-ph > .ph { grid-area: p; align-self: center; }
+  .ql .qrow .why .t { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 22px; }
+  .ql .qrow .why .tg { display: inline-block; max-width: none; margin-left: var(--sp-1); padding: 0 7px; line-height: 18px; vertical-align: 1px; }
+  .ql .lrow.qrow { min-height: 64px; }
+  .hd { margin-bottom: var(--sp-2); }
+  .hd-line { margin-top: var(--sp-2); }
+  .hd-top { column-gap: var(--sp-3); min-height: 44px; }
+  .hd-top > .ph { flex: none; }
+  .hd-id { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .hd-top h1 { max-width: 100%; font: 700 var(--fs-title)/var(--lh-tight) var(--font); letter-spacing: var(--ls-title); }
+  .hd-top h1 { line-height: var(--lh-none); }
+  .hd-top .facts { flex: none; display: flex; align-items: center; min-width: 0; column-gap: var(--sp-3); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .hd-top .facts > span { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .hd-top .facts > span + span { flex: 0 2 auto; padding-left: var(--sp-3); border-left: 1px solid var(--line-2); color: var(--ink-3); }
+  /* the training maxes: the lift's name in its colour over the number the loads are worked out from; each opens its popover */
+  .hd-maxes { align-items: stretch; column-gap: 2px; }
+  .hd-maxes .mx-cap { align-self: center; margin-right: var(--sp-2); color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-tight) var(--font); white-space: nowrap; }
+  .hd .hd-maxes .mx { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; height: 44px; min-width: 72px; padding: 0 var(--sp-3); border-radius: var(--r-row); background: transparent; font-size: 0; }
+  .hd-maxes .mx .mx-l { color: var(--lc-ink); font: 600 var(--fs-cap)/1 var(--font); }
+  .hd-maxes .mx b, .hd-maxes .mx .quiet { color: var(--ink); font: 700 var(--fs-head)/1 var(--font); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; letter-spacing: var(--ls-head); }
+  .hd-maxes .mx .quiet { color: var(--ink-3); font-weight: 500; font-size: var(--fs-sub); font-stretch: 100%; }
+  .hd-maxes .mx-use { align-self: center; }
+  @media (max-width: 1400px) { .hd-maxes .mx-cap { display: none; } }
+  /* what the lifter said: the kind of case, their words, then the answers as buttons (the suggested one filled) */
+  .hd-words { column-gap: var(--sp-3); min-height: 36px; padding: 2px 2px 2px var(--sp-3); background: var(--fill); }
+  .hd-words .say { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+  .hd-words > .tg { flex: none; max-width: none; }
+  .hd-words .say { font: 500 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .hd-words .acts { column-gap: var(--sp-2); }
+  .hd-words .btn.is-main { background: var(--ink); color: var(--card); box-shadow: none; }
+  @media (hover: hover) and (pointer: fine) { .hd-words .btn.is-main:hover:not(:disabled) { background: var(--ink-2); } }
+  /* the block as a strip: one mark a week */
+  .wb-blk { display: inline-flex; align-items: center; gap: 3px; flex: none; }
+  .wb-wk { position: relative; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 8px; background: var(--fill); color: var(--ink-3); font: 600 var(--fs-cap)/1 var(--font); font-variant-numeric: tabular-nums; cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out); }
+  .wb-wk::after { content: ''; position: absolute; inset: -7px -1px; }
+  .wb-wk[data-st='lifted'] { background: var(--up-tint); color: var(--up); }
+  .wb-wk[data-st='now'] { background: var(--fill-3); color: var(--ink); }
+  .wb-wk[data-st='sent'] { background: transparent; box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink-2); }
+  .wb-wk[aria-current='true'] { background: var(--ink); color: var(--card); box-shadow: none; }
+  .wb-wk:active { transform: scale(var(--press)); }
+  .wb-wk:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  @media (hover: hover) and (pointer: fine) { .wb-wk:not([aria-current='true']):hover { background: var(--fill-2); color: var(--ink); } }
+  @media (prefers-reduced-motion: reduce) { .wb-wk { transition: none; } }
+  .wb .wb-st.tg { flex: none; max-width: none; font: 600 var(--fs-cap)/var(--lh-cap) var(--font); }
+  .wb .wb-st.tg:not([data-tone]) { color: var(--ink-2); }
+  .wb-r1 { column-gap: var(--sp-3); min-height: 40px; }
+  /* Simple: a step larger and calmer. The day is a heading with its date beside it; lifts are 15 px, fields 32 px tall */
+  .sv-dh h3 { font: 700 var(--fs-body)/var(--lh-tight) var(--font); letter-spacing: var(--ls-head); }
+  .sv-dd { color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-tight) var(--font); }
+  .sv-name { height: 32px; font-size: var(--fs-sub); }
+  .sv-sub { font-size: var(--fs-label); }
+  .sv-var { font-size: var(--fs-label); }
+  .sv-in { height: 32px; font-size: var(--fs-sub); }
+  .sv-in.sv-note { font-size: var(--fs-label); }
+  .sv-last { color: var(--ink-2); }
+  /* the week's shape at the grid's foot: the label, then each lift as its name in its colour and its number */
+  .wg-shape-t .ws-g { display: inline-flex; align-items: baseline; gap: var(--sp-3); margin-right: var(--sp-5); }
+  .wg-shape-t .wg-sl { color: var(--ink-3); }
+  .wg-shape-t .ws-i { display: inline-flex; align-items: baseline; gap: 5px; }
+  .wg-shape-t .ws-i small { color: var(--lc-ink); font: 600 var(--fs-cap)/1 var(--font); }
+  .wg-shape-t .ws-i b { color: var(--ink); font: 700 var(--fs-label)/1 var(--font); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; }
+  .wg-shape-t .ws-i i { color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-style: normal; font-variant-numeric: tabular-nums; }
   @media (prefers-reduced-motion: reduce) { .sp-o, .ql-fold { transition: none; } }
 </style>
 </head>
@@ -349,15 +419,15 @@
 <script src="../kit/data.js"></script>
 <script src="../kit/kit.js"></script>
 <script src="../kit/coach.js"></script>
-<script src="../kit/r6/block.js?v=1122b"></script>
+<script src="../kit/r6/block.js?v=1122c"></script>
 <script src="../kit/r6/store.js"></script>
-<script src="../kit/r6/desk.js?v=1122b"></script>
-<script src="../kit/r6/picker.js?v=1122b"></script>
-<script src="../kit/r6/import.js?v=1122b"></script>
-<script src="../kit/r6/importer.js?v=1122b"></script>
-<script src="../kit/r6/week.js?v=1122b"></script>
-<script src="../kit/r6/sheet.js?v=1122b"></script>
-<script src="../kit/r6/simple.js?v=1122b"></script>
+<script src="../kit/r6/desk.js?v=1122c"></script>
+<script src="../kit/r6/picker.js?v=1122c"></script>
+<script src="../kit/r6/import.js?v=1122c"></script>
+<script src="../kit/r6/importer.js?v=1122c"></script>
+<script src="../kit/r6/week.js?v=1122c"></script>
+<script src="../kit/r6/sheet.js?v=1122c"></script>
+<script src="../kit/r6/simple.js?v=1122c"></script>
 <script src="../kit/r6/fix.js"></script>
 <script src="../kit/r6/newcoach.js"></script>
 <script>
@@ -528,7 +598,7 @@
   function flagHtml(r) {
     if (!r.flag || !r.flag.text) return '';
     var tone = r.flag.tone === 't-pain' ? 'pain' : r.flag.tone === 't-meet' ? 'gold' : r.flag.tone === 't-msg' ? 'words' : '';
-    return ' · <span class="' + (tone ? 'tw tone-' + tone : '') + '">' + esc(flagText(r)) + '</span>';
+    return tone ? ' <span class="tg" data-tone="' + tone + '">' + esc(flagText(r)) + '</span>' : ', ' + esc(flagText(r));
   }
   /* the row's week by one name (P20, FP §6.1: the store's due label, "Recovery week, Tue 17 Nov"), else its own words */
   function whatOf(r) { return words0(r.group === 'todo' && r.dueLabel ? String(r.dueLabel).replace(/, (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} [A-Z][a-z]{2}$/, '') : r.what || ''); }
@@ -545,7 +615,8 @@
     /* when the week must go by (P19): "Due Thu", "Due today" in --warn (one tone a row: a toned flag keeps it ink) */
     var due = r.group === 'todo' && r.dueText ? r.dueText : null, warn = due === 'Due today' && !(r.flag && /^t-(pain|meet|msg)$/.test(r.flag.tone || ''));
     var end = due ? '<span class="ctx' + (warn ? ' tw tone-warn' : '') + '" data-fact="due">' + esc(due) + '</span>' : nx && nx.out ? '<span class="ctx" data-fact="context"' + (nx.outTitle ? ' title="' + esc(nx.outTitle) + '"' : '') + '>' + esc(nx.out) + '</span>' : r.day ? '<span class="ctx" data-fact="context">' + esc(r.day) + '</span>' : '';
-    return '<div class="lrow two qrow" role="option" tabindex="-1" data-row="' + esc(id) + '"' + (open ? ' aria-current="true" aria-selected="true"' : ' aria-selected="false"') + '>' +
+    var face = DESK.photo(r.lifterId ? (Kl(r.lifterId) || { name: name }) : { name: name }, 32);
+    return '<div class="lrow two qrow' + (face ? ' has-ph' : '') + '" role="option" tabindex="-1" data-row="' + esc(id) + '"' + (open ? ' aria-current="true" aria-selected="true"' : ' aria-selected="false"') + '>' + face +
       '<span class="nm" data-fact="name" data-ellipsis title="' + esc(name) + '">' + esc(name) + '</span>' + end +
       '<span class="why" data-fact="reason"><span class="t" data-ellipsis title="' + esc(title) + '">' + t + '</span></span></div>';
   }
@@ -1222,12 +1293,12 @@
     /* the training max (FD2): the number loads are worked out from; each value's title says where it comes from */
     var nums = cur.id && fn(PL.lifters, 'numbers') ? (PL.lifters.numbers(cur.id).data || {}).lifts || {} : {};
     var src = { lifting: 'from the e1RM of the last sessions', intake: 'from the intake', typed: 'typed by you' };
-    var btns = LIFTS.map(function (k) { var mx = b.maxes ? b.maxes[k] : null, tt = LIFT[k] + ' training max ' + (mx != null ? nf(mx) : 'not set') + (b.maxFrom && src[b.maxFrom[k]] ? ', ' + src[b.maxFrom[k]] : '') + (nums[k] && nums[k].shown != null ? '. e1RM ' + nf(nums[k].shown) : '') + '. Change it here.'; return '<button class="link mx" type="button" data-max="' + k + '" aria-haspopup="dialog" title="' + esc(tt) + '"><span data-lift="' + k + '">' + LIFT[k] + ' ' + (mx != null ? '<b>' + nf(mx) + '</b>' : '<span class="quiet">Set it</span>') + '</span></button>'; }).join('');
+    var btns = LIFTS.map(function (k) { var mx = b.maxes ? b.maxes[k] : null, tt = LIFT[k] + ' training max ' + (mx != null ? nf(mx) : 'not set') + (b.maxFrom && src[b.maxFrom[k]] ? ', ' + src[b.maxFrom[k]] : '') + (nums[k] && nums[k].shown != null ? '. e1RM ' + nf(nums[k].shown) : '') + '. Change it here.'; return '<button class="link mx" type="button" data-max="' + k + '" aria-haspopup="dialog" title="' + esc(tt) + '"><span class="mx-l" data-lift="' + k + '">' + LIFT[k] + '</span> ' + (mx != null ? '<b>' + nf(mx) + '</b>' : '<span class="quiet">Set it</span>') + '</button>'; }).join('');
     var offer = !o.noOffer ? rebaseOffer(b) : null;
     /* 22 Nov: the offer is short ("Use 190") beside its lift; how loads move each week (Rules) lives in the program's
        own menu, not on the lifter's line */
     var tail = offer ? '<button class="link mx-use" type="button" data-rebase="' + offer.lift + '" aria-label="' + esc('Use ' + nf(offer.kg) + ' for ' + offer.lift) + '" title="' + esc(LIFT[offer.lift] + ' e1RM is ' + nf(offer.kg) + ' to the plate; the training max reads ' + nf(b.maxes[offer.lift]) + '. Use ' + nf(offer.kg) + '.') + '">Use ' + nf(offer.kg) + '</button>' : '';
-    return '<div class="hd-maxes" data-crop="maxes" role="group" aria-label="Training max">' + btns + tail + '</div>';
+    return '<div class="hd-maxes" data-crop="maxes" role="group" aria-label="Training max"><span class="mx-cap" aria-hidden="true">Training max, kg</span>' + btns + tail + '</div>';
   }
   function ruleWords(b) {
     var rs = null; try { rs = BL.rulesFor(b); } catch (e) { rs = null; } if (!rs || !rs.add) return 'How loads move week to week.';
@@ -1246,13 +1317,15 @@
   }
   function headerHtml() {
     var l = cur.l, name = l ? l.name : cur.tpl ? cur.tpl.name : 'Programs';
-    var f = cur.tpl ? cur.tpl.facts : factsOf(), h = '<div class="hd" id="hd" data-crop="header"><div class="hd-top"><h1 id="ttl" title="' + esc(name) + '">' + esc(name) + '</h1>' + (f ? '<p class="facts" title="' + esc(f) + '">' + esc(f) + '</p>' : '<p class="facts"></p>');
+    var f = cur.tpl ? cur.tpl.facts : factsOf(), h = '<div class="hd" id="hd" data-crop="header"><div class="hd-top">' + (l ? DESK.photo(l, 44) : '') + '<div class="hd-id"><h1 id="ttl" title="' + esc(name) + '">' + esc(name) + '</h1>' + (f ? '<p class="facts" title="' + esc(f) + '">' + String(f).split(' · ').map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + '</p>' : '<p class="facts"></p>') + '</div>';
     if (cur.id && cur.b && cur.kind !== 'start' && cur.kind !== 'runin') h += maxesHtml(cur.kind === 'recovery' ? cur.b0 || cur.b : cur.b);
     h += '</div>';
     if (cur.id) {
       var wl = wordsLine();
-      if (wl) h += '<div class="hd-line hd-words">' + (wl.done ? '<span class="done-say">' + esc(wl.say) + '</span>' : '<span class="say"' + (wl.quote ? ' data-quote' : '') + '>' + esc(wl.say) + (wl.who ? ' <span class="who">' + esc(wl.who) + '</span>' : '') + '</span>') +
-        (wl.acts.length ? '<span class="acts">' + wl.acts.map(function (a, i) { return '<button class="link' + (a.main ? ' is-main' : '') + '" type="button" data-hd-act="' + i + '"' + (a.main ? ' data-hd-main' : '') + '>' + esc(a.label) + '</button>'; }).join('') + '</span>' : '') + '</div>';
+      var it0 = cur.kind === 'change' ? cur.item : openItemOf(cur.id), tn0 = it0 && DESK.TONE ? DESK.TONE[it0.tone] || '' : '';
+      var tg0 = wl && !wl.done && it0 && it0.kicker ? '<span class="tg"' + (tn0 ? ' data-tone="' + esc(tn0) + '"' : '') + '>' + esc(it0.kicker.length > 22 ? it0.kicker.split(/ and |, /)[0] : it0.kicker) + '</span>' : '';
+      if (wl) h += '<div class="hd-line hd-words">' + tg0 + (wl.done ? '<span class="done-say">' + esc(wl.say) + '</span>' : '<span class="say"' + (wl.quote ? ' data-quote' : '') + '>' + esc(wl.say) + (wl.who ? ' <span class="who">' + esc(wl.who) + '</span>' : '') + '</span>') +
+        (wl.acts.length ? '<span class="acts">' + wl.acts.map(function (a, i) { return '<button class="btn sm' + (a.main ? ' is-main' : ' quiet') + '" type="button" data-hd-act="' + i + '"' + (a.main ? ' data-hd-main' : '') + '>' + esc(a.label) + '</button>'; }).join('') + '</span>' : '') + '</div>';
       cur.wl = wl;
       h += '<div class="composer" id="cmp" hidden></div>';
       var lim = limitsLine(); if (lim) h += '<p class="hd-line hd-limits">' + esc(lim) + '</p>';
@@ -1324,13 +1397,21 @@
       '<button class="btn icon quiet sm" type="button" data-wk-step="1"' + (next ? ' aria-label="' + esc(next) + '" title="' + esc(next) + ' (⌥→)"' : ' aria-label="No week after" disabled') + '>' + K.ic('chev', 2.2) + '</button></span>';
     /* the week's span is its seven days by the one dating rule (the store's), even when a move leaves its first day empty */
     var sp = storeDates && storeDates.data && storeDates.data.from ? storeDates.data : ds;
+    /* the block at a glance: one mark a week (lifted, this week, sent, not sent yet), the week in hand lit; a click goes there */
+    if (b.weeks.length > 1 && b.weeks.length <= 14 && cur.kind !== 'recovery') {
+      out += '<span class="wb-blk" role="group" aria-label="Weeks of this block">' + b.weeks.map(function (x, i) {
+        var stt = x.state === 'lifted' ? 'lifted' : x.state === 'now' ? 'now' : x.sent ? 'sent' : 'draft', word = { lifted: 'lifted', now: 'this week', sent: 'sent', draft: 'not sent' }[stt];
+        return '<button type="button" class="wb-wk" data-wk-go="' + i + '" data-st="' + stt + '"' + (i === c ? ' aria-current="true"' : '') + ' title="' + esc(weekName(b, i) + ', ' + word) + '" aria-label="' + esc(weekName(b, i) + ', ' + word) + '">' + (x.n || i + 1) + '</button>';
+      }).join('') + '</span>';
+    }
     if (ds) out += '<span class="wb-d">' + esc(span(sp.from, sp.to)) + '</span><span class="sr">, sessions ' + esc(K.list((sd.length ? sd : ds.sessions).map(dDay), 9)) + '</span>';
-    out += '<span class="wb-st' + (stw === 'Not written' ? ' is-strong' : '') + '" data-week-state>' + esc(stw) + '</span>';
+    var stTone = /to send$|^Not written$/.test(stw) ? 'warn' : stw === 'Lifted' ? 'up' : '';
+    out += '<span class="wb-st tg' + (stw === 'Not written' ? ' is-strong' : '') + '"' + (stTone ? ' data-tone="' + stTone + '"' : '') + ' data-week-state>' + esc(stw) + '</span>';
     var kind = cur.kind === 'recovery' ? null : fn(b, 'weekKind') ? b.weekKind(c, l && l.meet && l.meet.date ? { meet: String(l.meet.date).slice(0, 10) } : undefined) : null;
     var tag = cur.kind === 'recovery' && cur.rv ? (cur.rv.tag || null) : null, kterm = kind && BL.KIND_TERM ? BL.KIND_TERM[kind] : null;
     if (kind === 'Meet week') meetWeek = false;
-    if (tag) out += '<span class="wb-sep" aria-hidden="true">·</span><span class="wb-tag" title="' + esc((cur.rv.sourceText || tag) + ': half the sets, 1.5 easier.') + '">' + esc(tag) + '</span>';
-    else if (kind) out += '<span class="wb-sep" aria-hidden="true">·</span><span class="wb-tag">' + (kterm ? '<span data-term="' + esc(kterm) + '">' + esc(kind) + '</span>' : esc(kind)) + '</span>';
+    if (tag) out += '<span class="wb-tag" title="' + esc((cur.rv.sourceText || tag) + ': half the sets, 1.5 easier.') + '">' + esc(tag) + '</span>';
+    else if (kind) out += '<span class="wb-tag">' + (kterm ? '<span data-term="' + esc(kterm) + '">' + esc(kind) + '</span>' : esc(kind)) + '</span>';
     var fo = l && l.meet && l.meet.days > 0 && fn(PL.fmt, 'out') ? PL.fmt.out(l.meet.days) : null;
     /* how far out the meet is: only when the lifter's own line above does not already say it */
     var said = factsOf() || '';
@@ -3165,6 +3246,7 @@
     if ((b = t.closest('[data-preview]'))) { previewSheet(); return; }
     if ((b = t.closest('[data-week-menu], [data-wk-copy]'))) { if (DESK.pop.justClosed(b)) return; weekMenu(b); return; }
     if ((b = t.closest('[data-wk-step]'))) { stepWeek(+b.getAttribute('data-wk-step')); return; }
+    if ((b = t.closest('[data-wk-go]'))) { goWeek(+b.getAttribute('data-wk-go')); return; }
     if ((b = t.closest('[data-later]'))) { if (cur && cur.b) goWeek(weekIndex(cur.b, +b.getAttribute('data-later'))); return; }
     if ((b = t.closest('[data-changes]'))) { if (DESK.pop.justClosed(b)) return; changesPop(b); return; }
     if ((b = t.closest('[data-hold]'))) { var h0 = cur && cur.p && cur.p.held && cur.p.held[0]; if (h0 && cur.grid) { cur.grid.select(h0.key, 'load'); cur.grid.focus(); } return; }
