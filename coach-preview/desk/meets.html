@@ -22,6 +22,7 @@
 <link rel="stylesheet" href="../kit/r6/ui.css">
 <link rel="stylesheet" href="../kit/r6/fix.css">
 <link rel="stylesheet" href="../kit/r6/newcoach.css">
+<link rel="stylesheet" href="../kit/r6/case.css">
 <style>
   /* Meets (screens.md §5, professional.md §10.7): the meets list on the left that never hides, beside the overview, a
      lifter's prep or the day's board. Two cards a screen at most (the picture and the work); everything else flat on the
@@ -81,30 +82,70 @@
   .err-l { margin: var(--sp-2) 0 0; color: var(--pain); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
   .tabs.lt-tabs { margin-bottom: var(--sp-5); }
 
-  /* ---- overview: the Today card (the picture) and Everyone with a meet (the work) ---- */
-  .today { padding: var(--sp-6) var(--sp-6) var(--sp-5); }
-  .today h2 { margin: 0; font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); }
-  .today .sub { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); }
-  .today .rows { margin: var(--sp-4) calc(var(--sp-3) * -1) 0; }
-  .trow { position: relative; display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-4); min-height: 56px; padding: var(--sp-2) var(--sp-3); }
-  .trow + .trow::before { content: ''; position: absolute; top: 0; left: var(--sp-3); right: var(--sp-3); height: 1px; background: var(--line); }
-  .trow .nm { color: var(--ink); font: 600 var(--fs-body)/var(--lh-sub) var(--font); }
-  .trow .why { min-width: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
-  .trow .why.tone-pain { color: var(--pain); font-weight: 500; }
-  .trow .why.tone-q { color: var(--ink-3); }
-  .trow .act { display: flex; justify-content: flex-end; min-width: 0; }
-  .trow > .done-row { grid-column: 2 / -1; }
-  .tl8 { position: relative; height: 52px; margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
-  .tl8 > .tl { height: 52px; }
-  .ev { padding: var(--sp-2) var(--sp-2) var(--sp-3); }
-  .ev .tbl col.c-l { width: 18%; } .ev .tbl col.c-m { width: 19%; } .ev .tbl col.c-w { width: 12%; } .ev .tbl col.c-wt { width: 12%; } .ev .tbl col.c-a { width: 11%; } .ev .tbl col.c-r { width: 28%; }
-  .ev .tbl td, .ev .tbl th { padding: 0 var(--sp-2); }
-  .ev .tbl td { overflow: hidden; text-overflow: ellipsis; }
-  .ev .tbl td .q { color: var(--ink-3); }
-  .ev .tbl td .mv { max-width: 100%; }
-  .ev .tbl td .mv > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ev .tbl a.who { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); text-decoration: none; }
-  @media (hover: hover) and (pointer: fine) { .ev .tbl a.who:hover { text-decoration: underline; text-underline-offset: 3px; } }
+  /* ---- overview (22 Nov): the coach's jobs in order. Meet day first (who lifts, the scale's times, each lifter's openers,
+     weight and what they wait on), then the next 8 weeks drawn to scale, then everyone getting ready: days out, bodyweight
+     against the class, what is written, sent and ticked, and the next step as the row's button. No cards: rows on hairlines. ---- */
+  .md > .ov { margin-top: var(--sp-8); }
+  .md > .hd + .ov { margin-top: var(--sp-6); }
+  .ov .sec-t { margin-bottom: 0; }
+  .mday-h { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; column-gap: var(--sp-7); row-gap: var(--sp-4); }
+  .mday-t { min-width: 0; }
+  .mday-t .t { display: flex; align-items: center; gap: var(--sp-3); }
+  .mday-t h2 { margin: 0; font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); }
+  .mday-t .tg { max-width: none; }
+  .mday-t .sub { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .clk { display: flex; gap: var(--sp-7); margin: 0; }
+  .clk div { display: flex; flex-direction: column-reverse; gap: var(--sp-1); }
+  .clk dt { color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-tight) var(--font); white-space: nowrap; }
+  .clk dd { margin: 0; color: var(--ink); font: 700 var(--fs-title)/var(--lh-none) var(--font); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; letter-spacing: var(--ls-title); }
+  .clk .is-now dd, .clk .is-now dt { color: var(--ink-3); }
+  /* the rows: one grid for the heads and every row, so each figure and the button keep their column */
+  .rws { margin: var(--sp-3) calc(var(--sp-3) * -1) 0; }
+  .rws[data-kind='day'] { --c2: 164px; --c3: 164px; --c4: 144px; --c5: 208px; }
+  .rws[data-kind='prep'] { --c2: 116px; --c3: 164px; --c4: 174px; --c5: 196px; }
+  .rw, .rw-h { display: grid; grid-template-columns: minmax(0, 1fr) var(--c2) var(--c3) var(--c4) var(--c5); align-items: center; column-gap: var(--sp-5); padding: 0 var(--sp-3); }
+  .rw-h { min-height: 32px; color: var(--ink-3); font: 500 var(--fs-cap)/var(--lh-cap) var(--font); letter-spacing: var(--ls-cap); }
+  .rw-h .mk-h, .sk { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); justify-items: center; align-items: center; }
+  .rw { position: relative; min-height: 76px; padding-top: var(--sp-3); padding-bottom: var(--sp-3); border-radius: var(--r-row); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out); }
+  .rw::before { content: ''; position: absolute; top: 0; left: var(--sp-3); right: var(--sp-3); height: 1px; background: var(--line); transition: opacity var(--dur-fast) var(--ease-out); }
+  @media (hover: hover) and (pointer: fine) { .rw:hover { background: var(--hover); } .rw:hover::before, .rw:hover + .rw::before { opacity: 0; } }
+  .rw .wh { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+  .rw .wh-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .rw .wh-n { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+  .rw a.who { min-width: 0; color: var(--ink); font: 600 var(--fs-body)/var(--lh-sub) var(--font); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: var(--r-mark); }
+  .rw a.who:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .rw .cap { min-width: 0; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
+  .rw .fg b small { margin-left: 3px; }
+  .rw .fg-under { --tone: var(--ink-3); }
+  .rw .fg-trk { max-width: 88px; }
+  /* the three openers, each in its lift's colour */
+  .rw .op3 { gap: var(--sp-3); }
+  .rw .op3 b { font-size: var(--fs-body); letter-spacing: 0; }
+  .rw .op3 b[data-lift] { color: var(--lc-ink); }
+  /* what is done: a lit mark; what is next: the brighter ring; a count while a list is part done */
+  .sk i { display: grid; place-items: center; min-width: 24px; height: 24px; border-radius: var(--r-pill); box-shadow: inset 0 0 0 1.5px var(--fill-3); color: var(--ink-2); font: 600 var(--fs-cap)/var(--lh-none) var(--font); font-style: normal; font-variant-numeric: tabular-nums; }
+  .sk i svg { width: 14px; height: 14px; }
+  .sk i.on { background: var(--ink); box-shadow: none; color: var(--floor); }
+  .sk i.nx { box-shadow: inset 0 0 0 2px var(--ink-2); }
+  .sk i.num { padding: 0 var(--sp-2); background: var(--fill); box-shadow: none; }
+  .rw .act { display: flex; align-items: center; min-width: 0; }
+  .rw .act .btn { white-space: nowrap; }
+  .rw .act .idle { color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-label) var(--font); }
+  .rw .act .done-row { gap: var(--sp-3); }
+  .rw .act .done-row .btn { margin: 0; }
+  /* the next 8 weeks, to scale: a week every tick, each meet a mark with its lifters' count and a label that opens it */
+  .cal { position: relative; margin-top: var(--sp-3); }
+  .cal-ax { position: absolute; height: 2px; margin-top: -1px; border-radius: var(--r-mark); background: var(--fill-3); }
+  .cal-tk { position: absolute; width: 1px; height: 8px; margin-top: -4px; background: var(--ink-4); }
+  .cal-td { position: absolute; translate: -50% 0; color: var(--ink-3); font: 500 var(--fs-cap)/var(--lh-cap) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cal-td.s { translate: 0 0; } .cal-td.e { translate: -100% 0; }
+  .cal-mk { position: absolute; display: grid; place-items: center; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: var(--r-pill); background: var(--gold); color: var(--floor); font: 700 var(--fs-cap)/var(--lh-none) var(--font); font-variant-numeric: tabular-nums; pointer-events: none; }
+  .cal-l { position: absolute; display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: var(--sp-1) var(--sp-2); border: 0; border-radius: var(--r-field); background: none; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; text-align: left; white-space: nowrap; cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out); }
+  .cal-l b, .cal-l span { overflow: hidden; text-overflow: ellipsis; }
+  .cal-l b { color: var(--ink); font-weight: 600; }
+  .cal-l:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  .cal-l:active { transform: scale(var(--press)); }
+  @media (hover: hover) and (pointer: fine) { .cal-l:hover { background: var(--fill); } }
 
   /* ---- a lifter's prep ---- */
   .att { padding: var(--sp-5) var(--sp-6) var(--sp-5); }
@@ -300,16 +341,29 @@
   @media (max-width: 1280px) {
     .ag { grid-template-columns: minmax(0, 1fr) repeat(3, 112px); }
     .bd .tbl col.c-a { width: 50px; } .bd .tbl col.c-t { width: 88px; } .bd .tbl col.c-p { width: 48px; }
-    .ev .tbl col.c-l { width: 18%; } .ev .tbl col.c-m { width: 15%; } .ev .tbl col.c-w { width: 15%; } .ev .tbl col.c-wt { width: 14%; } .ev .tbl col.c-a { width: 11%; } .ev .tbl col.c-r { width: 27%; }
     .wi .tbl td.op { white-space: normal; }
     button.ac { width: 48px; }
     .wu .r { grid-template-columns: 96px 96px minmax(0, 1fr) auto; }
-    .trow { grid-template-columns: 80px minmax(0, 1fr) auto; }
     .wi .tbl col.c-l { width: 76px; } .wi .tbl col.c-s { width: 84px; } .wi .tbl col.c-res { width: 116px; } .wi .tbl col.c-r { width: 172px; } .wi .tbl col.c-o { width: 104px; }
     .wi .tbl .rk .input { width: 52px; }
     .mk li.r { grid-template-columns: 152px minmax(0, 1fr) auto; }
   }
-  @media (prefers-reduced-motion: reduce) { button.ac, .ag .cell input, .ag .cell .pm { transition: none; } button.ac:active { transform: none; } }
+  /* a laptop: the button drops to a second line, under the figures, in the same place on every row */
+  @media (max-width: 1300px) {
+    .rw, .rw-h { grid-template-columns: minmax(0, 1fr) var(--c2) var(--c3) var(--c4); }
+    .rw-h .a-h { display: none; }
+    .rw .wh { grid-row: 1 / span 2; }
+    .rw .act { grid-column: 2 / -1; grid-row: 2; margin-top: var(--sp-3); }
+    .rw .act:empty { display: none; }
+  }
+  @media (max-width: 1180px) {
+    .rws[data-kind='day'] { --c2: 150px; --c3: 136px; --c4: 128px; }
+    .rws[data-kind='prep'] { --c2: 96px; --c3: 158px; --c4: 150px; }
+    .rw, .rw-h { column-gap: var(--sp-4); }
+    .rw .op3 { gap: var(--sp-2); }
+    .clk { gap: var(--sp-6); }
+  }
+  @media (prefers-reduced-motion: reduce) { button.ac, .ag .cell input, .ag .cell .pm, .rw, .rw::before, .cal-l { transition: none; } button.ac:active, .cal-l:active { transform: none; } }
 </style>
 </head>
 <body data-place="meets">
@@ -477,7 +531,8 @@
   /* ---------------- the toolbar ---------------- */
   function crimsonHtml(c) { return c ? '<button class="btn" type="button" data-primary data-crimson' + (c.title ? ' title="' + esc(c.title) + '"' : '') + '>' + esc(c.label) + '</button>' : ''; }
   function paintToolbar(v, crimson) {
-    var lead = DESK.backHtml(), trail = '';
+    /* a prep or the board always has its way back to every meet: the page it came from, or this page's overview */
+    var lead = DESK.backHtml() || (v !== 'overview' ? '<button class="btn quiet" type="button" data-overview title="Every meet and who is getting ready">' + K.ic('back', 2) + '<span>All meets</span></button>' : ''), trail = '';
     if (v === 'prep') {
       var all = meeters(), id = prepLifter(), i = all.indexOf(id);
       if (i >= 0) lead += '<span class="pos"><button class="btn icon quiet" type="button" data-step="-1" aria-label="Previous lifter with a meet" title="Previous: ' + esc(L(all[(i - 1 + all.length) % all.length]).name) + ' (K)">' + K.ic('back', 2) + '</button><span class="pos-n">' + esc(L(id).name) + ', ' + (i + 1) + ' of ' + all.length + '</span><button class="btn icon quiet" type="button" data-step="1" aria-label="Next lifter with a meet" title="Next: ' + esc(L(all[(i + 1) % all.length]).name) + ' (J)">' + K.ic('chev', 2) + '</button></span>';
@@ -496,9 +551,10 @@
   }
 
   /* ---------------- done rows (shared.md §9) ---------------- */
-  function doneRow(itemId) {
+  function doneRow(itemId, compact) {
     var it = itemOf(itemId), d = it && it.done; if (!d) return '';
     var at = d.at ? String(d.at).slice(11, 16) : '';
+    if (compact) return '<div class="done-row">' + CHECK + '<span class="dw" data-ellipsis title="' + esc((d.label || 'Done') + (at ? ', ' + at : '') + (d.sent ? '. Not seen yet' : '')) + '">' + esc(d.label || 'Done') + '</span><button class="btn quiet sm" type="button" data-undo-item="' + esc(itemId) + '">Undo</button></div>';
     return '<div class="done-row">' + CHECK + '<span class="dw" data-ellipsis title="' + esc(d.label || 'Done') + '">' + esc(d.label || 'Done') + '</span>' + (at ? '<time class="at">' + esc(at) + '</time>' : '') + '<button class="btn quiet sm" type="button" data-undo-item="' + esc(itemId) + '">Undo</button>' + (d.sent ? '<span class="rc">Not seen yet</span>' : '') + '</div>';
   }
 
@@ -509,66 +565,151 @@
     if (x.over != null && x.over > 0) return n(x.over) + ' kg over the ' + cls + ' kg class';
     return 'On weight for the ' + cls + ' kg class';
   }
-  function todayRow(m, x) {
-    var ask = itemOf('meet-today-' + x.id), pain = itemOf('pain-' + x.id), pl = planOf(x.id), why = weighWords(x), tone = '', act = null, doneOf = null;
+  /* --- the figures the rows share (case.css draws them; nothing here is worked out past placing a mark) --- */
+  var pct = function (v) { return Math.max(0, Math.min(100, v)).toFixed(1) + '%'; };
+  function clsOf(x) { return x && x.cls != null ? String(x.cls).replace(/\s*kg$/, '') : ''; }
+  /* bodyweight against the class: the limit sits 55% along (as on Overview), 2.5 kg either side fills the track */
+  function figBw(over) {
+    if (over == null || !isFinite(over)) return '<span class="fg"><b>?<small>kg</small></b></span>';
+    var up = over > 0, x = 55 + (up ? 1 : -1) * Math.min(1, Math.abs(over) / 2.5) * 41;
+    return '<span class="fg ' + (up ? 'fg-over' : 'fg-under') + '"><span class="fg-trk" aria-hidden="true"><span class="run" style="left:' + pct(Math.min(x, 55)) + ';right:' + pct(100 - Math.max(x, 55)) + '"></span><span class="lim" style="left:55%"></span><span class="dot" style="left:' + pct(x) + '"></span></span><b>' + (up ? '+' : over < 0 ? '−' : '') + esc(n(Math.abs(over))) + '<small>kg</small></b></span>';
+  }
+  function figCol(fig, cap, title) { return '<span class="fg-col"' + (title ? ' title="' + esc(title) + '"' : '') + '>' + fig + '<span class="fg-cap">' + esc(cap) + '</span></span>'; }
+  /* the store's one countdown (PL.fmt.out), its number set as a number */
+  function figOut(m) {
+    var o = outOf(m.days), x = /^\D*(\d+)\s*(day|week)s?/.exec(o.text || '');
+    return figCol('<span class="fg"><b>' + (x ? esc(x[1]) + '<small>' + x[2] + (x[1] === '1' ? '' : 's') + '</small>' : esc(o.text)) + '</b></span>', day(m.date), o.title || '');
+  }
+  function mark(on, title, o) { o = o || {}; return '<i' + (on ? ' class="on"' : o.num ? ' class="num"' : o.next ? ' class="nx"' : '') + ' title="' + esc(title) + '">' + (on ? CHECK : o.num ? esc(o.num) : '') + '</i>'; }
+  function marks(list) { return '<span class="sk" role="img" aria-label="' + esc(list.map(function (x) { return x[1]; }).join('. ')) + '">' + list.map(function (x) { return mark(x[0], x[1], x[2]); }).join('') + '</span>'; }
+  function whoCell(id, href, tag, cap) {
+    var l = L(id);
+    return '<span class="wh">' + DESK.photo(l, 36) + '<span class="wh-t"><span class="wh-n"><a class="who" href="' + esc(href) + '">' + esc(l ? l.name : id) + '</a>' + (tag || '') + '</span><span class="cap">' + esc(cap) + '</span></span></span>';
+  }
+
+  /* --- meet day: one row a lifter (the openers, the weight, the scale and the hand-in, what they wait on) --- */
+  function todayRow(m, x, bx) {
+    var ask = itemOf('meet-today-' + x.id), pain = itemOf('pain-' + x.id), pl = planOf(x.id), why = '', tag = '', act = null, doneOf = null, idle = 'Nothing to do';
     if (ask && ask.acts.some(function (a) { return a.id === 'msg'; })) {
-      if (ask.done) doneOf = ask.id; else { why += '. Asks: is ' + n(x.bw) + ' OK?'; act = { item: ask.id, act: 'msg', label: 'Reply to ' + x.first }; }
+      if (ask.done) doneOf = ask.id; else { why = 'Asks: is ' + n(x.bw) + ' OK?'; act = { item: ask.id, act: 'msg', label: 'Reply to ' + x.first }; }
     } else if (pain) {
-      if (pl && pl.pain) { why = pl.pain.text; tone = 'pain'; }
-      else { why = 'Pain on this morning’s check-in'; tone = 'pain'; }
+      why = pl && pl.pain ? pl.pain.text : 'Pain on this morning’s check-in'; tag = '<span class="tg" data-tone="pain">Pain</span>';
       var sa = pain.acts.filter(function (a) { return a.kind === 'primary'; })[0] || pain.acts[0];
       if (pain.done) doneOf = pain.id; else act = { item: pain.id, act: sa.id, label: sa.label };
     } else if (ask) {
       /* P36: a lifter with nothing to do says so in words, never as a button that does nothing */
-      if (ask.done) doneOf = ask.id; else if (ask.nothing) { why = ask.nothing; tone = 'q'; }
+      if (ask.done) doneOf = ask.id; else if (ask.nothing) { why = ask.nothing; idle = ''; }
     }
-    var h = '<div class="trow" data-today="' + esc(x.id) + '"><span class="nm">' + esc(x.first) + '</span>';
-    if (doneOf) return h + doneRow(doneOf) + '</div>';
-    h += '<span class="why' + (tone ? ' tone-' + tone : '') + '">' + esc(why) + '</span>';
-    /* PX1: the row's move is a quiet text button; the toolbar's crimson stays the one filled action */
-    h += '<span class="act">' + (act ? '<button class="mv" type="button" data-fix="' + esc(act.item) + '|' + esc(act.act) + '">' + esc(act.label) + '</button>' : '') + '</span></div>';
+    if (!why) why = weighWords(x);
+    var href = '#id=' + encodeURIComponent(m.id) + '&lifter=' + encodeURIComponent(x.id), c = clsOf(x), closes = bx && boardOf(m.id) ? boardOf(m.id).clock.weighCloses : '';
+    var h = '<div class="rw trow" data-today="' + esc(x.id) + '" data-open="' + esc(href.slice(1)) + '">' + whoCell(x.id, href, tag, why);
+    /* the openers, each in its lift's colour, and what they add to */
+    var at = bx ? bx.attempts : null, ops = LIFTS.map(function (k) { var kg = at ? at[k][0].kg : x.attempts && x.attempts[k] ? x.attempts[k][0] : null; return '<b data-lift="' + k + '" title="' + LIFT[k] + ' opener">' + (kg == null ? '?' : esc(n(kg))) + '</b>'; }).join('');
+    h += figCol('<span class="fg op3">' + ops + '</span>', pl && pl.totals && pl.totals.opener ? n(pl.totals.opener) + ' kg on openers' : 'Squat, bench, deadlift');
+    /* the weight: the scale's number once it is in, the last weigh-in until then */
+    var sc = bx && bx.scale != null && bx.weigh !== 'not' ? bx.scale : null;
+    if (sc != null) h += figCol(figBw(Math.round((sc - parseFloat(c)) * 10) / 10), n(sc) + ' kg on the scale' + (bx.weigh === 'over' && closes ? ', re-weigh by ' + closes : ''));
+    else h += figCol(figBw(x.over), n(x.bw) + ' kg, ' + c + ' class');
+    var made = !!bx && bx.weigh === 'made', hi = bx && bx.handedIn;
+    h += marks([[made, x.first + (made ? ' made weight' : bx && bx.weigh === 'over' ? ' is over on the scale' : ' has not weighed in'), { next: !made }], [!!hi, 'Openers ' + (hi ? 'handed in ' + String(hi.at).slice(11, 16) : 'not handed in'), {}]]);
+    h += '<span class="act">' + (doneOf ? doneRow(doneOf, true) : act ? '<button class="btn sm" type="button" data-fix="' + esc(act.item) + '|' + esc(act.act) + '">' + esc(act.label) + '</button>' : (idle ? '<span class="idle">' + idle + '</span>' : '')) + '</span></div>';
     return h;
   }
-  function timelineHtml() {
-    var all = meets().filter(function (m) { return m.days <= 56; });
-    var marks = all.map(function (m) { return { x: m.days / 56, n: (m.lifterIds || []).length, now: m.days === 0, tip: m.name + ', ' + (m.days === 0 ? 'today' : day(m.date)) + ': ' + names(m.lifterIds || []) }; });
-    return '<div class="tl8" aria-label="Meets in the next 8 weeks">' + CH.timeline(marks, { ticks: [1, 2, 3, 4, 5, 6, 7].map(function (w) { return w / 8; }), left: 'Today', right: K.dm(K.add(K.today, 56)) }) + '</div>';
+  function meetDayHtml(tm) {
+    var g = meetGet(tm.id), b = boardOf(tm.id), st = b && b.stages ? b.stages : [], sq = st.filter(function (s) { return s.id === 'squat'; })[0], w8 = st.filter(function (s) { return s.id === 'weigh'; })[0];
+    var wi = g && g.lifters && g.lifters[0] && g.lifters[0].weighIn === '24h' ? '24-hour weigh-in' : '2-hour weigh-in';
+    var h = '<div class="ov" data-crop="today"><div class="mday-h"><div class="mday-t"><div class="t"><h2>' + esc(tm.name) + '</h2><span class="tg" data-tone="gold">Meet today</span></div><p class="sub">' + esc((tm.fed ? tm.fed + ', ' : '') + wi) + '</p></div>';
+    if (b && w8 && sq) h += '<dl class="clk">' + (b.clock && b.clock.now ? '<div class="is-now"><dt>Now</dt><dd>' + esc(b.clock.now) + '</dd></div>' : '') + '<div><dt>Scale opens</dt><dd>' + esc(w8.at) + '</dd></div><div><dt>Scale closes</dt><dd>' + esc(w8.until || b.clock.weighCloses) + '</dd></div><div><dt>Squats start</dt><dd>' + esc(sq.at) + '</dd></div></dl>';
+    h += '</div><div class="rws" data-kind="day"><div class="rw-h" aria-hidden="true"><span>Lifter</span><span>Openers</span><span>Bodyweight</span><span class="mk-h"><span>Weighed</span><span>Handed in</span></span><span class="a-h">Waiting on you</span></div>';
+    h += ((g && g.lifters) || []).map(function (x) { return todayRow(tm, x, b ? b.lifters.filter(function (y) { return y.id === x.id; })[0] : null); }).join('');
+    return h + '</div></div>';
+  }
+
+  /* --- the next 8 weeks, to scale. A label sits over its mark, or under it when the one before is in the way; each opens its meet --- */
+  var calCtx = null;
+  function textW(t, weight) {
+    try { calCtx = calCtx || document.createElement('canvas').getContext('2d'); var cs = getComputedStyle(document.body); calCtx.font = weight + ' ' + (cs.getPropertyValue('--fs-label').trim() || '14px') + ' ' + cs.fontFamily; return calCtx.measureText(t).width * 1.05; } catch (e) { return t.length * 8.2; }
+  }
+  function calendarHtml() {
+    var all = meets().filter(function (m) { return m.days >= 0 && m.days <= 56; }), later = meets().filter(function (m) { return m.days > 56; }).length;
+    var det = $('#detail'), W = Math.max(360, (det ? det.clientWidth : 900) - 16), IN = 10, X = function (d) { return IN + d / 56 * (W - IN * 2); }, LH = 45, GAP = 14;
+    var placed = [], maxUp = 0, maxDn = -1;
+    var labs = all.map(function (m) {
+      var ids = m.lifterIds || [], l2 = (m.days === 0 ? 'Today' : K.dm(m.date)) + ', ' + (ids.length === 1 ? first(ids[0]) : ids.length + ' lifters');
+      var w = Math.min(W, Math.ceil(Math.max(textW(m.name, 600), textW(l2, 400))) + 18), x = X(m.days), l = Math.max(0, Math.min(x - 18, W - w)), lv = 0;
+      /* over the mark first, then under it, then a row further out: the first place nothing else stands */
+      for (; lv < 8; lv++) { if (!placed.some(function (q) { return q.lv === lv && l < q.l + q.w + GAP && q.l < l + w + GAP; })) break; }
+      placed.push({ lv: lv, l: l, w: w });
+      var up = lv % 2 === 0, depth = Math.floor(lv / 2); if (up) maxUp = Math.max(maxUp, depth); else maxDn = Math.max(maxDn, depth);
+      return { m: m, l: l, w: w, up: up, depth: depth, l2: l2, x: x, n: ids.length };
+    });
+    var axisY = (maxUp + 1) * (LH + 2) + 14, tdY = axisY + 12, H = tdY + 18 + (maxDn + 1) * (LH + 2);
+    var h = '<div class="ov" data-crop="calendar"><h2 class="sec-t">Next 8 weeks' + (later ? '<span class="sub">' + later + ' more after ' + esc(K.dm(K.add(K.today, 56))) + '</span>' : '') + '</h2>';
+    h += '<div class="cal" style="height:' + H + 'px" role="group" aria-label="Meets in the next 8 weeks">';
+    h += '<span class="cal-ax" style="left:' + IN + 'px;right:' + IN + 'px;top:' + axisY + 'px" aria-hidden="true"></span>';
+    for (var wk = 0; wk <= 8; wk++) {
+      var tx = X(wk * 7).toFixed(1);
+      h += '<span class="cal-tk" style="left:' + tx + 'px;top:' + axisY + 'px" aria-hidden="true"></span><span class="cal-td' + (wk === 0 ? ' s' : wk === 8 ? ' e' : '') + '" style="left:' + (wk === 0 ? 0 : wk === 8 ? W : tx) + 'px;top:' + tdY + 'px" aria-hidden="true">' + (wk === 0 ? 'Today' : esc(K.dm(K.add(K.today, wk * 7)))) + '</span>';
+    }
+    labs.forEach(function (q) {
+      var top = q.up ? axisY - 14 - (q.depth + 1) * (LH + 2) + 2 : tdY + 18 + q.depth * (LH + 2);
+      h += '<span class="cal-mk" style="left:' + q.x.toFixed(1) + 'px;top:' + axisY + 'px" aria-hidden="true">' + q.n + '</span>';
+      h += '<button class="cal-l" type="button" data-meet="' + esc(q.m.id) + '" style="left:' + q.l.toFixed(1) + 'px;top:' + top + 'px;max-width:' + q.w + 'px" title="' + esc(q.m.name + ', ' + (q.m.days === 0 ? 'today' : day(q.m.date)) + ': ' + names(q.m.lifterIds || [])) + '"><b>' + esc(q.m.name) + '</b><span>' + esc(q.l2) + '</span></button>';
+    });
+    return h + '</div></div>';
+  }
+
+  /* --- getting ready: what is still undone for each lifter, and the first of it as the row's button --- */
+  function stepNext(id, pl) {
+    var bw = pl.bw || {}, f = first(id), mv = (bw.moves || [])[0], cut = itemOf('cut-' + id);
+    /* the weight first: a cut not planned yet is the one thing that cannot wait */
+    if (bw.plan && bw.plan.length) { if (!bw.planSent) return { on: 'bw', label: 'Send ' + f + ' the cut plan…', attr: ' data-cut-open="' + esc(id) + '"' }; }
+    else if (mv && mv.how !== 'watch' && !(cut && cut.done)) {
+      if (mv.how === 'plan') return { on: 'bw', label: /^Start a slow cut/.test(mv.label) ? 'Start ' + f + '’s slow cut…' : 'Plan ' + f + '’s cut…', attr: ' data-cut-open="' + esc(id) + '"' };
+      return { on: 'bw', label: mv.label, attr: ' data-prep="' + esc(id) + '"' };
+    }
+    /* then the store's own job for this lifter (plan.job: the words Overview and Find use) */
+    var j = pl.job && !pl.job.next ? pl.job : null; if (!j) return null;
+    var lab = String(j.label).replace(/'/g, '’');
+    if (j.run === 'attempts') return { on: 'att', label: pl.sent === 'stale' ? lab : 'Check ' + f + '’s attempts', attr: ' data-prep="' + esc(id) + '"' };
+    return { on: peakJob(pl) ? 'peak' : '', label: lab.replace(/^Write (his|her|their) peak$/, 'Write ' + f + '’s peak'), attr: ' data-job="' + esc(id) + '"' };
+  }
+  function peakJob(pl) { return !!(pl.job && !pl.job.next && /run-in|peak$|between|first block/i.test(pl.job.label)); }
+  function prepRow(r) {
+    var id = r.id, m = r.m, x = r.x || {}, pl = isNext(id, m.id) ? planOf(id) : null, href = '#id=' + encodeURIComponent(m.id) + '&lifter=' + encodeURIComponent(id), f = first(id);
+    var h = '<div class="rw" data-row="' + esc(id) + '" data-open="' + esc(href.slice(1)) + '">' + whoCell(id, href, '', m.name) + figOut(m);
+    if (!pl) return h + '<span></span><span></span><span class="act"><span class="idle">Opens after ' + esc((lifterMeet(id) || {}).name || 'the next meet') + '</span></span></div>';
+    var bw = pl.bw || {}, c = n(bw.cls), nx = stepNext(id, pl), cap;
+    if (bw.now == null) cap = 'Not weighed in yet';
+    else if (bw.plan && bw.plan.length) cap = n(bw.now) + ' kg, cut plan ' + (bw.planSent ? 'sent' : 'not sent');
+    else if (bw.over > 0 && bw.perWeek > 0) cap = n(bw.perWeek) + ' kg a week to lose';
+    else cap = n(bw.now) + ' kg, ' + c + ' class';
+    h += figCol(figBw(bw.now == null ? null : bw.over), cap, bw.sentence || '');
+    var pk = (pl.timeline || []).filter(function (t) { return t.id === 'peak'; })[0], peakOn = !!(pk && pk.written) && !peakJob(pl), sent = pl.sent === 'yes', rd = pl.ready || {}, rdOn = rd.of > 0 && rd.done >= rd.of;
+    var todo = (pl.ticks || []).filter(function (t) { return !t.on; }).map(function (t) { return t.label.replace(/:\s*.+$/, '') + ' ' + t.more; });
+    h += marks([
+      [peakOn, 'Peak ' + (peakOn ? 'written' : 'not written'), { next: nx && nx.on === 'peak' }],
+      [sent, 'Attempts ' + (sent ? 'sent to ' + f : pl.sent === 'stale' ? 'changed since ' + f + ' got them' : 'not sent'), { next: nx && nx.on === 'att' }],
+      [rdOn, rdOn ? 'Ready: the checklist is done' : 'Ready: ' + (rd.done || 0) + ' of ' + (rd.of || 0) + (todo.length ? '. Still to do: ' + todo.join(', ') : ''), { num: rd.of ? (rd.done || 0) + '/' + rd.of : '' }]
+    ]);
+    h += '<span class="act">' + (nx ? '<button class="btn sm" type="button"' + nx.attr + '>' + esc(nx.label) + '</button>' : '<span class="idle">Nothing to do yet</span>') + '</span></div>';
+    return h;
   }
   function overviewHtml() {
     var c = counts(), tm = todayMeet(), h = '';
     /* first-time-coach §6: nothing booked is one line, and the crimson is the way to start */
     if (!meets().length) return '<div class="hd"><div><h1 class="pt" tabindex="-1">Meets</h1></div></div><p class="line">No meets booked.</p>';
-    h += '<div class="hd"><div><h1 class="pt" tabindex="-1">Meets</h1><p class="facts">' + esc(K.wd(K.today) + ' ' + K.dm(K.today)) + ' · <span data-count="meetsSoon">' + (c.meetsSoon || 0) + '</span> meets in 8 weeks</p></div></div>';
-    if (tm) {
-      var g = meetGet(tm.id), b = boardOf(tm.id), st = b && b.stages ? b.stages : [], sq = st.filter(function (s) { return s.id === 'squat'; })[0], w8 = st.filter(function (s) { return s.id === 'weigh'; })[0];
-      var wi = g && g.lifters && g.lifters[0] && g.lifters[0].weighIn === '24h' ? '24-hour weigh-in' : '2-hour weigh-in';
-      h += '<div class="card today" data-crop="today"><h2>' + esc(tm.name) + '</h2><p class="sub">Today, ' + esc(tm.fed || '') + ', ' + wi + '</p>';
-      if (w8 && sq) h += '<p class="sub">Scale ' + esc(w8.at) + ' to ' + esc(w8.until || b.clock.weighCloses) + ', squats ' + esc(sq.at) + '</p>';
-      h += '<div class="rows">' + ((g && g.lifters) || []).map(function (x) { return todayRow(tm, x); }).join('') + '</div>';
-      h += timelineHtml() + '</div>';
-    } else {
-      h += '<div class="card today" data-crop="today"><h2>Next 8 weeks</h2>' + timelineHtml() + '</div>';
-    }
-    /* everyone with a meet in 8 weeks */
+    /* everyone with a meet still to come, in the order of their meets; today's lifters are in the meet day's rows */
     var rows = [];
-    meets().filter(function (m) { return m.days <= 56; }).forEach(function (m) { var g = meetGet(m.id); (m.lifterIds || []).forEach(function (id) { if (!rows.some(function (r) { return r.id === id; })) rows.push({ id: id, m: m, x: g && g.lifters ? g.lifters.filter(function (y) { return y.id === id; })[0] : null }); }); });
-    /* function-polish F7.6: the lifters with a meet in 8 weeks; the Peak column says whether the run-in is written */
-    h += '<div><h2 class="sec-t">Meets in the next 8 weeks <span class="n"><span data-count="meetLifters">' + (c.meetLifters || rows.length) + '</span> lifters</span></h2>';
-    h += '<div class="card ev" data-crop="everyone"><table class="tbl" data-table><colgroup><col class="c-l"><col class="c-m"><col class="c-w"><col class="c-wt"><col class="c-a"><col class="c-r"></colgroup>' +
-      '<thead><tr><th scope="col">Lifter</th><th scope="col">Meet</th><th scope="col">When</th><th scope="col">Weight</th><th scope="col">Attempts</th><th scope="col"><span data-term="peak">Peak</span></th></tr></thead><tbody>';
-    rows.forEach(function (r) {
-      var l = L(r.id), pl = isNext(r.id, r.m.id) ? planOf(r.id) : null, x = r.x || {};
-      var wt = x.weigh !== 'made' && x.over != null && x.over > 0 ? '<span class="tw tone-warn">' + n(x.over) + ' kg over</span>' : x.weigh === 'made' ? 'Made weight' : 'On weight';
-      var att = pl ? (pl.sent === 'yes' ? 'Sent' : pl.sent === 'stale' ? 'Changed since' : 'Not sent') : '';
-      var pk = (pl && pl.timeline || []).filter(function (t) { return t.id === 'peak'; })[0], peak;
-      if (r.m.days === 0) peak = '<span class="q">Meet today</span>';
-      else if (!pl || !pk) peak = '<span class="sr">none</span>';
-      else if (pk.written) peak = 'Written';
-      else { var pw = 'Not written: write ' + her(r.id) + ' peak'; peak = '<button class="mv" type="button" data-peak="' + esc(r.id) + '" title="' + esc(pw) + '"><span data-ellipsis title="' + esc(pw) + '">' + esc(pw) + '</span></button>'; }
-      var href = '#id=' + encodeURIComponent(r.m.id) + '&lifter=' + encodeURIComponent(r.id);
-      h += '<tr data-row="' + esc(r.id) + '" data-open="' + esc(href.slice(1)) + '"><td><a class="who" href="' + esc(href) + '">' + esc(l ? l.name : r.id) + '</a></td><td data-ellipsis title="' + esc(r.m.name) + '">' + esc(r.m.name) + '</td><td class="num">' + (r.m.days === 0 ? 'Today' : outHtml(r.m.days)) + '</td><td>' + wt + '</td><td>' + esc(att) + '</td><td>' + peak + '</td></tr>';
-    });
-    h += '</tbody></table></div></div>';
+    meets().filter(function (m) { return m.days > 0; }).forEach(function (m) { var g = meetGet(m.id); (m.lifterIds || []).forEach(function (id) { if (!rows.some(function (r) { return r.id === id; }) && !(tm && (tm.lifterIds || []).indexOf(id) >= 0)) rows.push({ id: id, m: m, x: g && g.lifters ? g.lifters.filter(function (y) { return y.id === id; })[0] : null }); }); });
+    h += '<div class="hd"><div><h1 class="pt" tabindex="-1">Meets</h1><p class="facts">' + esc(K.wd(K.today) + ' ' + K.dm(K.today)) + ', <span data-count="meetsSoon">' + (c.meetsSoon || 0) + '</span> meets and <span data-count="meetLifters">' + (c.meetLifters || 0) + '</span> lifters in the next 8 weeks</p></div></div>';
+    if (tm) h += meetDayHtml(tm);
+    h += calendarHtml();
+    if (rows.length) {
+      h += '<div class="ov" data-crop="everyone"><h2 class="sec-t">Getting ready <span class="n">' + rows.length + ' lifters</span></h2>';
+      h += '<div class="rws" data-kind="prep"><div class="rw-h" aria-hidden="true"><span>Lifter</span><span>Meet in</span><span>Bodyweight</span><span class="mk-h"><span data-term="peak">Peak</span><span>Attempts</span><span>Ready</span></span><span class="a-h">Next step</span></div>';
+      h += rows.map(prepRow).join('') + '</div></div>';
+    }
     return h;
   }
 
@@ -747,7 +888,7 @@
     }
     var bw = pl.bw, cls = n(bw.cls);
     /* the meet and one countdown (FD3: PL.fmt.out, its title the days and the date) */
-    var facts = cls + ' kg class' + (bw.over > 0 && (lm.days > 0 || pl.weigh !== 'made') ? ', <span class="tw tone-warn">' + n(bw.over) + ' kg over</span>' : '') + (lm.days === 0 ? ', today' : ' · ' + esc(lm.name) + ', ' + outHtml(lm.days));
+    var facts = cls + ' kg class' + (bw.over > 0 && (lm.days > 0 || pl.weigh !== 'made') ? ', <span class="tw tone-warn">' + n(bw.over) + ' kg over</span>' : '') + (lm.days === 0 ? ', today' : '. ' + esc(lm.name) + ', ' + outHtml(lm.days));
     h += tabs + '<div class="hd"><div><h1 tabindex="-1">' + esc(l.name) + '</h1><p class="facts">' + facts + '</p></div></div>';
     h += attemptsCard(id, pl) + bwHtml(id, pl) + whenHtml(id, pl, prepCrimson()) + readyHtml(id, pl);
     return h;
@@ -756,6 +897,9 @@
   function prepCrimson() {
     var id = prepLifter(), pl = id && isNext(id, S.id) ? planOf(id) : null;
     if (!pl) return { label: 'Book a meet…', run: function () { DESK.bookMeet(null); } };
+    return jobOf(id, pl);
+  }
+  function jobOf(id, pl) {
     var j = pl.job;
     if (!j) { var tm0 = todayMeet(); return tm0 ? { label: 'Open meet day', run: function () { go({ id: tm0.id }); } } : { label: 'Book a meet…', run: function () { DESK.bookMeet(null); } }; }
     var lab = String(j.label).replace(/'/g, '’');
@@ -1298,6 +1442,7 @@
     if (view() === 'practice' && t.closest('#detail')) { if ((b = t.closest('[data-up]'))) { var pm0 = S.upMoves[+b.getAttribute('data-up')]; if (pm0 && pm0.run) pm0.run(b); } else if (t.closest('[data-att]')) DESK.toast('In the practice, Up next calls and judges each attempt.'); return; }
     if ((b = t.closest('#list [data-row]'))) { go({ id: b.getAttribute('data-row') }); return; }
     if ((b = t.closest('[data-book]'))) { if (fn(DESK, 'bookMeet')) DESK.bookMeet(view() === 'prep' ? prepLifter() : null); return; }
+    if ((b = t.closest('[data-overview]'))) { go({}); return; }
     if ((b = t.closest('[data-crimson]'))) { if (S.crimson && S.crimson.run) S.crimson.run(b); return; }
     if ((b = t.closest('[data-send-now]'))) { sendAttempts(prepLifter()); return; }
     if ((b = t.closest('[data-peak]'))) { var pid = b.getAttribute('data-peak'), pj = planOf(pid), pg = pj && pj.job && pj.job.go && pj.job.go.place === 'programs' && /runin/.test(pj.job.go.hash) ? pj.job.go.hash : null, pm = lifterMeet(pid); DESK.go('programs', pg || 'id=' + encodeURIComponent(pid) + '&start=runin' + (pm ? '&runin=' + encodeURIComponent(pm.id) : ''), { from: 'meets' }); return; }
@@ -1306,7 +1451,12 @@
     if ((b = t.closest('[data-msg-all]'))) { if (DESK.pop.justClosed(b)) return; openPop(b, 'msgall', '', msgAllHtml(), { label: 'Message all', focus: '[data-msg-all-text]' }); return; }
     if ((b = t.closest('[data-undo-item]'))) { var ur = PL.items.undo(b.getAttribute('data-undo-item')); if (ur && ur.error) DESK.toast(ur.error.message); else DESK.toast('Undone: ' + String((ur && ur.meta && ur.meta.label) || 'done').replace(/^Undone: /, '')); return; }
     if ((b = t.closest('[data-fix]'))) { var p = b.getAttribute('data-fix').split('|'); DESK.fix.open(b, { itemId: p[0], actId: p[1], anchor: b.closest('.trow') || b }); return; }
-    if ((b = t.closest('#detail tr[data-open]'))) { if (t.closest('a')) e.preventDefault(); var hp = new URLSearchParams(b.getAttribute('data-open')); go({ id: hp.get('id'), lifter: hp.get('lifter') }); return; }
+    /* overview: a meet on the calendar, a row's next step, then the row itself */
+    if ((b = t.closest('#detail [data-meet]'))) { go({ id: b.getAttribute('data-meet') }); return; }
+    if ((b = t.closest('#detail [data-cut-open]'))) { cutSheet(b.getAttribute('data-cut-open')); return; }
+    if ((b = t.closest('#detail [data-prep]'))) { openPrep(b.getAttribute('data-prep')); return; }
+    if ((b = t.closest('#detail [data-job]'))) { var jid = b.getAttribute('data-job'), jpl = planOf(jid); if (jpl && jpl.job) jobOf(jid, jpl).run(b); return; }
+    if ((b = t.closest('#detail [data-open]'))) { if (t.closest('a')) e.preventDefault(); var hp = new URLSearchParams(b.getAttribute('data-open')); go({ id: hp.get('id'), lifter: hp.get('lifter') }); return; }
     /* prep */
     if ((b = t.closest('[data-lt]'))) { S.tabLifter = b.getAttribute('data-lt'); go({ id: S.id, lifter: S.tabLifter }); return; }
     if ((b = t.closest('[data-preset]'))) { flushAttempts(); S.err = {}; S.refused = {}; if (fn(DESK, 'tip')) DESK.tip.done('attempts'); write(function () { return PL.meets.preset(prepLifter(), b.getAttribute('data-preset')); }); return; }
@@ -1503,6 +1653,9 @@
   }
   var h0 = readHash();
   PL.on('change', schedule);
+  /* the calendar's labels are placed from the detail's width and the font's own widths */
+  addEventListener('resize', function () { if (view() === 'overview') schedule(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { if (view() === 'overview') schedule(); });
   addEventListener('hashchange', function () { var h = readHash(); paint(); openSheets(h); });
   paint();
   syncUrl(false);
