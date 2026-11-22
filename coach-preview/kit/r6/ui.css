@@ -264,8 +264,10 @@ body.is-fixed .tb { pointer-events: auto; }
 .btn.sm svg { width: 16px; height: 16px; }
 .btn.lg { --h: var(--ctl-l); padding: 0 var(--sp-5); font-size: var(--fs-body); }
 .btn.icon { width: var(--h); padding: 0; }
+/* 22 Nov: a quiet button is a button with a hairline edge, not an underlined word (the owner: "awkward controls"; a cold
+   review counted 11 underlined words at rest on one page). Words that act inside a row or a sentence stay .link. */
 .btn.quiet { background: transparent; box-shadow: none; }
-.btn.quiet:not(.icon) { text-decoration: underline; text-decoration-color: var(--ink-4); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.btn.quiet:not(.icon) { box-shadow: inset 0 0 0 1px var(--line-2); text-decoration: none; }
 .btn.icon::after { content: ''; position: absolute; inset: calc((40px - var(--h)) / -2); }   /* ≥ 40 px to hit, 36 px to see */
 /* every button reaches 40 px to hit (a 32 px small one too); a big one is its own size */
 .btn:not(.icon)::after { content: ''; position: absolute; inset: min(0px, calc((40px - var(--h)) / -2)) 0; }
@@ -288,7 +290,7 @@ body.is-fixed .tb { pointer-events: auto; }
 .link svg { width: 16px; height: 16px; color: var(--ink-3); }
 @media (hover: hover) and (pointer: fine) { .link:hover { text-decoration-color: currentColor; } }
 /* a label wrapped in its own span is a flex item, which an underline on the button does not reach: the span draws it */
-.lrow .fix > span, .btn.quiet:not(.icon) > span, .link > span { text-decoration: underline; text-decoration-color: var(--ink-4); text-decoration-thickness: 1px; text-underline-offset: 3px; line-height: 1.5; }   /* the taller line keeps the underline inside a label that clips its overflow */
+.lrow .fix > span, .link > span { text-decoration: underline; text-decoration-color: var(--ink-4); text-decoration-thickness: 1px; text-underline-offset: 3px; line-height: 1.5; }   /* the taller line keeps the underline inside a label that clips its overflow */
 .lrow.is-sel .fix > span, .lrow:focus-within .fix > span, .btn:disabled > span, .btn[aria-disabled='true'] > span { text-decoration: none; }
 @media (hover: hover) and (pointer: fine) { .lrow:hover .fix > span { text-decoration: none; } }
 

@@ -33,13 +33,13 @@
   var PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5.5v13M5.5 12h13"/></svg>';
   var UNDO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8h7a5 5 0 0 1 0 10H9M8 8l3.5-3.5M8 8l3.5 3.5"/></svg>';
   var REDO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 8H9a5 5 0 0 0 0 10h6M16 8l-3.5-3.5M16 8l-3.5 3.5"/></svg>';
-  var HINT = 'Click any lift or number to change it.';
+  var HINT = 'Click a lift or a number to change it. Click a grip to pick lifts; drag it to move one.';
   var LIFTED = 'This week was lifted. It stays as it was.';
   var still = function () { try { return W.matchMedia && W.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
 
   function grid(host, o) {
     o = o || {};
-    var ci = o.c, dead = false, pending = null, pendingEl = null, lastDay = null, drag = null;
+    var ci = o.c, dead = false, pending = null, pendingEl = null, lastDay = null, drag = null, bads = {};
     var b = function () { return o.block(); };
     var first = (o.lifter && o.lifter.first) || 'the lifter';
     var rowIx = function (key) { var rows = b().rows; for (var i = 0; i < rows.length; i++) if (rows[i].key === key) return i; return -1; };
@@ -55,7 +55,7 @@
       if (f[0] === 'load' && !t) { var L = bb.load(r, ci); if (L && L.kg != null) auto = nf(L.kg) + (L.kgHi != null && L.kgHi !== L.kg ? '-' + nf(L.kgHi) : ''); }
       var id = key + '|' + f[0], step = f[0] === 'sets' || f[0] === 'reps';
       var inp = '<input class="sv-in" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" data-sv-field="' + f[0] + '" data-f="' + esc(id) + '" data-v="' + esc(t) + '" value="' + esc(t) + '"' +
-        (auto ? ' placeholder="' + esc(auto) + '"' : '') + (ro ? ' disabled' : '') + ' aria-label="' + esc(f[1] + (f[0] === 'load' ? ' in kg' : '') + ', ' + bb.rows[r].name + (sub ? ', ' + sub : '')) + '"' + (bad ? ' aria-invalid="true"' : '') + '>';
+        (auto ? ' placeholder="' + esc(auto) + '"' : !ro && (f[0] === 'effort' || f[0] === 'load') ? ' placeholder="–"' : '') + (ro ? ' disabled' : '') + ' aria-label=""' + esc(f[1] + (f[0] === 'load' ? ' in kg' : '') + ', ' + bb.rows[r].name + (sub ? ', ' + sub : '')) + '"' + (bad ? ' aria-invalid="true"' : '') + '>';
       if (step) return '<span class="sv-step sv-c-' + f[0] + '"><button type="button" tabindex="-1" data-sv-step="-1" data-f="' + esc(id + '|-') + '" aria-label="One less"' + (ro || !isInt(t) || +t <= 1 ? ' disabled' : '') + '>−</button>' + inp +
         '<button type="button" tabindex="-1" data-sv-step="1" data-f="' + esc(id + '|+') + '" aria-label="One more"' + (ro || (t && !isInt(t)) ? ' disabled' : '') + '>+</button></span>';
       if (f[0] === 'load') return '<span class="sv-kg sv-c-load' + (auto ? ' is-auto' : t ? '' : ' is-empty') + '">' + inp + '<i aria-hidden="true">kg</i></span>';
@@ -63,7 +63,7 @@
     }
     function noteHtml(bb, r, label) {
       var row = bb.rows[r], note = bb.fieldText(r, ci, 'note') || '', ro = bb.isRO(r, ci);
-      return '<span class="sv-c-note"><input class="sv-in sv-note" type="text" maxlength="160" autocomplete="off" data-sv-field="note" data-f="' + esc(row.key + '|note') + '" data-v="' + esc(note) + '" value="' + esc(note) + '"' + (ro ? ' disabled' : ' placeholder="Note"') + ' aria-label="' + esc('Note for ' + first + ' on ' + row.name + (label ? ', ' + label : '')) + '"></span>';
+      return '<span class="sv-c-note"><input class="sv-in sv-note" type="text" maxlength="160" autocomplete="off" data-sv-field="note" data-f="' + esc(row.key + '|note') + '" data-v="' + esc(note) + '" value="' + esc(note) + '"' + (ro ? ' disabled' : ' placeholder="Add a note"') + ' aria-label="' + esc('Note for ' + first + ' on ' + row.name + (label ? ', ' + label : '')) + '"></span>';
     }
     function lastHtml(bb, r) {
       var row = bb.rows[r], w = bb.weeks[ci], lw = bb.lastWeek ? bb.lastWeek(r, ci) : null;
@@ -89,7 +89,7 @@
         (label || ro ? '<span class="sv-c-grip"></span>' : '<button class="sv-grip sv-c-grip" type="button" tabindex="-1" data-sv-grip aria-label="' + esc('Drag ' + row.name + ' to move it') + '" title="Drag to move. ⌥⇧↑ and ⌥⇧↓ move it from the keys.">' + GRIP + '</button>') +
         name + fieldHtml(bb, r, FIELDS[0], label) + '<i class="sv-x" aria-hidden="true">×</i>' + fieldHtml(bb, r, FIELDS[1], label) + fieldHtml(bb, r, FIELDS[2], label) + fieldHtml(bb, r, FIELDS[3], label) +
         lastHtml(bb, r) + noteHtml(bb, r, label) +
-        '<button class="sv-more sv-c-more" type="button" data-sv-rowmenu data-more aria-haspopup="menu" aria-label="' + esc((label ? label + ' of ' : '') + row.name + ', moves') + '">' + MORE + '</button></div>';
+        '<button class="sv-more sv-c-more" type="button" data-sv-rowmenu data-more aria-haspopup="menu" aria-label="' + esc((label ? label + ' of ' : '') + row.name + ', menu') + '" title="Menu (right-click the line)">' + MORE + '</button></div>';
     }
     function exHtml(bb, r, subs) {
       var row = bb.rows[r], w = bb.weeks[ci];
@@ -104,12 +104,11 @@
       var w = bb.weeks[ci], begun = w && w.state === 'now' && w.started && w.started[d.name];
       var head = '<div class="sv-dh" data-day="' + esc(d.name) + '"><h3><button type="button" data-day-name data-sv-rename title="Rename the day">' + esc(sentence(d.name)) + '</button></h3>' +
         '<span class="sv-dd">' + esc([dLong(d.iso), d.off ? 'out this week' : rs.length ? K.plural(sets, 'set') : '', begun ? 'under way' : ''].filter(Boolean).join(', ')) + '</span>' +
-        '<button class="sv-more" type="button" data-sv-daymenu data-more aria-haspopup="menu" aria-label="' + esc(sentence(d.name) + ' moves') + '">' + MORE + '</button></div>';
+        '<button class="sv-more" type="button" data-sv-daymenu data-more aria-haspopup="menu" aria-label="' + esc(sentence(d.name) + ' menu') + '" title="Duplicate, move or remove the day">' + MORE + '</button></div>';
       var body;
       if (d.off) body = '<p class="sv-none">' + esc(sentence(d.name)) + ' is out of this week. <button class="sv-link" type="button" data-sv-restore="' + esc(d.name) + '">Put it back</button></p>';
       else {
         body = '<div class="sv-grid" data-day="' + esc(d.name) + '" role="group" aria-label="' + esc(sentence(d.name) + ' lifts') + '">' +
-          (rs.length ? '<div class="sv-heads" aria-hidden="true"><span></span><span>Exercise</span><span class="n">Sets</span><span></span><span class="n">Reps</span><span class="n">RPE or %</span><span class="n">Load</span><span>Last week</span><span>Note for ' + esc(first) + '</span><span></span></div>' : '') +
           mains.concat(orphans).map(function (r) { var x = bb.rows[r]; return exHtml(bb, r, x.line === 0 ? rs.filter(function (s) { return bb.rows[s].ex === x.ex && bb.rows[s].line > 0; }) : []); }).join('') +
           (lifted ? (rs.length ? '' : '<p class="sv-none">Nothing was written for this day.</p>') :
             '<button class="sv-add" type="button" data-sv-add="' + esc(d.name) + '" data-f="' + esc('+' + d.name + '|add') + '" aria-haspopup="dialog">' + PLUS + '<span>' + (rs.length ? 'Add an exercise' : 'Add the first exercise') + '</span></button>') + '</div>';
@@ -119,15 +118,16 @@
     function html() {
       var bb = b(), w = bb.weeks[ci]; if (!w) return '<p class="sv-none">There is no week here.</p>';
       var days = bb.daysOf(ci), lifted = w.state === 'lifted';
-      var chips = '<div class="sv-bar"><div class="sv-days" role="group" aria-label="Days of the week">' + days.map(function (d) {
-        return '<button class="sv-chip" type="button" data-sv-go="' + esc(d.name) + '" data-f="' + esc('day|' + d.name) + '"' + (d.off ? ' data-off' : '') + '><b>' + esc(dShort(d.iso) || 'No date') + '</b><span>' + esc(sentence(d.name)) + '</span></button>';
-      }).join('') + (lifted ? '' : '<button class="sv-chip sv-chip-add" type="button" data-sv-addday data-f="day|+">' + PLUS + '<span>Add a day</span></button>') + '</div>' +
-        '<p class="sv-status" data-sv-status aria-live="polite">' + esc(lifted ? LIFTED : HINT) + '</p>' +
-        (lifted ? '' : '<span class="sv-hist"><button type="button" data-sv-undo aria-label="Undo" title="Undo (\u2318Z)">' + UNDO + '</button><button type="button" data-sv-redo aria-label="Redo" title="Redo (\u21e7\u2318Z)">' + REDO + '</button></span>') + '</div>';
+      var heads = '<div class="sv-cols" aria-hidden="true"><span></span><span>Exercise</span><span class="n">Sets</span><span></span><span class="n">Reps</span><span class="r" title="RPE, or a percent of the training max">RPE / %</span><span class="r">Load</span><span class="sv-c-last">Last week</span><span>Note for ' + esc(first) + '</span><span></span></div>';
       var body = days.length ? days.map(function (d) { return dayHtml(bb, d, lifted); }).join('') : '<p class="sv-none">This block has no days yet. Add the first one.</p>';
+      var addDay = lifted ? '' : '<button class="sv-addday" type="button" data-sv-addday data-f="day|+">' + PLUS + '<span>Add a day</span></button>';
       var foot = '<div class="sv-foot">' + (o.onSaveTemplate ? '<button class="btn quiet sm" type="button" data-sv-tpl>Save this block as a template…</button>' : '') +
         (o.onAdvanced ? '<span class="sv-adv">Ranges, formulas, every week side by side: <button class="sv-link" type="button" data-sv-adv>open Advanced</button></span>' : '') + '</div>';
-      return '<div class="sv" data-simple>' + chips + '<div class="sv-wk">' + body + '</div>' + foot + '<div class="wg-tail"></div></div>';
+      /* the status bar: the load in hand explained, or the lifts picked and what to do with them */
+      var bar = '<div class="sv-status" data-sv-bar><p class="sv-say" data-sv-status aria-live="polite">' + esc(lifted ? LIFTED : HINT) + '</p>' +
+        '<span class="sv-acts" data-sv-acts hidden><button class="sv-sb" type="button" data-sv-do="copy">Copy<kbd>⌘C</kbd></button><button class="sv-sb" type="button" data-sv-do="dup">Duplicate</button><button class="sv-sb" type="button" data-sv-do="move" aria-haspopup="menu">Move to…</button><button class="sv-sb is-red" type="button" data-sv-do="del">Delete<kbd>⌫</kbd></button><button class="sv-sb is-quiet" type="button" data-sv-do="none">Done<kbd>Esc</kbd></button></span>' +
+        '<button class="sv-sb is-quiet" type="button" data-sv-keys title="Every key that works here">Keys<kbd>?</kbd></button></div>';
+      return '<div class="sv" data-simple>' + heads + '<div class="sv-wk">' + body + addDay + '</div>' + foot + '<div class="wg-tail"></div>' + bar + '</div>';
     }
 
     /* ---------- drawing, keeping the field in hand ---------- */
@@ -147,10 +147,18 @@
       host.innerHTML = html();
       var t2 = host.querySelector('.wg-tail'); if (t2) keepTail.forEach(function (n) { t2.appendChild(n); });
       fit();
+      Object.keys(bads).forEach(function (f) { var el = byF(f); if (el && !el.disabled) markBad(el, bads[f].text, bads[f].why); else delete bads[f]; });
       take(h);
       status(document.activeElement);
       paintPicked();
     }
+    /* a value the week cannot read: it stays in its field, ringed, the reason under it; nothing is written */
+    function markBad(inp, text, why) {
+      inp.value = text; inp.setAttribute('aria-invalid', 'true');
+      var cell = inp.parentNode, e0 = cell.querySelector('.sv-err'); if (e0) e0.remove();
+      cell.insertAdjacentHTML('beforeend', '<span class="sv-err" role="alert">' + esc(why) + '</span>');
+    }
+    function clearBad(inp) { var f = inp.getAttribute('data-f'); if (!bads[f]) return; delete bads[f]; inp.removeAttribute('aria-invalid'); var e0 = inp.parentNode.querySelector('.sv-err'); if (e0) e0.remove(); }
     /* the columns the room allows (simple.css): all of them from 918 px, narrower ones from 820, last week gives way under that */
     function fit() {
       var sv = host.querySelector('.sv'), w = host.clientWidth; if (!sv || !w) return;
@@ -166,6 +174,7 @@
         var r = rowIx(rowEl.getAttribute('data-row')), row = bb.rows[r], why = row && bb.loadWords ? bb.loadWords(r, ci) : null;
         if (row && why && why.text) { nm = row.name + (row.line ? ', ' + String(row.label || 'more sets').toLowerCase() : ''); text = why.text; }
       }
+      if (picked.length) return;   /* the bar is the picked lifts' until they are let go */
       s.innerHTML = (nm ? '<b>' + esc(nm) + '</b> ' : '') + esc(text);
     }
 
@@ -175,10 +184,16 @@
     function commit(inp) {
       if (pendingEl === inp) { clearTimeout(pending); pending = null; pendingEl = null; }
       var f = inp.getAttribute('data-sv-field'), v = inp.value.trim(), was = inp.getAttribute('data-v') || '';
-      if (v === was) return;
-      var key = inp.getAttribute('data-f').split('|').slice(0, -1).join('|'), nm = (b().rows[rowIx(key)] || {}).name || 'the line';
+      if (v === was) { clearBad(inp); return true; }
+      var key = inp.getAttribute('data-f').split('|').slice(0, -1).join('|'), r0 = rowIx(key), nm = (b().rows[r0] || {}).name || 'the line';
+      /* read it before writing it: what does not read is said at the field and never saved (it used to be stored as
+         typed, ringed orange, and only stopped the send later) */
+      var pf = v && r0 >= 0 && b().withField ? b().withField(r0, ci, f, v) : null;
+      if (pf && pf.ok === false) { bads[inp.getAttribute('data-f')] = { text: v, why: pf.why || 'That does not read. Esc puts back what was there.' }; markBad(inp, v, bads[inp.getAttribute('data-f')].why); return false; }
+      clearBad(inp);
       inp.setAttribute('data-v', v);
       apply(function (bb) { var r = ixIn(bb, key); return r < 0 ? gone() : bb.setField(r, ci, f, v); }, nm + ' ' + (f === 'effort' ? 'RPE or %' : f));
+      return true;
     }
     /* a typed field saves when it is left; a stepped one a moment after the last step, so five presses are one change */
     function later(inp, ms) { clearTimeout(pending); pendingEl = inp; pending = setTimeout(function () { pending = null; pendingEl = null; if (!dead && inp.isConnected) commit(inp); }, ms || 0); }
@@ -251,8 +266,44 @@
     function paintPicked() {
       picked = picked.filter(function (k) { return rowIx(k) >= 0; });
       exEls().forEach(function (x) { x.classList.toggle('is-picked', picked.indexOf(x.getAttribute('data-ex')) >= 0); });
-      var s = host.querySelector('[data-sv-status]');
-      if (picked.length && s) s.textContent = K.plural(picked.length, 'lift') + ' picked. \u2318C copies, \u2318V pastes under the line in hand, Esc lets go.';
+      var bar = host.querySelector('[data-sv-bar]'), s = host.querySelector('[data-sv-status]'), acts = host.querySelector('[data-sv-acts]'); if (!bar || !s || !acts) return;
+      bar.classList.toggle('has-pick', picked.length > 0); acts.hidden = !picked.length;
+      if (picked.length) s.textContent = K.plural(picked.length, 'lift') + ' picked';
+    }
+    function unpick() { if (!picked.length) return; picked = []; paintPicked(); status(document.activeElement); }
+    /* every line of the picked lifts, as the block's row keys */
+    function pickedRows(bb) { var out = []; picked.forEach(function (key) { var r = ixIn(bb, key), row = bb.rows[r]; if (!row) return; bb.rows.forEach(function (y) { if (y.day === row.day && y.ex === row.ex) out.push(y.key); }); }); return out; }
+    function copyPicked() {
+      var items = linesOf(picked); if (!items.length) return;
+      W.__powaLines = { text: items.map(function (x) { return [x.name, x.text, x.note].join('\t'); }).join('\n'), items: items };
+      try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(W.__powaLines.text).catch(function () { /* the copy stays in the page */ }); } catch (e) { /* no clipboard here */ }
+      say(K.plural(picked.length, 'lift') + ' copied. \u2318V pastes under the line in hand.');
+    }
+    function dupPicked() {
+      var keys = picked.slice(), n = keys.length; flush();
+      var res = apply(function (bb) { return bb.batch('Duplicate ' + K.plural(n, 'lift'), function () { var err = null; keys.forEach(function (k) { if (err) return; var r = ixIn(bb, k); if (r < 0) return; var d = bb.duplicateRow(r); if (d && d.error) err = d; }); return err || { data: { n: n } }; }); }, 'Duplicate', K.plural(n, 'lift') + ' duplicated.');
+      if (res && !res.error) unpick();
+    }
+    function delPicked() {
+      var keys = picked.slice(), n = keys.length; if (!n) return; flush();
+      var res = apply(function (bb) {
+        return bb.batch('Delete ' + K.plural(n, 'lift'), function () {
+          var rows = pickedRows(bb), err = null;
+          /* a lift with weeks already lifted leaves this week only; one never lifted goes from the block */
+          rows.slice().reverse().forEach(function (k) { if (err) return; var r = ixIn(bb, k), row = bb.rows[r]; if (!row) return; var lifted = bb.weeks.some(function (w) { return w.state === 'lifted' && row.cells[w.uid]; }); var d = lifted ? bb.set(r, ci, '') : bb.removeRow(r); if (d && d.error) err = d; });
+          return err || { data: { n: n } };
+        });
+      }, 'Delete', K.plural(n, 'lift') + ' deleted.');
+      if (res && !res.error) { picked = []; paintPicked(); status(null); }
+    }
+    function movePicked(btn) {
+      var DK = W.DESK, bb0 = b(); if (!DK || !DK.menu) return;
+      var days = bb0.daysOf(ci).filter(function (d) { return !d.off; }).map(function (d) { return { id: d.name, label: sentence(d.name), sub: dShort(d.iso) }; });
+      DK.menu.open(btn, days, { label: 'Move to a day', run: function (day) {
+        var keys = picked.slice(), n = keys.length; flush();
+        var res = apply(function (bb) { return bb.batch('Move ' + K.plural(n, 'lift'), function () { var err = null; keys.forEach(function (k) { if (err) return; var r = ixIn(bb, k); if (r < 0) return; var d = bb.moveRowTo(r, day, 1e9); if (d && d.error) err = d; }); return err || { data: { n: n } }; }); }, 'Move', K.plural(n, 'lift') + ' moved to ' + low1(sentence(day)) + '.');
+        if (res && !res.error) unpick();
+      } });
     }
     function pick(key, extend, toggle) {
       var all = exEls().map(function (x) { return x.getAttribute('data-ex'); });
@@ -260,6 +311,8 @@
       else if (toggle) { var i = picked.indexOf(key); if (i >= 0) picked.splice(i, 1); else picked.push(key); }
       else picked = picked.length === 1 && picked[0] === key ? [] : [key];
       paintPicked(); if (!picked.length) status(document.activeElement);
+      /* the keys go to the picked lifts (\u232b, \u2318C, Esc), not to a field left behind */
+      if (picked.length) { var g = [].slice.call(host.querySelectorAll('.sv-ex.is-picked')).filter(function (x) { return x.getAttribute('data-ex') === key; })[0] || host.querySelector('.sv-ex.is-picked'), gb = g && g.querySelector('[data-sv-grip]'); if (gb) gb.focus({ preventScroll: true }); }
     }
     function linesOf(keys) {
       var bb = b(), w = bb.weeks[ci], out = [];
@@ -277,6 +330,7 @@
       e.preventDefault();
       cd.setData('text/plain', items.map(function (x) { return [x.name, x.text, x.note].join('\t'); }).join('\n'));
       cd.setData('application/x-powa-lines', JSON.stringify(items));
+      W.__powaLines = { text: items.map(function (x) { return [x.name, x.text, x.note].join('\t'); }).join('\n'), items: items };
       say(K.plural(keys.length, 'lift') + ' copied.');
     }
     function onPaste(e) {
@@ -284,6 +338,8 @@
       var raw = cd.getData('application/x-powa-lines'), text = cd.getData('text/plain') || '', items = null, inField = t.matches('input');
       if (inField && !picked.length && !/[\t\n]/.test(text.trim())) return;   /* one value into a field */
       if (raw) { try { items = JSON.parse(raw); } catch (x) { items = null; } }
+      /* copied from the bar's own Copy (no clipboard event to carry the lines): the page still holds them */
+      if (!items && W.__powaLines && W.__powaLines.text === text.replace(/\r/g, '').trim()) items = W.__powaLines.items;
       if (!items && W.IMPORT && text.trim()) {
         var res = W.IMPORT.read(text);
         if (res && res.ok) { items = []; res.lines.forEach(function (l) { if (l.cells[1]) items.push({ name: l.name, line: l.line, text: l.cells[1], note: (l.notes && l.notes[1]) || '' }); }); }
@@ -440,9 +496,8 @@
     }
     function onClick(e) {
       var t = e.target, x;
-      if ((x = t.closest('[data-sv-go]'))) { goDay(x.getAttribute('data-sv-go'), true); return; }
-      if (t.closest('[data-sv-undo]')) { walk('undo'); return; }
-      if (t.closest('[data-sv-redo]')) { walk('redo'); return; }
+      if ((x = t.closest('[data-sv-do]'))) { var what = x.getAttribute('data-sv-do'); if (what === 'copy') copyPicked(); else if (what === 'dup') dupPicked(); else if (what === 'del') delPicked(); else if (what === 'move') movePicked(x); else unpick(); return; }
+      if (t.closest('[data-sv-keys]')) { if (W.DESK && W.DESK.keys) W.DESK.keys(); return; }
       if ((x = t.closest('[data-sv-addday]'))) { flush(); var res = apply(function (bb) { return bb.addDay(); }, null, 'Day added. Add its first exercise.'); if (res && res.data && res.data.day) { var sec = goDay(res.data.day, false), ad = sec && sec.querySelector('[data-sv-add]'); if (ad) ad.focus({ preventScroll: true }); } return; }
       if ((x = t.closest('[data-sv-step]'))) { var inp = x.parentNode.querySelector('input'); if (inp && !inp.disabled) { stepField(inp, +x.getAttribute('data-sv-step')); inp.focus({ preventScroll: true }); } return; }
       if ((x = t.closest('[data-sv-rowmenu]'))) { flush(); var r = rowIx(x.closest('.sv-row').getAttribute('data-row')); if (r >= 0 && o.onRowMenu) o.onRowMenu(r, x); return; }
@@ -473,7 +528,8 @@
     function onKey(e) {
       var t = e.target, k = e.key, meta = e.metaKey || e.ctrlKey;
       if (drag || !t || !t.matches) return;
-      if (k === 'Escape' && picked.length) { picked = []; paintPicked(); status(t); e.stopPropagation(); return; }
+      if (k === 'Escape' && picked.length) { unpick(); e.stopPropagation(); return; }
+      if ((k === 'Backspace' || k === 'Delete') && picked.length && !t.matches('input, textarea')) { e.preventDefault(); e.stopPropagation(); delPicked(); return; }
       var isField = t.matches('[data-sv-field]'), typed = isField && pendingEl !== t && t.value !== (t.getAttribute('data-v') || '');
       /* undo and redo: the field's own while something is half typed, the week's otherwise */
       if (meta && !e.altKey && k.toLowerCase() === 'z' && !typed) { e.preventDefault(); e.stopPropagation(); walk(e.shiftKey ? 'redo' : 'undo'); return; }
@@ -488,8 +544,8 @@
         return;
       }
       if (!isField) return;
-      if (k === 'Enter') { e.preventDefault(); commit(t); var again = byF(t.getAttribute('data-f')) || t, nx = sameCol(again, e.shiftKey ? -1 : 1); if (nx) nx.focus(); return; }
-      if (k === 'Escape') { if (pendingEl === t) { clearTimeout(pending); pending = null; pendingEl = null; } if (t.value !== (t.getAttribute('data-v') || '')) { t.value = t.getAttribute('data-v') || ''; t.select(); e.stopPropagation(); } return; }
+      if (k === 'Enter') { e.preventDefault(); if (commit(t) === false) { t.select(); return; } var again = byF(t.getAttribute('data-f')) || t, nx = sameCol(again, e.shiftKey ? -1 : 1); if (nx) nx.focus(); return; }
+      if (k === 'Escape') { if (pendingEl === t) { clearTimeout(pending); pending = null; pendingEl = null; } clearBad(t); if (t.value !== (t.getAttribute('data-v') || '')) { t.value = t.getAttribute('data-v') || ''; t.select(); e.stopPropagation(); } return; }
       if ((k === 'ArrowUp' || k === 'ArrowDown') && !e.altKey && !meta && !t.matches('.sv-note')) { if (stepField(t, k === 'ArrowUp' ? 1 : -1)) e.preventDefault(); return; }
       /* ← → at the edge of the text walk to the field beside it on the line */
       if ((k === 'ArrowLeft' || k === 'ArrowRight') && !e.altKey && !meta && !e.shiftKey) {
@@ -499,6 +555,12 @@
       }
     }
     function onPointerDown(e) { var g = e.target.closest && e.target.closest('[data-sv-grip]'); if (g && host.contains(g)) startDrag(e, g); }
+    /* a right-click on a line opens its menu (it was only behind the three dots) */
+    function onContext(e) {
+      var rowEl = e.target.closest && e.target.closest('.sv-row'); if (!rowEl || !host.contains(rowEl) || e.target.matches('input:focus')) return;
+      var r = rowIx(rowEl.getAttribute('data-row')), btn = rowEl.querySelector('[data-sv-rowmenu]'); if (r < 0 || !btn || !o.onRowMenu) return;
+      e.preventDefault(); flush(); o.onRowMenu(r, btn);
+    }
     host.addEventListener('click', onClick);
     host.addEventListener('change', onChange);
     host.addEventListener('focusin', onFocusIn);
@@ -506,6 +568,7 @@
     host.addEventListener('pointerdown', onPointerDown);
     host.addEventListener('copy', onCopy);
     host.addEventListener('paste', onPaste);
+    host.addEventListener('contextmenu', onContext);
 
     return {
       render: render,
@@ -519,7 +582,7 @@
         if (el && !el.disabled) el.focus();
       },
       sel: function () { return null; },
-      focus: function () { if (host.contains(document.activeElement)) return; var el = host.querySelector('.sv-row .sv-in:not([disabled])') || host.querySelector('[data-sv-add]') || host.querySelector('.sv-chip'); if (el) el.focus({ preventScroll: true }); },
+      focus: function () { if (host.contains(document.activeElement)) return; var el = host.querySelector('.sv-row .sv-in:not([disabled])') || host.querySelector('[data-sv-add]') || host.querySelector('[data-sv-addday]'); if (el) el.focus({ preventScroll: true }); },
       flush: flush,
       undo: function () { return walk('undo'); },
       redo: function () { return walk('redo'); },
@@ -530,7 +593,7 @@
         if (ro) ro.disconnect();
         host.removeEventListener('click', onClick); host.removeEventListener('change', onChange); host.removeEventListener('focusin', onFocusIn);
         host.removeEventListener('keydown', onKey); host.removeEventListener('pointerdown', onPointerDown);
-        host.removeEventListener('copy', onCopy); host.removeEventListener('paste', onPaste);
+        host.removeEventListener('copy', onCopy); host.removeEventListener('paste', onPaste); host.removeEventListener('contextmenu', onContext);
       }
     };
   }

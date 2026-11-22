@@ -47,10 +47,9 @@
   .pg-frame .pg .pane-detail > * { flex: none; }
   .pg-frame .pg .pane-detail > .wk { flex: 1 1 auto; min-height: 0; }
   .pg-frame .wk.is-rows { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
-  /* the week bar holds at the card's top until the status line, pinned under it, slides over it: while the rows scroll
-     the status line and the column heads are the band, the most rows a window shows */
-  .pg-frame .wk.is-rows > .wb { position: sticky; top: 0; z-index: 1; background: var(--card); }
-  .pg-frame .wk.is-rows.is-past > .wb { visibility: hidden; }
+  /* 22 Nov: the week bar holds at the card's top for good (it used to slide away, and the week on screen lost its
+     name). The grid's own pinned lines sit under it: --wb-h is the bar's height, set after each paint (syncWbH). */
+  .pg-frame .wk.is-rows > .wb { position: sticky; top: 0; z-index: 5; background: var(--card); border-radius: var(--r-card) var(--r-card) 0 0; }
   /* the Block view: the sheet is the pane that scrolls, both ways, its week heads and exercise names pinned inside it */
   .pg-frame .wk.is-sheet { display: flex; flex-direction: column; overflow: hidden; }
   .pg-frame .wk.is-sheet > #wg { --sx-top: 0px; --sx-reach: 0px; flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin;
@@ -96,18 +95,28 @@
   .ql-empty .link { margin-left: var(--sp-2); }
   .ql-foot { display: flex; margin: var(--sp-3) var(--sp-4) 0; }
 
-  /* ---------------- the header: flat on the floor ---------------- */
-  /* 22 Nov (the owner: "wasted space … awkward controls … should feel like a premium coaching software"): the header is
-     one size down and tighter, so the week starts higher, and everything in it that does something is a button with a
-     shape, not an underlined word in a line of text */
-  .hd { margin: 0 var(--sp-1) var(--sp-4); }
+  /* ---------------- the header: one band ---------------- */
+  /* 22 Nov, after a cold review ("more than half the window is header"): the lifter, their block and their training
+     maxes share one line, what they said is a slim strip under it, and nothing folds or jumps. A start panel, a
+     template and All done keep the large title (they are documents, not a week being written). */
+  .hd { margin: 0 var(--sp-1) var(--sp-3); }
   .hd h1 { margin: 0; font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); text-wrap: balance; }
   .hd .facts { margin: 2px 0 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
-  .hd-line { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-3); row-gap: var(--sp-2); margin-top: var(--sp-3); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .hd-top { display: flex; align-items: center; column-gap: var(--sp-3); min-height: var(--ctl-h); }
+  .hd-top h1 { flex: none; max-width: 38%; overflow: hidden; font: 700 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); white-space: nowrap; text-overflow: ellipsis; }
+  .hd-top .facts { flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .hd-line { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-3); row-gap: var(--sp-2); margin-top: var(--sp-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
   .hd-line .say { color: var(--ink); text-wrap: pretty; }
-  .hd-line .who { color: var(--ink-3); }
+  .hd-line .who { color: var(--ink-3); white-space: nowrap; }
   .hd-line .acts { display: inline-flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-2); row-gap: var(--sp-2); }
   .hd-line .done-say { color: var(--ink-2); }
+  /* what the lifter said, and what can be done about it, where the coach reads it: the words take the room, the moves
+     keep their size at the end of the line */
+  .hd-words { flex-wrap: nowrap; align-items: center; min-height: var(--ctl-h); padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-3); border-radius: var(--r-row); background: var(--fill); }
+  .hd-words .say, .hd-words .done-say { flex: 1 1 auto; min-width: 0; padding: var(--sp-1) 0; }
+  .hd-words .acts { flex: none; flex-wrap: nowrap; margin-left: auto; }
+  .hd-words .link { background: var(--fill-2); }
+  .hd-words .link.is-main { background: var(--ink); color: var(--card); }
   .hd .link, .wb .link {
     position: relative; height: 28px; padding: 0 var(--sp-3); border-radius: var(--r-pill); background: var(--fill); font: 600 var(--fs-label)/1 var(--font); text-decoration: none; white-space: nowrap;
     transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
@@ -115,14 +124,15 @@
   .hd .link::after, .wb .link::after { content: ''; position: absolute; inset: -6px 0; }
   .hd .link *, .wb .link * { text-decoration: none; }   /* a word the desk can explain keeps its meaning, not its underline, inside a button */
   .hd .link:active, .wb .link:active { transform: scale(var(--press)); }
-  @media (hover: hover) and (pointer: fine) { .hd .link:hover, .wb .link:hover { background: var(--fill-2); } }
+  @media (hover: hover) and (pointer: fine) { .hd .link:hover, .wb .link:hover { background: var(--fill-2); } .hd-words .link:hover { background: var(--fill-3); } .hd-words .link.is-main:hover { background: var(--ink-2); } }
   .hd-limits { color: var(--ink-2); }
-  .hd-maxes .mx-l { color: var(--ink-2); }
-  .hd-maxes .acts { column-gap: var(--sp-2); }
-  .hd-maxes .mx { font-variant-numeric: tabular-nums; }
-  .hd-maxes .mx b { font-weight: 600; }
+  /* the training maxes at the end of the lifter's line: three quiet numbers in their lifts' colours, each a button */
+  .hd-maxes { flex: none; display: flex; align-items: center; column-gap: var(--sp-1); margin: 0; }
+  .hd-maxes .mx { background: transparent; padding: 0 var(--sp-2); font-variant-numeric: tabular-nums; font-weight: 500; }
+  .hd-maxes .mx b { font-weight: 700; }
+  .hd-maxes .mx-use { color: var(--ink-2); }
   .hd-maxes .quiet { color: var(--ink-2); font-weight: 500; }
-  .hd .composer { max-width: 640px; margin-top: var(--sp-3); }
+  .hd .composer { max-width: 640px; margin-top: var(--sp-2); }
   .hd .composer textarea.input { min-height: 76px; }
   .hd .composer .row { gap: var(--sp-3); }
   .hd .composer .kbd { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-none) var(--font); }
@@ -145,9 +155,10 @@
   /* the week bar: the week, its dates and its one state word on the first line; what moved, what is held, what to check
      and what waits on a session on a quieter second line, only when there is any */
   .wb { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-bottom: 1px solid var(--line); }
-  .wb-r1 { grid-column: 1; grid-row: 1; display: flex; align-items: center; column-gap: var(--sp-3); min-width: 0; min-height: 52px; padding: 0 0 0 var(--sp-4); }
-  .wb-r2 { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-2); row-gap: var(--sp-1); min-height: 28px; margin-top: calc(var(--sp-1) * -1); padding: 0 var(--sp-6) var(--sp-3); }
-  .wb > .wb-end { grid-column: 2; grid-row: 1; margin-right: var(--sp-3); }
+  .wb-r1 { grid-column: 1; grid-row: 1; display: flex; align-items: center; column-gap: var(--sp-3); min-width: 0; min-height: 44px; padding: 0 0 0 var(--sp-3); }
+  .wb-r2 { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-2); row-gap: var(--sp-1); min-height: 28px; margin-top: calc(var(--sp-1) * -1); padding: 0 var(--sp-4) var(--sp-2); }
+  .wb > .wb-end { grid-column: 2; grid-row: 1; display: inline-flex; align-items: center; gap: 2px; margin-right: var(--sp-2); }
+  .wb-end .wb-rule { width: 1px; height: 18px; margin: 0 var(--sp-1); background: var(--line-2); }
   .wk.is-compact .wb-r1 { min-height: 44px; }
   .wk.is-compact .wb-r2 { min-height: 24px; margin-top: calc(var(--sp-1) * -1); padding-bottom: var(--sp-1); }
   .wb h2 { margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); white-space: nowrap; }
@@ -160,6 +171,9 @@
   .wb .wb-st.is-strong { color: var(--ink); font-weight: 600; }
   .wb .wb-w { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
   .wb .link { height: 26px; }
+  .wb .link.is-stop { background: var(--warn-tint); color: var(--warn); }
+  .wb .btn.icon.sm { width: 30px; height: 30px; }
+  .wb .btn.icon.sm svg { width: 18px; height: 18px; }
 
   .wk-f { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4) var(--sp-6) var(--sp-5); border-top: 1px solid var(--line); }
   /* under a sheet the page is dimmed and inert: its pinned foot steps out of the way */
@@ -807,14 +821,21 @@
     var ws = pr.weeks || [cur.c, cur.sendC].filter(function (x, i, a) { return x != null && a.indexOf(x) === i; });
     var bad = null;
     ws.concat([cur.c]).forEach(function (c) { if (bad == null && unreadIn(cur.b, c).length) bad = c; });
-    if (bad != null) { var n = unreadIn(cur.b, bad).length; return { label: 'Fix ' + plural(n, 'cell') + ' before sending', run: function () { if (bad !== cur.c) goWeek(bad); refuseUnread(cur.b, bad); } }; }
+    /* 22 Nov: the crimson keeps its words ("Send week 5 to Mei") whatever stands in the way of the send. What stands
+       in the way is said when it is pressed (a cell to fix, a line with no load) or asked once (lines about @10, the
+       lifter's open note), and shown on the week bar the whole time. It used to change its label to the obstacle. */
+    var keep = function (o) { var q = {}; for (var k0 in pr) q[k0] = pr[k0]; for (var k1 in o) q[k1] = o[k1]; delete q.companion; return q; };
+    if (bad != null) { var n = unreadIn(cur.b, bad).length; return keep({ title: 'Fix ' + plural(n, 'cell') + ' first', blocked: true, run: function () { if (bad !== cur.c) goWeek(bad); refuseUnread(cur.b, bad); } }); }
     /* C1b: a line with no load never goes; the crimson walks to it (first-time-coach §7.3) */
     var nl = 0, nlWeek = null;
     ws.forEach(function (c) { var k = checksIn(cur.b, c, ['noload']).length; if (k && nlWeek == null) nlWeek = c; nl += k; });
-    if (nl) return { label: 'Check ' + plural(nl, 'line') + ' first', run: function () { walkChecks(nlWeek, ['noload']); } };
+    if (nl) return keep({ title: plural(nl, 'line') + ' with no load yet', blocked: true, run: function () { DESK.toast((nl === 1 ? 'One line has' : nl + ' lines have') + ' no load yet. Give ' + (nl === 1 ? 'it' : 'each') + ' a load, an RPE or a percent first.'); walkChecks(nlWeek, ['noload']); } });
+    /* the lifter's open note holds the week (P13): asked once, with their words, when the send is pressed */
+    var hd0 = cur.kind === 'week' ? holdAct() : null, hkey = hd0 ? 'hold:' + cur.id + ':' + hd0.item.id : null;
+    if (hd0 && !ASKED[hkey]) return keep({ title: 'Asks about ' + cur.l.first + '’s note first', run: function (btn) { askHold(btn, pr, hd0, hkey); } });
     /* C2: the lines this send carries that are about a full RPE off what is written (FD7, F4.1) */
     var rp = rpeLines(pr);
-    if (rp && rp.keys.length) return { label: 'Let RPE set ' + plural(rp.keys.length, 'line'), run: function () { letRpeNow(rp); }, companion: { label: 'Send as written', run: function () { sendAsWritten(pr, rp); } } };
+    if (rp && rp.keys.length) return keep({ title: plural(rp.keys.length, 'line') + ' about a full RPE heavier than written', run: function (btn) { askRpe(btn, pr, rp); } });
     /* a week's or a block's send with lines still to check: the send stays the crimson and asks once, plainly, when pressed
        (send anyway, or look at the checks first); on a first block the way to them also sits beside it */
     if (/\bchanges?\b|\breply\b/.test(pr.label)) return pr;
@@ -846,6 +867,36 @@
       var t = e.target.closest('button'); if (!t) return;
       if (t.hasAttribute('data-ask-look')) { ASKED[o.key] = 1; DESK.pop.close(); walkChecks(o.c, ['limit', 'pain', 'jump']); }
       else if (t.hasAttribute('data-ask-send')) { ASKED[o.key] = 1; DESK.pop.close(); pr.run(btn); }
+    });
+  }
+  /* the lifter's note is still open: their words, and the two answers (the move that answers it, or the week as it is) */
+  function askHold(btn, pr, hold, key) {
+    var anchor = btn && btn.nodeType === 1 ? btn : $('[data-primary]'); if (!anchor) { ASKED[key] = 1; pr.run(btn); return; }
+    var wl = cur.wl || wordsLine() || {}, first = cur.l.first;
+    var el = DESK.pop.open(anchor, '<h3>' + esc(first + '’s note is still open') + '</h3>' + (wl.say ? '<p class="who-l">' + esc(wl.say) + '</p>' : '') +
+      '<div class="acts"><button class="btn sm" type="button" data-ask-do>' + esc(hold.label) + '</button><button class="btn quiet sm" type="button" data-ask-send>Send as written</button></div>', { label: first + '’s note is still open', focus: '[data-ask-do]' });
+    el.addEventListener('click', function (e) {
+      var t = e.target.closest('button'); if (!t) return;
+      if (t.hasAttribute('data-ask-do')) { DESK.pop.close(); runHoldAct(hold); }
+      else if (t.hasAttribute('data-ask-send')) {
+        ASKED[key] = 1; DESK.pop.close();
+        /* the note is answered "as written": it settles the way its own Keep does, so it is not asked again after the send */
+        var kp = hold.item.acts.filter(function (a) { return a.keep || /^keep/.test(a.id) || (/^Keep\b/.test(a.label) && !a.ops); })[0];
+        if (kp) own(function () { return fn(PL.items, 'settle') ? PL.items.settle(hold.item.id, { label: kp.done || 'Kept as written' }) : PL.items.run(hold.item.id, kp.id); });
+        var again = primaryFor(); if (again && again.run) again.run(btn);
+      }
+    });
+  }
+  /* lines written about a full RPE heavier than their RPE says: set them by RPE, or send them as they are */
+  function askRpe(btn, pr, rp) {
+    var anchor = btn && btn.nodeType === 1 ? btn : $('[data-primary]'); if (!anchor) { sendAsWritten(pr, rp); return; }
+    var n = rp.keys.length, names = []; rp.keys.forEach(function (k) { var r = rowIx(cur.b, k), nm = r >= 0 ? cur.b.rows[r].name : null; if (nm && names.indexOf(nm) < 0) names.push(nm); });
+    var el = DESK.pop.open(anchor, '<h3>' + esc(n === 1 ? 'One line is heavier than its RPE' : n + ' lines are heavier than their RPE') + '</h3><p class="who-l">' + esc(K.list(names, 4) + '. The load written is about a full RPE over what the max says.') + '</p>' +
+      '<div class="acts"><button class="btn sm" type="button" data-ask-rpe>' + esc('Let RPE set ' + (n === 1 ? 'it' : 'them')) + '</button><button class="btn quiet sm" type="button" data-ask-send>Send as written</button></div>', { label: 'Lines heavier than their RPE', focus: '[data-ask-rpe]' });
+    el.addEventListener('click', function (e) {
+      var t = e.target.closest('button'); if (!t) return;
+      if (t.hasAttribute('data-ask-rpe')) { DESK.pop.close(); letRpeNow(rp); }
+      else if (t.hasAttribute('data-ask-send')) { DESK.pop.close(); sendAsWritten(pr, rp); }
     });
   }
   function plainQ(s) { return String(s || '').replace(/[‘’]/g, "'"); }
@@ -918,7 +969,6 @@
       if (cur.applied && cur.cmp && cur.cmp.hold && !cur.next) { var wn4 = (cur.b.weeks[cur.sendC] || {}).n || cur.sendC + 1; return { label: 'Send week ' + wn4 + ' and reply to ' + first, key: '⌘↵', sends: true, weeks: [cur.sendC], run: sendWithReply }; }
       /* C3: a first block, nothing sent: its weeks up to and including the first deload, at most 4 (first-time-coach §7.4) */
       var fb = firstWeeks(); if (fb) return { label: fb.ns.length > 1 ? 'Send weeks ' + fb.ns[0] + ' to ' + fb.ns[fb.ns.length - 1] + ' to ' + first : 'Send week ' + fb.ns[0] + ' to ' + first, key: '⌘⇧↵', sends: true, weeks: fb.cs, run: function () { sendFirst(fb.ns); } };
-      var hold = holdAct(); if (hold) return { label: hold.label, run: function () { runHoldAct(hold); } };
       /* a change to a week the lifter has (this week, or another sent week open on screen) waits: it is the crimson until it goes */
       var oc = cur.c, pc = oc !== cur.sendC ? pendingN(cur.b, oc) : 0;
       if (pc) return { label: 'Send ' + plural(pc, 'change') + ' to ' + first, key: '⌘⇧↵', run: function () { sendNow(oc); } };
@@ -1118,8 +1168,12 @@
     }) : null;
     if (held && held.every(Boolean)) return { say: say + ' ' + held.join(' '), who: who, acts: [], quote: !!q };
     var PROG_OPS = /^(set|load|cap|lighter|swapWeek|moveDay|dropDay|restoreDay|merge|swapDays|deload|fill)$/;
+    /* 22 Nov: the move that answers the lifter's words ("Cap squats at RPE 7") is the first button beside them. It
+       used to take over the crimson, which then meant something different on every click; the crimson stays the send. */
+    var hold = cur.kind === 'week' && !cur.applied ? holdAct() : null;
+    if (hold) acts.push({ label: hold.label, main: true, run: function () { runHoldAct(hold); } });
     it.acts.forEach(function (a) {
-      if (acts.length >= 2) return;
+      if (acts.length >= (hold ? 3 : 2)) return;
       if (cur.kind === 'change' && a.id === cur.act.id) return;
       if (cur.kind === 'week' && a === main && a.ops && a.ops.length) return;
       if (a.go || /^(safe|board|seen|cut|up|watch|plan|class)$/.test(a.id)) return;
@@ -1152,11 +1206,12 @@
     /* the training max (FD2): the number loads are worked out from; each value's title says where it comes from */
     var nums = cur.id && fn(PL.lifters, 'numbers') ? (PL.lifters.numbers(cur.id).data || {}).lifts || {} : {};
     var src = { lifting: 'from the e1RM of the last sessions', intake: 'from the intake', typed: 'typed by you' };
-    var btns = LIFTS.map(function (k) { var mx = b.maxes ? b.maxes[k] : null, nx = nums[k] && nums[k].max, tt = LIFT[k] + ' training max ' + (mx != null ? nf(mx) : 'not set') + (b.maxFrom && src[b.maxFrom[k]] ? ', ' + src[b.maxFrom[k]] : '') + (nums[k] && nums[k].shown != null ? '. e1RM ' + nf(nums[k].shown) : '') + '. Change it here.'; void nx; return '<button class="link mx" type="button" data-max="' + k + '" aria-haspopup="dialog" title="' + esc(tt) + '"><span data-lift="' + k + '">' + LIFT[k] + ' ' + (mx != null ? '<b>' + nf(mx) + '</b>' : '<span class="quiet">Set it</span>') + '</span></button>'; }).join('');
+    var btns = LIFTS.map(function (k) { var mx = b.maxes ? b.maxes[k] : null, tt = LIFT[k] + ' training max ' + (mx != null ? nf(mx) : 'not set') + (b.maxFrom && src[b.maxFrom[k]] ? ', ' + src[b.maxFrom[k]] : '') + (nums[k] && nums[k].shown != null ? '. e1RM ' + nf(nums[k].shown) : '') + '. Change it here.'; return '<button class="link mx" type="button" data-max="' + k + '" aria-haspopup="dialog" title="' + esc(tt) + '"><span data-lift="' + k + '">' + LIFT[k] + ' ' + (mx != null ? '<b>' + nf(mx) + '</b>' : '<span class="quiet">Set it</span>') + '</span></button>'; }).join('');
     var offer = !o.noOffer ? rebaseOffer(b) : null;
-    var tail = (offer ? '<button class="link" type="button" data-rebase="' + offer.lift + '" title="' + esc(LIFT[offer.lift] + ' e1RM is ' + nf(offer.kg) + ' to the plate; the training max reads ' + nf(b.maxes[offer.lift]) + '.') + '">Use ' + nf(offer.kg) + ' for ' + offer.lift + '</button>' : '') +
-      (cur.id && cur.kind !== 'start' ? '<button class="link quiet" type="button" data-rules aria-label="' + esc('Progression: ' + (b.rules ? cur.l.first + "'s own" : 'your rules')) + '" title="' + esc(ruleWords(b)) + '"><span><span data-term="progression">Progression</span>: ' + (b.rules ? esc(cur.l.first) + '’s own' : 'your rules') + '</span></button>' : '');
-    return '<div class="hd-line hd-maxes" data-crop="maxes"><span class="mx-l"><span data-term="max">Training max</span></span><span class="acts">' + btns + tail + '</span></div>';
+    /* 22 Nov: the offer is short ("Use 190") beside its lift; how loads move each week (Rules) lives in the program's
+       own menu, not on the lifter's line */
+    var tail = offer ? '<button class="link mx-use" type="button" data-rebase="' + offer.lift + '" aria-label="' + esc('Use ' + nf(offer.kg) + ' for ' + offer.lift) + '" title="' + esc(LIFT[offer.lift] + ' e1RM is ' + nf(offer.kg) + ' to the plate; the training max reads ' + nf(b.maxes[offer.lift]) + '. Use ' + nf(offer.kg) + '.') + '">Use ' + nf(offer.kg) + '</button>' : '';
+    return '<div class="hd-maxes" data-crop="maxes" role="group" aria-label="Training max">' + btns + tail + '</div>';
   }
   function ruleWords(b) {
     var rs = null; try { rs = BL.rulesFor(b); } catch (e) { rs = null; } if (!rs || !rs.add) return 'How loads move week to week.';
@@ -1174,16 +1229,17 @@
     return null;
   }
   function headerHtml() {
-    var l = cur.l, h = '<div class="hd' + (cur.folded ? ' is-folded' : '') + '" id="hd" data-crop="header"><h1 id="ttl">' + esc(l ? l.name : cur.tpl ? cur.tpl.name : 'Programs') + '</h1>';
-    var f = cur.tpl ? cur.tpl.facts : factsOf(); if (f) h += '<p class="facts">' + esc(f) + '</p>';
+    var l = cur.l, name = l ? l.name : cur.tpl ? cur.tpl.name : 'Programs';
+    var f = cur.tpl ? cur.tpl.facts : factsOf(), h = '<div class="hd" id="hd" data-crop="header"><div class="hd-top"><h1 id="ttl" title="' + esc(name) + '">' + esc(name) + '</h1>' + (f ? '<p class="facts" title="' + esc(f) + '">' + esc(f) + '</p>' : '<p class="facts"></p>');
+    if (cur.id && cur.b && cur.kind !== 'start' && cur.kind !== 'runin') h += maxesHtml(cur.kind === 'recovery' ? cur.b0 || cur.b : cur.b);
+    h += '</div>';
     if (cur.id) {
       var wl = wordsLine();
-      if (wl) h += '<div class="hd-line hd-words">' + (wl.done ? '<span class="done-say">' + esc(wl.say) + '</span>' : '<span class="say"' + (wl.quote ? ' data-quote' : '') + '>' + esc(wl.say) + '</span>' + (wl.who ? '<span class="who">' + esc(wl.who) + '</span>' : '')) +
-        (wl.acts.length ? '<span class="acts">' + wl.acts.map(function (a, i) { return '<button class="link" type="button" data-hd-act="' + i + '">' + esc(a.label) + '</button>'; }).join('') + '</span>' : '') + '</div>';
+      if (wl) h += '<div class="hd-line hd-words">' + (wl.done ? '<span class="done-say">' + esc(wl.say) + '</span>' : '<span class="say"' + (wl.quote ? ' data-quote' : '') + '>' + esc(wl.say) + (wl.who ? ' <span class="who">' + esc(wl.who) + '</span>' : '') + '</span>') +
+        (wl.acts.length ? '<span class="acts">' + wl.acts.map(function (a, i) { return '<button class="link' + (a.main ? ' is-main' : '') + '" type="button" data-hd-act="' + i + '"' + (a.main ? ' data-hd-main' : '') + '>' + esc(a.label) + '</button>'; }).join('') + '</span>' : '') + '</div>';
       cur.wl = wl;
       h += '<div class="composer" id="cmp" hidden></div>';
       var lim = limitsLine(); if (lim) h += '<p class="hd-line hd-limits">' + esc(lim) + '</p>';
-      if (cur.b && cur.kind !== 'start' && cur.kind !== 'runin') h += maxesHtml(cur.kind === 'recovery' ? cur.b0 || cur.b : cur.b);
     }
     return h + '</div>';
   }
@@ -1233,7 +1289,11 @@
   function weekbarHtml() {
     var b = cur.b, c = cur.c, w = b.weeks[c], n = w ? w.n || c + 1 : c + 1, ds = weekDates(b, c), l = cur.l;
     var prev = c > 0 ? weekName(b, c - 1) || 'Week ' + n : null, next = c < b.weeks.length - 1 ? weekName(b, c + 1) : null;
-    var stw = stateWord(b, c), src = sourceWord(), hold = holdWord(), chk = cur.grid && cur.grid.checks ? cur.grid.checks().filter(function (k) { return k.kind !== 'held'; }).length : 0;
+    /* what the desk flags in this week, from the grid when it keeps its own list, else from the block (Simple keeps none,
+       so its week bar used to say nothing); a cell that cannot be read is its own count: it stops the send */
+    var flags = (cur.grid && fn(cur.grid, 'checks') ? cur.grid.checks() : checksIn(b, c)).filter(function (k) { return k.kind !== 'held'; });
+    var unread = unreadIn(b, c).length, chk = flags.filter(function (k) { return k.kind !== 'unread'; }).length;
+    var stw = stateWord(b, c), src = sourceWord(), hold = holdWord();
     var out = '', notes = '';
     var mt = l && l.meet && l.meet.days > 0 && l.meet.days <= 112 && ds ? Math.ceil((dt(l.meet.date) - dt(ds.from)) / 864e5 / 7) : null;
     var meetWeek = l && l.meet && ds && l.meet.date >= ds.from && l.meet.date <= ds.to;
@@ -1251,8 +1311,14 @@
     if (tag) out += '<span class="wb-sep" aria-hidden="true">·</span><span class="wb-tag" title="' + esc((cur.rv.sourceText || tag) + ': half the sets, 1.5 easier.') + '">' + esc(tag) + '</span>';
     else if (kind) out += '<span class="wb-sep" aria-hidden="true">·</span><span class="wb-tag">' + (kterm ? '<span data-term="' + esc(kterm) + '">' + esc(kind) + '</span>' : esc(kind)) + '</span>';
     var fo = l && l.meet && l.meet.days > 0 && fn(PL.fmt, 'out') ? PL.fmt.out(l.meet.days) : null;
-    if (meetWeek && kind !== 'Meet week') out += '<span class="wb-o">Meet week</span>'; else if (fo && mt && mt <= 16 && kind !== 'Meet week') out += '<span class="wb-o" title="' + esc(fo.title) + '">' + esc(fo.text) + '</span>';
-    var menuBtn = '<button class="btn icon quiet sm wb-end" type="button" data-week-menu data-more aria-haspopup="menu" aria-label="' + esc(weekName(b, c)) + ' moves" title="Week moves">' + K.ic('more', 2.2) + '</button>';
+    /* how far out the meet is: only when the lifter's own line above does not already say it */
+    var said = factsOf() || '';
+    if (meetWeek && kind !== 'Meet week') out += '<span class="wb-o">Meet week</span>'; else if (fo && mt && mt <= 16 && kind !== 'Meet week' && said.indexOf(fo.text) < 0) out += '<span class="wb-o" title="' + esc(fo.title) + '">' + esc(fo.text) + '</span>';
+    /* 22 Nov: Undo and Redo are two buttons on the week bar in every view (they were keys only, and a pair hidden in Simple) */
+    var canEdit = w && w.state !== 'lifted' && cur.kind !== 'change';
+    var menuBtn = '<span class="wb-end">' + (canEdit ? '<button class="btn icon quiet sm" type="button" data-wk-undo aria-label="Undo" title="Undo (⌘Z)">' + UNDO_IC + '</button><button class="btn icon quiet sm" type="button" data-wk-redo aria-label="Redo" title="Redo (⇧⌘Z)">' + REDO_IC + '</button><i class="wb-rule" aria-hidden="true"></i>' : '') +
+      '<button class="btn icon quiet sm" type="button" data-week-menu data-more aria-haspopup="menu" aria-label="' + esc(weekName(b, c)) + ' menu" title="Copy, duplicate, deload, add a day">' + K.ic('more', 2.2) + '</button></span>';
+    if (unread) notes += '<button class="link is-stop" type="button" data-fix title="It stops the send until it reads">' + esc(plural(unread, 'cell') + ' to fix') + '</button>';
     if (src) notes += '<button class="link" type="button" data-changes aria-haspopup="dialog">' + esc(src) + '</button>';
     if (hold) notes += '<button class="link" type="button" data-hold>' + esc(hold) + '</button>';
     if (chk) notes += '<button class="link" type="button" data-checks title="The next line to check (⌘G)">' + chk + ' to check</button>';
@@ -1267,6 +1333,25 @@
     var later = cur.kind === 'week' && !cur.next ? weeksOf(cur.id).filter(function (x) { return (x.block || 'current') === 'current' && x.n > n && x.check > 0; }) : [];
     if (later.length) notes += '<button class="link" type="button" data-later="' + later[0].n + '">' + esc((later.length === 1 ? 'Week ' + later[0].n : 'Weeks ' + K.list(later.map(function (x) { return x.n; }), 9)) + ': ' + later.reduce(function (a, x) { return a + x.check; }, 0) + ' to check') + '</button>';
     return '<div class="wb" data-crop="weekbar"><div class="wb-r1">' + out + '</div>' + (notes ? '<div class="wb-r2">' + notes + '</div>' : '') + menuBtn + '</div>';
+  }
+  var UNDO_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8h7a5 5 0 0 1 0 10H9M8 8l3.5-3.5M8 8l3.5 3.5"/></svg>';
+  var REDO_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 8H9a5 5 0 0 0 0 10h6M16 8l-3.5-3.5M16 8l-3.5 3.5"/></svg>';
+  /* Undo and Redo from the week bar: the grid in hand walks its own history (a lifter's week: the store's) and the bars follow */
+  function walkHistory(dir) {
+    if (!cur || !cur.grid) return;
+    var g = cur.grid; if (fn(g, 'flush')) g.flush();
+    var r = fn(g, dir) ? g[dir]() : storeWalk(dir);
+    if (!fn(g, dir) && fn(g, 'render')) g.render({ c: cur.c, force: true });
+    if (r && r.data && r.data.label && !(r.meta && r.meta.label)) DESK.toast(r.data.label);
+    paintWeekbar(); paintToolbar(); paintQueue();
+  }
+  /* the next thing the desk flags in the week on screen: the grid's own walk, else the first flagged line's field */
+  function nextFlag() {
+    if (!cur || !cur.grid || !cur.b) return;
+    if (fn(cur.grid, 'nextCheck')) { cur.grid.nextCheck(); cur.grid.focus(); return; }
+    var k = checksIn(cur.b, cur.c).filter(function (x) { return x.kind !== 'held'; })[0], row = k ? cur.b.rows[k.r] : null; if (!row) return;
+    cur.grid.select(row.key, { sets: 'sets', reps: 'reps', effort: 'effort', load: 'load', note: 'note' }[k.field] || 'load');
+    if (k.words) DESK.toast(row.name + ': ' + String(k.words));
   }
   function footHtml() {
     var first = cur.l.first, w = cur.b.weeks[cur.c], n = w ? w.n || cur.c + 1 : cur.c + 1;
@@ -1316,7 +1401,17 @@
       var gap = parseFloat(getComputedStyle(r1).columnGap) || 12, w = function (els) { return els.reduce(function (a, e) { return a + e.getBoundingClientRect().width; }, 0) + gap * Math.max(0, els.length - 1); };
       var used = w([].slice.call(r1.children)) + parseFloat(getComputedStyle(r1).paddingLeft || 0), need = w([].slice.call(r2.children));
       if (used + gap * 2 + need <= r1.clientWidth) { while (r2.firstChild) r1.appendChild(r2.firstChild); r2.remove(); }
+      else {
+        /* 22 Nov: the bar stays one line. The notes that fit sit beside the week; the rest wait behind "+2", which
+           opens them as a second line (it used to be two lines every time, 87 px before the first lift) */
+        var room = r1.clientWidth - used - gap * 2 - 44, moved = 0;
+        while (r2.firstChild && r2.firstChild.getBoundingClientRect().width + gap <= room) { room -= r2.firstChild.getBoundingClientRect().width + gap; r1.appendChild(r2.firstChild); moved++; }
+        var left = r2.children.length;
+        if (!left) r2.remove();
+        else { var open = !!(cur && cur.wbOpen); r2.hidden = !open; r1.insertAdjacentHTML('beforeend', '<button class="link wb-more" type="button" data-wb-more aria-expanded="' + open + '" title="' + (open ? 'Hide them' : 'Show ' + left + ' more') + '">' + (open ? 'Less' : '+' + left) + '</button>'); }
+      }
     }
+    card.style.setProperty('--wb-h', wb.offsetHeight + 'px');
     if (cur && cur.grid && fn(cur.grid, 'refit')) cur.grid.refit();
   }
   addEventListener('resize', function () { if (cur && cur.b && $('#pd .wb')) paintWeekbar(); });
@@ -1331,6 +1426,9 @@
   }
   function setFold(on, o) {
     o = o || {};
+    /* 22 Nov: the header is one line now and never folds; a fold made the week jump 225 px under the pointer at the
+       first key press and took the week's name off the screen */
+    if (on) return;
     var hd = $('#hd'); if (!cur || !hd) return;
     if (on && cur.cmp) return;   /* the composer is open: the words stay */
     if (hd.classList.contains('is-folded') === !!on) { cur.folded = !!on; return; }
@@ -1347,9 +1445,8 @@
   function foldBy() { var hd = $('#hd'), card = $('#pd .wk'); return hd && card ? Math.max(1, card.getBoundingClientRect().top - hd.getBoundingClientRect().top) : 1e9; }
   function bindScroll() {
     var sc = scrollerEl(); if (!sc) return;
-    var wbPast = function () { var wb = sc.querySelector(':scope > .wb'); if (wb) sc.classList.toggle('is-past', sc.scrollTop >= wb.offsetHeight); };
-    sc.addEventListener('scroll', function () { if (cur && !cur.folded && sc.isConnected && sc.scrollTop > 0 && sc.scrollTop >= foldBy()) setFold(true, { keep: true }); wbPast(); }, { passive: true });
-    sc.addEventListener('wheel', function (e) { if (cur && cur.folded && e.deltaY < 0 && sc.scrollTop <= 0) setFold(false, { keep: true }); }, { passive: true });
+    /* a hairline under the week bar once the rows run under it */
+    sc.addEventListener('scroll', function () { sc.classList.toggle('is-scrolled', sc.scrollTop > 0); }, { passive: true });
   }
   /* what went today, from the week's record: weeks sent (a lifter's or a team's) and changes sent from a change row */
   function todayCounts() {
@@ -1414,8 +1511,8 @@
     if (st.view === 'block' && SH && fn(SH, 'grid')) return mountBlock(host, o);
     cur.grid = WK.grid(host, {
       block: function () { return cur.b; }, c: cur.c,
-      /* the card is the pane the rows scroll in: the status line and the heads pin at its top, over the week bar */
-      top: '0px',
+      /* the card is the pane the rows scroll in: the status line and the heads pin under its week bar, which stays */
+      top: 'var(--wb-h, 44px)',
       lifter: { id: cur.id, first: cur.l ? cur.l.first : '' },
       meet: cur.l && cur.l.meet && cur.l.meet.date ? { date: cur.l.meet.date, name: cur.l.meet.name } : undefined,
       write: gridWrite,
@@ -1458,12 +1555,7 @@
   document.addEventListener('pointerdown', function () { ptrDown = true; }, true);
   document.addEventListener('pointerup', function () { ptrDown = false; }, true);
   document.addEventListener('pointercancel', function () { ptrDown = false; }, true);
-  function focusMode() {
-    if (!cur || !cur.grid || cur.cmp) return;
-    if (!cur.folded) setFold(true, { keep: true });
-    var sc = scrollerEl(), g = $('#wg'); if (!sc || !g || sc === g) return;
-    if (sc.scrollTop < g.offsetTop) sc.scrollTop = g.offsetTop;
-  }
+  function focusMode() { /* 22 Nov: nothing moves when the keys take the grid (see setFold) */ }
   /* when a week opens, the cell in hand is the first held line, else the first cell a rule changed, else the first line's
      Load (programs.md §5.2) */
   function initialHand(o) {
@@ -1703,6 +1795,7 @@
     var b = cur.b, res = applyOps(b, hold.act.ops);
     if (res && res.error) { DESK.toast(res.error.message || 'That did not apply.'); return; }
     cur.applied = hold;
+    var mb = $('[data-hd-main]'); if (mb) mb.remove();
     /* the cap goes into the week's draft as one write with its Undo (function-polish F4.3); the reply waits in the composer */
     var id = cur.id, n = (b.weeks[cur.c] || {}).n || cur.c + 1, sv = own(function () { return PL.programs.save(id, b.toJSON(), { label: hold.label }); });
     cur.fresh = false; cur.dirty = true;
@@ -2999,7 +3092,10 @@
     if ((b = t.closest('[data-later]'))) { if (cur && cur.b) goWeek(weekIndex(cur.b, +b.getAttribute('data-later'))); return; }
     if ((b = t.closest('[data-changes]'))) { if (DESK.pop.justClosed(b)) return; changesPop(b); return; }
     if ((b = t.closest('[data-hold]'))) { var h0 = cur && cur.p && cur.p.held && cur.p.held[0]; if (h0 && cur.grid) { cur.grid.select(h0.key, 'load'); cur.grid.focus(); } return; }
-    if ((b = t.closest('[data-checks]'))) { if (cur.grid && cur.grid.nextCheck) { cur.grid.nextCheck(); cur.grid.focus(); } return; }
+    if ((b = t.closest('[data-checks]'))) { nextFlag(); return; }
+    if ((b = t.closest('[data-fix]'))) { if (cur && cur.b) refuseUnread(cur.b, cur.c); return; }
+    if ((b = t.closest('[data-wb-more]'))) { cur.wbOpen = !cur.wbOpen; paintWeekbar(); var mb2 = $('[data-wb-more]'); if (mb2) mb2.focus(); return; }
+    if ((b = t.closest('[data-wk-undo], [data-wk-redo]'))) { walkHistory(b.hasAttribute('data-wk-undo') ? 'undo' : 'redo'); return; }
     if ((b = t.closest('[data-max]'))) { if (DESK.pop.justClosed(b)) return; maxPop(b.getAttribute('data-max'), b); return; }
     if ((b = t.closest('[data-max-save]'))) { saveMax(b.getAttribute('data-max-save')); return; }
     if ((b = t.closest('[data-max-use]'))) { saveMax(b.getAttribute('data-max-use'), Number(b.getAttribute('data-kg'))); return; }

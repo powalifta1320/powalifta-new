@@ -1,69 +1,56 @@
-/* simple.css: the Simple view of a lifter's week on Programs (simple.js), rebuilt 22 Nov. The whole week on the card,
-   day under day; each lift one line on one shared set of columns, so the eye runs down a column as it does in a table.
-   A line is plain words and numbers until the pointer or the keys reach it: then its fields show as fields. No card
-   inside the card; lifts are set apart by hairlines. Every value comes from tokens.css.
+/* simple.css: the Simple view of a lifter's week on Programs (simple.js).
+   22 Nov, second pass, after a cold review ("fields look like a printed report until hovered", "106 px dead between the
+   name and its sets", "a 66-character note shows cut mid-letter", "column heads repeat per day"):
+   - one set of columns for the whole week, their heads pinned once under the week bar;
+   - every field rests on a quiet fill, so what can be typed in looks like it at rest; an empty one shows a dash;
+   - the note has the widest column and takes the last-week column too while it is being written;
+   - the line under the days is a status bar at the foot of the card: why the load in hand is what it is, or what can
+     be done with the lifts picked. Nothing above the lifts but the week bar and the column heads.
+   No card inside the card; lifts are set apart by hairlines. Every colour and space comes from tokens.css.
    Widths: .sv gets is-mid under 918 px of room (narrower columns) and is-tight under 820 (last week gives way; it is
-   still in the line's title). simple.js sets them from the room it has, and gives the dragged copy the same, so a copy
-   outside the card keeps the card's columns. */
-.sv { padding: 0 var(--sp-6) var(--sp-6); }
-/* the week bar scrolls away with the page of lifts; the days stay pinned at the card's top */
-.pg-frame .wk.is-rows.is-simple > .wb { position: static; }
-
-/* the days, pinned: a chip a day (its date, its name) that goes to it, and the line that explains the load in hand */
-.sv-bar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: var(--sp-4); margin: 0 calc(var(--sp-6) * -1); padding: var(--sp-2) var(--sp-6); background: var(--card); border-bottom: 1px solid var(--line); }
-.sv-days { flex: 0 1 auto; min-width: 0; display: flex; gap: var(--sp-2); padding: var(--sp-1) 0; overflow-x: auto; scrollbar-width: none; }
-.sv-days::-webkit-scrollbar { display: none; }
-.sv-chip {
-  position: relative; flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); height: var(--ctl-s); padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill);
-  background: var(--fill); color: var(--ink-2); font: 500 var(--fs-label)/1 var(--font); white-space: nowrap; cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+   still in the line's title). simple.js sets them from the room it has, and gives the dragged copy the same. */
+.sv {
+  --sv-cols: 18px minmax(140px, 1.25fr) 50px 10px 62px 64px 92px minmax(96px, .9fr) minmax(150px, 1.5fr) 28px;
+  --sv-gap: 6px;
+  padding: 0 var(--sp-4);
 }
-.sv-chip::after { content: ''; position: absolute; inset: calc(var(--sp-1) * -1) 0; }   /* 32 to see, 40 to hit */
-.sv-chip b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
-.sv-chip[data-off], .sv-chip[data-off] b { color: var(--ink-3); }
-.sv-chip-add { background: transparent; box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink-2); }
-.sv-chip svg { width: 14px; height: 14px; flex: none; }
-.sv-chip:active { transform: scale(var(--press)); }
-@media (hover: hover) and (pointer: fine) { .sv-chip:hover { background: var(--fill-2); color: var(--ink); } }
-.sv-status { flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; color: var(--ink-3); font: 400 var(--fs-label)/20px var(--font); text-align: right; white-space: nowrap; text-overflow: ellipsis; }
-/* undo and redo, where they can be seen: two quiet buttons at the end of the bar */
-.sv-hist { flex: none; display: inline-flex; gap: 2px; }
-.sv-hist button { display: grid; place-items: center; width: var(--ctl-s); height: var(--ctl-s); padding: 0; border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink-2); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out); }
-.sv-hist button svg { width: 18px; height: 18px; }
-.sv-hist button:active { transform: scale(var(--press)); }
-@media (hover: hover) and (pointer: fine) { .sv-hist button:hover { background: var(--fill); color: var(--ink); } }
-.sv-status b { color: var(--ink-2); font-weight: 600; }
+.sv.is-mid { --sv-cols: 18px minmax(120px, 1.2fr) 46px 10px 58px 60px 86px minmax(80px, .8fr) minmax(120px, 1.3fr) 28px; }
+.sv.is-tight { --sv-cols: 18px minmax(120px, 1.2fr) 46px 10px 58px 60px 86px minmax(120px, 1.3fr) 28px; }
+
+/* the column heads, once for the week, pinned under the week bar */
+.sv-cols {
+  position: sticky; top: var(--wb-h, 44px); z-index: 3; display: grid; grid-template-columns: var(--sv-cols); column-gap: var(--sv-gap); align-items: center;
+  min-height: 28px; margin: 0 calc(var(--sp-4) * -1); padding: 0 var(--sp-4); border-bottom: 1px solid var(--line); background: var(--card);
+  color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); user-select: none;
+}
+.sv-cols span { min-width: 0; padding: 0 var(--sp-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sv-cols .n { padding: 0; text-align: center; }
+.sv-cols .r { text-align: right; }
 
 /* a day: its name, its date and how much it holds, then its lifts */
-.sv-day { padding: var(--sp-3) 0 var(--sp-2); scroll-margin-top: 64px; }
-.sv-day + .sv-day { border-top: 1px solid var(--line); }
-.sv-dh { display: flex; align-items: baseline; gap: var(--sp-3); min-height: var(--ctl-h); }
-.sv-dh h3 { margin: 0; font: 700 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
-.sv-dh h3 button { padding: 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; cursor: text; border-radius: var(--r-field); }
-.sv-dd { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; }
-.sv-dh .sv-more { margin-left: auto; align-self: center; }
-.sv-none { margin: var(--sp-2) 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+.sv-day { padding: var(--sp-2) 0 var(--sp-1); scroll-margin-top: calc(var(--wb-h, 44px) + 32px); }
+.sv-day + .sv-day { margin-top: var(--sp-1); border-top: 1px solid var(--line-2); }
+.sv-dh { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--ctl-s); }
+.sv-dh h3 { margin: 0; font: 700 var(--fs-sub)/var(--lh-sub) var(--font); }
+.sv-dh h3 button { padding: 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; cursor: text; border-radius: var(--r-mark); }
+.sv-dd { color: var(--ink-3); font: 500 var(--fs-cap)/var(--lh-cap) var(--font); font-variant-numeric: tabular-nums; }
+.sv-dh .sv-more { margin-left: auto; }
+.sv-none { margin: var(--sp-2) 0; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); }
 .sv-grid > .sv-none { grid-column: 2 / -1; }
 
-/* the columns, once for the day: grip, exercise, sets × reps, RPE or %, load, last week, note, moves */
-.sv-grid {
-  --sv-cols: 20px minmax(170px, 1.6fr) 68px 8px 84px 96px 100px minmax(132px, 1fr) minmax(88px, .9fr) var(--ctl-s);
-  display: grid; grid-template-columns: var(--sv-cols); column-gap: var(--sp-2); align-items: center;
-}
-.sv-heads, .sv-ex, .sv-row { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; }
-.sv-heads { min-height: 28px; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); }
-.sv-heads span { min-width: 0; padding: 0 var(--sp-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.sv-heads .n { text-align: center; }
-.sv-heads span:nth-child(6), .sv-heads span:nth-child(7) { text-align: right; }
+/* the columns: grip, exercise, sets × reps, RPE or %, load, last week, note, menu */
+.sv-grid { display: grid; grid-template-columns: var(--sv-cols); column-gap: var(--sv-gap); align-items: center; }
+.sv-ex, .sv-row { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; }
 .sv-ex { border-top: 1px solid var(--line); }
-.sv-row { min-height: 40px; }
+.sv-grid > .sv-ex:first-child { border-top: 0; }
+.sv-row { position: relative; min-height: 36px; }
 .sv-row > * { min-width: 0; }
 
 /* the exercise: a word you click. Its lift's colour; what marks its variant beside it, quieter */
 .sv-c-name { display: flex; align-items: baseline; gap: var(--sp-2); }
 .sv-name {
-  flex: 0 1 auto; min-width: 0; height: var(--ctl-s); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink);
-  font: 600 var(--fs-sub)/1 var(--font); text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer;
+  flex: 0 1 auto; min-width: 0; height: 30px; padding: 0 var(--sp-2); border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink);
+  font: 600 var(--fs-label)/1 var(--font); text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
 .sv-name[data-lift='squat'] { color: var(--sq-ink); }
@@ -71,113 +58,135 @@
 .sv-name[data-lift='deadlift'] { color: var(--dl-ink); }
 .sv-name:active { transform: scale(var(--press)); }
 .sv-name.is-open { background: var(--fill-2); }
-.sv-var { min-width: 0; color: var(--ink-3); font: 500 var(--fs-label)/1 var(--font); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sv-var { min-width: 0; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* a second line of the same lift (back-offs): its name under the lift's, a step in */
-.sv-sub { padding-left: var(--sp-5); color: var(--ink-2); font: 500 var(--fs-label)/1 var(--font); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sv-sub { padding-left: var(--sp-5); color: var(--ink-2); font: 500 var(--fs-cap)/1 var(--font); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-/* the fields: plain numbers until the line is reached, then boxes one height */
+/* the fields: one height, resting on a quiet fill, so a field reads as a field before the pointer reaches it */
 .sv-in {
-  width: 100%; height: var(--ctl-s); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-field); background: var(--fill); color: var(--ink);
-  font: 600 var(--fs-sub)/1 var(--font); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); text-align: right; outline: 0;
+  width: 100%; height: 30px; padding: 0 var(--sp-2); border: 0; border-radius: var(--sp-2); background: var(--fill); color: var(--ink);
+  font: 600 var(--fs-label)/1 var(--font); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); text-align: right; outline: 0;
   transition: background-color var(--dur-fast) var(--ease-out);
 }
-.sv-in::placeholder { color: var(--ink-3); font-weight: 500; opacity: 1; }
+.sv-in::placeholder { color: var(--ink-4); font-weight: 500; opacity: 1; }
 .sv-in:focus { background: var(--fill-2); outline: 2px solid var(--focus); outline-offset: 0; }
 .sv-in:disabled { background: transparent; color: var(--ink-2); cursor: default; }
 .sv-in[aria-invalid='true'] { box-shadow: inset 0 0 0 1.5px var(--warn); }
-.sv-x { color: var(--ink-3); font: 500 var(--fs-label)/1 var(--font); font-style: normal; text-align: center; }
-/* sets and reps: the number in the middle, a quiet minus and plus at its ends once the line is reached */
+.sv-x { margin: 0 -2px; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-style: normal; text-align: center; user-select: none; }
+/* sets and reps: the number in the middle; its − and + show on the field in hand, never on the whole line */
 .sv-step { position: relative; display: block; }
-.sv-step .sv-in { padding: 0 20px; text-align: center; }
+.sv-step .sv-in { padding: 0; text-align: center; }
 .sv-step button {
-  position: absolute; top: 0; bottom: 0; width: 20px; padding: 0; border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink-2);
-  font: 500 var(--fs-body)/1 var(--font); cursor: pointer; opacity: 0;
+  position: absolute; top: 3px; bottom: 3px; width: 16px; padding: 0; border: 0; border-radius: var(--sp-1); background: transparent; color: var(--ink-2);
+  font: 500 var(--fs-label)/1 var(--font); cursor: pointer; opacity: 0; user-select: none;
   transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
-.sv-step button:first-child { left: 0; }
-.sv-step button:last-child { right: 0; }
+.sv-step button:first-child { left: 2px; }
+.sv-step button:last-child { right: 2px; }
 .sv-step button:disabled { color: var(--ink-4); cursor: default; }
 .sv-step button:active:not(:disabled) { background: var(--fill-3); }
-.sv-row:focus-within .sv-step button { opacity: 1; }
+.sv-step:focus-within button { opacity: 1; }
+.sv-c-effort, .sv-c-note { position: relative; display: block; }
 /* the load: kg inside the box; a load worked out from the max shows as the quiet number until one is typed */
 .sv-kg { position: relative; display: block; }
-.sv-kg .sv-in { padding-right: var(--sp-7); }
-.sv-kg i { position: absolute; right: var(--sp-2); top: 50%; translate: 0 -50%; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-style: normal; pointer-events: none; }
+.sv-kg .sv-in { padding-right: 26px; }
+.sv-kg i { position: absolute; right: var(--sp-2); top: 50%; translate: 0 -50%; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-style: normal; pointer-events: none; user-select: none; }
 .sv-kg.is-auto .sv-in::placeholder { color: var(--ink-2); font-weight: 600; }
-/* a line with no load (a set of leg raises) says kg only once its line is reached */
 .sv-kg.is-empty i { opacity: 0; }
-.sv-row:focus-within .sv-kg.is-empty i { opacity: 1; }
-@media (hover: hover) and (pointer: fine) { .sv-row:hover .sv-kg.is-empty i { opacity: 1; } }
+.sv-kg.is-empty:focus-within i { opacity: 1; }
 /* last week beside the line: what there is to beat */
-.sv-last { padding: 0 var(--sp-2); color: var(--ink-3); font: 500 var(--fs-label)/1 var(--font); font-variant-numeric: tabular-nums; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sv-last { padding: 0 var(--sp-2); color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-variant-numeric: tabular-nums; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .sv-last.is-done { color: var(--ink); }
 .sv-lk { color: var(--up-ink); }
-/* the note: words, left; its prompt shows only when the line is reached */
-.sv-in.sv-note { background: transparent; font: 400 var(--fs-label)/1 var(--font); font-stretch: 100%; text-align: left; }
-.sv-in.sv-note:not(:placeholder-shown), .sv-row:focus-within .sv-in.sv-note { background: var(--fill); }
-.sv-in.sv-note::placeholder { color: transparent; }
-.sv-row:focus-within .sv-in.sv-note::placeholder { color: var(--ink-3); }
+/* the note: words, left. While it is written it takes last week's column too, so a sentence shows whole */
+.sv-in.sv-note { font: 400 var(--fs-label)/1 var(--font); font-stretch: 100%; text-align: left; text-overflow: ellipsis; }
+/* its prompt shows on the line under the pointer or the keys, not fifteen times down the page */
+.sv-in.sv-note::placeholder { color: transparent; font-weight: 400; }
+.sv-row:focus-within .sv-in.sv-note::placeholder { color: var(--ink-4); }
+@media (hover: hover) and (pointer: fine) { .sv-row:hover .sv-in.sv-note::placeholder { color: var(--ink-4); } }
+@media (hover: none) { .sv-in.sv-note::placeholder { color: var(--ink-4); } }
+.sv-row:has(.sv-note:focus) .sv-c-last { display: none; }
+.sv-row:has(.sv-note:focus) .sv-c-note { grid-column: span 2; }
+.sv.is-tight .sv-row:has(.sv-note:focus) .sv-c-note { grid-column: auto; }
 
-/* the grip a line is dragged by, and its moves */
-.sv-grip { display: grid; place-items: center; width: 20px; height: var(--ctl-s); padding: 0; border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink-4); cursor: grab; opacity: 0; touch-action: none; transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
-.sv-grip svg { width: 16px; height: 16px; }
+/* a value the week cannot read stays in its field, ringed, with the reason under it; nothing is saved until it reads */
+.sv-err {
+  position: absolute; top: calc(100% + var(--sp-1)); right: 0; z-index: 4; width: max-content; max-width: 280px; padding: var(--sp-1) var(--sp-2); border-radius: var(--sp-2);
+  background: var(--pop); box-shadow: var(--shadow-pop); color: var(--ink); font: 500 var(--fs-cap)/var(--lh-cap) var(--font); text-align: left; white-space: normal; pointer-events: none;
+}
+
+/* the grip a line is dragged by (a click picks the lift), and its menu */
+.sv-grip { display: grid; place-items: center; width: 18px; height: 30px; padding: 0; border: 0; border-radius: var(--sp-1); background: transparent; color: var(--ink-4); cursor: grab; opacity: .45; touch-action: none; user-select: none; transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.sv-grip svg { width: 14px; height: 14px; }
 .sv-row:focus-within .sv-grip { opacity: 1; }
-.sv-more { flex: none; display: grid; place-items: center; width: var(--ctl-s); height: var(--ctl-s); padding: 0; border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink-3); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
-.sv-more svg { width: 18px; height: 18px; }
+.sv-more { flex: none; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--sp-2); background: transparent; color: var(--ink-3); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.sv-more svg { width: 16px; height: 16px; }
 .sv-more.is-open { background: var(--fill-2); color: var(--ink); }
 
-/* a line under the pointer shows what can be changed on it (a pointer that hovers; a finger sees it always) */
 @media (hover: hover) and (pointer: fine) {
-  .sv-row:hover .sv-in:not(:disabled):not(:focus) { background: var(--fill-2); }
+  .sv-in:not(:disabled):not(:focus):hover { background: var(--fill-2); }
   .sv-row:hover .sv-name { background: var(--fill); }
   .sv-row .sv-name:hover { background: var(--fill-2); }
-  .sv-row:hover .sv-step button, .sv-row:hover .sv-grip { opacity: 1; }
-  .sv-step button:hover:not(:disabled) { background: var(--fill-2); color: var(--ink); }
+  .sv-row:hover .sv-grip { opacity: 1; }
+  .sv-step:hover button { opacity: 1; }
+  .sv-step button:hover:not(:disabled) { background: var(--fill-3); color: var(--ink); }
   .sv-grip:hover { color: var(--ink-2); }
-  .sv-row:hover .sv-in.sv-note::placeholder { color: var(--ink-3); }
+  .sv-kg.is-empty:hover i { opacity: 1; }
   .sv-more:hover { background: var(--fill); color: var(--ink); }
 }
 @media (hover: none) {
-  .sv-in:not(:disabled), .sv-name { background: var(--fill); }
+  .sv-name { background: var(--fill); }
   .sv-step button, .sv-grip { opacity: 1; }
-  .sv-in.sv-note::placeholder { color: var(--ink-3); }
 }
 
-/* add an exercise: the last line of the day, quiet until wanted */
-.sv-add {
-  grid-column: 2 / -1; justify-self: start; display: inline-flex; align-items: center; gap: var(--sp-2); height: var(--ctl-s); margin-top: var(--sp-1); padding: 0 var(--sp-2);
-  border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink-3); font: 500 var(--fs-label)/1 var(--font); cursor: pointer;
+/* add an exercise: the last line of the day; add a day: the last line of the week */
+.sv-add, .sv-addday {
+  display: inline-flex; align-items: center; gap: var(--sp-2); height: 30px; padding: 0 var(--sp-2);
+  border: 0; border-radius: var(--sp-2); background: transparent; color: var(--ink-3); font: 500 var(--fs-label)/1 var(--font); cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
-.sv-add svg { width: 14px; height: 14px; }
-.sv-add:active { transform: scale(var(--press)); }
+.sv-add { grid-column: 2 / -1; justify-self: start; margin: 2px 0; }
+.sv-addday { margin: var(--sp-2) 0 0 calc(18px + var(--sv-gap)); }
+.sv-add svg, .sv-addday svg { width: 14px; height: 14px; }
+.sv-add:active, .sv-addday:active { transform: scale(var(--press)); }
 .sv-add.is-open { background: var(--fill-2); color: var(--ink); }
-@media (hover: hover) and (pointer: fine) { .sv-add:hover { background: var(--fill); color: var(--ink); } }
+@media (hover: hover) and (pointer: fine) { .sv-add:hover, .sv-addday:hover { background: var(--fill); color: var(--ink); } }
 
 /* a line being moved: the copy under the pointer, the place it left, and the rule where it will land */
 .sv-ex.is-drag { opacity: .35; }
-/* lifts picked to copy (a click on the grip; shift for a run, command for one more) */
-.sv-ex.is-picked { background: var(--sel); }
+/* lifts picked (a click on the grip; shift for a run, command for one more) */
+.sv-ex.is-picked { background: var(--sel); box-shadow: calc(var(--sp-4) * -1) 0 0 var(--sel), var(--sp-4) 0 0 var(--sel); }
 .sv-ex.is-picked .sv-grip { opacity: 1; color: var(--ink); }
 .is-dragging, .is-dragging * { cursor: grabbing !important; user-select: none; }
 .sv-ghost { --sv-cols: none; position: fixed; z-index: var(--z-toast); display: grid; align-items: center; border-radius: var(--r-row); background: var(--pop); box-shadow: var(--shadow-pop); pointer-events: none; will-change: transform; }
 .sv-ghost .sv-ex { border-top: 0; }
-.sv-ghost .sv-grip, .sv-ghost .sv-step button { opacity: 1; }
+.sv-ghost .sv-grip { opacity: 1; }
 .sv-dropline { position: fixed; left: 0; top: 0; z-index: var(--z-toast); height: 2px; border-radius: var(--r-mark); background: var(--place); pointer-events: none; }
 
-.sv-link { flex: none; padding: 0; border: 0; background: none; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); text-decoration: underline; text-decoration-color: var(--ink-4); text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; border-radius: var(--r-mark); min-height: var(--ctl-s); }
+.sv-link { flex: none; padding: 0; border: 0; background: none; color: var(--ink); font: 600 var(--fs-label)/var(--lh-label) var(--font); text-decoration: underline; text-decoration-color: var(--ink-4); text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; border-radius: var(--r-mark); min-height: var(--ctl-s); }
 @media (hover: hover) and (pointer: fine) { .sv-link:hover { text-decoration-color: currentColor; } }
-.sv-foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3) var(--sp-5); margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
-.sv-adv { margin-left: auto; color: var(--ink-3); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
-.sv .wg-tail:not(:empty) { margin-top: var(--sp-4); }
+.sv-foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3) var(--sp-5); margin-top: var(--sp-4); padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
+.sv-adv { margin-left: auto; color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-label) var(--font); }
 .sv .wg-tail .wk-f { padding-left: 0; padding-right: 0; }
 
-/* less room: narrower columns; less still, last week gives way (it stays in the line's title) */
-.sv.is-mid .sv-grid { --sv-cols: 20px minmax(140px, 1.4fr) 64px 8px 80px 92px 96px minmax(112px, 1fr) minmax(72px, .7fr) var(--ctl-s); }
-.sv.is-tight .sv-grid { --sv-cols: 20px minmax(132px, 1.2fr) 64px 8px 80px 92px 96px minmax(96px, 1fr) var(--ctl-s); }
-:is(.sv, .sv-ghost).is-tight .sv-c-last, .sv.is-tight .sv-heads span:nth-child(8) { display: none; }
-.sv.is-mid, .sv.is-tight { padding-left: var(--sp-4); padding-right: var(--sp-4); }
-.sv.is-mid .sv-bar, .sv.is-tight .sv-bar { margin: 0 calc(var(--sp-4) * -1); padding-left: var(--sp-4); padding-right: var(--sp-4); }
+/* the status bar at the card's foot: why the load in hand is what it is; with lifts picked, what to do with them */
+.sv-status {
+  position: sticky; bottom: 0; z-index: 3; display: flex; align-items: center; gap: var(--sp-3); min-height: 36px; margin: 0 calc(var(--sp-4) * -1); padding: 0 var(--sp-2) 0 var(--sp-4);
+  border-top: 1px solid var(--line); border-radius: 0 0 var(--r-card) var(--r-card); background: var(--card); color: var(--ink-3); font: 400 var(--fs-cap)/var(--lh-cap) var(--font);
+}
+.sv-say { flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sv-say b { color: var(--ink); font-weight: 600; }
+.sv-status.has-pick .sv-say { flex: none; color: var(--ink); font-weight: 600; }
+.sv-acts { display: flex; align-items: center; gap: var(--sp-1); margin-right: auto; }
+.sv-sb {
+  height: 26px; padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill); background: var(--fill); color: var(--ink); font: 600 var(--fs-cap)/1 var(--font); white-space: nowrap; cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.sv-sb kbd { margin-left: var(--sp-2); color: var(--ink-3); font: inherit; font-weight: 500; }
+.sv-sb.is-quiet { background: transparent; color: var(--ink-3); font-weight: 500; }
+.sv-sb.is-red { color: var(--pain); }
+.sv-sb:active { transform: scale(var(--press)); }
+@media (hover: hover) and (pointer: fine) { .sv-sb:hover { background: var(--fill-2); color: var(--ink); } .sv-sb.is-red:hover { color: var(--pain); } }
 
 @media (prefers-reduced-motion: reduce) { .sv *, .sv-ghost * { transition-duration: 1ms !important; } }
 

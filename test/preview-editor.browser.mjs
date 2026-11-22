@@ -31,6 +31,14 @@ const toast = async () => { await p.waitForTimeout(120); return (await p.locator
 await p.goto(URL, { waitUntil: 'load' }); await p.waitForTimeout(1000);
 const start = await week();
 ok('the week opens in Simple with every day on the page', await p.locator('.sv[data-simple]').count() === 1 && await p.locator('.sv-day').count() === 3, (await p.locator('.sv-row').count()) + ' lines');
+// the crimson is the send from the first moment; what stands in its way is asked when it is pressed, never its label
+const cta0 = (await p.locator('[data-primary]').innerText()).trim();
+ok('the crimson says Send, with the lifter’s note still open', cta0 === 'Send week 5 to Mei' && /Cap squats at RPE 7/.test(await p.locator('.hd-words').innerText()), cta0);
+await p.locator('[data-primary]').click(); await p.waitForTimeout(300);
+const ask = await p.locator('.pop').innerText().catch(() => '');
+ok('pressed with the note open, the send asks once, with their words and both answers', /note is still open/.test(ask) && /Left knee/.test(ask) && /Cap squats at RPE 7/.test(ask) && /Send as written/.test(ask), ask.replace(/\s+/g, ' ').slice(0, 110));
+await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+ok('and nothing was sent', (await p.locator('[data-primary]').innerText()).trim() === 'Send week 5 to Mei' && !/sent to Mei/.test(await toast()));
 await shot(p, '1-week.png');
 
 // 1. change a lift that is already entered
@@ -136,11 +144,41 @@ await pasteInto(dl + ' .sv-row [data-sv-field="reps"]', { text: '7' }); await p.
 ok('one value pasted into a field stays the field’s own business', (await week()).days['Deadlift Day'].length === dSheet.length);
 await p.keyboard.press('Escape'); await p.waitForTimeout(100);
 
-// 8. undo everything, back to where the week began
+// 7c. what the cold review of 22 Nov asked for: the pick bar, a right-click, values that do not read, the crimson
+const sq = '.sv-day[data-sv-day="Squat Day"]';
+await p.locator(sq + ' .sv-ex').first().hover(); await p.locator(sq + ' [data-sv-grip]').first().click(); await p.waitForTimeout(150);
+ok('picked lifts get a bar of things to do with them', await p.locator('[data-sv-acts]').isVisible() && /1 lift picked/.test(await p.locator('[data-sv-status]').innerText()));
+const sqBefore = (await week()).days['Squat Day'];
+await p.locator('[data-sv-do="dup"]').click(); await p.waitForTimeout(400);
+const sqDup = (await week()).days['Squat Day'];
+ok('Duplicate on the bar duplicates the picked lift', sqDup.length === sqBefore.length + 1 && sqDup[1] === sqDup[0], sqDup.join(', '));
+await p.locator(sq + ' .sv-ex').nth(1).hover(); await p.locator(sq + ' [data-sv-grip]').nth(1).click(); await p.waitForTimeout(150);
+await p.keyboard.press('Backspace'); await p.waitForTimeout(400);
+ok('⌫ deletes the picked lift, with an Undo', (await week()).days['Squat Day'].join() === sqBefore.join() && /deleted\. Undo/.test(await toast()), await toast());
+await p.locator(sq + ' .sv-row').first().click({ button: 'right', position: { x: 60, y: 14 } }); await p.waitForTimeout(250);
+const ctxMenu = await p.locator('[role=menu]').innerText().catch(() => '');
+ok('a right-click on a line opens its menu', /Change the exercise/.test(ctxMenu) && /Duplicate/.test(ctxMenu), ctxMenu.replace(/\s+/g, ' ').slice(0, 90));
+await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+const eff = p.locator(sq + ' .sv-row [data-sv-field="effort"]').first(), effWas = await eff.inputValue(), sqText = (await line('Squat Day', sqBefore[0])).text;
+await eff.click(); await eff.fill('abc8'); await p.keyboard.press('Enter'); await p.waitForTimeout(300);
+const errText = await p.locator(sq + ' .sv-err').first().innerText().catch(() => '');
+ok('a value that does not read is refused at its field, with the reason', !!errText && (await eff.getAttribute('aria-invalid')) === 'true' && (await line('Squat Day', sqBefore[0])).text === sqText, errText);
+await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+ok('Esc puts back what was there', (await eff.inputValue()) === effWas && (await p.locator(sq + ' .sv-err').count()) === 0);
+const cta = () => p.locator('[data-primary]').innerText();
+ok('the crimson is the send, and says so the whole time', /^Send week 5 to Mei$/.test((await cta()).trim()), await cta());
+const firstY = await p.evaluate(() => Math.round(document.querySelector('#wg .sv-row').getBoundingClientRect().top + document.querySelector('.wk').scrollTop));
+ok('the first lift starts in the top third of the window', firstY < 300, 'y ' + firstY);
+const y0 = await p.evaluate(() => Math.round(document.querySelector('.wb').getBoundingClientRect().top));
+await p.locator(sq + ' .sv-row [data-sv-field="sets"]').first().focus(); await p.keyboard.press('Tab'); await p.keyboard.press('ArrowUp'); await p.waitForTimeout(500); await p.keyboard.press('ArrowDown'); await p.waitForTimeout(500);
+const y1 = await p.evaluate(() => Math.round(document.querySelector('.wb').getBoundingClientRect().top));
+ok('nothing jumps when the keys take the week, and the week keeps its name on screen', y0 === y1 && await p.locator('#wk-h').isVisible(), y0 + ' → ' + y1);
+
+// 8. undo everything, back to where the week began (the week bar's own Undo button)
 let n = 0;
-for (; n < 40; n++) { const s = (await week()).snap; if (s === start.snap) break; await p.locator('.sv-chip').first().focus(); await p.keyboard.press('Meta+z'); await p.waitForTimeout(180); }
+for (; n < 60; n++) { const s = (await week()).snap; if (s === start.snap) break; await p.locator('[data-wk-undo]').click(); await p.waitForTimeout(180); }
 const end = await week();
-ok('⌘Z walks every change back to the week as it opened', end.snap === start.snap, n + ' undos');
+ok('Undo on the week bar walks every change back to the week as it opened', end.snap === start.snap, n + ' undos');
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'no script errors');
