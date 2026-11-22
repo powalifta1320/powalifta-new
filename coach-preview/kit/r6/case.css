@@ -1,0 +1,56 @@
+/* case.css: the desk's shared pieces for showing a case at a glance (22 Nov). A tag (.tg: the kind of case, a word on
+   its tint), the evidence figures (.fg-col > .fg + .fg-cap: pain out of ten, over the class, RPE felt against written,
+   the training week, a gap in days, their words, a video) and a row of faces (.stack). Tokens only. Pages link this
+   after ui.css and never restyle these from scratch: a page-only variation goes in the page's own <style>. */
+/* the kind of case: a word on its own tint, the one colour signal in the row */
+.tg { flex: 0 1 auto; min-width: 0; max-width: 60%; padding: 2px var(--sp-2); border-radius: var(--r-pill); background: var(--fill); color: var(--ink-2); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg[data-tone='pain'] { background: var(--pain-tint); color: var(--pain); }
+.tg[data-tone='warn'] { background: var(--warn-tint); color: var(--warn); }
+.tg[data-tone='gold'] { background: var(--gold-tint); color: var(--gold); }
+.tg[data-tone='words'] { background: var(--words-tint); color: var(--words); }
+.tg[data-tone='bw'] { background: var(--bw-tint); color: var(--bw); }
+
+/* the evidence: a figure (26 px tall, the same on every row so the captions share a line) over one fact */
+.fg-col { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.fg { display: flex; align-items: center; gap: var(--sp-3); height: 26px; min-width: 0; color: var(--ink); }
+.fg b { flex: none; font: 700 var(--fs-head)/1 var(--font); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; letter-spacing: var(--ls-head); }
+.fg b small { margin-left: 2px; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-stretch: 100%; letter-spacing: 0; }
+.fg-cap { min-width: 0; color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* pain out of ten: ten marks, lit to how bad it is */
+.fg-sev .m { display: grid; grid-template-columns: repeat(10, 7px); gap: 3px; flex: none; }
+.fg-sev .m i { height: 14px; border-radius: 2px; background: var(--fill-2); }
+.fg-sev .m i.on { background: var(--pain); }
+.fg-sev .m i.was { background: var(--pain); opacity: .45; }
+.fg-sev.none b { color: var(--ink-3); }
+/* bodyweight against the class: the limit is the upright mark, the lifter the dot past it */
+.fg-trk { position: relative; flex: 1 1 auto; min-width: 48px; height: 26px; }
+.fg-trk::before { content: ''; position: absolute; left: 0; right: 0; top: 12px; height: 2px; border-radius: 1px; background: var(--fill-3); }
+.fg-trk .lim { position: absolute; top: 5px; width: 2px; height: 16px; border-radius: 1px; background: var(--ink-3); }
+.fg-trk .run { position: absolute; top: 12px; height: 2px; background: var(--tone); }
+.fg-trk .dot { position: absolute; top: 8px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--tone); }
+.fg-trk .tick { position: absolute; top: 9px; width: 1px; height: 8px; background: var(--fill-3); }
+.fg-trk .ring { position: absolute; top: 7px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--ink-3); background: var(--card); }
+.fg-over { --tone: var(--bw); } .fg-over b { color: var(--bw); }
+.fg-rpe { --tone: var(--warn); } .fg-rpe b { color: var(--warn); }
+.fg-rpe.under { --tone: var(--ink-2); } .fg-rpe.under b { color: var(--ink); }
+/* the training week: seven days, the ones in play lit, a day left behind struck through */
+.fg-wk { gap: 4px; }
+.fg-wk i { display: grid; place-items: center; width: 24px; height: 26px; border-radius: 7px; background: var(--fill); color: var(--ink-4); font: 600 var(--fs-cap)/1 var(--font); font-style: normal; }
+.fg-wk i.on { background: var(--place-sel); color: var(--place-ink); box-shadow: inset 0 0 0 1px var(--place-ink); }
+.fg-wk i.off { color: var(--ink-3); text-decoration: line-through; }
+/* a gap: fourteen days, the trained ones lit */
+.fg-gap .m { display: grid; grid-template-columns: repeat(14, 6px); gap: 3px; flex: none; }
+.fg-gap .m i { height: 14px; border-radius: 2px; background: var(--fill-2); }
+.fg-gap .m i.on { background: var(--up); }
+/* their own words, and a video to watch */
+.fg-q { height: auto; min-height: 26px; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); }
+.fg-q .q { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
+.fg-col.is-q .fg-cap { display: none; }
+.fg-vid .play { display: grid; place-items: center; flex: none; width: 40px; height: 26px; border-radius: 7px; background: var(--fill-2); color: var(--ink); }
+.fg-vid .play svg { width: 12px; height: 12px; }
+.fg-vid span { min-width: 0; color: var(--ink-2); font: 500 var(--fs-label)/1.2 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* faces in a row, each a step over the last */
+.stack { display: inline-flex; flex: none; padding-left: 6px; }
+.stack .ph { margin-left: -5px; box-shadow: 0 0 0 2px var(--stack-bg, var(--floor)); }
+.stack .more-n { display: inline-grid; place-items: center; min-width: 24px; height: 24px; margin-left: -6px; padding: 0 6px; border-radius: var(--r-pill); background: var(--card-3); box-shadow: 0 0 0 2px var(--stack-bg, var(--floor)); color: var(--ink-2); font: 600 var(--fs-cap)/1 var(--font); font-variant-numeric: tabular-nums; }

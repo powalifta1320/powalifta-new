@@ -22,6 +22,7 @@
 <link rel="stylesheet" href="../kit/r6/ui.css">
 <link rel="stylesheet" href="../kit/r6/fix.css">
 <link rel="stylesheet" href="../kit/r6/newcoach.css">
+<link rel="stylesheet" href="../kit/r6/case.css">
 <style>
   /* the Overview (overview-lifters.md §5, professional.md §10.2): the charts card, then Needs you (the work card) beside a
      side column of two flat sections, Today and Messages. Two cards on the screen, nothing else raised. Tokens only. */
@@ -48,48 +49,37 @@
   /* the page's key count (how many need you) wears the Overview's warm colour */
   .sec-h h2 .n.acc { color: var(--place-ink); }
 
-  /* Needs you reads as a sheet (owner, 16 Nov): four columns under one header line, every row built the same way.
-     Lifter (the name, the reason under it) | Context (left-aligned, one width, quiet) | Next step (the fix, the same quiet
-     text button on every row, its words on one vertical line) | a fixed slot for ⋯ (empty where a row has no more moves).
-     A done row is the name over the shared done row. */
+  /* Needs you is a list of cases (owner, 22 Nov: "clutters of texts and nothing good to look at or easy to understand").
+     One row, one lifter, read left to right: the face and name with the kind of case as a word in its colour, the reason
+     under it; the evidence as a small picture with its one fact under it (how bad the pain is, how far over the class,
+     which days move); then the next step as a real button, in the same place on every row. No column heads: each part
+     says what it is. A done row is the name over the shared done row. */
   .mid { --rh: 52px; }
-  .need { --ctx-w: 168px; --fix-w: 220px; --more-w: 32px; }
-  .need .lrow, .need .nhd { grid-template-columns: minmax(0, 1fr) var(--ctx-w) var(--fix-w) var(--more-w); column-gap: var(--sp-4); }
-  /* a laptop window: the context takes two lines before a reason is cut */
-  @media (max-width: 1280px) { .need { --ctx-w: 112px; --fix-w: 196px; } .need .lrow, .need .nhd { column-gap: var(--sp-3); } }
-  /* the header line: column names in ink-3, sentence case, on a hairline as between rows. It is one row tall, so the rows
-     under it keep the side column's rhythm (every hairline level across the page) */
-  .need .nhd { position: relative; display: grid; align-items: end; min-height: calc(var(--rh) + var(--sp-1)); padding: 0 var(--sp-4) var(--sp-2); margin: 0 var(--sp-2); color: var(--ink-3); font: 500 var(--fs-cap)/var(--lh-cap) var(--font); }
-  .need .nhd::after { content: ''; position: absolute; left: var(--sp-4); right: var(--sp-4); bottom: 0; height: 1px; background: var(--line); }
-  .need .nhd[hidden] { display: none; }
-  /* 52 px rows (the Lifters list's two-line row) */
-  .need .list { padding-top: var(--sp-1); padding-bottom: var(--sp-1); }
-  .need .nhd:not([hidden]) + .list { padding-top: 0; }
-  .need .lrow { min-height: var(--rh); padding-top: 5px; padding-bottom: 5px; }
-  .need .lrow .nm { line-height: var(--lh-tight); }
+  .need { --fig-w: 248px; --fix-w: 232px; --more-w: 32px; }
+  .need .lrow { grid-template-columns: 40px minmax(0, 1fr) var(--fig-w) var(--fix-w) var(--more-w); column-gap: var(--sp-4); min-height: 72px; padding-top: var(--sp-3); padding-bottom: var(--sp-3); }
+  @media (max-width: 1280px) { .need { --fig-w: 200px; --fix-w: 204px; } .need .lrow { column-gap: var(--sp-3); } }
+  @media (max-width: 1100px) { .need { --fig-w: 0px; } .need .lrow { grid-template-columns: 40px minmax(0, 1fr) var(--fix-w) var(--more-w); } .need .lrow .fg-col { display: none; } }
+  .need .list { padding: var(--sp-2); }
+  .need .lrow.c2 { grid-template-columns: 40px minmax(0, 1fr); }
+  .need .lrow .ph { align-self: center; }
+  .need .who { gap: 3px; }
+  .need .who-n { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+  .need .nm { text-decoration: none; line-height: var(--lh-tight); flex: 0 1 auto; }
   .need .lrow .why { line-height: var(--lh-tight); }
-  .need .lrow.c2 { grid-template-columns: minmax(0, 1fr); }
-  .need .nm { text-decoration: none; }
-  /* the context: left-aligned in its own column, quiet, never cut (it wraps to a second line on a narrow window) */
-  .need .lrow .ctx { min-width: 0; text-align: left; white-space: normal; line-height: var(--lh-tight); text-wrap: pretty; }
+  .need .lrow .why .t { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .need .act { display: contents; }
-  /* the fix: the quiet text kind on every row, its words on the column's line (the button's padding hangs into the gap).
-     It never turns into a filled pill on one row: the row in hand shows by its own fill, a hovered fix by the quiet fill. */
-  .need .lrow .fix { justify-self: start; min-width: 0; max-width: calc(100% + 14px); margin-left: -14px; }
-  .need .lrow .fix span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .need .lrow.is-sel .fix, .need .lrow:focus-within .fix { background: transparent; box-shadow: none; }
-  @media (hover: hover) and (pointer: fine) {
-    .need .lrow:hover .fix { background: transparent; box-shadow: none; }
-    .need .lrow .fix:hover:not(:disabled) { background-color: var(--fill); }
-  }
+  /* the next step: a real button, the same kind and the same place on every row; its words never wrap */
+  .need .lrow .go { justify-self: start; min-width: 0; max-width: 100%; }
+  .need .lrow .go span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .need .more, .need .more-slot { justify-self: end; width: var(--more-w); }
-  /* a done row keeps the row's 64 px: the name over one line of done words, its Undo 24 px to see and 40 px to hit */
   .need .done-row { line-height: var(--lh-tight); }
   .need .done-row .btn.sm { --h: 20px; }
+  .need .card { --stack-bg: var(--card); }
   /* the card's foot lines: words in ink-3 on hairlines, the way on (a link) at the right */
-  .nf { display: flex; align-items: center; gap: var(--sp-3); min-height: 40px; padding: 0 var(--sp-6); border-top: 1px solid var(--line); color: var(--ink-3); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .nf { display: flex; align-items: center; gap: var(--sp-3); min-height: 52px; padding: 0 var(--sp-6); border-top: 1px solid var(--line); color: var(--ink-3); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
   .nf .w { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .nf .w b { color: var(--ink-2); font-weight: 500; }
+  .nf .btn { margin-left: auto; flex: none; }
   .nf .link { margin-left: auto; flex: none; }
   .need .empty { margin: 0; padding: var(--sp-5) var(--sp-4); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
   .need .empty .btn { margin-top: var(--sp-3); }
@@ -102,6 +92,10 @@
   .flat .list { padding: var(--sp-1) 0 0; }
   .flat .sec-h { margin-left: 0; margin-right: 0; }
   .flat .lrow, .flat .lrow.two { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n a' 'w w'; align-items: center; row-gap: 2px; min-height: var(--rh); padding-top: 5px; padding-bottom: 5px; }
+  .flat .lrow.two { grid-template-columns: 32px minmax(0, 1fr) auto; grid-template-areas: 'p n a' 'p w w'; column-gap: var(--sp-3); min-height: 60px; }
+  .flat .lrow.two > .ph { grid-area: p; align-self: center; }
+  .flat .lrow.duo { grid-template-areas: 'n a' 'w w' 's s'; row-gap: 3px; padding-top: var(--sp-3); padding-bottom: var(--sp-3); }
+  .flat .lrow.duo > .stack { grid-area: s; margin-top: var(--sp-2); }
   .flat .lrow > .nm { grid-area: n; line-height: var(--lh-tight); }
   .flat .lrow > .why { grid-area: w; line-height: var(--lh-tight); }
   .flat .lrow > .acts, .flat .lrow > .when { grid-area: a; }
@@ -111,7 +105,7 @@
   /* the action sits in the name's line: the 32 px button hangs into the row's padding, so every row stays 52 px; its words
      end on the column's right edge, as the times do */
   .lrow.duo > .acts { display: flex; align-items: center; gap: var(--sp-1); margin: -8px 0; }
-  .lrow.duo .act-t { padding: 0 14px; color: var(--ink); font: 600 var(--fs-label)/var(--lh-tight) var(--font); white-space: nowrap; }
+  .lrow.duo .act-t { display: inline-flex; align-items: center; height: var(--ctl-s); padding: 0 14px; border-radius: var(--r-pill); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink); font: 600 var(--fs-label)/var(--lh-tight) var(--font); white-space: nowrap; }
   .lrow.duo .more-slot { flex: none; width: var(--ctl-s); }
   .flat .empty { min-height: var(--rh); display: flex; align-items: center; }
   button.lrow { width: 100%; border: 0; background-color: transparent; color: inherit; font: inherit; text-align: left; }
@@ -161,7 +155,7 @@
     <div class="mid" id="mid">
       <div class="sec need" aria-labelledby="need-h">
         <div class="sec-h" id="need-hd"><h2 id="need-h">Needs you <span class="n acc" data-count="needYou"></span></h2><span class="grow"></span><span class="sub" id="need-sum"><span data-count="doneToday"></span> done today</span></div>
-        <div class="card" data-crop="needs"><div class="nhd" id="need-cols" aria-hidden="true"><span>Lifter</span><span>Why now</span><span>Next step</span><span></span></div><div class="list" id="need" data-list aria-label="Needs you"></div><div id="need-f"></div></div>
+        <div class="card" data-crop="needs"><div class="list" id="need" data-list aria-label="Needs you"></div><div id="need-f"></div></div>
       </div>
       <div class="col">
         <div class="sec flat" data-crop="today" aria-labelledby="today-h">
@@ -372,18 +366,75 @@
       (d.at ? '<time class="at">' + esc(hm(d.at)) + '</time>' : '') + (x.fix && x.fix.itemId ? '<button class="btn quiet sm" type="button" data-undo="' + esc(x.fix.itemId) + '">Undo</button>' : '') +
       (rc ? '<span class="rc">' + esc(rc) + '</span>' : '') + '</div>';
   }
+  /* ---- the evidence, drawn: one small figure a row, by the kind of case, from the item's own evidence (PL.items.get) ---- */
+  var WD = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  var itemOf = function (x) { return x.fix && x.fix.itemId && fn(PL.items, 'get') ? data(PL.items.get(x.fix.itemId)) : null; };
+  var pct = function (v) { return Math.max(0, Math.min(100, v)).toFixed(1) + '%'; };
+  function marks(k, on, was) { var h = ''; for (var i = 1; i <= k; i++) h += '<i' + (i <= on ? ' class="on"' : was && i <= was ? ' class="was"' : '') + '></i>'; return '<span class="m" aria-hidden="true">' + h + '</span>'; }
+  function figSev(sev) {
+    if (sev == null) return '<span class="fg fg-sev none">' + marks(10, 0) + '<b>?<small>/10</small></b></span>';
+    return '<span class="fg fg-sev">' + marks(10, sev) + '<b>' + esc(n(sev)) + '<small>/10</small></b></span>';
+  }
+  /* the class limit sits 55% along; 2.5 kg over fills the rest */
+  function figOver(over) {
+    var x = 55 + Math.min(1, Math.abs(over) / 2.5) * 41;
+    return '<span class="fg fg-over"><span class="fg-trk" aria-hidden="true"><span class="run" style="left:55%;right:' + pct(100 - x) + '"></span><span class="lim" style="left:55%"></span><span class="dot" style="left:' + pct(x) + '"></span></span><b>+' + esc(n(over)) + '<small>kg</small></b></span>';
+  }
+  /* RPE 6 to 10: the ring is what was written, the dot what it felt like */
+  function figRpe(felt, wrote) {
+    var at = function (v) { return pct((Math.max(6, Math.min(10, v)) - 6) / 4 * 92 + 4); }, t = '';
+    for (var i = 6; i <= 10; i++) t += '<span class="tick" style="left:' + at(i) + '"></span>';
+    var lo = Math.min(felt, wrote), hi = Math.max(felt, wrote);
+    return '<span class="fg fg-rpe' + (felt <= wrote ? ' under' : '') + '"><span class="fg-trk" aria-hidden="true">' + t + '<span class="run" style="left:' + at(lo) + ';right:calc(100% - ' + at(hi) + ')"></span><span class="ring" style="left:' + at(wrote) + '"></span><span class="dot" style="left:' + at(felt) + '"></span></span><b>' + esc(n(felt)) + '<small>felt</small></b></span>';
+  }
+  function figWeek(on, off) {
+    return '<span class="fg fg-wk" aria-hidden="true">' + WD.map(function (d) { return '<i' + (on.indexOf(d) >= 0 ? ' class="on"' : off.indexOf(d) >= 0 ? ' class="off"' : '') + '>' + d.charAt(0) + '</i>'; }).join('') + '</span>';
+  }
+  function figGap(days) {
+    var h = ''; for (var i = 14; i >= 1; i--) h += '<i' + (i > days ? ' class="on"' : '') + '></i>';
+    return '<span class="fg fg-gap"><span class="m" aria-hidden="true">' + h + '</span><b>' + days + '<small>days</small></b></span>';
+  }
+  function figQuote(t) { return '<span class="fg fg-q"><span class="q" data-quote title="' + esc(t) + '">“' + esc(t) + '”</span></span>'; }
+  /* the figure and the one fact under it; null when the case has nothing to draw (the row then keeps its context alone) */
+  function figOf(x) {
+    var it = itemOf(x), ev = (it && it.ev) || [], by = function (t) { return ev.filter(function (e) { return e.t === t; })[0]; };
+    var ty = x.reason ? x.reason.type : '', ctx = x.context ? cap1(x.context) : '', e, g, s;
+    if (ty === 'pain') { e = by('pain'); var r = e && e.reports && e.reports[0]; return { h: figSev(r ? r.sev : null), cap: r ? ctx : 'Not rated yet. ' + ctx }; }
+    if (ty === 'weight' || ty === 'meetday') { g = data(PL.lifters.get(x.id)); if (g && g.bw && g.bw.over > 0) return { h: figOver(g.bw.over), cap: n(g.bw.now) + ' kg, ' + (g.bw.cls || '') + ' class, ' + (ty === 'meetday' ? 'today' : String(x.context || '')) }; }
+    if ((e = by('weekdays'))) return { h: figWeek([e.to], [e.from]), cap: (e.name ? e.name + ', ' : '') + ctx.toLowerCase() };
+    if ((e = by('plan2'))) return { h: figWeek(e.rows.map(function (r) { return r[0]; }), []), cap: ctx };
+    if (ty === 'quiet') { var d = /(\d+)\s+days?/.exec(x.reason.text || ''); if (d) return { h: figGap(Math.min(14, Number(d[1]))), cap: ctx }; }
+    if (by('video') || by('voice')) { var v = by('voice'); return { h: '<span class="fg fg-vid"><span class="play" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M3 1.6v8.8L10.4 6z" fill="currentColor"/></svg></span><span>' + (by('video') ? 'Form check' : 'Voice note') + (v && by('video') ? ', voice ' + esc(v.len || '') : v ? ' ' + esc(v.len || '') : '') + '</span></span>', cap: ctx }; }
+    if (ty === 'overshoot' && (s = by('sets')) && s.day && s.day.top && s.day.top.felt != null) return { h: figRpe(s.day.top.felt, s.day.top.rpe), cap: 'Wrote ' + n(s.day.top.rpe) + ', ' + String(x.context || '').toLowerCase() };
+    if ((e = by('quote'))) return { h: figQuote(e.text), cap: '', q: true };
+    return null;
+  }
+  function figHtml(x) {
+    var f = figOf(x);
+    if (!f) return '<span class="fg-col" data-fact="context"><span class="fg-cap">' + esc(x.context ? cap1(x.context) : '') + '</span></span>';
+    return '<span class="fg-col' + (f.q ? ' is-q' : '') + '" data-fact="context">' + f.h + '<span class="fg-cap" title="' + esc(f.cap) + '">' + esc(f.cap) + '</span></span>';
+  }
   function rowHtml(x) {
     var why = x.reason, href = lifterHref(x.id, 'need'), nm = '<a class="nm" data-fact="name" href="' + esc(href) + '" tabindex="-1" data-ellipsis title="' + esc(x.name) + '">' + esc(x.name) + '</a>';
-    if (x.done) return '<div class="lrow c2 is-done" data-row="' + esc(x.id) + '" tabindex="0" aria-label="' + esc(x.name + ', ' + x.done.label) + '"><span class="who">' + nm + doneRowHtml(x) + '</span></div>';
-    var f = x.fix, tone = why && why.tone === 't-pain' ? ' data-tone="pain"' : '';
+    var face = DESK.photo(x, 40);
+    if (x.done) return '<div class="lrow c2 is-done" data-row="' + esc(x.id) + '" tabindex="0" aria-label="' + esc(x.name + ', ' + x.done.label) + '">' + face + '<span class="who">' + nm + doneRowHtml(x) + '</span></div>';
+    var f = x.fix, it = itemOf(x), tone = why && DESK.TONE ? DESK.TONE[why.tone] || '' : '';
+    if (why && why.type === 'weight') tone = 'bw';
+    var kick = it && it.kicker ? (it.kicker.length > 22 ? (/form check/i.test(it.kicker) ? 'Form check' : it.kicker.split(/ and |, /)[0]) : it.kicker) : '';
+    var tag = kick ? '<span class="tg"' + (tone ? ' data-tone="' + esc(tone) + '"' : '') + '>' + esc(kick) + '</span>' : '';
     var more = menuOf(x).length ? '<button class="btn quiet sm icon more" type="button" data-more="' + esc(x.id) + '" aria-haspopup="menu" aria-label="' + esc('More for ' + x.first) + '" title="More">' + DESK.ic('more') + '</button>' : '<span class="more-slot" aria-hidden="true"></span>';
-    /* the label in full: a trailing "…" (the store's "opens a sheet" mark) reads as cut words in a sheet's column */
+    /* the label in full: a trailing "…" (the store's "opens a sheet" mark) reads as cut words on a button in a list */
     var said = f ? String(f.short || f.label).replace(/\s*…$/, '') : '';
-    var fix = f ? '<button class="btn sm fix" type="button" data-fact="action" data-fixbtn data-item="' + esc(f.itemId || '') + '" data-act="' + esc(f.actId || '') + '"' + (f.reminderId ? ' data-reminder="' + esc(f.reminderId) + '"' : '') +
+    var fix = f ? '<button class="btn sm go" type="button" data-fact="action" data-fixbtn data-item="' + esc(f.itemId || '') + '" data-act="' + esc(f.actId || '') + '"' + (f.reminderId ? ' data-reminder="' + esc(f.reminderId) + '"' : '') +
       ' data-for="' + esc(x.id) + '" title="' + esc(String(f.label).replace(/\s*…$/, '')) + '"><span>' + esc(said) + '</span></button>' : '<span class="fix-none"></span>';
-    return '<div class="lrow' + (here === x.id ? ' is-sel' : '') + '" data-row="' + esc(x.id) + '" tabindex="0" aria-label="' + esc(x.name + (why ? ', ' + why.text : '')) + '">' +
-      '<span class="who">' + nm + (why ? '<span class="why" data-fact="reason"' + tone + '><span class="t" data-ellipsis title="' + esc(why.full || why.text) + '">' + esc(why.text) + '</span></span>' : '') + '</span>' +
-      ctxHtml(x.context) + '<span class="act">' + fix + more + '</span></div>';
+    return '<div class="lrow' + (here === x.id ? ' is-sel' : '') + '" data-row="' + esc(x.id) + '" tabindex="0" aria-label="' + esc(x.name + (why ? ', ' + why.text : '')) + '">' + face +
+      '<span class="who"><span class="who-n">' + nm + tag + '</span>' + (why ? '<span class="why" data-fact="reason"><span class="t" data-ellipsis title="' + esc(why.full || why.text) + '">' + esc(why.text) + '</span></span>' : '') + '</span>' +
+      figHtml(x) + '<span class="act">' + fix + more + '</span></div>';
+  }
+  /* faces in a row: up to max, then how many more */
+  function stack(ids, max, size) {
+    max = max || 5; var h = ids.slice(0, max).map(function (id) { var l = L(id); return l ? DESK.photo(l, size || 24) : ''; }).join('');
+    return '<span class="stack" aria-hidden="true">' + h + (ids.length > max ? '<span class="more-n">+' + (ids.length - max) + '</span>' : '') + '</span>';
   }
   /* a row's ⋯ holds what is not its fix: the item's own menu moves (a first block's "Do it Saturday", function-polish F4.4)
      and, for pain read only from words in a note, "Not pain: clear the flag" (P2) */
@@ -408,10 +459,10 @@
     var c = counts(), w = watchList(), open = watchOpen(), out = '';
     var fold = needsNow().filter(function (x) { return folded[x.id]; });
     /* a small desk's new sessions lead the foot (the session is the news); a full desk keeps Keep an eye on first */
-    var since = c.trainedSince ? '<div class="nf"><span class="w">Trained since you looked: <span data-count="trainedSince">' + c.trainedSince + '</span> session' + (c.trainedSince === 1 ? '' : 's') + '</span><a class="link" href="' + LIFTERS + '#f=since">Show them</a></div>' : '', small = size(c) !== 'full';
+    var since = c.trainedSince ? '<div class="nf"><span class="w"><b><span data-count="trainedSince">' + c.trainedSince + '</span> session' + (c.trainedSince === 1 ? '' : 's') + '</b> logged since you last looked</span><a class="btn quiet sm" href="' + LIFTERS + '#f=since">Read them</a></div>' : '', small = size(c) !== 'full';
     if (small) out += since;
     if (fold.length) out += '<div class="nf"><span class="w">Done today: ' + esc(names(fold.map(function (x) { return x.id; }), 4)) + '</span><button class="link" type="button" data-fold aria-expanded="' + foldOpen + '">' + (foldOpen ? 'Hide' : 'Show') + '</button></div>';
-    out += open.length ? '<div class="nf"><span class="w">Keep an eye on: ' + esc(names(open.map(function (x) { return x.id; }))) + '</span><a class="link" href="' + LIFTERS + '#f=watch">Show them</a></div>'
+    out += open.length ? '<div class="nf">' + stack(open.map(function (x) { return x.id; }), 5, 28) + '<span class="w"><b>Keep an eye on</b> ' + esc(names(open.map(function (x) { return x.id; }))) + '</span><a class="btn quiet sm" href="' + LIFTERS + '#f=watch">Show the ' + open.length + '</a></div>'
       : w.data.length ? '<div class="nf"><span class="w none">Keep an eye on: nobody left today</span></div>'
       : !needsNow().some(function (x) { return !folded[x.id]; }) ? ''   /* the list already says "Nobody needs you right now.": one line, never two */
       : '<div class="nf"><span class="w">Everyone else is on track.</span></div>';
@@ -450,7 +501,7 @@
       var w = meetWords(m);
       out += '<div class="lrow duo" data-row="meet-' + esc(m.id) + '" data-meet="' + esc(m.id) + '" data-all="' + esc(all) + '"><span class="nm" data-fact="name">' + esc(m.name) + '</span>' +
         '<span class="acts"><a class="btn quiet sm" data-fact="action" href="' + esc(DESK.routes.meets + '#id=' + encodeURIComponent(m.id)) + '">Meet day</a>' + more + '</span>' +
-        '<span class="why" data-fact="reason"><span class="t" data-ellipsis title="' + esc(w) + '">' + esc(w) + '</span></span></div>';
+        '<span class="why" data-fact="reason"><span class="t" data-ellipsis title="' + esc(w) + '">' + esc(w) + '</span></span>' + stack(m.ids, 6, 28) + '</div>';
     });
     var tt = trainingToday(), k = tt.ids.length;
     if (k) {
@@ -462,7 +513,7 @@
       if (words(line) > 8) line = [a, gone.length ? gone.length + ' done.' : '', toCome.length ? toCome.length + ' to come.' : ''].filter(Boolean).join(' ');
       out += '<button class="lrow duo" type="button" data-row="sessions-today" aria-haspopup="dialog"><span class="nm" data-fact="name">' + k + ' training today</span>' +
         '<span class="acts"><span class="act-t">See who</span><span class="more-slot"></span></span>' +
-        '<span class="why" data-fact="reason"><span class="t" data-ellipsis title="' + esc(line) + '">' + esc(line) + '</span></span></button>';
+        '<span class="why" data-fact="reason"><span class="t" data-ellipsis title="' + esc(line) + '">' + esc(line) + '</span></span>' + stack(tt.ids, 6, 28) + '</button>';
     }
     if (!t.meets.length && !k) out = '<p class="empty">Nothing on the plan today.</p>';
     return out;
@@ -527,7 +578,7 @@
     return ids.map(function (id) {
       var x = by[id]; if (!x) return '';
       var w = theirWords(x);
-      return '<a class="lrow two" data-row="' + esc(id) + '" href="' + esc(MESSAGES + '#id=' + encodeURIComponent(id)) + '"><span class="nm" data-fact="name" data-ellipsis title="' + esc(x.name) + '">' + esc(x.name) + '</span>' +
+      return '<a class="lrow two" data-row="' + esc(id) + '" href="' + esc(MESSAGES + '#id=' + encodeURIComponent(id)) + '">' + DESK.photo(L(id) || x, 32) + '<span class="nm" data-fact="name" data-ellipsis title="' + esc(x.name) + '">' + esc(x.name) + '</span>' +
         '<span class="when" data-fact="context">' + esc(whenWords(x.since || (x.last && x.last.at))) + '</span>' +
         '<span class="why" data-fact="reason"><span class="t" data-quote data-ellipsis title="' + esc(w) + '">' + esc(w) + '</span></span></a>';
     }).join('');
@@ -571,7 +622,6 @@
     var lost = !document.activeElement || document.activeElement === document.body || !!hadRow;
     $('#need').innerHTML = needHtml();
     $('#need-f').innerHTML = footHtml();
-    $('#need-cols').hidden = !$('#need .lrow:not(.c2)');
     $('#today').innerHTML = todayHtml();
     $('#msgs').innerHTML = msgsHtml();
     var back = rowId || (lost && here) || null, row = back ? rowEl(back) : null;
