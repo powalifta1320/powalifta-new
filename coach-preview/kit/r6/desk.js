@@ -561,6 +561,13 @@
         popEl.addEventListener = function (type, fn, opt) { popOwn.push([type, fn, opt]); return EventTarget.prototype.addEventListener.call(this, type, fn, opt); };
       }
       if (popEl.matches(':popover-open')) { popByCode = true; popEl.hidePopover(); }
+      /* 22 Nov: a popover opened from inside a modal sheet lives inside that sheet. A modal dialog makes everything outside
+         it inert, so a menu or the exercise picker opened from a sheet could be seen but not clicked or typed into (the
+         import screen's row menu and its name matcher). It is in the top layer either way; it goes back to the page for
+         the next opening from the page. */
+      var inSheet = trigger.closest ? trigger.closest('dialog[open]') : null, popHome = document.body;
+      try { if (inSheet && inSheet.matches(':modal')) popHome = inSheet; } catch (e) { /* no :modal: the page keeps it */ }
+      if (popEl.parentNode !== popHome) popHome.appendChild(popEl);
       popOwn.splice(0).forEach(function (l) { EventTarget.prototype.removeEventListener.call(popEl, l[0], l[1], l[2]); });
       popEl.onclick = popEl.onkeydown = popEl.oninput = popEl.onchange = popEl.onsubmit = null;
       if (typeof o.onClick === 'function') popEl.onclick = o.onClick;

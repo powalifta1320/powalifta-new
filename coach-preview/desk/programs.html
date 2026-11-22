@@ -24,6 +24,7 @@
 <link rel="stylesheet" href="../kit/r6/sheet.css">
 <link rel="stylesheet" href="../kit/r6/simple.css">
 <link rel="stylesheet" href="../kit/r6/picker.css">
+<link rel="stylesheet" href="../kit/r6/importer.css">
 <link rel="stylesheet" href="../kit/r6/fix.css">
 <link rel="stylesheet" href="../kit/r6/newcoach.css">
 <style>
@@ -314,6 +315,8 @@
 <script src="../kit/r6/store.js"></script>
 <script src="../kit/r6/desk.js"></script>
 <script src="../kit/r6/picker.js"></script>
+<script src="../kit/r6/import.js"></script>
+<script src="../kit/r6/importer.js"></script>
 <script src="../kit/r6/week.js"></script>
 <script src="../kit/r6/sheet.js"></script>
 <script src="../kit/r6/simple.js"></script>
@@ -2677,7 +2680,45 @@
   var IMP = null;
   var KNOWN = /^(exercise|exercises|movement|lift|sets?|reps?|rpe|rir|%|rpe or %|weight|load|kg|tempo|notes?|day|session|week|daily volume|checkbox)$/i;
   var MAP_TO = [['effort', 'RPE or %'], ['note', 'Notes'], ['load', 'Load'], ['tempo', 'Tempo'], ['', 'Leave it out']];
+  /* 22 Nov (the owner: "it should automatically identify the program structure … let coaches correct column mappings
+     before they save"): the import is its own screen now (kit/r6/importer.js over kit/r6/import.js). It reads pasted cells,
+     .xlsx / .ods / .csv files and a Google Sheets link, shows the coach's sheet with what every column and row was read
+     as, and saves through importSave below: a template, or the lifter in hand's block from the week they are on. The older
+     screen under it stays for a browser the new one cannot load in. */
+  function importSave(r, to) {
+    var target = importTargets().filter(function (x) { return x.id === to; })[0];
+    if (to === 'tpl' && PL.templates && fn(PL.templates, 'save')) {
+      var j = r.block.toJSON(); j.name = r.name;
+      var res = own(function () { return PL.templates.save({ name: j.name, json: j }); });
+      if (res && res.error) return res.error.message;
+      DESK.sheet.close();
+      DESK.toast('Imported ' + plural(r.lines, 'line') + ' over ' + plural(r.weeks, 'week') + ' as the template ' + j.name + '.', res.meta && res.meta.undo ? function () { var u = PL.undo(res.meta.undo); paintQueue(); return u; } : null);
+      paintQueue(); return true;
+    }
+    if (target && target.lifter) {
+      var id = target.lifter, b = blockOf(id); if (!b) return 'That block cannot be read.';
+      var from = IMP.week || 1, out = b.importWeeks(from, [r.block], { label: 'Import ' + plural(r.lines, 'line') + ' from week ' + from });
+      if (out && out.error) return out.error.message;
+      var sv = own(function () { return PL.programs.save(id, b.toJSON(), { label: 'Import ' + plural(r.lines, 'line') }); });
+      if (sv && sv.error) return sv.error.message;
+      var sk = out && out.data && out.data.skipped && out.data.skipped.length ? ' ' + (out.data.skipped.length === 1 ? 'Week ' + out.data.skipped[0] + ' is lifted: left as it was.' : 'Weeks ' + K.list(out.data.skipped, 9) + ' are lifted: left as they were.') : '';
+      DESK.sheet.close();
+      DESK.toast('Imported ' + plural(r.lines, 'line') + ' into ' + Lf(id).first + '’s block from week ' + from + '.' + sk, sv && sv.meta && sv.meta.undo ? function () { var u = PL.undo(sv.meta.undo); reopen(); return u; } : null);
+      st.tab = 'lifters'; openWeek(id, from);
+      return true;
+    }
+    return 'Open the lifter first, then import into their block. Or import it as a template.';
+  }
   function importSheet(seed) {
+    if (W.IMPORTER && W.IMPORT && !(seed && seed.length > 1)) {
+      IMP = { tabs: [], map: {}, to: null, week: null, lifter: null, reading: [], paste: '' };
+      var ui = W.IMPORTER.open({
+        targets: function () { return importTargets().map(function (t) { return { id: t.id, label: t.id === 'tpl' ? 'A new template' : t.lifter ? Lf(t.lifter).first + '’s block, from week ' + IMP.week : 'A lifter’s block' }; }); },
+        save: importSave
+      });
+      if (seed && seed.length === 1 && ui && ui.setText) ui.setText(seed[0].text);
+      return;
+    }
     var saved = json(ls.get('powa-r6-import-map')) || {};
     IMP = { tabs: [], map: saved, to: null, week: null, lifter: null, reading: [], paste: '' };
     if (seed) seed.forEach(function (s) { addTab(s.name, s.text); });

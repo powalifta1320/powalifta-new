@@ -1,0 +1,78 @@
+/* importer.css: the screen a coach's spreadsheet comes in through (importer.js), in the sheet every page uses
+   (dialog.sheet, ui.css). Left, the coach's sheet as it is, a real grid, with what each column and row was read as;
+   right, the programme it becomes. Every value comes from tokens.css. */
+dialog.sheet.is-import { width: min(1180px, calc(100vw - 2 * var(--sp-6))); }
+dialog.sheet.is-import.is-drop { box-shadow: var(--shadow-pop), inset 0 0 0 2px var(--place); }
+.im2 { display: flex; flex-direction: column; gap: var(--sp-4); }
+.im2 h3 { margin: 0 0 var(--sp-2); font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+.im2 h3 small { display: block; margin-top: 2px; color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-label) var(--font); letter-spacing: 0; }
+.im2 h4 { margin: var(--sp-4) 0 var(--sp-1); color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-label) var(--font); }
+.im2-lede { margin: 0; max-width: 68ch; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+.im2-hint { margin: var(--sp-2) 0 0; color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
+.im2-busy { margin: var(--sp-2) 0 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+.im2-err { margin: var(--sp-2) 0 0; color: var(--warn); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+.im2-warn { color: var(--warn); }
+
+/* where the programme is: paste, a file, a link */
+.im2-src { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3); }
+.im2-paste { width: 100%; height: 120px; min-height: 64px; max-height: 240px; padding: var(--sp-3); resize: vertical; font: 400 var(--fs-label)/1.4 var(--font); white-space: pre; overflow: auto; tab-size: 12; }
+.im2-file, .im2-link { display: flex; align-items: center; gap: var(--sp-3); width: 100%; }
+.im2-file .im2-hint { margin: 0; }
+.im2-link .field { flex: 1 1 auto; }
+
+/* a workbook's tabs */
+.im2-tabs { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-bottom: var(--sp-3); }
+.im2-tab, .im2-opt {
+  height: var(--ctl-s); padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill); background: var(--fill); color: var(--ink-2); font: 500 var(--fs-label)/1 var(--font); white-space: nowrap; cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.im2-tab[aria-pressed='true'], .im2-opt[aria-checked='true'] { background: var(--thumb); color: var(--ink); box-shadow: var(--shadow-thumb); }
+.im2-tab:active, .im2-opt:active { transform: scale(var(--press)); }
+@media (hover: hover) and (pointer: fine) { .im2-tab:hover, .im2-opt:hover { color: var(--ink); } }
+
+/* the check: the sheet, and what it becomes */
+.im2-cols { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); gap: var(--sp-6); align-items: start; }
+.im2-scroll { max-height: min(440px, 46dvh); overflow: auto; border-radius: var(--r-row); box-shadow: inset 0 0 0 1px var(--line-2); overscroll-behavior: contain; }
+.im2-t { width: max-content; min-width: 100%; border-collapse: collapse; font: 400 var(--fs-label)/1.3 var(--font); font-variant-numeric: tabular-nums; }
+.im2-t th, .im2-t td { height: var(--ctl-s); padding: 0 var(--sp-3); border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); text-align: left; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.im2-t th:last-child, .im2-t td:last-child { border-right: 0; }
+.im2-t thead th { position: sticky; top: 0; z-index: 1; height: var(--ctl-l); padding: 0 var(--sp-1); background: var(--pop); border-bottom: 1px solid var(--line-2); }
+.im2-t .im2-k { position: sticky; left: 0; z-index: 1; width: 1%; padding: 0 var(--sp-1); background: var(--pop); }
+.im2-t thead .im2-k { z-index: 2; }
+.im2-role { width: 100%; min-width: 112px; height: var(--ctl-s); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-field); background: var(--fill-2); color: var(--ink); font: 600 var(--fs-label)/1 var(--font); cursor: pointer; }
+.im2-role[data-skip] { background: var(--fill); color: var(--ink-3); font-weight: 500; }
+.im2-kind { min-width: 68px; height: 24px; padding: 0 var(--sp-2); border: 0; border-radius: var(--r-pill); background: var(--fill); color: var(--ink-2); font: 500 var(--fs-cap)/1 var(--font); white-space: nowrap; cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) { .im2-kind:hover { background: var(--fill-2); color: var(--ink); } }
+.im2-t tr.is-line td { color: var(--ink); }
+.im2-t tr.is-skip td, .im2-t tr.is-head td { color: var(--ink-3); }
+.im2-t tr.is-day td { color: var(--ink); font-weight: 700; }
+.im2-t tr.is-day .im2-kind, .im2-t tr.is-week .im2-kind { background: var(--place-sel); color: var(--ink); }
+.im2-t tr.is-week td { color: var(--place-ink); font-weight: 700; }
+.im2-t tr.is-blank td { height: var(--sp-2); }
+.im2-t td.is-bad { background: var(--fill-2); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--warn); }
+
+.im2-res { min-width: 0; }
+.im2-sum { margin: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+.im2-sum b { color: var(--ink); font-weight: 700; }
+.im2-unit { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-3); color: var(--ink-2); font: 500 var(--fs-label)/1 var(--font); }
+.im2-box { margin-top: var(--sp-4); padding-top: var(--sp-1); border-top: 1px solid var(--line); }
+.im2-list { list-style: none; margin: 0; padding: 0; }
+.im2-list li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); min-height: var(--ctl-s); padding: var(--sp-1) 0; font: 500 var(--fs-label)/1.3 var(--font); }
+.im2-list li b { font-weight: 600; }
+.im2-list li span { min-width: 0; color: var(--ink-3); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.im2-prev { margin-top: var(--sp-4); padding-top: var(--sp-1); border-top: 1px solid var(--line); max-height: min(300px, 32dvh); overflow: auto; overscroll-behavior: contain; }
+.im2-p { width: 100%; border-collapse: collapse; font: 400 var(--fs-label)/1.3 var(--font); font-variant-numeric: tabular-nums; }
+.im2-p th, .im2-p td { padding: var(--sp-1) var(--sp-3) var(--sp-1) 0; border-top: 1px solid var(--line); text-align: left; white-space: nowrap; vertical-align: baseline; }
+.im2-p th { width: 40%; color: var(--ink); font-weight: 600; white-space: normal; }
+.im2-p th.is-sub { padding-left: var(--sp-4); color: var(--ink-3); font-weight: 500; }
+.im2-p td { color: var(--ink-2); }
+
+/* its name, and what it is imported as */
+.im2-save { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); margin-right: auto; min-width: 0; }
+.im2-name { display: flex; align-items: center; gap: var(--sp-3); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+.im2-name .input { width: 240px; }
+/* once a sheet is in, the pasted cells take less room: the check is the screen */
+dialog.sheet.is-import.has-sheet .im2-paste { height: 64px; }
+.im2-to { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+@media (max-width: 980px) { .im2-cols { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .im2 * { transition-duration: 1ms !important; } }
