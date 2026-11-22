@@ -79,3 +79,6 @@ dialog.sheet.is-import.has-sheet .im2-paste { height: 64px; }
 /* what the import will do where it lands: said beside the choice, before the button */
 .im2-note { flex: 1 1 100%; order: 3; margin: 0; color: var(--ink-2); font: 500 var(--fs-cap)/var(--lh-cap) var(--font); text-wrap: pretty; }
 .im2-note.is-warn { color: var(--warn); }
+/* 23 Nov: where the import lands is one of two answers; the chosen one says so plainly (a tick and a firm edge) */
+.im2-opt[aria-checked='true'] { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.im2-opt[aria-checked='true']::before { content: ''; display: inline-block; vertical-align: middle; width: 5px; height: 9px; margin: 0 var(--sp-2) 2px 2px; border: solid var(--ink); border-width: 0 2px 2px 0; transform: rotate(45deg); }

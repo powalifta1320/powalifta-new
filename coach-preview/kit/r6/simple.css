@@ -59,8 +59,8 @@
 .sv-name:active { transform: scale(var(--press)); }
 .sv-name.is-open { background: var(--fill-2); }
 /* the name stays whole; what marks its variant gives way first */
-.sv-c-name .sv-name { flex: 0 1 auto; }
-.sv-c-name .sv-var { flex: 0 10 auto; }
+.sv-c-name .sv-name { flex: 0 0 auto; max-width: 100%; }
+.sv-c-name .sv-var { flex: 0 1 auto; }
 .sv-var { min-width: 0; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* a second line of the same lift (back-offs): its name under the lift's, a step in */
 .sv-sub { padding-left: var(--sp-5); color: var(--ink-2); font: 500 var(--fs-cap)/1 var(--font); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
