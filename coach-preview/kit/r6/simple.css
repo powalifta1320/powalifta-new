@@ -25,7 +25,7 @@
 }
 .sv-cols span { min-width: 0; padding: 0 var(--sp-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .sv-cols .n { padding: 0; text-align: center; }
-.sv-cols .r { padding: 0 var(--sp-1); text-align: right; }
+.sv-cols .r { padding: 0 2px; text-align: right; }
 
 /* a day: its name, its date and how much it holds, then its lifts */
 .sv-day { padding: var(--sp-2) 0 var(--sp-1); scroll-margin-top: calc(var(--wb-h, 44px) + 32px); }
@@ -86,7 +86,7 @@
 }
 .sv-step button:first-child { left: 2px; }
 .sv-step button:last-child { right: 2px; }
-.sv-step button:disabled { color: var(--ink-4); cursor: default; }
+.sv-step button:disabled { visibility: hidden; }   /* a step that cannot be taken (a range, one set) is not offered: it sat over "10-12" */
 .sv-step button:active:not(:disabled) { background: var(--fill-3); }
 .sv-step:focus-within button { opacity: 1; }
 .sv-c-effort, .sv-c-note { position: relative; display: block; }
@@ -175,7 +175,7 @@
 .sv-adv { margin-left: auto; color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-label) var(--font); }
 .sv .wg-tail .wk-f { padding-left: 0; padding-right: 0; }
 
-/* ---------------- 23 Nov, the Apple pass (the owner: "make everything clean … so it's actually usable for coaches") ----------------
+/* ---------------- 22 Nov, the Apple pass (the owner: "make everything clean … so it's actually usable for coaches") ----------------
    Simplicity, not minimalism: every element earns its place, and what belongs together reads as one thing.
    - A line's sets, reps, RPE and load are ONE quiet strip (they were four dark boxes a line, sixty on the page): the
      prescription reads as a prescription, and each part is still a field the moment the pointer or the keys reach it.

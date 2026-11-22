@@ -113,6 +113,22 @@ const series = await p.evaluate(() => {
 });
 ok('two weeks picked set the pace: 100, 102.5 carry on as 105, 107.5', series.a.join(' | ') === '3x5 100kg | 3x5 102.5kg | 3x5 105kg | 3x5 107.5kg', series.a.join(' | '));
 ok('one week of a squat dragged on takes the coach’s own step; an accessory is copied', /102\.5kg$/.test(series.one) && /40kg$/.test(series.acc), series.one + ' · ' + series.acc);
+// the keys mean in the Block grid what they mean in the other two
+await open('block');
+const bOrder = () => p.evaluate(() => { const g = BLOCK.from(PL.programs.get('demo-d6').data); return g.rows.filter((r) => r.day === g.days[0].name && r.line === 0).map((r) => r.name); });
+const o0 = await bOrder(), whoB = await lifter();
+await p.locator('#sxc-0-4').click(); await p.waitForTimeout(150);
+await p.keyboard.press('Alt+Shift+ArrowDown'); await p.waitForTimeout(450);
+const o1 = await bOrder();
+ok('⌥⇧↓ in the Block grid moves the line, and the lifter stays', o1[0] === o0[1] && o1[1] === o0[0] && (await lifter()) === whoB, o1.join(', ') + ' · ' + await lifter());
+await p.keyboard.press('Alt+ArrowRight'); await p.waitForTimeout(350);
+ok('⌥→ goes to the next week there too', /Week 6/.test(await p.locator('#wk-h').innerText()), await p.locator('#wk-h').innerText());
+// whole lines deleted in the Week grid read "not this week", never a bare named line
+await open('week');
+await p.locator('#wg .wg-line [data-gut]').nth(4).click(); await p.waitForTimeout(150);
+await p.keyboard.press('Delete'); await p.waitForTimeout(450);
+const outRow = p.locator('#wg .wg-line.is-out');
+ok('a whole line deleted is out of this week, and says so', (await outRow.count()) === 1 && /not this week/.test(await outRow.first().innerText()) && /out of week 5\. Undo/.test(await toast()), (await outRow.first().innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 60) + ' · ' + await toast());
 await shot('grids-block.png');
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

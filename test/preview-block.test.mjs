@@ -313,5 +313,33 @@ t('names a coach adds are found like the library’s, in this block', () => {
   ok(sq.some((e) => e.name === 'Squat' && e.here), 'a library name already in the block says so');
 });
 
+// 22 Nov, from a second cold review
+t('an import by day keeps the sheet’s days: a lift is never matched to another day’s line', () => {
+  const b = free(), d0 = b.days[0].name, d1 = b.days[1].name;
+  const other = b.rows.find((x) => x.day === d1 && x.line === 0 && !b.rows.some((y) => y.day === d0 && y.name === x.name));
+  ok(other, 'a lift only the second day has');
+  const src = BL.fromTable([['Day', 'Exercise', 'Week 1'], [d0, other.name, '3x8'], [d0, 'Plank', '3x30']]);
+  ok(src && !src.error, 'the sheet reads');
+  const blk = src.block || src.data || src, c = b.weeks.findIndex((w, k) => !b.rows.some((row, r) => row.cells[w.uid] && b.isRO(r, k)));
+  const res = b.importWeeks(c + 1, [blk], { byDay: true });
+  ok(res && !res.error, res && res.error && res.error.message);
+  const u = b.weeks[c].uid, on0 = b.rows.filter((x) => x.day === d0 && x.cells[u]).map((x) => x.name), on1 = b.rows.filter((x) => x.day === d1 && x.cells[u]).map((x) => x.name);
+  ok(on0.includes(other.name), 'it is on the sheet’s day: ' + on0.join(', '));
+  ok(!on1.includes(other.name), 'and not on the day that had a line of that name: ' + on1.join(', '));
+});
+t('a line taken out of one week reads as out, and comes back', () => {
+  const b = free(), r = b.rows.findIndex((x) => x.line === 0 && !x.lift), c = b.weeks.findIndex((w, k) => !b.isRO(r, k) && b.rows[r].cells[w.uid]);
+  const was = texts(b, r)[c], res = b.dropLine(r, c);
+  ok(res && !res.error, res && res.error && res.error.message);
+  eq(texts(b, r)[c], '', 'nothing in that week');
+  ok(b.weeks[c].out && b.weeks[c].out[b.rows[r].key], 'marked out of the week');
+  b.restoreLine(r, c); eq(texts(b, r)[c], was, 'put back as it was');
+});
+t('a load typed over a rule’s step drops the rule’s note', () => {
+  const b = free(), r = b.rows.findIndex((x) => x.line === 0 && !x.lift), c = b.weeks.findIndex((w, k) => !b.isRO(r, k) && b.rows[r].cells[w.uid]), w = b.weeks[c];
+  w.why = w.why || {}; w.why[b.rows[r].key] = { kind: 'rule', was: 180, now: 182.5 };
+  b.setField(r, c, 'load', '170');
+  ok(!w.why[b.rows[r].key], 'the note went with the typed load');
+});
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

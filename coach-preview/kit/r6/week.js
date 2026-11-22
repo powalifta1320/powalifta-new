@@ -1086,6 +1086,16 @@
     }
     function clearSel() {
       var R = rect(); if (!R) return;
+      /* whole lines: out of this week, said as such on the line (with the way back), never a bare named line */
+      if (R.many && R.cols.length === st.order.length && typeof B().dropLine === 'function') {
+        var keys = R.rows.map(function (x) { return x.key; }).filter(function (k) { var r0 = rowAt(k); return r0 >= 0 && editable(k, 'sets') && B().raw(r0, st.c); });
+        if (keys.length) {
+          var c1 = st.c, rs = write(function (bb) { return batch(bb, 'Take ' + plural(keys.length, 'line') + ' out of the week', function () { var err = null; keys.forEach(function (k) { if (err) return; var d = bb.dropLine(rowIdxIn(bb, k), c1); if (d && d.error) err = d; }); return err || { data: { lines: keys.length } }; }); }, { kind: 'clear', lines: keys.length });
+          st.anchor = null; after(rs);
+          if (!(rs && rs.error)) toast(plural(keys.length, 'line') + ' out of ' + low1(B().weekName(c1)) + '.', true);
+          return;
+        }
+      }
       var c = st.c, cells = cellsOf(R).filter(function (x) { return x.col !== 'last' && editable(x.key, x.col); });
       if (!cells.length) { st.msg = st.hand ? { key: st.hand.key, col: st.hand.col, say: 'Already lifted. Only weeks still to come can change.' } : null; paintStatus(); return; }
       var res = write(function (bb) {

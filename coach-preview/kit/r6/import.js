@@ -168,6 +168,9 @@
         rpe: f(function (x) { var y = x.replace(/^(?:@|rpe)\s*/i, ''); return isNum(y) && num(y) >= 5 && num(y) <= 10 && (num(y) * 2) % 1 === 0; }), big: f(function (x) { return (isNum(x) && num(x) >= 15) || /\d\s*(kgs?|lbs?)$/i.test(x); }) };
     };
     var st = A.cols.map(function (x) { return stat(x.i); });
+    /* 22 Nov (a cold review: an "Intensity" column of 7, 7.5, 8 was read as percent): the word is used for both. What
+       the column holds decides: 5 to 10 in halves is RPE; a percent says so or is a fraction or a number over 10. */
+    A.cols.forEach(function (x) { if (x.role !== 'pct' || x.week != null || !/^int/.test(low(x.head))) return; var s0 = st[x.i]; if (s0.n && s0.rpe >= 0.6 && s0.pct < 0.3 && !taken.rpe) { x.role = 'rpe'; taken.rpe = 1; delete taken.pct; } });
     if (!taken.exercise) {
       var pick = -1, top = 0;
       A.cols.forEach(function (x) { if (x.role != null) return; var s = st[x.i]; if (s.n < 1 || s.text < 0.5) return; var sc = s.lib * 3 + s.text + Math.min(s.n, 20) / 40 - x.i * 0.01; if (sc > top) { top = sc; pick = x.i; } });
@@ -199,6 +202,8 @@
       if (!full.length) k = { kind: 'blank' };
       else if (ri === best || ri === A.sub || (headText && r.join('\u0001').toLowerCase() === headText)) k = { kind: 'head' };
       else if (weekOf(firstTxt) != null && full.length <= 2 && !(A.layout === 'across' && ri <= best)) k = { kind: 'week', n: weekOf(firstTxt) };
+      /* a day named above the column names ("DAY 1 - Lower", then Exercise / Sets / Reps): it is the first day */
+      else if (best >= 0 && ri < best && full.length <= 2 && DAY_RE.test(firstTxt) && !headRole(firstTxt)) k = { kind: 'day', label: firstTxt };
       else if (ri < from) k = { kind: 'skip' };
       else {
         var ex = exCol >= 0 ? r[exCol] : '', has = data.some(function (x) { return r[x.i]; });

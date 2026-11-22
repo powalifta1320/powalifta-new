@@ -994,8 +994,20 @@
         return;                                                  /* ⌘C ⌘X ⌘V: the clipboard events do the work */
       }
       if (e.altKey) {
+        /* 22 Nov (a cold review: in the Block grid ⌥⇧↓ opened another lifter while the line's own menu called it "Move
+           down"): the keys mean here what they mean in Simple and in the Week grid */
+        if (e.shiftKey && (k === 'ArrowDown' || k === 'ArrowUp')) {
+          e.preventDefault();
+          var B0 = b(), row0 = B0.rows[st.cur.r]; if (!row0 || typeof B0.moveRow !== 'function') return;
+          var mk = row0.key, mres = B0.moveRow(st.cur.r, k === 'ArrowUp' ? 'up' : 'down');
+          write(mres, { kind: 'move' });
+          if (mres && mres.error) { toast(mres.error.message); return; }
+          var nr = -1; b().rows.forEach(function (y, i) { if (y.key === mk) nr = i; }); if (nr >= 0) select(nr, st.cur.c);
+          return;
+        }
         if (k === 'ArrowDown' || k === 'ArrowUp') { e.preventDefault(); if (opts.onLifter) opts.onLifter(k === 'ArrowDown' ? 1 : -1); }
-        return;                                                  /* ⌥→ ⌥← are not bound here: the arrows move */
+        else if (k === 'ArrowRight' || k === 'ArrowLeft') { e.preventDefault(); if (opts.onWeek) opts.onWeek(k === 'ArrowRight' ? 1 : -1); else go(0, k === 'ArrowRight' ? 1 : -1); }
+        return;
       }
       if (k === 'ArrowUp') { e.preventDefault(); go(-1, 0, e.shiftKey); }
       else if (k === 'ArrowDown') { e.preventDefault(); go(1, 0, e.shiftKey); }

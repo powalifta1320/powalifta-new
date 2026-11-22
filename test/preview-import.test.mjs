@@ -162,5 +162,17 @@ t('tidy reads the ways coaches write a set', () => {
   eq(['3x5 @ RPE 8', '3x5 RPE 8', '4 sets of 6 @ 72.5%', '3 sets x 10 reps', '8, 8, 8', '3xAMRAP', '5x5'].map(IM.tidy), ['3x5 @8', '3x5 @8', '4x6 72.5%', '3x10', '3x8', '3x1+', '5x5']);
 });
 
+// 22 Nov, from a cold review: a day named above the column names, and an "Intensity" column that holds RPE
+t('a day named above the column names is the first day, and Intensity of 7, 7.5, 8 is RPE', () => {
+  const r = IM.read('DAY 1 - Lower\nExercise\tSets\tReps\tIntensity\tLoad\tNotes\nSquat\t3\t5\t7\t140\tbelt\nRDL\t3\t8\t7.5\t120\t\nDAY 2 - Upper\nBench\t4\t4\t8\t95\t\nRow\t3\t10\t8\t70\t');
+  ok(r.ok, r.why);
+  eq(r.days.length, 2, 'two days');
+  ok(/^day 1/i.test(r.lines[0].day) && /lower/i.test(r.lines[0].day), 'the first day keeps its own name: ' + r.lines[0].day);
+  eq(r.lines[0].cells[1], '3x5 @7 140kg', 'RPE and the load, not a percent');
+});
+t('an Intensity column of percents stays a percent', () => {
+  const r = IM.read('Exercise\tSets\tReps\tIntensity\nSquat\t3\t5\t75\nBench\t4\t4\t80');
+  ok(r.ok, r.why); eq(r.lines[0].cells[1], '3x5 75%');
+});
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

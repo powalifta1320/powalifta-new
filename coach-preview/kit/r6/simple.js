@@ -21,7 +21,8 @@
   var dShort = function (iso) { var d = day0(iso); return d ? WD[d.getDay()] + ' ' + d.getDate() : ''; };
   var dLong = function (iso) { var d = day0(iso); return d ? WD[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()] : ''; };
   var nf = function (v) { return BL && BL.nf ? BL.nf(v) : String(Math.round(v * 100) / 100); };
-  var sentence = function (s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(); };
+  /* a day's name in sentence case, its own capitals kept ("SBD heavy", never "Sbd heavy"): the rule every other grid uses */
+  var sentence = function (t) { return String(t || '').trim().split(/\s+/).map(function (w, i) { return !i ? w.charAt(0).toUpperCase() + w.slice(1) : /^[A-Z0-9-]{2,}$/.test(w) ? w : w.toLowerCase(); }).join(' '); };
   var low1 = function (s) { s = String(s || ''); return s.charAt(0).toLowerCase() + s.slice(1); };
   var isInt = function (t) { return /^\d+$/.test(String(t)); };
   var isNum = function (t) { return /^\d+(\.\d+)?$/.test(String(t)); };
@@ -55,7 +56,7 @@
       if (f[0] === 'load' && !t) { var L = bb.load(r, ci); if (L && L.kg != null) auto = nf(L.kg) + (L.kgHi != null && L.kgHi !== L.kg ? '-' + nf(L.kgHi) : ''); }
       var id = key + '|' + f[0], step = f[0] === 'sets' || f[0] === 'reps';
       var inp = '<input class="sv-in" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" data-sv-field="' + f[0] + '" data-f="' + esc(id) + '" data-v="' + esc(t) + '" value="' + esc(t) + '"' +
-        (auto ? ' placeholder="' + esc(auto) + '"' : !ro && (f[0] === 'effort' || f[0] === 'load') ? ' placeholder="–"' : '') + (ro ? ' disabled' : '') + ' aria-label=""' + esc(f[1] + (f[0] === 'load' ? ' in kg' : '') + ', ' + bb.rows[r].name + (sub ? ', ' + sub : '')) + '"' + (bad ? ' aria-invalid="true"' : '') + '>';
+        (auto ? ' placeholder="' + esc(auto) + '"' : !ro && (f[0] === 'effort' || f[0] === 'load') ? ' placeholder="–"' : '') + (ro ? ' disabled' : '') + ' aria-label="' + esc(f[1] + (f[0] === 'load' ? ' in kg' : '') + ', ' + bb.rows[r].name + (sub ? ', ' + sub : '')) + '"' + (bad ? ' aria-invalid="true"' : '') + '>';
       if (step) return '<span class="sv-step sv-c-' + f[0] + '"><button type="button" tabindex="-1" data-sv-step="-1" data-f="' + esc(id + '|-') + '" aria-label="One less"' + (ro || !isInt(t) || +t <= 1 ? ' disabled' : '') + '>−</button>' + inp +
         '<button type="button" tabindex="-1" data-sv-step="1" data-f="' + esc(id + '|+') + '" aria-label="One more"' + (ro || (t && !isInt(t)) ? ' disabled' : '') + '>+</button></span>';
       if (f[0] === 'load') return '<span class="sv-kg sv-c-load' + (auto ? ' is-auto' : t ? '' : ' is-empty') + '">' + inp + '<i aria-hidden="true">kg</i></span>';
@@ -64,7 +65,7 @@
     function noteHtml(bb, r, label) {
       var row = bb.rows[r], note = bb.fieldText(r, ci, 'note') || '', ro = bb.isRO(r, ci), cue = !note && row.note ? String(row.note) : '';
       /* the line's standing cue (shown to the lifter every week) reads where this week's own note would go, until one is written */
-      return '<span class="sv-c-note' + (cue ? ' has-cue' : '') + '"' + (cue ? ' title="' + esc('Every week: ' + cue + ' A note typed here is for this week only.') + '"' : '') + '><input class="sv-in sv-note" type="text" maxlength="160" autocomplete="off" data-sv-field="note" data-f="' + esc(row.key + '|note') + '" data-v="' + esc(note) + '" value="' + esc(note) + '"' + (ro ? (cue ? ' disabled placeholder="' + esc(cue) + '"' : ' disabled') : ' placeholder="' + esc(cue || 'Add a note') + '"') + ' aria-label=""' + esc('Note for ' + first + ' on ' + row.name + (label ? ', ' + label : '')) + '"></span>';
+      return '<span class="sv-c-note' + (cue ? ' has-cue' : '') + '"' + (cue ? ' title="' + esc('Every week: ' + cue + ' A note typed here is for this week only.') + '"' : '') + '><input class="sv-in sv-note" type="text" maxlength="160" autocomplete="off" data-sv-field="note" data-f="' + esc(row.key + '|note') + '" data-v="' + esc(note) + '" value="' + esc(note) + '"' + (ro ? (cue ? ' disabled placeholder="' + esc(cue) + '"' : ' disabled') : ' placeholder="' + esc(cue || 'Add a note') + '"') + ' aria-label="' + esc('Note for ' + first + ' on ' + row.name + (label ? ', ' + label : '')) + '"></span>';
     }
     function lastHtml(bb, r) {
       var row = bb.rows[r], w = bb.weeks[ci], lw = bb.lastWeek ? bb.lastWeek(r, ci) : null;
@@ -119,7 +120,7 @@
     function html() {
       var bb = b(), w = bb.weeks[ci]; if (!w) return '<p class="sv-none">There is no week here.</p>';
       var days = bb.daysOf(ci), lifted = w.state === 'lifted';
-      var heads = '<div class="sv-cols" aria-hidden="true"><span></span><span>Exercise</span><span class="n">Sets</span><span></span><span class="n">Reps</span><span class="r" title="RPE, or a percent of the training max">RPE/%</span><span class="r">Load</span><span class="sv-c-last">Last week</span><span>Note for ' + esc(first) + '</span><span></span></div>';
+      var heads = '<div class="sv-cols" aria-hidden="true"><span></span><span>Exercise</span><span class="n">Sets</span><span></span><span class="n">Reps</span><span class="r" title="RPE, or a percent of the training max">RPE or %</span><span class="r">Load</span><span class="sv-c-last">Last week</span><span>Note for ' + esc(first) + '</span><span></span></div>';
       var body = days.length ? days.map(function (d) { return dayHtml(bb, d, lifted); }).join('') : '<p class="sv-none">This block has no days yet. Add the first one.</p>';
       var addDay = lifted ? '' : '<button class="sv-addday" type="button" data-sv-addday data-f="day|+">' + PLUS + '<span>Add a day</span></button>';
       var foot = '<div class="sv-foot">' + (o.onSaveTemplate ? '<button class="btn quiet sm" type="button" data-sv-tpl>Save this block as a template…</button>' : '') +
@@ -182,7 +183,9 @@
     /* ---------- writing ---------- */
     /* words: what the toast says (with the page's Undo), or an object whose .say the write itself fills in once it knows */
     function apply(fn, label, words) { var oo = words && typeof words === 'object' ? words : words ? { say: words } : {}; oo.focus = false; return o.apply ? o.apply(fn, label, oo) : null; }
-    function commit(inp) {
+    /* stay: the coach is still in the field (Enter). Leaving it with a value that does not read puts back what was
+       there and says so, so what is on the screen is always what is saved (a cold review: "40" stayed, 3 was stored) */
+    function commit(inp, stay) {
       if (pendingEl === inp) { clearTimeout(pending); pending = null; pendingEl = null; }
       var f = inp.getAttribute('data-sv-field'), v = inp.value.trim(), was = inp.getAttribute('data-v') || '';
       if (v === was) { clearBad(inp); return true; }
@@ -190,7 +193,11 @@
       /* read it before writing it: what does not read is said at the field and never saved (it used to be stored as
          typed, ringed orange, and only stopped the send later) */
       var pf = v && r0 >= 0 && b().withField ? b().withField(r0, ci, f, v) : null;
-      if (pf && pf.ok === false) { bads[inp.getAttribute('data-f')] = { text: v, why: pf.why || 'That does not read. Esc puts back what was there.' }; markBad(inp, v, bads[inp.getAttribute('data-f')].why); return false; }
+      if (pf && pf.ok === false) {
+        var why = pf.why || 'That does not read.';
+        if (!stay) { clearBad(inp); inp.value = was; say('“' + v + '” was not saved for ' + nm.toLowerCase() + '. ' + why); return false; }
+        bads[inp.getAttribute('data-f')] = { text: v, why: why + ' Esc puts back what was there.' }; markBad(inp, v, bads[inp.getAttribute('data-f')].why); return false;
+      }
       clearBad(inp);
       inp.setAttribute('data-v', v);
       apply(function (bb) { var r = ixIn(bb, key); return r < 0 ? gone() : bb.setField(r, ci, f, v); }, nm + ' ' + (f === 'effort' ? 'RPE or %' : f));
@@ -230,6 +237,10 @@
     function addTo(d, btn) {
       if (!W.PICK) return;
       flush();
+      /* room under the button for the picker (about 360 px): the card scrolls up to make it, so the picker hangs
+         below and the day it adds to stays in view */
+      var sc0 = scroller(host), need = btn.getBoundingClientRect().bottom + 372 - (W.innerHeight || 800);
+      if (need > 0 && sc0 && sc0.scrollBy) sc0.scrollBy(0, need);
       W.PICK.open(btn, { block: b(), c: ci, title: 'Add to ' + low1(sentence(d)), onPick: function (e) {
         var name = e.name, made = null;
         var res = apply(function (bb) {
@@ -511,6 +522,8 @@
       if ((x = t.closest('[data-sv-adv]'))) { if (o.onAdvanced) o.onAdvanced(); return; }
     }
     function onChange(e) { var t = e.target; if (t.matches('[data-sv-field]')) later(t, 0); }
+    /* a field left with a value that was refused: back to what is saved */
+    function onFocusOut(e) { var t = e.target; if (t && t.matches && t.matches('[data-sv-field]') && bads[t.getAttribute('data-f')]) { var bad = bads[t.getAttribute('data-f')]; clearBad(t); t.value = t.getAttribute('data-v') || ''; say('“' + bad.text + '” was not saved. ' + bad.why.replace(/ Esc puts back what was there\.$/, '')); } }
     function onFocusIn(e) {
       var t = e.target;
       /* a number still counting its steps saves the moment the focus leaves it for another field */
@@ -547,7 +560,7 @@
         return;
       }
       if (!isField) return;
-      if (k === 'Enter') { e.preventDefault(); if (commit(t) === false) { t.select(); return; } var again = byF(t.getAttribute('data-f')) || t, nx = sameCol(again, e.shiftKey ? -1 : 1); if (nx) nx.focus(); return; }
+      if (k === 'Enter') { e.preventDefault(); if (commit(t, true) === false) { t.select(); return; } var again = byF(t.getAttribute('data-f')) || t, nx = sameCol(again, e.shiftKey ? -1 : 1); if (nx) nx.focus(); return; }
       if (k === 'Escape') { if (pendingEl === t) { clearTimeout(pending); pending = null; pendingEl = null; } clearBad(t); if (t.value !== (t.getAttribute('data-v') || '')) { t.value = t.getAttribute('data-v') || ''; t.select(); e.stopPropagation(); } return; }
       if ((k === 'ArrowUp' || k === 'ArrowDown') && !e.altKey && !meta && !t.matches('.sv-note')) { if (stepField(t, k === 'ArrowUp' ? 1 : -1)) e.preventDefault(); return; }
       /* ← → at the edge of the text walk to the field beside it on the line */
@@ -567,6 +580,7 @@
     host.addEventListener('click', onClick);
     host.addEventListener('change', onChange);
     host.addEventListener('focusin', onFocusIn);
+    host.addEventListener('focusout', onFocusOut);
     host.addEventListener('keydown', onKey);
     host.addEventListener('pointerdown', onPointerDown);
     host.addEventListener('copy', onCopy);
@@ -594,7 +608,7 @@
         dead = true; clearTimeout(pending); pending = null; pendingEl = null;
         if (drag) { if (drag.ghost) drag.ghost.remove(); if (drag.mark) drag.mark.remove(); cancelAnimationFrame(drag.raf); drag = null; }
         if (ro) ro.disconnect();
-        host.removeEventListener('click', onClick); host.removeEventListener('change', onChange); host.removeEventListener('focusin', onFocusIn);
+        host.removeEventListener('click', onClick); host.removeEventListener('change', onChange); host.removeEventListener('focusin', onFocusIn); host.removeEventListener('focusout', onFocusOut);
         host.removeEventListener('keydown', onKey); host.removeEventListener('pointerdown', onPointerDown);
         host.removeEventListener('copy', onCopy); host.removeEventListener('paste', onPaste); host.removeEventListener('contextmenu', onContext);
       }

@@ -174,6 +174,22 @@ await p.locator(sq + ' .sv-row [data-sv-field="sets"]').first().focus(); await p
 const y1 = await p.evaluate(() => Math.round(document.querySelector('.wb').getBoundingClientRect().top));
 ok('nothing jumps when the keys take the week, and the week keeps its name on screen', y0 === y1 && await p.locator('#wk-h').isVisible(), y0 + ' → ' + y1);
 
+// 7d. from the second cold review of 22 Nov
+const sets0 = p.locator(sq + ' .sv-row [data-sv-field="sets"]').first(), setsWas = await sets0.inputValue();
+await sets0.click(); await sets0.fill(String(+setsWas + 1)); await p.keyboard.press('Tab'); await p.waitForTimeout(350);
+const dh = await p.locator(sq + ' .sv-dh').boundingBox();
+await p.mouse.click(dh.x + dh.width - 120, dh.y + dh.height / 2); await p.waitForTimeout(150);
+await p.keyboard.press('Meta+z'); await p.waitForTimeout(450);
+ok('⌘Z undoes the week’s last change wherever the last click was', (await p.locator(sq + ' .sv-row [data-sv-field="sets"]').first().inputValue()) === setsWas && !/Nothing to undo/.test(await toast()), await toast());
+const s2 = p.locator(sq + ' .sv-row [data-sv-field="sets"]').first();
+await s2.click(); await s2.fill('40'); await p.keyboard.press('Tab'); await p.waitForTimeout(350);
+ok('a value that does not read, left behind, goes back to what is saved, and the page says so', (await p.locator(sq + ' .sv-row [data-sv-field="sets"]').first().inputValue()) === setsWas && /40.*was not saved.*Sets are 1 to 20/.test(await toast()), await toast());
+const labels = await p.evaluate(() => [...document.querySelectorAll('#wg .sv-in')].map((x) => x.getAttribute('aria-label') || ''));
+ok('every field says what it is to a screen reader', labels.length > 40 && labels.every((x) => x.length > 6) && /^Sets, /.test(labels[0]), labels[0]);
+await p.locator(sq + ' [data-sv-rename]').click(); await p.waitForTimeout(250);
+await p.locator('#sv-rn').fill('SBD Heavy'); await p.keyboard.press('Enter'); await p.waitForTimeout(450);
+ok('a day keeps its own capitals', (await p.locator('.sv-day').first().locator('h3').innerText()).trim() === 'SBD heavy', await p.locator('.sv-day').first().locator('h3').innerText());
+
 // 8. undo everything, back to where the week began (the week bar's own Undo button)
 let n = 0;
 for (; n < 60; n++) { const s = (await week()).snap; if (s === start.snap) break; await p.locator('[data-wk-undo]').click(); await p.waitForTimeout(180); }

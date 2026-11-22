@@ -2135,7 +2135,9 @@
       if (row.badf && row.badf[u]) { if (pf.whole) delete row.badf[u]; else { delete row.badf[u][field]; if (!Object.keys(row.badf[u]).length) delete row.badf[u]; } }
       var oldTop = row.line === 0 && cur ? self.load(r, c).kg : null;
       self.put(r, c, now);
-      if (w.why && w.why[row.key] && w.why[row.key].field === 'load' && (field === 'load' || pf.whole || lt)) delete w.why[row.key];
+      /* 22 Nov (a cold review: 170 typed over a rule's 182.5 still read "170 +2.5 … up 2.5 by your rule"): any note a rule
+         or a step left on the line goes when its load is typed, whether or not it named the field */
+      if (w.why && w.why[row.key] && (w.why[row.key].field === 'load' || /^(rule|step|follow)$/.test(w.why[row.key].kind || '')) && (field === 'load' || pf.whole || lt)) { delete w.why[row.key]; if (w.ruled) delete w.ruled[row.key]; }
       if (lt && lt.kg != null) { w.why = w.why || {}; w.why[row.key] = { kind: 'lighter', field: 'load', was: cur.w, now: now.w, other: lt.other, rpe: now.rpe }; }
       if (row.line === 0 && isNum(oldTop) && lt && lt.kg != null) self.followBackoffs(r, c, oldTop, lt.kg);
       return { data: { r: r, c: c, field: field, cell: self.cell(r, c), note: pf.note || null, other: lt ? lt.other : null } };
@@ -2310,6 +2312,18 @@
     });
   };
   /* a line out this week (a merge past the minutes, a swap) comes back */
+  /* 22 Nov: a line taken out of one week keeps its place in the block and reads "not this week" there, with the way back
+     (restoreLine). It was a bare empty line with a name, which read as something left behind. */
+  P.dropLine = function (r, c) {
+    var row = this.rows[r], w = this.weeks[c], self = this; if (!row || !w) return refuse('invalid', 'There is no line there.');
+    if (this.isRO(r, c)) return refuse('locked', LIFTED);
+    if (!row.cells[w.uid]) return { data: { r: r, c: c, changed: false } };
+    return this.commit('Take ' + low1(row.name) + ' out of week ' + (w.n || c + 1), function () {
+      w.out = w.out || {}; w.out[row.key] = row.cells[w.uid]; self.put(r, c, null); w.sent = false;
+      if (w.why) delete w.why[row.key];
+      return { data: { r: r, c: c } };
+    });
+  };
   P.restoreLine = function (r, c) {
     var row = this.rows[r], w = this.weeks[c], self = this;
     if (!row || !w || !w.out || !w.out[row.key]) return refuse('invalid', 'That line is in this week already.');
@@ -2788,7 +2802,10 @@
             var sdi = src.dayAt(sr.day), day = sdi >= 0 && self.days[sdi] ? self.days[sdi].name : sr.day;
             if (self.dayAt(day) < 0) self.days.push({ name: day, wd: null });
             var pick = function (sameDay) { for (var r = 0; r < self.rows.length; r++) { var row = self.rows[r]; if (used[r] || self.isRO(r, cc) || row.line !== sr.line || (sameDay && row.day !== day) || !same(row, sr)) continue; return r; } return -1; };
-            var ri = pick(true); if (ri < 0) ri = pick(false);
+            /* 22 Nov (a cold review: Monday's lat pulldown landed on Thursday): with o.byDay a sheet's day is the day it
+               lands on. A lift is matched to a line of that day, or added to it; it is never moved to another day's
+               line of the same name. */
+            var ri = pick(true); if (ri < 0 && !o.byDay) ri = pick(false);
             if (ri < 0) {
               var y = clone(sr); y.key = day + '|' + sr.name + '|i' + (++self.seq) + '|' + sr.line; y.day = day; y.cells = {}; delete y.bad; delete y.badf;
               if (sr.line) { var top = self.rows.filter(function (z) { return z.day === day && z.line === 0 && same(z, sr); })[0]; if (top) { y.ex = top.ex; y.key = top.key.replace(/\|\d+$/, '') + '|' + sr.line; if (keyAt(self, y.key) >= 0) y.key = day + '|' + sr.name + '|i' + self.seq + '|' + sr.line; } else y.ex = self.maxEx() + 1; } else y.ex = self.maxEx() + 1;

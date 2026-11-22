@@ -17,17 +17,17 @@
 /* the theme before any CSS: ?theme= wins, then powa-r6-theme (auto follows the Mac), else dark */
 (function () { var t = null; var m = /[?&]theme=(light|dark)\b/.exec(location.search); if (m) t = m[1]; if (!t) { try { t = localStorage.getItem('powa-r6-theme'); } catch (e) { t = null; } } if (t === 'auto') { try { t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; } catch (e) { t = 'dark'; } } document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark'); })();
 </script>
-<!-- 23 Nov: the files this page's editor is made of carry a version (?v=). A browser that kept an older copy of one
+<!-- 22 Nov: the files this page's editor is made of carry a version (?v=). A browser that kept an older copy of one
      stylesheet beside a newer script drew the grid a column out with an unstyled button over it; a new address is
      never answered from an old copy. Change the number whenever one of these files changes. -->
 <link rel="stylesheet" href="../kit/r6/tokens.css">
 <link rel="stylesheet" href="../kit/r6/glass.css">
-<link rel="stylesheet" href="../kit/r6/ui.css?v=1123">
-<link rel="stylesheet" href="../kit/r6/week.css?v=1123">
-<link rel="stylesheet" href="../kit/r6/sheet.css?v=1123">
-<link rel="stylesheet" href="../kit/r6/simple.css?v=1123">
-<link rel="stylesheet" href="../kit/r6/picker.css?v=1123">
-<link rel="stylesheet" href="../kit/r6/importer.css?v=1123">
+<link rel="stylesheet" href="../kit/r6/ui.css?v=1122b">
+<link rel="stylesheet" href="../kit/r6/week.css?v=1122b">
+<link rel="stylesheet" href="../kit/r6/sheet.css?v=1122b">
+<link rel="stylesheet" href="../kit/r6/simple.css?v=1122b">
+<link rel="stylesheet" href="../kit/r6/picker.css?v=1122b">
+<link rel="stylesheet" href="../kit/r6/importer.css?v=1122b">
 <link rel="stylesheet" href="../kit/r6/fix.css">
 <link rel="stylesheet" href="../kit/r6/newcoach.css">
 <style>
@@ -175,7 +175,7 @@
   .wb .wb-w { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
   .wb .link { height: 26px; }
   .wb .link.is-stop { background: var(--warn-tint); color: var(--warn); }
-  /* 23 Nov, the Apple pass: one thing on each line carries weight, the rest is words. Beside the lifter's note the
+  /* 22 Nov, the Apple pass: one thing on each line carries weight, the rest is words. Beside the lifter's note the
      answer the desk suggests is the one filled button; Reply and Keep are words that light under the pointer. On the
      week bar what the desk noticed reads as a quiet line of words after the week's state (it was a row of pills the
      same weight as the buttons). The maxes are numbers in their lifts' colours; the offer beside them is words too. */
@@ -349,15 +349,15 @@
 <script src="../kit/data.js"></script>
 <script src="../kit/kit.js"></script>
 <script src="../kit/coach.js"></script>
-<script src="../kit/r6/block.js?v=1123"></script>
+<script src="../kit/r6/block.js?v=1122b"></script>
 <script src="../kit/r6/store.js"></script>
-<script src="../kit/r6/desk.js?v=1123"></script>
-<script src="../kit/r6/picker.js?v=1123"></script>
-<script src="../kit/r6/import.js?v=1123"></script>
-<script src="../kit/r6/importer.js?v=1123"></script>
-<script src="../kit/r6/week.js?v=1123"></script>
-<script src="../kit/r6/sheet.js?v=1123"></script>
-<script src="../kit/r6/simple.js?v=1123"></script>
+<script src="../kit/r6/desk.js?v=1122b"></script>
+<script src="../kit/r6/picker.js?v=1122b"></script>
+<script src="../kit/r6/import.js?v=1122b"></script>
+<script src="../kit/r6/importer.js?v=1122b"></script>
+<script src="../kit/r6/week.js?v=1122b"></script>
+<script src="../kit/r6/sheet.js?v=1122b"></script>
+<script src="../kit/r6/simple.js?v=1122b"></script>
 <script src="../kit/r6/fix.js"></script>
 <script src="../kit/r6/newcoach.js"></script>
 <script>
@@ -1100,7 +1100,7 @@
   }
   /* an open pain item holds the week (P13): its main act is the crimson until the coach decides */
   function holdAct() {
-    if (!cur || cur.kind !== 'week' || !cur.p || cur.dirty) return null;
+    if (!cur || cur.kind !== 'week' || !cur.p) return null;   /* 22 Nov: an edit to the week is not an answer to the note */
     var held = (cur.p.held || []).filter(function (x) { return x.kind === 'pain'; }); if (!held.length) return null;
     var it = openItemOf(cur.id), a = it ? mainAct(it) : null;
     return a && a.ops && a.ops.length && !a.go ? { item: it, act: a, label: a.label } : null;
@@ -1290,10 +1290,15 @@
     /* a change reads as itself ("Deadlift Day: Fri 13 Nov → Sat 14 Nov"), with how many more there are (the popover lists them) */
     if (cur.kind === 'change') { var pv1 = preview(cur.item.id, cur.act.id, Object.keys(cur.edits || {}).length ? { edits: cur.edits } : undefined) || cur.pv || {}, pc = pv1.changes || []; return pc.length && pc[0].text ? pc[0].text + (pc.length > 1 ? ' and ' + (pc.length - 1) + ' more' : '') : plural(changeCount(), 'change') + ' for ' + cur.l.first; }
     if (cur.kind === 'week' && cur.p && cur.c === cur.sendC) {
-      var n = (cur.p.changes || []).length, c0 = cur.c - 1;
+      var n = liveChanges().length, c0 = cur.c - 1;
       if (n && c0 >= 0) return n + ' changed from ' + low1(cur.b.weekName(c0));
     }
     return '';
+  }
+  /* the proposal's changes that still stand: a line the coach has since typed over is theirs, not the rule's */
+  function liveChanges() {
+    var p = cur && cur.p, b = cur && cur.b; if (!p || !b) return [];
+    return (p.changes || []).filter(function (x) { var r = x.key ? rowIx(b, x.key) : x.r, row = r >= 0 ? b.rows[r] : null; if (!row || !isNum(x.now)) return !!row; var L = b.load(r, cur.sendC); return !L || L.kg == null || L.kg === x.now; });
   }
   function holdWord() {
     if (!cur.p || cur.c !== cur.sendC) return '';
@@ -1796,6 +1801,7 @@
       sendWeek: function () { return cur.sendC; },
       onSend: function () { goPrimary(); },
       onLifter: function (step) { stepLifter(step); },
+      onWeek: function (step) { stepWeek(step); },
       onWeekMenu: function (c, btn) { cur.c = c; weekMenu(btn); },
       /* 22 Nov: the line's moves from a right click in the Block view, for the week the click was in */
       onRowMenu: function (r, btn, c) { if (c != null && cur.b.weeks[c]) cur.c = c; rowMenu(r, btn); }
@@ -2373,7 +2379,7 @@
   function changesPop(btn) {
     var p = cur.p, b = cur.b, c = cur.c, list = [];
     if (cur.kind === 'change' && cur.pv) list = (cur.pv.changes || []).map(function (x) { return { text: x.text }; });
-    else if (p) list = (p.changes || []).map(function (x) { var row = b.rows[x.r]; return { text: (row ? row.name : x.name || '') + ' ' + nf(x.was) + ' → ' + nf(x.now) + (x.why ? ': ' + low1(String(x.why).replace(/^[\d.]+,\s*/, '')) : ''), r: x.r, was: x.was }; });
+    else if (p) list = liveChanges().map(function (x) { var row = b.rows[x.r]; return { text: (row ? row.name : x.name || '') + ' ' + nf(x.was) + ' → ' + nf(x.now) + (x.why ? ': ' + low1(String(x.why).replace(/^[\d.]+,\s*/, '')) : ''), r: x.r, was: x.was }; });
     else if (cur.kind === 'recovery') list = [{ text: cur.rv ? cur.rv.sourceText + ': half the sets, 1.5 easier.' : 'A deload of the last normal week.' }];
     var html = '<h3>' + esc(sourceWord() || 'Changes') + '</h3><div class="pop-b">' + (list.length ? list.map(function (x, i) { return '<div class="kv"><span>' + esc(x.text) + '</span>' + (x.was != null && x.r != null ? '<button class="btn quiet sm" type="button" data-back-to="' + i + '">Back to ' + nf(x.was) + '</button>' : '') + '</div>'; }).join('') : '<p class="note">Nothing changed.</p>') + '</div>';
     var el = DESK.pop.open(btn, html, { label: 'What changed' });
@@ -2600,7 +2606,7 @@
     /* 22 Nov (the owner: "I'm not able to edit the lift if it's already been entered"): every line's exercise can be
        changed from its moves, in every view, and a line can be duplicated or sent to another day */
     if (W.PICK && fn(b, 'changeExercise')) items.unshift({ id: 'chg', label: 'Change the exercise…', run: function () { changeExercisePop(row, btn); } });
-    if (fn(b, 'duplicateRow')) items.push({ id: 'dup', label: row.line ? 'Duplicate this line' : 'Duplicate', key: '⌘D', run: function () { gridApply(function (bb) { return bb.duplicateRow(rowIx(bb, row.key)); }, null, { say: nm + ' duplicated.' }); } });
+    if (fn(b, 'duplicateRow')) items.push({ id: 'dup', label: row.line ? 'Duplicate this line' : 'Duplicate', key: isSimple() ? '⌘D' : undefined, run: function () { gridApply(function (bb) { return bb.duplicateRow(rowIx(bb, row.key)); }, null, { say: nm + ' duplicated.' }); } });
     items.push({ sep: true });
     items.push({ id: 'each', label: 'Each week', subs: progs });
     items.push({ id: 'swapw', label: 'Swap this week only…', run: function () { swapPop(row, c, 'week', btn); } });
@@ -2618,7 +2624,7 @@
       if (elsewhere.length) items.push({ id: 'today', label: 'Move to another day', subs: elsewhere });
     }
     items.push({ sep: true });
-    items.push({ id: 'out', label: 'Take it out of ' + low1(b.weekName(c)), red: true, run: function () { gridApply(function (bb) { return bb.set(rowIx(bb, row.key), c, ''); }, null, { say: nm + ' out of ' + low1(b.weekName(c)) + '.' }); } });
+    items.push({ id: 'out', label: 'Take it out of ' + low1(b.weekName(c)), red: true, run: function () { gridApply(function (bb) { return fn(bb, 'dropLine') ? bb.dropLine(rowIx(bb, row.key), c) : bb.set(rowIx(bb, row.key), c, ''); }, null, { say: nm + ' out of ' + low1(b.weekName(c)) + '.' }); } });
     var lifted = b.weeks.some(function (w) { return w.state === 'lifted' && row.cells[w.uid]; });
     items.push({ id: 'del', label: 'Delete the line', red: true, disabled: lifted, sub: lifted ? 'Lifted already' : '', run: function () { gridApply(function (bb) { return bb.removeRow(rowIx(bb, row.key)); }, null, { say: nm + ' deleted.' }); } });
     menu(btn, items, { title: row.name, label: row.name + ' menu' });
@@ -2854,7 +2860,7 @@
     }
     if (target && target.lifter) {
       var id = target.lifter, b = blockOf(id); if (!b) return 'That block cannot be read.';
-      var from = IMP.week || 1, out = b.importWeeks(from, [r.block], { label: 'Import ' + plural(r.lines, 'line') + ' from week ' + from });
+      var from = IMP.week || 1, out = b.importWeeks(from, [r.block], { byDay: true, label: 'Import ' + plural(r.lines, 'line') + ' from week ' + from });
       if (out && out.error) return out.error.message;
       var sv = own(function () { return PL.programs.save(id, b.toJSON(), { label: 'Import ' + plural(r.lines, 'line') }); });
       if (sv && sv.error) return sv.error.message;
@@ -3105,7 +3111,7 @@
   function setKeys() {
     /* 22 Nov (a cold review: the sheet listed the grid's keys in Simple, left Simple's own out, and ⌥⇧↓ meant two
        things): one list per way of writing, and the keys the two share mean the same in both */
-    var both = [['⌘⇧↵', 'Send the week (the red button)'], ['⌥↓ ⌥↑', 'Next lifter, previous lifter'], ['⌥→ ⌥←', 'Next week, previous week'], ['⌥⇧↑ ⌥⇧↓', 'Move the line up or down'], ['⌘Z, ⇧⌘Z', 'Undo, redo']];
+    var both = [['⌘⇧↵', 'Send the week (the red button)'], ['⌥↓ ⌥↑', 'Next lifter, previous lifter'], ['⌥→ ⌥←', 'Next week, previous week'], ['⌥⇧↑ ⌥⇧↓', 'Move the line up or down'], ['⇧⌘Z', 'Redo']];   /* ⌘Z is the desk's own line above */
     if (isSimple()) DESK.keyMap(both.concat([['Tab, ⇧Tab', 'Next field, the one before'], ['Enter', 'Save, and the same field one line down'], ['↑ ↓', 'One more or less on a number'], ['← →', 'The field beside it, from the end of the text'], ['⌘D', 'Duplicate the line'], ['Click a grip', 'Pick the lift; ⇧ click picks the run'], ['⌘C ⌘V', 'Copy the picked lifts; paste under the line in hand'], ['⌫', 'Delete the picked lifts'], ['Right-click', 'The line’s menu'], ['Esc', 'Put back what was there; let go of the picked lifts']]));
     else DESK.keyMap(both.concat([['Tab, ⇧Tab', 'Next cell, previous cell'], ['Enter', 'Edit the cell; save and go down'], ['F2', 'Edit, keeping the text'], ['⇧Space', 'Take the whole line'], ['⌘D', 'Fill down'], ['⌘↵', 'Fill the selection with what you typed'], ['⌘C ⌘X ⌘V', 'Copy, cut, paste; whole lines cut are moved by the paste'], ['⌘G', 'The next line the desk flags'], ['⇧F10', 'The line’s menu'], ['Esc', 'Cancel the edit, then let go of a range']]));
   }
@@ -3250,6 +3256,13 @@
       if (rows[j]) { rows[j].focus(); } return;
     }
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'Enter' && !(t.closest && t.closest('[role=grid]')) && !DESK.sheet.isOpen()) { e.preventDefault(); goPrimary(); return; }
+    /* 22 Nov (a cold review: "undo depends on where you last clicked"): with a week open, ⌘Z and ⇧⌘Z walk the week's own
+       history wherever the focus is (a click on empty space left it on the page, and the desk's own ⌘Z, which only knows
+       the last toast, answered "Nothing to undo"). A field, a grid and an open sheet or popover keep their own. */
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'z' || e.key === 'Z' || (!e.shiftKey && (e.key === 'y' || e.key === 'Y'))) && cur && cur.grid && cur.b) {
+      var inField = t.matches && t.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
+      if (!inField && !(t.closest && t.closest('#wg')) && !document.querySelector('dialog[open]') && !DESK.pop.isOpen()) { e.preventDefault(); walkHistory(e.shiftKey || e.key === 'y' || e.key === 'Y' ? 'redo' : 'undo'); return; }
+    }
   });
   /* the store changed elsewhere (another page's write, an Undo from a toast): the queue and the counts follow; the block
      in hand is reloaded only when the write was not ours */
