@@ -2827,8 +2827,11 @@
       var res = own(function () { return PL.templates.save({ name: j.name, json: j }); });
       if (res && res.error) return res.error.message;
       DESK.sheet.close();
-      DESK.toast('Imported ' + plural(r.lines, 'line') + ' over ' + plural(r.weeks, 'week') + ' as the template ' + j.name + '.', res.meta && res.meta.undo ? function () { var u = PL.undo(res.meta.undo); paintQueue(); return u; } : null);
-      paintQueue(); return true;
+      DESK.toast('Imported ' + plural(r.lines, 'line') + ' over ' + plural(r.weeks, 'week') + ' as the template ' + j.name + '.', res.meta && res.meta.undo ? function () { var u = PL.undo(res.meta.undo); st.tab = 'templates'; openTemplate(null); return u; } : null);
+      /* 22 Nov (a cold review: "gives a toast and opens nothing"): the new template opens, ready to use for a lifter */
+      var tid = res && res.data && (res.data.id || (res.data.template && res.data.template.id)) || (templates().filter(function (t) { return t.name === j.name; }).pop() || {}).id || null;
+      st.tab = 'templates'; openTemplate(tid);
+      return true;
     }
     if (target && target.lifter) {
       var id = target.lifter, b = blockOf(id); if (!b) return 'That block cannot be read.';
@@ -2838,7 +2841,7 @@
       if (sv && sv.error) return sv.error.message;
       var sk = out && out.data && out.data.skipped && out.data.skipped.length ? ' ' + (out.data.skipped.length === 1 ? 'Week ' + out.data.skipped[0] + ' is lifted: left as it was.' : 'Weeks ' + K.list(out.data.skipped, 9) + ' are lifted: left as they were.') : '';
       DESK.sheet.close();
-      DESK.toast('Imported ' + plural(r.lines, 'line') + ' into ' + Lf(id).first + '’s block from week ' + from + '.' + sk, sv && sv.meta && sv.meta.undo ? function () { var u = PL.undo(sv.meta.undo); reopen(); return u; } : null);
+      DESK.toast('Imported ' + plural(r.lines, 'line') + ' into ' + Lf(id).first + '’s block from week ' + from + ', as your sheet has them. Not sent.' + sk, sv && sv.meta && sv.meta.undo ? function () { var u = PL.undo(sv.meta.undo); reopen(); return u; } : null);
       st.tab = 'lifters'; openWeek(id, from);
       return true;
     }
@@ -2847,7 +2850,7 @@
   function importSheet(seed) {
     if (W.IMPORTER && W.IMPORT && !(seed && seed.length > 1)) {
       IMP = { tabs: [], map: {}, to: null, week: null, lifter: null, reading: [], paste: '' };
-      var ui = W.IMPORTER.open({
+      var ui = W.IMPORTER.open({ note: importNote,
         targets: function () { return importTargets().map(function (t) { return { id: t.id, label: t.id === 'tpl' ? 'A new template' : t.lifter ? Lf(t.lifter).first + '’s block, from week ' + IMP.week : 'A lifter’s block' }; }); },
         save: importSave
       });
@@ -2914,6 +2917,17 @@
       t.lines = res && res.ok ? res.read.lines : 0;
     });
     return { days: days, lines: lines, weeks: weeks, bad: bad };
+  }
+  /* what an import will do where it lands: a template is new; a lifter's weeks are replaced, and the foot says by how much */
+  function importNote(r, to) {
+    var target = importTargets().filter(function (x) { return x.id === to; })[0];
+    if (to === 'tpl') return 'Saved as a template of yours. Nothing reaches a lifter until you use it for one.';
+    if (!target || !target.lifter) return 'Pick the lifter first.';
+    var b = blockOf(target.lifter), from = IMP.week || 1, first = Lf(target.lifter).first; if (!b) return '';
+    var now = 0, lifted = 0, last = from + Math.max(1, r.weeks) - 1;
+    for (var n = from; n <= last; n++) { var c = weekIndex(b, n), w = b.weeks[c]; if (!w || (w.n || c + 1) !== n) continue; if (w.state === 'lifted') { lifted++; continue; } now += b.rows.filter(function (row) { return row.cells[w.uid]; }).length; }
+    var span0 = from === last ? 'week ' + from : 'weeks ' + from + ' to ' + last;
+    return { warn: now > 0, text: (now ? 'This replaces ' + span0 + ' of ' + first + '’s block: ' + plural(now, 'line') + ' there now, ' + plural(r.lines, 'line') + ' after.' : 'This writes ' + span0 + ' of ' + first + '’s block.') + (lifted ? ' Weeks already lifted stay as they were.' : '') + ' Nothing is sent, and Undo puts it back.' };
   }
   function importTargets() {
     var out = [];

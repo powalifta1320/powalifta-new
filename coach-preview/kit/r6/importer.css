@@ -76,3 +76,6 @@ dialog.sheet.is-import.has-sheet .im2-paste { height: 64px; }
 .im2-to { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 @media (max-width: 980px) { .im2-cols { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .im2 * { transition-duration: 1ms !important; } }
+/* what the import will do where it lands: said beside the choice, before the button */
+.im2-note { flex: 1 1 100%; order: 3; margin: 0; color: var(--ink-2); font: 500 var(--fs-cap)/var(--lh-cap) var(--font); text-wrap: pretty; }
+.im2-note.is-warn { color: var(--warn); }

@@ -146,7 +146,9 @@
     function saveHtml() {
       var ts = targets(); if (!S.to && ts[0]) S.to = ts[0].id;
       return '<div class="im2-save"><label class="im2-name"><span>Name</span><input class="input" id="im2-name" maxlength="60" aria-label="The programme\u2019s name" value="' + esc(S.name) + '"></label>' +
-        (ts.length ? '<div class="im2-to" role="radiogroup" aria-label="Import as">' + ts.map(function (t) { return '<button type="button" role="radio" class="im2-opt" aria-checked="' + (S.to === t.id) + '" data-im-to="' + esc(t.id) + '">' + esc(t.label) + '</button>'; }).join('') + '</div>' : '') + '</div>';
+        (ts.length ? '<div class="im2-to" role="radiogroup" aria-label="Import as">' + ts.map(function (t) { return '<button type="button" role="radio" class="im2-opt" aria-checked="' + (S.to === t.id) + '" data-im-to="' + esc(t.id) + '">' + esc(t.label) + '</button>'; }).join('') + '</div>' : '') +
+        /* what the import will do where it lands, in the page's own words (22 Nov: a week was replaced with no warning) */
+        (function () { var nt = typeof o.note === 'function' && S.res ? o.note({ lines: S.res.lines.length, weeks: S.res.weeks }, S.to) : ''; return nt ? '<p class="im2-note' + (nt.warn ? ' is-warn' : '') + '" role="note">' + esc(nt.text || nt) + '</p>' : ''; })() + '</div>';
     }
     function checkHtml() {
       if (!S.tables.length) return '<p class="im2-lede">Most layouts read: a line a row, a block for each day, weeks side by side or one under another. You check what was read before anything is saved. If a sheet does not come through, you will be told, and nothing is imported.</p>';

@@ -1560,6 +1560,7 @@
         var s = (src.deload && src.pre && src.pre[row.key]) || row.cells[src.uid];
         var next = s ? (same ? cellOf(s) : this.stepCell(row, s, this.loadAt(row, s, src.uid, true).kg)) : null;
         this.put(r, to, next); tally.wrote++;
+        delete w.asIs;
         if (s && !same) { if (text(cellOf(s)) !== text(next)) tally.stepped.push({ name: row.name, line: row.line, lift: row.lift || null, kg: next.w != null ? next.w : null, text: text(next) }); else tally.same++; }
       }, this);
       w.deload = false; w.pre = null; delete w.deloadKind; if (w.why) w.why = {}; if (w.ruled) w.ruled = {};
@@ -2797,6 +2798,9 @@
             if (sr.bad && sr.bad[sw.uid] != null) { self.rows[ri].bad = self.rows[ri].bad || {}; self.rows[ri].bad[w.uid] = sr.bad[sw.uid]; }
             if (sr.badf && sr.badf[sw.uid]) { self.rows[ri].badf = self.rows[ri].badf || {}; self.rows[ri].badf[w.uid] = clone(sr.badf[sw.uid]); }
           });
+          /* 22 Nov (a cold review: "the pasted 180 arrived as 182.5"): a week that came from the coach's own sheet is
+             theirs as written; the rules do not move its loads when it is next proposed */
+          w.asIs = true; if (w.why) w.why = {}; if (w.ruled) w.ruled = {};
           weeks.push(cc + 1);
         });
       });
@@ -2928,7 +2932,7 @@
     if (!pw) return out;
     var rs = rulesFor(k, ctx.rules), holds = normHolds(ctx.holds), swapHold = {}, tops = {};
     (pw.swaps || []).forEach(function (sw) { if (sw.lift) swapHold[sw.lift] = sw; });
-    var noRule = !!w.deload || k.kind === 'recovery';
+    var noRule = !!w.deload || k.kind === 'recovery' || !!w.asIs;
     k.rows.forEach(function (row, r) {                                         /* 3. the coach's rules from what was lifted */
       var cell = row.cells[w.uid]; if (!cell) return;
       var prev = row.cells[pw.uid] || null, sw = row.lift && swapHold[row.lift];
