@@ -1492,6 +1492,7 @@
       onSaveTemplate: PL.templates && fn(PL.templates, 'save') ? function (btn) { saveTemplatePop(btn); } : null,
       onAdvanced: function () { setMode('advanced'); },
       /* 22 Nov: ⌘Z and ⇧⌘Z in Simple walk the same history the Week view walks (a lifter's week: the store's; else the block's own) */
+      onWeek: function (step) { stepWeek(step); },
       onUndo: cur.kind === 'week' ? function () { return storeWalk('undo'); } : undefined,
       onRedo: cur.kind === 'week' && !cur.next ? function () { return storeWalk('redo'); } : undefined
     });
@@ -2658,13 +2659,14 @@
     var items = [{ id: 'ren', label: 'Rename the block', run: renameBlock },
       { id: 'next', label: 'Start the next block…', run: function () { openStart(cur.id, 'next'); } },
       { id: 'mains', label: 'Each week for the main lifts…', subs: mains },
-      { id: 'rules', label: 'Rules for ' + first + '…', run: function () { rulesPop(btn); } }];
+      { id: 'rules', label: 'Rules for ' + first + '…', run: function () { rulesPop(btn); } },
+      { id: 'keys', label: 'Keys', key: '?', run: function () { DESK.keys(); } }];
     if (PL.templates && fn(PL.templates, 'save')) items.push({ id: 'tpl', label: 'Save as a template…', run: function () { saveTemplatePop(btn); } });
     items.push({ id: 'imp', label: 'Import a sheet…', run: function () { importSheet(); } });
     items.push({ sep: true });
     items.push({ id: 'csv', label: 'Export the block as CSV', run: function () { exportCSV(false); } });
     items.push({ id: 'csv2', label: 'Export every set as CSV', run: function () { exportCSV(true); } });
-    menu(btn, items, { title: b.name, label: 'Program moves' });
+    menu(btn, items, { title: b.name, label: 'Program menu' });
   }
   function renameBlock() {
     var btn = $('[data-prog-menu]'), b = cur.b;
@@ -3084,7 +3086,11 @@
 
   /* ================= keys, ⌘K, the gate's states ================= */
   function setKeys() {
-    DESK.keyMap([['⌘⇧↵', 'Send the week (the crimson)'], ['⌥↓ ⌥↑', 'Next lifter, previous lifter'], ['⌥→ ⌥←', 'Next week, previous week'], ['Tab, ⇧Tab', 'Next cell, previous cell'], ['Enter', 'Edit the cell; save and go down'], ['F2', 'Edit, keeping the text'], ['⌘D', 'Fill down'], ['⌘↵', 'Fill the selection with what you typed'], ['⌘C ⌘X ⌘V', 'Copy, cut, paste'], ['⌘Z, ⇧⌘Z', 'Undo, redo'], ['⌘G', 'The next line the desk flags'], ['⇧F10', 'The line’s moves'], ['Esc', 'Cancel the edit, then let go of a range']]);
+    /* 22 Nov (a cold review: the sheet listed the grid's keys in Simple, left Simple's own out, and ⌥⇧↓ meant two
+       things): one list per way of writing, and the keys the two share mean the same in both */
+    var both = [['⌘⇧↵', 'Send the week (the red button)'], ['⌥↓ ⌥↑', 'Next lifter, previous lifter'], ['⌥→ ⌥←', 'Next week, previous week'], ['⌥⇧↑ ⌥⇧↓', 'Move the line up or down'], ['⌘Z, ⇧⌘Z', 'Undo, redo']];
+    if (isSimple()) DESK.keyMap(both.concat([['Tab, ⇧Tab', 'Next field, the one before'], ['Enter', 'Save, and the same field one line down'], ['↑ ↓', 'One more or less on a number'], ['← →', 'The field beside it, from the end of the text'], ['⌘D', 'Duplicate the line'], ['Click a grip', 'Pick the lift; ⇧ click picks the run'], ['⌘C ⌘V', 'Copy the picked lifts; paste under the line in hand'], ['⌫', 'Delete the picked lifts'], ['Right-click', 'The line’s menu'], ['Esc', 'Put back what was there; let go of the picked lifts']]));
+    else DESK.keyMap(both.concat([['Tab, ⇧Tab', 'Next cell, previous cell'], ['Enter', 'Edit the cell; save and go down'], ['F2', 'Edit, keeping the text'], ['⇧Space', 'Take the whole line'], ['⌘D', 'Fill down'], ['⌘↵', 'Fill the selection with what you typed'], ['⌘C ⌘X ⌘V', 'Copy, cut, paste; whole lines cut are moved by the paste'], ['⌘G', 'The next line the desk flags'], ['⇧F10', 'The line’s menu'], ['Esc', 'Cancel the edit, then let go of a range']]));
   }
   function setActions() {
     var acts = [];

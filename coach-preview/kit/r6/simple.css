@@ -25,7 +25,7 @@
 }
 .sv-cols span { min-width: 0; padding: 0 var(--sp-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .sv-cols .n { padding: 0; text-align: center; }
-.sv-cols .r { text-align: right; }
+.sv-cols .r { padding: 0 var(--sp-1); text-align: right; }
 
 /* a day: its name, its date and how much it holds, then its lifts */
 .sv-day { padding: var(--sp-2) 0 var(--sp-1); scroll-margin-top: calc(var(--wb-h, 44px) + 32px); }
@@ -58,6 +58,9 @@
 .sv-name[data-lift='deadlift'] { color: var(--dl-ink); }
 .sv-name:active { transform: scale(var(--press)); }
 .sv-name.is-open { background: var(--fill-2); }
+/* the name stays whole; what marks its variant gives way first */
+.sv-c-name .sv-name { flex: 0 1 auto; }
+.sv-c-name .sv-var { flex: 0 10 auto; }
 .sv-var { min-width: 0; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* a second line of the same lift (back-offs): its name under the lift's, a step in */
 .sv-sub { padding-left: var(--sp-5); color: var(--ink-2); font: 500 var(--fs-cap)/1 var(--font); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

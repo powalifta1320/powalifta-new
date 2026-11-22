@@ -119,7 +119,7 @@
     function html() {
       var bb = b(), w = bb.weeks[ci]; if (!w) return '<p class="sv-none">There is no week here.</p>';
       var days = bb.daysOf(ci), lifted = w.state === 'lifted';
-      var heads = '<div class="sv-cols" aria-hidden="true"><span></span><span>Exercise</span><span class="n">Sets</span><span></span><span class="n">Reps</span><span class="r" title="RPE, or a percent of the training max">RPE / %</span><span class="r">Load</span><span class="sv-c-last">Last week</span><span>Note for ' + esc(first) + '</span><span></span></div>';
+      var heads = '<div class="sv-cols" aria-hidden="true"><span></span><span>Exercise</span><span class="n">Sets</span><span></span><span class="n">Reps</span><span class="r" title="RPE, or a percent of the training max">RPE/%</span><span class="r">Load</span><span class="sv-c-last">Last week</span><span>Note for ' + esc(first) + '</span><span></span></div>';
       var body = days.length ? days.map(function (d) { return dayHtml(bb, d, lifted); }).join('') : '<p class="sv-none">This block has no days yet. Add the first one.</p>';
       var addDay = lifted ? '' : '<button class="sv-addday" type="button" data-sv-addday data-f="day|+">' + PLUS + '<span>Add a day</span></button>';
       var foot = '<div class="sv-foot">' + (o.onSaveTemplate ? '<button class="btn quiet sm" type="button" data-sv-tpl>Save this block as a template…</button>' : '') +
@@ -535,6 +535,8 @@
       /* undo and redo: the field's own while something is half typed, the week's otherwise */
       if (meta && !e.altKey && k.toLowerCase() === 'z' && !typed) { e.preventDefault(); e.stopPropagation(); walk(e.shiftKey ? 'redo' : 'undo'); return; }
       if (meta && !e.altKey && !e.shiftKey && k.toLowerCase() === 'y' && !typed) { e.preventDefault(); e.stopPropagation(); walk('redo'); return; }
+      /* ⌥→ ⌥←: the next week, the one before, as in Advanced */
+      if (e.altKey && !e.shiftKey && !meta && (k === 'ArrowRight' || k === 'ArrowLeft') && typeof o.onWeek === 'function') { e.preventDefault(); e.stopPropagation(); flush(); o.onWeek(k === 'ArrowRight' ? 1 : -1); return; }
       var rowEl = t.closest('.sv-row');
       if (rowEl && e.altKey && e.shiftKey && !meta && (k === 'ArrowUp' || k === 'ArrowDown')) { e.preventDefault(); e.stopPropagation(); flush(); nudge(rowEl, k === 'ArrowUp' ? -1 : 1); return; }
       if (rowEl && meta && !e.altKey && !e.shiftKey && k.toLowerCase() === 'd') {
