@@ -239,3 +239,61 @@
   .sx-navb, .sx-wm, .sx-exb, .sx-addb { transition: none; }
   .sx-navb:active:not(:disabled), .sx-wm:active, .sx-exb:active { transform: none; }
 }
+
+/* ---------------- 22 Nov: one line a cell (a cold review: "56 px two-line rows and 178 px columns … four of six weeks")
+   ----------------
+   A cell is one line: what is written, quiet, then the load at the cell's end, so a lift's loads read down a column
+   week after week (a lifted week: the reps and how it felt, then the load that was on the bar). Rows are 30 px, a week
+   is 124 px at its narrowest, the heads are one line. The cell's one mark is a small dot in the mark's colour (its
+   words stay in its title and for a screen reader). Appended so the rules above stay readable as the first design. */
+.sx { --sx-ex: 200px; --sx-bar-h: 40px; --sx-head-h: 32px; --sx-row-h: 30px; --sx-day-h: 28px; --sx-band: color-mix(in srgb, var(--ink) 4%, var(--card)); }
+.sx-bar { grid-template-columns: minmax(0, max-content) 184px minmax(0, 1fr) auto; padding: 0 var(--sp-2) 0 var(--sp-3); }
+.sx-addr { max-width: 220px; color: var(--ink-2); font-size: var(--fs-cap); }
+.sx-fx.input { width: 184px; height: 28px; padding: 0 var(--sp-2); border-radius: var(--sp-2); font-size: var(--fs-label); font-stretch: 100%; }
+.sx-how { font-size: var(--fs-label); }
+.sx-acts .btn { --h: 26px; padding: 0 var(--sp-3); font-size: var(--fs-cap); }
+.sx-head > .sx-hr { background-color: var(--sx-band); }
+.sx-fr { height: var(--sp-3); }
+.sx-head { margin-bottom: calc(var(--sp-3) * -1); }
+.sx-ex { padding: 0 var(--sp-2) 0 var(--sp-3); }
+.sx-head .sx-corner { background: var(--sx-band); }
+.sx-ch { font-size: var(--fs-cap); }
+.sx-navb { width: 24px; height: 24px; }
+.sx-wh { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto; align-items: center; align-content: center; column-gap: var(--sp-2); padding: 0 var(--sp-1) 0 var(--sp-2); }
+.sx-wn { font: 600 var(--fs-label)/1.2 var(--font); }
+.sx-wf { grid-column: 2; grid-row: 1; font: 500 var(--fs-cap)/1.2 var(--font); }
+.sx-wm { grid-column: 3; grid-row: 1; width: 24px; height: 24px; }
+.sx-wm svg { width: 14px; height: 14px; }
+.sx-dr > .sx-ex, .sx-bh > .sx-ex, .sx-dr > .sx-dc, .sx-bh > .sx-dc { background: var(--sx-band); }
+.sx-dn { font: 700 var(--fs-label)/1.2 var(--font); }
+.sx-dw, .sx-news { font-size: var(--fs-cap); }
+.sx-dc { padding: 0 var(--sp-2); }
+.sx-exb { grid-template-columns: minmax(0, max-content) minmax(0, 1fr); grid-template-rows: auto; align-items: baseline; column-gap: var(--sp-2); min-height: 24px; margin: 0 calc(var(--sp-1) * -1); padding: 0 var(--sp-1); border-radius: var(--sp-1); }
+.sx-exn { font: 600 var(--fs-label)/1.25 var(--font); }
+.sx-exs { font-size: var(--fs-cap); }
+.sx-exb.is-then { padding-left: var(--sp-4); }
+.sx-exb.is-then .sx-exn { font: 500 var(--fs-label)/1.25 var(--font); }
+.sx-c { flex-direction: row; align-items: center; justify-content: flex-start; gap: var(--sp-2); padding: 0 var(--sp-2); font-stretch: 100%; }
+.sx-l1, .sx-l2 { height: auto; }
+.sx-l1 { flex: 0 1 auto; gap: var(--sp-1); overflow: hidden; color: var(--ink-2); font: 500 var(--fs-cap)/1.2 var(--font); }
+.sx-l1 .sx-t { overflow: hidden; text-overflow: ellipsis; }
+.sx-l2 { flex: none; margin-left: auto; font: 600 var(--fs-label)/1.2 var(--font); }
+.sx-l2:empty { display: none; }
+.sx-c:has(> .sx-l2:empty) .sx-l1 { color: var(--ink); font-size: var(--fs-label); }   /* nothing on the bar to say (3 × 12): what is written is the cell */
+.sx-c.is-lifted .sx-l2 { font-weight: 500; }
+.sx-c.is-lifted .sx-l1, .sx-c.is-lifted:has(> .sx-l2:empty) .sx-l1 { color: var(--ink-3); font-size: var(--fs-cap); }
+.sx-x { margin-right: 1px; font-style: normal; }
+.sx-l2 .sx-d { font-size: var(--fs-cap); }
+.sx-ed { padding: 0 var(--sp-2); font: 500 var(--fs-label)/1 var(--font); font-stretch: 100%; }
+/* the cell's one mark: a dot, first in the cell; its words in its title */
+.sx-mk { order: -1; flex: none; width: 6px; height: 6px; margin: 0 2px 0 0; border-radius: var(--r-pill); background: currentColor; font-size: 0; overflow: hidden; }
+.sx-ar { height: 28px; }
+.sx-addb { min-height: 24px; }
+.sx-br { height: 28px; }
+.sx-bc { padding: 0 var(--sp-2); font: 500 var(--fs-cap)/1.2 var(--font); }
+.sx-wh { grid-template-columns: auto minmax(0, 1fr); }
+/* the week's menu sits over the end of its head (on the week to write, and under the pointer), so the head's two words keep the room */
+.sx-wm { position: absolute; right: 2px; top: 50%; margin-top: -12px; background: var(--sx-band); }
+.sx-wh.is-lit .sx-wm { background: transparent; }
+.sx-wh.is-lit { padding-right: 26px; }
+.sx-ar .add-row::before { position: static; margin: 0 var(--sp-1) 0 0; }

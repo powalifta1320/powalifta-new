@@ -397,7 +397,7 @@
         else inner = '<span>' + esc(k === 'load' && mode === 'team' ? 'Load' : COL[k] ? COL[k].head : EXTRA[k] || k) + '</span>';
         return '<div class="wg-h wg-k-' + k + (COL[k] && COL[k].num ? ' is-num' : '') + '" role="columnheader" data-col="' + k + '" aria-colindex="' + (i + 1) + '">' + inner + '</div>';
       }).join('');
-      return '<div class="wg-tr wg-hr" role="row" aria-rowindex="1">' + cells + '</div>';
+      return '<div class="wg-tr wg-hr" role="row" aria-rowindex="1"><div class="wg-g" aria-hidden="true"></div>' + cells + '</div>';
     }
     function exHtml(m, r, ci, ro, o) {
       var p = exParts(m, r);
@@ -465,7 +465,9 @@
       }
       var menu = ro ? '' : '<button class="wg-more" type="button" data-more data-row-menu tabindex="-1" aria-label="' + attr(row.name + ' moves') + '" title="Moves (⇧F10)">' + (D && D.ic ? D.ic('more') : K.ic('more')) + '</button>';
       var cls = 'wg-tr wg-line' + (ro ? ' is-ro' : '') + (row.line ? ' is-sub' : '') + (m.w.out && m.w.out[row.key] ? ' is-out' : '');
-      return '<div class="' + cls + '" role="row" data-row="' + attr(row.key) + '"' + (lk ? ' data-line="' + attr(lk) + '"' : '') + ' aria-rowindex="' + ri + '"' + (ro ? ' aria-readonly="true"' : '') + '>' + cells + lineNote + (st.notes === 'line' ? menu : '') + '</div>';
+      /* 22 Nov: the gutter a sheet has. The line's number; a click takes the whole line, shift a run of them */
+      var gut = '<div class="wg-g" data-gut aria-hidden="true" title="Select the line (⇧Space)">' + (o && o.n ? o.n : '') + '</div>';
+      return '<div class="' + cls + '" role="row" data-row="' + attr(row.key) + '"' + (lk ? ' data-line="' + attr(lk) + '"' : '') + ' aria-rowindex="' + ri + '"' + (ro ? ' aria-readonly="true"' : '') + '>' + gut + cells + lineNote + (st.notes === 'line' ? menu : '') + '</div>';
     }
     function dayState(m, g) {
       var b = m.b, w = m.w, out = [];
@@ -510,12 +512,12 @@
       var key = '+' + g.day, open = st.density !== 'compact' || (st.hand && st.hand.key === key);
       var ncols = st.cols.length + (st.notes === 'line' ? 1 : 0);
       return '<div class="wg-tr wg-add' + (open ? '' : ' is-folded') + '" role="row" data-add-row="' + attr(g.day) + '" aria-rowindex="' + ri + '">' +
-        '<div class="wg-c wg-k-ex"' + cellAttrs('ex', 0, false) + '><span class="wg-t is-add add-row">Add an exercise</span></div>' +
+        '<div class="wg-g" aria-hidden="true"></div><div class="wg-c wg-k-ex"' + cellAttrs('ex', 0, false) + '><span class="wg-t is-add add-row">Add an exercise</span></div>' +
         (ncols > 1 ? '<div class="wg-c wg-fill" role="gridcell" aria-colindex="2" aria-colspan="' + (ncols - 1) + '" aria-readonly="true"></div>' : '') + '</div>';
     }
     /* the body as a list of keyed rows: a structure change redraws it, a value change redraws only its rows */
     function bodyItems(m) {
-      var items = [], nav = [], ri = 2, di = 0, wn = m.w.n || m.c + 1, boDone = false;
+      var items = [], nav = [], ri = 2, di = 0, wn = m.w.n || m.c + 1, boDone = false, ln = 0;
       m.groups.forEach(function (g) {
         items.push({ key: 'd:' + g.day, html: dayHtml(m, g, ri++) });
         if (g.meet) return;
@@ -523,7 +525,7 @@
         var d = di++;
         g.rows.forEach(function (r, li) {
           var row = m.b.rows[r], mb = !boDone && exParts(m, r).bo; if (mb) boDone = true;
-          items.push({ key: 'r:' + row.key, html: lineHtml(m, r, ri++, mode === 'team' ? wn + '.' + d + '.' + li : '', { markBo: mb }) }); nav.push({ key: row.key, r: r, day: g.day });
+          items.push({ key: 'r:' + row.key, html: lineHtml(m, r, ri++, mode === 'team' ? wn + '.' + d + '.' + li : '', { markBo: mb, n: ++ln }) }); nav.push({ key: row.key, r: r, day: g.day });
         });
         if (!m.lifted) { items.push({ key: 'a:' + g.day, html: addHtml(m, g, ri++) }); nav.push({ key: '+' + g.day, r: -1, day: g.day, add: true }); }
       });
@@ -568,6 +570,7 @@
       elDays.innerHTML = !m.lifted && mode !== 'team' ? '<button class="wg-addday add-row" type="button" data-add-day>Add a day</button>' : '';
       fixHand();
       paintSel();
+      paintCut();
       if (ed && ed.input) reattach(ed);
       else if (hadFocus) focusHand();
       paintShape(m);
@@ -634,6 +637,8 @@
       root.querySelectorAll('[role=gridcell][tabindex="0"]').forEach(function (x) { if (x !== h) x.setAttribute('tabindex', '-1'); });
       if (h) h.setAttribute('tabindex', '0');
       var re = rowEl(st.hand.key); if (re) re.classList.add('is-hand');
+      root.querySelectorAll('.wg-line.is-whole').forEach(function (el) { el.classList.remove('is-whole'); });
+      if (R.many && R.cols.length === st.order.length) R.rows.forEach(function (x) { var le = rowEl(x.key); if (le) le.classList.add('is-whole'); });
       paintHandle();
     }
     function focusHand(scroll) {
@@ -1113,13 +1118,51 @@
         try { e.clipboardData.setData('application/x-powa-rows', JSON.stringify({ v: 1, lines: lines })); } catch (er) { /* a browser that keeps only text */ }
       }
       e.preventDefault();
-      if (cut) clearSel();
+      if (cut && whole) cutLines(R); else if (cut) clearSel();
       return true;
+    }
+    /* 22 Nov (a cold review: "⇧Space ⌘X empties a line but leaves its shell, so a move is paste plus clean-up"): whole
+       lines cut are a move waiting for its place, as in a sheet. They stay where they are, marked, until ⌘V puts them
+       under the line in hand (the same lines, every week of theirs with them); Esc lets them go. Nothing is emptied. */
+    function cutLines(R) {
+      var keys = R.rows.map(function (x) { return x.key; }).filter(function (k) { return editable(k, 'sets'); });
+      if (!keys.length) { flash('Lifted already. Only weeks still to come can change.'); return; }
+      st.cut = { keys: keys, c: st.c }; paintCut();
+      toast(plural(keys.length, 'line') + ' cut. ⌘V moves ' + (keys.length === 1 ? 'it' : 'them') + ' under the line in hand. Esc lets go.', false);
+    }
+    function paintCut() {
+      root.querySelectorAll('.wg-line.is-cut').forEach(function (el) { el.classList.remove('is-cut'); });
+      if (!st.cut || st.cut.c !== st.c) { st.cut = null; return; }
+      st.cut.keys.forEach(function (k) { var el = rowEl(k); if (el) el.classList.add('is-cut'); });
+    }
+    /* the cut lines land under the line in hand: each exercise once, with all its lines, in the order they stood */
+    function moveCut() {
+      var cut = st.cut, b = B(); st.cut = null;
+      var handKey = st.hand && !isAdd(st.hand.key) ? st.hand.key : null, handRow = handKey ? b.rows[rowAt(handKey)] : null;
+      var day = handRow ? handRow.day : st.hand ? addDay(st.hand.key) : null; if (!day) { paintCut(); return; }
+      var tops = [], seen = {}; cut.keys.forEach(function (k) { var row = b.rows[rowAt(k)]; if (!row) return; var id = row.day + '|' + row.ex; if (seen[id]) return; seen[id] = 1; tops.push(k); });
+      if (handRow && tops.some(function (k) { var row = b.rows[rowAt(k)]; return row && row.day === handRow.day && row.ex === handRow.ex; })) { paintCut(); flash('Pick the line to put them under: one that is not being moved.'); return; }
+      var res = write(function (bb) {
+        return batch(bb, 'Move ' + plural(tops.length, 'line'), function () {
+          var err = null, n = 0;
+          tops.forEach(function (k) {
+            if (err) return; var rr = rowIdxIn(bb, k); if (rr < 0) return;
+            /* its place among the day's other exercises: right after the line in hand, then after the one before it */
+            var hr = handKey ? bb.rows[rowIdxIn(bb, handKey)] : null, mine = bb.rows[rr], at = 1e9;
+            if (hr) { var order = [], got = {}; bb.rows.forEach(function (y) { if (y.day !== day || got[y.ex] || (y.day === mine.day && y.ex === mine.ex)) return; got[y.ex] = 1; order.push(y.ex); }); at = order.indexOf(hr.ex) + 1 + n; }
+            var d = bb.moveRowTo(rr, day, at); if (d && d.error) err = d; else n++;
+          });
+          return err || { data: { lines: n } };
+        });
+      }, { kind: 'move', lines: tops.length });
+      after(res);
+      if (!(res && res.error)) toast('Moved ' + plural(tops.length, 'line') + ' under ' + (handRow ? handRow.name.toLowerCase() : 'the day') + '.', true);
     }
     /* paste (§5.10): a header row maps columns by name and adds lines to the day of the cell in hand (a blank line or a
        line naming a day starts the next day); otherwise a rectangle lands cell by cell from the cell in hand */
     function pasteText(tsv, html, rowsJson) {
       if (!st.hand) return;
+      if (st.cut && st.cut.c === st.c && rowsJson) { moveCut(); return; }   /* the lines cut here: a move, not a second copy */
       var rows = null, lines = null;
       if (rowsJson) { try { lines = JSON.parse(rowsJson).lines; } catch (e) { lines = null; } }
       if (!lines) {
@@ -1166,9 +1209,13 @@
       var nLines = plan.reduce(function (a, g) { return a + g.length; }, 0);
       if (!nLines) return;
       var bad = 0, made = [];
+      /* the first day's lines land right under the exercise in hand (they used to go to the day's end) */
+      var underKey = !isAdd(st.hand.key) ? st.hand.key : null;
       var res = write(function (bb) {
         return batch(bb, 'Paste ' + plural(nLines, 'line'), function () {
           var dayNames = groups.map(function (g) { return g.day; });
+          var placeAt = -1;
+          if (underKey && typeof bb.moveRowTo === 'function') { var ur = bb.rows[rowIdxIn(bb, underKey)]; if (ur) { var seen = {}, n0 = 0; bb.rows.forEach(function (y) { if (y.day !== ur.day || seen[y.ex]) return; seen[y.ex] = 1; n0++; if (y.ex === ur.ex) placeAt = n0; }); } }
           plan.forEach(function (g, k) {
             var di = gi + k, day = dayNames[di];
             if (!day) { var ad = bb.addDay(); day = ad && ad.data && ad.data.day; dayNames[di] = day; if (!day) return; }
@@ -1183,6 +1230,7 @@
                 var t = x.f[f]; if (t == null || t === '') return;
                 var a = bb.setField(rowIdxIn(bb, key), c, f, String(t)); if (a && a.data && a.data.bad) bad++;
               });
+              if (k === 0 && placeAt >= 0 && !(prev && prev.name.toLowerCase() === nm.toLowerCase())) { bb.moveRowTo(rowIdxIn(bb, key), day, placeAt); placeAt++; }
               prev = { name: nm, key: key }; made.push(key);
             });
           });
@@ -1443,10 +1491,19 @@
        cell in hand, so the grid keeps the focus and what is typed next goes into the new line */
     function addExOf(t) { var f = t && t.closest && t.closest('.wg-fill'); var tr = f && elBody.contains(f) ? f.closest('[data-add-row]') : null; return tr ? tr.querySelector('.wg-k-ex[data-col]') : null; }
     function keyOfCell(cell) { var tr = cell.closest('.wg-tr'); if (!tr) return null; if (tr.hasAttribute('data-add-row')) return '+' + tr.getAttribute('data-add-row'); return tr.getAttribute('data-row'); }
+    /* whole lines, from the gutter or ⇧Space: every column of the line, from the line taken first to this one */
+    function selectLines(key, extend) {
+      if (!key || isAdd(key) || navIdx(key) < 0) return;
+      var from = extend && st.hand && !isAdd(st.hand.key) ? (st.anchor || st.hand).key : key;
+      st.anchor = { key: from, col: st.order[0] }; st.hand = { key: key, col: st.order[st.order.length - 1] };
+      st.msg = null; paintSel(); focusHand(false); paintStatus();
+    }
     root.addEventListener('mousedown', function (e) {
       if (e.button !== 0) return;
       var t = e.target;
       if (st.ed && t === st.ed.input) return;
+      var gut = t.closest && t.closest('[data-gut]');
+      if (gut && elBody.contains(gut)) { e.preventDefault(); if (st.ed) commit(null); var gk = gut.parentNode.getAttribute('data-row'); selectLines(gk, e.shiftKey); gutDrag = { key: st.anchor ? st.anchor.key : gk }; return; }
       if (t.closest('button, a, input, textarea')) return;
       var cell = cellOfEvent(t) || addExOf(t); if (!cell) return;
       e.preventDefault();
@@ -1456,8 +1513,14 @@
       if (!isAdd(key)) drag = { key: st.anchor ? st.anchor.key : key, col: st.anchor ? st.anchor.col : col, moved: false };
     });
     /* a drag across cells selects the range under it (the cell where it started stays the anchor) */
-    var drag = null;
+    var drag = null, gutDrag = null;
     function onDragMove(e) {
+      if (gutDrag) {
+        if (!(e.buttons & 1)) { gutDrag = null; return; }
+        var ge = document.elementFromPoint(e.clientX, e.clientY), gr = ge && ge.closest && ge.closest('.wg-line');
+        if (gr && elBody.contains(gr) && st.hand && gr.getAttribute('data-row') !== st.hand.key) { st.anchor = { key: gutDrag.key, col: st.order[0] }; st.hand = { key: gr.getAttribute('data-row'), col: st.order[st.order.length - 1] }; paintSel(); paintStatus(); }
+        return;
+      }
       if (!drag || !(e.buttons & 1)) { drag = null; return; }
       var el = document.elementFromPoint(e.clientX, e.clientY), cell = el && cellOfEvent(el);
       if (!cell) return;
@@ -1466,7 +1529,7 @@
       st.anchor = { key: drag.key, col: drag.col }; st.hand = { key: key, col: col }; drag.moved = true;
       paintSel(); paintStatus();
     }
-    function onDragUp() { if (drag && drag.moved) focusHand(false); drag = null; }
+    function onDragUp() { if (drag && drag.moved) focusHand(false); drag = null; gutDrag = null; }
     document.addEventListener('mousemove', onDragMove);
     document.addEventListener('mouseup', onDragUp);
     root.addEventListener('dblclick', function (e) {
@@ -1553,8 +1616,15 @@
       }
       if (st.ed) return;
       var h = st.hand; if (!h) return;
+      /* 22 Nov: ⌥⇧↑ ⌥⇧↓ move the line in hand, as in Simple (a cold review: in Advanced they changed lifter) */
+      if (alt && shift && !meta && (k === 'ArrowUp' || k === 'ArrowDown')) {
+        stop(); if (isAdd(h.key)) return;
+        var mk = h.key, mcol = h.col, mres = write(function (bb) { var rr = rowIdxIn(bb, mk); if (rr < 0) return { error: { code: 'invalid', message: 'That line is gone.' } }; return typeof bb.moveRow === 'function' ? bb.moveRow(rr, k === 'ArrowUp' ? 'up' : 'down') : { error: { code: 'invalid', message: 'Lines cannot move here.' } }; }, { kind: 'move', key: mk });
+        after(mres); if (!(mres && mres.error) && navIdx(mk) >= 0) setHand(mk, mcol);
+        return;
+      }
       /* ---- the desk's moves ---- */
-      if (alt && !meta && /^Arrow(Up|Down|Left|Right)$/.test(k)) {
+      if (alt && !meta && !shift && /^Arrow(Up|Down|Left|Right)$/.test(k)) {
         var vert = k === 'ArrowDown' || k === 'ArrowUp', dir = k === 'ArrowDown' || k === 'ArrowRight' ? 1 : -1, swap = tabPerWeek();
         var lifterKey = swap ? !vert : vert;
         if (lifterKey) { if (mode === 'lifter' || mode === 'team' || typeof opts.onLifter !== 'function') return; stop(); opts.onLifter(dir); return; }
@@ -1593,11 +1663,11 @@
         }
         case 'Enter': stop(); if (shift) { step(-1, 0); return; } if (h.col === 'last') { lastAct(); return; } openEditor(null, 'edit'); return;
         case 'F2': stop(); openEditor(null, 'edit'); return;
-        case 'Escape': if (st.anchor) { stop(); st.anchor = null; paintSel(); paintStatus(); } return;
+        case 'Escape': if (st.cut) { stop(); st.cut = null; paintCut(); st.msg = null; paintStatus(); return; } if (st.anchor) { stop(); st.anchor = null; paintSel(); paintStatus(); } return;
         case 'Delete': case 'Backspace': stop(); clearSel(); return;
         case 'F10': if (shift && typeof opts.onRowMenu === 'function' && !isAdd(h.key)) { stop(); opts.onRowMenu(rowAt(h.key), cellEl(h.key, h.col)); } return;
         case 'ContextMenu': if (typeof opts.onRowMenu === 'function' && !isAdd(h.key)) { stop(); opts.onRowMenu(rowAt(h.key), cellEl(h.key, h.col)); } return;
-        case ' ': if (shift) { stop(); if (isAdd(h.key)) return; st.anchor = { key: h.key, col: st.order[0] }; st.hand = { key: h.key, col: st.order[st.order.length - 1] }; paintSel(); focusHand(false); paintStatus(); return; } break;
+        case ' ': if (shift) { stop(); selectLines(h.key, false); return; } break;
         default: break;
       }
       /* typing replaces the cell and starts editing */

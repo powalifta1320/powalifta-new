@@ -279,13 +279,40 @@
     return { tsv: out.join('\n'), html: '<table>' + html.join('') + '</table>' };
   };
   /* rows r0..r1: the cell in week cs written on through week ce, each line by its own fill rule (round 4's fill) */
-  S.fill = function (b, rg, cs, ce) {
+  /* 22 Nov (a cold review: "drag a load across weeks to get 132.5, 135, 137.5"): the pace of a fill.
+     - Two or more weeks picked before the drag set it: whatever climbs between the last two of them (the load, the RPE,
+       the percent, the reps, the sets) carries on by the same step, as a sheet carries on a series.
+     - One week alone follows the line's own Each-week rule; a squat, bench or deadlift line with typed kilos and no rule
+       of its own takes the coach's own step for that lift (block.js stepCell). Anything else is copied. */
+  var PACE = ['w', 'rpe', 'pct', 'r', 'n'], HI = { w: 'wHi', rpe: 'rpeHi', pct: 'pctHi', r: 'rHi', n: 'nHi' };
+  function paceOf(b, r, ca, cb) {
+    var x = cellOf(rawAt(b, r, ca)), y = cellOf(rawAt(b, r, cb)); if (!x || !y) return null;
+    var d = {}; PACE.forEach(function (k) { if (isNum(x[k]) && isNum(y[k]) && x[k] !== y[k]) d[k] = y[k] - x[k]; });
+    return d;
+  }
+  function paceCell(src, d, k) {
+    var c = cellOf(src); if (!c) return c;
+    Object.keys(d).forEach(function (key) {
+      var lo = key === 'w' ? 0 : 1, hi = key === 'rpe' ? 10 : key === 'pct' ? 120 : Infinity, v = Math.max(lo, Math.min(hi, Math.round((c[key] + d[key] * k) * 100) / 100));
+      if (isNum(c[HI[key]])) c[HI[key]] = Math.max(lo, Math.min(hi, Math.round((c[HI[key]] + (v - c[key])) * 100) / 100));
+      c[key] = v;
+    });
+    return c;
+  }
+  function stepK(b, row, src, k, base) {
+    if ((row.prog && row.prog !== 'same') || typeof b.stepCell !== 'function') return BL.stepOf(row, src, k, base);
+    var c = src; for (var i = 0; i < k; i++) c = b.stepCell(row, c, base);
+    return c;
+  }
+  S.fill = function (b, rg, cs, ce, o) {
+    o = o || {};
     var tally = { wrote: 0, locked: 0 }, wn = function (c) { return b.weeks[c].n; };
     var label = cs + 1 === ce ? 'Fill week ' + wn(ce) + ' from week ' + wn(cs) : 'Fill weeks ' + wn(cs + 1) + ' to ' + wn(ce) + ' from week ' + wn(cs);
     return b.commit(label, function () {
       for (var r = rg.r0; r <= rg.r1; r++) {
         var row = this.rows[r], src = rawAt(this, r, cs), base = baseOf(this, r, cs);
-        for (var c = cs + 1; c <= ce; c++) { if (this.isRO(r, c)) { tally.locked++; continue; } this.put(r, c, src ? BL.stepOf(row, src, c - cs, base) : null); tally.wrote++; }
+        var pace = isNum(o.c0) && o.c0 < cs ? paceOf(this, r, cs - 1, cs) : null;
+        for (var c = cs + 1; c <= ce; c++) { if (this.isRO(r, c)) { tally.locked++; continue; } this.put(r, c, !src ? null : pace ? paceCell(src, pace, c - cs) : stepK(this, row, src, c - cs, base)); tally.wrote++; }
       }
       if (!tally.wrote && tally.locked) return refuse('locked', LIFTED);
       return { data: tally };
@@ -561,7 +588,7 @@
        sendWeek()         the week Send would send (else the week to write): Send is held while it holds unread text
        onWeekMenu(c, btn), onLifter(step), onSend(), onItem(item, move, el)
      } */
-  var EXW = 232, MINW = 168;
+  var EXW = 200, MINW = 124;   /* 22 Nov: one line a cell, so six weeks fit a laptop (they were 232 and 168: four) */
   S.grid = function (host, opts) {
     var b = function () { return opts.block(); }, ctx = function () { return opts.ctx ? opts.ctx() : {}; };
     var toast = function (t) { if (opts.toast) opts.toast(t); };
@@ -631,12 +658,18 @@
       else if (x && x.lifted) {
         mk = S.markOf(B, r, c, ctx());
         var tt = S.topText(x.lifted);
-        l1 = '<span class="sx-t">' + esc(S.gridText(cellOf(x), { row: row, mark: mk, words: true })) + '</span>';
-        l2 = mk && mk.kind === 'over' && x.lifted.top ? esc(tt.replace(/ @[\d.]+$/, '')) + ' <span class="sx-over">@' + nf(x.lifted.top.felt) + '</span>' : esc(tt);
+        /* 22 Nov: one line a cell. The load lifted stands at the cell's end, in line with the loads of the weeks to come
+           (so a lift reads down its column: 127.5, 130, 132.5); the reps and how it felt before it; what was written
+           for the week in the cell's title and on the bar above */
+        var wrote = S.gridText(cellOf(x), { row: row, mark: mk, words: true }), tm = /^([\d.]+(?:-[\d.]+)?)\s*[×x]\s*(.+)$/.exec(tt), did = tm ? tm[2] : tt;
+        var over = mk && mk.kind === 'over' && x.lifted.top;
+        l1 = '<span class="sx-t" title="' + esc('Written ' + wrote + '. Lifted ' + tt + '.') + '">' + (tm ? '<i class="sx-x" aria-hidden="true">×</i>' : '') + (over ? esc(did.replace(/ @[\d.]+$/, '')) + ' <span class="sx-over">@' + nf(x.lifted.top.felt) + '</span>' : esc(did)) + '</span>';
+        l2 = tm ? '<span class="sx-kg">' + esc(tm[1]) + '</span>' : '';
+        sr = ', written ' + wrote;
         cls += ' is-lifted';
       } else if (x) {
         var L = S.loadOf(B, r, c), dl = S.deltaOf(B, r, c);
-        l1 = '<span class="sx-t">' + esc(S.gridText(x, { row: row, words: true })) + '</span>';
+        l1 = '<span class="sx-t">' + esc(String(S.gridText(x, { row: row, words: true })).replace(/\s×\s/g, '×')) + '</span>';
         l2 = L.kg != null ? '<span class="sx-kg">' + nf(L.kg) + (L.kgHi != null ? EN + nf(L.kgHi) : '') + '</span>' : '';
         /* a proposal's or a rule's step: "135 +2.5", the step in ink-3 (programs.md §5.3, professional.md §8.6) */
         if (dl && l2) { l2 += '<span class="sx-d" title="' + esc(nf(dl.was) + ' before') + '">' + dl.text + '</span>'; sr = ', ' + (dl.d > 0 ? 'up ' : 'down ') + nf(Math.abs(dl.d)) + ' from ' + nf(dl.was); }
@@ -758,7 +791,8 @@
       addr.textContent = info.addr; addr.title = info.addr;
       how.textContent = info.text; how.title = info.text; how.className = 'sx-how' + (info.tone === 'warn' ? ' is-warn' : '');
       how.setAttribute('role', info.tone === 'warn' ? 'alert' : 'note');
-      if (!focusIn) fx.value = info.field || '';
+      /* the bar reads the cell as its editor will show it (one set written out) */
+      if (!focusIn) fx.value = info.field ? (/^\d+(?:-\d+)?(?:\s|$)/.test(info.field) && !/^\d+\s*[x×]/i.test(info.field) ? '1x' + info.field : info.field) : '';
       /* one writing surface: the field reads the cell; typing in it opens the Week view (keydown below) */
       fx.readOnly = true; fx.setAttribute('aria-label', 'The cell in hand: ' + info.addr + (info.ro ? ', lifted' : ''));
       barEl.querySelector('.sx-acts').innerHTML = barActs.slice(0, 2).map(actHtml).join('');
@@ -848,7 +882,9 @@
        with its text kept. Enter saves and goes down, Tab right, Esc puts it back; while a typed character began it the
        arrows save and move, as in any sheet. It used to throw the coach over to the Week view on every keystroke. */
     var ed = null;
-    function cellText(r, c) { var B = b(), row = B.rows[r], u = B.weeks[c].uid; return row.bad && row.bad[u] != null ? row.bad[u] : S.text(cellOf(row.cells[u] || null)) || ''; }
+    /* 22 Nov (a cold review: "the editor shows 3 @8 132.5kg for a cell reading 1 × 3 @8"): one set is written out in
+       the editor and on the bar, as the cell shows it */
+    function cellText(r, c) { var B = b(), row = B.rows[r], u = B.weeks[c].uid; if (row.bad && row.bad[u] != null) return row.bad[u]; var t = S.text(cellOf(row.cells[u] || null)) || ''; return /^\d+(?:-\d+)?(?:\s|$)/.test(t) && !/^\d+\s*[x×]/i.test(t) ? '1x' + t : t; }
     function write1(seed) {
       var B = b(), r = st.cur.r, c = st.cur.c;
       if (ed) return true;
@@ -891,7 +927,8 @@
     function flush() { if (ed) endEdit(true); }
 
     /* ---------- the moves ---------- */
-    function write(res, how) { opts.done(res, how || {}); }
+    /* 22 Nov (a cold review: "Paste and Delete change the programme but the cell does not repaint"): every write draws */
+    function write(res, how) { opts.done(res, how || {}); if (!(res && res.error) && typeof api !== 'undefined' && api) api.render(); }
     function clearSel() { var bx = box(); write(S.clear(b(), bx), { kind: 'clear', toast: true }); }
     function fillSel(kind) { var bx = box(); write(kind === 'down' ? S.fillDown(b(), bx) : S.fillRight(b(), bx), { kind: 'fill', toast: true }); }
     /* ⌘↵: the selection takes the cell in hand's text (where the selection began) */
@@ -1028,7 +1065,7 @@
       var d = st.drag; st.drag = null; var pv = bodyEl.querySelector('.sx-fpv'); if (pv) pv.hidden = true;
       if (!d || d.kind !== 'fill') return;
       var bx = d.b;
-      if (d.to.c > bx.c1) { var res = S.fill(b(), { r0: bx.r0, r1: bx.r1 }, bx.c1, d.to.c); write(res, { kind: 'fill', toast: true }); if (!res.error) { st.anc = { r: bx.r1, c: d.to.c }; st.cur = { r: bx.r0, c: bx.c0 }; st.kind = 'range'; paintSel(); } }
+      if (d.to.c > bx.c1) { var res = S.fill(b(), { r0: bx.r0, r1: bx.r1 }, bx.c1, d.to.c, { c0: bx.c0 }); write(res, { kind: 'fill', toast: true }); if (!res.error) { st.anc = { r: bx.r1, c: d.to.c }; st.cur = { r: bx.r0, c: bx.c0 }; st.kind = 'range'; paintSel(); } }
       else if (d.to.r > bx.r1) { var rs = S.fillDown(b(), { r0: bx.r1, r1: d.to.r, c0: bx.c0, c1: bx.c1 }); write(rs, { kind: 'fill', toast: true }); }
     }
     var onUp = function () { if (st.drag) endDrag(); }, onCancel = function () { st.drag = null; };

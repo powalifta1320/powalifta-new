@@ -236,3 +236,60 @@ button.add-row::after { content: ''; position: absolute; inset: -4px -8px; }   /
   .wg-more, .wg-hb, button.wg-dn, .wg-head::after, .wg-shape::before { transition-duration: 0ms; }
   .wg-more:active, .wg-hb:active { transform: none; }
 }
+
+/* ---------------- 22 Nov: a sheet, not a list (a cold review: "41 px rows … rules only around Sets to Load, no row
+   gutter … a weak Sheets copy") ----------------
+   Rows are 30 px (26 compact) and every column is a cell: a hairline on every side, the heads on their own band, a
+   gutter with the line's number that takes the whole line, day lines as a band across the sheet. The numbers stay
+   tabular and right-aligned; the exercise keeps its lift's colour. Appended so the rules above stay readable as the
+   first design; these win by order. */
+.wg { --wg-row: 30px; --wg-day: 30px; --wg-head: 28px; --wg-status: 36px; --wg-shape: 34px; --wg-pad: var(--sp-3); --wg-px: var(--sp-2); --wg-gut: 30px; --wg-band: color-mix(in srgb, var(--ink) 4%, var(--card)); }
+.wg[data-density='compact'] { --wg-row: 26px; --wg-day: 26px; --wg-head: 26px; }
+.wg-tr { grid-template-columns: var(--wg-gut) var(--wg-cols); }
+.wg-status { padding: 0 var(--sp-3); }
+.wg-say { font-size: var(--fs-label); }
+.wg-acts .btn.sm { --h: 26px; padding: 0 var(--sp-3); font-size: var(--fs-cap); }
+/* the heads: a band of their own, small quiet words, a rule between every two */
+.wg-hr { border-bottom: 1px solid var(--line-2); background: var(--wg-band); }
+.wg-h { padding: 0 var(--wg-px); border-left: 1px solid var(--line); color: var(--ink-3); font: 500 var(--fs-cap)/var(--lh-none) var(--font); }
+.wg-h:first-child, .wg-h.wg-k-ex { padding-left: var(--wg-px); }
+.wg-h.is-num { padding: 0 var(--wg-px); }
+.wg-hb { height: 22px; color: var(--ink-3); }
+.wg-hb.is-two { flex-direction: row; align-items: baseline; gap: var(--sp-1); height: 22px; border-radius: var(--r-pill); }
+.wg-hs { font-size: var(--fs-cap); }
+.wg-hs::before { content: '· '; }
+/* the gutter: the line's number; under the pointer it reads as the handle it is */
+.wg-g { display: flex; align-items: center; justify-content: center; min-width: 0; color: var(--ink-4); font: 500 var(--fs-cap)/1 var(--font); font-variant-numeric: tabular-nums; user-select: none; }
+.wg-line > .wg-g { background: var(--wg-band); cursor: pointer; }
+.wg-line.is-hand > .wg-g { color: var(--ink); }
+.wg-line.is-whole > .wg-g { background: var(--focus); color: var(--card); }
+/* every cell a cell */
+.wg-c { padding: 0 var(--wg-px); border-left: 1px solid var(--line); font: 500 var(--fs-label)/var(--lh-tight) var(--font); }
+.wg-c.is-num { padding: 0 var(--wg-px); }
+.wg-line > .wg-c:first-child, .wg-line > .wg-k-ex, .wg-add .wg-c:first-child, .wg-add .wg-k-ex { padding-left: var(--wg-px); }
+.wg-line > .wg-k-note:not(.wg-nl) { padding-right: var(--sp-7); }
+.wg-k-ex .wg-t { font: 600 var(--fs-label)/var(--lh-tight) var(--font); }
+.wg-k-ex.is-sub .wg-t { padding-left: var(--sp-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); }
+.wg-k-ex .wg-tp, .wg-k-ex .wg-off { font-size: var(--fs-cap); }
+.wg-k-last { font: 500 var(--fs-cap)/var(--lh-tight) var(--font); }
+.wg-k-note { font: 400 var(--fs-label)/var(--lh-label) var(--font); }
+.wg-c.is-num .wg-t.is-words, .wg-c .is-quiet { font-size: var(--fs-cap); }
+.wg-in, .wg-c.is-num .wg-in { padding: 0 var(--wg-px); }
+.wg-tr > .wg-c:first-child .wg-in, .wg-k-ex .wg-in { padding-left: var(--wg-px); font: 600 var(--fs-label)/var(--lh-tight) var(--font); }
+.wg-nl { padding-left: calc(var(--wg-gut) + var(--sp-5)); border-left: 0; }
+/* a day: a band across the sheet, its date first */
+.wg-day { border-top: 1px solid var(--line-2); border-bottom: 1px solid var(--line); background: var(--wg-band); }
+.wg-dc { gap: var(--sp-2); padding: 0 var(--sp-2) 0 var(--sp-3); }
+.wg-dd { font: 700 var(--fs-label)/var(--lh-none) var(--font); }
+.wg-dn { font: 500 var(--fs-label)/var(--lh-tight) var(--font); padding: 3px var(--sp-2); }
+.wg-ds, .wg-dst { font-size: var(--fs-cap); }
+.wg-add .wg-fill { grid-column: 3 / -1; border-left: 0; }   /* after the gutter and the Exercise cell */
+.wg-add .wg-g { background: transparent; }
+.wg-more { right: var(--sp-1); width: 24px; height: 24px; margin-top: -12px; }
+.wg-more svg { width: 16px; height: 16px; }
+.wg-shape { padding: 0 var(--sp-3); font-size: var(--fs-cap); }
+.wg-more-days { padding: 0 var(--sp-3) 0 calc(var(--wg-gut) + var(--wg-px)); }
+/* lines cut and waiting for their place: dimmed, a dashed rule around them (a sheet's marching ants, standing still) */
+.wg-line.is-cut > .wg-c { color: var(--ink-3); }
+.wg-line.is-cut { outline: 1px dashed var(--ink-3); outline-offset: -1px; }
+.wg-line.is-cut .wg-k-ex .wg-t[data-lift] { color: var(--ink-3); }

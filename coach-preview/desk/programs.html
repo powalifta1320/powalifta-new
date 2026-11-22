@@ -1714,6 +1714,9 @@
     if (c < 0 || c >= cur.b.weeks.length || c === cur.c) return;
     if (cur.grid && cur.grid.flush) cur.grid.flush();
     cur.c = c; if (cur.next) cur.sendC = c;
+    /* 22 Nov (a cold review: "the ‹ › week arrows do nothing" in the Block view): there the week on the bar is the column
+       in hand; it comes into view and the line in hand stays the line */
+    if (!isSimple() && st.view === 'block' && cur.grid && fn(cur.grid, 'sel')) { var bs = cur.grid.sel() || {}; cur.grid.select(isNum(bs.r) ? bs.r : 0, c, { reveal: 'x' }); cur.grid.focus(); paintWeekbar(); paintToolbar(); syncHash(); return; }
     if (cur.grid) cur.grid.render({ c: c });
     var sc = scrollerEl(); if (sc) sc.scrollTop = 0;   /* another week starts at its first day */
     paintWeekbar(); paintToolbar(); syncHash();
@@ -1749,7 +1752,19 @@
     cur.grid = SH.grid(host, {
       block: function () { return cur.b; },
       ctx: function () { return { first: cur.l ? cur.l.first : '', meet: cur.l && cur.l.meet ? cur.l.meet.date : null, onAct: function (label) { gridAct(label, null); } }; },
-      done: function (res) { if (res && res.error) { DESK.toast(res.error.message); return; } if (res && res.data && res.data.changed === false) return; gridWrite(function () { return res; }, { label: res && res.label }); },
+      done: function (res, how) {
+        if (res && res.error) { DESK.toast(res.error.message); return; } if (res && res.data && res.data.changed === false) return;
+        if (cur) cur.lastSave = null;
+        /* the Block grid has written the block already (it writes, then tells the page): a week still only proposed is
+           saved once, as this edit, so the edit has its Undo (saved first as "filled", the edit's own save found
+           nothing new and left none) */
+        if (cur && cur.kind === 'week' && cur.fresh) cur.fresh = false;
+        gridWrite(function () { return res; }, { label: res && res.label });
+        /* 22 Nov: a paste, a clear and a fill say what they did, with Undo, as the Week view does */
+        var d = (res && res.data) || {}, n = isNum(d.wrote) ? d.wrote : isNum(d.cleared) ? d.cleared : isNum(d.cells) ? d.cells : isNum(d.n) ? d.n : null, verb = how && how.toast ? { paste: 'Pasted', clear: 'Cleared', fill: 'Filled' }[how.kind] : null;
+        if (verb && n) { var tok = cur.lastSave, id = cur.id; DESK.toast(verb + ' ' + plural(n, 'cell') + '.', tok ? function () { var u = own(function () { return PL.undo(tok); }); if (cur && cur.id === id) { reloadBlock(); if (cur.grid) cur.grid.render(); paintWeekbar(); paintToolbar(); paintQueue(); } return u; } : null); }
+        paintWeekbar(); paintToolbar();
+      },
       toast: function (t) { DESK.toast(t); },
       undo: function () { storeWalk('undo'); if (cur.grid) cur.grid.render(); },
       redo: function () { storeWalk('redo'); if (cur.grid) cur.grid.render(); },
