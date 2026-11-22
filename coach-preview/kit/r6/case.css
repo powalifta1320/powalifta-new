@@ -4,12 +4,12 @@
    after ui.css and never restyle these from scratch: a page-only variation goes in the page's own <style>. */
 /* the kind of case: a word on its own tint, the one colour signal in the row */
 .tg { flex: 0 1 auto; min-width: 0; max-width: 60%; padding: 2px var(--sp-2); border-radius: var(--r-pill); background: var(--fill); color: var(--ink-2); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tg[data-tone='up'] { background: var(--up-tint); color: var(--up); }
-.tg[data-tone='pain'] { background: var(--pain-tint); color: var(--pain); }
-.tg[data-tone='warn'] { background: var(--warn-tint); color: var(--warn); }
-.tg[data-tone='gold'] { background: var(--gold-tint); color: var(--gold); }
-.tg[data-tone='words'] { background: var(--words-tint); color: var(--words); }
-.tg[data-tone='bw'] { background: var(--bw-tint); color: var(--bw); }
+.tg[data-tone='up'] { background: var(--up-tint); color: color-mix(in srgb, var(--up) 80%, var(--ink)); }
+.tg[data-tone='pain'] { background: var(--pain-tint); color: color-mix(in srgb, var(--pain) 80%, var(--ink)); }
+.tg[data-tone='warn'] { background: var(--warn-tint); color: color-mix(in srgb, var(--warn) 80%, var(--ink)); }
+.tg[data-tone='gold'] { background: var(--gold-tint); color: color-mix(in srgb, var(--gold) 80%, var(--ink)); }
+.tg[data-tone='words'] { background: var(--words-tint); color: color-mix(in srgb, var(--words) 80%, var(--ink)); }
+.tg[data-tone='bw'] { background: var(--bw-tint); color: color-mix(in srgb, var(--bw) 80%, var(--ink)); }
 
 /* the evidence: a figure (26 px tall, the same on every row so the captions share a line) over one fact */
 .fg-col { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
@@ -45,7 +45,7 @@
 .fg-gap .m i.on { background: var(--up); }
 /* their own words, and a video to watch */
 .fg-q { height: auto; min-height: 26px; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); }
-.fg-q .q { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
+.fg-q .q { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; text-wrap: pretty; }
 .fg-col.is-q .fg-cap { display: none; }
 .fg-vid .play { display: grid; place-items: center; flex: none; width: 40px; height: 26px; border-radius: var(--sp-2); background: var(--fill-2); color: var(--ink); }
 .fg-vid .play svg { width: 12px; height: 12px; }

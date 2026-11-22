@@ -395,7 +395,10 @@
     if (!(r.top < a.bottom && r.bottom > a.top)) return;
     var edge = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--edge-h')) || 56, gap = 8, m = 12;
     var below = innerHeight - m - (a.bottom + gap), above = a.top - gap - (edge + gap);
-    if (below >= above) { el.style.top = Math.round(a.bottom + gap) + 'px'; el.style.maxHeight = Math.floor(below) + 'px'; }
+    /* 22 Nov: when it fits on neither side it would crop its own message (a cold review: Marcus's sheet lost "Tell Marcus"
+       and the words, and still sent). Showing the whole sheet wins over keeping the row clear: it sits as low as it can */
+    if (Math.max(below, above) < r.height && r.height <= innerHeight - m - (edge + gap)) { el.style.top = Math.round(Math.max(edge + gap, innerHeight - m - r.height)) + 'px'; }
+    else if (below >= above) { el.style.top = Math.round(a.bottom + gap) + 'px'; el.style.maxHeight = Math.floor(below) + 'px'; }
     else { var hh = Math.min(r.height, above); el.style.maxHeight = Math.floor(above) + 'px'; el.style.top = Math.round(a.top - gap - hh) + 'px'; }
     var t = cur && cur.trigger ? cur.trigger.getBoundingClientRect() : a, top = parseFloat(el.style.top);
     el.style.setProperty('--oy', Math.round(Math.max(0, Math.min(el.offsetHeight, t.top + t.height / 2 - top))) + 'px');

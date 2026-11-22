@@ -10,11 +10,11 @@
    Widths: .sv gets is-mid under 918 px of room (narrower columns) and is-tight under 820 (last week gives way; it is
    still in the line's title). simple.js sets them from the room it has, and gives the dragged copy the same. */
 .sv {
-  --sv-cols: 18px minmax(140px, 1.25fr) 50px 10px 62px 64px 92px minmax(96px, .9fr) minmax(150px, 1.5fr) 28px;
+  --sv-cols: 18px minmax(140px, 1.25fr) 50px 10px 62px 64px 92px minmax(150px, 1.1fr) minmax(130px, 1.2fr) 28px;
   --sv-gap: 6px;
   padding: 0 var(--sp-4);
 }
-.sv.is-mid { --sv-cols: 18px minmax(120px, 1.2fr) 46px 10px 58px 60px 86px minmax(80px, .8fr) minmax(120px, 1.3fr) 28px; }
+.sv.is-mid { --sv-cols: 18px minmax(120px, 1.2fr) 46px 10px 58px 60px 86px minmax(136px, 1fr) minmax(96px, 1fr) 28px; }
 .sv.is-tight { --sv-cols: 18px minmax(120px, 1.2fr) 46px 10px 58px 60px 86px minmax(120px, 1.3fr) 28px; }
 
 /* the column heads, once for the week, pinned under the week bar */

@@ -57,20 +57,22 @@
   .mid { --rh: 52px; }
   .need { --fig-w: 248px; --fix-w: 232px; --more-w: 32px; }
   .need .lrow { grid-template-columns: 40px minmax(0, 1fr) var(--fig-w) var(--fix-w) var(--more-w); column-gap: var(--sp-4); min-height: 72px; padding-top: var(--sp-3); padding-bottom: var(--sp-3); }
-  @media (max-width: 1280px) { .need { --fig-w: 208px; --fix-w: 196px; } .need .lrow { column-gap: var(--sp-3); } }
+  @media (max-width: 1280px) { .need { --fig-w: 208px; --fix-w: 212px; } .need .lrow { column-gap: var(--sp-3); } }
   @media (max-width: 1100px) { .need { --fig-w: 0px; } .need .lrow { grid-template-columns: 40px minmax(0, 1fr) var(--fix-w) var(--more-w); } .need .lrow .fg-col { display: none; } }
   .need .list { padding: var(--sp-2); }
   .need .lrow.c2 { grid-template-columns: 40px minmax(0, 1fr); }
   .need .lrow .ph { align-self: center; }
   .need .who { gap: 3px; }
   .need .who-n { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
-  .need .nm { text-decoration: none; line-height: var(--lh-tight); flex: 0 1 auto; }
+  .need .nm { text-decoration: none; line-height: var(--lh-tight); flex: 0 0 auto; max-width: 100%; }
+  .need .who-n .tg { flex: 0 1 auto; max-width: none; }
   .need .lrow .why { line-height: var(--lh-tight); }
   .need .lrow .why .t { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .need .act { display: contents; }
   /* the next step: a real button, the same kind and the same place on every row; its words never wrap */
   .need .lrow .go { justify-self: start; min-width: 0; max-width: 100%; }
   .need .lrow .go span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .need .lrow .go svg { width: 14px; height: 14px; margin-right: -4px; color: var(--ink-3); }
   .need .more, .need .more-slot { justify-self: end; width: var(--more-w); }
   .need .done-row { line-height: var(--lh-tight); }
   .need .done-row .btn.sm { --h: 20px; }
@@ -418,7 +420,7 @@
     var why = x.reason, href = lifterHref(x.id, 'need'), nm = '<a class="nm" data-fact="name" href="' + esc(href) + '" tabindex="-1" data-ellipsis title="' + esc(x.name) + '">' + esc(x.name) + '</a>';
     var face = DESK.photo(x, 40);
     if (x.done) return '<div class="lrow c2 is-done" data-row="' + esc(x.id) + '" tabindex="0" aria-label="' + esc(x.name + ', ' + x.done.label) + '">' + face + '<span class="who">' + nm + doneRowHtml(x) + '</span></div>';
-    var f = x.fix, it = itemOf(x), tone = why && DESK.TONE ? DESK.TONE[why.tone] || '' : '';
+    var f = x.fix, it = itemOf(x), tone = DESK.TONE ? DESK.TONE[(it && it.tone) || (why && why.tone)] || '' : '';
     if (why && why.type === 'weight') tone = 'bw';
     var kick = it && it.kicker ? (it.kicker.length > 22 ? (/form check/i.test(it.kicker) ? 'Form check' : it.kicker.split(/ and |, /)[0]) : it.kicker) : '';
     var tag = kick ? '<span class="tg"' + (tone ? ' data-tone="' + esc(tone) + '"' : '') + '>' + esc(kick) + '</span>' : '';
@@ -426,7 +428,7 @@
     /* the label in full: a trailing "…" (the store's "opens a sheet" mark) reads as cut words on a button in a list */
     var said = f ? String(f.short || f.label).replace(/\s*…$/, '') : '';
     var fix = f ? '<button class="btn sm go" type="button" data-fact="action" data-fixbtn data-item="' + esc(f.itemId || '') + '" data-act="' + esc(f.actId || '') + '"' + (f.reminderId ? ' data-reminder="' + esc(f.reminderId) + '"' : '') +
-      ' data-for="' + esc(x.id) + '" title="' + esc(String(f.label).replace(/\s*…$/, '')) + '"><span>' + esc(said) + '</span></button>' : '<span class="fix-none"></span>';
+      ' data-for="' + esc(x.id) + '" title="' + esc(String(f.label).replace(/\s*…$/, '')) + '"><span>' + esc(said) + '</span>' + (f.go ? DESK.ic('chev', 2.2) : '') + '</button>' : '<span class="fix-none"></span>';
     return '<div class="lrow' + (here === x.id ? ' is-sel' : '') + '" data-row="' + esc(x.id) + '" tabindex="0" aria-label="' + esc(x.name + (why ? ', ' + why.text : '')) + '">' + face +
       '<span class="who"><span class="who-n">' + nm + tag + '</span>' + (why ? '<span class="why" data-fact="reason"><span class="t" data-ellipsis title="' + esc(why.full || why.text) + '">' + esc(why.text) + '</span></span>' : '') + '</span>' +
       figHtml(x) + '<span class="act">' + fix + more + '</span></div>';

@@ -22,12 +22,12 @@
      never answered from an old copy. Change the number whenever one of these files changes. -->
 <link rel="stylesheet" href="../kit/r6/tokens.css">
 <link rel="stylesheet" href="../kit/r6/glass.css">
-<link rel="stylesheet" href="../kit/r6/ui.css?v=1122c">
-<link rel="stylesheet" href="../kit/r6/week.css?v=1122c">
-<link rel="stylesheet" href="../kit/r6/sheet.css?v=1122c">
-<link rel="stylesheet" href="../kit/r6/simple.css?v=1122c">
-<link rel="stylesheet" href="../kit/r6/picker.css?v=1122c">
-<link rel="stylesheet" href="../kit/r6/importer.css?v=1122c">
+<link rel="stylesheet" href="../kit/r6/ui.css?v=1122d">
+<link rel="stylesheet" href="../kit/r6/week.css?v=1122d">
+<link rel="stylesheet" href="../kit/r6/sheet.css?v=1122d">
+<link rel="stylesheet" href="../kit/r6/simple.css?v=1122d">
+<link rel="stylesheet" href="../kit/r6/picker.css?v=1122d">
+<link rel="stylesheet" href="../kit/r6/importer.css?v=1122d">
 <link rel="stylesheet" href="../kit/r6/fix.css">
 <link rel="stylesheet" href="../kit/r6/newcoach.css">
 <link rel="stylesheet" href="../kit/r6/case.css">
@@ -421,15 +421,15 @@
 <script src="../kit/data.js"></script>
 <script src="../kit/kit.js"></script>
 <script src="../kit/coach.js"></script>
-<script src="../kit/r6/block.js?v=1122c"></script>
+<script src="../kit/r6/block.js?v=1122d"></script>
 <script src="../kit/r6/store.js"></script>
-<script src="../kit/r6/desk.js?v=1122c"></script>
-<script src="../kit/r6/picker.js?v=1122c"></script>
-<script src="../kit/r6/import.js?v=1122c"></script>
-<script src="../kit/r6/importer.js?v=1122c"></script>
-<script src="../kit/r6/week.js?v=1122c"></script>
-<script src="../kit/r6/sheet.js?v=1122c"></script>
-<script src="../kit/r6/simple.js?v=1122c"></script>
+<script src="../kit/r6/desk.js?v=1122d"></script>
+<script src="../kit/r6/picker.js?v=1122d"></script>
+<script src="../kit/r6/import.js?v=1122d"></script>
+<script src="../kit/r6/importer.js?v=1122d"></script>
+<script src="../kit/r6/week.js?v=1122d"></script>
+<script src="../kit/r6/sheet.js?v=1122d"></script>
+<script src="../kit/r6/simple.js?v=1122d"></script>
 <script src="../kit/r6/fix.js"></script>
 <script src="../kit/r6/newcoach.js"></script>
 <script>
@@ -1300,7 +1300,7 @@
     var offer = !o.noOffer ? rebaseOffer(b) : null;
     /* 22 Nov: the offer is short ("Use 190") beside its lift; how loads move each week (Rules) lives in the program's
        own menu, not on the lifter's line */
-    var tail = offer ? '<button class="link mx-use" type="button" data-rebase="' + offer.lift + '" aria-label="' + esc('Use ' + nf(offer.kg) + ' for ' + offer.lift) + '" title="' + esc(LIFT[offer.lift] + ' e1RM is ' + nf(offer.kg) + ' to the plate; the training max reads ' + nf(b.maxes[offer.lift]) + '. Use ' + nf(offer.kg) + '.') + '">Use ' + nf(offer.kg) + '</button>' : '';
+    var tail = offer ? '<button class="link mx-use" type="button" data-rebase="' + offer.lift + '" aria-label="' + esc('Use ' + nf(offer.kg) + ' for ' + offer.lift) + '" title="' + esc(LIFT[offer.lift] + ' e1RM is ' + nf(offer.kg) + ' to the plate; the training max reads ' + nf(b.maxes[offer.lift]) + '. Use ' + nf(offer.kg) + '.') + '">Use e1RM ' + nf(offer.kg) + '</button>' : '';
     return '<div class="hd-maxes" data-crop="maxes" role="group" aria-label="Training max"><span class="mx-cap" aria-hidden="true">Training max, kg</span>' + btns + tail + '</div>';
   }
   function ruleWords(b) {
