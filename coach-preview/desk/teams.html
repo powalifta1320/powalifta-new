@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="../kit/r6/week.css">
 <link rel="stylesheet" href="../kit/r6/fix.css">
 <link rel="stylesheet" href="../kit/r6/newcoach.css">
+<link rel="stylesheet" href="../kit/r6/case.css">
 <style>
   /* Teams (screens.md §4, spec B): the team's lifters in a list that never hides, the team or one lifter beside it. Tokens
      only; widths in px. The list is a pane of its own (Lifters' list): pinned from the toolbar's foot to the window's
@@ -83,93 +84,111 @@
   /* the date line sits under the title, on its left edge, as on Overview and Meets (P29) */
   .tt .facts { margin: var(--sp-2) 0 0; color: var(--ink-2); font: 400 var(--fs-body)/var(--lh-body) var(--font); font-variant-numeric: tabular-nums; }
   .tt .facts b { color: var(--ink); font-weight: 600; }
-  /* the whole team: the title, then its date line under it on the same left edge (P29) */
-  .td > .t-h1 { margin: 0 var(--sp-1); font: 700 var(--fs-large)/var(--lh-large) var(--font); letter-spacing: var(--ls-large); text-wrap: balance; outline: 0; }
-  .td > .t-sub { margin: var(--sp-1) var(--sp-1) var(--sp-2); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; }
   .tt .open { flex: none; }
   .sec { margin-top: var(--sp-5); min-width: 0; }
   .sec-h .grow { flex: 1; }
   .sec-h .sub { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; }
 
-  /* the picture card: four tiles, each a control that lights its people in the grid */
-  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: var(--sp-1); }
-  .tiles .ch { display: grid; grid-template-columns: minmax(0, 1fr) 76px; grid-template-areas: 'h h' 'v p' 'f f'; align-items: end; column-gap: var(--sp-2); row-gap: var(--sp-2); padding: var(--sp-3) var(--sp-3) var(--sp-2) var(--sp-4); }
-  .tiles .ch + .ch::before { top: var(--sp-4); bottom: var(--sp-4); }
-  .tiles .ch-h { grid-area: h; min-width: 0; }
-  .tiles .ch-h span { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); }
-  .tiles .ch-v { grid-area: v; min-width: 0; }
-  .tiles .ch-v .unit { color: var(--ink-2); }
-  .tiles .ch-v.words { font-size: var(--fs-head); line-height: var(--lh-num); }
-  .tiles .ch-f { grid-area: f; min-height: calc(var(--fs-label) * 2.6); }
-  .tiles .plot { grid-area: p; height: 36px; align-self: center; }
-  .tiles .bars .lab { display: none; }
-  .tiles .bars .d { grid-template-rows: minmax(0, 1fr); }
-  .tiles .div { padding-right: 0; }
-  .tiles .div::before { right: 0; }
-  .tiles .div .ax { display: none; }
-  .tiles .tl .ax { top: 18px; }
-  .tiles .tl .tk { top: 13px; }
-  .tiles .tl .m { top: 19px; }
-  .tiles .tl .lab { display: none; }
-  .spark { display: block; width: 100%; height: 100%; overflow: visible; }
-  .spark .sl { fill: none; stroke: var(--place); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-  .spark .sp { fill: var(--place); }
+  /* 22 Nov (the owner: "just info dump and nothing practical"): the team page is ordered by the coach's week. This week
+     (who has trained, who has not, day by day, and the move for whoever needs one in their own row), strength (is the
+     block working: each lifter's e1RM over 4 weeks as a line in the lift's colour), then the week as written with who
+     differs from it. One card: This week. The rest sits open on the floor, on hairlines. */
+  @media (max-width: 1180px) { body { --list-w: 264px; } }
+  .th { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-6); margin: 0 var(--sp-1) var(--sp-2); min-width: 0; }
+  .th > div:first-child { min-width: 0; }
+  .th .t-h1 { margin: 0; font: 700 var(--fs-large)/var(--lh-large) var(--font); letter-spacing: var(--ls-large); text-wrap: balance; outline: 0; }
+  .th .t-sub { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; }
+  .th-m { flex: none; align-items: flex-end; text-align: right; padding-bottom: 2px; }
+  .th-m .fg b { font-size: var(--fs-title); }
+  .th-m .fg b small { margin-left: var(--sp-1); color: var(--ink-2); font-size: var(--fs-label); }
 
-  /* Where everyone is, as a sheet (16 Nov, the owner: "think like a coach after 5 years of Excel"): Lifter (the name, one
-     status line) | Week 1 to 4, one fixed width each | Action. Every row is built the same way and is the same height:
-     two lines, top-aligned; line 2 is quiet in every column (the status, what happened that week). The current week is
-     marked once, by the place's bar under its head. Each row's fix sits in the Action column in one quiet text style,
-     its text on the column's edge, the row's ⋯ in a slot every row keeps. A narrow window scrolls the sheet sideways
-     inside its card rather than folding a row. */
-  .gc { padding: var(--sp-1) 0 var(--sp-2); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
-  .tgr { min-width: 812px; }   /* the four weeks keep "162.5 × 3 @8" whole; a narrower window scrolls the sheet */
-  .tgr col.c-who { width: 216px; } .tgr col.c-mv { width: 213px; }   /* the four weeks share the rest equally */
-  .tgr th, .tgr td { padding: 0 0 0 var(--sp-3); }
-  .tgr th:first-child, .tgr td:first-child { padding-left: var(--sp-4); }
-  .tgr th:last-child, .tgr td:last-child { padding-right: 0; }
-  .tgr th { height: 40px; vertical-align: middle; }
-  .tgr th.is-now { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--place); }
-  .tgr tr.grp td { height: 36px; padding-top: var(--sp-3); vertical-align: middle; color: var(--ink); font: 600 var(--fs-label)/var(--lh-label) var(--font); }
-  .tgr tr.grp .n { margin-left: var(--sp-2); color: var(--ink-3); font-weight: 500; font-variant-numeric: tabular-nums; }
-  .tgr tr.grp .dn { margin-left: var(--sp-3); color: var(--ink-2); font-weight: 400; }
-  .tgr tr[data-row] td { height: 60px; padding-top: 10px; padding-bottom: 10px; vertical-align: top; }
-  .tgr tr[data-row].is-hi td { background: var(--place-sel); }
-  .tgr .w1 { display: flex; align-items: center; min-width: 0; height: 19px; }
-  .tgr .wh .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 600 var(--fs-body)/var(--lh-tight) var(--font); }
-  .tgr .wh .st { display: block; min-width: 0; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); }
-  /* a week cell: line 1 what was written (the top set, in its lift's colour), line 2 what happened, quiet; both lines
-     always there, so a week to come keeps the shape with its second line empty */
-  .tgr td.wk b, .tgr td.wk small { display: block; height: calc(var(--fs-label) * var(--lh-label)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .tgr td.wk b { color: var(--ink); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
-  .tgr td.wk small { margin-top: 2px; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); }
-  .tgr td.wk small.q { color: var(--ink-3); }
-  /* a top set wears its lift's colour (ui.css [data-lift]); the state word under it stays grey */
-  .tgr td.wk b[data-lift], .hw td b[data-lift], .kvl [data-lift] b { color: var(--lc-ink); }
-  /* the Action column: the fix as quiet text on the column's edge (it fills under the pointer, ui.css .tbl .fix), the
-     ⋯ at the column's end on every row, shown on hover or focus where a pointer can hover */
-  .tgr th.c-mv { text-align: left; }
-  .tgr td.c-mv { text-align: left; white-space: nowrap; }
-  .tgr td.c-mv .cmv { display: flex; align-items: center; gap: 0; min-width: 0; min-height: 36px; margin-top: -9px; }   /* the label on line 1, with the sets */
-  .tgr td.c-mv .more { flex: none; margin-left: auto; --h: 28px; }
-  .tgr td.c-mv .more::after { inset: -6px 0 -6px -12px; }   /* 40 px to hit, kept inside the card so it never scrolls */
-  @media (hover: hover) and (pointer: fine) {
-    .tgr tr[data-row] .more { opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
-    .tgr tr[data-row]:hover .more, .tgr tr[data-row]:focus-within .more, .tgr tr[data-row] .more[aria-expanded='true'] { opacity: 1; }
+  /* This week: one row a lifter. The face, the name with the one thing to know under it, the seven days (a day's mark
+     is lit in its lift's colour once it is lifted, outlined while it is to come, struck when it was missed), how many
+     are done, and the move in the same column on every row. */
+  .wkc { --day: 28px; --day-gap: 4px; --days-w: calc(var(--day) * 7 + var(--day-gap) * 6); --act-w: 222px; --cnt-w: 48px; padding: var(--sp-1) 0 0; }
+  .wr { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) var(--days-w) var(--cnt-w) var(--act-w) var(--ctl-s); align-items: center; column-gap: var(--sp-4); min-height: 68px; padding: var(--sp-2) var(--sp-5); outline: 0; cursor: pointer; }
+  .wr + .wr::before { content: ''; position: absolute; top: 0; left: var(--sp-5); right: var(--sp-5); height: 1px; background: var(--line); }
+  .wr.hd { min-height: 36px; padding-top: 0; padding-bottom: 0; color: var(--ink-3); font: 500 var(--fs-cap)/var(--lh-cap) var(--font); cursor: default; }
+  .wr.hd + .wr::before { opacity: 0; }
+  .wr.hd .hd-l { grid-column: 1 / 3; font-size: var(--fs-label); }
+  .wr.hd .wd i { height: auto; font-weight: 500; }
+  .wr.hd .wd i.is-today { color: var(--place-ink); font-weight: 700; }
+  .wr.hd .cnt { font-size: var(--fs-label); }
+  .wr:focus-visible { box-shadow: inset 0 0 0 2px var(--focus); }
+  @media (hover: hover) and (pointer: fine) { .wr:not(.hd):hover { background: var(--hover); } }
+  .wr .who { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .wr .who-n { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+  .wr .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 600 var(--fs-body)/var(--lh-tight) var(--font); }
+  .wr .st { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-tight) var(--font); }
+  .wd { display: grid; grid-template-columns: repeat(7, var(--day)); column-gap: var(--day-gap); }
+  .wd i, .dm { display: grid; place-items: center; width: var(--day, 28px); height: var(--day, 28px); border-radius: var(--r-field); color: var(--ink-3); font: 700 var(--fs-cap)/1 var(--font); font-style: normal; }
+  .dm.come { box-shadow: inset 0 0 0 1px var(--line-2); }
+  .dm.done { background: color-mix(in srgb, var(--lc, var(--place)) 26%, transparent); color: var(--lc-ink, var(--place-ink)); }
+  .dm.part { box-shadow: inset 0 0 0 1.5px var(--lc, var(--place)); color: var(--lc-ink, var(--place-ink)); }
+  .dm.miss { background: var(--warn-tint); color: var(--warn); text-decoration: line-through; }
+  .dm.live { box-shadow: inset 0 0 0 1.5px var(--up); color: var(--up); }
+  .wd-x { min-width: 0; }
+  .wd-x .fg { gap: var(--sp-2); }
+  .wr .cnt { display: flex; align-items: baseline; gap: var(--sp-1); color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .wr .cnt b { color: var(--ink); font: 700 var(--fs-head)/1 var(--font); font-stretch: var(--num-stretch); letter-spacing: var(--ls-head); }
+  .wr .act { display: flex; align-items: center; min-width: 0; }
+  .wr .act .btn { min-width: 0; max-width: 100%; }
+  .wr .act .btn > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wr .more { justify-self: end; }
+  .wr .done-row.one { flex: 0 1 auto; flex-wrap: nowrap; gap: var(--sp-2); min-width: 0; }
+  .wr .done-row.one .dw { flex: none; }
+  .wr .done-row.one .btn, .lr .done-row .btn { margin: 0; }
+  .wkc-f { display: flex; align-items: center; gap: var(--sp-5); min-height: 48px; padding: 0 var(--sp-5); border-top: 1px solid var(--line); color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-label) var(--font); }
+  .wkc-f .lg { display: inline-flex; align-items: center; gap: var(--sp-2); white-space: nowrap; }
+  .wkc-f .dm { --day: 20px; border-radius: var(--r-mark); }
+  .wkc-f .sum { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .wkc-f .sum b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 1280px) {
+    .wkc { --day: 26px; --day-gap: 3px; --act-w: 204px; }
+    .wr { column-gap: var(--sp-3); padding-left: var(--sp-4); padding-right: var(--sp-4); }
+    .wr + .wr::before { left: var(--sp-4); right: var(--sp-4); }
+    .wkc-f { padding: 0 var(--sp-4); gap: var(--sp-4); }
   }
-  .tgr .mvb { --h: 36px; flex: 0 1 auto; min-width: 0; margin-left: calc(var(--sp-3) * -1); padding: 0 var(--sp-1) 0 var(--sp-3); white-space: nowrap; text-align: left; font-size: var(--fs-label); }
-  .tgr .mvb > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  /* a fix that has run keeps the row's shape: what was done on line 1, the time and Undo on line 2 */
-  /* a fix that has run keeps the row's shape: "✓ Done 07:21 Undo" on line 1, the ⋯ in its slot */
-  .tgr .done-row.one { flex: 0 1 auto; flex-wrap: nowrap; gap: var(--sp-2); min-width: 0; }
-  .tgr .done-row.one .dw { flex: none; }
-  .tgr .done-row.one .btn { --h: 32px; }
+  @media (max-width: 1180px) {
+    .wkc { --day: 24px; --day-gap: 2px; --act-w: 192px; }
+    .wr { grid-template-columns: 32px minmax(0, 1fr) var(--days-w) var(--act-w) var(--ctl-s); min-height: 72px; }
+    .wr .tg { display: none; }
+    .wr .st { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-wrap: pretty; }
+    .wr .act .btn { padding: 0 var(--sp-3); }
+    .wd-x .fg-gap .m { grid-template-columns: repeat(14, 5px); gap: 2px; }
+    .wr .cnt { display: none; }
+    .wr.hd .hd-l { grid-column: 1 / 3; }
+    .wkc-f .lg.opt { display: none; }
+  }
   .lr .done-row { flex-wrap: wrap; column-gap: var(--sp-2); row-gap: 0; }
   .lr .done-row .dw { flex: 1 1 calc(100% - 28px); white-space: normal; overflow: visible; text-wrap: pretty; }
   .lr .done-row .at { margin-left: 28px; }
-  @media (max-width: 1280px) {
-    .tiles .ch { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'h' 'v' 'p' 'f'; }
-    .tiles .plot { width: 100%; height: 28px; }
-  }
+
+  /* Strength: one cell a lifter, the lift's e1RM as the number, its change over 4 weeks beside it, the line in the
+     lift's colour on one shared scale (a flat line is flat, whoever it is). A cell opens the lifter. */
+  .sg { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); column-gap: var(--sp-5); margin: 0 var(--sp-1); }
+  .sc { position: relative; display: grid; grid-template-rows: auto auto 40px auto; row-gap: var(--sp-2); min-width: 0; margin: 0; padding: var(--sp-3) 0 var(--sp-3); border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
+  .sc::after { content: ''; position: absolute; inset: 1px calc(var(--sp-2) * -1) 0; border-radius: var(--r-row); background: transparent; transition: background-color var(--dur-fast) var(--ease-out); pointer-events: none; }
+  .sc > * { position: relative; z-index: 1; }
+  .sc:focus-visible { outline: 0; }
+  .sc:focus-visible::after { box-shadow: inset 0 0 0 2px var(--focus); }
+  .sc:active { transform: scale(.985); }
+  @media (hover: hover) and (pointer: fine) { .sc:hover::after { background: var(--hover); } }
+  .sc-n { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+  .sc-n .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .sc-v { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; white-space: nowrap; }
+  .sc-v b { font: 700 var(--fs-num)/var(--lh-num) var(--font); font-stretch: var(--num-stretch); letter-spacing: var(--ls-num); font-variant-numeric: tabular-nums; }
+  .sc-v b small { margin-left: 3px; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-stretch: 100%; letter-spacing: 0; }
+  .sc-v .dl { color: var(--ink-2); font: 600 var(--fs-label)/1 var(--font); font-variant-numeric: tabular-nums; }
+  .sc-v .dl.dn { color: var(--warn); }
+  .sc-c { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; }
+  .spk { display: block; width: 100%; height: 100%; overflow: visible; }
+  .spk path { fill: none; stroke: var(--lc, var(--place)); stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .spk .sl { stroke-width: 2; }
+  .spk .s0 { stroke: var(--line-2); stroke-width: 1; stroke-dasharray: 2 4; }
+  .spk .sp { stroke-width: 7; }
+  .sg-none { margin: 0 var(--sp-1); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  @media (max-width: 1180px) { .sg { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
   /* the week as written: tabs with their state, then the days as three columns of lines; a cell edits in place */
   .wk-tabs { display: flex; gap: var(--sp-2); margin: 0 0 var(--sp-3); border-bottom: 1px solid var(--line); }
@@ -199,7 +218,17 @@
   @media (hover: hover) and (pointer: fine) { .cell:not(.is-ro):hover { background: var(--hover); } }
   .cell-in { width: 6ch; height: 30px; padding: 0 var(--sp-1); border: 0; border-radius: var(--r-mark); background: var(--fill); box-shadow: var(--shadow-field); color: var(--ink); font: 500 var(--fs-sub)/var(--lh-none) var(--font); font-variant-numeric: tabular-nums; outline: 0; }
   .cell-in.is-error { outline: 1.5px solid var(--pain); outline-offset: -1.5px; }
-  .own { margin: 0; padding: 0 var(--sp-1) var(--sp-2); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .own { display: flex; align-items: baseline; gap: var(--sp-2); margin: 0; padding: 0 var(--sp-1) var(--sp-2); color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); font-variant-numeric: tabular-nums; }
+  .own b { flex: none; color: var(--ink); font-weight: 600; }
+  /* who the shown week is for: the lifters who get it as written in one line, then a row for each who differs */
+  .wx { margin: 0 var(--sp-1) var(--sp-5); }
+  .wx-r { display: grid; grid-template-columns: 24px 88px minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-3); min-height: 44px; padding: var(--sp-1) 0; border-bottom: 1px solid var(--line); }
+  .wx-r.all { grid-template-columns: auto minmax(0, 1fr); }
+  .wx-r .stack { --stack-bg: var(--floor); }
+  .wx-r b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .wx-r .w { min-width: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; text-wrap: pretty; }
+  .wx-r .w.t-warn { color: var(--warn); }
+  .wx-r.all .w b { display: inline; font-weight: 600; }
   .day-add { margin: var(--sp-1) 0 0; padding: 0 var(--sp-1); }
   .day-add .add-row { min-height: 40px; }
   @media (max-width: 1280px) {
@@ -213,9 +242,27 @@
   .need h2 { margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); }
   .need p { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
   .need .acts { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+  .need .tg { display: inline-block; max-width: none; margin-bottom: var(--sp-2); }
+  /* his sessions this week: the day's mark, its name and date, what happened, the top set */
+  .ms { margin: 0 var(--sp-1); }
+  .ms-r { display: grid; grid-template-columns: 28px minmax(0, 1.1fr) 104px minmax(0, 1.4fr); align-items: center; column-gap: var(--sp-4); min-height: 48px; border-top: 1px solid var(--line); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; }
+  .ms-r b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-weight: 600; }
+  .ms-r b small { margin-left: var(--sp-2); color: var(--ink-3); font: 400 var(--fs-label)/1 var(--font); }
+  .ms-r .sw.t-up { color: var(--up); } .ms-r .sw.t-warn { color: var(--warn); }
+  .ms-r .ts { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+  .ms-r .ts b { font-stretch: var(--num-stretch); font-weight: 700; }
+  .ms-x { display: flex; align-items: center; gap: var(--sp-4); min-height: 48px; margin: 0 var(--sp-1); border-top: 1px solid var(--line); }
+  /* his three lifts: the name in its colour, the e1RM, the change, the line */
+  .sg.l3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sg.l3 .sc { cursor: default; }
+  .sg.l3 .sc:active { transform: none; }
+  .sg.l3 .sc::after { display: none; }
+  .sc-n .lf { font: 600 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .kvl { margin-top: var(--sp-3); }
   .hw { padding: var(--sp-1) var(--sp-2) var(--sp-2); }
   .hw col.c-st { width: 180px; }
-  .hw td b { display: block; color: var(--ink); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hw td b { display: block; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hw th[data-lift] { color: var(--lc-ink); font-weight: 600; }
   .hw td small { display: block; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); white-space: nowrap; }
   .hw tr[data-wk] td { height: 48px; padding-top: 3px; padding-bottom: 3px; }
   .hw th { height: 32px; }
@@ -270,7 +317,8 @@
   .tsh .tb2 th { height: 36px; }
   .tsh .tb2 tr[data-row] { cursor: default; }
   .tsh .tb2 tr[data-row] td { height: 52px; }
-  .tsh .tb2 td.v { font-size: var(--fs-label); }
+  .tsh .tb2 td.v { color: var(--ink); font-size: var(--fs-label); font-weight: 600; }
+  .tsh .tb2 th[data-lift] { color: var(--lc-ink); font-weight: 600; }
   .tsh .tb2 td.nt { white-space: normal; line-height: var(--lh-label); font-size: var(--fs-label); }
   .tsh .tb2 td.nt .btn { margin-top: 2px; }
   .tsh .tb2 td.nt .nl { display: block; }
@@ -298,8 +346,8 @@
   .tsh .sub2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); margin: var(--sp-1) 0 var(--sp-2) var(--sp-7); }
   .tsh .sub2 label { display: grid; gap: var(--sp-1); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
   /* one status word a row in its tone (screens.md §2.3) */
-  .t-warn, .lr .rs.t-warn, .tgr .wh .st.t-warn, .tgr td.wk small.t-warn { color: var(--warn); }
-  .t-pain, .lr .rs.t-pain, .tgr .wh .st.t-pain { color: var(--pain); }
+  .t-warn, .lr .rs.t-warn, .wr .st.t-warn, .hw td small.t-warn { color: var(--warn); }
+  .t-pain, .lr .rs.t-pain, .wr .st.t-pain { color: var(--pain); }
 </style>
 </head>
 <body data-place="teams">
@@ -353,7 +401,7 @@
   var lifterCount = function () { var c = dat(PL.counts()) || {}; return c.lifters != null ? c.lifters : 0; };
 
   /* ---------------- state: the hash is the truth (shared.md §7: id, lifter, week, from) ---------------- */
-  var st = { team: null, lifter: null, week: {}, lift: 'squat', hi: null, placed: {}, hand: null, why: {} };
+  var st = { team: null, lifter: null, week: {}, lift: 'squat', placed: {}, hand: null, why: {} };
   function hashGet() { var h = new URLSearchParams(location.hash.replace(/^#/, '')); return { id: h.get('id'), lifter: h.get('lifter'), week: h.get('week') ? Number(h.get('week')) : null, from: h.get('from'), nw: h.get('new') }; }
   function hashOf(o) { var h = new URLSearchParams(); if (o.id) h.set('id', o.id); if (o.lifter) h.set('lifter', o.lifter); if (o.week) h.set('week', o.week); var f = hashGet().from; if (f) h.set('from', f); return h.toString(); }
   function go(o) { var s = '#' + hashOf(o); if (location.hash === s) render(); else location.hash = s; }
@@ -508,52 +556,14 @@
   /* ---------------- the whole team ---------------- */
   function factsLine(T) {
     var end = K.add(T.startsOn, T.week.of * 7 - 1), prog = String(T.program || '').replace(new RegExp('^' + T.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*·\\s*'), '');
-    return esc(prog || T.program || '') + ', week ' + T.week.now + ' of ' + T.week.of + ' · ' + esc(day3(T.startsOn).replace(/ \w+$/, '') + ' to ' + day3(end));
+    return esc(prog || T.program || '') + ', week ' + T.week.now + ' of ' + T.week.of + '. ' + esc(day3(T.startsOn).replace(/ \w+$/, '') + ' to ' + day3(end));
   }
-  function tile(key, title, per, val, foot, plot, aria, words, acc) {
-    return '<button type="button" class="ch" data-tile="' + key + '" aria-pressed="' + (st.hi === key) + '" aria-label="' + esc(aria) + '" title="Show who in the grid"><span class="ch-h"><b>' + title + '</b><span>' + per + '</span></span>' +
-      '<span class="ch-v' + (words ? ' words' : '') + (acc ? ' acc' : '') + '">' + val + '</span><span class="ch-f">' + foot + '</span><span class="plot" aria-hidden="true">' + plot + '</span></button>';
-  }
-  function sparkHtml(pts) {
-    var v = (pts || []).filter(function (x) { return x != null; }); if (v.length < 2) return '';
-    var lo = Math.min.apply(null, v), hi = Math.max.apply(null, v), span = Math.max(hi - lo, 1), W = 76, H = 36;
-    var xy = v.map(function (y, i) { return [2 + i / (v.length - 1) * (W - 6), 4 + (1 - (y - lo) / span) * (H - 8)]; });
-    var last = xy[xy.length - 1];
-    return '<svg class="spark" data-chart viewBox="0 0 ' + W + ' ' + H + '"><path class="sl" d="' + CH.smooth(xy) + '"/><circle class="sp" cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="3"/></svg>';
-  }
-  function people(T, key) {
-    var f = T.facts;
-    if (key === 'sessions') return T.members.filter(function (m) { var w = m.weeks[T.week.now - 1]; return m.week && (w && w.missed > 0 || m.week.done === 0); }).map(function (m) { return m.id; });
-    if (key === 'strength') return f.strength.flat.slice();
-    if (key === 'effort') return f.effort.perLifter.filter(function (x) { return x.felt != null && Math.abs(x.felt - x.written) >= 0.5; }).map(function (x) { return x.id; });
-    if (key === 'meet') return f.meet ? f.meet.ids.slice() : [];
-    return [];
-  }
-  function tilesHtml(T) {
-    var f = T.facts, s = f.sessions, nowW = T.week.now;
-    /* Mon to Sun: each day's sessions on the team's plan, the ones done lit (the members' own weeks, as the store gives them) */
-    var mon = K.add(T.startsOn, (nowW - 1) * 7), by = [0, 1, 2, 3, 4, 5, 6].map(function (i) { return { iso: K.add(mon, i), plan: 0, done: 0 }; });
-    T.members.forEach(function (m) {
-      if (!m.week) return; var w = dat(PL.lifters.week(m.id)); if (!w || !w.sessions || w.n !== nowW) return;
-      w.sessions.forEach(function (x) { var i = K.daysTo(String(x.date || '').slice(0, 10)) - K.daysTo(mon); if (i >= 0 && i < 7) { by[i].plan++; if (x.state === 'done') by[i].done++; } });
-    });
-    var bars = CH.bars(by.map(function (d) { return { label: K.wd(d.iso).charAt(0), now: d.done, ghost: d.plan, today: d.iso === K.today, tip: K.wd(d.iso) + ': ' + d.done + ' of ' + d.plan + ' done' }; }));
-    var flat = f.strength.flat.map(first), harder = people(T, 'effort').map(first), per = f.effort.perLifter.filter(function (x) { return x.felt != null; });
-    var effortV = f.effort.topFelt == null ? 'No RPE yet' : Math.abs(f.effort.topFelt - f.effort.topWritten) < 0.25 ? 'As written' : signed(f.effort.topFelt - f.effort.topWritten) + ' RPE';
-    var div = CH.diverging(per.map(function (x) { return { v: x.felt - x.written, tip: first(x.id) + ': ' + (Math.abs(x.felt - x.written) < 0.05 ? 'as written' : signed(x.felt - x.written) + ' RPE') }; }), { max: 1.5 });
-    var end = K.add(T.startsOn, T.week.of * 7 - 1), mt = f.meet, span = Math.max(56, (mt ? mt.days : 0) + 7);
-    var tl = mt ? CH.timeline([{ x: mt.days / span, n: 1, tip: mt.name + ', ' + outT(mt.days) }], { ticks: [K.daysTo(end) / span] }) : '';
-    var meetFoot = mt ? esc(mt.name) + ': ' + esc(K.list(mt.ids.map(first), 3)) + '. Block ends ' + esc(K.dm(end)) : 'No meet booked. Block ends ' + esc(K.dm(end));
-    return '<div class="card tiles" data-crop="facts" role="group" aria-label="The block so far">' +
-      tile('sessions', 'Sessions', 'This week', s.done + ' <span class="unit">of ' + s.of + '</span>', 'sessions done, ' + s.lastDone + ' of ' + s.lastOf + ' last week', bars,
-        'Sessions this week: ' + s.done + ' of ' + s.of + ' done, ' + s.lastDone + ' of ' + s.lastOf + ' last week. Show who is behind.', false, true) +
-      tile('strength', 'Strength', '4 weeks', f.strength.avg == null ? '<span class="unit">None yet</span>' : esc(signed(f.strength.avg)) + ' <span class="unit">kg</span>', flat.length ? 'Flat: ' + esc(K.list(flat, 3)) : 'Nobody is flat', sparkHtml(f.strength.pts),
-        'Strength over 4 weeks: ' + (f.strength.avg == null ? 'none yet' : signed(f.strength.avg) + ' kg on average') + '. ' + (flat.length ? 'Flat: ' + K.list(flat, 3) : 'Nobody is flat') + '. Show who.', false, f.strength.avg != null) +
-      tile('effort', 'Effort', 'Top sets', esc(effortV), harder.length ? 'Harder: ' + esc(K.list(harder, 3)) : 'All within 0.5 RPE', div,
-        'Effort on top sets: ' + effortV + '. ' + (harder.length ? 'Harder: ' + K.list(harder, 3) : 'All within 0.5 RPE') + '. Show who.', true) +
-      tile('meet', 'Next meet', '', mt ? outBig(mt.days) : '<span class="unit">None</span>', meetFoot, tl,
-        mt ? 'Next meet: ' + mt.name + ', ' + outT(mt.days) + '. Show who.' : 'No meet booked.') +
-      '</div>';
+  var cap1 = function (t) { t = String(t || ''); return t.charAt(0).toUpperCase() + t.slice(1); };
+  /* the team's next meet, beside the title: the store's countdown as the number, the meet and who lifts under it */
+  function meetHtml(T) {
+    var mt = T.facts && T.facts.meet; if (!mt) return '';
+    var t = outT(mt.days).replace(/^in /, ''), q = /^(\d+) (.+)$/.exec(t), who = K.list(mt.ids.map(first), 3);
+    return '<div class="fg-col th-m" data-crop="meet" title="' + esc(mt.name + ', ' + outT(mt.days) + ': ' + who) + '"><span class="fg"><b>' + (q ? esc(q[1]) + '<small>' + esc(q[2]) + '</small>' : esc(cap1(t))) + '</b></span><span class="fg-cap">' + esc(mt.name + ', ' + who) + '</span></div>';
   }
   /* the rows of the grid in their groups, in the store's order inside each */
   function gridRows(T) {
@@ -564,50 +574,111 @@
     [['off', 'Off the plan'], ['on', 'On the plan'], ['start', 'Starting']].forEach(function (k) { if (!g[k[0]].length) return; var open = k[0] === 'off' ? g.off.filter(function (r) { return !(r.x && r.x.done); }).length : g[k[0]].length; out.push({ head: k[1], n: open, done: g[k[0]].length - open }); out = out.concat(g[k[0]]); });
     return out;
   }
-  /* a week cell (16 Nov, the sheet): line 1 what was written, the lift's top set at the lifter's own kilos; line 2, quiet,
-     what happened ("as written", "Missed", "1 of 3 done") or what is set for a week to come ("Sent Fri", "Held", "Own
-     line", "His week 1", "Starts Mon 16"); empty for a week only written. Both lines always there (shared.md §8). */
-  function cellHtml(T, m, w, toneLeft) {
-    var t = w && w.top ? w.top[st.lift] : null, top = t && t.w != null ? setsOf(t) : '', sub = '', warn = false, srOnly = '';
-    if (!w || w.state === 'none') return { html: '<b></b><small></small><span class="sr">none</span>', warn: false };
-    var wt = weekOf(T, w.n);
-    if (w.his != null) sub = 'His week ' + w.his;
-    else if (w.state === 'lifted') { if (t && t.felt != null && t.rpe != null) { var d = t.felt - t.rpe; sub = Math.abs(d) < 0.25 ? 'as written' : 'felt ' + n(t.felt); warn = d >= 0.5; } else sub = 'Lifted'; }
+  /* what a team week is for one lifter, in a word or two: "as written", "felt 9", "Missed", "1 of 3 done", "Sent Fri",
+     "Held", "Own line", "His week 1", "Starts Mon 16"; warn when a top set felt half an RPE or more over what was written */
+  function weekState(T, m, w, lift) {
+    if (!w || w.state === 'none') return { sub: '', warn: false };
+    var t = w.top ? w.top[lift || st.lift] : null, wt = weekOf(T, w.n), sub = '', warn = false;
+    if (w.state === 'lifted') { if (t && t.felt != null && t.rpe != null) { var d = t.felt - t.rpe; sub = Math.abs(d) < 0.25 ? 'as written' : 'felt ' + n(t.felt); warn = d >= 0.5; } else sub = 'Lifted'; }
     else if (w.state === 'missed') sub = 'Missed';
-    else if (w.state === 'now') { var mw = m.week; sub = mw ? mw.done + ' of ' + mw.of + ' done' : ''; }
+    else if (w.state === 'now') sub = m.week ? m.week.done + ' of ' + m.week.of + ' done' : '';
     else if (w.state === 'sent') sub = 'Sent' + (wt && wt.sentAt ? ' ' + K.wd3(String(wt.sentAt).slice(0, 10)) : '');
     else if (w.state === 'held') sub = 'Held';
     else if (w.state === 'own') sub = 'Own line';
     else if (w.state === 'starts') sub = 'Starts ' + dayN(wt ? wt.from : T.startsOn);
-    else if (w.state === 'written') srOnly = wt && wt.toSend > 0 ? changesWord(wt.toSend) : 'not sent';
-    if (w.his != null && w.his !== w.n) sub = 'His week ' + w.his;
-    warn = warn && toneLeft;
-    var lk = t && t.w != null ? ' data-lift="' + st.lift + '"' : '';
-    return { html: '<b' + lk + '>' + esc(top) + '</b><small' + (warn ? ' class="t-warn"' : '') + '>' + esc(sub) + '</small>' + (srOnly ? '<span class="sr">, ' + esc(srOnly) + '</span>' : ''), warn: warn };
+    else if (w.state === 'written') sub = wt ? weekWord(T, wt) : '';
+    if (w.his != null && w.his !== w.n) sub = cap1(his(m.id)) + ' week ' + w.his;
+    return { sub: sub, warn: warn };
   }
   function moveBtn(T, m, x, where) {
-    if (x && !x.done) return '<button class="btn sm fix mvb" type="button" data-move="' + esc(x.itemId + '|' + x.actId) + '" data-for="' + esc(m.id) + '" data-where="' + where + '" title="' + esc(x.label) + '"><span data-ellipsis>' + esc(x.label) + '</span></button>';
+    var said = function (t) { return String(t).replace(/\s*…$/, ''); };
+    if (x && !x.done) return '<button class="btn sm" type="button" data-fact="action" data-move="' + esc(x.itemId + '|' + x.actId) + '" data-for="' + esc(m.id) + '" data-where="' + where + '" title="' + esc(x.label) + '"><span>' + esc(said(x.label)) + '</span></button>';
     var s = !x ? startable(T, m) : null;
-    if (s) return '<button class="btn sm fix mvb" type="button" data-start="' + esc(m.id) + '" aria-haspopup="dialog" title="' + esc(s.label) + '"><span data-ellipsis>' + esc(s.label) + '</span></button>';
+    if (s) return '<button class="btn sm" type="button" data-fact="action" data-start="' + esc(m.id) + '" aria-haspopup="dialog" title="' + esc(s.label) + '"><span>' + esc(said(s.label)) + '</span></button>';
     return '';
   }
+
+  /* ---- This week: who has trained, who has not, day by day (the members' own weeks, as the store gives them) ---- */
+  function teamMonday(T) { return K.add(T.startsOn, (T.week.now - 1) * 7); }
+  function sessionsNow(T, m) { if (!m.week) return null; var w = dat(PL.lifters.week(m.id)); return w && w.sessions && w.sessions.length && w.n === T.week.now ? w.sessions : null; }
+  function sesWord(s) { return s.live ? 'Lifting now' : s.state === 'done' ? 'Done' : s.state === 'part' ? s.done + ' of ' + s.of + ' sets' : s.state === 'missed' ? 'Missed' : 'To come'; }
+  function sesLift(s) { return (s.top && s.top.lift) || DESK.liftOf(s.name) || ''; }
+  function markHtml(s) {
+    var k = sesLift(s), cls = s.live ? 'live' : s.state === 'done' ? 'done' : s.state === 'part' ? 'part' : s.state === 'missed' ? 'miss' : 'come', t = s.top;
+    var tip = dayName(s.name) + ', ' + day3(String(s.date).slice(0, 10)) + ': ' + sesWord(s).toLowerCase() + (t && t.w != null && t.done ? '. Top set ' + setsOf(t) + (t.felt != null ? ', felt ' + n(t.felt) : '') : '');
+    return '<i class="dm ' + cls + (k ? ' lc-' + k : '') + '" title="' + esc(tip) + '"><span aria-hidden="true">' + esc(String(s.name || '').charAt(0).toUpperCase()) + '</span><span class="sr">' + esc(tip) + '. </span></i>';
+  }
+  function gapFig(days) {
+    var h = ''; for (var i = 14; i >= 1; i--) h += '<i' + (i > days ? ' class="on"' : '') + '></i>';
+    return '<span class="fg fg-gap"><span class="m" aria-hidden="true">' + h + '</span><b>' + days + '<small>days</small></b></span>';
+  }
+  /* a lifter with nothing to draw this week: how long it has been (the store's days), and the open item's own context */
+  function noDays(m) {
+    var id = m.item && m.item.itemId, it = id ? dat(PL.items.get(id)) : null, cap = it && it.context ? cap1(it.context) : '';
+    if (m.quiet && m.quiet.days) return '<span class="fg-col wd-x">' + gapFig(Math.min(14, m.quiet.days)) + (cap ? '<span class="fg-cap">' + esc(cap) + '</span>' : '') + '</span>';
+    return '<span class="fg-col wd-x">' + (cap ? '<span class="fg-cap">' + esc(cap) + '</span>' : '') + '</span>';
+  }
+  function daysHtml(T, m) {
+    var ses = sessionsNow(T, m), mon = teamMonday(T), by = {};
+    if (!ses) return noDays(m);
+    ses.forEach(function (s) { if (!s.date) return; var i = K.daysTo(String(s.date).slice(0, 10)) - K.daysTo(mon); if (i >= 0 && i < 7 && !by[i]) by[i] = s; });
+    return '<span class="wd">' + [0, 1, 2, 3, 4, 5, 6].map(function (i) { return by[i] ? markHtml(by[i]) : '<i aria-hidden="true"></i>'; }).join('') + '</span>';
+  }
+  function weekRow(T, r) {
+    var m = r.m, x = r.x, d = x && x.done ? doneAct(x) : null, ln = lineOf(m), it = x && !d ? x.item : null;
+    var tone = it && DESK.TONE ? DESK.TONE[it.tone] || '' : '', loud = tone === 'pain' || tone === 'words' || tone === 'gold' || tone === 'bw';
+    var tag = it && it.kicker && it.kicker.length <= 22 ? '<span class="tg"' + (loud ? ' data-tone="' + tone + '"' : '') + '>' + esc(it.kicker) + '</span>' : '';
+    var mv = d ? doneCell(d, x.itemId) : moveBtn(T, m, x, 'grid');
+    return '<div class="wr" role="row" tabindex="0" data-row="' + esc(m.id) + '" aria-label="' + esc(m.name + ', ' + ln.text) + '">' + DESK.photo(m, 36) +
+      '<span class="who"><span class="who-n"><span class="nm" data-fact="name">' + esc(m.name) + '</span>' + tag + '</span>' +
+      '<span class="st' + (ln.tone && !d && !loud ? ' ' + ln.tone : '') + '" data-fact="reason" title="' + esc(ln.text) + '">' + esc(ln.text) + '</span></span>' +
+      daysHtml(T, m) +
+      '<span class="cnt" data-fact="number"' + (m.week ? ' title="' + esc(m.week.done + ' of ' + m.week.of + ' sessions done this week') + '"><b>' + m.week.done + '</b>of ' + m.week.of : '>') + '</span>' +
+      '<span class="act">' + mv + '</span>' +
+      '<button class="btn icon quiet sm more" type="button" data-more aria-haspopup="menu" aria-label="' + esc('More for ' + m.first) + '" title="More">' + MORE + '</button></div>';
+  }
   function gridHtml(T) {
-    var hi = st.hi ? people(T, st.hi) : [];
-    var head = '<tr><th scope="col">Lifter</th>' + T.week.weeks.map(function (w) { return '<th scope="col"' + (w.now ? ' class="is-now" title="This week"' : '') + ' data-week-h="' + w.n + '"><span' + (w.toSend > 0 && !w.now ? ' title="' + esc(changesWord(w.toSend)) + '"' : '') + '>Week ' + w.n + '</span>' + (w.now ? '<span class="sr">, this week</span>' : w.toSend > 0 ? '<span class="sr">, ' + esc(changesWord(w.toSend)) + '</span>' : '') + '</th>'; }).join('') + '<th scope="col" class="c-mv">Action</th></tr>';
-    var body = gridRows(T).map(function (r) {
-      if (r.head) return '<tr class="grp"><td colspan="' + (T.week.weeks.length + 2) + '">' + esc(r.head) + '<span class="n">' + r.n + '</span>' + (r.done ? '<span class="dn">' + r.done + ' done</span>' : '') + '</td></tr>';
-      var m = r.m, x = r.x, d = x && x.done ? doneAct(x) : null, ln = lineOf(m), toneLeft = !ln.tone || !!d;
-      var cells = T.week.weeks.map(function (tw, i) { var c = cellHtml(T, m, m.weeks[i], toneLeft); if (c.warn) toneLeft = false; return '<td class="wk" data-week="' + tw.n + '">' + c.html + '</td>'; }).join('');
-      var mv = d ? doneCell(d, x.itemId) : moveBtn(T, m, x, 'grid');
-      var cls = (hi.indexOf(m.id) >= 0 ? 'is-hi ' : '') + (mv ? 'has-mv' : '');
-      return '<tr data-row="' + esc(m.id) + '"' + (cls.trim() ? ' class="' + cls.trim() + '"' : '') + '><td class="wh"><div class="w1"><span class="nm">' + esc(m.name) + '</span></div>' +
-        '<span class="st' + (ln.tone && !d ? ' ' + ln.tone : '') + '" data-ellipsis title="' + esc(ln.text) + '">' + esc(ln.text) + '</span>' +
-        '</td>' + cells + '<td class="c-mv"><div class="cmv">' + mv + '<button class="btn icon quiet sm more" type="button" data-more aria-haspopup="menu" aria-label="' + esc('More for ' + m.first) + '" title="More">' + MORE + '</button></div></td></tr>';
+    var s = T.facts.sessions, mon = teamMonday(T);
+    var head = '<div class="wr hd" aria-hidden="true"><span class="hd-l">Lifter</span><span class="wd">' + [0, 1, 2, 3, 4, 5, 6].map(function (i) { var iso = K.add(mon, i); return '<i' + (iso === K.today ? ' class="is-today" title="Today"' : '') + '>' + K.wd(iso).charAt(0) + '</i>'; }).join('') + '</span><span class="cnt">Done</span><span></span><span></span></div>';
+    var rows = gridRows(T).filter(function (r) { return !r.head; }).map(function (r) { return weekRow(T, r); }).join('');
+    var dates = Number(String(mon).slice(8, 10)) + ' to ' + K.dm(K.add(mon, 6));
+    return '<div class="sec" aria-labelledby="g-h"><div class="sec-h"><h2 id="g-h">This week</h2><span class="sub">' + esc(dates) + '</span></div>' +
+      '<div class="card wkc" data-crop="grid" role="table" aria-label="' + esc('This week, lifter by day') + '">' + head + rows +
+      '<div class="wkc-f"><span class="lg"><i class="dm done" aria-hidden="true"></i>Done</span><span class="lg"><i class="dm come" aria-hidden="true"></i>To come</span><span class="lg opt"><i class="dm miss" aria-hidden="true"></i>Missed</span>' +
+      '<span class="sum" data-fact="sessions"><b>' + s.done + ' of ' + s.of + '</b> sessions done, ' + s.lastDone + ' of ' + s.lastOf + ' last week</span></div></div></div>';
+  }
+
+  /* ---- Strength: is the block working. Each lifter's e1RM on the chosen lift (the store's number for every page), its
+     change over 4 weeks (lifts[k].delta) and the last five points of the store's series, on one scale for the team ---- */
+  function e1Of(id, k) {
+    var l = L(id) || {}, x = l.lifts && l.lifts[k]; if (!x || x.e1 == null) return null;
+    var nb = fn(PL.lifters, 'numbers') ? dat(PL.lifters.numbers(id)) : null, nl = nb && nb.lifts && nb.lifts[k];
+    return { shown: nl && nl.shown != null ? nl.shown : x.e1, delta: x.delta, pts: (x.series || []).filter(function (v) { return v != null; }).slice(-5), max: l.loadMax && l.loadMax[k] ? l.loadMax[k] : null };
+  }
+  function relOf(pts) { return pts.length > 1 && pts[0] ? pts.map(function (v) { return v / pts[0] - 1; }) : []; }
+  function sparkOf(rel, lo, hi, lift) {
+    if (rel.length < 2) return '';
+    var W = 120, H = 40, span = Math.max(hi - lo, 0.02), y = function (v) { return 5 + (1 - (v - lo) / span) * (H - 10); };
+    var xy = rel.map(function (v, i) { return [3 + i / (rel.length - 1) * (W - 8), y(v)]; }), last = xy[xy.length - 1];
+    return '<svg class="spk lc-' + lift + '" data-chart viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true"><path class="s0" d="M0 ' + y(0).toFixed(1) + 'H' + W + '"/><path class="sl" d="' + CH.smooth(xy) + '"/><path class="sp" d="M' + last[0].toFixed(1) + ' ' + last[1].toFixed(1) + 'h.01"/></svg>';
+  }
+  function deltaHtml(d) { return d == null ? '' : '<span class="dl' + (d < 0 ? ' dn' : '') + '" title="Change in 4 weeks">' + esc(signed(Math.round(d * 10) / 10)) + '</span>'; }
+  function strengthHtml(T) {
+    var k = st.lift, f = T.facts, flat = (f.strength && f.strength.flat) || [], per = (f.effort && f.effort.perLifter) || [];
+    var cells = T.members.map(function (m) { var e = e1Of(m.id, k); return e ? { m: m, e: e, rel: relOf(e.pts) } : null; }).filter(Boolean), lo = 0, hi = 0;
+    cells.forEach(function (c) { c.rel.forEach(function (v) { lo = Math.min(lo, v); hi = Math.max(hi, v); }); });
+    var body = cells.map(function (c) {
+      var m = c.m, ef = per.filter(function (q) { return q.id === m.id; })[0];
+      var eff = !ef || ef.felt == null ? 'No RPE logged yet' : Math.abs(ef.felt - ef.written) < 0.25 ? 'Top sets felt as written' : 'Top sets felt ' + n(ef.felt) + ', wrote ' + n(ef.written);
+      var tip = T.week.weeks.map(function (tw, i) { var w = m.weeks[i], t = w && w.top ? w.top[k] : null, s = weekState(T, m, w, k).sub; return t && t.w != null ? 'Week ' + tw.n + ': ' + setsOf(t) + (s ? ', ' + s.toLowerCase() : '') : ''; }).filter(Boolean).join('\n');
+      return '<button class="sc" type="button" data-open-member="' + esc(m.id) + '" title="' + esc(tip) + '" aria-label="' + esc(m.name + ', ' + LIFT[k].toLowerCase() + ' e1RM ' + n(c.e.shown) + ' kg' + (c.e.delta != null ? ', ' + signed(c.e.delta) + ' kg in 4 weeks' : '') + '. ' + eff) + '">' +
+        '<span class="sc-n">' + DESK.photo(m, 24) + '<span class="nm">' + esc(m.first) + '</span>' + (flat.indexOf(m.id) >= 0 ? '<span class="tg" data-tone="warn" title="Total flat over 4 weeks">Flat</span>' : '') + '</span>' +
+        '<span class="sc-v"><b>' + esc(n(c.e.shown)) + '<small>kg</small></b>' + deltaHtml(c.e.delta) + '</span>' + sparkOf(c.rel, lo, hi, k) + '<span class="sc-c">' + esc(eff) + '</span></button>';
     }).join('');
-    return '<div class="sec" aria-labelledby="g-h"><div class="sec-h"><h2 id="g-h">Where everyone is</h2><span class="grow"></span>' +
-      '<div class="seg" data-lift-pick role="group" aria-label="Lift">' + LIFTS.map(function (k) { return '<button type="button" data-lift="' + k + '" aria-pressed="' + (st.lift === k) + '">' + LIFT[k] + '</button>'; }).join('') + '</div></div>' +
-      '<div class="card gc" data-crop="grid"><table class="tbl tgr" data-table aria-label="' + esc('Where everyone is, ' + LIFT[st.lift].toLowerCase() + ' top sets') + '"><colgroup><col class="c-who">' + T.week.weeks.map(function () { return '<col class="c-wk">'; }).join('') + '<col class="c-mv"></colgroup>' +
-      '<thead>' + head + '</thead><tbody>' + body + '</tbody></table></div></div>';
+    var avg = f.strength ? f.strength.avg : null, sub = avg == null ? 'e1RM over 4 weeks' : 'Totals ' + (avg < 0 ? 'down ' : 'up ') + n(Math.abs(avg)) + ' kg on average in 4 weeks';
+    return '<div class="sec" data-crop="strength" aria-labelledby="s-h"><div class="sec-h"><h2 id="s-h">Strength</h2><span class="sub">' + esc(sub) + '</span><span class="grow"></span>' +
+      '<div class="seg" data-lift-pick role="group" aria-label="Lift">' + LIFTS.map(function (q) { return '<button type="button" data-lift="' + q + '" aria-pressed="' + (k === q) + '">' + LIFT[q] + '</button>'; }).join('') + '</div></div>' +
+      (body ? '<div class="sg">' + body + '</div>' : '<p class="sg-none">No lifting to draw yet.</p>') + '</div>';
   }
   /* the week as written (§4.1 item 4): tabs, then the days as three columns of lines; cells edit in place (§4.4) */
   function weekWord(T, w) {
@@ -634,18 +705,39 @@
       return '<div class="day" role="rowgroup"><h3>' + esc(dayName(d.name)) + '</h3>' + d.lines.map(function (ln, li) {
         var p = lineWords(ln), key = w.n + '.' + di + '.' + li, ro = ed ? '' : ' is-ro';
         var cell = function (col, v) { return '<span class="cell' + ro + '" role="gridcell" data-col="' + col + '" tabindex="-1" aria-label="' + esc(ln.title + ', ' + (col === 'effort' ? 'RPE or %' : col)) + '"' + (ed ? '' : ' aria-readonly="true"') + '>' + esc(v) + '</span>'; };
-        var own = (ln.own || []).map(function (o) { return '<p class="own">' + esc(first(o.id)) + ': ' + esc(o.text) + '</p>'; }).join('');
-        T.members.forEach(function (mm) { ownChanges(T, mm, w.n).forEach(function (c) { if (c.day === d.name && c.title === ln.title) own += '<p class="own">' + esc(first(mm.id)) + ': ' + esc(c.text) + '</p>'; }); });
+        var own = (ln.own || []).map(function (o) { return '<p class="own"><b>' + esc(first(o.id)) + '</b>' + esc(o.text) + '</p>'; }).join('');
+        T.members.forEach(function (mm) { ownChanges(T, mm, w.n).forEach(function (c) { if (c.day === d.name && c.title === ln.title) own += '<p class="own"><b>' + esc(first(mm.id)) + '</b>' + esc(c.text) + '</p>'; }); });
         return '<div class="ln" role="row" data-line="' + key + '"><span role="rowheader" class="ln-h"><button class="ln-n" type="button" data-line-open="' + key + '" aria-haspopup="dialog" title="Each lifter’s kilos"><span' + liftAttr(ln) + '>' + esc(ln.title) + '</span></button></span>' +
           '<span class="ln-c">' + cell('sets', p.sets) + ' <span class="x" aria-hidden="true">×</span> ' + cell('reps', p.reps) + ' ' + cell('effort', p.effort) + '</span></div>' + own;
       }).join('') + (ed ? '<p class="day-add"><button class="add-row" type="button" data-add-line="' + w.n + '.' + di + '">Add an exercise</button></p>' : '') + '</div>';
     }).join('') + '</div>' : '<p class="wk-say">Not written yet. Write it in Programs.</p>';
     var dates = Number(String(w.from).slice(8, 10)) + ' to ' + K.dm(K.add(w.from, 6));
     return '<div class="sec wk" data-crop="week" aria-labelledby="wk-h"><div class="sec-h"><h2 id="wk-h">Week ' + w.n + ' as written</h2><span class="sub">' + esc(dates) + '</span></div>' + tabs +
-      '<p class="wk-say" id="wk-say" aria-live="polite">' + (w.days.length ? UNIT : '') + '</p>' + days + '</div>';
+      (w.days.length ? whoHtml(T, w) : '') + '<p class="wk-say" id="wk-say" aria-live="polite">' + (w.days.length ? UNIT : '') + '</p>' + days + '</div>';
+  }
+  /* who the shown week is for: the lifters who get it as written in one line, then a row for each lifter who differs
+     (an own line, a fix's change, a hold, a week missed, no program yet), with the move where there is one */
+  function whoHtml(T, w) {
+    var k = w.n, ids = w.ids || [], same = [], rows = '', out = '';
+    var row = function (m, words, warn, btn) { return '<div class="wx-r" data-who="' + esc(m.id) + '">' + DESK.photo(m, 24) + '<b>' + esc(m.first) + '</b><span class="w' + (warn ? ' t-warn' : '') + '">' + esc(words) + '</span>' + (btn || '<span></span>') + '</div>'; };
+    T.members.forEach(function (m) {
+      var mw = m.weeks[k - 1] || {}, notes = [], btn = '', warn = false;
+      if (!m.from && !m.joins) { out += row(m, m.status && m.status.text ? m.status.text : 'No program yet', false, ''); return; }
+      if (ids.indexOf(m.id) < 0) { out += row(m, m.status && m.status.text ? m.status.text : 'Not on this week', false, ''); return; }
+      w.days.forEach(function (d) { d.lines.forEach(function (ln) { (ln.own || []).forEach(function (o) { if (o.id === m.id) notes.push('Own ' + ln.title.toLowerCase() + ' line, ' + o.text); }); }); });
+      ownChanges(T, m, k).forEach(function (c) { notes.push(c.title + ': ' + c.text); });
+      if (mw.state === 'missed') { notes.push(mw.missed >= mw.of ? 'Missed all ' + mw.of : 'Missed ' + mw.missed + ' of ' + mw.of); warn = true; }
+      if (mw.state === 'held') { notes.push('Held'); btn = '<button class="btn quiet sm" type="button" data-send-now="' + esc(m.id) + '" data-n="' + k + '">Send ' + his(m.id) + ' week ' + k + ' now</button>'; }
+      else if (k > T.week.now && mw.state !== 'sent' && m.quiet) { notes.push(m.quiet.text + '. Held when you send, until ' + he(m.id).toLowerCase() + '’s back'); warn = true; }
+      if (mw.his != null && mw.his !== k) notes.push(cap1(his(m.id)) + ' week ' + mw.his);
+      if (mw.state === 'starts') notes.push('Starts ' + dayN(w.from));
+      if (notes.length) rows += row(m, notes.join('. '), false, btn); else same.push(m);
+    });
+    var lead = same.length ? '<div class="wx-r all"><span class="stack" aria-hidden="true">' + same.slice(0, 5).map(function (m) { return DESK.photo(m, 24); }).join('') + '</span><span class="w"><b>As written</b> for ' + esc(K.list(same.map(function (m) { return m.first; }), 5)) + ', each at their own max</span></div>' : '';
+    return '<div class="wx" data-crop="who" role="group" aria-label="' + esc('Who week ' + k + ' is for') + '">' + lead + rows + out + '</div>';
   }
   function teamHtml(T) {
-    return '<h1 class="t-h1" tabindex="-1">' + esc(T.name) + '</h1><p class="t-sub">' + factsLine(T) + '</p>' + tilesHtml(T) + gridHtml(T) + weekHtml(T);
+    return '<div class="th"><div><h1 class="t-h1 pt" tabindex="-1">' + esc(T.name) + '</h1><p class="t-sub">' + factsLine(T) + '</p></div>' + meetHtml(T) + '</div>' + gridHtml(T) + strengthHtml(T) + weekHtml(T);
   }
 
   /* ---------------- one lifter of the team ---------------- */
@@ -655,49 +747,60 @@
     else if (m.status && /^Starts /.test(m.status.text)) facts = m.status.text;
     else {
       var missedAll = m.weeks.filter(function (w, i) { return i < nowW - 1 && w.of > 0 && w.missed >= w.of; }).map(function (w) { return w.n; });
-      facts += ' · ' + (missedAll.length ? 'missed all of week ' + K.list(missedAll.map(String)) : m.week ? m.week.done + ' of ' + m.week.of + ' sessions this week' : '');
+      var more0 = missedAll.length ? 'missed all of week ' + K.list(missedAll.map(String)) : m.week ? m.week.done + ' of ' + m.week.of + ' sessions this week' : '';
+      if (more0) facts += ', ' + more0;
     }
-    var html = '<div data-crop="member"><div class="tt"><div><h1 tabindex="-1">' + esc(m.name) + '</h1><p class="facts">' + esc(facts) + '</p></div><button class="btn quiet open" type="button" data-open-page="' + esc(m.id) + '">Open page</button></div>';
+    var html = '<div data-crop="member"><div class="tt"><div><h1 class="pt" tabindex="-1">' + esc(m.name) + '</h1><p class="facts">' + esc(facts) + '</p></div><button class="btn quiet open" type="button" data-open-page="' + esc(m.id) + '">Open page</button></div>';
     if (open) {
       var hw = holdWeek(T, m);
-      html += '<div class="need" aria-labelledby="nd-h"><h2 id="nd-h">' + esc(lineOf(m).text) + '</h2>' + (x.item.meaning ? '<p>' + esc(x.item.meaning) + '</p>' : '') +
+      var tn = DESK.TONE ? DESK.TONE[x.item.tone] || '' : '', says = [x.item.meaning, x.item.rec].filter(Boolean).join(' ');
+      html += '<div class="need" aria-labelledby="nd-h">' + (x.item.kicker && x.item.kicker.length <= 22 ? '<span class="tg"' + (tn === 'pain' || tn === 'words' ? ' data-tone="' + tn + '"' : '') + '>' + esc(x.item.kicker) + '</span>' : '') + '<h2 id="nd-h">' + esc(lineOf(m).text) + '</h2>' + (says ? '<p>' + esc(says) + '</p>' : '') +
         '<div class="acts"><button class="btn" type="button" data-primary data-move="' + esc(x.itemId + '|' + x.actId) + '" data-for="' + esc(m.id) + '">' + esc(x.label) + '</button>' +
         (hw && !hw.held ? '<button class="btn" type="button" data-hold="' + esc(m.id) + '" data-hold-n="' + hw.n + '">Hold week ' + hw.n + '</button>' : '') +
         '<button class="btn icon quiet more" type="button" data-more="' + esc(m.id) + '" aria-haspopup="menu" aria-label="' + esc('More for ' + m.first) + '" title="More">' + MORE + '</button></div></div>';
     } else if (startable(T, m)) {
       html += '<div class="need"><h2>No program yet</h2><div class="acts"><button class="btn" type="button" data-start="' + esc(m.id) + '" aria-haspopup="dialog">' + esc(startable(T, m).label) + '</button></div></div>';
     }
+    /* this week: his sessions, a row each (the day's mark, its date, what happened, the top set) */
+    var ses = sessionsNow(T, m);
+    if (ses) html += '<div class="sec" aria-labelledby="tw-h"><div class="sec-h"><h2 id="tw-h">This week</h2><span class="sub">' + esc(m.week.done + ' of ' + m.week.of + ' done') + '</span></div><div class="ms">' + ses.map(function (s) {
+      var t = s.top, iso = String(s.date || '').slice(0, 10), tone = s.state === 'done' ? ' t-up' : s.state === 'missed' ? ' t-warn' : '';
+      return '<div class="ms-r">' + markHtml(s) + '<b>' + esc(dayName(s.name)) + (iso ? '<small>' + esc(day3(iso)) + (iso === K.today ? ', today' : '') + '</small>' : '') + '</b><span class="sw' + tone + '">' + esc(sesWord(s)) + '</span>' +
+        '<span class="ts">' + (t && t.w != null && t.done ? '<b>' + esc(n(t.w)) + '</b> × ' + esc(String(t.r)) + (t.rpe != null ? ' @' + esc(n(t.rpe)) : '') + (t.felt != null ? ', felt ' + esc(n(t.felt)) : '') : '') + '</span></div>';
+    }).join('') + '</div></div>';
+    else if (m.from && m.quiet && m.quiet.days) html += '<div class="sec" aria-labelledby="tw-h"><div class="sec-h"><h2 id="tw-h">This week</h2><span class="sub">' + esc(m.week ? m.week.done + ' of ' + m.week.of + ' done' : '') + '</span></div><div class="ms-x">' + noDays(m) + '</div></div>';
+    /* strength: his three lifts, each the store's e1RM (numbers(id).lifts[k].shown, F6.1), its change over 4 weeks and
+       the line in the lift's colour; the maxes the loads come from under them */
+    var es = LIFTS.map(function (k) { return { k: k, e: e1Of(m.id, k) }; }).filter(function (q) { return q.e; });
+    var lm = l.loadMax || {}, mx = LIFTS.filter(function (k) { return lm[k] && lm[k].kg != null; }), from = mx.length && mx.every(function (k) { return lm[k].from === lm[mx[0]].from; }) ? lm[mx[0]].from : null;
+    var fromW = from === 'lifting' ? 'from ' + his(m.id) + ' lifting' : from === 'typed' ? 'typed by you' : from === 'intake' ? 'from ' + his(m.id) + ' intake' : '';
+    html += '<div class="sec" aria-labelledby="nm-h"><div class="sec-h"><h2 id="nm-h">Strength</h2><span class="sub">' + (l.totalShown != null ? 'Total e1RM ' + esc(n(l.totalShown)) + ' kg' + (l.change != null ? ', ' + esc(signed(l.change)) + ' kg in 4 weeks' : '') : 'e1RM in kg') + '</span></div>' +
+      (es.length ? '<div class="sg l3">' + es.map(function (q) {
+        var rel = relOf(q.e.pts), lo = Math.min.apply(null, [0].concat(rel)), hi = Math.max.apply(null, [0].concat(rel));
+        return '<div class="sc"><span class="sc-n"><span class="lf" data-lift="' + q.k + '">' + LIFT[q.k] + '</span></span><span class="sc-v"><b>' + esc(n(q.e.shown)) + '<small>kg</small></b>' + deltaHtml(q.e.delta) + '</span>' + sparkOf(rel, lo, hi, q.k) +
+          '<span class="sc-c">' + (q.e.max && q.e.max.kg != null ? 'Max ' + esc(n(q.e.max.kg)) : 'No max yet') + '</span></div>';
+      }).join('') + '</div>' : '<p class="sg-none">No maxes yet.</p>') +
+      '<div class="kvl">' + (mx.length && fromW ? '<p>Maxes ' + esc(fromW) + '.</p>' : '') +
+      (m.from || m.joins ? '<a class="link" href="' + esc(DESK.href('programs', 'id=' + encodeURIComponent(m.id) + '&team=' + encodeURIComponent(T.id) + '&from=teams')) + '" data-to-programs>Change in Programs</a>' : '') + '</div></div>';
     /* his weeks: State, then each lift's top set at his own max (what he lifted on a week lifted, the day this week) */
-    var lw = m.week ? dat(PL.lifters.week(m.id)) : null, ses = lw && lw.n === T.week.now ? lw.sessions || [] : [];
-    var dayFor = function (k) { return ses.filter(function (s) { return String(s.name || '').toLowerCase().indexOf(k) === 0; })[0] || null; };
+    var dayFor = function (k) { return (ses || []).filter(function (s) { return sesLift(s) === k; })[0] || null; };
     var rows = m.weeks.map(function (w, i) {
-      var tw = T.week.weeks[i], c = cellHtml(T, m, w, false), stateW = w.state === 'now' ? 'This week' : (c.html.match(/<small[^>]*>([^<]*)<\/small>/) || [])[1] || (w.state === 'written' ? weekWord(T, tw) : '');
-      if (w.state === 'now' && m.week) stateW = 'This week, ' + m.week.done + ' of ' + m.week.of;
+      var tw = T.week.weeks[i], stateW = weekState(T, m, w, 'squat').sub;
+      if (w.state === 'lifted') stateW = 'Lifted';
+      if (w.state === 'now') stateW = 'This week' + (m.week ? ', ' + m.week.done + ' of ' + m.week.of : '');
       var lifts = LIFTS.map(function (k) {
         var t = w.top ? w.top[k] : null; if (!t || t.w == null) return '<td><span class="sr">none</span></td>';
-        var sub = '';
+        var sub = '', ws = weekState(T, m, w, k);
         if (w.state === 'now') { var s = dayFor(k); if (s && s.date) sub = dayN(s.date) + (s.state === 'done' ? ', done' : ''); }
-        else if (w.state === 'lifted' && t.felt != null) sub = Math.abs(t.felt - t.rpe) < 0.25 ? 'as written' : 'felt ' + n(t.felt);
+        else if (w.state === 'lifted' && t.felt != null) sub = ws.sub;
         else if (w.state === 'missed') sub = 'Missed';
-        return '<td><b data-lift="' + k + '">' + esc(setsOf(t)) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</td>';
+        return '<td><b>' + esc(setsOf(t)) + '</b>' + (sub ? '<small' + (ws.warn && w.state === 'lifted' ? ' class="t-warn"' : '') + '>' + esc(sub) + '</small>' : '') + '</td>';
       }).join('');
       return '<tr data-wk="' + tw.n + '"' + (tw.now ? ' class="is-now"' : '') + '><td><b>Week ' + tw.n + '</b><small>' + esc(stateW || 'None') + '</small></td>' + lifts + '</tr>';
     }).join('');
-    html += '<div class="sec" aria-labelledby="hw-h"><div class="sec-h"><h2 id="hw-h">' + esc(his(m.id) === 'her' ? 'Her weeks' : 'His weeks') + '</h2></div><div class="card hw"><table class="tbl" aria-label="' + esc(m.first + '’s team weeks') + '"><colgroup><col class="c-st"><col><col><col></colgroup>' +
-      '<thead><tr><th scope="col">State</th><th scope="col">Squat</th><th scope="col">Bench</th><th scope="col">Deadlift</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
-    /* numbers and maxes: whatever the store holds (lifters.get), never worked out here */
-    /* F6.1: the e1RM shown is the store's one number for every page (numbers(id).lifts[k].shown, 0.5 kg steps) */
-    var nb = fn(PL.lifters, 'numbers') ? dat(PL.lifters.numbers(m.id)) : null, nl = (nb && nb.lifts) || {};
-    var lm = l.loadMax || {}, lifts = l.lifts || {};
-    var e1v = function (k) { return nl[k] && nl[k].shown != null ? nl[k].shown : lifts[k] && lifts[k].e1; };
-    var e1 = LIFTS.filter(function (k) { return e1v(k) != null; });
-    var mx = LIFTS.filter(function (k) { return lm[k] && lm[k].kg != null; }), from = mx.length && mx.every(function (k) { return lm[k].from === lm[mx[0]].from; }) ? lm[mx[0]].from : null;
-    var fromW = from === 'lifting' ? ', from ' + his(m.id) + ' lifting' : from === 'typed' ? ', typed by you' : from === 'intake' ? ', from ' + his(m.id) + ' intake' : '';
-    html += '<div class="sec" aria-labelledby="nm-h"><div class="sec-h"><h2 id="nm-h">Numbers</h2><span class="sub">e1RM in kg</span></div><div class="kvl">' +
-      (l.totalShown != null ? '<p>Total e1RM <b>' + esc(n(l.totalShown)) + '</b>' + (l.change != null ? ', ' + esc(signed(l.change)) + ' kg in 4 weeks' : '') + '</p>' : '') +
-      (e1.length ? '<p>e1RM: ' + e1.map(function (k) { return '<span data-lift="' + k + '">' + k + ' <b>' + esc(n(e1v(k))) + '</b></span>'; }).join(', ') + '</p>' : '') +
-      (mx.length ? '<p>Maxes: ' + mx.map(function (k) { return '<span data-lift="' + k + '">' + k + ' <b>' + esc(n(lm[k].kg)) + '</b></span>'; }).join(', ') + esc(fromW) + '</p>' : '<p>No maxes yet.</p>') +
-      (m.from || m.joins ? '<a class="link" href="' + esc(DESK.href('programs', 'id=' + encodeURIComponent(m.id) + '&team=' + encodeURIComponent(T.id) + '&from=teams')) + '" data-to-programs>Change in Programs</a>' : '') + '</div></div></div>';
+    if (m.from || m.joins) html += '<div class="sec" aria-labelledby="hw-h"><div class="sec-h"><h2 id="hw-h">' + esc(his(m.id) === 'her' ? 'Her top sets' : 'His top sets') + '</h2><span class="sub">Week by week, as written</span></div><div class="card hw"><table class="tbl" aria-label="' + esc(m.first + '’s team weeks') + '"><colgroup><col class="c-st"><col><col><col></colgroup>' +
+      '<thead><tr><th scope="col">Week</th><th scope="col" data-lift="squat">Squat</th><th scope="col" data-lift="bench">Bench</th><th scope="col" data-lift="deadlift">Deadlift</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+    html += '</div>';
     /* messages: the last two and a composer that grows with the words */
     var th = dat(PL.threads.get(m.id)), msgs = th && th.messages ? th.messages.filter(function (q) { return q.kind !== 'card' || q.type === 'change'; }).slice(-2) : [];
     html += '<div class="sec" aria-labelledby="ms-h"><div class="sec-h"><h2 id="ms-h">Messages</h2><span class="grow"></span><a class="link" href="' + esc(DESK.href('messages', 'id=' + encodeURIComponent(m.id))) + '">Open the thread</a></div>' +
@@ -767,12 +870,12 @@
       }
       var on = can && !held && !quiet, kg = function (lift) { var t = top[lift]; return inR && t && t.w != null ? n(t.w) + ' × ' + t.r : '<span class="sr">none</span>'; };
       return '<tr data-row="' + esc(m.id) + '"><td><input type="checkbox" data-tick="' + esc(m.id) + '"' + (quiet ? ' data-quiet title="' + esc('Tick to send week ' + k + ' to ' + m.first + ' anyway') + '"' : '') + ' aria-label="' + esc('Send to ' + m.first) + '"' + (on ? ' checked' : '') + (can ? '' : ' disabled') + '></td><td><b>' + esc(m.name) + '</b></td>' +
-        '<td class="v" data-lift="squat">' + kg('squat') + '</td><td class="v" data-lift="bench">' + kg('bench') + '</td><td class="v" data-lift="deadlift">' + kg('deadlift') + '</td><td class="nt">' + note + '</td></tr>';
+        '<td class="v">' + kg('squat') + '</td><td class="v">' + kg('bench') + '</td><td class="v">' + kg('deadlift') + '</td><td class="nt">' + note + '</td></tr>';
     }).join('');
     var end = K.add(w.from, 6);
     var html = '<div class="sh"><div class="sh-h"><h2>Send week ' + k + ' to the ' + esc(T.name) + '</h2><p>' + esc(day3(w.from).replace(/ \w+$/, '') + ' to ' + day3(end)) + '. Each lifter at their own max.</p>' +
       (w.sent && (w.changes || []).length ? '<p class="chg-l">' + esc(String(w.changes[0]).replace(/\.$/, '') + (w.changes.length > 1 ? ', and ' + (w.changes.length - 1) + ' more.' : '.')) + '</p>' : '') + '</div>' +
-      '<div class="sh-b"><table class="tbl tb2" aria-label="Who gets week ' + k + '"><colgroup><col class="c-tk"><col class="c-n"><col class="c-k"><col class="c-k"><col class="c-k"><col></colgroup><thead><tr><th scope="col"><span class="sr">Send</span></th><th scope="col">Lifter</th><th scope="col">Squat</th><th scope="col">Bench</th><th scope="col">Deadlift</th><th scope="col">Note</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<div class="sh-b"><table class="tbl tb2" aria-label="Who gets week ' + k + '"><colgroup><col class="c-tk"><col class="c-n"><col class="c-k"><col class="c-k"><col class="c-k"><col></colgroup><thead><tr><th scope="col"><span class="sr">Send</span></th><th scope="col">Lifter</th><th scope="col" data-lift="squat">Squat</th><th scope="col" data-lift="bench">Bench</th><th scope="col" data-lift="deadlift">Deadlift</th><th scope="col">Note</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<div class="sh-f"><button class="btn quiet" type="button" data-close>Cancel</button><button class="btn" type="button" data-primary data-send-go="' + k + '"></button></div></div>';
     openSheet('send-week', 'Send week ' + k + ' to the ' + T.name, html);
     countTicks();
@@ -954,7 +1057,7 @@
     else if (hw) items.push({ id: 'hold', label: 'Hold week ' + k });
     if (m.from) items.push({ id: 'restart', label: 'Restart at week 1…' });
     items.push({ sep: true }, { id: 'page', label: 'Open ' + m.first + '’s page' });
-    DESK.menu.open(btn, items, { label: 'More for ' + m.first, anchor: btn.closest('tr, .need') || btn, place: 'below-end', run: function (what) {
+    DESK.menu.open(btn, items, { label: 'More for ' + m.first, anchor: btn.closest('.wr, tr, .need') || btn, place: 'below-end', run: function (what) {
       if (what === 'msg') { go({ id: T.id, lifter: id }); setTimeout(function () { var ta = $('textarea[data-compose="' + id + '"]'); if (ta) { ta.scrollIntoView({ block: 'center', behavior: 'instant' }); ta.focus(); } }, 0); }
       else if (what === 'hold') holdIt(T, id, k);
       else if (what === 'send') sendNow(T, id, k);
@@ -982,7 +1085,7 @@
     d.innerHTML = '<p>' + esc('Start ' + m.first + ' again at week 1 on ' + day3(on) + '. ' + he(m.id) + ' finishes ' + (wks > 0 ? (wks === 1 ? '1 week' : wks + ' weeks') + ' after the team' : 'with the team') + ', on ' + day3(end) + '.') + '</p>' +
       '<div class="acts"><button class="btn" type="button" data-rs-go>Restart ' + esc(m.first) + '</button><button class="btn quiet" type="button" data-rs-no>Cancel</button></div>';
     document.body.appendChild(d); d.show(); rsDlg = d;
-    var a = (btn.closest('tr') || btn).getBoundingClientRect(), W = document.documentElement.clientWidth, w = d.offsetWidth, h = d.offsetHeight;
+    var a = (btn.closest('.wr, tr') || btn).getBoundingClientRect(), W = document.documentElement.clientWidth, w = d.offsetWidth, h = d.offsetHeight;
     var x = Math.max(12, Math.min(W - w - 12, a.right - w)), y = a.bottom + 8 + h <= innerHeight - 12 ? a.bottom + 8 : Math.max(64, a.top - 8 - h);
     d.style.left = Math.round(x) + 'px'; d.style.top = Math.round(y) + 'px';
     d.addEventListener('click', function (e) {
@@ -1160,14 +1263,15 @@
     if ((b = t.closest('[data-send-one]'))) { sendOne(b.getAttribute('data-send-one')); return; }
     if ((b = t.closest('[data-move]'))) {
       var p = b.getAttribute('data-move').split('|'), who = b.getAttribute('data-for');
-      DESK.fix.open(b, { itemId: p[0], actId: p[1], forId: who, anchor: b.closest('tr, .need, .cluster') || b });
+      DESK.fix.open(b, { itemId: p[0], actId: p[1], forId: who, anchor: b.closest('.wr, tr, .need, .cluster') || b });
       return;
     }
     if ((b = t.closest('[data-hold]'))) { var T0 = team(); if (T0) holdIt(T0, b.getAttribute('data-hold'), Number(b.getAttribute('data-hold-n'))); return; }
     if ((b = t.closest('[data-more]'))) { if (DESK.pop.justClosed(b)) return; var row = b.closest('[data-row]'); moreMenu(b, b.getAttribute('data-more') || (row && row.getAttribute('data-row'))); return; }
     if ((b = t.closest('[data-open-page]'))) { openPage(b.getAttribute('data-open-page')); return; }
     if ((b = t.closest('[data-lift-pick] [data-lift]'))) { st.lift = b.getAttribute('data-lift'); var y = scrollY; render(); scrollTo({ top: y, behavior: 'instant' }); var s2 = $('[data-lift-pick]'); if (s2) DESK.segSync(s2, true); return; }
-    if ((b = t.closest('[data-tile]'))) { var k2 = b.getAttribute('data-tile'); st.hi = st.hi === k2 ? null : k2; var y2 = scrollY; render(); scrollTo({ top: y2, behavior: 'instant' }); return; }
+    if ((b = t.closest('[data-open-member]'))) { var T3 = team(); if (T3) go({ id: T3.id, lifter: b.getAttribute('data-open-member') }); return; }
+    if ((b = t.closest('[data-send-now]'))) { var T4 = team(); if (T4) sendNow(T4, b.getAttribute('data-send-now'), Number(b.getAttribute('data-n'))); return; }
     if ((b = t.closest('[data-week-tab]'))) { selectWeek(Number(b.getAttribute('data-week-tab')), true); return; }
     if ((b = t.closest('[data-line-open]')) || ((b = t.closest('[data-crop=week] .ln')) && !t.closest('.cell') && (b = b.querySelector('[data-line-open]')))) { if (DESK.pop.justClosed(b)) return; linePop(b, b.getAttribute('data-line-open')); return; }
     if ((b = t.closest('[data-pick-own]'))) { var pop = b.closest('.pop'), key = pop && $('[data-give-own]', pop) ? $('[data-give-own]', pop).getAttribute('data-line-key') : null; if (key) { var tr = DESK.pop.trigger(); linePop(tr || b, key, b.getAttribute('data-pick-own')); } return; }
@@ -1177,7 +1281,7 @@
     if ((b = t.closest('[data-add-go]'))) { addGo(b); return; }
     if ((b = t.closest('[data-crop=week] .cell'))) { if (st.editing && st.editing.cell === b) return; editCell(b); return; }
     if ((b = t.closest('#list [data-row]'))) { var T1 = team(); if (!T1) return; var id = b.getAttribute('data-row'); go({ id: T1.id, lifter: id === 'team' ? null : id }); return; }
-    if ((b = t.closest('[data-crop=grid] tr[data-row]')) && !t.closest('button, a, input')) { var T2 = team(); if (T2) go({ id: T2.id, lifter: b.getAttribute('data-row') }); return; }
+    if ((b = t.closest('[data-crop=grid] [data-row]')) && !t.closest('button, a, input')) { var T2 = team(); if (T2) go({ id: T2.id, lifter: b.getAttribute('data-row') }); return; }
   });
   document.addEventListener('change', function (e) {
     var t = e.target;
@@ -1219,6 +1323,8 @@
       return;
     }
     if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); row.click(); return; }
+    /* a row of This week: Enter opens the lifter, as a click on the row does */
+    if (t.matches && t.matches('[data-crop=grid] [data-row]') && e.key === 'Enter') { e.preventDefault(); var T5 = team(); if (T5) go({ id: T5.id, lifter: t.getAttribute('data-row') }); return; }
   });
   /* the cell in hand keeps its mark while the focus is on it */
   document.addEventListener('focusin', function (e) { if (e.target.matches && e.target.matches('[data-crop=week] .cell')) { $$('.cell.is-hand').forEach(function (c) { if (c !== e.target && !(st.editing && st.editing.cell === c)) c.classList.remove('is-hand'); }); } });
@@ -1248,10 +1354,11 @@
   }
 
   /* first paint, then the links that open a sheet (#new=1, Find's "New team") */
+  var wantNew = hashGet().nw === '1';   /* read before the first paint: it rewrites a hash with no team id and would drop new=1 */
   onHash();
   registerActions();
   PL.on('change', registerActions);
-  if (hashGet().nw === '1') {
+  if (wantNew) {
     history.replaceState(null, '', location.pathname + location.search + '#' + hashOf({ id: st.team }));
     newTeamSheet();
   }
