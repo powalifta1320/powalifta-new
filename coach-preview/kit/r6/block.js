@@ -1247,8 +1247,12 @@
     opt = opt || {};
     var nm = words0(name); if (!nm) return refuse('invalid', 'A line needs a name.');
     if (this.dayAt(day) < 0) return refuse('invalid', 'There is no day called ' + (typeof day === 'string' && day ? '“' + day + '”' : 'that') + '.');
-    var lift = MAIN[opt.lift] ? opt.lift : liftOfName(nm), variant = lift ? (opt.variant && mult(lift, opt.variant) && VARS[lift].some(function (v) { return v[0] === opt.variant; }) ? opt.variant : 'Competition') : '';
-    var at = this.insertAt(day), row = { key: day + '|' + nm + '|n' + (++this.seq) + '|0', day: day, ex: this.maxEx() + 1, line: 0, title: nm, name: nm, label: '', lift: lift, cat: lift, variant: variant, note: '', pause: 0, tempo: '', prog: this.defaults && PROG_IDS.indexOf(this.defaults.prog) >= 0 ? this.defaults.prog : 'same', cells: {} };
+    /* 22 Nov: the lift and variant a name means are read the one way (readLiftName), so "Hack squat" and "DB incline bench"
+       are accessories and "Paused squat" is the paused variant whoever adds them; a caller that says lift: null (the coach
+       answered None) is believed. It was liftOfName, which made every name holding "squat" a competition squat */
+    var read = readLiftName(nm), lib0 = libFind(nm), lift = opt.lift !== undefined ? (MAIN[opt.lift] ? opt.lift : null) : (read.lift || null);
+    var variant = lift ? (opt.variant && mult(lift, opt.variant) && VARS[lift].some(function (v) { return v[0] === opt.variant; }) ? opt.variant : read.lift === lift ? read.variant || 'Competition' : 'Competition') : '';
+    var at = this.insertAt(day), row = { key: day + '|' + nm + '|n' + (++this.seq) + '|0', day: day, ex: this.maxEx() + 1, line: 0, title: nm, name: nm, label: '', lift: lift, cat: lift || (lib0 && lib0.group) || null, variant: variant, note: '', pause: 0, tempo: '', prog: this.defaults && PROG_IDS.indexOf(this.defaults.prog) >= 0 ? this.defaults.prog : 'same', cells: {} };
     return this.commit('Add ' + nm + ' to ' + day, function () { this.rows.splice(at, 0, row); return { data: { r: at } }; });
   };
   P.addLine = function (r) {
@@ -1297,17 +1301,18 @@
     if (firstFree >= this.weeks.length) return refuse('locked', LIFTED);
     var lib = libFind(nm), lift = o.lift !== undefined ? o.lift : lib ? lib.lift : liftOfName(nm), variant = MAIN[lift] ? o.variant || (VARS[lift].some(function (v) { return VNAME[lift][v[0]] && VNAME[lift][v[0]].toLowerCase() === nm.toLowerCase(); }) ? VARS[lift].filter(function (v) { return VNAME[lift][v[0]].toLowerCase() === nm.toLowerCase(); })[0][0] : 'Competition') : '';
     var lifted = this.weeks.some(function (w0, c0) { return c0 < firstFree && lines.some(function (i) { return self.rows[i].cells[w0.uid]; }); });
-    if (!lifted) return this.renameRow(r, nm);
+    if (!lifted) return this.changeExercise(r, c, nm, o);   /* 22 Nov: the name, and the lift and variant it means (renameRow changed the words only) */
     return this.commit('Swap ' + row.name.toLowerCase() + ' for ' + nm.toLowerCase() + ' from week ' + (this.weeks[firstFree].n || firstFree + 1), function () {
       var ex = self.maxEx() + 1, at = lines[lines.length - 1] + 1, made = [];
       lines.forEach(function (i, k) {
-        var y = self.rows[i], nr = clone(y); nr.key = y.day + '|' + nm + '|f' + (++self.seq) + '|' + y.line; nr.ex = ex; nr.title = nm; nr.name = MAIN[lift] && VNAME[lift][variant] && variant !== 'Competition' ? VNAME[lift][variant] : lib ? lib.name : sentence(nm);
+        var y = self.rows[i], nr = clone(y); nr.key = y.day + '|' + nm + '|f' + (++self.seq) + '|' + y.line; nr.ex = ex; nr.title = nm; nr.name = shownName(nm, lift, lib);
         nr.lift = MAIN[lift] ? lift : null; nr.cat = lift || null; nr.variant = MAIN[lift] ? variant : ''; delete nr.factor; delete nr.mx; delete nr.max; nr.cells = {};
         self.weeks.forEach(function (w0, c0) { if (c0 >= firstFree && y.cells[w0.uid]) { nr.cells[w0.uid] = y.cells[w0.uid]; delete y.cells[w0.uid]; } });
         made.push(nr);
       });
       Array.prototype.splice.apply(self.rows, [at, 0].concat(made));
-      return { data: { r: at, from: firstFree } };
+      self.reindex();   /* the new line keeps its place under the old one (its ex was the block's highest: the day's last) */
+      return { data: { r: self.rows.indexOf(made[0]), from: firstFree } };
     });
   };
   P.setVariant = function (r, variant) {
@@ -1334,7 +1339,13 @@
     if (nm !== day && this.dayAt(nm) >= 0) return refuse('invalid', 'There is a day called ' + nm + ' already.');
     return this.commit('Rename ' + day + ' to ' + nm, function () {
       this.days[i].name = nm; this.rows.forEach(function (row) { if (row.day === day) row.day = nm; });
-      this.weeks.forEach(function (w) { if (w.started[day]) { delete w.started[day]; w.started[nm] = 1; } });
+      /* 22 Nov: everything a week keeps by the day's name follows it (its date, a one-week move, out of the week, a merge),
+         not only whether it was started; a renamed day used to lose its date */
+      this.weeks.forEach(function (w) {
+        if (w.started[day]) { delete w.started[day]; w.started[nm] = 1; }
+        ['dates', 'moved', 'off'].forEach(function (k) { if (w[k] && w[k][day] !== undefined) { w[k][nm] = w[k][day]; delete w[k][day]; } });
+        (w.merged || []).forEach(function (m) { if (m && m.days) m.days = m.days.map(function (d) { return d === day ? nm : d; }); if (m && m.into === day) m.into = nm; });
+      });
       return { data: { day: nm } };
     });
   };
@@ -1343,6 +1354,206 @@
     var self = this, lifted = this.rows.some(function (row, r) { return row.day === day && self.weeks.some(function (w, c) { return row.cells[w.uid] && self.isRO(r, c); }); });
     if (lifted) return refuse('locked', day + ' has lifted sessions. Clear the weeks to come instead.');
     return this.commit('Delete ' + day, function () { this.days.splice(i, 1); this.rows = this.rows.filter(function (row) { return row.day !== day; }); return { data: { day: day } }; });
+  };
+
+  /* ---------------- the editor's moves (22 Nov; the owner: "make the things editable properly … drag and drop … duplicating
+     entire training days or weeks"). Change a line's exercise, duplicate and move lines and days, insert, copy and
+     duplicate weeks. The grid's order is the rows' order: by day, then exercise (ex), then line; ex is numbered again from
+     that order after every move, so a line's place never depends on when it was made (swapFrom gave its new line the
+     highest ex, which sent it to the foot of the day on the next move). A new line's key is day|title|n<seq>|line, as
+     addExercise writes it; a line that changes day gets a key for the day it is on. Every move is one step back. */
+  /* each day's exercises in the order shown, every exercise with its lines: { day: [[row, row], [row]] } */
+  function exGroups(b) {
+    var by = {}, seen = {};
+    b.rows.forEach(function (row) { var k = row.day + '\u0001' + row.ex; if (!seen[k]) { seen[k] = []; (by[row.day] = by[row.day] || []).push(seen[k]); } seen[k].push(row); });
+    return by;
+  }
+  function setGroups(b, by) {
+    var out = [], n = 0, days = b.days.map(function (d) { return d.name; });
+    Object.keys(by).forEach(function (d) { if (days.indexOf(d) < 0) days.push(d); });
+    days.forEach(function (d) {
+      (by[d] || []).forEach(function (g) {
+        if (!g.length) return;
+        g.sort(function (a, z) { return a.line - z.line; });
+        g.forEach(function (row, i) { row.ex = n; row.line = i; if (!i) row.label = ''; out.push(row); });
+        n++;
+      });
+    });
+    b.rows = out;
+  }
+  function keysFor(b, day, title) { var occ = 'n' + (++b.seq); return function (line) { return day + '|' + title + '|' + occ + '|' + line; }; }
+  /* a copy of a line for the weeks it may be written in: its plan only, nothing lifted, no coach's cell notes */
+  function copyRow(b, y, key, day, open) {
+    var nr = clone(y), mx = {};
+    nr.key = key; nr.day = day; nr.cells = {};
+    ['bad', 'badf', 'nod', 'cn', 'ask', 'askq'].forEach(function (k) { delete nr[k]; });
+    b.weeks.forEach(function (w, c) { if (!y.cells[w.uid] || !open(c)) return; nr.cells[w.uid] = cellOf(y.cells[w.uid]); if (y.mx && y.mx[w.uid] != null) mx[w.uid] = y.mx[w.uid]; });
+    if (Object.keys(mx).length) nr.mx = mx; else delete nr.mx;
+    return nr;
+  }
+  /* what a week keeps by a line's key (its deload original, the reason for a load, out of the week) follows a line to its new key */
+  function rekey(b, old, neu, from) {
+    b.weeks.forEach(function (w, c) { if (c < from) return; ['pre', 'why', 'out', 'capped', 'lock', 'ruled'].forEach(function (k) { if (w[k] && w[k][old] !== undefined) { w[k][neu] = w[k][old]; delete w[k][old]; } }); });
+  }
+  /* the words a line shows for a name: the library's when it knows the name, a variant's own name, else the coach's words */
+  function shownName(nm, lift, lib) {
+    if (lib) return lib.name;
+    if (MAIN[lift]) { var k = nm.toLowerCase(); for (var v in VNAME[lift]) if (VNAME[lift][v].toLowerCase() === k) return VNAME[lift][v]; }
+    return sentence(nm);
+  }
+  P.reindex = function () { setGroups(this, exGroups(this)); };
+  /* the picker's write: this line becomes another exercise. Nothing lifted: the line itself changes (name, the lift it counts
+     toward, its variant). Lifted weeks: they keep the old exercise and the new one takes over from week c on (swapFrom).
+     o: { lift: 'squat' | 'bench' | 'deadlift' | null, variant } when the coach said which; else read from the name */
+  P.changeExercise = function (r, c, name, o) {
+    o = o || {}; var row = this.rows[r], self = this; if (!row) return refuse('invalid', 'There is no line there.');
+    var nm = words0(name); if (!nm) return refuse('invalid', 'A line needs a name.');
+    var read = readLiftName(nm), lib = libFind(nm);
+    var lift = o.lift !== undefined ? (MAIN[o.lift] ? o.lift : null) : (read.lift || null);
+    var variant = !MAIN[lift] ? '' : o.variant && VARS[lift].some(function (v) { return v[0] === o.variant; }) ? o.variant : read.lift === lift ? read.variant || 'Competition' : 'Competition';
+    var shown = shownName(nm, lift, lib);
+    if (shown === row.name && lift === (row.lift || null) && variant === (row.variant || '')) return { data: { r: r, changed: false } };
+    var lines = []; this.rows.forEach(function (y, i) { if (y.day === row.day && y.ex === row.ex) lines.push(i); });
+    var held = lines.some(function (i) { return self.weeks.some(function (w, k) { return self.rows[i].cells[w.uid] && self.isRO(i, k); }); });
+    if (held) return this.swapFrom(r, isNum(c) ? c : 0, shown, { lift: lift, variant: variant });
+    return this.commit('Change ' + low1(row.name) + ' to ' + low1(shown), function () {
+      lines.forEach(function (i) {
+        var y = self.rows[i], other = (y.lift || null) !== lift || (y.variant || '') !== variant;
+        y.name = shown; y.title = shown; y.lift = lift; y.variant = variant; y.cat = lift || (lib && lib.group) || (MAIN[y.cat] ? null : y.cat) || null;
+        if (other) { delete y.factor; delete y.mx; delete y.max; }
+      });
+      return { data: { r: r } };
+    });
+  };
+  /* one more of this exercise right under it (every line of it), or one more of a back-off line under that line */
+  P.duplicateRow = function (r) {
+    var row = this.rows[r], self = this; if (!row) return refuse('invalid', 'There is no line there.');
+    var open = function (i) { return function (c) { return !self.isRO(i, c); }; };
+    return this.commit('Duplicate ' + low1(this.label(r)), function () {
+      var by = exGroups(self), day = by[row.day], g = day.filter(function (x) { return x[0].ex === row.ex; })[0], first;
+      if (row.line > 0) {
+        first = copyRow(self, row, row.key.replace(/\|\d+$/, '') + '|n' + (++self.seq) + '|' + (row.line + 1), row.day, open(r));
+        first.line = row.line + 0.5; g.push(first);
+      } else {
+        var keyOf = keysFor(self, row.day, row.title), made = g.map(function (y) { return copyRow(self, y, keyOf(y.line), row.day, open(self.rows.indexOf(y))); });
+        first = made[0]; day.splice(day.indexOf(g) + 1, 0, made);
+      }
+      setGroups(self, by);
+      return { data: { r: self.rows.indexOf(first) } };
+    });
+  };
+  /* the exercise (all its lines) to a place among a day's exercises: index 0 is first, past the end is last. On its own
+     day it only changes places. On another day the weeks still to write move there; weeks already lifted, and a week
+     whose session on either day is under way, stay where they were lifted, on the line they were lifted on */
+  P.moveRowTo = function (r, day, index) {
+    var row = this.rows[r], self = this; if (!row) return refuse('invalid', 'There is no line there.');
+    if (this.dayAt(day) < 0) return refuse('invalid', 'There is no day called ' + (typeof day === 'string' && day ? '“' + day + '”' : 'that') + '.');
+    var by = exGroups(this), src = by[row.day], g = src.filter(function (x) { return x[0].ex === row.ex; })[0], gi = src.indexOf(g);
+    var place = function (n) { var i = isNum(index) ? Math.round(index) : n; return Math.max(0, Math.min(n, i)); };
+    if (day === row.day) {
+      var rest = src.filter(function (x) { return x !== g; }), at = place(rest.length);
+      if (at === gi) return { data: { r: r, day: day, index: at, changed: false } };
+      return this.commit('Move ' + low1(row.name) + (at < gi ? ' up' : ' down'), function () {
+        rest.splice(at, 0, g); by[day] = rest; setGroups(self, by);
+        return { data: { r: self.rows.indexOf(g[0]), day: day, index: at } };
+      });
+    }
+    var C = this.weeks.length, idx = g.map(function (y) { return self.rows.indexOf(y); });
+    var free = function (c) { var w = self.weeks[c]; return w.state !== 'lifted' && !(w.state === 'now' && w.started[day]) && !idx.some(function (i) { return self.isRO(i, c); }); };
+    var from = 0; while (from < C && !free(from)) from++;
+    if (from >= C) return refuse('locked', LIFTED);
+    var has = function (lo, hi) { return g.some(function (y) { return self.weeks.some(function (w, c) { return c >= lo && c < hi && y.cells[w.uid]; }); }); };
+    var before = has(0, from);
+    if (before && !has(from, C)) return refuse('locked', row.name + ' has only lifted weeks. There is nothing still to come to move.');
+    return this.commit('Move ' + low1(row.name) + ' to ' + day + (before ? ', from week ' + (this.weeks[from].n || from + 1) + ' on' : ''), function () {
+      var keyOf = keysFor(self, day, g[0].title), moved;
+      if (!before) {
+        src.splice(gi, 1); moved = g;
+        g.forEach(function (y) { var old = y.key; y.key = keyOf(y.line); y.day = day; rekey(self, old, y.key, 0); });
+      } else {
+        moved = g.map(function (y) {
+          var nr = clone(y); nr.key = keyOf(y.line); nr.day = day; nr.cells = {};
+          ['bad', 'badf', 'nod', 'cn', 'mx'].forEach(function (k) {
+            if (!y[k]) return; var here = {}, there = {};
+            self.weeks.forEach(function (w, c) { if (y[k][w.uid] === undefined) return; (c >= from ? there : here)[w.uid] = y[k][w.uid]; });
+            if (Object.keys(here).length) y[k] = here; else delete y[k];
+            if (Object.keys(there).length) nr[k] = there; else delete nr[k];
+          });
+          self.weeks.forEach(function (w, c) { if (c >= from && y.cells[w.uid]) { nr.cells[w.uid] = y.cells[w.uid]; delete y.cells[w.uid]; } });
+          rekey(self, y.key, nr.key, from);
+          return nr;
+        });
+      }
+      var dst = by[day] = by[day] || [], at2 = place(dst.length);
+      dst.splice(at2, 0, moved); setGroups(self, by);
+      self.weeks.forEach(function (w, c) { if (c >= from && moved.some(function (y) { return y.cells[w.uid]; })) w.sent = false; });
+      return { data: { r: self.rows.indexOf(moved[0]), day: day, index: at2, from: from, split: before } };
+    });
+  };
+  /* a second day like this one, right after it: the same exercises and lines, written for every week not yet lifted. It has
+     no weekday of its own until the coach gives it a date. name: the new day's (else "Squat day 2") */
+  P.duplicateDay = function (day, name) {
+    var i = this.dayAt(day), self = this; if (i < 0) return refuse('invalid', 'There is no day called ' + (typeof day === 'string' && day ? '“' + day + '”' : 'that') + '.');
+    var nm = words0(name);
+    if (nm) { if (this.dayAt(nm) >= 0) return refuse('invalid', 'There is a day called ' + nm + ' already.'); }
+    else { var base = day.replace(/\s+\d+$/, ''), k = 2; nm = base + ' ' + k; while (this.dayAt(nm) >= 0) nm = base + ' ' + (++k); }
+    return this.commit('Duplicate ' + day, function () {
+      var by = exGroups(self), open = function (c) { return self.weeks[c].state !== 'lifted'; };
+      by[nm] = (by[day] || []).map(function (g) { var keyOf = keysFor(self, nm, g[0].title); return g.map(function (y) { return copyRow(self, y, keyOf(y.line), nm, open); }); });
+      self.days.splice(i + 1, 0, { name: nm, wd: null });
+      setGroups(self, by);
+      return { data: { day: nm } };
+    });
+  };
+  /* an empty week before week c (a week still to come): it takes that week's dates, and every week from there on is a
+     week later (weeks carry their own dates, and a week with none reads its neighbour's) */
+  P.insertWeek = function (c) {
+    var w = this.weeks[c], self = this; if (!w) return refuse('invalid', 'There is no week ' + (Number(c) + 1) + '.');
+    if (w.state !== 'next') return refuse('locked', 'A week goes in before a week still to come.');
+    return this.commit('Insert a week before week ' + (w.n || c + 1), function () {
+      var names = self.days.map(function (d) { return d.name; });
+      /* every later week's dates as they read now, written down before the weeks shift, then a week on */
+      var was = self.weeks.map(function (x, k) { var o = {}; if (k >= c) names.forEach(function (d) { o[d] = self.dateOf(k, d); }); return o; });
+      var nw = self.newWeek(0);
+      names.forEach(function (d) { if (was[c][d]) nw.dates[d] = was[c][d]; });
+      self.weeks.forEach(function (x, k) {
+        if (k < c) return;
+        names.forEach(function (d) { if (was[k][d]) x.dates[d] = K.add(was[k][d], 7); });
+        if (x.moved) Object.keys(x.moved).forEach(function (d) { x.moved[d] = K.add(x.moved[d], 7); });
+      });
+      self.weeks.splice(c, 0, nw); self.weeks.forEach(function (x, k) { x.n = k + 1; });
+      return { data: { c: c } };
+    });
+  };
+  /* week `to` becomes a copy of week `from`. A later week takes each line one step on by its progression unless
+     o.same; an earlier week is always as written. Lifted weeks and sessions under way are left as they are */
+  P.copyWeek = function (from, to, o) {
+    o = o || {}; var src = this.weeks[from], w = this.weeks[to];
+    if (!src || !w || from === to) return refuse('invalid', 'Copy one week onto another week.');
+    if (w.state === 'lifted') return refuse('locked', 'Week ' + (w.n || to + 1) + ' was lifted. It stays as it was.');
+    var same = !!o.same || to < from, tally = { wrote: 0, locked: 0 };
+    return this.commit('Copy week ' + (src.n || from + 1) + ' onto week ' + (w.n || to + 1) + (same ? ', as written' : ', one step on'), function () {
+      this.rows.forEach(function (row, r) {
+        if (this.isRO(r, to)) { tally.locked++; return; }
+        if (row.only) return;
+        var s = (src.deload && src.pre && src.pre[row.key]) || row.cells[src.uid];
+        this.put(r, to, s ? (same ? cellOf(s) : stepOf(row, s, 1, this.loadAt(row, s, src.uid, true).kg)) : null); tally.wrote++;
+      }, this);
+      w.deload = false; w.pre = null; delete w.deloadKind; if (w.why) w.why = {}; if (w.ruled) w.ruled = {};
+      return { data: tally };
+    });
+  };
+  /* a copy of week c, as written, as the week right after it */
+  P.duplicateWeek = function (c) {
+    var w = this.weeks[c], at = c + 1; if (!w) return refuse('invalid', 'There is no week ' + (Number(c) + 1) + '.');
+    if (this.weeks[at] && this.weeks[at].state !== 'next') return refuse('locked', 'A copy goes in before a week still to come.');
+    var res = this.batch('Duplicate week ' + (w.n || c + 1), function (b) {
+      var made = at < b.weeks.length ? b.insertWeek(at) : b.addWeek(); if (made.error) return made;
+      var cp = b.copyWeek(c, at, { same: true }); if (cp.error) return cp;
+      return { data: { c: at } };
+    });
+    if (res && res.data) res.data.c = at;
+    return res;
   };
 
   /* ---------------- saving and exporting ---------------- */
@@ -1384,33 +1595,122 @@
   function joinAnd(a) { a = a.filter(Boolean); return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
 
   /* ---------------- the exercise library: the lift a name counts toward, and the parts it loads (shared.md §4.16) ---------------- */
-  var LIB = [
-    ['Squat', 'squat', ['knee', 'hip']], ['Paused squat', 'squat', ['knee', 'hip']], ['Tempo squat', 'squat', ['knee', 'hip']], ['Pin squat', 'squat', ['knee', 'hip']],
-    ['Box squat', 'squat', ['knee', 'hip']], ['Front squat', 'squat', ['knee']], ['Safety bar squat', 'squat', ['knee']], ['High bar squat', 'squat', ['knee']],
-    ['Hack squat', null, ['knee']], ['Leg press', null, ['knee']], ['Lunge', null, ['knee']], ['Walking lunge', null, ['knee']], ['Split squat', null, ['knee']],
-    ['Bulgarian split squat', null, ['knee']], ['Step-up', null, ['knee']], ['Leg extension', null, ['knee']], ['Goblet squat', null, ['knee']],
-    ['Bench', 'bench', ['shoulder', 'pec']], ['Paused bench', 'bench', ['shoulder', 'pec']], ['Close-grip bench', 'bench', ['shoulder', 'elbow']],
-    ['Pin press', 'bench', ['shoulder']], ['Incline bench', 'bench', ['shoulder', 'pec']], ['Larsen press', 'bench', ['shoulder', 'pec']], ['Spoto press', 'bench', ['shoulder', 'pec']],
-    ['Board press', 'bench', ['shoulder', 'elbow']], ['Floor press', 'bench', ['shoulder']], ['Overhead press', null, ['shoulder']], ['Push press', null, ['shoulder']],
-    ['DB shoulder press', null, ['shoulder']], ['Dumbbell bench', null, ['shoulder', 'pec']], ['Dip', null, ['shoulder', 'elbow', 'pec']], ['Push-up', null, ['shoulder']],
-    ['Tricep pushdown', null, ['elbow']], ['Skull crusher', null, ['elbow']], ['Lateral raise', null, ['shoulder']],
-    ['Deadlift', 'deadlift', ['low back', 'hip']], ['Paused deadlift', 'deadlift', ['low back', 'hip']], ['Deficit deadlift', 'deadlift', ['low back', 'hip']],
-    ['Romanian deadlift', 'deadlift', ['low back', 'hamstring']], ['Stiff-leg deadlift', 'deadlift', ['low back', 'hamstring']], ['Block pull', 'deadlift', ['low back']],
-    ['Rack pull', 'deadlift', ['low back']], ['Sumo deadlift', 'deadlift', ['low back', 'hip']], ['Good morning', null, ['low back', 'hamstring']],
-    ['Barbell row', null, ['low back']], ['Pendlay row', null, ['low back']], ['Back extension', null, ['low back']], ['Ab wheel', null, ['low back']],
-    ['Dumbbell row', null, []], ['Cable row', null, []], ['Lat pulldown', null, []], ['Pull-ups', null, ['elbow']], ['Chin-ups', null, ['elbow']], ['Face pull', null, []],
-    ['Hanging leg raise', null, []], ['Plank', null, []], ['Hip thrust', null, ['hip']], ['Hamstring curl', null, ['hamstring']], ['Calf raise', null, []],
-    ['Biceps curl', null, ['elbow']], ['Reverse hyper', null, ['low back']],
-    ['Belt squat', null, ['hip']], ['Trap bar deadlift', null, ['hip']]
-  ].map(function (x) { return { name: x[0], lift: x[1], loads: x[2] }; });
-  var LIB_BY = {}; LIB.forEach(function (e) { LIB_BY[e.name.toLowerCase()] = e; });
-  var ALIAS = { rdl: 'romanian deadlift', 'close grip bench': 'close-grip bench', 'pull up': 'pull-ups', 'pullups': 'pull-ups', 'pull-up': 'pull-ups', ohp: 'overhead press', 'press': 'overhead press', dips: 'dip', 'lunges': 'lunge', 'leg raise': 'hanging leg raise', 'rdl deadlift': 'romanian deadlift', 'db row': 'dumbbell row', 'ssb squat': 'safety bar squat' };
+  /* 22 Nov (the owner: "proper exercise selections should be there"): about 160 exercises in the groups a coach thinks in.
+     [name, the lift it counts toward (a squat, bench or deadlift line works from that max), the parts it loads, its group].
+     A squat, bench or deadlift line's group is its lift. The order within a group is roughly how often a powerlifting
+     coach writes the exercise, and it is the order the picker lists them in. Every name the library had keeps its name,
+     its lift and its parts. */
+  var LIB_GROUPS = [{ id: 'squat', label: 'Squat' }, { id: 'bench', label: 'Bench' }, { id: 'deadlift', label: 'Deadlift' }, { id: 'legs', label: 'Legs and hips' }, { id: 'push', label: 'Push' }, { id: 'pull', label: 'Pull' }, { id: 'core', label: 'Core' }, { id: 'other', label: 'Carries and jumps' }, { id: 'own', label: 'Your own' }];
+  var LIB = (function () {
+  /* the parts, named once; local to the list so none of these short names meets the file's own (LB is the pound) */
+  var KH = ['knee', 'hip'], SP = ['shoulder', 'pec'], SE = ['shoulder', 'elbow'], LH = ['low back', 'hip'], LBH = ['low back', 'hamstring'], KN = ['knee'], SH = ['shoulder'], EL = ['elbow'], LB = ['low back'], HP = ['hip'], HM = ['hamstring'], NO = [];
+  return [
+    ['Squat', 'squat', KH], ['Paused squat', 'squat', KH], ['Tempo squat', 'squat', KH], ['Pin squat', 'squat', KH], ['Box squat', 'squat', KH], ['Front squat', 'squat', KN],
+    ['Safety bar squat', 'squat', KN], ['High bar squat', 'squat', KN], ['Low bar squat', 'squat', KH], ['Beltless squat', 'squat', KH], ['Wide-stance squat', 'squat', HP],
+    ['Paused front squat', 'squat', KN], ['Anderson squat', 'squat', KH], ['One-and-a-quarter squat', 'squat', KN], ['Squat with chains', 'squat', KH], ['Squat with bands', 'squat', KH],
+
+    ['Bench', 'bench', SP], ['Paused bench', 'bench', SP], ['Close-grip bench', 'bench', SE], ['Pin press', 'bench', SH], ['Incline bench', 'bench', SP], ['Larsen press', 'bench', SP],
+    ['Spoto press', 'bench', SP], ['Board press', 'bench', SE], ['Floor press', 'bench', SH], ['Touch-and-go bench', 'bench', SP], ['Wide-grip bench', 'bench', SP], ['Feet-up bench', 'bench', SP],
+    ['Tempo bench', 'bench', SP], ['Long-pause bench', 'bench', SP], ['Slingshot bench', 'bench', SE], ['Bench with chains', 'bench', SP], ['Bench with bands', 'bench', SP],
+    ['Decline bench', 'bench', SP], ['Reverse-grip bench', 'bench', SE],
+
+    ['Deadlift', 'deadlift', LH], ['Paused deadlift', 'deadlift', LH], ['Deficit deadlift', 'deadlift', LH], ['Romanian deadlift', 'deadlift', LBH], ['Stiff-leg deadlift', 'deadlift', LBH],
+    ['Block pull', 'deadlift', LB], ['Rack pull', 'deadlift', LB], ['Sumo deadlift', 'deadlift', LH], ['Conventional deadlift', 'deadlift', LH], ['Tempo deadlift', 'deadlift', LH],
+    ['Snatch-grip deadlift', 'deadlift', LH], ['Halting deadlift', 'deadlift', LH], ['Beltless deadlift', 'deadlift', LH], ['Touch-and-go deadlift', 'deadlift', LH],
+    ['Deadlift with chains', 'deadlift', LH], ['Deadlift with bands', 'deadlift', LH],
+
+    ['Leg press', null, KN, 'legs'], ['Hack squat', null, KN, 'legs'], ['Belt squat', null, HP, 'legs'], ['Bulgarian split squat', null, KN, 'legs'], ['Split squat', null, KN, 'legs'],
+    ['Lunge', null, KN, 'legs'], ['Walking lunge', null, KN, 'legs'], ['Reverse lunge', null, KN, 'legs'], ['Step-up', null, KN, 'legs'], ['Goblet squat', null, KN, 'legs'],
+    ['Leg extension', null, KN, 'legs'], ['Hamstring curl', null, HM, 'legs'], ['Seated leg curl', null, HM, 'legs'], ['Nordic curl', null, HM, 'legs'], ['Glute-ham raise', null, HM, 'legs'],
+    ['Good morning', null, LBH, 'legs'], ['Back extension', null, LB, 'legs'], ['Reverse hyper', null, LB, 'legs'], ['Hip thrust', null, HP, 'legs'], ['Glute bridge', null, HP, 'legs'],
+    ['Trap bar deadlift', null, HP, 'legs'], ['Dumbbell RDL', null, LBH, 'legs'], ['Single-leg RDL', null, HM, 'legs'], ['Cable pull-through', null, HP, 'legs'], ['Kettlebell swing', null, LH, 'legs'],
+    ['Single-leg press', null, KN, 'legs'], ['Pendulum squat', null, KN, 'legs'], ['Smith machine squat', null, KN, 'legs'], ['Sissy squat', null, KN, 'legs'],
+    ['Calf raise', null, NO, 'legs'], ['Seated calf raise', null, NO, 'legs'], ['Hip adduction', null, HP, 'legs'], ['Hip abduction', null, HP, 'legs'],
+
+    ['Overhead press', null, SH, 'push'], ['Push press', null, SH, 'push'], ['DB shoulder press', null, SH, 'push'], ['Dumbbell bench', null, SP, 'push'], ['Incline dumbbell bench', null, SP, 'push'],
+    ['Dip', null, ['shoulder', 'elbow', 'pec'], 'push'], ['Push-up', null, SH, 'push'], ['Tricep pushdown', null, EL, 'push'], ['Skull crusher', null, EL, 'push'], ['Lateral raise', null, SH, 'push'],
+    ['Overhead tricep extension', null, EL, 'push'], ['JM press', null, EL, 'push'], ['Tate press', null, EL, 'push'], ['Dumbbell fly', null, SP, 'push'], ['Cable fly', null, SP, 'push'],
+    ['Pec deck', null, SP, 'push'], ['Machine chest press', null, SP, 'push'], ['Dumbbell floor press', null, SH, 'push'], ['Z press', null, SH, 'push'], ['Arnold press', null, SH, 'push'],
+    ['Landmine press', null, SH, 'push'], ['Machine shoulder press', null, SH, 'push'], ['Front raise', null, SH, 'push'], ['Bench dip', null, SE, 'push'], ['Close-grip push-up', null, SE, 'push'],
+
+    ['Barbell row', null, LB, 'pull'], ['Pendlay row', null, LB, 'pull'], ['Dumbbell row', null, NO, 'pull'], ['Cable row', null, NO, 'pull'], ['Chest-supported row', null, NO, 'pull'],
+    ['T-bar row', null, LB, 'pull'], ['Seal row', null, NO, 'pull'], ['Meadows row', null, NO, 'pull'], ['Lat pulldown', null, NO, 'pull'], ['Pull-ups', null, EL, 'pull'], ['Chin-ups', null, EL, 'pull'],
+    ['Weighted pull-ups', null, EL, 'pull'], ['Weighted chin-ups', null, EL, 'pull'], ['Neutral-grip pulldown', null, NO, 'pull'], ['Straight-arm pulldown', null, SH, 'pull'],
+    ['Inverted row', null, NO, 'pull'], ['Machine row', null, NO, 'pull'], ['Single-arm cable row', null, NO, 'pull'], ['Face pull', null, NO, 'pull'], ['Rear delt fly', null, SH, 'pull'],
+    ['Band pull-apart', null, NO, 'pull'], ['Shrug', null, NO, 'pull'], ['Biceps curl', null, EL, 'pull'], ['Hammer curl', null, EL, 'pull'], ['Preacher curl', null, EL, 'pull'],
+    ['EZ-bar curl', null, EL, 'pull'], ['Incline dumbbell curl', null, EL, 'pull'], ['Reverse curl', null, EL, 'pull'],
+
+    ['Plank', null, NO, 'core'], ['Hanging leg raise', null, NO, 'core'], ['Ab wheel', null, LB, 'core'], ['Side plank', null, NO, 'core'], ['Copenhagen plank', null, HP, 'core'],
+    ['Pallof press', null, NO, 'core'], ['Cable crunch', null, NO, 'core'], ['Dead bug', null, NO, 'core'], ['Bird dog', null, NO, 'core'], ['Hollow hold', null, NO, 'core'],
+    ['Weighted sit-up', null, HP, 'core'], ['Decline sit-up', null, HP, 'core'], ['Russian twist', null, LB, 'core'], ['McGill curl-up', null, NO, 'core'],
+
+    ['Farmer’s carry', null, NO, 'other'], ['Suitcase carry', null, NO, 'other'], ['Sled push', null, KN, 'other'], ['Sled drag', null, NO, 'other'], ['Box jump', null, KN, 'other'], ['Broad jump', null, KN, 'other']
+  ].map(function (x) { return { name: x[0], lift: x[1], loads: x[2].slice(), group: x[1] || x[3] }; });
+  })();
+  /* a name as it is compared: lower case, a hyphen or a slash is a space, no apostrophes or full stops */
+  function norm2(s) { return String(s == null ? '' : s).toLowerCase().replace(/&/g, ' and ').replace(/[‐-―\-_\/]+/g, ' ').replace(/['’.]/g, '').replace(/\s+/g, ' ').trim(); }
+  var LIB_BY = {}; LIB.forEach(function (e, i) { e.i = i; LIB_BY[norm2(e.name)] = e; });
+  /* the short names and other spellings coaches type, each already as norm2 leaves it */
+  var ALIAS = {}, ALIAS_OF = {};
+  [['Squat', 'sq|back squat|comp squat|competition squat|barbell squat|bb squat'], ['Paused squat', 'pause squat|pause squats|paused sq'], ['Pin squat', 'pin squats'],
+    ['Safety bar squat', 'ssb|ssb squat|safety squat|safety squat bar|safety bar'], ['High bar squat', 'high bar|hb squat'], ['Low bar squat', 'low bar|lb squat'], ['Front squat', 'fs|front sq'],
+    ['One-and-a-quarter squat', '1 1 4 squat|one and a quarter|quarter squat'], ['Squat with chains', 'chain squat|chains squat'], ['Squat with bands', 'band squat|banded squat'],
+    ['Bench', 'bp|bench press|comp bench|competition bench|comp bench press|flat bench|barbell bench|barbell bench press|bb bench'], ['Paused bench', 'pause bench|paused bench press|pause bench press'],
+    ['Close-grip bench', 'cgbp|cgb|cg bench|close grip|close grip bench press|narrow grip bench'], ['Pin press', 'pin bench|pin presses'], ['Incline bench', 'incline|incline press|incline bench press|incline barbell bench'],
+    ['Larsen press', 'larsen|larsen bench'], ['Spoto press', 'spoto|spoto bench'], ['Board press', 'board|boards|2 board|2 board press|3 board press'],
+    ['Touch-and-go bench', 'tng bench|tng|touch and go|touch n go bench'], ['Wide-grip bench', 'wide grip|wide bench'], ['Feet-up bench', 'feet up|feet up bench press'],
+    ['Long-pause bench', 'long pause|3 count bench|3 count paused bench|long paused bench'], ['Slingshot bench', 'slingshot|sling shot bench'], ['Bench with chains', 'chain bench'], ['Bench with bands', 'band bench|banded bench'],
+    ['Deadlift', 'dl|deads|comp deadlift|competition deadlift|comp dl'], ['Conventional deadlift', 'conventional|conv deadlift|conv dl'], ['Sumo deadlift', 'sumo|sumo dl'],
+    ['Paused deadlift', 'pause deadlift|pause dl|paused dl'], ['Deficit deadlift', 'deficit|deficits|deficit dl'], ['Romanian deadlift', 'rdl|rdls|romanian|rdl deadlift|barbell rdl'],
+    ['Stiff-leg deadlift', 'sldl|stiff leg|stiff legged deadlift|stiff leg dl'], ['Block pull', 'block pulls|blocks|block deadlift'], ['Rack pull', 'rack pulls|rack deadlift'],
+    ['Snatch-grip deadlift', 'sgdl|snatch grip|snatch grip dl'], ['Halting deadlift', 'halting|halting dl'], ['Touch-and-go deadlift', 'tng deadlift|tng dl'],
+    ['Deadlift with chains', 'chain deadlift'], ['Deadlift with bands', 'band deadlift|banded deadlift'],
+    ['Leg press', 'lp'], ['Hack squat', 'hack|hacks'], ['Bulgarian split squat', 'bss|bulgarian|bulgarians|rfess|rear foot elevated split squat'], ['Lunge', 'lunges'], ['Step-up', 'stepup|stepups|step ups'],
+    ['Leg extension', 'leg ext|quad extension'], ['Hamstring curl', 'ham curl|ham curls|leg curl|leg curls|lying leg curl|lying hamstring curl'], ['Nordic curl', 'nordic|nordics|nordic hamstring curl'],
+    ['Glute-ham raise', 'ghr|ghd raise|glute ham'], ['Good morning', 'gm|gms'], ['Back extension', 'back raise|hyperextension|hyper|45 degree back extension|back ext'], ['Reverse hyper', 'rev hyper|reverse hyperextension'],
+    ['Hip thrust', 'barbell hip thrust|bb hip thrust'], ['Trap bar deadlift', 'trap bar|trap bar dl|hex bar|hex bar deadlift'], ['Dumbbell RDL', 'db rdl|dumbbell romanian deadlift'],
+    ['Single-leg RDL', 'sl rdl|slrdl|single leg romanian deadlift'], ['Cable pull-through', 'pull through|pull throughs'], ['Kettlebell swing', 'kb swing|kb swings|swings'],
+    ['Smith machine squat', 'smith squat'], ['Calf raise', 'calves|standing calf raise'], ['Hip adduction', 'adductor|adductors|adductor machine'], ['Hip abduction', 'abductor|abductors|abductor machine'],
+    ['Overhead press', 'ohp|press|military press|strict press|barbell overhead press'], ['DB shoulder press', 'db press|dumbbell shoulder press|seated db press|seated dumbbell press|db ohp'],
+    ['Dumbbell bench', 'db bench|db bench press|dumbbell bench press|flat db bench'], ['Incline dumbbell bench', 'incline db bench|incline db press|incline dumbbell press|incline db'],
+    ['Dip', 'dips|weighted dip|weighted dips'], ['Push-up', 'pushup|pushups|press up|press ups'], ['Tricep pushdown', 'pushdown|pushdowns|triceps pushdown|cable pushdown|tricep pressdown'],
+    ['Skull crusher', 'skullcrusher|skullcrushers|lying tricep extension|lying triceps extension'], ['Lateral raise', 'laterals|side raise|side raises|lat raise'],
+    ['Overhead tricep extension', 'oh tricep extension|overhead triceps extension|tricep extension'], ['JM press', 'jm'], ['Tate press', 'tate'], ['Dumbbell fly', 'db fly|db flye|flyes|chest fly'],
+    ['Cable fly', 'cable flye|cable crossover'], ['Machine chest press', 'chest press|machine press'], ['Z press', 'zpress'], ['Arnold press', 'arnold'], ['Landmine press', 'landmine'],
+    ['Barbell row', 'bb row|bent over row|bent over rows|barbell bent over row'], ['Pendlay row', 'pendlay'], ['Dumbbell row', 'db row|db rows|one arm row|single arm row|single arm db row'],
+    ['Cable row', 'seated row|seated cable row'], ['Chest-supported row', 'csr|chest supported|chest supported db row'], ['T-bar row', 'tbar row|t bar'], ['Lat pulldown', 'pulldown|pulldowns|lat pull down|lat pull'],
+    ['Pull-ups', 'pull up|pullup|pullups'], ['Chin-ups', 'chin up|chinup|chinups|chins'], ['Weighted pull-ups', 'weighted pull up|weighted pullups'], ['Weighted chin-ups', 'weighted chin up|weighted chins'],
+    ['Face pull', 'facepull|facepulls'], ['Rear delt fly', 'rear delts|rear delt flye|reverse fly|reverse flye'], ['Band pull-apart', 'pull apart|pull aparts'], ['Shrug', 'barbell shrug|db shrug'],
+    ['Biceps curl', 'curl|curls|bicep curl|bicep curls|db curl|dumbbell curl|barbell curl'], ['Hammer curl', 'hammers'], ['EZ-bar curl', 'ez curl|ez bar'], ['Incline dumbbell curl', 'incline curl|incline db curl'],
+    ['Hanging leg raise', 'hlr|leg raise|leg raises|hanging knee raise'], ['Ab wheel', 'ab rollout|ab wheel rollout|rollout|rollouts'], ['Pallof press', 'pallof'], ['Weighted sit-up', 'sit up|situp|situps|weighted situp'],
+    ['Farmer’s carry', 'farmer carry|farmers walk|farmer walk|farmers'], ['Sled push', 'prowler|prowler push'], ['Sled drag', 'sled pull']
+  ].forEach(function (x) { var n = norm2(x[0]); ALIAS_OF[n] = x[1].split('|'); ALIAS_OF[n].forEach(function (a) { ALIAS[a] = n; }); });
   function libFind(name) {
-    var k = String(name || '').toLowerCase().replace(/\s+/g, ' ').trim(); if (!k) return null;
-    if (LIB_BY[k]) return LIB_BY[k];
-    if (ALIAS[k] && LIB_BY[ALIAS[k]]) return LIB_BY[ALIAS[k]];
-    var sing = k.replace(/s$/, ''); if (LIB_BY[sing]) return LIB_BY[sing];
-    return null;
+    var k = norm2(name); if (!k) return null;
+    var hit = function (q) { return LIB_BY[q] || (ALIAS[q] && LIB_BY[ALIAS[q]]) || null; };
+    return hit(k) || hit(k.replace(/s$/, '')) || hit(k.replace(/es$/, '')) || hit(k + 's') || null;
+  }
+  /* the picker's list (22 Nov): the exercises a typed word finds, best first. A name or short name that is what was typed,
+     then names that start with it, then a word in the name that starts with it, a short name that starts with it, the
+     words' first letters ("bss"), and last the letters anywhere. Ties keep this lifter's own exercises first, then the
+     library's order. o: { limit (8 when something was typed), group, block (its own names count, marked own or here) } */
+  function libSearch(q, o) {
+    o = o || {}; var k = norm2(q), here = {}, pool = LIB.map(function (e) { return { e: e, own: false }; });
+    ((o.block && o.block.rows) || []).forEach(function (row) { var n = norm2(row.name); if (!n || here[n]) return; here[n] = row; if (!libFind(row.name)) pool.push({ e: { name: row.name, lift: MAIN[row.lift] ? row.lift : null, loads: loadsOf(row.name), group: MAIN[row.lift] ? row.lift : 'own', i: -1 }, own: true }); });
+    var score = function (e) {
+      var n = norm2(e.name); if (!k || n === k || ALIAS[k] === n) return 0;
+      if (n.indexOf(k) === 0) return 1;
+      var ws = n.split(' ');
+      if (ws.some(function (w) { return w.indexOf(k) === 0; }) || (k.indexOf(' ') > 0 && n.indexOf(k) > 0)) return 2;
+      if ((ALIAS_OF[n] || []).some(function (a) { return a.indexOf(k) === 0; })) return 3;
+      if (k.length > 1 && ws.length > 1 && ws.map(function (w) { return w.charAt(0); }).join('').indexOf(k) === 0) return 4;
+      return k.length > 2 && n.indexOf(k) > 0 ? 5 : -1;
+    };
+    var hits = [];
+    pool.forEach(function (p) { if (o.group && p.e.group !== o.group) return; var s = score(p.e); if (s < 0) return; hits.push({ p: p, s: s, mine: p.own || here[norm2(p.e.name)] ? 0 : 1 }); });
+    hits.sort(function (a, z) { return a.s - z.s || (k ? a.mine - z.mine : 0) || a.p.e.i - z.p.e.i; });
+    var lim = isNum(o.limit) && o.limit > 0 ? o.limit : k ? 8 : hits.length;
+    return hits.slice(0, lim).map(function (h) { var e = h.p.e; return { name: e.name, lift: e.lift, group: e.group, loads: e.loads.slice(), own: h.p.own, here: !!here[norm2(e.name)] }; });
   }
   /* FIX-LOGIC (F27, a coach's own sheet imported): the lift and variant a typed name means. A dumbbell, machine, cable or
      Smith line is an accessory, never the competition lift ("DB incline bench" landed on Tom's bench top set); a plural or a
@@ -3304,6 +3604,9 @@
     FIELDS: FIELDS.slice(), FIELD_KEYS: clone(FKEYS), parseField: parseField, fieldText: fieldText, withField: withField, lighter: lighter, propose: propose, recovery: recovery,
     taper: taper, TAPER: clone(TAPER), DELOADS: clone(DELOADS), RULES: clone(RULES), rulesFor: rulesFor, asTemplate: asTemplate, fromTable: fromTable, readTable: readTable,
     lineLabel: lineLabel, phoneText: phoneText, painWords: painWords, holdsOf: holdsOf, LIBRARY: clone(LIB), libFind: function (n) { var e = libFind(n); return e ? clone(e) : null; },
+    /* 22 Nov: the picker's reads. LIB_GROUPS [{ id, label }] in the order shown · libSearch(q, { limit, group, block }) →
+       [{ name, lift, group, loads, own, here }] · readLiftName(name) → { lift, variant } */
+    LIB_GROUPS: clone(LIB_GROUPS), libSearch: libSearch, readLiftName: function (n) { var x = readLiftName(n); return { lift: x.lift || null, variant: x.variant || '' }; },
     loadsOf: loadsOf, swapIdeas: function (n, o) { return clone(swapIdeas(n, o)); }, isPeakWeek: isPeakWeek, deloadCell: deloadCell, dayWords: dayWords,
     draft: function (b, c) { return b.drafts(c); },
     weekFact: function (b, c, o) { return b.weekFact(c, o); },
