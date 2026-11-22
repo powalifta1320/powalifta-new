@@ -172,6 +172,19 @@
   .wb .wb-w { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
   .wb .link { height: 26px; }
   .wb .link.is-stop { background: var(--warn-tint); color: var(--warn); }
+  /* 23 Nov, the Apple pass: one thing on each line carries weight, the rest is words. Beside the lifter's note the
+     answer the desk suggests is the one filled button; Reply and Keep are words that light under the pointer. On the
+     week bar what the desk noticed reads as a quiet line of words after the week's state (it was a row of pills the
+     same weight as the buttons). The maxes are numbers in their lifts' colours; the offer beside them is words too. */
+  .hd-words { background: var(--hover); }
+  .hd-words .link:not(.is-main) { background: transparent; color: var(--ink-2); padding: 0 var(--sp-2); }
+  .hd-maxes .mx-use { background: transparent; padding: 0 var(--sp-2); }
+  .wb .wb-r1 .link:not(.is-stop):not(.wb-more), .wb .wb-r2 .link:not(.is-stop) { background: transparent; color: var(--ink-2); padding: 0 var(--sp-2); font-weight: 500; }
+  .wb .wb-more { background: var(--fill); color: var(--ink-2); padding: 0 var(--sp-2); }
+  .wb .wb-r1 .link[data-checks]:not(.is-stop):not(.wb-more), .wb .wb-r2 .link[data-checks]:not(.is-stop) { color: var(--warn); font-weight: 600; }   /* a flag keeps its colour: colour with a job */
+  @media (hover: hover) and (pointer: fine) {
+    .hd-words .link:not(.is-main):hover, .hd-maxes .mx-use:hover, .wb .wb-r1 .link:not(.is-stop):not(.wb-more):hover, .wb .wb-r2 .link:not(.is-stop):hover { background: var(--fill); color: var(--ink); }
+  }
   .wb .btn.icon.sm { width: 30px; height: 30px; }
   .wb .btn.icon.sm svg { width: 18px; height: 18px; }
 
@@ -1319,9 +1332,9 @@
     var menuBtn = '<span class="wb-end">' + (canEdit ? '<button class="btn icon quiet sm" type="button" data-wk-undo aria-label="Undo" title="Undo (⌘Z)">' + UNDO_IC + '</button><button class="btn icon quiet sm" type="button" data-wk-redo aria-label="Redo" title="Redo (⇧⌘Z)">' + REDO_IC + '</button><button class="btn icon quiet sm" type="button" data-wk-copy aria-haspopup="menu" aria-label="Copy this week onto another" title="Copy this week onto another week">' + COPY_IC + '</button><i class="wb-rule" aria-hidden="true"></i>' : '') +
       '<button class="btn icon quiet sm" type="button" data-week-menu data-more aria-haspopup="menu" aria-label="' + esc(weekName(b, c)) + ' menu" title="Copy, duplicate, deload, add a day">' + K.ic('more', 2.2) + '</button></span>';
     if (unread) notes += '<button class="link is-stop" type="button" data-fix title="It stops the send until it reads">' + esc(plural(unread, 'cell') + ' to fix') + '</button>';
+    if (chk) notes += '<button class="link" type="button" data-checks title="The next line to check (⌘G)">' + chk + ' to check</button>';
     if (src) notes += '<button class="link" type="button" data-changes aria-haspopup="dialog">' + esc(src) + '</button>';
     if (hold) notes += '<button class="link" type="button" data-hold>' + esc(hold) + '</button>';
-    if (chk) notes += '<button class="link" type="button" data-checks title="The next line to check (⌘G)">' + chk + ' to check</button>';
     if (cur.p && cur.p.waitText && c === cur.sendC) notes += '<span class="wb-w">' + esc(cur.p.waitText) + '</span>';
     /* a next block that starts weeks after this one ends: the gap is named, never silent */
     if (cur.next && c === 0) {

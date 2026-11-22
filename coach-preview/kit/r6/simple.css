@@ -175,6 +175,69 @@
 .sv-adv { margin-left: auto; color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-label) var(--font); }
 .sv .wg-tail .wk-f { padding-left: 0; padding-right: 0; }
 
+/* ---------------- 23 Nov, the Apple pass (the owner: "make everything clean … so it's actually usable for coaches") ----------------
+   Simplicity, not minimalism: every element earns its place, and what belongs together reads as one thing.
+   - A line's sets, reps, RPE and load are ONE quiet strip (they were four dark boxes a line, sixty on the page): the
+     prescription reads as a prescription, and each part is still a field the moment the pointer or the keys reach it.
+   - A note is words. An empty one shows nothing until its line is reached; then it is a field with its prompt.
+   - A line's grip and its menu appear on the line in hand or under the pointer (they are still there on touch, and a
+     right-click opens the menu anywhere on the line). Fifteen "…" down the page said nothing.
+   - Lifts are set apart by their own height, not a rule under each; a rule separates days only.
+   - The load is the number a coach scans for: it keeps the weight. Sets, reps and RPE step back one weight.
+   Every child of a line has its own column (they were auto-placed), so the strip can sit behind four of them. */
+.sv-row > * { grid-row: 1; }
+.sv-row > .sv-c-grip { grid-column: 1; }
+.sv-row > .sv-c-name { grid-column: 2; }
+.sv-row > .sv-c-sets { grid-column: 3; }
+.sv-row > .sv-x { grid-column: 4; }
+.sv-row > .sv-c-reps { grid-column: 5; }
+.sv-row > .sv-c-effort { grid-column: 6; }
+.sv-row > .sv-c-load { grid-column: 7; }
+.sv-row > .sv-c-last { grid-column: 8; }
+.sv-row > .sv-c-note { grid-column: 9; }
+.sv-row > .sv-c-more { grid-column: 10; }
+:is(.sv, .sv-ghost).is-tight .sv-row > .sv-c-note { grid-column: 8; }
+:is(.sv, .sv-ghost).is-tight .sv-row > .sv-c-more { grid-column: 9; }
+.sv-row:has(.sv-note:focus) .sv-c-note { grid-column: 8 / 10; }
+.sv.is-tight .sv-row:has(.sv-note:focus) .sv-c-note { grid-column: 8; }
+/* the strip */
+.sv-row::before {
+  content: ''; grid-column: 3 / 8; grid-row: 1; align-self: center; height: 30px; margin: 0 -2px; border-radius: var(--sp-2); background: var(--hover); pointer-events: none;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.sv-row.is-ro::before { background: transparent; }
+.sv-row:focus-within::before { background: var(--fill); }
+.sv-in { height: 26px; border-radius: 6px; background: transparent; font-weight: 500; }
+.sv-kg .sv-in, .sv-kg.is-auto .sv-in::placeholder { font-weight: 600; }
+.sv-in:focus { background: var(--card); }
+.sv-x { position: relative; z-index: 1; }
+/* a hairline between the strip's parts: sets and reps are one, then the effort, then the load */
+.sv-c-effort::before, .sv-c-load::before { content: ''; position: absolute; left: calc(var(--sv-gap) / -2); top: 5px; bottom: 5px; width: 1px; background: var(--line-2); pointer-events: none; }
+.sv-row.is-ro .sv-c-effort::before, .sv-row.is-ro .sv-c-load::before { background: transparent; }
+.sv-step button { top: 1px; bottom: 1px; }
+/* notes: words; a field when reached */
+.sv-in.sv-note, .sv-in.sv-note:placeholder-shown:not(:focus) { height: 30px; background: transparent; color: var(--ink-2); }
+.sv-in.sv-note:focus { background: var(--fill); color: var(--ink); }
+.sv-c-note.has-cue .sv-in.sv-note::placeholder { color: var(--ink-3); }
+/* lifts by their own height; a rule between days only */
+.sv-ex { border-top: 0; }
+.sv-day { padding: var(--sp-3) 0 var(--sp-2); }
+.sv-day + .sv-day { margin-top: 0; border-top: 1px solid var(--line); }
+.sv-dh { min-height: var(--ctl-h); }
+.sv-dh h3 { font: 700 var(--fs-sub)/var(--lh-sub) var(--font); letter-spacing: var(--ls-head); }
+/* the grip and the menu: on the line in hand, or under the pointer */
+.sv-grip { opacity: 0; }
+.sv-row > .sv-more { opacity: 0; transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.sv-row:focus-within > .sv-more, .sv-row > .sv-more.is-open, .sv-ex.is-picked .sv-more { opacity: 1; }
+@media (hover: hover) and (pointer: fine) {
+  .sv-row:hover::before { background: var(--fill); }
+  .sv-in:not(:disabled):not(:focus):hover { background: var(--fill-2); }
+  .sv-row:hover > .sv-more { opacity: 1; }
+  .sv-in.sv-note:not(:focus):hover, .sv-row:hover .sv-in.sv-note:placeholder-shown:not(:focus) { background: var(--hover); }
+}
+@media (hover: none) { .sv-grip, .sv-row > .sv-more { opacity: 1; } .sv-in.sv-note:placeholder-shown { background: var(--hover); } }
+.sv-ghost .sv-row > .sv-more { opacity: 0; }
+
 /* the status bar at the card's foot: why the load in hand is what it is; with lifts picked, what to do with them */
 .sv-status {
   position: sticky; bottom: 0; z-index: 3; display: flex; align-items: center; gap: var(--sp-3); min-height: 36px; margin: 0 calc(var(--sp-4) * -1); padding: 0 var(--sp-2) 0 var(--sp-4);
