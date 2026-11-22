@@ -1688,7 +1688,8 @@
   function libFind(name) {
     var k = norm2(name); if (!k) return null;
     var hit = function (q) { return LIB_BY[q] || (ALIAS[q] && LIB_BY[ALIAS[q]]) || null; };
-    return hit(k) || hit(k.replace(/s$/, '')) || hit(k.replace(/es$/, '')) || hit(k + 's') || null;
+    /* "comp sq", "competition bench press": the competition lift, said the long way */
+    return hit(k) || hit(k.replace(/s$/, '')) || hit(k.replace(/es$/, '')) || hit(k + 's') || (/^(?:comp|competition)\s+\S/.test(k) ? hit(k.replace(/^(?:comp|competition)\s+/, '')) : null) || null;
   }
   /* the picker's list (22 Nov): the exercises a typed word finds, best first. A name or short name that is what was typed,
      then names that start with it, then a word in the name that starts with it, a short name that starts with it, the
