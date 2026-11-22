@@ -1,0 +1,36 @@
+/* picker.css: the exercise picker (picker.js), in the popover every page already uses (.pop, ui.css): a search field,
+   the groups, the exercises. One list, one height of row; a squat, bench or deadlift line wears its lift's colour, as it
+   does everywhere else. Every value comes from tokens.css. */
+.pop.is-pick { width: 456px; padding: var(--sp-4); }
+.pk { display: flex; flex-direction: column; gap: var(--sp-3); min-height: 0; }
+.pk-t { margin: 0; color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-label) var(--font); letter-spacing: var(--ls-label); }
+.pk > .lede { margin: 0; }
+.pk-q { display: flex; width: 100%; }
+.pk-gs { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.pk-g {
+  position: relative; height: var(--ctl-s); padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill); background: transparent; color: var(--ink-2);
+  font: 500 var(--fs-label)/1 var(--font); white-space: nowrap; cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.pk-g[aria-pressed='true'] { background: var(--fill-2); color: var(--ink); }
+.pk-g:active { transform: scale(var(--press)); }
+@media (hover: hover) and (pointer: fine) { .pk-g:hover:not([aria-pressed='true']) { background: var(--fill); color: var(--ink); } }
+/* the list scrolls inside the popover; its edges sit on the popover's own padding so a lit row reaches them */
+.pk-l { max-height: min(336px, 46dvh); margin: 0 calc(var(--sp-2) * -1); padding: 0 var(--sp-2); overflow-y: auto; overscroll-behavior: contain; scroll-padding: var(--sp-6) 0; }
+.pk-h { margin: var(--sp-3) var(--sp-3) var(--sp-1); color: var(--ink-3); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); }
+.pk-h:first-child { margin-top: 0; }
+.pk-o { display: flex; align-items: baseline; gap: var(--sp-3); min-height: var(--ctl-h); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-field); color: var(--ink); font: 500 var(--fs-sub)/1.3 var(--font); cursor: pointer; }
+.pk-o[aria-selected='true'] { background: var(--fill-2); }
+.pk-o[data-lift='squat'] .pk-n { color: var(--sq-ink); }
+.pk-o[data-lift='bench'] .pk-n { color: var(--bp-ink); }
+.pk-o[data-lift='deadlift'] .pk-n { color: var(--dl-ink); }
+.pk-o[aria-current='true'] .pk-n { font-weight: 700; }
+.pk-n { flex: none; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pk-o small { min-width: 0; margin-left: auto; color: var(--ink-3); font: 500 var(--fs-cap)/1.3 var(--font); font-variant-numeric: tabular-nums; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pk-none { margin: var(--sp-3); color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+/* the one question a new name asks: which lift it counts toward */
+.pk-ask { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.pk-ask .btn[data-lift='squat'] { color: var(--sq-ink); }
+.pk-ask .btn[data-lift='bench'] { color: var(--bp-ink); }
+.pk-ask .btn[data-lift='deadlift'] { color: var(--dl-ink); }
+@media (prefers-reduced-motion: reduce) { .pk * { transition-duration: 1ms !important; } }

@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="../kit/r6/week.css">
 <link rel="stylesheet" href="../kit/r6/sheet.css">
 <link rel="stylesheet" href="../kit/r6/simple.css">
+<link rel="stylesheet" href="../kit/r6/picker.css">
 <link rel="stylesheet" href="../kit/r6/fix.css">
 <link rel="stylesheet" href="../kit/r6/newcoach.css">
 <style>
@@ -312,6 +313,7 @@
 <script src="../kit/r6/block.js"></script>
 <script src="../kit/r6/store.js"></script>
 <script src="../kit/r6/desk.js"></script>
+<script src="../kit/r6/picker.js"></script>
 <script src="../kit/r6/week.js"></script>
 <script src="../kit/r6/sheet.js"></script>
 <script src="../kit/r6/simple.js"></script>
@@ -762,7 +764,7 @@
     /* two ways to write the same program (20 Nov, the owner): Simple, one day of plain fields at a time (kit/r6/simple.js),
        and Advanced, the sheet, as a week of rows or the whole block with its weeks across */
     var simple = isSimple(), canSimple = simpleOK();
-    mid.innerHTML = (lifterBlock ? '<div class="seg" role="group" aria-label="How to write"><button type="button" data-mode="simple" aria-pressed="' + simple + '"' + (canSimple ? ' title="One day at a time, in plain fields"' : ' disabled title="A change is checked on the sheet"') + '>Simple</button><button type="button" data-mode="advanced" aria-pressed="' + !simple + '" title="The sheet: every line a row, every week a column">Advanced</button></div>' +
+    mid.innerHTML = (lifterBlock ? '<div class="seg" role="group" aria-label="How to write"><button type="button" data-mode="simple" aria-pressed="' + simple + '"' + (canSimple ? ' title="The whole week, every lift a line you change in place"' : ' disabled title="A change is checked on the sheet"') + '>Simple</button><button type="button" data-mode="advanced" aria-pressed="' + !simple + '" title="The sheet: every line a row, every week a column">Advanced</button></div>' +
       (simple ? '' : '<div class="seg seg-sub" role="group" aria-label="Sheet"><button type="button" data-view="week" aria-pressed="' + (st.view === 'week') + '" title="The week in rows">Week</button><button type="button" data-view="block" aria-pressed="' + (st.view === 'block') + '" title="The whole block, weeks across">Block</button></div>') : '') +
       (folded ? '<h1 class="tb-h1" id="ttl-tb"><button type="button" data-unfold title="Back to the top of ' + esc(cur.l.name) + '"><span data-ellipsis title="' + esc(cur.l.name) + '">' + esc(cur.l.name) + '</span></button></h1>' : '');
     var pr = primaryFor(), h = '';
@@ -1379,16 +1381,24 @@
       onRowMenu: function (r, btn) { rowMenu(r, btn); },
       onDayMenu: function (day, btn) { dayMenu(day, btn); },
       onSaveTemplate: PL.templates && fn(PL.templates, 'save') ? function (btn) { saveTemplatePop(btn); } : null,
-      onAdvanced: function () { setMode('advanced'); }
+      onAdvanced: function () { setMode('advanced'); },
+      /* 22 Nov: ⌘Z and ⇧⌘Z in Simple walk the same history the Week view walks (a lifter's week: the store's; else the block's own) */
+      onUndo: cur.kind === 'week' ? function () { return storeWalk('undo'); } : undefined,
+      onRedo: cur.kind === 'week' && !cur.next ? function () { return storeWalk('redo'); } : undefined
     });
     cur.grid.render({ c: cur.c });
     if (cur.hand && cur.hand.key) quietly(function () { cur.grid.select(cur.hand.key, cur.hand.col); });
+    /* the week gets the window when the coach works it by keys, as in the Week view (P17): the header folds, the lines stay put */
+    host.addEventListener('focusin', function (e) { var from = e.relatedTarget; if (quiet || ptrDown || !isSimple() || (from && from.closest && from.closest('[data-layer], dialog'))) return; focusMode(); });
   }
 
   /* ---------------- the grid: the Week view (kit/r6/week.js) or the Block view (kit/r6/sheet.js) ---------------- */
   function mountGrid(o) {
     o = o || {};
     var host = $('#wg'); if (!host) return;
+    /* 22 Nov: the grid being replaced lets go first. Switching Simple, Week and Block used to leave the old view's document
+       listeners (keys, paste, resize) attached, one more set every switch */
+    if (cur.grid && fn(cur.grid, 'destroy')) { try { cur.grid.destroy(); } catch (e) { /* gone already */ } cur.grid = null; }
     if (isSimple()) return mountSimple(host, o);
     if (st.view === 'block' && SH && fn(SH, 'grid')) return mountBlock(host, o);
     cur.grid = WK.grid(host, {
@@ -2324,6 +2334,19 @@
     if (w && w.deload) dk.push({ id: 'dl-back', label: 'Back to normal', run: function () { gridApply(function (bb) { return bb.undeload(c); }, null, { say: wn + ' back to normal.' }); } });
     var items = [];
     if (earlier.length) items.push({ id: 'fill', label: 'Fill from another week', disabled: lifted, subs: earlier });
+    /* 22 Nov (the owner: "duplicating entire training days or weeks"): this week onto any week not lifted, as written, or
+       one step on when that week is later; and a copy of it as the very next week */
+    if (fn(b, 'copyWeek')) {
+      var onto = [];
+      b.weeks.forEach(function (x, k) {
+        if (k === c || x.state === 'lifted') return;
+        onto.push({ id: 'cp-' + k, label: b.weekName(k) + ', as written', run: function () { gridApply(function (bb) { return bb.copyWeek(c, k, { same: true }); }, null, { say: wn + ' copied onto ' + low1(b.weekName(k)) + ', as written.', warn: true }); } });
+        if (k > c) onto.push({ id: 'cps-' + k, label: b.weekName(k) + ', one step on', run: function () { gridApply(function (bb) { return bb.copyWeek(c, k, {}); }, null, { say: wn + ' copied onto ' + low1(b.weekName(k)) + ', one step on.', warn: true }); } });
+      });
+      if (onto.length) items.push({ id: 'copyto', label: 'Copy this week onto', subs: onto });
+      var nextW = b.weeks[c + 1], canDup = !nextW || nextW.state === 'next';
+      items.push({ id: 'dupw', label: 'Duplicate this week', disabled: !canDup, sub: canDup ? '' : 'The week after it is under way.', run: function () { var res = gridApply(function (bb) { return bb.duplicateWeek(c); }, null, { say: 'A copy of ' + low1(wn) + ' added after it.', warn: true }); if (res && !res.error) stepWeek(1); } });
+    }
     items.push({ id: 'deload', label: 'Make it a deload', disabled: lifted, subs: dk });
     var meets = ((cur.l && cur.l.meets) || []).filter(function (m) { return m.days > 0 && m.days <= 112; });
     meets.forEach(function (m) { items.push({ id: 'runin-' + m.id, label: 'Plan the run-in to ' + m.name + '…', run: function () { if (m.days <= 21) planTaper(m); else openRunin(cur.id, m.id); } }); });
@@ -2379,6 +2402,7 @@
     var wds = DAYS.map(function (nm, i) { return { id: 'wd-' + i, label: nm, run: function () { var x = K.add(st0, (i - dt(st0).getDay() + 7) % 7); gridApply(function (bb) { return bb.moveDay(c, day, x, { scope: 'on' }); }, null, { say: dn + ' on ' + nm + 's from ' + wn + '.' }); } }; });
     var items = [{ id: 'mvw', label: 'Move this week', subs: dates }, { id: 'mve', label: 'Move every week', subs: wds },
       { id: 'ren', label: 'Rename', run: function () { var bt = cellDay(day); if (bt) bt.click(); } },
+      { id: 'dupd', label: 'Duplicate the day', run: function () { gridApply(function (bb) { return fn(bb, 'duplicateDay') ? bb.duplicateDay(day) : { error: { message: 'This block cannot copy a day.' } }; }, null, { say: dn + ' duplicated. Give the copy its date from its moves.' }); } },
       { id: 'addx', label: 'Add an exercise', run: function () { if (cur.grid) { cur.grid.select('+' + day, 'ex'); cur.grid.focus(); } } }];
     others.forEach(function (o) { items.push({ id: 'merge-' + o.name, label: 'Merge with ' + sentence(o.name) + ' this week', run: function () { var lim = Kl(cur.id) && Kl(cur.id).intake ? Kl(cur.id).intake.sessionMinutes : null; gridApply(function (bb) { return bb.mergeDays(c, [day, o.name], { into: iso, minutes: lim || 60 }); }, null, { say: dn + ' and ' + low1(sentence(o.name)) + ' are one session this week.' }); } }); });
     others.forEach(function (o) { var oi = b.dateOf(c, o.name); if (!oi) return; items.push({ id: 'swap-' + o.name, label: 'Swap with ' + DAYS[dt(oi).getDay()], run: function () { gridApply(function (bb) { return bb.swapDays(c, day, o.name); }, null, { say: dn + ' and ' + low1(sentence(o.name)) + ' swapped dates this week.' }); } }); });
@@ -2388,6 +2412,21 @@
     var liftedAny = b.rows.some(function (row) { return row.day === day && b.weeks.some(function (x, k2) { return x.state === 'lifted' && row.cells[x.uid]; }); });
     items.push({ id: 'del', label: 'Delete the day', red: true, disabled: liftedAny, sub: liftedAny ? 'It has lifted sessions.' : '', run: function () { gridApply(function (bb) { return bb.removeDay(day); }, null, { say: dn + ' deleted.' }); } });
     menu(btn, items, { title: sentence(day), label: sentence(day) + ' moves' });
+  }
+  /* the picker from a line's moves (kit/r6/picker.js): the line becomes the exercise chosen. Weeks already lifted keep the
+     old one, and the words say so */
+  function changeExercisePop(row, btn) {
+    if (!W.PICK || !cur || !cur.b) return;
+    var key = row.key, old = row.name, c = cur.c, at = btn && btn.isConnected ? btn : ($('#wg') || document.body);
+    W.PICK.open(at, { value: old, block: cur.b, c: c, title: 'Change ' + low1(old), onPick: function (e) {
+      var oo = {};
+      gridApply(function (bb) {
+        var r = rowIx(bb, key); if (r < 0) return { error: { message: 'That line is gone.' } };
+        var res = bb.changeExercise(r, c, e.name, { lift: e.lift, variant: e.variant || undefined });
+        if (res && !res.error && res.data && res.data.changed !== false) { var nr = bb.rows[res.data.r] || bb.rows[rowIx(bb, key)], now = nr ? nr.name : e.name; oo.say = res.data.from != null ? now + ' from week ' + ((bb.weeks[res.data.from] || {}).n || res.data.from + 1) + ' on. The weeks already lifted keep ' + low1(old) + '.' : old + ' is now ' + low1(now) + '.'; }
+        return res;
+      }, 'Change ' + low1(old), oo);
+    } });
   }
   function cellDay(day) { return $$('#wg [data-day]').filter(function (x) { return x.getAttribute('data-day') === day; }).map(function (x) { return x.querySelector('[data-day-name]'); })[0] || null; }
   function rowMenu(r, btn) {
@@ -2404,11 +2443,24 @@
     var items = [];
     if (row.line === 0 && row.lift && !b.rows.some(function (x) { return x.day === row.day && x.ex === row.ex && x.line > 0; })) items.push({ id: 'bo', label: 'Add back-offs', run: function () { gridApply(function (bb) { var a = bb.addLine(rowIx(bb, row.key)); if (a && a.data) bb.set(a.data.r, c, '2x5 -10%'); return a; }, null, { say: 'Back-offs under ' + row.name.toLowerCase() + ': 2 × 5, 10% lighter.' }); } });
     items.push({ id: 'line', label: 'Add a line under it', run: function () { gridApply(function (bb) { return bb.addLine(rowIx(bb, row.key)); }); } });
+    /* 22 Nov (the owner: "I'm not able to edit the lift if it's already been entered"): every line's exercise can be
+       changed from its moves, in every view, and a line can be duplicated or sent to another day */
+    if (W.PICK && fn(b, 'changeExercise')) items.unshift({ id: 'chg', label: 'Change the exercise…', run: function () { changeExercisePop(row, btn); } });
+    if (fn(b, 'duplicateRow')) items.push({ id: 'dup', label: row.line ? 'Duplicate this line' : 'Duplicate', run: function () { gridApply(function (bb) { return bb.duplicateRow(rowIx(bb, row.key)); }, null, { say: nm + ' duplicated.' }); } });
     items.push({ id: 'each', label: 'Each week', subs: progs });
     items.push({ id: 'swapw', label: 'Swap this week only…', run: function () { swapPop(row, c, 'week', btn); } });
     items.push({ id: 'swapf', label: 'Swap from this week on…', run: function () { swapPop(row, c, 'on', btn); } });
     items.push({ id: 'up', label: 'Move up', run: function () { gridApply(function (bb) { return fn(bb, 'moveRow') ? bb.moveRow(rowIx(bb, row.key), 'up') : { error: { message: 'That line is first already.' } }; }, null, { say: nm + ' moved up.' }); } });
     items.push({ id: 'down', label: 'Move down', run: function () { gridApply(function (bb) { return fn(bb, 'moveRow') ? bb.moveRow(rowIx(bb, row.key), 'down') : { error: { message: 'That line is last already.' } }; }, null, { say: nm + ' moved down.' }); } });
+    if (fn(b, 'moveRowTo')) {
+      var elsewhere = (b.daysOf ? b.daysOf(c) : b.days).filter(function (d) { return d.name !== row.day && !d.off; }).map(function (d) {
+        return { id: 'to-' + d.name, label: sentence(d.name), run: function () {
+          var oo = {};
+          gridApply(function (bb) { var res = bb.moveRowTo(rowIx(bb, row.key), d.name, 1e9); if (res && !res.error && res.data) oo.say = res.data.split ? row.name + ' moves to ' + low1(sentence(d.name)) + ' from week ' + ((bb.weeks[res.data.from] || {}).n || res.data.from + 1) + ' on. The weeks already lifted stay on ' + low1(sentence(row.day)) + '.' : row.name + ' moved to ' + low1(sentence(d.name)) + '.'; return res; }, null, oo);
+        } };
+      });
+      if (elsewhere.length) items.push({ id: 'today', label: 'Move to another day', subs: elsewhere });
+    }
     items.push({ sep: true });
     items.push({ id: 'out', label: 'Take it out of ' + low1(b.weekName(c)), red: true, run: function () { gridApply(function (bb) { return bb.set(rowIx(bb, row.key), c, ''); }, null, { say: nm + ' out of ' + low1(b.weekName(c)) + '.' }); } });
     var lifted = b.weeks.some(function (w) { return w.state === 'lifted' && row.cells[w.uid]; });
@@ -2883,8 +2935,10 @@
     if ((b = t.closest('[data-log-open]'))) { var rk = b.getAttribute('data-log-open'), ri = cur && cur.b ? rowIx(cur.b, rk) : -1; DESK.pop.close(); if (ri >= 0) logFor(ri, cur.c); return; }
     if ((b = t.closest('.ql [data-row]'))) { var id = b.getAttribute('data-row'); clickRow(id); return; }
     if ((b = t.closest('[data-import]'))) { importSheet(); return; }
-    if ((b = t.closest('[data-mode]'))) { setMode(b.getAttribute('data-mode')); return; }
-    if ((b = t.closest('[data-view]'))) { setView(b.getAttribute('data-view')); return; }
+    /* 22 Nov: only the toolbar's own buttons switch the view. It was any [data-mode], and the Week grid's root carries
+       data-mode="week", so every click on a cell in Advanced read as "Simple" and threw the coach out of the sheet */
+    if ((b = t.closest('.tb button[data-mode]'))) { setMode(b.getAttribute('data-mode')); return; }
+    if ((b = t.closest('.tb button[data-view]'))) { setView(b.getAttribute('data-view')); return; }
     if ((b = t.closest('[data-prog-menu]'))) { if (DESK.pop.justClosed(b)) return; progMenu(b); return; }
     if ((b = t.closest('[data-tpl-menu]'))) { if (DESK.pop.justClosed(b)) return; tplMenu(b); return; }
     if ((b = t.closest('[data-starter-menu]'))) { if (DESK.pop.justClosed(b)) return; starterMenu(b); return; }

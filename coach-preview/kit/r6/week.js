@@ -970,10 +970,25 @@
     }
     function rename(r, text) {
       var b = B(), row = b.rows[r], nm = words0(text); if (!row || !nm || nm === row.name) { focusHand(); return; }
-      var vr = row.lift ? variantOf(nm, row.lift) : null, lifted = b.weeks.some(function (w, c) { return row.cells[w.uid] && b.isRO(r, c); });
-      if (lifted && !vr) { st.msg = { key: row.key, col: 'ex', say: row.name + ' has lifted weeks. Swap it from this week on in the line\u2019s moves.', warn: true }; paintStatus(); focusHand(); return; }
-      var res = write(function (bb) { var rr = rowIdxIn(bb, row.key); return vr ? bb.setVariant(rr, vr) : bb.renameRow(rr, nm); }, { kind: 'rename', key: row.key });
-      after(res);
+      /* 22 Nov (the owner: "I'm not able to edit the lift if it's already been entered"): a typed name changes the exercise,
+         not only its words. The lift it counts toward and its variant follow the name, and a line with lifted weeks is no
+         longer refused: it changes from this week on and the lifted weeks keep the old exercise (block.js changeExercise).
+         A name that says no lift asks once which lift it counts toward, as a new line does. */
+      if (typeof b.changeExercise !== 'function') {
+        var vr = row.lift ? variantOf(nm, row.lift) : null;
+        after(write(function (bb) { var rr = rowIdxIn(bb, row.key); return vr ? bb.setVariant(rr, vr) : bb.renameRow(rr, nm); }, { kind: 'rename', key: row.key }));
+        return;
+      }
+      var go = function (lift) {
+        var o = {}; if (lift !== undefined) o.lift = lift;
+        var res = write(function (bb) { return bb.changeExercise(rowIdxIn(bb, row.key), st.c, nm, o); }, { kind: 'rename', key: row.key });
+        after(res);
+        var nb = B(), nr = res && res.data && isNum(res.data.r) ? nb.rows[res.data.r] : null;
+        if (nr && nr.key !== row.key) setHand(nr.key, 'ex');
+        if (res && res.data && res.data.from != null && nr) { st.msg = { key: nr.key, col: 'ex', say: nr.name + ' from week ' + ((nb.weeks[res.data.from] || {}).n || res.data.from + 1) + ' on. The weeks already lifted keep ' + row.name.toLowerCase() + '.' }; paintStatus(); }
+      };
+      var lib = BL.libFind ? BL.libFind(nm) : null;
+      if (lib || liftWord(nm)) go(lib ? lib.lift : undefined); else askLift(nm, go);
     }
 
     /* the suggestion list for an exercise name (§5.6): words that start with what was typed, the day's own lift first, then
@@ -988,6 +1003,9 @@
       var own = [], seen = {}, add = function (n, lift, rank) { var k = n.toLowerCase(); if (seen[k]) return; seen[k] = 1; own.push({ name: n, lift: lift, rank: rank }); };
       b.rows.forEach(function (row) { add(row.name, row.lift, 1); });
       (BL.LIBRARY || []).forEach(function (e) { add(e.name, e.lift, 2); });
+      /* 22 Nov: the library's own search finds the short names coaches type ("cgbp", "ssb", "bss") and words inside a name;
+         those it adds come after the names the old rule found, so what was first stays first */
+      var found = BL.libSearch ? BL.libSearch(q, { block: b, limit: 8 }) : [];
       var hits = own.filter(function (x) { var ws = x.name.toLowerCase().split(/[\s-]+/); return x.name.toLowerCase().indexOf(q) === 0 || ws.some(function (w) { return w.indexOf(q) === 0; }) || (q.indexOf(' ') > 0 && x.name.toLowerCase().indexOf(q) >= 0); });
       hits.sort(function (a, z) {
         var ea = a.name.toLowerCase() === q ? 0 : 1, ez = z.name.toLowerCase() === q ? 0 : 1; if (ea !== ez) return ea - ez;
@@ -995,7 +1013,8 @@
         var pa = a.name.toLowerCase().indexOf(q) === 0 ? 0 : 1, pz = z.name.toLowerCase().indexOf(q) === 0 ? 0 : 1; if (pa !== pz) return pa - pz;
         return a.rank - z.rank || a.name.length - z.name.length;
       });
-      hits = hits.slice(0, 6);
+      found.forEach(function (e) { if (!hits.some(function (x) { return x.name.toLowerCase() === e.name.toLowerCase(); })) hits.push({ name: e.name, lift: e.lift, rank: 3 }); });
+      hits = hits.slice(0, 8);
       if (!hits.length) { hideSug(); return; }
       ed.sug = { items: hits.map(function (x) { return x.name; }), i: 0 };
       if (!sugEl) {
