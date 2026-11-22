@@ -13,9 +13,9 @@
 
 /* the evidence: a figure (26 px tall, the same on every row so the captions share a line) over one fact */
 .fg-col { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.fg { display: flex; align-items: center; gap: var(--sp-3); height: 26px; min-width: 0; color: var(--ink); }
-.fg b { flex: none; font: 700 var(--fs-head)/1 var(--font); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; letter-spacing: var(--ls-head); }
-.fg b small { margin-left: 2px; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-stretch: 100%; letter-spacing: 0; }
+span.fg { display: flex; align-items: center; gap: var(--sp-3); height: 26px; min-width: 0; color: var(--ink); }
+span.fg b { flex: none; font: 700 var(--fs-head)/1 var(--font); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; letter-spacing: var(--ls-head); }
+span.fg b small { margin-left: 2px; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-stretch: 100%; letter-spacing: 0; }
 .fg-cap { min-width: 0; color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* pain out of ten: ten marks, lit to how bad it is */
 .fg-sev .m { display: grid; grid-template-columns: repeat(10, 7px); gap: 3px; flex: none; }

@@ -115,7 +115,8 @@ body::before {
 .side .find kbd { margin-left: auto; font: 500 var(--fs-label)/1 var(--font); color: var(--ink-3); }
 .side nav { display: flex; flex-direction: column; gap: 2px; }
 /* the places come in three groups, set apart by space: the day's work, the people side, then the tool */
-.side nav + nav { margin-top: var(--sp-4); }
+/* 22 Nov (owner: "awkward gaps"): the places are one list, evenly spaced; the 16 px break after Meets read as a mistake */
+.side nav + nav { margin-top: 2px; }
 .side .it {
   position: relative; display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 40px; padding: 0 var(--it-pad);
   border: 0; border-radius: var(--r-row); background: transparent; color: var(--ink-2); text-decoration: none; text-align: left; cursor: pointer;
@@ -177,7 +178,7 @@ body::before {
   .side .find:hover { background: var(--fill-2); }
 }
 .side .it:active, .side .find:active, .side .me:active, .side .pin:active { transform: scale(var(--press)); }
-@media (max-height: 700px) { .side .it { min-height: 36px; } .side nav + nav { margin-top: var(--sp-3); } .side .find { margin-bottom: var(--sp-2); } }
+@media (max-height: 700px) { .side .it { min-height: 36px; }   .side .find { margin-bottom: var(--sp-2); } }
 @media (prefers-reduced-motion: reduce) { .side, .side::after, .side .it::before, .side * { transition-duration: 1ms !important; transition-delay: 0ms !important; } }
 
 /* the toolbar: a solid band across the content's top in the floor's own colour, 56 px (--edge-h); a 16 px fade of the
