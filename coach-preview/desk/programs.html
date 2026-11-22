@@ -350,6 +350,8 @@
      wears faces, as every list of people on the desk does. */
   .ql .qrow.has-ph { grid-template-columns: 32px minmax(0, 1fr) auto; grid-template-areas: 'p n e' 'p t t'; column-gap: var(--sp-3); }
   .ql .qrow.has-ph > .ph { grid-area: p; align-self: center; }
+  .ph.ph-team { display: inline-grid; place-items: center; background: var(--fill-2); color: var(--ink-2); }
+  .ph.ph-team svg { width: 16px; height: 16px; }
   .ql .qrow .why .t { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 22px; }
   .ql .qrow .why .tg { display: inline-block; max-width: none; margin-left: var(--sp-1); padding: 0 7px; line-height: 18px; vertical-align: 1px; }
   .ql .lrow.qrow { min-height: 64px; }
@@ -382,7 +384,7 @@
   @media (hover: hover) and (pointer: fine) { .hd-words .btn.is-main:hover:not(:disabled) { background: var(--ink-2); } }
   /* the block as a strip: one mark a week */
   .wb-blk { display: inline-flex; align-items: center; gap: 3px; flex: none; }
-  .wb-wk { position: relative; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 8px; background: var(--fill); color: var(--ink-3); font: 600 var(--fs-cap)/1 var(--font); font-variant-numeric: tabular-nums; cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out); }
+  .wb-wk { position: relative; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--sp-2); background: var(--fill); color: var(--ink-3); font: 600 var(--fs-cap)/1 var(--font); font-variant-numeric: tabular-nums; cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out); }
   .wb-wk::after { content: ''; position: absolute; inset: -7px -1px; }
   .wb-wk[data-st='lifted'] { background: var(--up-tint); color: var(--up); }
   .wb-wk[data-st='now'] { background: var(--fill-3); color: var(--ink); }
@@ -615,7 +617,8 @@
     /* when the week must go by (P19): "Due Thu", "Due today" in --warn (one tone a row: a toned flag keeps it ink) */
     var due = r.group === 'todo' && r.dueText ? r.dueText : null, warn = due === 'Due today' && !(r.flag && /^t-(pain|meet|msg)$/.test(r.flag.tone || ''));
     var end = due ? '<span class="ctx' + (warn ? ' tw tone-warn' : '') + '" data-fact="due">' + esc(due) + '</span>' : nx && nx.out ? '<span class="ctx" data-fact="context"' + (nx.outTitle ? ' title="' + esc(nx.outTitle) + '"' : '') + '>' + esc(nx.out) + '</span>' : r.day ? '<span class="ctx" data-fact="context">' + esc(r.day) + '</span>' : '';
-    var face = DESK.photo(r.lifterId ? (Kl(r.lifterId) || { name: name }) : { name: name }, 32);
+    /* a team's row wears the Teams mark, never initials that read as a person's (Meet team and Mei Tanaka are both "MT") */
+    var face = r.teamId ? '<span class="ph ph-team" style="--s:32px" aria-hidden="true">' + DESK.ic('teams') + '</span>' : DESK.photo(r.lifterId ? (Kl(r.lifterId) || { name: name }) : { name: name }, 32);
     return '<div class="lrow two qrow' + (face ? ' has-ph' : '') + '" role="option" tabindex="-1" data-row="' + esc(id) + '"' + (open ? ' aria-current="true" aria-selected="true"' : ' aria-selected="false"') + '>' + face +
       '<span class="nm" data-fact="name" data-ellipsis title="' + esc(name) + '">' + esc(name) + '</span>' + end +
       '<span class="why" data-fact="reason"><span class="t" data-ellipsis title="' + esc(title) + '">' + t + '</span></span></div>';

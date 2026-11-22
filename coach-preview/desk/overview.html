@@ -57,7 +57,7 @@
   .mid { --rh: 52px; }
   .need { --fig-w: 248px; --fix-w: 232px; --more-w: 32px; }
   .need .lrow { grid-template-columns: 40px minmax(0, 1fr) var(--fig-w) var(--fix-w) var(--more-w); column-gap: var(--sp-4); min-height: 72px; padding-top: var(--sp-3); padding-bottom: var(--sp-3); }
-  @media (max-width: 1280px) { .need { --fig-w: 200px; --fix-w: 204px; } .need .lrow { column-gap: var(--sp-3); } }
+  @media (max-width: 1280px) { .need { --fig-w: 208px; --fix-w: 196px; } .need .lrow { column-gap: var(--sp-3); } }
   @media (max-width: 1100px) { .need { --fig-w: 0px; } .need .lrow { grid-template-columns: 40px minmax(0, 1fr) var(--fix-w) var(--more-w); } .need .lrow .fg-col { display: none; } }
   .need .list { padding: var(--sp-2); }
   .need .lrow.c2 { grid-template-columns: 40px minmax(0, 1fr); }
@@ -399,7 +399,7 @@
   function figOf(x) {
     var it = itemOf(x), ev = (it && it.ev) || [], by = function (t) { return ev.filter(function (e) { return e.t === t; })[0]; };
     var ty = x.reason ? x.reason.type : '', ctx = x.context ? cap1(x.context) : '', e, g, s;
-    if (ty === 'pain') { e = by('pain'); var r = e && e.reports && e.reports[0]; return { h: figSev(r ? r.sev : null), cap: r ? ctx : 'Not rated yet. ' + ctx }; }
+    if (ty === 'pain') { e = by('pain'); var r = e && e.reports && e.reports[0]; return { h: figSev(r ? r.sev : null), cap: r ? ctx : 'Not rated. ' + ctx }; }
     if (ty === 'weight' || ty === 'meetday') { g = data(PL.lifters.get(x.id)); if (g && g.bw && g.bw.over > 0) return { h: figOver(g.bw.over), cap: n(g.bw.now) + ' kg, ' + (g.bw.cls || '') + ' class, ' + (ty === 'meetday' ? 'today' : String(x.context || '')) }; }
     if ((e = by('weekdays'))) return { h: figWeek([e.to], [e.from]), cap: (e.name ? e.name + ', ' : '') + ctx.toLowerCase() };
     if ((e = by('plan2'))) return { h: figWeek(e.rows.map(function (r) { return r[0]; }), []), cap: ctx };
