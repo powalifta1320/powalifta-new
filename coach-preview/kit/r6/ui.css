@@ -651,11 +651,16 @@ textarea.input { height: auto; min-height: 76px; max-height: 40vh; padding: var(
 .mi small { display: block; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
 .mi .mi-t { min-width: 0; }
 .mi .mi-t b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the key that does the same, said at the end of the item (22 Nov) */
+.mi:has(> .mi-k) { grid-template-columns: minmax(0, 1fr) auto; }
+.mi > .mi-k { color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); letter-spacing: .04em; white-space: nowrap; }
 .mi.is-red { color: var(--pain); }
 .mi:disabled { background: none; color: var(--ink-4); cursor: default; }
 .mi .ck { width: 16px; height: 16px; color: transparent; }
 .mi[aria-checked='true'] .ck, .mi.is-cur .ck { color: var(--ink); }
 .mi.is-hi { background: var(--fill-2); }
+/* with a pointer a menu is read, not thumbed: its rows sit closer (22 Nov; a line's menu was 580 px tall) */
+@media (hover: hover) and (pointer: fine) { .mi { min-height: 34px; padding-top: 2px; padding-bottom: 2px; border-radius: var(--sp-2); font-size: var(--fs-label); } .mi small { font-size: var(--fs-cap); } }
 .mi:focus-visible { outline-offset: -2px; }
 .mn-sep { height: 1px; margin: var(--sp-1) var(--sp-3); background: var(--line); }
 @media (hover: hover) and (pointer: fine) { .mi:hover:not(:disabled) { background: var(--fill-2); } }

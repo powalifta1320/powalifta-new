@@ -42,9 +42,42 @@ t('a line with nothing lifted takes the new exercise: name, lift and variant', (
   ok(res && !res.error, res && res.error && res.error.message);
   const x = byKey(b, key);
   eq([x.name, x.lift, x.variant], ['Front squat', 'squat', 'Competition']);
-  eq(texts(b, b.rows.indexOf(x)), before, 'its sets stay as written');
+  /* 22 Nov: the sets, reps and RPE stay; the kilos typed for the old movement do not follow it to a new one */
+  const strip = (t) => t.replace(/\s*\d+(\.\d+)?kg$/, '');
+  eq(texts(b, b.rows.indexOf(x)).map(strip), before.map(strip), 'its sets, reps and RPE stay as written');
+  const open = b.weeks.map((w, c) => !b.isRO(b.rows.indexOf(x), c) && !(x.cells[w.uid] && x.cells[w.uid].lifted));   /* a session already trained keeps what was on the bar */
+  ok(texts(b, b.rows.indexOf(x)).every((t, c) => !open[c] || !/kg$/.test(t)), 'the loads typed for the old exercise are gone from the weeks still to write');
+  ok(res.data.cleared >= 1, 'and the move says how many');
   b.undo();
   eq(byKey(b, key).lift, null, 'undo puts the old exercise back');
+  eq(texts(b, r), before, 'with its loads');
+});
+t('a squat that becomes another squat keeps its typed loads', () => {
+  const b = free(), r = b.rows.findIndex((x) => x.lift === 'squat' && x.line === 0);
+  const c = b.weeks.findIndex((w, k) => !b.isRO(r, k)); b.setField(r, c, 'load', '100');
+  const key = b.rows[r].key, res = b.changeExercise(r, c, 'Tempo squat');
+  ok(res && !res.error, res && res.error && res.error.message);
+  ok(/100kg$/.test(texts(b, b.rows.indexOf(byKey(b, key)))[c]), 'the same lift, the same max: the kilos stay');
+});
+t('a duplicated day and a new day take a free weekday, never another day’s date', () => {
+  const b = free(), day = b.days[0].name, used = b.days.map((d) => d.wd).filter((x) => x != null);
+  if (!used.length) return;   /* a block that keeps no weekdays has none to give */
+  const nd = b.duplicateDay(day).data.day, wd = b.days.find((d) => d.name === nd).wd;
+  ok(wd != null && used.indexOf(wd) < 0, 'a weekday no other day trains on: ' + wd);
+  const dates = b.daysOf(0).map((d) => d.iso);
+  eq(new Set(dates).size, dates.length, 'every day of the week on its own date');
+  const ad = b.addDay().data.day, wd2 = b.days.find((d) => d.name === ad).wd;
+  ok(wd2 == null || (used.concat([wd]).indexOf(wd2) < 0), 'the added day too');
+});
+t('a week copied with the weekly step steps the main lifts and says which', () => {
+  const b = free(), r = b.rows.findIndex((x) => x.lift === 'squat' && x.line === 0);
+  b.setField(r, 0, 'load', '100'); b.rows[r].prog = 'same';
+  const acc = b.rows.findIndex((x) => !x.lift && x.line === 0 && x.cells[b.weeks[0].uid]); b.rows[acc].prog = 'same'; b.setField(acc, 0, 'load', '40');
+  const res = b.copyWeek(0, 1, {});
+  ok(/100kg|102\.5kg/.test(texts(b, r)[0]), 'the week copied from is untouched');
+  ok(/102\.5kg$/.test(texts(b, r)[1]), 'squat is 2.5 on: ' + texts(b, r)[1]);
+  ok(/40kg$/.test(texts(b, acc)[1]), 'an accessory stays as written: ' + texts(b, acc)[1]);
+  ok(res.data.stepped.some((x) => x.name === b.rows[r].name && x.kg === 102.5) && res.data.same >= 1, 'the move lists what stepped and counts what did not');
 });
 t('a main lift changed to another lift takes every line with it', () => {
   const b = free(), r = b.rows.findIndex((x) => x.lift === 'squat' && x.variant === 'Competition' && x.line === 0);

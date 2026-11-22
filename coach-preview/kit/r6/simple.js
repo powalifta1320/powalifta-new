@@ -62,8 +62,9 @@
       return '<span class="sv-c-' + f[0] + '">' + inp + '</span>';
     }
     function noteHtml(bb, r, label) {
-      var row = bb.rows[r], note = bb.fieldText(r, ci, 'note') || '', ro = bb.isRO(r, ci);
-      return '<span class="sv-c-note"><input class="sv-in sv-note" type="text" maxlength="160" autocomplete="off" data-sv-field="note" data-f="' + esc(row.key + '|note') + '" data-v="' + esc(note) + '" value="' + esc(note) + '"' + (ro ? ' disabled' : ' placeholder="Add a note"') + ' aria-label="' + esc('Note for ' + first + ' on ' + row.name + (label ? ', ' + label : '')) + '"></span>';
+      var row = bb.rows[r], note = bb.fieldText(r, ci, 'note') || '', ro = bb.isRO(r, ci), cue = !note && row.note ? String(row.note) : '';
+      /* the line's standing cue (shown to the lifter every week) reads where this week's own note would go, until one is written */
+      return '<span class="sv-c-note' + (cue ? ' has-cue' : '') + '"' + (cue ? ' title="' + esc('Every week: ' + cue + ' A note typed here is for this week only.') + '"' : '') + '><input class="sv-in sv-note" type="text" maxlength="160" autocomplete="off" data-sv-field="note" data-f="' + esc(row.key + '|note') + '" data-v="' + esc(note) + '" value="' + esc(note) + '"' + (ro ? (cue ? ' disabled placeholder="' + esc(cue) + '"' : ' disabled') : ' placeholder="' + esc(cue || 'Add a note') + '"') + ' aria-label=""' + esc('Note for ' + first + ' on ' + row.name + (label ? ', ' + label : '')) + '"></span>';
     }
     function lastHtml(bb, r) {
       var row = bb.rows[r], w = bb.weeks[ci], lw = bb.lastWeek ? bb.lastWeek(r, ci) : null;
@@ -218,7 +219,7 @@
         var res = apply(function (bb) {
           var rr = ixIn(bb, key); if (rr < 0) return gone();
           var r2 = bb.changeExercise(rr, ci, e.name, { lift: e.lift, variant: e.variant || undefined });
-          if (r2 && !r2.error && r2.data && r2.data.changed !== false) { var x = bb.rows[r2.data.r] || bb.rows[ixIn(bb, key)], now = x ? x.name : e.name; oo.say = r2.data.from != null ? now + ' from week ' + weekNo(bb, r2.data.from) + ' on. The weeks already lifted keep ' + low1(old) + '.' : old + ' is now ' + low1(now) + '.'; }
+          if (r2 && !r2.error && r2.data && r2.data.changed !== false) { var x = bb.rows[r2.data.r] || bb.rows[ixIn(bb, key)], now = x ? x.name : e.name; oo.say = (r2.data.from != null ? now + ' from week ' + weekNo(bb, r2.data.from) + ' on. The weeks already lifted keep ' + low1(old) + '.' : old + ' is now ' + low1(now) + '.') + (r2.data.cleared ? ' The kilos typed for ' + low1(old) + ' are cleared: give ' + low1(now) + ' its own.' : ''); }
           return r2;
         }, 'Change ' + low1(old), oo);
         if (!res || res.error || !res.data || res.data.changed === false) { var again = byF(key + '|name'); if (again) again.focus(); return; }

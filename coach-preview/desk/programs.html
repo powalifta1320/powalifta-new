@@ -793,7 +793,7 @@
       (simple ? '' : '<div class="seg seg-sub" role="group" aria-label="Sheet"><button type="button" data-view="week" aria-pressed="' + (st.view === 'week') + '" title="The week in rows">Week</button><button type="button" data-view="block" aria-pressed="' + (st.view === 'block') + '" title="The whole block, weeks across">Block</button></div>') : '') +
       (folded ? '<h1 class="tb-h1" id="ttl-tb"><button type="button" data-unfold title="Back to the top of ' + esc(cur.l.name) + '"><span data-ellipsis title="' + esc(cur.l.name) + '">' + esc(cur.l.name) + '</span></button></h1>' : '');
     var pr = primaryFor(), h = '';
-    if (cur && cur.id && cur.b && cur.kind !== 'start' && cur.kind !== 'runin') h += '<button class="btn icon quiet" type="button" data-prog-menu data-more aria-haspopup="menu" aria-label="Program moves" title="Program moves">' + K.ic('more', 2.2) + '</button>';
+    if (cur && cur.id && cur.b && cur.kind !== 'start' && cur.kind !== 'runin') h += '<button class="btn icon quiet" type="button" data-prog-menu data-more aria-haspopup="menu" aria-label="Program menu" title="Import a sheet, export, templates, rules">' + K.ic('more', 2.2) + '</button>';
     if (st.tab === 'templates' && cur && cur.tpl && cur.tpl.starter && PL.templates && fn(PL.templates, 'save')) h += '<button class="btn icon quiet" type="button" data-starter-menu data-more aria-haspopup="menu" aria-label="' + esc(cur.tpl.name) + ' moves" title="Starter moves">' + K.ic('more', 2.2) + '</button>';
     if (st.tab === 'templates' && cur && cur.tpl && !cur.tpl.starter && PL.templates && fn(PL.templates, 'duplicate')) h += '<button class="btn icon quiet" type="button" data-tpl-menu data-more aria-haspopup="menu" aria-label="' + esc(cur.tpl.name) + ' moves" title="Template moves">' + K.ic('more', 2.2) + '</button>';
     if (cur && cur.l && cur.b && (cur.kind === 'week' || cur.kind === 'change' || cur.kind === 'recovery')) h += '<button class="btn quiet" type="button" data-preview>Preview as ' + esc(cur.l.first) + '</button>';
@@ -1316,7 +1316,7 @@
     if (meetWeek && kind !== 'Meet week') out += '<span class="wb-o">Meet week</span>'; else if (fo && mt && mt <= 16 && kind !== 'Meet week' && said.indexOf(fo.text) < 0) out += '<span class="wb-o" title="' + esc(fo.title) + '">' + esc(fo.text) + '</span>';
     /* 22 Nov: Undo and Redo are two buttons on the week bar in every view (they were keys only, and a pair hidden in Simple) */
     var canEdit = w && w.state !== 'lifted' && cur.kind !== 'change';
-    var menuBtn = '<span class="wb-end">' + (canEdit ? '<button class="btn icon quiet sm" type="button" data-wk-undo aria-label="Undo" title="Undo (⌘Z)">' + UNDO_IC + '</button><button class="btn icon quiet sm" type="button" data-wk-redo aria-label="Redo" title="Redo (⇧⌘Z)">' + REDO_IC + '</button><i class="wb-rule" aria-hidden="true"></i>' : '') +
+    var menuBtn = '<span class="wb-end">' + (canEdit ? '<button class="btn icon quiet sm" type="button" data-wk-undo aria-label="Undo" title="Undo (⌘Z)">' + UNDO_IC + '</button><button class="btn icon quiet sm" type="button" data-wk-redo aria-label="Redo" title="Redo (⇧⌘Z)">' + REDO_IC + '</button><button class="btn icon quiet sm" type="button" data-wk-copy aria-haspopup="menu" aria-label="Copy this week onto another" title="Copy this week onto another week">' + COPY_IC + '</button><i class="wb-rule" aria-hidden="true"></i>' : '') +
       '<button class="btn icon quiet sm" type="button" data-week-menu data-more aria-haspopup="menu" aria-label="' + esc(weekName(b, c)) + ' menu" title="Copy, duplicate, deload, add a day">' + K.ic('more', 2.2) + '</button></span>';
     if (unread) notes += '<button class="link is-stop" type="button" data-fix title="It stops the send until it reads">' + esc(plural(unread, 'cell') + ' to fix') + '</button>';
     if (src) notes += '<button class="link" type="button" data-changes aria-haspopup="dialog">' + esc(src) + '</button>';
@@ -1334,6 +1334,7 @@
     if (later.length) notes += '<button class="link" type="button" data-later="' + later[0].n + '">' + esc((later.length === 1 ? 'Week ' + later[0].n : 'Weeks ' + K.list(later.map(function (x) { return x.n; }), 9)) + ': ' + later.reduce(function (a, x) { return a + x.check; }, 0) + ' to check') + '</button>';
     return '<div class="wb" data-crop="weekbar"><div class="wb-r1">' + out + '</div>' + (notes ? '<div class="wb-r2">' + notes + '</div>' : '') + menuBtn + '</div>';
   }
+  var COPY_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V7a2.5 2.5 0 0 0-2.5-2.5H7A2.5 2.5 0 0 0 4.5 7v6A2.5 2.5 0 0 0 7 15.5h1.5"/></svg>';
   var UNDO_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8h7a5 5 0 0 1 0 10H9M8 8l3.5-3.5M8 8l3.5 3.5"/></svg>';
   var REDO_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 8H9a5 5 0 0 0 0 10h6M16 8l-3.5-3.5M16 8l-3.5 3.5"/></svg>';
   /* Undo and Redo from the week bar: the grid in hand walks its own history (a lifter's week: the store's) and the bars follow */
@@ -2435,7 +2436,19 @@
     if (!cur || !cur.b) return;
     var b = cur.b, c = cur.c, w = b.weeks[c], n = w ? w.n || c + 1 : c + 1, lifted = w && w.state === 'lifted', first = cur.l.first;
     var wn = b.weekName(c);
-    var earlier = []; for (var k = c - 1; k >= 0; k--) { (function (k) { earlier.push({ id: 'fill-' + k, label: b.weekName(k) + ' as written', run: function () { gridApply(function (bb) { return bb.writeFrom(c, { from: k, same: true }); }, null, { say: wn + ' filled from ' + low1(b.weekName(k)) + ', as written.' }); } }); if (k === c - 1) earlier.push({ id: 'step-' + k, label: b.weekName(k) + ', one step on', run: function () { gridApply(function (bb) { return bb.writeFrom(c, { from: k }); }, null, { say: wn + ' filled from ' + low1(b.weekName(k)) + ', one step on.' }); } }); })(k); }
+    /* 22 Nov: a week copied "with the weekly step" says what stepped (a cold review: "the toast said done; week 6 read
+       the same as week 5"). The step is each line's own Each-week rule, and the coach's own kilos on a squat, bench or
+       deadlift line that has none (block.js stepCell). */
+    var stepSay = function (res, head) {
+      var d = (res && res.data) || {}, st0 = (d.stepped || []).filter(function (x) { return !x.line; });
+      if (!st0.length) return head + ' Nothing stepped: no line has a weekly step. Give one from its menu (Each week).';
+      return head + ' ' + K.list(st0.slice(0, 4).map(function (x) { return x.name + (x.kg != null ? ' ' + nf(x.kg) : ''); }), 4) + (st0.length > 4 ? ' and ' + (st0.length - 4) + ' more' : '') + ' stepped; ' + (d.same ? plural(d.same, 'line') + ' as written.' : 'nothing else changed.');
+    };
+    var copyOnto = function (from, to, same) {
+      var oo = { warn: true }, fromN = b.weekName(from), toN = b.weekName(to);
+      return gridApply(function (bb) { var res = bb.copyWeek(from, to, same ? { same: true } : {}); if (res && !res.error) oo.say = same ? toN + ' is ' + low1(fromN) + ', as written.' : stepSay(res, toN + ' is ' + low1(fromN) + ' with the weekly step.'); return res; }, null, oo);
+    };
+    var earlier = []; for (var k = c - 1; k >= 0; k--) { (function (k) { earlier.push({ id: 'fill-' + k, label: b.weekName(k) + ', as written', run: function () { copyOnto(k, c, true); } }); if (k === c - 1) earlier.push({ id: 'step-' + k, label: b.weekName(k) + ', with the weekly step', run: function () { copyOnto(k, c, false); } }); })(k); }
     var dk = (BL.DELOADS || []).map(function (d) { return { id: 'dl-' + d.id, label: d.label, run: function () { gridApply(function (bb) { return bb.deload(c, d.id); }, null, { say: wn + ' is a deload: ' + low1(d.label) + '.' }); } }; });
     if (w && w.deload) dk.push({ id: 'dl-back', label: 'Back to normal', run: function () { gridApply(function (bb) { return bb.undeload(c); }, null, { say: wn + ' back to normal.' }); } });
     var items = [];
@@ -2446,8 +2459,8 @@
       var onto = [];
       b.weeks.forEach(function (x, k) {
         if (k === c || x.state === 'lifted') return;
-        onto.push({ id: 'cp-' + k, label: b.weekName(k) + ', as written', run: function () { gridApply(function (bb) { return bb.copyWeek(c, k, { same: true }); }, null, { say: wn + ' copied onto ' + low1(b.weekName(k)) + ', as written.', warn: true }); } });
-        if (k > c) onto.push({ id: 'cps-' + k, label: b.weekName(k) + ', one step on', run: function () { gridApply(function (bb) { return bb.copyWeek(c, k, {}); }, null, { say: wn + ' copied onto ' + low1(b.weekName(k)) + ', one step on.', warn: true }); } });
+        onto.push({ id: 'cp-' + k, label: b.weekName(k) + ', as written', run: function () { copyOnto(c, k, true); } });
+        if (k > c) onto.push({ id: 'cps-' + k, label: b.weekName(k) + ', with the weekly step', run: function () { copyOnto(c, k, false); } });
       });
       if (onto.length) items.push({ id: 'copyto', label: 'Copy this week onto', subs: onto });
       var nextW = b.weeks[c + 1], canDup = !nextW || nextW.state === 'next';
@@ -2473,7 +2486,9 @@
     items.push({ sep: true });
     items.push({ id: 'clear', label: 'Clear the week', red: true, disabled: lifted, run: function () { gridApply(function (bb) { return bb.clearWeek(c); }, null, { say: wn + ' cleared.' }); } });
     if (c === b.weeks.length - 1 && w && w.state === 'next' && b.weeks.length > 1) items.push({ id: 'rm', label: 'Remove ' + low1(wn), red: true, run: function () { var res = gridApply(function (bb) { return bb.removeWeek(c); }, null, { say: wn + ' removed.' }); if (res && !res.error) stepWeek(-1); } });
-    menu(btn, items, { title: weekName(b, c), label: weekName(b, c) + ' moves' });
+    /* the week bar's own Copy button opens just the copies (the cold review: "everything useful is behind the dots") */
+    if (btn && btn.hasAttribute && btn.hasAttribute('data-wk-copy')) { var cp = (items.filter(function (x) { return x.id === 'copyto'; })[0] || {}).subs || []; var dup = items.filter(function (x) { return x.id === 'dupw'; })[0]; if (dup) cp = cp.concat([{ sep: true }, dup]); if (!cp.length) { DESK.toast('There is no other week to copy onto yet. Add one from the week menu.'); return; } menu(btn, cp, { title: 'Copy ' + low1(weekName(b, c)) + ' onto', label: 'Copy this week onto' }); return; }
+    menu(btn, items, { title: weekName(b, c), label: weekName(b, c) + ' menu' });
   }
   function planTaper(m) { var tp = null; try { tp = BL.taper(cur.b, m.date, { c: cur.c }); } catch (e) { tp = null; } if (!tp || !tp.block) { DESK.toast('The taper could not be planned.'); return; } cur.p = tp; cur.b = tp.block; cur.fresh = true; cur.sendC = tp.c != null ? tp.c : cur.c; paintAll({ focus: true }); }
   function sendAll(ns) {
@@ -2508,7 +2523,7 @@
     var wds = DAYS.map(function (nm, i) { return { id: 'wd-' + i, label: nm, run: function () { var x = K.add(st0, (i - dt(st0).getDay() + 7) % 7); gridApply(function (bb) { return bb.moveDay(c, day, x, { scope: 'on' }); }, null, { say: dn + ' on ' + nm + 's from ' + wn + '.' }); } }; });
     var items = [{ id: 'mvw', label: 'Move this week', subs: dates }, { id: 'mve', label: 'Move every week', subs: wds },
       { id: 'ren', label: 'Rename', run: function () { var bt = cellDay(day); if (bt) bt.click(); } },
-      { id: 'dupd', label: 'Duplicate the day', run: function () { gridApply(function (bb) { return fn(bb, 'duplicateDay') ? bb.duplicateDay(day) : { error: { message: 'This block cannot copy a day.' } }; }, null, { say: dn + ' duplicated. Give the copy its date from its moves.' }); } },
+      { id: 'dupd', label: 'Duplicate the day', run: function () { var oo = {}; gridApply(function (bb) { if (!fn(bb, 'duplicateDay')) return { error: { message: 'This block cannot copy a day.' } }; var res = bb.duplicateDay(day); if (res && !res.error && res.data) { var di = bb.dateOf(c, res.data.day); oo.say = dn + ' duplicated as ' + low1(sentence(res.data.day)) + (di ? ', on ' + dShort(di) : '') + '. Move it from its menu.'; } return res; }, null, oo); } },
       { id: 'addx', label: 'Add an exercise', run: function () { if (cur.grid) { cur.grid.select('+' + day, 'ex'); cur.grid.focus(); } } }];
     others.forEach(function (o) { items.push({ id: 'merge-' + o.name, label: 'Merge with ' + sentence(o.name) + ' this week', run: function () { var lim = Kl(cur.id) && Kl(cur.id).intake ? Kl(cur.id).intake.sessionMinutes : null; gridApply(function (bb) { return bb.mergeDays(c, [day, o.name], { into: iso, minutes: lim || 60 }); }, null, { say: dn + ' and ' + low1(sentence(o.name)) + ' are one session this week.' }); } }); });
     others.forEach(function (o) { var oi = b.dateOf(c, o.name); if (!oi) return; items.push({ id: 'swap-' + o.name, label: 'Swap with ' + DAYS[dt(oi).getDay()], run: function () { gridApply(function (bb) { return bb.swapDays(c, day, o.name); }, null, { say: dn + ' and ' + low1(sentence(o.name)) + ' swapped dates this week.' }); } }); });
@@ -2517,7 +2532,7 @@
     items.push({ sep: true });
     var liftedAny = b.rows.some(function (row) { return row.day === day && b.weeks.some(function (x, k2) { return x.state === 'lifted' && row.cells[x.uid]; }); });
     items.push({ id: 'del', label: 'Delete the day', red: true, disabled: liftedAny, sub: liftedAny ? 'It has lifted sessions.' : '', run: function () { gridApply(function (bb) { return bb.removeDay(day); }, null, { say: dn + ' deleted.' }); } });
-    menu(btn, items, { title: sentence(day), label: sentence(day) + ' moves' });
+    menu(btn, items, { title: sentence(day), label: sentence(day) + ' menu' });
   }
   /* the picker from a line's moves (kit/r6/picker.js): the line becomes the exercise chosen. Weeks already lifted keep the
      old one, and the words say so */
@@ -2529,7 +2544,7 @@
       gridApply(function (bb) {
         var r = rowIx(bb, key); if (r < 0) return { error: { message: 'That line is gone.' } };
         var res = bb.changeExercise(r, c, e.name, { lift: e.lift, variant: e.variant || undefined });
-        if (res && !res.error && res.data && res.data.changed !== false) { var nr = bb.rows[res.data.r] || bb.rows[rowIx(bb, key)], now = nr ? nr.name : e.name; oo.say = res.data.from != null ? now + ' from week ' + ((bb.weeks[res.data.from] || {}).n || res.data.from + 1) + ' on. The weeks already lifted keep ' + low1(old) + '.' : old + ' is now ' + low1(now) + '.'; }
+        if (res && !res.error && res.data && res.data.changed !== false) { var nr = bb.rows[res.data.r] || bb.rows[rowIx(bb, key)], now = nr ? nr.name : e.name; oo.say = (res.data.from != null ? now + ' from week ' + ((bb.weeks[res.data.from] || {}).n || res.data.from + 1) + ' on. The weeks already lifted keep ' + low1(old) + '.' : old + ' is now ' + low1(now) + '.') + (res.data.cleared ? ' The kilos typed for ' + low1(old) + ' are cleared: give ' + low1(now) + ' its own.' : ''); }
         return res;
       }, 'Change ' + low1(old), oo);
     } });
@@ -2552,12 +2567,14 @@
     /* 22 Nov (the owner: "I'm not able to edit the lift if it's already been entered"): every line's exercise can be
        changed from its moves, in every view, and a line can be duplicated or sent to another day */
     if (W.PICK && fn(b, 'changeExercise')) items.unshift({ id: 'chg', label: 'Change the exercise…', run: function () { changeExercisePop(row, btn); } });
-    if (fn(b, 'duplicateRow')) items.push({ id: 'dup', label: row.line ? 'Duplicate this line' : 'Duplicate', run: function () { gridApply(function (bb) { return bb.duplicateRow(rowIx(bb, row.key)); }, null, { say: nm + ' duplicated.' }); } });
+    if (fn(b, 'duplicateRow')) items.push({ id: 'dup', label: row.line ? 'Duplicate this line' : 'Duplicate', key: '⌘D', run: function () { gridApply(function (bb) { return bb.duplicateRow(rowIx(bb, row.key)); }, null, { say: nm + ' duplicated.' }); } });
+    items.push({ sep: true });
     items.push({ id: 'each', label: 'Each week', subs: progs });
     items.push({ id: 'swapw', label: 'Swap this week only…', run: function () { swapPop(row, c, 'week', btn); } });
     items.push({ id: 'swapf', label: 'Swap from this week on…', run: function () { swapPop(row, c, 'on', btn); } });
-    items.push({ id: 'up', label: 'Move up', run: function () { gridApply(function (bb) { return fn(bb, 'moveRow') ? bb.moveRow(rowIx(bb, row.key), 'up') : { error: { message: 'That line is first already.' } }; }, null, { say: nm + ' moved up.' }); } });
-    items.push({ id: 'down', label: 'Move down', run: function () { gridApply(function (bb) { return fn(bb, 'moveRow') ? bb.moveRow(rowIx(bb, row.key), 'down') : { error: { message: 'That line is last already.' } }; }, null, { say: nm + ' moved down.' }); } });
+    items.push({ sep: true });
+    items.push({ id: 'up', label: 'Move up', key: '⌥⇧↑', run: function () { gridApply(function (bb) { return fn(bb, 'moveRow') ? bb.moveRow(rowIx(bb, row.key), 'up') : { error: { message: 'That line is first already.' } }; }, null, { say: nm + ' moved up.' }); } });
+    items.push({ id: 'down', label: 'Move down', key: '⌥⇧↓', run: function () { gridApply(function (bb) { return fn(bb, 'moveRow') ? bb.moveRow(rowIx(bb, row.key), 'down') : { error: { message: 'That line is last already.' } }; }, null, { say: nm + ' moved down.' }); } });
     if (fn(b, 'moveRowTo')) {
       var elsewhere = (b.daysOf ? b.daysOf(c) : b.days).filter(function (d) { return d.name !== row.day && !d.off; }).map(function (d) {
         return { id: 'to-' + d.name, label: sentence(d.name), run: function () {
@@ -2571,7 +2588,7 @@
     items.push({ id: 'out', label: 'Take it out of ' + low1(b.weekName(c)), red: true, run: function () { gridApply(function (bb) { return bb.set(rowIx(bb, row.key), c, ''); }, null, { say: nm + ' out of ' + low1(b.weekName(c)) + '.' }); } });
     var lifted = b.weeks.some(function (w) { return w.state === 'lifted' && row.cells[w.uid]; });
     items.push({ id: 'del', label: 'Delete the line', red: true, disabled: lifted, sub: lifted ? 'Lifted already' : '', run: function () { gridApply(function (bb) { return bb.removeRow(rowIx(bb, row.key)); }, null, { say: nm + ' deleted.' }); } });
-    menu(btn, items, { title: row.name, label: row.name + ' moves' });
+    menu(btn, items, { title: row.name, label: row.name + ' menu' });
   }
   /* a swap (programs.md §5.8, §6.4): this week only (the line out of the week, the new one under it with its sets), or
      from this week on (the weeks before keep the old exercise). Around an injury (first-time-coach §7.3) the box offers
@@ -3087,7 +3104,7 @@
     if ((b = t.closest('[data-tpl-menu]'))) { if (DESK.pop.justClosed(b)) return; tplMenu(b); return; }
     if ((b = t.closest('[data-starter-menu]'))) { if (DESK.pop.justClosed(b)) return; starterMenu(b); return; }
     if ((b = t.closest('[data-preview]'))) { previewSheet(); return; }
-    if ((b = t.closest('[data-week-menu]'))) { if (DESK.pop.justClosed(b)) return; weekMenu(b); return; }
+    if ((b = t.closest('[data-week-menu], [data-wk-copy]'))) { if (DESK.pop.justClosed(b)) return; weekMenu(b); return; }
     if ((b = t.closest('[data-wk-step]'))) { stepWeek(+b.getAttribute('data-wk-step')); return; }
     if ((b = t.closest('[data-later]'))) { if (cur && cur.b) goWeek(weekIndex(cur.b, +b.getAttribute('data-later'))); return; }
     if ((b = t.closest('[data-changes]'))) { if (DESK.pop.justClosed(b)) return; changesPop(b); return; }

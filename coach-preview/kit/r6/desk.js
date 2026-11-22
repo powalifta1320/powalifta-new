@@ -608,7 +608,7 @@
       var radio = it.checked != null;
       return '<button class="mi' + (it.red ? ' is-red' : '') + '" type="button" role="' + (radio ? 'menuitemradio' : 'menuitem') + '"' + (radio ? ' aria-checked="' + !!it.checked + '"' : '') +
         ' data-mi="' + i + '"' + (it.id != null ? ' data-mi-id="' + esc(it.id) + '"' : '') + (it.demo ? ' data-demo' : '') + (it.disabled ? ' disabled' : '') + (it.title ? ' title="' + esc(it.title) + '"' : '') + '>' +
-        '<span class="mi-t">' + esc(it.label) + (it.sub ? '<small>' + esc(it.sub) + '</small>' : '') + '</span>' + (radio ? DESK.ic('check', 2.4).replace('<svg', '<svg class="ck"') : '') + '</button>';
+        '<span class="mi-t">' + esc(it.label) + (it.sub ? '<small>' + esc(it.sub) + '</small>' : '') + '</span>' + (it.key ? '<kbd class="mi-k">' + esc(it.key) + '</kbd>' : '') + (radio ? DESK.ic('check', 2.4).replace('<svg', '<svg class="ck"') : '') + '</button>';
     }).join('') + '</div>';
   }
   DESK.menu = {
@@ -620,7 +620,7 @@
          (function-polish PX7): one edge on the button's, the trailing one unless the button sits in the window's left half */
       var place = o.place === 'below-start' || o.place === 'below-end' ? o.place : null;
       if (!place) { var tr = trigger.getBoundingClientRect(); place = tr.left + tr.width / 2 < document.documentElement.clientWidth / 2 ? 'below-start' : 'below-end'; }
-      var el = DESK.pop.open(trigger, menuHtml(o.title || '', menu.items), { label: o.label || o.title || 'Moves', layer: 'menu', place: place, hold: o.hold });
+      var el = DESK.pop.open(trigger, menuHtml(o.title || '', menu.items), { label: o.label || o.title || 'Menu', layer: 'menu', place: place, hold: o.hold });
       var first = el.querySelector('.mi[aria-checked="true"]:not(:disabled)') || el.querySelector('.mi:not(:disabled)');
       if (first) setTimeout(function () { first.focus({ preventScroll: true }); }, 30);
       return el;

@@ -100,6 +100,9 @@
 .sv-lk { color: var(--up-ink); }
 /* the note: words, left. While it is written it takes last week's column too, so a sentence shows whole */
 .sv-in.sv-note { font: 400 var(--fs-label)/1 var(--font); font-stretch: 100%; text-align: left; text-overflow: ellipsis; }
+/* an empty note rests lighter than a number: fifteen of them down the page are a column, not fifteen boxes */
+.sv-in.sv-note:placeholder-shown:not(:focus) { background: var(--hover); }
+.sv-c-note.has-cue .sv-in.sv-note::placeholder { color: var(--ink-3); }
 /* its prompt shows on the line under the pointer or the keys, not fifteen times down the page */
 .sv-in.sv-note::placeholder { color: transparent; font-weight: 400; }
 .sv-row:focus-within .sv-in.sv-note::placeholder { color: var(--ink-4); }
