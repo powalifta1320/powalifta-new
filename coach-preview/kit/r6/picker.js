@@ -3,7 +3,8 @@
    line's exercise is chosen or changed: Simple's lines and its add row, the line menu's "Change the exercise", and the
    import's unknown names. It writes nothing: the caller gets the exercise back and makes the change itself.
 
-     PICK.open(trigger, { value, block, c, title, place, onPick({ name, lift, variant, known }), onClose() })
+     PICK.open(trigger, { value, block, c, title, place, instant, onPick({ name, lift, variant, known }), onClose() })
+     instant: opened from the keys, so it appears without the grow.
 
    - Type to search (BLOCK.libSearch: names, the short names coaches type, first letters, a muscle). ↑ ↓ move, Enter
      takes the lit one, Esc closes. The groups stand down the side (22 Nov: they were a row of chips that wrapped): it
@@ -73,6 +74,8 @@
       '<div class="pk-l" id="' + id + '" role="listbox" aria-label="Exercises">' + build() + '</div></div></div>',
       { label: o.title || 'Choose an exercise', place: o.place, focus: '.pk-q input' });
     el.classList.add('is-pick');
+    /* opened from the keys (o.instant): there at once, no grow (the kit's own .is-cut, cleared at the next opening) */
+    if (o.instant) el.classList.add('is-cut');
     var input = el.querySelector('.pk-q input'), listEl = el.querySelector('.pk-l');
 
     function light(scroll) {

@@ -1019,6 +1019,8 @@
       else if (k === 'PageUp') { e.preventDefault(); select(st.cur.r - 8, st.cur.c, { extend: e.shiftKey }); }
       else if (k === 'PageDown') { e.preventDefault(); select(st.cur.r + 8, st.cur.c, { extend: e.shiftKey }); }
       else if (k === ' ' && e.shiftKey) { e.preventDefault(); if (st.kind === 'cell' || st.kind === 'range') selectRow(st.cur.r); }
+      /* ⇧↵ goes up a row, as in every spreadsheet and the Week grid (it opened the cell in hand) */
+      else if (k === 'Enter' && e.shiftKey && st.kind !== 'week' && st.kind !== 'band') { e.preventDefault(); go(-1, 0); }
       else if (k === 'Enter' || k === 'F2') {
         e.preventDefault();
         if (st.kind === 'week') { openWeek(st.cur.c, { r: st.cur.r }); return; }

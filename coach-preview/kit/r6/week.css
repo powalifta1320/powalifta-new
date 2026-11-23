@@ -305,3 +305,11 @@ button.add-row::after { content: ''; position: absolute; inset: -4px -8px; }   /
 .wg-gc svg { width: 14px; height: 14px; }
 .wg-gc.is-open { color: var(--ink); }
 @media (hover: hover) and (pointer: fine) { .wg-gc:hover { color: var(--ink); } }
+
+/* ---------------- 23 Nov, how it feels (MOTION.md: frequent work is immediate) ----------------
+   A line's "…" shows on the line in hand in the same frame as the cell (it faded 150 ms behind every arrow key, and
+   the line just left kept its "…" for those 150 ms). Only the pointer fades it in; leaving is instant. */
+.wg-more { transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .wg-line:hover:not(.is-hand) .wg-more, .wg-day:hover:not(:focus-within) .wg-more { transition: opacity var(--dur-hover, 120ms) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+}

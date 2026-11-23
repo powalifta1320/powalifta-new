@@ -261,3 +261,20 @@
 
 /* the sheet's own switch (Week | Block) sits a step after Simple | Advanced on the toolbar */
 .tb .seg-sub { margin-left: var(--sp-3); }
+
+/* ---------------- 23 Nov, how it feels (MOTION.md: frequent work is immediate) ----------------
+   The line in hand follows the keys in the same frame: the strip, the field and the line's grip and "…" change at once
+   when the focus arrives or leaves (they faded 150 ms behind every Tab). Only the pointer fades them in: hover keeps
+   its 150 ms, and leaving a line under the pointer is instant, so a sweep down the week leaves no trail. */
+.sv-row::before, .sv-in, .sv-grip, .sv-row > .sv-more { transition: none; }
+@media (hover: hover) and (pointer: fine) {
+  .sv-row:hover:not(:focus-within)::before { transition: background-color var(--dur-hover, 120ms) var(--ease-out); }
+  .sv-in:not(:disabled):not(:focus):hover { transition: background-color var(--dur-hover, 120ms) var(--ease-out); }
+  .sv-row:hover:not(:focus-within) .sv-grip, .sv-row:hover:not(:focus-within) > .sv-more { transition: opacity var(--dur-hover, 120ms) var(--ease-out), background-color var(--dur-hover, 120ms) var(--ease-out), color var(--dur-hover, 120ms) var(--ease-out); }
+}
+/* hit areas (Fitts; MOTION.md: 32 px and more on the laptop, the padding doing the work): a line's grip and "…", a
+   day's "…" and the add row reach past what they show; nothing moves at rest */
+.sv-more, .sv-grip, .sv-add { position: relative; }
+.sv-more::after { content: ''; position: absolute; inset: -4px; }
+.sv-grip::after { content: ''; position: absolute; inset: -3px -5px; }
+.sv-add::after { content: ''; position: absolute; inset: -3px 0; }

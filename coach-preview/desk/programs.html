@@ -22,12 +22,12 @@
      never answered from an old copy. Change the number whenever one of these files changes. -->
 <link rel="stylesheet" href="../kit/r6/tokens.css">
 <link rel="stylesheet" href="../kit/r6/glass.css">
-<link rel="stylesheet" href="../kit/r6/ui.css?v=1122d">
-<link rel="stylesheet" href="../kit/r6/week.css?v=1122d">
-<link rel="stylesheet" href="../kit/r6/sheet.css?v=1122d">
-<link rel="stylesheet" href="../kit/r6/simple.css?v=1122d">
-<link rel="stylesheet" href="../kit/r6/picker.css?v=1122d">
-<link rel="stylesheet" href="../kit/r6/importer.css?v=1122d">
+<link rel="stylesheet" href="../kit/r6/ui.css?v=1123f">
+<link rel="stylesheet" href="../kit/r6/week.css?v=1123f">
+<link rel="stylesheet" href="../kit/r6/sheet.css?v=1123f">
+<link rel="stylesheet" href="../kit/r6/simple.css?v=1123f">
+<link rel="stylesheet" href="../kit/r6/picker.css?v=1123f">
+<link rel="stylesheet" href="../kit/r6/importer.css?v=1123f">
 <link rel="stylesheet" href="../kit/r6/fix.css">
 <link rel="stylesheet" href="../kit/r6/newcoach.css">
 <link rel="stylesheet" href="../kit/r6/case.css">
@@ -414,6 +414,17 @@
   .wg-shape-t .ws-i b { color: var(--ink); font: 700 var(--fs-label)/1 var(--font); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; }
   .wg-shape-t .ws-i i { color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-style: normal; font-variant-numeric: tabular-nums; }
   @media (prefers-reduced-motion: reduce) { .sp-o, .ql-fold { transition: none; } }
+  /* 23 Nov, how it feels: the send lands where the coach is looking. For a moment the crimson says "Sent to Mei" with a
+     check drawn in, at the width it had, while the next lifter's week opens under it; a press in that moment does
+     nothing (sentFlash). The check and the words are a one-time moment, so keyframes; reduced motion shows them still. */
+  .tb .btn[data-primary].is-sent { gap: var(--sp-2); justify-content: center; cursor: default; }
+  .tb .btn[data-primary].is-sent:hover { filter: none; }
+  .btn.is-sent svg { flex: none; width: 16px; height: 16px; }
+  .btn.is-sent svg path { stroke-dasharray: 22; animation: pg-tick var(--dur-move, 220ms) var(--ease-out) both; }
+  .btn.is-sent span { animation: pg-sent var(--dur-fast, 150ms) var(--ease-out) both; }
+  @keyframes pg-tick { from { stroke-dashoffset: 22; } to { stroke-dashoffset: 0; } }
+  @keyframes pg-sent { from { opacity: .45; } }
+  @media (prefers-reduced-motion: reduce) { .btn.is-sent svg path, .btn.is-sent span { animation: none; } }
 </style>
 </head>
 <body data-place="programs">
@@ -421,15 +432,15 @@
 <script src="../kit/data.js"></script>
 <script src="../kit/kit.js"></script>
 <script src="../kit/coach.js"></script>
-<script src="../kit/r6/block.js?v=1122d"></script>
+<script src="../kit/r6/block.js?v=1123f"></script>
 <script src="../kit/r6/store.js"></script>
-<script src="../kit/r6/desk.js?v=1122d"></script>
-<script src="../kit/r6/picker.js?v=1122d"></script>
-<script src="../kit/r6/import.js?v=1122d"></script>
-<script src="../kit/r6/importer.js?v=1122d"></script>
-<script src="../kit/r6/week.js?v=1122d"></script>
-<script src="../kit/r6/sheet.js?v=1122d"></script>
-<script src="../kit/r6/simple.js?v=1122d"></script>
+<script src="../kit/r6/desk.js?v=1123f"></script>
+<script src="../kit/r6/picker.js?v=1123f"></script>
+<script src="../kit/r6/import.js?v=1123f"></script>
+<script src="../kit/r6/importer.js?v=1123f"></script>
+<script src="../kit/r6/week.js?v=1123f"></script>
+<script src="../kit/r6/sheet.js?v=1123f"></script>
+<script src="../kit/r6/simple.js?v=1123f"></script>
 <script src="../kit/r6/fix.js"></script>
 <script src="../kit/r6/newcoach.js"></script>
 <script>
@@ -890,7 +901,9 @@
     /* a template with nobody to use it for yet: the way there waits on a lifter (first-time-coach §7.1) */
     if (st.tab === 'templates' && cur && cur.tpl && !lifterCount()) h += '<button class="btn quiet" type="button" disabled title="Add a lifter first.">Use for a lifter…</button>';
     if (pr && pr.companion) h += '<button class="btn quiet" type="button" data-companion>' + esc(pr.companion.label) + '</button>';
-    if (pr) h += '<button class="btn" type="button" data-primary' + (pr.disabled ? ' disabled' : '') + (/’/.test(pr.label) ? ' aria-label="' + esc(plainQ(pr.label)) + '"' : '') + ' title="' + esc(pr.disabled || ((pr.title ? pr.title + '. ' : '') + pr.label + (pr.key ? ' (' + pr.key + ')' : ''))) + '">' + esc(pr.label) + '</button>';
+    var flash = sentFlash();
+    if (flash) h += '<button class="btn is-sent" type="button" data-primary data-sent title="Sent. Undo is in the message at the foot of the page."' + (flash.w ? ' style="min-width:' + flash.w + 'px"' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>' + esc(flash.who ? 'Sent to ' + flash.who : 'Sent') + '</span></button>';
+    else if (pr) h += '<button class="btn" type="button" data-primary' + (pr.disabled ? ' disabled' : '') + (/’/.test(pr.label) ? ' aria-label="' + esc(plainQ(pr.label)) + '"' : '') + ' title="' + esc(pr.disabled || ((pr.title ? pr.title + '. ' : '') + pr.label + (pr.key ? ' (' + pr.key + ')' : ''))) + '">' + esc(pr.label) + '</button>';
     trail.innerHTML = h;
     $$('.seg', mid).forEach(function (s) { DESK.segSync(s); });
     var th = $('#ttl-tb');
@@ -1747,7 +1760,38 @@
     else Object.keys(swap).forEach(function (k) { if (!said && cur.msg.text.indexOf(k) >= 0 && cur.msg.text.indexOf(swap[k]) < 0) said = 'Your message says ' + k + '. The load is ' + swap[k] + '.'; });
     if (warn) { warn.hidden = !said; warn.textContent = said || ''; }
   }
+  /* 23 Nov: an undo or a redo shows WHAT it changed, not only a toast: the cells whose words changed light for a moment
+     (held, then faded over 900 ms; 600 with reduced motion, colour only), and the first of them is brought into view
+     without a scroll animation. A walk that moves more than 30 cells (a day, a pasted block) lights nothing: its toast
+     says what it was. */
+  var CELLS = '.sv-in[data-f], [data-row] > .wg-c[data-col], .sx-c[id]';
+  function cellKey(el) { return el.getAttribute('data-f') || el.id || ((el.parentNode && el.parentNode.getAttribute('data-row')) + '|' + el.getAttribute('data-col')); }
+  function cellVal(el) { return el.matches('input') ? el.value + '\u0001' + (el.placeholder || '') : el.textContent; }
+  function cellsIn(host) { return [].slice.call(host.querySelectorAll(CELLS)); }
+  function cellSnap() { var host = $('#wg'), m = {}; if (!host) return null; cellsIn(host).forEach(function (el) { m[cellKey(el)] = cellVal(el); }); return m; }
+  function lightChanged(before) {
+    if (!before || !W.requestAnimationFrame) return;
+    requestAnimationFrame(function () {
+      var host = $('#wg'); if (!host) return;
+      var hit = cellsIn(host).filter(function (el) { return before[cellKey(el)] !== cellVal(el); });
+      if (!hit.length || hit.length > 30) return;
+      var rgb = getComputedStyle(document.documentElement).getPropertyValue('--place-rgb').trim() || '154 154 165', hl = 'rgb(' + rgb + ' / .34)';
+      var sc = hit[0].closest('.wk'), r = hit[0].getBoundingClientRect(), box = sc ? sc.getBoundingClientRect() : null;
+      if (box && (r.bottom > box.bottom - 40 || r.top < box.top + 80)) hit[0].scrollIntoView({ block: 'center', inline: 'nearest' });
+      hit.forEach(function (el) {
+        if (!el.animate) return;
+        var base = getComputedStyle(el).backgroundColor;
+        el.animate([{ backgroundColor: hl }, { backgroundColor: hl, offset: .3 }, { backgroundColor: base }], { duration: reduced() ? 600 : 900, easing: 'cubic-bezier(.23, 1, .32, 1)' });
+      });
+    });
+  }
   function storeWalk(dir) {
+    if (!cur || !cur.id) return null;
+    var before = cellSnap(), res = storeWalk0(dir);
+    if (res && !res.error) lightChanged(before);
+    return res;
+  }
+  function storeWalk0(dir) {
     if (!cur || !cur.id) return null;
     if (cur.next) {
       if (dir !== 'undo') return null;
@@ -1969,7 +2013,27 @@
   }
 
   /* ================= sending (programs.md §10) ================= */
-  function goPrimary(btn) { var pr = primaryFor(); if (pr && pr.disabled) { DESK.toast(pr.disabled); return; } if (pr && pr.run) pr.run(btn); }
+  /* the send's moment on the crimson (see the style above): set by the first paint after a send joins SENT, over in 900
+     ms (1.4 s for a first block, the first weeks a lifter ever gets), ended at once by its Undo */
+  var SENTFX = { n: 0, until: 0, t: 0, who: '', w: 0 };
+  function sentFlash() {
+    var last = SENT[SENT.length - 1];
+    if (SENT.length > SENTFX.n) {
+      SENTFX.n = SENT.length;
+      if (last && !last.gone) {
+        var ms = last.kind === 'week' && !last.held ? 1400 : 900, old = $('[data-primary]');
+        SENTFX.who = (Lf(last.id) || {}).first || ''; SENTFX.until = Date.now() + ms; SENTFX.w = old && !old.classList.contains('is-sent') ? Math.round(old.getBoundingClientRect().width) : SENTFX.w;
+        clearTimeout(SENTFX.t);
+        SENTFX.t = setTimeout(function () {
+          SENTFX.until = 0; paintToolbar();
+          var p0 = $('[data-primary]'); if (p0 && p0.animate && !reduced()) p0.animate([{ opacity: .45 }, { opacity: 1 }], { duration: 150, easing: 'cubic-bezier(.23, 1, .32, 1)' });
+        }, ms);
+      }
+    }
+    if (last && last.gone && SENTFX.until) { SENTFX.until = 0; clearTimeout(SENTFX.t); }
+    return Date.now() < SENTFX.until ? SENTFX : null;
+  }
+  function goPrimary(btn) { if (Date.now() < SENTFX.until) return; var pr = primaryFor(); if (pr && pr.disabled) { DESK.toast(pr.disabled); return; } if (pr && pr.run) pr.run(btn); }
   function unreadIn(b, c) { var list = []; try { list = (b.checks(c) || []).filter(function (k) { return k.kind === 'unread'; }); } catch (e) { list = []; } return list; }
   function refuseUnread(b, c) {
     var u = unreadIn(b, c); if (!u.length) return false;
@@ -2832,7 +2896,13 @@
   /* ================= the sheets: preview, import ================= */
   var underFor = null;
   function sheet(o) {
-    var el = DESK.sheet.open({ label: o.label, html: o.html, cls: o.cls, onClose: function () { var pg = $('#page'); if (pg && underFor === el) { pg.removeAttribute('data-under'); pg.removeAttribute('inert'); } underFor = null; if (o.onClose) o.onClose(); } });
+    /* 23 Nov: the focus goes back to what opened the sheet (Preview as…, a menu's trigger) when it closes. The page is
+       inert while a sheet is up, so the dialog's own return found nothing to focus and the keys were left on the body. */
+    var opener = document.activeElement && document.activeElement !== document.body ? document.activeElement : null, opSel = opener && opener.matches && opener.matches('[data-preview]') ? '[data-preview]' : null;
+    var el = DESK.sheet.open({ label: o.label, html: o.html, cls: o.cls, onClose: function () {
+      var pg = $('#page'); if (pg && underFor === el) { pg.removeAttribute('data-under'); pg.removeAttribute('inert'); } underFor = null; if (o.onClose) o.onClose();
+      setTimeout(function () { var a = document.activeElement; if (a && a !== document.body && !el.contains(a) && a !== el) return; var to = opener && opener.isConnected ? opener : opSel ? $(opSel) : null; if (to && to.focus) to.focus({ preventScroll: true }); }, 0);
+    } });
     var pg = $('#page'); if (pg) { pg.setAttribute('data-under', ''); pg.setAttribute('inert', ''); } underFor = el;
     return el;
   }
@@ -3196,7 +3266,7 @@
     /* 22 Nov (a cold review: the sheet listed the grid's keys in Simple, left Simple's own out, and ⌥⇧↓ meant two
        things): one list per way of writing, and the keys the two share mean the same in both */
     var both = [['⌘⇧↵', 'Send the week (the red button)'], ['⌥↓ ⌥↑', 'Next lifter, previous lifter'], ['⌥→ ⌥←', 'Next week, previous week'], ['⌥⇧↑ ⌥⇧↓', 'Move the line up or down'], ['⇧⌘Z', 'Redo']];   /* ⌘Z is the desk's own line above */
-    if (isSimple()) DESK.keyMap(both.concat([['Tab, ⇧Tab', 'Next field, the one before'], ['Enter', 'Save, and the same field one line down'], ['↑ ↓', 'One more or less on a number'], ['← →', 'The field beside it, from the end of the text'], ['⌘D', 'Duplicate the line'], ['Click a grip', 'Pick the lift; ⇧ click picks the run'], ['⌘C ⌘V', 'Copy the picked lifts; paste under the line in hand'], ['⌫', 'Delete the picked lifts'], ['Right-click', 'The line’s menu'], ['Esc', 'Put back what was there; let go of the picked lifts']]));
+    if (isSimple()) DESK.keyMap(both.concat([['Tab, ⇧Tab', 'Next field, the one before'], ['Enter', 'Save, and the same field one line down'], ['↑ ↓', 'One more or less on a number'], ['← →', 'The field beside it, from the end of the text'], ['⌘D', 'Duplicate the line'], ['Click a grip', 'Pick the lift; ⇧ click picks the run'], ['⌘C ⌘V', 'Copy the picked lifts; paste under the line in hand'], ['⌫', 'Delete the picked lifts'], ['Right-click, ⇧F10', 'The line’s menu'], ['Esc', 'Put back what was there; let go of the picked lifts']]));
     else DESK.keyMap(both.concat([['Tab, ⇧Tab', 'Next cell, previous cell'], ['Enter', 'Edit the cell; save and go down'], ['F2', 'Edit, keeping the text'], ['⇧Space', 'Take the whole line'], ['⌘D', 'Fill down'], ['⌘↵', 'Fill the selection with what you typed'], ['⌘C ⌘X ⌘V', 'Copy, cut, paste; whole lines cut are moved by the paste'], ['⌘G', 'The next line the desk flags'], ['⇧F10', 'The line’s menu'], ['Esc', 'Cancel the edit, then let go of a range']]));
   }
   function setActions() {
@@ -3323,6 +3393,16 @@
     if (t.id === 'wk-note' && cur) { cur.note = t.value; return; }
     if (t.matches && t.matches('[data-max-in]')) { var note = $('#mx-note'), v = parseFloat(String(t.value).replace(',', '.')); if (note) note.textContent = maxNote(t.getAttribute('data-max-in'), isNum(v) ? v : null); t.classList.remove('is-error'); }
   });
+  /* 23 Nov: a menu or popover opened from the keys (⇧F10 on a line, Enter on a "…", a week's menu) is there at once,
+     without the grow (MOTION.md: no entrance animation on a keyboard action). The kit's own .is-cut does it; the next
+     opening clears it. From the pointer it still grows from its trigger. */
+  var keyAt = 0;
+  document.addEventListener('keydown', function () { keyAt = Date.now(); }, true);
+  document.addEventListener('pointerdown', function () { keyAt = 0; }, true);
+  if (DESK.pop && fn(DESK.pop, 'open')) {
+    var popOpen0 = DESK.pop.open;
+    DESK.pop.open = function () { var el = popOpen0.apply(this, arguments); if (el && el.classList && keyAt && Date.now() - keyAt < 800) el.classList.add('is-cut'); return el; };
+  }
   document.addEventListener('keydown', function (e) {
     var t = e.target;
     if (t.id === 'ql-q' && e.key === 'Escape') { e.preventDefault(); st.q = ''; t.value = ''; paintQueue(); return; }

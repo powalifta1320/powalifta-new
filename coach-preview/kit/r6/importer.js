@@ -89,6 +89,7 @@
     function readLink() {
       var ref = parseLink(S.link);
       if (!ref) { S.err = 'That is not a Google Sheets link. Copy it from the sheet’s address bar or its Share button.'; paintSrc(); return; }
+      if (S.busy) return;   /* one read at a time: a second press or Enter while it reads does nothing */
       S.busy = 'Reading the sheet…'; S.err = ''; paintSrc();
       fetch('/api/sheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ref) }).then(function (r) {
         if (r.status === 200 && /spreadsheetml/.test(r.headers.get('content-type') || '')) return r.arrayBuffer().then(function (buf) { readBook(new Uint8Array(buf), 'Google Sheet'); });
@@ -103,7 +104,7 @@
       var tab = function (id, label) { return '<button type="button" data-im-src="' + id + '" aria-pressed="' + (S.src === id) + '">' + label + '</button>'; };
       var body = S.src === 'paste' ? '<textarea class="input im2-paste" id="im2-paste" spellcheck="false" placeholder="Select the cells in Google Sheets or Excel, copy, and paste them here" aria-label="Pasted cells">' + esc(S.text) + '</textarea>'
         : S.src === 'file' ? '<div class="im2-file"><button class="btn" type="button" data-im-choose>Choose a file</button><input type="file" id="im2-file" accept=".xlsx,.ods,.csv,.tsv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden><span class="im2-hint">.xlsx, .ods or .csv. You can also drop a file anywhere on this sheet.' + (S.from && S.tables.length ? ' Read: ' + esc(S.from) + '.' : '') + '</span></div>'
-        : '<div class="im2-link"><label class="field"><input type="url" id="im2-link" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/…" aria-label="Google Sheets link" value="' + esc(S.link) + '"></label><button class="btn" type="button" data-im-read>Read the sheet</button></div><p class="im2-hint">The sheet has to be shared as Anyone with the link can view. It is read once; nothing is kept and nothing is changed in it.</p>';
+        : '<div class="im2-link"><label class="field"><input type="url" id="im2-link" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/…" aria-label="Google Sheets link" value="' + esc(S.link) + '"></label><button class="btn" type="button" data-im-read' + (S.busy ? ' aria-disabled="true" aria-busy="true"' : '') + '>' + (S.busy ? 'Reading…' : 'Read the sheet') + '</button></div><p class="im2-hint">The sheet has to be shared as Anyone with the link can view. It is read once; nothing is kept and nothing is changed in it.</p>';
       return '<div class="seg im2-seg" role="group" aria-label="Where the programme is">' + tab('paste', 'Paste cells') + tab('file', 'A file') + tab('link', 'Google Sheets link') + '</div>' + body +
         (S.busy ? '<p class="im2-busy" role="status">' + esc(S.busy) + '</p>' : '') + (S.err ? '<p class="im2-err" role="alert">' + esc(S.err) + '</p>' : '');
     }
@@ -216,7 +217,9 @@
     el.onkeydown = function (e) { if (e.key === 'Enter' && e.target.id === 'im2-link') { e.preventDefault(); S.link = e.target.value; readLink(); } };
     /* a file dropped anywhere on the sheet */
     el.ondragover = function (e) { if (e.dataTransfer && [].indexOf.call(e.dataTransfer.types || [], 'Files') >= 0) { e.preventDefault(); el.classList.add('is-drop'); } };
-    el.ondragleave = function (e) { if (e.target === el) el.classList.remove('is-drop'); };
+    /* the ring goes when the file leaves the sheet, wherever inside it the pointer last was (it stayed lit when the drag
+       left from a child: dragleave's target is the child) */
+    el.ondragleave = function (e) { if (!e.relatedTarget || !el.contains(e.relatedTarget)) el.classList.remove('is-drop'); };
     el.ondrop = function (e) { el.classList.remove('is-drop'); var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (!f) return; e.preventDefault(); S.src = 'file'; readFile(f); };
     return { el: el, state: S, setText: function (text) { S.src = 'paste'; S.text = String(text || ''); setTables([{ name: 'Pasted cells', rows: IM.table(S.text) }], ''); } };
   }

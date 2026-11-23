@@ -297,3 +297,11 @@
 .sx-wh.is-lit .sx-wm { background: transparent; }
 .sx-wh.is-lit { padding-right: 26px; }
 .sx-ar .add-row::before { position: static; margin: 0 var(--sp-1) 0 0; }
+
+/* ---------------- 23 Nov, how it feels ----------------
+   The edit bar holds still. Its first column was as wide as the address in it ("Squat · same each week", "Weeks 1 to
+   6"), so the text field slid left and right under the coach's eye on every arrow key (a 0.145 layout shift on ⌘A).
+   The address now has the Exercise column's width, so the field starts where the weeks start, as a name box does in
+   any spreadsheet; a long address ends in an ellipsis and keeps its title. */
+.sx-bar { grid-template-columns: calc(var(--sx-ex) - 24px) 184px minmax(0, 1fr) auto; }
+.sx-addr { max-width: none; }
