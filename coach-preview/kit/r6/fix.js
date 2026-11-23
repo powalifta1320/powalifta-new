@@ -304,10 +304,12 @@
     /* these serve every opening of the one popover, so they go through DESK.pop.on (a listener added to el() lasts one opening) */
     var on = function (type, fn, opt) { if (!(DESK.pop.on && DESK.pop.on(type, fn, opt))) p.addEventListener(type, fn, opt); };
     /* the sheet leaves with its popover (Esc, a click outside, another popover): the typed words stay for the visit */
-    on('beforetoggle', function (e) { if (e.newState === 'closed') { p.style.maxHeight = ''; if (cur) { cur = null; p.classList.remove('is-fx'); } } });
+    on('beforetoggle', function (e) { if (e.newState === 'closed') { p.style.maxHeight = ''; p.style.bottom = ''; if (cur) { cur = null; p.classList.remove('is-fx', 'fx-up'); } } });
     on('click', function (e) {
       if (!cur || !root()) return;
       var b = e.target.closest('button'); if (!b || !p.contains(b)) return;
+      /* the sheet can open over its own trigger: the second click of a double click there is not a choice in the sheet */
+      if (e.detail > 1 && Date.now() - (cur.at || 0) < 500) return;
       if (b.hasAttribute('data-fix-main')) { apply(); return; }
       if (b.hasAttribute('data-fx-cancel')) { close(true); return; }
       if (b.hasAttribute('data-fx-use')) { useOther(b); return; }
@@ -377,7 +379,8 @@
     var el = DESK.pop.open(trigger, sheetHtml(), { label: swapped(cur.label), layer: 'popover', anchor: o.anchor || trigger.closest('[data-row]') || trigger, place: 'below-end', hold: true });
     el.classList.add('is-fx'); el.setAttribute('aria-labelledby', 'fx-t');
     wire();
-    clear(el, o.anchor || trigger.closest('[data-row]') || trigger);
+    place(el, trigger, o.anchor || trigger.closest('[data-row]') || trigger);
+    cur.at = Date.now();
     /* focus: the main button; the load when the move asks for one; the words when they are the move and still empty */
     var box = root(), ta = box && $('[data-fx-msg]', box), focusEl = null;
     if (focusInput) focusEl = box && $('input[data-fx-row]', box);
@@ -386,22 +389,59 @@
     if (focusEl) { focusEl.focus({ preventScroll: true }); if (focusEl.select && focusEl.tagName === 'INPUT') focusEl.select(); }
     return true;
   }
-  /* the sheet never covers the row it is about: when it fits neither below nor above, it takes the side with more room
-     and its body scrolls between the title and the buttons (fix.css .fx-body) */
-  function clear(el, anchor) {
-    el.style.maxHeight = '';
-    if (!anchor || !anchor.isConnected) return;
-    var a = anchor.getBoundingClientRect(), r = el.getBoundingClientRect();
-    if (!(r.top < a.bottom && r.bottom > a.top)) return;
-    var edge = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--edge-h')) || 56, gap = 8, m = 12;
-    var below = innerHeight - m - (a.bottom + gap), above = a.top - gap - (edge + gap);
-    /* 22 Nov: when it fits on neither side it would crop its own message (a cold review: Marcus's sheet lost "Tell Marcus"
-       and the words, and still sent). Showing the whole sheet wins over keeping the row clear: it sits as low as it can */
-    if (Math.max(below, above) < r.height && r.height <= innerHeight - m - (edge + gap)) { el.style.top = Math.round(Math.max(edge + gap, innerHeight - m - r.height)) + 'px'; }
-    else if (below >= above) { el.style.top = Math.round(a.bottom + gap) + 'px'; el.style.maxHeight = Math.floor(below) + 'px'; }
-    else { var hh = Math.min(r.height, above); el.style.maxHeight = Math.floor(above) + 'px'; el.style.top = Math.round(a.top - gap - hh) + 'px'; }
-    var t = cur && cur.trigger ? cur.trigger.getBoundingClientRect() : a, top = parseFloat(el.style.top);
-    el.style.setProperty('--oy', Math.round(Math.max(0, Math.min(el.offsetHeight, t.top + t.height / 2 - top))) + 'px');
+  /* where the sheet sits (Fitts, 23 Nov): its main button lands right beside the button that opened it, in the same place
+     every time, so a coach clearing a list goes click, click, next row. The target is the main button's own spot: just
+     under the row (anchor), centred under the trigger. The sheet hangs down from there with its buttons on top
+     (the row stays clear); when that would run off the window it grows up from the same spot, buttons at its foot, over
+     the trailing part of the row (the name and the problem stay in view). Only near the window's foot does the same spot
+     move just above the row (buttons at the foot, nothing covered; else buttons on top, hanging over the row). When none
+     of these fit whole, the whole sheet still wins over keeping the row clear (22 Nov): it sits as low as it can. Every
+     placement is whole and in the window; the side the buttons are on follows the DOM, so Tab still reads top to bottom.
+     The edge the buttons are on is the one held in place, so a line appearing or hiding never moves the main button. */
+  function acts(el, top) {
+    var box = $('.fx[data-crop=fix]', el), a = box && $('.fx-acts', box); if (!a) return;
+    if (top) { if (box.firstChild !== a) box.insertBefore(a, box.firstChild); }
+    else if (box.lastChild !== a) box.appendChild(a);
+    el.classList.toggle('fx-up', !!top);
+  }
+  function place(el, trigger, anchor) {
+    var st = el.style; st.maxHeight = ''; st.bottom = '';
+    var T = trigger.getBoundingClientRect(), A = anchor && anchor.isConnected ? anchor.getBoundingClientRect() : T;
+    var root = document.documentElement, W = root.clientWidth, H = innerHeight, m = 12, gap = 8;
+    /* the row's own padding is not its content: the sheet may sit on it (a row's 12 px), never on its words */
+    if (A !== T) { var acs = getComputedStyle(anchor), pb = parseFloat(acs.paddingBottom) || 0, pt = parseFloat(acs.paddingTop) || 0;
+      A = { top: A.top + Math.min(pt, Math.max(0, T.top - A.top)), bottom: A.bottom - Math.min(pb, Math.max(0, A.bottom - T.bottom)) };
+      if (pb >= 8 || pt >= 8) gap = 4; }
+    var edge = (parseFloat(getComputedStyle(root).getPropertyValue('--edge-h')) || 56) + gap;
+    var measure = function (top) {
+      acts(el, top);
+      /* layout sizes, not boxes: the sheet is mid-grow (scaled) while it is placed */
+      var mb = $('[data-fix-main]', el), w = el.offsetWidth, h = el.offsetHeight, bx = 0, by = 0, n = mb;
+      while (n && n !== el) { bx += n.offsetLeft; by += n.offsetTop; n = n.offsetParent; }
+      if (!mb || n !== el) return { h: h, w: w, mh: 0, mw: 0, endOff: 20, topOff: 20, botOff: 20 };
+      return { h: h, w: w, mh: mb.offsetHeight, mw: mb.offsetWidth, endOff: w - bx - mb.offsetWidth, topOff: by, botOff: h - by - mb.offsetHeight };
+    };
+    var up = measure(true), dn = measure(false), h = Math.max(up.h, dn.h), w = up.w;
+    /* across: the main button centred under the trigger, kept in the window, clear of the sidebar and an inspector */
+    var lo = m, hi = W - m, sw = parseFloat(getComputedStyle(root).getPropertyValue('--sidebar-w')) || 68;
+    if ($('.side') && !trigger.closest('.side') && T.left >= sw) lo = Math.max(lo, sw + gap);
+    if (DESK.insp && DESK.insp.isOpen && DESK.insp.isOpen()) { var ir = DESK.insp.el().getBoundingClientRect(); if (T.right <= ir.left) hi = Math.min(hi, ir.left - gap); }
+    var x = Math.max(lo, Math.min(hi - w, T.left + T.width / 2 + up.mw / 2 + up.endOff - w));
+    /* down: the main button's middle under the row; up: its middle above the row */
+    var yDn = A.bottom + gap + up.topOff + up.mh / 2, yUp = A.top - gap - dn.botOff - dn.mh / 2, top = null, bottom = null, mode = null;
+    var fits = function (t) { return t >= edge && t + h <= H - m; };
+    if (fits(A.bottom + gap)) { mode = 'hang'; top = A.bottom + gap; }                                           // below, buttons on top
+    else if (fits(yDn + dn.mh / 2 + dn.botOff - h)) { mode = 'rise'; bottom = yDn + dn.mh / 2 + dn.botOff; }      // the same spot, growing up
+    else if (fits(A.top - gap - h)) { mode = 'rise'; bottom = A.top - gap; }                                    // above, buttons at the foot
+    else if (fits(yUp - up.mh / 2 - up.topOff)) { mode = 'hang'; top = yUp - up.mh / 2 - up.topOff; }           // the same spot, hanging down
+    else { mode = 'rise'; bottom = H - m; if (h > H - m - edge) { st.maxHeight = Math.floor(H - m - edge) + 'px'; } } // as low as it can, whole when it can be
+    acts(el, mode === 'hang');
+    st.left = Math.round(x) + 'px';
+    if (mode === 'hang') { st.top = Math.round(top) + 'px'; st.maxHeight = Math.floor(H - m - top) + 'px'; }
+    else { st.top = 'auto'; st.bottom = Math.round(H - bottom) + 'px'; if (!st.maxHeight) st.maxHeight = Math.floor(bottom - edge) + 'px'; }
+    var eh = el.offsetHeight, et = mode === 'hang' ? top : bottom - eh;
+    st.setProperty('--ox', Math.round(T.left + T.width / 2 - x) + 'px');
+    st.setProperty('--oy', Math.round(Math.max(0, Math.min(eh, T.top + T.height / 2 - et))) + 'px');
   }
   function close(back) {
     var c = cur; if (!c) return;

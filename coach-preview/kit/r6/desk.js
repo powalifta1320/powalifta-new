@@ -673,7 +673,9 @@
   K.toast = function (text, undo) { return DESK.toast(text, undo); };   // the renderer behind the hook (no store: direct)
 
   /* ---------------- popovers: grow from their trigger, sit fully in the window, never carry the crimson ----------------
-     DESK.pop.open(trigger, html, { label, focus, layer, anchor, place, hold, onClick, onKey }). Handlers a page adds to the
+     DESK.pop.open(trigger, html, { label, focus, layer, anchor, place, hold, onClick, onKey }). focus: a selector or
+     true (the first control): the focus goes in, and back to the trigger when it closes. Opened from the keys it is there
+     at once, without the grow (.is-key). Handlers a page adds to the
      returned element (addEventListener or on*) last until the next open. The trigger keeps aria-expanded, .is-open,
      the focus return and the grow origin (--ox, --oy point at it). anchor: an element around the trigger (its row, its
      card) that the popover is placed against instead, so it never covers what it decides about. place: 'auto' (below the
@@ -684,7 +686,7 @@
      (right of the anchor, else left of it). Always in the window, under the toolbar's band, clear of the sidebar pane when
      the trigger is in the content and left of an open inspector when the trigger is. hold: the popover belongs to where
      the page was when it opened and closes once the page moves (ui.css .pop.is-held). */
-  var popEl = null, popTrig = null, popClosed = { at: 0, el: null }, popByCode = false, held = { io: null, pin: null }, popOwn = [];
+  var popEl = null, popTrig = null, popClosed = { at: 0, el: null }, popByCode = false, held = { io: null, pin: null }, popOwn = [], popBack = null;
   var px = function (name, d) { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || d; };
   function placePop(el, trigger, o) {
     var t = trigger.getBoundingClientRect(), a = o.anchor && o.anchor.isConnected ? o.anchor.getBoundingClientRect() : t;
@@ -760,6 +762,10 @@
           if (popTrig) { popTrig.classList.remove('is-open'); popTrig.setAttribute('aria-expanded', 'false'); }
           popClosed = byCode ? { at: 0, el: null } : { at: Date.now(), el: popTrig };
           unhold();
+          /* { focus }: the focus went in, so it comes back to the trigger, unless the coach has already put it somewhere
+             else (a click on another field) or the next popover is taking it */
+          var back = popBack; popBack = null;
+          if (back && back.isConnected) { var a = document.activeElement; if (!a || a === document.body || popEl.contains(a)) back.focus({ preventScroll: true }); }
         });
         popEl.addEventListener('toggle', function (e) { if (e.newState !== 'closed') return; popTrig = null; emit('pop:closed'); });
         /* one element serves every opening, so what a page hangs on it belongs to that opening only: listeners added after
@@ -791,7 +797,12 @@
       placePop(popEl, trigger, o);
       popTrig = trigger; trigger.classList.add('is-open'); trigger.setAttribute('aria-expanded', 'true');
       if (o.hold) hold(popEl, trigger);
-      if (o.focus) { var f = popEl.querySelector(o.focus); if (f) setTimeout(function () { f.focus({ preventScroll: true }); if (f.select) f.select(); }, 30); }
+      /* focus: a selector, or true for the first control in it; either way the focus goes back to the trigger on close */
+      if (o.focus) {
+        var FOCUSABLE = 'input:not([type=hidden]):not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])';
+        var f = o.focus === true ? popEl.querySelector(FOCUSABLE) : popEl.querySelector(o.focus);
+        if (f) { popBack = trigger; setTimeout(function () { if (!popEl.contains(f) || !popEl.matches(':popover-open')) return; f.focus({ preventScroll: true }); if (f.select && o.focus !== true) f.select(); }, 30); }
+      }
       return popEl;
     },
     close: function () { if (popEl && popEl.matches(':popover-open')) { popByCode = true; popEl.hidePopover(); } },
@@ -805,20 +816,25 @@
 
   /* ---------------- menus: a list of moves in the popover, grown from its trigger ----------------
      DESK.menu.open(trigger, items, { title, label, run, anchor, place, hold }); items = [{ id, label, sub, red, disabled,
-     checked, title } or { sep: true }]. Items are words (13 Nov: it.icon and it.lift are ignored); a check marks the
+     checked, title } or { sep: true } or { head: 'Show' } (a group's heading: words, skipped by the keys)]. Items are words (13 Nov: it.icon and it.lift are ignored); a check marks the
      chosen one; a disabled item's sub-line says why. The chosen item (or the first that can be picked) takes the focus;
      ↑ ↓ Home End move between items; Enter or Space picks (the item is a button); Esc closes it and the focus goes back to
      the trigger. run(id, item) is called once the menu has closed. A destructive move is red words, never a filled red; a
      menu never wears the crimson. */
   var menu = { run: null, items: [] };
   function menuHtml(title, items) {
+    /* a group heading ({ head: 'Show' }) names the items after it, up to the next heading or separator: a role=group the
+       heading labels (display: contents, so the menu's rhythm is unchanged); it is words, never an item, so the arrows,
+       Home, End and type-ahead (which walk .mi) pass it by */
+    var inGroup = false, gid = 0, close = function () { var c = inGroup ? '</div>' : ''; inGroup = false; return c; };
     return '<div class="mn" role="menu" data-desk-menu' + (title ? ' aria-label="' + esc(title) + '"' : '') + '>' + (title ? '<p class="mn-h" aria-hidden="true">' + esc(title) + '</p>' : '') + items.map(function (it, i) {
-      if (it.sep) return '<div class="mn-sep" role="separator"></div>';
+      if (it.head != null) { var id = 'mn-g' + (++gid), was = close(); inGroup = true; return was + '<div class="mn-g" role="group" aria-labelledby="' + id + '"><p class="mn-h" id="' + id + '">' + esc(it.head) + '</p>'; }
+      if (it.sep) return close() + '<div class="mn-sep" role="separator"></div>';
       var radio = it.checked != null;
       return '<button class="mi' + (it.red ? ' is-red' : '') + '" type="button" role="' + (radio ? 'menuitemradio' : 'menuitem') + '"' + (radio ? ' aria-checked="' + !!it.checked + '"' : '') +
         ' data-mi="' + i + '"' + (it.id != null ? ' data-mi-id="' + esc(it.id) + '"' : '') + (it.demo ? ' data-demo' : '') + (it.disabled ? ' disabled' : '') + (it.title ? ' title="' + esc(it.title) + '"' : '') + '>' +
         '<span class="mi-t">' + esc(it.label) + (it.sub ? '<small>' + esc(it.sub) + '</small>' : '') + '</span>' + (it.key ? '<kbd class="mi-k">' + esc(it.key) + '</kbd>' : '') + (radio ? DESK.ic('check', 2.4).replace('<svg', '<svg class="ck"') : '') + '</button>';
-    }).join('') + '</div>';
+    }).join('') + close() + '</div>';
   }
   DESK.menu = {
     open: function (trigger, items, o) {

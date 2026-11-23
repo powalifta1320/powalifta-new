@@ -134,7 +134,17 @@
     /* o.ends: the two labels are the first and the latest point (a lift card whose big number is the latest: its line reads
        from where it started to that same number, never a high or a low beside it) */
     var first = pts[0][1];
-    var gy = o.ends ? (Math.abs(Y(first) - Y(latest)) < 14 ? [[Y(latest), latest]] : [[Y(first), first], [Y(latest), latest]]) : Math.abs(Y(hi) - Y(lo)) < 14 ? [[Y(latest), latest]] : [[Y(hi), hi], [Y(lo), lo]];
+    /* 23 Nov: in a short chart (a 36 px lift card) the start and the latest sat closer than two labels, and the start was
+       dropped (a deadlift read 182 alone where it began at 175). The two ends always show while they read differently: the
+       labels move apart to clear each other (14 px, inside the chart); a gridline stays at its true height, and two that
+       would touch draw as one, the latest's. */
+    var gy = o.ends ? (fmt(first) === fmt(latest) ? [[Y(latest), latest]] : [[Y(first), first], [Y(latest), latest]]) : Math.abs(Y(hi) - Y(lo)) < 14 ? [[Y(latest), latest]] : [[Y(hi), hi], [Y(lo), lo]];
+    var ly = gy.map(function (g) { return g[0]; });
+    if (ly.length === 2 && Math.abs(ly[0] - ly[1]) < 14) {
+      var up = ly[0] <= ly[1] ? 0 : 1, mid0 = (ly[0] + ly[1]) / 2, top0 = Math.max(6, Math.min(h - 6 - 14, mid0 - 7));
+      ly[up] = top0; ly[1 - up] = top0 + 14;
+    }
+    var gl = gy.length === 2 && Math.abs(gy[0][0] - gy[1][0]) < 6 ? [gy[1]] : gy;
     var read = pts.map(function (p, k) { return [+f1(xy[k][0]), +f1(xy[k][1]), o.tip ? o.tip(p[0], p[1]) : fmt(p[1])]; });
     var last = read[read.length - 1][2];
     /* the window: one path drawn twice, quiet before the window's start and whole inside it (an svg clip, unique per chart) */
@@ -146,10 +156,10 @@
     } else marks = '<path class="area" d="' + area + '"/><path class="ln" d="' + d + '"/>';
     return '<div class="lchart ' + (o.cls || '') + '" data-chart style="' + (o.c ? '--c:' + o.c + ';' : '') + 'width:' + w + 'px" tabindex="0" role="group" aria-label="' + esc((o.label ? o.label + '. ' : '') + 'Latest ' + last + '. The arrow keys read each point.') + '" data-pts="' + esc(JSON.stringify(read)) + '">' +
       '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + esc(o.label || '') + '">' +
-      gy.map(function (g) { return '<line class="grid" x1="0" x2="' + pw + '" y1="' + f1(g[0]) + '" y2="' + f1(g[0]) + '"/>'; }).join('') +
+      gl.map(function (g) { return '<line class="grid" x1="0" x2="' + pw + '" y1="' + f1(g[0]) + '" y2="' + f1(g[0]) + '"/>'; }).join('') +
       marks + '<circle class="pt" cx="' + f1(L[0]) + '" cy="' + f1(L[1]) + '" r="4.5"/>' +
       '<line class="scrub" x1="0" x2="0" y1="' + padY + '" y2="' + (h - padY) + '" hidden/><circle class="sdot" r="5" cx="0" cy="0" hidden/></svg>' +
-      gy.map(function (g) { return '<span class="yl" style="top:' + f1(g[0]) + 'px">' + esc(fmt(g[1])) + '</span>'; }).join('') +
+      gy.map(function (g, k) { return '<span class="yl" style="top:' + f1(ly[k]) + 'px">' + esc(fmt(g[1])) + '</span>'; }).join('') +
       (o.xl ? '<div class="xl"><span>' + esc(o.xl[0]) + '</span><span>' + esc(o.xl[1]) + '</span></div>' : '') +
       '<span class="ch-tip" role="status" aria-live="polite" hidden></span></div>';
   };

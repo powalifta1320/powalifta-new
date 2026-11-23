@@ -67,6 +67,8 @@
 
 /* ================= the foot: Cancel, then the main button (filled secondary) at the trailing edge ================= */
 .fx-acts { display: flex; justify-content: flex-end; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+/* the sheet hanging down from its row carries its buttons on top, next to the button that opened it (fix.js place) */
+.pop.fx-up .fx-acts { margin: 0 0 var(--sp-4); }
 
 /* ================= choices as chips and radio rows (the pain and class popovers, the book sheet) ================= */
 .fx-chips { display: flex; flex-wrap: wrap; gap: var(--sp-3) 6px; }

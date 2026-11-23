@@ -230,6 +230,10 @@ body.is-fixed .tb { pointer-events: auto; }
 .cluster .sep { width: var(--sp-3); height: 1px; background: none; flex: none; }
 /* icon-only buttons on the band are quiet (a fill under the pointer); a labelled button keeps its kind */
 .tb .btn.icon:not([data-primary]) { background: transparent; box-shadow: none; }
+/* the toolbar's crimson is the tallest control on the page (40 px, one token): never smaller than a move under it
+   (a lifter's problem's move is 40); the band is 48 (--tb-h), so it still sits inside it */
+:root { --ctl-p: 40px; }
+.tb .btn[data-primary]:not(.icon) { --h: var(--ctl-p); }
 @media (hover: hover) and (pointer: fine) { .tb .btn.icon:not([data-primary]):hover { background: var(--fill); } }
 
 /* the page: content starts 32 px right of the sidebar and 12 px under the toolbar band; one flat floor */
@@ -345,7 +349,7 @@ body.is-fixed .tb { pointer-events: auto; }
 .field svg { width: 17px; height: 17px; flex: none; }
 .field input { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 400 var(--fs-sub)/1 var(--font); }
 .field input::placeholder, .input::placeholder, textarea::placeholder { color: var(--ink-3); opacity: 1; }
-.field:focus-within { box-shadow: 0 0 0 2px var(--focus); }
+.field:focus-within { box-shadow: 0 0 0 2px var(--focus); transition: none; }   /* the ring is there at once; it fades only going out */
 .input {
   height: var(--ctl-h); padding: 0 var(--sp-3); border: 0; border-radius: var(--r-field); background: var(--fill); box-shadow: var(--shadow-field);
   color: var(--ink); font: 500 var(--fs-sub)/1 var(--font); font-variant-numeric: tabular-nums; outline: 0;
@@ -668,6 +672,7 @@ textarea.input { height: auto; min-height: 76px; max-height: 40vh; padding: var(
    the destructive one (never a filled red), separators; ↑ ↓ Home End move between items */
 .mn { display: flex; flex-direction: column; gap: 2px; margin: calc(var(--sp-2) * -1) calc(var(--sp-3) * -1); }
 .mn-h { margin: var(--sp-1) var(--sp-3) var(--sp-2); color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-label) var(--font); }
+.mn-g { display: contents; }   /* a group of items under its heading ({ head }): the heading labels it, the layout is the menu's */
 /* a note in a menu or picker sits at the inset of its heading and its items (the menu's negative margins would put a
    bare paragraph 12 px out of line) */
 .mn > .note { margin: var(--sp-2) var(--sp-3) var(--sp-1); text-wrap: pretty; }

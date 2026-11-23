@@ -218,6 +218,15 @@ button.add-row::after { content: ''; position: absolute; inset: -4px -8px; }   /
 .wg-sl { color: var(--ink-2); }
 .wg-sv { color: var(--ink); }
 .wg-sb, .wg-sc, .wg-sd { color: var(--ink-3); }
+/* the shape's two groups (week.js paintShape): the label, then each lift as its name in its colour and its number. Here,
+   not on one page: the Lifters grid draws the same foot and ran its words together without them (23 Nov, kit-small) */
+.wg-shape-t .ws-g { display: inline-flex; align-items: baseline; gap: var(--sp-3); margin-right: var(--sp-5); }
+.wg-shape-t .ws-g:last-child { margin-right: 0; }
+.wg-shape-t .wg-sl { color: var(--ink-3); }
+.wg-shape-t .ws-i { display: inline-flex; align-items: baseline; gap: 5px; }
+.wg-shape-t .ws-i small { color: var(--lc-ink); font: 600 var(--fs-cap)/1 var(--font); }
+.wg-shape-t .ws-i b { color: var(--ink); font: 700 var(--fs-label)/1 var(--font); font-stretch: var(--num-stretch); font-variant-numeric: tabular-nums; }
+.wg-shape-t .ws-i i { color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); font-style: normal; font-variant-numeric: tabular-nums; }
 .wg-shape-a { flex: none; display: flex; gap: var(--sp-2); }
 .wg-shape-a:empty { display: none; }
 
@@ -313,3 +322,10 @@ button.add-row::after { content: ''; position: absolute; inset: -4px -8px; }   /
 @media (hover: hover) and (pointer: fine) {
   .wg-line:hover:not(.is-hand) .wg-more, .wg-day:hover:not(:focus-within) .wg-more { transition: opacity var(--dur-hover, 120ms) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
 }
+
+/* 23 Nov, upgrade 2: the edit bar takes typing (it showed the cell in words only); a column's head selects the column */
+.wg-fx { flex: 0 1 280px; min-width: 120px; height: 28px; padding: 0 var(--sp-2); border: 0; border-radius: var(--sp-2); background: var(--fill); color: var(--ink); font: 500 var(--fs-label)/1 var(--font); font-variant-numeric: tabular-nums; outline: 0; }
+.wg-fx:focus { background: var(--card); outline: 2px solid var(--focus); outline-offset: 0; }
+.wg-fx.is-ro { background: transparent; color: var(--ink-2); }
+.wg-h[data-col] { cursor: default; }
+@media (hover: hover) and (pointer: fine) { .wg-h[data-col]:not(.wg-k-last):hover { background: var(--hover); cursor: s-resize; } }

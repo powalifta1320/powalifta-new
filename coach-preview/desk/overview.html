@@ -424,7 +424,7 @@
     var p = POPS[btn.getAttribute('data-chart-pop')](); if (!p) return;
     var html = '<h3>' + esc(p.title) + '<span class="n">' + p.n + '</span></h3>' + (p.key || '') + '<div class="pop-b"><div class="ppl">' + p.rows + '</div>' +
       '<div class="pop-f"><a class="btn quiet sm" href="' + LIFTERS + '#f=' + p.f + '">Show them in Lifters</a></div>' + (p.after || '') + '</div>';
-    DESK.pop.open(btn, html, { label: p.title });
+    DESK.pop.open(btn, html, { label: p.title, focus: true });
   }
 
   /* ---------------- Needs you ---------------- */

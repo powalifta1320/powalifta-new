@@ -126,6 +126,16 @@
   .ld > * + * { margin-top: var(--sp-6); }
   .pnl > * + * { margin-top: var(--sp-9); }
   .pnl > [data-crop=needs] + [data-crop=attempts], .pnl > .since1 + * { margin-top: var(--sp-7); }
+  /* the attempts' one line on the Overview (attLineHtml): what, then the three triples in the lifts' colours, then Meets */
+  .pnl > [data-crop=needs] + [data-crop=attline] { margin-top: var(--sp-6); }
+  .pnl > [data-crop=attline] + * { margin-top: var(--sp-7); }
+  .attl { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-5); }
+  .attl p { margin: 0; }
+  .attl-t { font: 400 var(--fs-sub)/var(--lh-sub) var(--font); color: var(--ink-2); }
+  .attl-t b { color: var(--ink); font-weight: 600; margin-right: var(--sp-1); }
+  .attl-v { display: flex; flex-wrap: wrap; gap: 0 var(--sp-5); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .attl-v b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .attl .link { margin-left: auto; }
   .lh h1 { margin: 0; font: 700 var(--fs-large)/var(--lh-large) var(--font); letter-spacing: var(--ls-large); text-wrap: balance; outline: 0; }
   .lh .facts { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--sp-3); margin: var(--sp-2) 0 0 calc(var(--sp-2) * -1); }
   .fact { display: inline-flex; align-items: center; height: 40px; padding: 0 var(--sp-2); border: 0; border-radius: var(--r-field); background: none; color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-none) var(--font); cursor: pointer; white-space: nowrap; }
@@ -935,6 +945,20 @@
       '<div class="att-f">' + (line ? '<span class="line2" data-att-line>' + esc(line) + '</span>' : '') + '<span class="grow"></span>' + (ro ? '' : '<button class="btn" type="button" data-send-att>Send to ' + esc(first(l)) + '</button>') + '<button class="btn quiet" type="button" data-go-meet>' + (ro ? 'Open meet day' : 'Open in Meets') + '</button></div></div>';
   }
 
+  /* the attempts as one line on the Overview while the meet is 14 days out or less (23 Nov): "check their next meet and
+     attempts" is one click again (the lifter), not two and a tab. The table, the presets and Send stay on the Meets tab,
+     which this line opens; the Overview never carries the block twice. */
+  function attLineHtml(l) {
+    var mt = l.meet; if (!mt || mt.days == null || mt.days > 14 || mt.days < 0) return '';
+    var p = dat(PL.meets.plan(l.id)); if (!p || !p.attempts) return '';
+    var trip = function (k) { return (p.attempts[k] || []).slice(0, 3).map(function (v) { return v != null ? n(v) : '–'; }).join(' / '); };
+    var when = mt.days === 0 ? 'today' : mt.days === 1 ? 'tomorrow' : dayS(mt.date);
+    /* the meet's name is in the header's meet fact right above; the line says when */
+    return '<div data-crop="attline" class="attl"><p class="attl-t" title="' + esc(mt.name) + '"><b>Attempts</b> <span>' + esc(when) + '</span></p>' +
+      '<p class="attl-v">' + LIFTS.map(function (k) { return '<span class="attl-l"><span data-lift="' + k + '">' + LIFT[k] + '</span> <b>' + esc(trip(k)) + '</b></span>'; }).join('') + '</p>' +
+      '<button class="link" type="button" data-att-meets>' + (mt.days === 0 ? 'Meet day in Meets' : 'Change in Meets') + '</button></div>';
+  }
+
   /* ---------------- 3. This week ---------------- */
   function feltHtml(r) {
     if (!r.felt || !r.felt.values || !r.felt.values.length) return r.lifted ? '<span class="quiet-t">No RPE</span>' : none;
@@ -1175,11 +1199,12 @@
   function overviewHtml(l) {
     if (l.stage === 'invited') return invitedHtml(l);
     /* the Overview answers "how is this lifter, and do they need me?" in one screen (upgrade, 23 Nov): the open problem and
-       its one move first, then the three lifts, then this week (its numbers; the editable week under them). Attempts moved
-       to the Meets tab (the header's meet opens it). Before: the numbers first (owner, 16 Nov: "bring this up"); they
+       its one move first, then the three lifts, then this week (its numbers; the editable week under them). Attempts live
+       on the Meets tab (the header's meet opens it); a meet 14 days out or less puts them here too as one line, under
+       the problem. Before: the numbers first (owner, 16 Nov: "bring this up"); they
        stay in the first screen, under the problem. */
-    if (!l.program) return sinceHtml(l) + needsHtml(l) + intakeHtml(l) + heroHtml(l) + msgsHtml(l) + linkHtml(l);
-    return sinceHtml(l) + needsHtml(l) + heroHtml(l) + tilesHtml(l) + weekHtml(l) + msgsHtml(l) + linkHtml(l);
+    if (!l.program) return sinceHtml(l) + needsHtml(l) + attLineHtml(l) + intakeHtml(l) + heroHtml(l) + msgsHtml(l) + linkHtml(l);
+    return sinceHtml(l) + needsHtml(l) + attLineHtml(l) + heroHtml(l) + tilesHtml(l) + weekHtml(l) + msgsHtml(l) + linkHtml(l);
   }
 
   /* ---------------- the other tabs ---------------- */
@@ -1567,8 +1592,9 @@
       backTo(first(l));
       DESK.go(pv.go.place, h); return;
     }
-    /* the problem's move opens its sheet under the move itself, so Apply lands near where the pointer already is (Fitts) */
-    var anchor = btn.closest('[data-crop=needs] .nd-a') || btn.closest('[data-crop=needs], tr, [data-crop=week]') || btn;
+    /* the problem's move: its sheet keeps the problem (its words, the move, the reasons) in view, and the kit puts its main
+       button just under them, under this move's trailing edge (fix.js place), so Apply is one short move away (Fitts) */
+    var anchor = btn.closest('[data-crop=needs] .nd-g') || btn.closest('[data-crop=needs], tr, [data-crop=week]') || btn;
     if (btn.closest('.tb')) anchor = btn;
     DESK.fix.open(btn, { itemId: itemId, actId: actId, anchor: anchor });
   }
@@ -1685,7 +1711,7 @@
       var why = past ? 'Past' : mt ? 'Meet day' : other ? taken[d] : own ? 'Planned' : '';
       return '<button type="button" data-move-to="' + d + '" aria-pressed="' + own + '"' + (past || mt || own ? ' disabled' : '') + ' title="' + esc(dayS(d) + (why ? ', ' + why : '')) + '">' + esc(dayS(d) + (why ? ', ' + why : '')) + '</button>';
     }).join('');
-    DESK.pop.open(btn, '<div class="pp" data-move-pop="' + idx + '"><h3>Move ' + esc(s.name) + '</h3><div class="daysg">' + days + '</div><div class="seg" role="group" aria-label="How long"><button type="button" data-scope="week" aria-pressed="true">This week only</button><button type="button" data-scope="on" aria-pressed="false">From now on</button></div><span class="err" data-move-err hidden></span></div>', { label: 'Move ' + s.name });
+    DESK.pop.open(btn, '<div class="pp" data-move-pop="' + idx + '"><h3>Move ' + esc(s.name) + '</h3><div class="daysg">' + days + '</div><div class="seg" role="group" aria-label="How long"><button type="button" data-scope="week" aria-pressed="true">This week only</button><button type="button" data-scope="on" aria-pressed="false">From now on</button></div><span class="err" data-move-err hidden></span></div>', { label: 'Move ' + s.name, focus: true });
     $$('.pop .seg').forEach(function (x) { DESK.segSync(x); });
   }
   function composer(btn, ids) {
@@ -1765,6 +1791,7 @@
     if ((b = t.closest('table.tv tr[data-row]'))) { S.view = 'list'; S.viewSet = true; S.id = b.getAttribute('data-row'); syncUrl(true); select(S.id, { top: true }); return; }
     if ((b = t.closest('[data-fact-prog]'))) { setTab('training'); return; }
     if ((b = t.closest('[data-fact-class], [data-tile="bw"]'))) { if (fn(DESK, 'classPop')) DESK.classPop(b, S.id); return; }
+    if ((b = t.closest('[data-att-meets]'))) { setTab('meets'); return; }
     if ((b = t.closest('[data-fact-meet]'))) { var lm = L(S.id); if (lm && !lm.meet && fn(DESK, 'bookMeet')) DESK.bookMeet(S.id); else setTab('meets'); return; }
     if ((b = t.closest('[data-book]'))) { if (fn(DESK, 'bookMeet')) DESK.bookMeet(S.id); return; }
     if ((b = t.closest('[data-pain-btn]'))) { if (fn(DESK, 'painPop')) DESK.painPop(b, S.id, {}); return; }
@@ -1847,21 +1874,20 @@
     var c = (M && M.meta && M.meta.counts) || {}, items = [];
     var vl = function (k) { return viewLabel(k) + (c[k] != null ? ' ' + c[k] : k === 'all' && c.all != null ? ' ' + c.all : ''); };
     var top = VIEW_TOP.slice(); if (top.indexOf(S.f) < 0) top.push(S.f);
+    items.push({ head: 'Show' });
     top.forEach(function (k) { items.push({ id: 'v:' + k, label: vl(k), checked: S.f === k }); });
     items.push({ id: 'v:more', label: 'More views…' });
-    items.push({ sep: true });
+    items.push({ sep: true }, { head: 'Sort by' });
     var cur = (S.sort || 'triage').replace(/^-/, ''), stop = SORT_TOP.slice(); if (stop.indexOf(cur) < 0) stop.push(cur);
     stop.forEach(function (k) { items.push({ id: 's:' + k, label: sortLabel(k) || 'Needs you first', checked: cur === k }); });
     items.push({ id: 's:more', label: 'More sorts…' });
-    var el = DESK.menu.open(b, items, { label: 'View', run: function (id) {
+    DESK.menu.open(b, items, { label: 'View', run: function (id) {
       var k = id.slice(2);
       if (id === 'v:more') { moreViews(b); return; }
       if (id === 's:more') { sortMenu(b); return; }
       if (id.charAt(0) === 's') { S.sort = k === 'triage' ? null : /squat|bench|deadlift|total|change|sessions/.test(k) ? '-' + k : k; syncUrl(true); render({ keepSection: true }); return; }
       setView(k);
     } });
-    /* the two groups' names (the menu's own heading style, read past by the keys) */
-    var mi = el && el.querySelectorAll('.mi'); if (mi && mi.length) { mi[0].insertAdjacentHTML('beforebegin', '<p class="mn-h" aria-hidden="true">Show</p>'); var sep = el.querySelector('.mn-sep'); if (sep) sep.insertAdjacentHTML('afterend', '<p class="mn-h" aria-hidden="true">Sort by</p>'); }
   }
   function moreViews(b) {
     var c = (M && M.meta && M.meta.counts) || {}, items = [];
