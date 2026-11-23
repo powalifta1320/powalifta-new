@@ -4359,6 +4359,7 @@ function _refreshConnBanner() {
   const txt = b.querySelector('.pcb-text');
   if (txt) txt.textContent = msg;
   b.classList.toggle('show', show);
+  b.classList.toggle('is-offline', offline);   // styles.css FEEL 5: offline is calm, amber and still
   // Train's sync chip repaints from the same moment (queued, drained, offline, online).
   try { window.dispatchEvent(new Event('powa:sync')); } catch (e) {}
 }
@@ -10508,7 +10509,17 @@ function buildBottomTabs(primaryKeys) {
       const b = el('button', { class: 'bottom-tab', type: 'button', 'data-src': src.dataset.tab, 'aria-label': labelFor(src) });
       const ic = iconOf(src); if (ic) b.appendChild(ic);
       b.appendChild(el('span', { class: 'bt-label' }, labelFor(src)));
-      b.addEventListener('click', () => { closeMore(); src.click(); });
+      // 23 Nov 2026: a tab is chosen on touch-down, as a native tab bar's is; the click that follows the
+      // same press does nothing more. A mouse, a keyboard and VoiceOver still choose it on click.
+      let downAt = 0;
+      b.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' || (e.button && e.button !== 0)) return;
+        downAt = Date.now(); closeMore(); src.click();
+      });
+      b.addEventListener('click', () => {
+        if (downAt && Date.now() - downAt < 1200) { downAt = 0; return; }
+        downAt = 0; closeMore(); src.click();
+      });
       return b;
     };
     primary.forEach(t => bar.appendChild(makeBtn(t)));
@@ -14632,13 +14643,22 @@ function initScreenAccent() {
   const tabs = Array.from(document.querySelectorAll('.sidebar-tab'));
   if (!tabs.length) return;
   let lastKey = null;
+  const seen = {};
   const apply = () => {
     const active = tabs.find(t => t.classList.contains('active'));
     if (!active) return;
     const key = active.dataset.parent || active.dataset.tab;
     b.dataset.accent = screenAccentFor(key);
     b.dataset.screen = active.dataset.tab;
-    if (active.dataset.tab !== lastKey) { lastKey = active.dataset.tab; markScreenEnter(); }
+    // In the phone app a screen's opening (its ring filling, its numbers counting) plays on its first
+    // open in a visit only: the tabs are switched all day, and the 50th visit shows the numbers at once.
+    if (active.dataset.tab !== lastKey) {
+      lastKey = active.dataset.tab;
+      const phone = document.documentElement.classList.contains('native') && !document.documentElement.classList.contains('desk');
+      if (!phone || !seen[lastKey]) markScreenEnter();
+      else { clearTimeout(_enterTimer); b.classList.remove('screen-enter'); }   // a revisit inside the last opening's 0.9 s
+      seen[lastKey] = true;
+    }
   };
   const obs = new MutationObserver(apply);
   tabs.forEach(t => obs.observe(t, { attributes: true, attributeFilter: ['class', 'data-parent'] }));
@@ -15217,12 +15237,30 @@ function uiStepper(opts) {
     syncBtns();
   };
   const bump = (d) => { const n = clamp(v + d); if (n === v) return; v = n; paint(); hapticTick(); if (opts.onChange) opts.onChange(v); };
+  // 23 Nov 2026: a finger changes the value on touch-down (as UIStepper does), holding repeats and
+  // speeds up, and the click that ends the press is not one more step (a hold used to add one extra
+  // on release). A press the page turns into a scroll (pointercancel) takes its step back. A mouse,
+  // a keyboard (Enter / Space) and assistive tech still step on click, as before.
   [[minus, -step], [plus, step]].forEach(([b, d]) => {
-    let t = null, rep = null;
-    const stop = () => { clearTimeout(t); clearInterval(rep); t = rep = null; };
-    b.addEventListener('pointerdown', () => { stop(); t = setTimeout(() => { rep = setInterval(() => bump(d), 80); }, 420); });
-    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, stop));
-    b.addEventListener('click', () => bump(d));
+    let t = null, rep = null, touched = 0, startV = null;
+    const stop = () => { clearTimeout(t); clearTimeout(rep); t = rep = null; };
+    const repeat = (gap) => { rep = setTimeout(() => { bump(d); repeat(Math.max(50, gap * 0.93)); }, gap); };
+    b.addEventListener('pointerdown', (e) => {
+      stop();
+      if (e.pointerType !== 'mouse' && !b.disabled) { touched = Date.now(); startV = v; bump(d); }
+      t = setTimeout(() => repeat(100), 420);
+    });
+    b.addEventListener('pointerup', () => { stop(); if (touched) touched = Date.now(); });
+    b.addEventListener('pointerleave', stop);
+    b.addEventListener('pointercancel', () => {
+      stop();
+      if (touched && startV != null && v !== startV) { v = startV; paint(); if (opts.onChange) opts.onChange(v); }
+      touched = 0; startV = null;
+    });
+    b.addEventListener('click', () => {
+      if (touched && Date.now() - touched < 700) { touched = 0; startV = null; return; }   // the touch already stepped
+      touched = 0; bump(d);
+    });
   });
   w.appendChild(minus); w.appendChild(val); w.appendChild(plus);
   w.setValue = (n) => { v = clamp(Number(n) || 0); paint(); };
@@ -15922,9 +15960,15 @@ function hapticTap(style) { try { if (window.PowaNative && PowaNative.isNative &
 // The sheet follows the finger 1:1 from the top of its scroll after 8px of
 // downward travel (so taps, fields and inner scrolling behave as before). Past a
 // third of its height, or a downward flick, it closes; anything less springs back.
+// 23 Nov 2026: a sheet caught while it is still rising is held where it is (not snapped to the top),
+// a sheet let go past the line leaves at the finger's speed with the veil fading from where the drag
+// left it (it flashed back to full dark first), and a sheet let go short of it settles back with the
+// veil darkening in step (it snapped).
 function _sheetDrag(veil, sheet, close) {
-  let y0 = 0, x0 = 0, dy = 0, armed = false, dragging = false, crossed = false, samples = [];
+  let y0 = 0, x0 = 0, dy = 0, base = 0, armed = false, dragging = false, crossed = false, samples = [];
   const height = () => sheet.getBoundingClientRect().height || 1;
+  const VEIL = 0.55;
+  let cssVeil = 'rgba(0, 0, 0, 0.55)';   // the veil's own shade, to settle back to
   sheet.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) return;
     const t = e.target;
@@ -15942,12 +15986,17 @@ function _sheetDrag(veil, sheet, close) {
       if (d < -8) { armed = false; return; }
       if (d < 8) return;
       dragging = true;
+      // Still presenting? Hold the sheet where the opening has got it to, then follow the finger from there.
+      base = 0;
+      try { const m = new DOMMatrixReadOnly(getComputedStyle(sheet).transform); base = Math.max(0, m.m42 || 0); } catch (err) {}
+      sheet.style.animation = 'none';
       sheet.style.transition = 'none';
+      if (!veil.style.backgroundColor) cssVeil = getComputedStyle(veil).backgroundColor;
     }
     e.preventDefault();
-    dy = Math.max(0, d - 8);
+    dy = Math.max(0, base + d - 8);
     sheet.style.transform = 'translateY(' + dy + 'px)';
-    veil.style.backgroundColor = 'rgba(0, 0, 0, ' + (0.55 * Math.max(0, 1 - dy / height())).toFixed(3) + ')';
+    veil.style.backgroundColor = 'rgba(0, 0, 0, ' + (VEIL * Math.max(0, 1 - dy / height())).toFixed(3) + ')';
     samples.push({ y, t: e.timeStamp }); if (samples.length > 6) samples.shift();
     const over = dy > height() / 3;
     if (over !== crossed) { crossed = over; hapticTick(); }
@@ -15966,13 +16015,21 @@ function _sheetDrag(veil, sheet, close) {
     const a = samples.find(p => b.t - p.t <= 100) || samples[0];
     const v = (b && a && b.t - a.t >= 16) ? (b.y - a.y) / (b.t - a.t) : 0;   // px per ms
     if (dy > height() / 3 || (v > 0.6 && dy > 24)) {
-      veil.style.backgroundColor = '';
+      // The rest of the way at the release speed (a slow pull still gets out in 200 ms, a flick sooner);
+      // the veil keeps the shade the drag left and fades from there.
+      const left = Math.max(0, height() - dy);
+      const ms = Math.round(Math.max(90, Math.min(200, left / Math.max(v, 1.1))));
+      sheet.style.animation = 'uiSheetDown ' + ms + 'ms cubic-bezier(0.23, 1, 0.32, 1) forwards';
+      veil.style.animationDuration = ms + 'ms';
       close();
     } else {
-      sheet.style.transition = 'transform 320ms cubic-bezier(0.22, 1, 0.36, 1)';
+      // Short of the line: back up fast, the veil darkening with it.
+      const ease = 'cubic-bezier(0.32, 0.72, 0, 1)';
+      sheet.style.transition = 'transform 240ms ' + ease;
+      veil.style.transition = 'background-color 240ms ' + ease;
       sheet.style.transform = '';
-      veil.style.backgroundColor = '';
-      setTimeout(() => { sheet.style.transition = ''; }, 340);
+      veil.style.backgroundColor = cssVeil;
+      setTimeout(() => { sheet.style.transition = ''; veil.style.transition = ''; veil.style.backgroundColor = ''; }, 260);
     }
   };
   sheet.addEventListener('touchend', end);

@@ -13429,3 +13429,74 @@ html[data-theme="light"]:not(.desk) body.powa-app .sc-pr-tag { color: #8a5d00; }
 html:not(.desk) body.powa-app .rest-timer:not(.paused):not(.done) .rt-prog { stroke: var(--text); }
 /* The session's note box in light took the generic focus ring's red: ink, as every other field's. */
 html[data-theme="light"]:not(.desk) body.powa-app #noteText:focus { border-color: color-mix(in srgb, var(--text) 32%, transparent); box-shadow: none; outline: none; }
+
+/* ============================================================
+   FEEL (23 Nov 2026): how the lifter app responds, not how it looks. Nothing here changes a screen at
+   rest. Phone only (html:not(.desk)), so the coach's laptop desk and the public pages are untouched;
+   the coach phone shares the sheets, tabs and steppers, and gets the same feel.
+   ============================================================ */
+body.powa-app {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);          /* entering, feedback */
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);      /* moving on screen */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);       /* sheets */
+  --dur-press: 110ms; --dur-hover: 120ms; --dur-fast: 150ms;
+  --dur-pop: 180ms; --dur-pop-out: 110ms;
+  --dur-sheet: 260ms; --dur-sheet-out: 160ms;
+  --dur-move: 220ms; --dur-moment: 700ms; --press-scale: 0.97;
+}
+
+/* 1. Log set, the most repeated action: the next set settles in place in 150 ms, all of it at once (it was a
+   420 ms slide from 35% opacity with 40/80/120 ms staggers, so the numbers you read next arrived last). */
+html:not(.desk) .tx-hero.is-advancing :is(.tx-ex-row, .tx-load, .tx-plates, .tx-smart) { animation: txAdvanceFeel var(--dur-fast) var(--ease-out) both; animation-delay: 0ms; }
+@keyframes txAdvanceFeel { from { transform: translateX(6px); opacity: 0.6; } }
+/* The bar's plates change the same way, about 40% quicker (collar off, plates off and on, collar back:
+   ~0.6 s for three plates instead of ~1.1 s; the first plate starts at 200 ms, not 360). */
+html:not(.desk) .ui-barbell .bb-plate.is-off { animation-duration: 180ms; animation-delay: calc(var(--i, 0) * 30ms + 60ms); }
+html:not(.desk) .ui-barbell .bb-plate.is-on { animation-duration: 280ms; animation-delay: calc(var(--i, 0) * 55ms + 200ms); }
+html:not(.desk) .ui-barbell .bb-collar.is-moving { animation-duration: calc(620ms + var(--n, 1) * 55ms); }
+/* The rest dock rises from where it docks in a sheet's time (was 460 ms) and leaves in 160 ms (was 220). */
+html:not(.desk) .rest-timer { animation-duration: var(--dur-sheet); }
+html:not(.desk) .rest-timer.leaving { animation-duration: var(--dur-sheet-out); }
+@media (prefers-reduced-motion: reduce) {
+  html:not(.desk) .tx-hero.is-advancing :is(.tx-ex-row, .tx-load, .tx-plates, .tx-smart) { animation: none; }
+}
+
+/* 2. Sheets on the phone: up on the drawer curve, down faster than up (160 ms, was 200). A sheet thrown down
+   by the finger leaves at the finger's speed (app.js _sheetDrag sets its own duration). */
+@media (max-width: 700px) {
+  html:not(.desk) .ui-sheet { animation-duration: var(--dur-sheet); animation-timing-function: var(--ease-drawer); }
+  html:not(.desk) .ui-sheet-veil.leaving { animation-duration: var(--dur-sheet-out); }
+  html:not(.desk) .ui-sheet-veil.leaving .ui-sheet { animation-duration: var(--dur-sheet-out); animation-timing-function: var(--ease-out); }
+  /* Scrolling inside a sheet never scrolls the screen under it. */
+  html:not(.desk) .ui-sheet { overscroll-behavior: contain; }
+}
+
+/* 3. The bottom tabs: the lit pill moves in 150 ms (was 420 ms, with a 450 ms colour fade). */
+html.native:not(.desk) .bottom-tabs.bt-ready .bt-pill { transition: transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) ease, background-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease; }
+/* Switching tabs is instant: no rise, no row-by-row cascade (dash-fx.css drops the pane's own rise). The ring
+   fill and the counting numbers still play on a screen's first open in a visit (app.js initScreenAccent). */
+html.native:not(.desk) body.powa-app.screen-enter [data-pane]:not(.hidden) :is(.ui-hero, .ui-stats, .ui-list > *, .ms-chips > *) { animation: none; }
+/* Content that rebuilds each time its tab opens does not cascade in again (it did on every visit): the Club feed's
+   cards and faces, the club list, a challenge's card and rows, and the plates on a bar that is just shown (the bar
+   still loads when its weight changes: .is-on / .is-off above). A post you just made keeps its pop (.is-fresh). */
+html.native:not(.desk) body.powa-app :is(.cp-card:not(.is-fresh):not(.is-flash), .club-dir .club-dir-row, .cs-av, .chl-card, .chl-row) { animation: none; }
+html.native:not(.desk) body.powa-app .ui-barbell .bb-plate:not(.is-on):not(.is-off) { animation: none; }
+/* Controls are not text: a long press on a tab or a button never selects its label or opens the callout. */
+html.native:not(.desk) body.powa-app :is(.bottom-tab, .btn, .st-btn, .rt-chip, .rt-skip, .rt-ring, .lm-log, .rpe-track) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* 4. Moments. The PR moment leaves in 160 ms (was 220 linear); the milestone cards fade out instead of
+   vanishing (athlete.html _milestoneLeave). */
+html:not(.desk) body.powa-app .pr-toast.pr-moment.is-leaving { transition: opacity var(--dur-sheet-out) var(--ease-out); }
+html:not(.desk) body.powa-app .pr-toast.plate-moment.is-leaving { opacity: 0; pointer-events: none; transition: opacity var(--dur-sheet-out) var(--ease-out); }
+/* Meet day: the three lights come on together when the call is made (athlete.html marks the moment). */
+html:not(.desk) .mm-lights.is-called .mm-light { animation: mmCalled 360ms var(--ease-out) both; }
+@keyframes mmCalled { 40% { transform: scale(1.07); } }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) .mm-lights.is-called .mm-light { animation: none; } }
+
+/* 5. Offline is calm: the app keeps every set on the phone, so the dot is amber and still (it was the alert red,
+   pulsing forever, even while the banner was hidden). Syncing keeps a slow pulse, in ink, while it is shown. */
+html:not(.desk) body.powa-app #powa-conn-banner .pcb-dot { animation: none; background: var(--text-2); }
+html:not(.desk) body.powa-app #powa-conn-banner.show:not(.is-offline) .pcb-dot { animation: pcbPulseFeel 1.8s ease-out infinite; }
+html:not(.desk) body.powa-app #powa-conn-banner.is-offline .pcb-dot { background: var(--warn, #f2c25b); }
+@keyframes pcbPulseFeel { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--text-2) 45%, transparent); } to { box-shadow: 0 0 0 7px transparent; } }
+@media (prefers-reduced-motion: reduce) { html:not(.desk) body.powa-app #powa-conn-banner .pcb-dot { animation: none !important; } }

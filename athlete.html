@@ -601,12 +601,16 @@ bootstrap('athlete', () => {
   }
 
   const _allTabs = () => Array.from(document.querySelectorAll('.sidebar-tab'));
+  const _tabScroll = {};
   _allTabs().forEach(btn => {
     btn.addEventListener('click', () => {
       // A sub-screen remembers which of the five it was opened from, so "‹ Back"
       // and the lit bottom tab both point where the lifter actually came from.
       const prev = _allTabs().find(b => b.classList.contains('active'));
       if (btn.dataset.parent && prev && prev !== btn && !prev.dataset.parent) btn.dataset.parent = prev.dataset.tab;
+      // In the phone app each of the five keeps where you were in it (iOS tab bars do): leaving a tab
+      // remembers its scroll, coming back restores it; tapping the tab you are on goes to its top.
+      if (prev && prev !== btn && !prev.dataset.parent) _tabScroll[prev.dataset.tab] = window.scrollY;
       _allTabs().forEach(b => {
         const on = b === btn;
         b.classList.toggle('active', on);
@@ -626,7 +630,8 @@ bootstrap('athlete', () => {
       if (btn.dataset.tab === 'you') renderAthleteYou();
       if (btn.dataset.tab === 'career') renderCareer();
       syncPaneBack();
-      window.scrollTo(0, 0);
+      const keep = document.documentElement.classList.contains('native') && prev && prev !== btn && !btn.dataset.parent ? (_tabScroll[btn.dataset.tab] || 0) : 0;
+      window.scrollTo(0, keep);
     });
     // Arrow-key navigation between tabs (roving focus), per WAI-ARIA tablist
     btn.addEventListener('keydown', e => {
@@ -1838,7 +1843,26 @@ function buildSessionDone(cur) {
   top.appendChild(el('span', { class: 'tdh-count' }, skipped ? rows.length + ' of ' + total + ' sets' : rows.length + (rows.length === 1 ? ' set' : ' sets')));
   hero.appendChild(top);
   hero.appendChild(el('div', { class: 'tdh-ex' }, cur.day.name));
-  hero.appendChild(el('div', { class: 'tdh-presc', html: '<b>' + Math.round(kgToDisplay(ton)).toLocaleString() + '</b><small>' + unitLabel() + ' moved</small>' }));
+  const tonEl = el('div', { class: 'tdh-presc', html: '<b>' + Math.round(kgToDisplay(ton)).toLocaleString() + '</b><small>' + unitLabel() + ' moved</small>' });
+  hero.appendChild(tonEl);
+  // The set that just finished the session: its total counts up once (the end of the workout is a
+  // moment, the number is the point). Only for that render; reduced motion shows the number.
+  if (window._txJustLogged && window._txJustLogged !== window._txDoneCounted &&
+      !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+    window._txDoneCounted = window._txJustLogged;
+    const b = tonEl.querySelector('b'), to = Math.round(kgToDisplay(ton));
+    if (b && to > 0) requestAnimationFrame((t0) => {
+      if (!b.isConnected) return;
+      b.style.minWidth = b.getBoundingClientRect().width + 'px';   // the unit beside it never moves while it counts
+      const step = (t) => {
+        const k = Math.min(1, (t - t0) / 700), e = 1 - Math.pow(1 - k, 3);
+        b.textContent = (k < 1 ? Math.round(to * e) : to).toLocaleString();
+        if (k < 1 && b.isConnected) requestAnimationFrame(step); else b.style.minWidth = '';
+      };
+      b.textContent = '0';
+      requestAnimationFrame(step);
+    });
+  }
   // Best estimated max per main lift today, in its colour.
   const best = {};
   lifting.forEach(x => {
@@ -3989,6 +4013,9 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
     // Keep the club's weekly board live (one write per burst of sets).
     try { if (window.PowaClubs && PowaClubs.syncSoon) PowaClubs.syncSoon(); } catch (e) {}
     try { if (window.Challenges && Challenges.syncSoon) Challenges.syncSoon(); } catch (e) {}   // COACH CHALLENGES: your row on your coach's board
+    // This set finished the session (nothing left open, something logged): the session's own moment.
+    const _setsNow = (getCurrentDay() || { day: { exercises: [] } }).day.exercises.flatMap(e => e.sets);
+    const sessionDoneNow = _setsNow.length > 0 && _setsNow.every(s => !setOpen(s)) && _setsNow.some(s => s.completed);
     // How that set felt decides the next one.
     const freshEx = (getCurrentDay() || { day: { exercises: [] } }).day.exercises.find(e => e.id === exerciseId);
     const nextSmart = freshEx ? planSmartNext(freshEx, setIndex, actualRpe) : null;
@@ -4029,8 +4056,13 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
       // In a coached plan, the set can go straight to the coach from the toast.
       if (user.coachId && newLogObj) { const lg = newLogObj; toastAction(msg, 'Send to coach', () => sendLogToCoach(lg)); }
       else toast(msg);
-      // Native-only: a firm tap confirms the set landed (web stays silent, unchanged).
-      try { if (window.PowaNative && PowaNative.isNative && PowaNative.isNative()) PowaNative.haptic('MEDIUM'); } catch (e) {}
+      // Native-only: a firm tap confirms the set landed (web stays silent, unchanged); the set that
+      // finishes the session gets the success pattern instead, once.
+      try {
+        if (window.PowaNative && PowaNative.isNative && PowaNative.isNative()) {
+          if (sessionDoneNow && PowaNative.notify) PowaNative.notify('SUCCESS'); else PowaNative.haptic('MEDIUM');
+        }
+      } catch (e) {}
     }
     // Smart rest (app.js smartRestSeconds): the set's reps + actual RPE decide the
     // length, a coach's per-exercise rest (restSec) wins, Short/Standard/Long scales
@@ -4061,7 +4093,9 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
           openModal('noteModal');
         }
       }
-    }, 400);
+    // The session's summary lands (its total counts up) before the note for the coach asks anything:
+    // the end of the workout is the summary, not a form over it.
+    }, sessionDoneNow ? 1300 : 400);
 
   } else {
     let logIdToDelete = null;
@@ -4124,15 +4158,7 @@ function showPRToast(lift, e1rmComp, log, opts) {
   const fmtN = (v) => opts.single ? String(Math.round(v * 10) / 10) : String(Math.round(v));
   const overlay = el('div', { class: 'pr-toast pr-moment', role: 'dialog', 'aria-label': 'New PR: ' + now + ' ' + unitLabel() });
   overlay.appendChild(el('div', { class: 'prm-light', 'aria-hidden': 'true' }));
-  if (!reduce) {
-    const burst = el('div', { class: 'pr-burst', 'aria-hidden': 'true' });
-    const cols = ['#f2c25b', '#ffd98a', '#ff3b4a', '#38c6ff', '#a98bff', '#34d982'];
-    for (let i = 0; i < 22; i++) {
-      const a = (i / 22) * Math.PI * 2 + Math.random() * 0.4, d = 110 + Math.random() * 120;
-      burst.appendChild(el('i', { style: '--dx:' + Math.round(Math.cos(a) * d) + 'px;--dy:' + Math.round(Math.sin(a) * d - 40) + 'px;--r:' + Math.round(Math.random() * 540 - 270) + 'deg;--c:' + cols[i % cols.length] + ';--t:' + (0.75 + Math.random() * 0.5).toFixed(2) + 's;animation-delay:0.9s' }));
-    }
-    overlay.appendChild(burst);
-  }
+  // (No confetti, 23 Nov: the moment is the plate landing and the number climbing from the old best.)
   const stage = el('div', { class: 'prm-stage' });
   const plate = el('div', { class: 'prm-plate', 'aria-hidden': 'true', html:
     '<svg viewBox="0 0 120 120"><defs><radialGradient id="prmGold" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#ffe9a8"/><stop offset="0.55" stop-color="#f2c25b"/><stop offset="1" stop-color="#a87a24"/></radialGradient></defs>' +
@@ -4148,7 +4174,9 @@ function showPRToast(lift, e1rmComp, log, opts) {
   stage.appendChild(el('div', { class: 'prm-sub' }, LIFT_LABELS[lift] + (opts.single ? ' · heaviest single' : ' · estimated max')));
   if (log && log.weight > 0) stage.appendChild(el('div', { class: 'prm-set' }, formatWeight(log.weight) + ' × ' + log.reps + (log.rpe ? ' @ RPE ' + log.rpe : '')));
   const acts = el('div', { class: 'prm-acts' });
-  const leave = () => { clearTimeout(timer); overlay.classList.add('is-leaving'); setTimeout(() => overlay.remove(), 220); };
+  const leave = () => { clearTimeout(timer); document.removeEventListener('keydown', onKey); overlay.classList.add('is-leaving'); setTimeout(() => overlay.remove(), 220); };
+  const onKey = (e) => { if (e.key === 'Escape') leave(); };
+  document.addEventListener('keydown', onKey);
   const act = (cls, label, fn) => { const b = el('button', { class: cls, type: 'button' }, label); b.addEventListener('click', (e) => { e.stopPropagation(); leave(); fn(); }); acts.appendChild(b); };
   act('btn btn-primary btn-lg', 'Share to Story', () => sharePRCard(lift, { format: 'story' }));
   const inClub = !!(log && window.PowaClubs && PowaClubs.cachedName && PowaClubs.cachedName());
@@ -4188,37 +4216,49 @@ function showPRToast(lift, e1rmComp, log, opts) {
 // The loaded bar with exactly that many plates a side, the set that did it, and
 // the same ways out as a PR (club, card, coach).
 function plateWord(n) { return n + '-plate'; }
+// The milestone cards' way out (plates, bodyweight): a quick fade rather than a cut, Escape closes,
+// and the 9 s auto-close stops once the lifter touches the card (reading it, about to share).
+function _milestoneLeave(overlay, card) {
+  let gone = false, timer = null;
+  const leave = () => {
+    if (gone) return; gone = true;
+    clearTimeout(timer); document.removeEventListener('keydown', onKey);
+    overlay.classList.add('is-leaving');
+    setTimeout(() => overlay.remove(), 180);
+  };
+  const onKey = (e) => { if (e.key === 'Escape') leave(); };
+  document.addEventListener('keydown', onKey);
+  timer = setTimeout(leave, 9000);
+  card.addEventListener('pointerdown', () => clearTimeout(timer), { once: true });
+  return leave;
+}
+// The plates go onto the bar one by one (uiBarbell's own loading, from an empty bar): the moment is the bar.
+function _milestoneBar(kg) {
+  const reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  return uiBarbell(kg, reduce ? undefined : { from: getUnit() === 'lbs' ? BAR_LB * KG_PER_LB : BAR_KG });
+}
 function showPlateMoment(lift, n, log, isPR) {
   const overlay = el('div', { class: 'pr-toast plate-moment' });
   const card = el('div', { class: 'pr-card' });
-  card.appendChild(el('div', { class: 'pm-bar', html: uiBarbell(plateMilestoneKg(n, getUnit(), gymBigPlate(getUnit()))) }));
+  card.appendChild(el('div', { class: 'pm-bar', html: _milestoneBar(plateMilestoneKg(n, getUnit(), gymBigPlate(getUnit()))) }));
   card.appendChild(el('div', { class: 'pr-tag' }, isPR ? 'Plate milestone · new PR' : 'Plate milestone'));
   card.appendChild(el('div', { class: 'pm-title' }, 'Your first ' + plateWord(n) + ' ' + LIFT_LABELS[lift].toLowerCase()));
   card.appendChild(el('div', { class: 'pr-sub' }, formatWeight(log.weight) + ' × ' + log.reps + (log.rpe ? ' @ RPE ' + log.rpe : '') + ' · ' + n + (n === 1 ? ' plate' : ' plates') + ' a side'));
-  if (!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
-    // Confetti in competition plate colours.
-    const burst = el('div', { class: 'pr-burst', 'aria-hidden': 'true' });
-    const cols = ['#e5262f', '#2f6fde', '#f2c230', '#2fa84f', '#f4f4f6'];
-    for (let i = 0; i < 26; i++) {
-      const a = (i / 26) * Math.PI * 2 + Math.random() * 0.4, d = 110 + Math.random() * 120;
-      burst.appendChild(el('i', { style: '--dx:' + Math.round(Math.cos(a) * d) + 'px;--dy:' + Math.round(Math.sin(a) * d - 40) + 'px;--r:' + Math.round(Math.random() * 540 - 270) + 'deg;--c:' + cols[i % cols.length] + ';--t:' + (0.75 + Math.random() * 0.5).toFixed(2) + 's' }));
-    }
-    overlay.appendChild(burst);
-  }
+  // (No confetti, 23 Nov: the plates going on the bar are the celebration.)
+  const leave = _milestoneLeave(overlay, card);
   const inClub = !!(window.PowaClubs && PowaClubs.cachedName && PowaClubs.cachedName());
   const acts = el('div', { class: 'pr-acts' });
-  if (inClub) acts.appendChild(el('button', { class: 'btn btn-primary', type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); PowaClubs.shareLog(log); } }, 'Share with ' + PowaClubs.cachedName()));
-  acts.appendChild(el('button', { class: 'btn ' + (inClub ? 'btn-ghost' : 'btn-primary'), type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); sharePlateCard(lift, n, log); } }, 'Make it a card'));
-  if (user.coachId) acts.appendChild(el('button', { class: 'ui-text-btn pr-coach', type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); sendLogToCoach(log); } }, 'Send to coach'));
+  if (inClub) acts.appendChild(el('button', { class: 'btn btn-primary', type: 'button', onclick: (e) => { e.stopPropagation(); leave(); PowaClubs.shareLog(log); } }, 'Share with ' + PowaClubs.cachedName()));
+  acts.appendChild(el('button', { class: 'btn ' + (inClub ? 'btn-ghost' : 'btn-primary'), type: 'button', onclick: (e) => { e.stopPropagation(); leave(); sharePlateCard(lift, n, log); } }, 'Make it a card'));
+  if (user.coachId) acts.appendChild(el('button', { class: 'ui-text-btn pr-coach', type: 'button', onclick: (e) => { e.stopPropagation(); leave(); sendLogToCoach(log); } }, 'Send to coach'));
   card.appendChild(acts);
   overlay.appendChild(card);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) leave(); });
   document.body.appendChild(overlay);
   try {
     if (window.PowaNative && PowaNative.isNative && PowaNative.isNative()) PowaNative.notify('SUCCESS');
     else if (navigator.vibrate) navigator.vibrate([40, 60, 120]);
   } catch (e) {}
-  setTimeout(() => overlay.remove(), 9000);
   try { maybeAskForRating('plates'); } catch (e) {}
 }
 window.showPlateMoment = showPlateMoment;
@@ -4242,34 +4282,26 @@ window.sharePlateCard = sharePlateCard;
 function showBwMoment(m, log, isPR) {
   const overlay = el('div', { class: 'pr-toast plate-moment bw-moment' });
   const card = el('div', { class: 'pr-card' });
-  card.appendChild(el('div', { class: 'pm-bar', html: uiBarbell(log.weight) }));
+  card.appendChild(el('div', { class: 'pm-bar', html: _milestoneBar(log.weight) }));
   card.appendChild(el('div', { class: 'pr-tag' }, isPR ? 'Bodyweight milestone · new PR' : 'Bodyweight milestone'));
   card.appendChild(el('div', { class: 'pm-title' }, 'Your first ' + m.title.charAt(0).toLowerCase() + m.title.slice(1)));
   const bw = latestBodyweight(user.id);
   card.appendChild(el('div', { class: 'pr-sub' }, formatWeight(log.weight) + ' × ' + log.reps + (log.rpe ? ' @ RPE ' + log.rpe : '') + (bw ? ' · you weigh ' + formatWeight(bw) : '')));
-  if (!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
-    const burst = el('div', { class: 'pr-burst', 'aria-hidden': 'true' });
-    const cols = ['#e5262f', '#2f6fde', '#f2c230', '#2fa84f', '#f4f4f6'];
-    for (let i = 0; i < 22; i++) {
-      const a = (i / 22) * Math.PI * 2 + Math.random() * 0.4, d = 100 + Math.random() * 120;
-      burst.appendChild(el('i', { style: '--dx:' + Math.round(Math.cos(a) * d) + 'px;--dy:' + Math.round(Math.sin(a) * d - 40) + 'px;--r:' + Math.round(Math.random() * 540 - 270) + 'deg;--c:' + cols[i % cols.length] + ';--t:' + (0.75 + Math.random() * 0.5).toFixed(2) + 's' }));
-    }
-    overlay.appendChild(burst);
-  }
+  // (No confetti, 23 Nov: the bar loading to the weight is the celebration.)
+  const leave = _milestoneLeave(overlay, card);
   const inClub = !!(window.PowaClubs && PowaClubs.cachedName && PowaClubs.cachedName());
   const acts = el('div', { class: 'pr-acts' });
-  if (inClub) acts.appendChild(el('button', { class: 'btn btn-primary', type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); PowaClubs.shareLog(log); } }, 'Share with ' + PowaClubs.cachedName()));
-  acts.appendChild(el('button', { class: 'btn ' + (inClub ? 'btn-ghost' : 'btn-primary'), type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); shareBwCard(m, log); } }, 'Make it a card'));
-  if (user.coachId) acts.appendChild(el('button', { class: 'ui-text-btn pr-coach', type: 'button', onclick: (e) => { e.stopPropagation(); overlay.remove(); sendLogToCoach(log); } }, 'Send to coach'));
+  if (inClub) acts.appendChild(el('button', { class: 'btn btn-primary', type: 'button', onclick: (e) => { e.stopPropagation(); leave(); PowaClubs.shareLog(log); } }, 'Share with ' + PowaClubs.cachedName()));
+  acts.appendChild(el('button', { class: 'btn ' + (inClub ? 'btn-ghost' : 'btn-primary'), type: 'button', onclick: (e) => { e.stopPropagation(); leave(); shareBwCard(m, log); } }, 'Make it a card'));
+  if (user.coachId) acts.appendChild(el('button', { class: 'ui-text-btn pr-coach', type: 'button', onclick: (e) => { e.stopPropagation(); leave(); sendLogToCoach(log); } }, 'Send to coach'));
   card.appendChild(acts);
   overlay.appendChild(card);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) leave(); });
   document.body.appendChild(overlay);
   try {
     if (window.PowaNative && PowaNative.isNative && PowaNative.isNative()) PowaNative.notify('SUCCESS');
     else if (navigator.vibrate) navigator.vibrate([40, 60, 120]);
   } catch (e) {}
-  setTimeout(() => overlay.remove(), 9000);
   try { maybeAskForRating('bodyweight'); } catch (e) {}
 }
 window.showBwMoment = showBwMoment;
@@ -5399,7 +5431,8 @@ function openMeetMode() {
       else hapticTick();
       paint();
     };
-    const lights = el('div', { class: 'mm-lights', role: 'group', 'aria-label': 'Judges\' lights. Tap to set white or red' });
+    // The call just made (within this paint): the three lights come on together, once.
+    const lights = el('div', { class: 'mm-lights' + (A.result && A.decidedAt && Date.now() - A.decidedAt < 400 ? ' is-called' : ''), role: 'group', 'aria-label': 'Judges\' lights. Tap to set white or red' });
     A.lights.forEach((v, j) => {
       const b = el('button', { class: 'mm-light' + (v ? ' is-' + v : ''), type: 'button', 'aria-label': 'Judge ' + (j + 1) + ': ' + (v || 'not set') });
       b.addEventListener('click', () => { A.lights[j] = A.lights[j] === 'white' ? 'red' : 'white'; settle(); });
@@ -6697,7 +6730,11 @@ function startRestTimer(seconds, label, why) {
   restEndTime = Date.now() + restTotalMs;
   restPausedMs = null;
   restLabel = label || 'Rest';
-  restPrimeAudio(); // called inside the set-check gesture, so the end-beep is allowed later
+  // Primed from the set-check gesture so the end-beep is allowed later, but one beat after it: making
+  // the first AudioContext costs ~240 ms of main thread, which held the logged set's tick, the next set
+  // and this dock off the screen on the first set of every visit. A timer under 1 s keeps the gesture
+  // (WebKit forwards it; Chromium's activation lasts 5 s), and 48 ms lets the frame paint first.
+  setTimeout(restPrimeAudio, 48);
   nativeRestStart(restEndTime, seconds, label);
 
   // [ring = progress + pause/resume] [Rest · Squat / 3:45] [−15  +30  Skip]
@@ -6721,9 +6758,10 @@ function startRestTimer(seconds, label, why) {
     el('div', { class: 'rt-num', id: 'rtNum', 'aria-live': 'off' }, restFmt(seconds))
   ));
   wrap.classList.toggle('has-why', !!why);
-  const chip = (txt, aria, fn) => { const b = el('button', { class: 'rt-chip', type: 'button', 'aria-label': aria }, txt); b.addEventListener('click', fn); return b; };
+  // The selection click on −15 / +30 / Skip, as Lift mode's own rest buttons already give.
+  const chip = (txt, aria, fn) => { const b = el('button', { class: 'rt-chip', type: 'button', 'aria-label': aria }, txt); b.addEventListener('click', () => { fn(); hapticTick(); }); return b; };
   const skip = el('button', { class: 'rt-skip', type: 'button', 'aria-label': 'Skip rest' }, 'Skip');
-  skip.addEventListener('click', () => stopRestTimer());
+  skip.addEventListener('click', () => { stopRestTimer(); hapticTick(); });
   wrap.appendChild(el('div', { class: 'rt-actions' },
     chip('−15', 'Rest 15 seconds less', () => restAdjust(-15)),
     chip('+30', 'Rest 30 seconds more', () => restAdjust(30)),

@@ -32,6 +32,9 @@
   from { opacity: 0.5; transform: translate3d(0, 8px, 0); }
   to   { opacity: 1; transform: none; }
 }
+/* In the phone app the five tabs are visited all day: a tab switch is instant, as a native tab
+   bar's is (23 Nov 2026). The laptop and the web keep the settle above. */
+html.native:not(.desk) [data-pane]:not(.hidden) { animation: none; }
 
 /* --- Modal entrance ------------------------------------------
  * styles.css already fades the backdrop and rises the box via
