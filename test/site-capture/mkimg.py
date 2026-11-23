@@ -230,11 +230,14 @@ if 'desk2' in what:
     save(cropj(siA, g['hold']), 'desk2-win', [756, 1512], q_webp=86, q_avif=62)
     print('   home.css .fw-desk, home.js deskHold: x -%g, y -%g (the window at rest: desk %g..%g x %g..%g)' % (X0, Y0, X0, X0 + W, Y0, Y0 + H))
     # The window's second screen and the list's own figure.
-    save(ovA, 'desk2-ov', [1440, 2880], q_avif=60)
+    # 23 Nov: the second screen is the Overview scrolled just far enough for six Needs you rows (cap-desk2 ov.pan)
+    ovP = Image.open(CAP + 'desk2-ov-pan.png').convert('RGB') if os.path.exists(CAP + 'desk2-ov-pan.png') else ovA
+    print('   the second screen: the Overview scrolled %g desk px' % g.get('pan', 0))
+    save(ovP, 'desk2-ov', [1440, 2880], q_avif=60)
     print('   home.js deskList: from x %g, %g desk px wide (phones: %g), bottom of the screen' % (g['listWide']['x'], g['listWide']['w'], g['listPhone']['w']))
     for i, (a, m) in enumerate(zip(g['grp'], g['mk'])):
         print('   .grp %d: left:%gpx;top:%gpx;height:%gpx;--w:%gpx;--wp:%gpx   .mk %d: left:%gpx;top:%gpx   %s' % (i + 1, a['left'], a['top'], a['h'], a['w'], a['wp'], i + 1, m['left'], m['top'], g['needRows'][i]['who']))
-    nd = cropj(ovA, g['needs']); save(nd, 'needs2', [560, 1120, 1560], q_webp=86, q_avif=62)
-    nph = cropj(ovA, g['needsPh']); save(nph, 'needs2-ph', [330, 660, 912], q_webp=86, q_avif=62)
+    nd = cropj(ovP, g['needs']); save(nd, 'needs2', [560, 1120, 1560], q_webp=86, q_avif=62)
+    nph = cropj(ovP, g['needsPh']); save(nph, 'needs2-ph', [330, 660, 912], q_webp=86, q_avif=62)
     print('   index.html .fw-port-list: picture %g x %g desk px (width="560" height="%d"); phones %g x %g (width="330" height="%d")' % (g['needs'][2], g['needs'][3], round(560 * nd.height / nd.width), g['needsPh'][2], g['needsPh'][3], round(330 * nph.height / nph.width)))
     print('   index.html .fpin --y (out of %g): %s' % (g['needs'][3], ', '.join('%g' % v for v in g['pins'])))

@@ -271,17 +271,17 @@ html.m .hl { display: block; position: absolute; z-index: 2; left: calc(var(--x)
 .fw-live { display: none; position: absolute; inset: 0; overflow: hidden; background: var(--screen); }
 html.m .fw-a .fw-still { display: none; }
 html.m .fw-a .fw-live { display: block; }
-.fw-desk { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; transform: translate(calc(-240px * var(--fk, 1)), calc(-56px * var(--fk, 1))) scale(var(--fk, 1)); }
+.fw-desk { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; transform: translate(calc(-68px * var(--fk, 1)), calc(-56px * var(--fk, 1))) scale(var(--fk, 1)); }
 .fw-desk picture:where(:not(.layer)), .fw-base { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; max-width: none; }
 .fw-ov { opacity: 0; }   /* the Overview, over the list's screen: the script brings it in as the window moves on to Needs you */
 /* Needs you as a figure of its own (the still), the chain's numbers beside its rows (a margin keeps them clear of the
-   screen's own edge): the Overview's table from its title to under the sixth row, 780 x 440 desk px at up to 0.72
-   (phones: the lifter and why-now columns, 464 x 440). Every lifter the chain names is in view. */
+   screen's own edge): the Overview's table from its title to under the sixth row, 952 x 512 desk px at up to 0.72
+   (phones: the lifter and why-now columns, 632 x 512). Every lifter the chain names is in view. */
 .fw-port-list { width: min(46vw, 594px); max-width: 594px; aspect-ratio: auto; padding-left: 34px; overflow: visible; background: transparent; box-shadow: none; border-radius: 0; }
-.fw-port-list picture { display: block; overflow: hidden; aspect-ratio: 780 / 440; border-radius: 16px; background: var(--screen); box-shadow: var(--pane); }
+.fw-port-list picture { display: block; overflow: hidden; aspect-ratio: 952 / 512; border-radius: 16px; background: var(--screen); box-shadow: var(--pane); }
 .fw-port-list img { width: 100%; }
-/* The pins beside the table's rows: light discs with ink numbers, as the phone's (the rows' own geometry, out of 440). */
-.fpin { position: absolute; left: 0; top: calc(var(--y) / 440 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); }
+/* The pins beside the table's rows: light discs with ink numbers, as the phone's (the rows' own geometry, out of 512). */
+.fpin { position: absolute; left: 0; top: calc(var(--y) / 512 * 100%); display: grid; place-items: center; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: #f4f4f6; color: #0b0b0d; font: 800 12px/1 var(--font-num); }
 .fpin::before { content: attr(data-n); }
 .fw-b .cap { margin-top: 14px; padding-left: 34px; }
 .was { position: absolute; max-width: none; opacity: 0; pointer-events: none; }
@@ -373,18 +373,18 @@ html.m .tl-bub img { width: 100%; aspect-ratio: 393 / 852; }
 .next-head .lead { grid-column: 7 / span 6; max-width: 36em; }
 .wk { margin-top: var(--s4); width: min(100%, 880px); }
 /* A window onto Sam's Programs sheet on the new coach website, Marcus's week 3 (the crop is 844 x 590.8 desk px: the top
-   bar with its action, the week's bar, his message, the squat day and the bench day; the page's 10:7). 1cqw here is 8.44
+   bar with its action, the week's bar, his message, the squat day and the bench day; the page's 10:7). 1cqw here is 13.4
    desk px, so the page's own parts are drawn in the sheet's px (cap-week2.mjs, mkimg.py week2). */
 .wk-port { position: relative; overflow: hidden; border-radius: 18px; outline-offset: 4px; background: var(--screen); box-shadow: var(--pane); }
 .wk-in { position: relative; aspect-ratio: 800 / 560; container-type: inline-size; }
 .wk-in picture, .wk-in img { position: absolute; inset: 0; width: 100%; height: 100%; }
 /* What week 2 lifted on his bench (152.5 x 3 @9.5 where Sam wrote 8), then week 3's load on the same line, his rule's 145. */
-.why { position: absolute; left: 22.275%; top: 87.745%; width: 13.389%; height: 4.875%; border-radius: calc(8 / 8.44 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; visibility: hidden; pointer-events: none; }
-.tap { position: absolute; left: 63.626%; top: 86.290%; width: 10.664%; height: 7.786%; border-radius: calc(8 / 8.44 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
+.why { position: absolute; left: 16.045%; top: 62.814%; width: 7.888%; height: 2.942%; border-radius: calc(8 / 13.4 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; visibility: hidden; pointer-events: none; }
+.tap { position: absolute; left: 42.313%; top: 62.367%; width: 6.716%; height: 3.838%; border-radius: calc(8 / 13.4 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
 /* The sheet's own action (the crimson primary in its top bar, left out of the picture), drawn by the page so one crimson
    per screen holds: Send 4 changes to Marcus, where the sheet has it, in its type (15 px, 600, a 36 px pill). */
-.pub { position: absolute; right: 1.896%; top: 1.693%; width: 25.261%; height: calc(36 / 8.44 * 1cqw); display: inline-flex; align-items: center; justify-content: center; padding: 0 calc(16 / 8.44 * 1cqw); border-radius: 999px;
-  color: #fff; font-size: calc(15 / 8.44 * 1cqw); font-weight: 600; white-space: nowrap; isolation: isolate; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45)); }
+.pub { position: absolute; right: 1.194%; top: 0.853%; width: 15.910%; height: calc(40 / 13.4 * 1cqw); display: inline-flex; align-items: center; justify-content: center; padding: 0 calc(16 / 13.4 * 1cqw); border-radius: 999px;
+  color: #fff; font-size: calc(15 / 13.4 * 1cqw); font-weight: 600; white-space: nowrap; isolation: isolate; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45)); }
 .pub::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2); }
 
 /* =====================================================================
@@ -779,7 +779,7 @@ html.m .hphone { animation: easeUp 1200ms var(--ease-enter) 320ms both; }
   .fw-still { display: block; width: 756px; }
   .fw-still img { width: 756px; max-width: none; }
   .fw-port-list { width: 100%; height: auto; padding-left: 32px; }
-  .fw-port-list picture { aspect-ratio: 464 / 440; }
+  .fw-port-list picture { aspect-ratio: 632 / 512; }
   html.m .grp { width: var(--wp); }
   .chain { margin-top: var(--s3); }
   .chain li { column-gap: 12px; min-height: 44px; }
@@ -796,9 +796,9 @@ html.m .hphone { animation: easeUp 1200ms var(--ease-enter) 320ms both; }
      window has them (mkimg.py week2): 1cqw here is 6.08 desk px. The top bar is not in it, so no action is drawn. */
   .wk { width: auto; margin-inline: -16px; }
   .wk-port { border-radius: 0; }
-  .wk-in { aspect-ratio: 608 / 415; }
-  .why { left: 26.974%; top: 71.711%; width: 18.586%; height: 6.940%; border-radius: calc(8 / 6.08 * 1cqw); }
-  .tap { left: 84.375%; top: 69.639%; width: 14.803%; height: 11.084%; border-radius: calc(8 / 6.08 * 1cqw); }
+  .wk-in { aspect-ratio: 684.6 / 313; }
+  .why { left: 27.900%; top: 70.671%; width: 15.440%; height: 8.818%; border-radius: calc(8 / 6.846 * 1cqw); }
+  .tap { left: 79.316%; top: 69.329%; width: 13.146%; height: 11.502%; border-radius: calc(8 / 6.846 * 1cqw); }
   .pub { display: none; }
   .meet-lead { margin-top: 14px; margin-bottom: var(--s3); }
   .scene { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "phone" "board"; row-gap: 22px; }

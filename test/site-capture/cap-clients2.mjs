@@ -23,7 +23,7 @@ const g = await p.evaluate(() => {
   return { td: R(td), mo: R(mo), tb: R(tb), rows, lines, month: mo.innerText.replace(/\s+/g, ' ').trim().slice(0, 200), facts: (q('#facts') || {}).innerText || '' };
 });
 if (!g) throw new Error('site-capture: the Clients page changed (no .card.td, .card.mo or header.tb)');
-if (!/^Tomas Novak/.test(g.rows[0].t) || !/12 days late/.test(g.rows[0].t) || !/^Tom Boyle/.test(g.rows[1].t) || !/5 days late/.test(g.rows[1].t) || !/\$980/.test(g.month) || !/\$370 late/.test(g.month))
+if (!/^(TN )?Tomas Novak/.test(g.rows[0].t) || !/12 days late/.test(g.rows[0].t) || !/^(TB )?Tom Boyle/.test(g.rows[1].t) || !/5 days late/.test(g.rows[1].t) || !/\$980/.test(g.month) || !/\$370 late/.test(g.month))
   throw new Error('site-capture: the Clients demo changed: ' + JSON.stringify({ rows: g.rows.slice(0, 2), month: g.month }));
 const r1 = (v) => Math.round(v * 10) / 10;
 // no line of text may straddle a horizontal cut at y between x0 and x1
@@ -33,6 +33,9 @@ desk[3] = r1(g.mo[1] + g.mo[3] + 24 - desk[1]);
 const cutD = clean(desk[1] + desk[3], desk[0], desk[0] + desk[2]);
 if (cutD.length) throw new Error('site-capture: the desk cut passes through ' + JSON.stringify(cutD));
 const phone = [g.td[0], g.td[1], g.td[2], Math.round(g.td[2] * 328 / 251)];
+/* 23 Nov: the To do cards are taller now; a cut that would land inside a lifter ends in the gap above them instead */
+const hit = g.rows.find((x) => x.r[1] + 8 < phone[1] + phone[3] && x.r[1] + x.r[3] - 8 > phone[1] + phone[3]);
+if (hit) phone[3] = r1(hit.r[1] - 4 - phone[1]);
 const cutP = clean(phone[1] + phone[3], phone[0], phone[0] + phone[2]);
 const inRow = g.rows.filter((x) => x.r[1] + 8 < phone[1] + phone[3] && x.r[1] + x.r[3] - 8 > phone[1] + phone[3]);
 if (cutP.length || inRow.length) throw new Error('site-capture: the phone cut passes through ' + JSON.stringify(cutP.concat(inRow)));

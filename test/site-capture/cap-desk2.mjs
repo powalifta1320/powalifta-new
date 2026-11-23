@@ -47,15 +47,33 @@ for (const mode of ['before', 'after']) {
   let p = await kitPage(ctx, 'overview', '', { errs });
   if (await p.evaluate(() => window.__capPatch) !== mode) throw new Error('site-capture: the patch did not run (' + mode + ')');
   if (!(await mute(p, '^Go through the \\d+ who need', '^Add a lifter'))) throw new Error('site-capture: the Overview\'s action changed');
+  /* 23 Nov: Needs you opens on its first five (an inbox); the homepage's six steps need the sixth row, so the list is
+     opened whole, as Show all does */
+  const all = await p.$('#need [data-showall], .sec.need [data-showall]'); if (all) { await all.click(); await p.waitForTimeout(400); await p.mouse.move(1430, 890); await p.waitForTimeout(300); }
   await p.waitForTimeout(250);
   const ov = await p.evaluate(`(() => { const R = ${R};
     const text = (e) => { if (!e) return null; const rg = document.createRange(); rg.selectNodeContents(e); return R(rg); };
     const T = (e) => (e ? e.innerText.replace(/\\s+/g, ' ').trim() : '');
-    const tile = document.querySelector('#charts .ch'), card = document.querySelector('.sec.need .card'), cols = document.querySelector('#need-cols');
+    const tile = [...document.querySelectorAll('#charts .ch')].find((x) => /^Training/.test(T(x))), card = document.querySelector('.sec.need .card'), cols = document.querySelector('#need-cols');
     const title = [...document.querySelectorAll('.sec.need h2, .sec.need .sec-h')].find((x) => /^Needs you/.test(T(x)));
-    const rows = [...document.querySelectorAll('#need .lrow')].map((x) => { const k = [...x.children]; return { r: R(x), who: T(x.querySelector('.nm')), why: T(x.querySelector('.who')).replace(T(x.querySelector('.nm')), '').trim(), now: T(k[1]), fix: T(x.querySelector('.fix') || x.querySelector('.act')), parts: k.map((c) => ({ c: c.className, r: R(c), t: text(c) })) }; });
+    const rows = [...document.querySelectorAll('#need .lrow')].map((x) => { const k = [...x.children]; return { r: R(x), who: T(x.querySelector('.nm')), why: (x.querySelector('.who').innerText.trim().split('\\n').pop() || '').trim(), now: T(x.querySelector('.fg-col') || k[1]), fix: T(x.querySelector('.fix') || x.querySelector('.act')), parts: [x.querySelector('.who') || k[0], x.querySelector('.fg-col') || k[1], x.querySelector('.act') || k[2]].map((c) => ({ c: c.className, r: R(c), t: text(c) })) }; });
     return { tile: R(tile), tileText: T(tile), card: R(card), cols: R(cols), colsText: T(cols), title: R(title), titleText: T(title), rows, facts: T(document.querySelector('#facts')), tb: R(document.querySelector('header.tb')), scrollY: window.scrollY }; })()`);
   await p.screenshot({ path: CAP + 'desk2-ov-' + mode + '.png' });
+  /* 23 Nov: Needs you sits lower on the Overview now; for the homepage's pan to it (and its own figure) the page scrolls
+     just far enough for six rows, and every row's place is taken again from there (ov.pan: how far it moved) */
+  if (mode === 'after') {
+    const want = Math.max(0, Math.ceil(ov.rows[5].r[1] + ov.rows[5].r[3] + 24 - 900));
+    if (want) {
+      await p.mouse.move(1430, 890);   /* never over the rail: resting there opens the sidebar */
+      await p.evaluate(`((dy) => { const r = document.querySelector('#need'); let e = r && r.parentElement; while (e && e !== document.body && !(e.scrollHeight > e.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(e).overflowY))) e = e.parentElement; (e && e !== document.body ? e : document.scrollingElement).scrollBy(0, dy); })(${want})`);
+      await p.waitForTimeout(500);
+      if (!(await mute(p, '^Go through the \\d+ who need', '^Add a lifter'))) throw new Error('site-capture: the Overview\'s action changed (pan)');
+      await p.waitForTimeout(250);
+    }
+    const now = await p.evaluate(`(() => { const r = document.querySelector('#need .lrow'); return r ? r.getBoundingClientRect().y : null; })()`);
+    ov.pan = Math.round((ov.rows[0].r[1] - now) * 10) / 10;
+    await p.screenshot({ path: CAP + 'desk2-ov-pan.png' });
+  }
   await p.close();
   // --- Lifters, Trained since you looked (the page's own first lifter open)
   p = await kitPage(ctx, 'lifters', 'f=since', { errs });
@@ -79,11 +97,12 @@ if (!/^Trained since you looked 9$/.test(A.since.headText) || !/^Trained since y
 if (A.since.rows[0].who !== B.since.rows[0].who || !A.ov.rows.length) bad('the open lifter changed with the set', [A.since.rows[0], B.since.rows[0]]);
 const WANT = [['Priya Shah', /^Pain on today.s check-in$/, /^Autumn Open today$/, /^Use Safe openers, ask Priya$/], ['Sarah Kim', /^Low back 6\/10 on deadlift$/, /^Twice in 7 days$/, /^Swap to block pulls @6$/], ['Mei Tanaka', /^Left knee tight on squats$/, /^2 days$/, /^Cap squats at RPE 7$/],
   ['Tom Boyle', /^0\.3 kg over, asks if OK$/, /^Autumn Open today$/, /^Reply to Tom$/], ['Nina Petrova', /^Can only train Thu and Sat$/, /^Double shifts$/, /^Approve Thu and Sat$/], ['Elena Rossi', /^1\.4 kg over the 57 kg class$/, /^In 12 days$/, /^Plan the cut$/]];
-WANT.forEach((w, i) => { const r = A.ov.rows[i]; if (!r || r.who !== w[0] || !w[1].test(r.why) || !w[2].test(r.now) || !w[3].test(r.fix)) bad('Needs you, row ' + (i + 1) + ' changed (the homepage\'s six steps name these rows)', r); });
-if (!/^Lifter Why now Next step$/.test(A.ov.colsText) || A.ov.scrollY !== 0) bad('the Needs you table changed', A.ov.colsText);
+const loose = (re) => new RegExp(re.source.replace(/^\^/, '').replace(/\$$/, ''));   /* 23 Nov: a row's figure carries its words beside a picture now */
+WANT.forEach((w, i) => { const r = A.ov.rows[i]; if (!r || r.who !== w[0] || !loose(w[1]).test(r.why) || !loose(w[3]).test(r.fix)) bad('Needs you, row ' + (i + 1) + ' changed (the homepage\'s six steps name these rows)', r); });
+if (A.ov.scrollY !== 0) bad('the Overview scrolled', A.ov.scrollY);
 // --- the views and cuts (desk px)
 const r1 = (v) => Math.round(v * 10) / 10;
-const S = A.since, O = A.ov, rowsO = O.rows.slice(0, 6);
+const S = A.since, O = A.ov, rowsO = O.rows.slice(0, 6), pan = O.pan || 0;   /* the pan picture's rows stand pan px higher */
 const hold = [r1(S.list[0] - 8), r1(S.tb[1] + S.tb[3]), 756, 576];                       // the window at rest: the list and the open lifter beside it
 const ring = aj[0].r;                                                                    // the ring round Arjun's row
 const wasList = [r1(S.list[0] - 4), r1(S.tb[1] + S.tb[3]), r1(S.list[2] + 8), r1(900 - (S.tb[1] + S.tb[3]))];   // the list a moment earlier
@@ -94,15 +113,15 @@ const nowRight = Math.max(...O.rows.slice(0, 7).map((x) => x.parts[1].t[0] + x.p
 const fixLeft = Math.min(...O.rows.slice(0, 7).map((x) => x.parts[2].t[0]));
 if (!(nowRight + 8 <= fixLeft)) bad('no gap between Why now and Next step for the phone\'s cut', { nowRight, fixLeft });
 const X0 = r1(O.card[0] - 36);                                                           // the views start left of the card: room for the row numbers
-const listWide = { x: X0, w: 780 }, listPhone = { x: X0, w: r1(nowRight + 8 - X0) };
-const grp = rowsO.map((x) => ({ left: r1(O.card[0] + 6), top: x.r[1], w: r1(O.card[2] - 12), wp: r1(nowRight + 2 - (O.card[0] + 6)), h: x.r[3] }));
-const mk = rowsO.map((x) => ({ left: r1(O.card[0] - 30), top: r1(x.r[1] + x.r[3] / 2 - 11) }));
+const listWide = { x: X0, w: r1(O.card[2] + 16) }   /* the whole table, as the needs figure (it was 780 when the card was 764) */, listPhone = { x: X0, w: r1(nowRight + 8 - X0) };
+const grp = rowsO.map((x) => ({ left: r1(O.card[0] + 6), top: r1(x.r[1] - pan), w: r1(O.card[2] - 12), wp: r1(nowRight + 2 - (O.card[0] + 6)), h: x.r[3] }));
+const mk = rowsO.map((x) => ({ left: r1(O.card[0] - 30), top: r1(x.r[1] - pan + x.r[3] / 2 - 11) }));
 // the list's own figure (the still, and phones without motion): from the section's title to under the sixth row
-const top = r1(O.title[1] - 14), bottom = r1(rowsO[5].r[1] + rowsO[5].r[3] + 10);
+const top = r1(O.title[1] - pan - 14), bottom = r1(rowsO[5].r[1] - pan + rowsO[5].r[3] + 10);
 const needs = [r1(O.card[0] - 8), top, r1(O.card[2] + 16), r1(bottom - top)], needsPh = [r1(O.card[0] - 8), top, r1(nowRight + 8 - (O.card[0] - 8)), r1(bottom - top)];
-const pins = rowsO.map((x) => r1(x.r[1] + x.r[3] / 2 - top));
+const pins = rowsO.map((x) => r1(x.r[1] - pan + x.r[3] / 2 - top));
 const tile = O.tile;                                                                     // the opening's laptop: the Training tile, after
-const out = { theme: THEME, set: SET, hold, ring, wasList, wasPos, listWide, listPhone, grp, mk, needs, needsPh, pins, tile, nowRight, fixLeft,
+const out = { theme: THEME, set: SET, pan, hold, ring, wasList, wasPos, listWide, listPhone, grp, mk, needs, needsPh, pins, tile, nowRight, fixLeft,
   before: { training: B.ov.tileText, head: B.since.headText, pos: B.since.posText, rows: B.since.rows.map((x) => x.t) },
   after: { training: A.ov.tileText, head: A.since.headText, pos: A.since.posText, rows: A.since.rows.map((x) => x.t), open: A.since.open, facts: O.facts },
   needRows: O.rows.slice(0, 7).map((x) => ({ who: x.who, why: x.why, now: x.now, fix: x.fix, r: x.r })), card: O.card, title: O.title, muted: [state.before.redOk, state.after.redOk], errs };

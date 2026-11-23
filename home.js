@@ -478,12 +478,12 @@
     var w = fwPort.clientWidth, h = fwPort.clientHeight, s = Math.max(w / 1440, h / 900), seen = w / s, cx = wide() ? 720 : 618;
     return { x: -clamp(0, 1440 - seen, cx - seen / 2) * s, y: -(900 - h / s) / 2 * s, s: s };
   }
-  function deskHold() { var k = fk(); return { x: -240 * k, y: -56 * k, s: k }; }   // the list from the sidebar's edge, under the top bar
-  /* Needs you on the Overview: from 236 desk px (room for the rows' numbers), 780 wide (on a phone 492: the lifter and
+  function deskHold() { var k = fk(); return { x: -68 * k, y: -56 * k, s: k }; }   // the list from the sidebar's edge, under the top bar
+  /* Needs you on the Overview: from 64 desk px (room for the rows' numbers), 952 wide (on a phone 660: the lifter and
      why now, so the words stay readable), down to the bottom of Sam's screen. */
   function deskList() {
-    var w = fwPort.clientWidth, h = fwPort.clientHeight, s = Math.min(1, fk(), w / (small() ? 492 : 780));
-    return { x: -236 * s, y: -Math.max(0, 900 * s - h), s: s };
+    var w = fwPort.clientWidth, h = fwPort.clientHeight, s = Math.min(1, fk(), w / (small() ? 660 : 952));
+    return { x: -64 * s, y: -Math.max(0, 900 * s - h), s: s };
   }
   gsap.set(fwDesk, { transformOrigin: '0 0' });
   var fwOv = $('#fwOv');

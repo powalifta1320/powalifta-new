@@ -14,7 +14,7 @@
 import { writeFileSync } from 'node:fs';
 import { launch, kitCtx, kitPage, CAP, THEME } from './lib.mjs';
 const b = await launch(); const errs = [];
-const ctx = await kitCtx(b);
+const ctx = await kitCtx(b, { h: 960 });   /* 23 Nov: the card is wider now; its 10:7 frame (938 px) needs a taller screen than 900 */
 const p = await kitPage(ctx, 'programs', 'id=demo-d3', { errs });
 const hash = await p.evaluate(() => location.hash);
 if (!/id=demo-d3/.test(hash) || !/week=3/.test(hash) || !/row=change/.test(hash)) throw new Error('site-capture: Marcus\'s job no longer opens week 3 at its change: ' + hash);
@@ -26,25 +26,29 @@ const g = await p.evaluate(() => {
   const U = (a, c) => { const x = Math.min(a[0], c[0]), y = Math.min(a[1], c[1]); return [x, y, Math.max(a[0] + a[2], c[0] + c[2]) - x, Math.max(a[1] + a[3], c[1] + c[3]) - y].map((v) => Math.round(v * 10) / 10); };
   const q = (s, r) => (r || document).querySelector(s), T = (e) => (e ? e.innerText.replace(/\s+/g, ' ').trim() : '');
   const card = q('.card.wk'), lines = [...document.querySelectorAll('.wg-line')], days = [...document.querySelectorAll('.wg-day')];
-  const bench = lines.find((x) => /^Bench\b/.test(T(x))), bo = bench && bench.nextElementSibling;
+  const bench = lines.find((x) => /^(\d+ )?Bench\b/.test(T(x)))   /* 23 Nov: each line carries its row number first */, bo = bench && bench.nextElementSibling;
   const send = [...document.querySelectorAll('header.tb button')].find((x) => /^Send \d+ changes? to Marcus$/.test(T(x)));
   if (!card || !bench || !send) return null;
   const last = q('.wg-k-last', bench), ls = q('.wg-ls', last), lf = q('.wg-lf', last), load = q('.wg-k-load', bench), cs = getComputedStyle(send);
   // every run of words on the page, by the words' own extent (a range), to check the cuts against
-  const leaf = [...document.querySelectorAll('#page *')].filter((e) => e.offsetParent && e.children.length === 0 && e.textContent.trim()).map((e) => { const rg = document.createRange(); rg.selectNodeContents(e); return { t: e.textContent.trim().slice(0, 40), r: R(rg) }; });
+  const leaf = [...document.querySelectorAll('#page *')].filter((e) => e.offsetParent && e.children.length === 0 && e.textContent.trim() && !e.closest('.sr')).map((e) => { const rg = document.createRange(); rg.selectNodeContents(e); return { t: e.textContent.trim().slice(0, 40), r: R(rg) }; });
   return { card: R(card), wb: R(q('.card.wk .wb')), status: R(q('.wg-status')), head: R(q('.wg-head')), days: days.map((d) => ({ r: R(d), t: T(d) })), bench: { r: R(bench), t: T(bench) }, backoffs: { r: R(bo), t: T(bo) },
     lifted: { box: U(R(ls), R(lf)), text: T(ls) + ' ' + T(lf), tone: lf.className }, load: { box: R(load), text: T(load), changed: load.classList.contains('is-chg') },
     send: R(send), sendText: T(send), sendStyle: ['font-family', 'font-size', 'font-weight', 'font-stretch', 'letter-spacing', 'padding-left', 'padding-right', 'height', 'border-radius', 'background-image', 'color'].reduce((o, k) => { o[k] = cs.getPropertyValue(k); return o; }, {}),
     strip: T(q('.card.wk .wb')), statusText: T(q('.wg-status')), title: T(q('header.tb .tb-title')), colLast: T(q('.wg-head .wg-k-last') || q('.wg-head')), loadHead: R([...document.querySelectorAll('.wg-head *')].find((e) => e.children.length === 0 && /^Load \(kg\)$/.test(e.textContent.trim()))), leaf };
 });
 if (!g) throw new Error('site-capture: the Programs sheet changed (no .card.wk, bench line or Send action)');
-if (g.lifted.text !== '152.5 × 3 @9.5' || !/tone-warn/.test(g.lifted.tone) || g.load.text !== '145' || !g.load.changed || g.sendText !== 'Send 4 changes to Marcus' || !/Week 3/.test(g.strip) || !/4 changes to send/.test(g.strip) || !/155 → 145/.test(g.strip) || !/was 155/.test(g.statusText) || g.title !== 'Marcus Doyle' || !/Week 2/.test(g.colLast) || !/^Back-offs/.test(g.backoffs.t) || g.days.length < 3 || !/Bench day/.test(g.days[1].t))
+if (g.lifted.text !== '152.5 × 3 @9.5' || !/tone-warn/.test(g.lifted.tone) || g.load.text !== '145' || !g.load.changed || g.sendText !== 'Send 4 changes to Marcus' || !/Week 3/.test(g.strip) || !/4 changes to send/.test(g.strip) || !/155 → 145/.test(g.strip) || !/was 155/.test(g.statusText) || g.title !== 'Marcus Doyle' || !/Week 2/.test(g.colLast) || !/^(\d+ )?Back-offs/.test(g.backoffs.t) || g.days.length < 3 || !/Bench day/.test(g.days[1].t))
   throw new Error('site-capture: Marcus\'s week 3 changed: ' + JSON.stringify({ lifted: g.lifted, load: g.load, send: g.sendText, strip: g.strip, status: g.statusText, title: g.title, col: g.colLast }));
 const r1 = (v) => Math.round(v * 10) / 10;
 // The homepage's frame: the card with 16 px either side, from the top of the screen, at 10:7.
 const W = g.card[2] + 32, frame = [r1(g.card[0] - 16), 0, r1(W), r1(W * 0.7)];
 // Phones: the sheet from its status line to the end of the bench day, from 8 px inside the card to 8 px past the load column.
 const phone = [r1(g.card[0] + 8), r1(g.status[1]), 0, r1(g.days[2].r[1] - g.status[1])]; phone[2] = r1(g.load.box[0] + g.load.box[2] + 8 - phone[0]);
+/* 23 Nov: the status line's words run past the load column now; the phone's frame takes them whole */
+const stRight = Math.max(0, ...g.leaf.filter((l) => l.r[1] >= g.status[1] - 1 && l.r[1] + l.r[3] <= g.status[1] + g.status[3] + 1 && l.r[0] < phone[0] + phone[2]).map((l) => l.r[0] + l.r[2]));
+if (stRight + 8 > phone[0] + phone[2]) phone[2] = r1(stRight + 8 - phone[0]);
+for (let i = 0; i < 8; i++) { const x = phone[0] + phone[2], hit = g.leaf.filter((l) => l.r[1] < phone[1] + phone[3] && l.r[1] + l.r[3] > phone[1] && l.r[0] < x - 0.5 && l.r[0] + l.r[2] > x + 0.5); if (!hit.length) break; phone[2] = r1(Math.max(...hit.map((l) => l.r[0] + l.r[2])) + 8 - phone[0]); }
 const inside = (f, bx) => bx[0] >= f[0] && bx[1] >= f[1] && bx[0] + bx[2] <= f[0] + f[2] && bx[1] + bx[3] <= f[1] + f[3];
 const hcut = (f) => g.leaf.filter((l) => l.r[0] < f[0] + f[2] && l.r[0] + l.r[2] > f[0] && l.r[1] < f[1] + f[3] && l.r[1] + l.r[3] > f[1] + f[3]);   // words across the bottom edge
 const vcut = (f) => g.leaf.filter((l) => l.r[1] < f[1] + f[3] && l.r[1] + l.r[3] > f[1] && [f[0], f[0] + f[2]].some((x) => l.r[0] < x - 0.5 && l.r[0] + l.r[2] > x + 0.5));   // words across a side edge
