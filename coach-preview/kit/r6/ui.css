@@ -1076,3 +1076,42 @@ html .tabs > [role='tab']:active { color: var(--ink); }
 .liftc-v[data-lift] { color: var(--lc-ink); }
 /* the lift card's own name and number (the Sheet's maxes on top) wear the lift */
 .liftc .liftc-n { color: var(--lc-ink, var(--ink)); }
+
+/* ================= DESK.contact (23 Nov, contacts-clients worker; additions only) =================
+   The quick contact button (one way: that way; several: a menu; none: Add contact details…), its menu (each way with its
+   value under it and Copy beside it) and the editor sheet. The live button and menu looks: nothing new but the row
+   that holds a way and its Copy, and the details list on a lifter's page. Neutral line glyphs, never a platform's mark. */
+.ct-b { text-decoration: none; }
+.ct-b .ct-cv { width: 14px; height: 14px; margin-left: -2px; color: var(--ink-3); }
+.ct-b.icon svg { width: 18px; height: 18px; }
+.ct-b.is-none:not(.icon) { color: var(--ink-2); }
+.ct-m a.mi { text-decoration: none; }
+.ct-m .mi small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* a way and its Copy (and Instagram's Profile) on one line: the way is the wide target, the rest are words at its end */
+.ct-r { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; column-gap: 2px; }
+.ct-r > .mi { min-width: 0; }
+.ct-x { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 var(--sp-2); border: 0; border-radius: var(--sp-2); background: transparent; color: var(--ink-2); font: 600 var(--fs-cap)/1 var(--font); text-decoration: none; white-space: nowrap; cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.ct-x:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.ct-x.is-swapped { color: var(--up); }
+.ct-x .sw-l { display: inline-flex; align-items: center; gap: 4px; }
+.ct-x svg { width: 14px; height: 14px; }
+@media (hover: hover) and (pointer: fine) { .ct-x:hover { background: var(--fill-2); color: var(--ink); } }
+.pop.ct-pop[data-layer='menu'] { max-width: min(320px, calc(100vw - 32px)); }
+/* the editor: labels above fields, "optional" in quiet ink, the honest line last, the keys said beside Save */
+.ct-sheet .ct-opt { margin-left: var(--sp-1); color: var(--ink-3); font-weight: 500; }
+.ct-sheet .fx-f .fx-err { margin-top: 0; }
+.ct-sheet .ct-limit { margin-top: var(--sp-5); color: var(--ink-3); }
+.ct-sheet .ct-k { margin-right: auto; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); }
+.ct-sheet .input[aria-invalid='true'] { box-shadow: inset 0 0 0 1px var(--warn); }
+/* the details on a lifter's page: label, the value (a link that opens the app), Copy */
+.ct-dl { display: grid; grid-template-columns: 112px minmax(0, 1fr); margin: 0; }
+.ct-di { display: contents; }
+.ct-dl dt, .ct-dl dd { display: flex; align-items: center; min-height: 44px; margin: 0; border-top: 1px solid var(--line); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+.ct-dl dt { color: var(--ink-2); }
+.ct-dl dd { gap: var(--sp-3); min-width: 0; color: var(--ink); }
+.ct-dl .ct-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; text-decoration: none; }
+.ct-dl a.ct-v { text-decoration: underline; text-decoration-color: var(--ink-4); text-underline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) { .ct-dl a.ct-v:hover { text-decoration-color: currentColor; } }
+.ct-dl dd .btn { margin-left: auto; }
+.ct-none { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+/* ================= end DESK.contact ================= */

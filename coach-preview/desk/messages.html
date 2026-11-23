@@ -124,6 +124,8 @@
   .mc .a3 { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); column-gap: var(--sp-4); row-gap: 2px; margin-top: var(--sp-1); font-variant-numeric: tabular-nums; }
   .mc .a3 span:nth-child(4n+1):not([data-lift]) { color: var(--ink-2); }
   .mg.wide { max-width: 100%; width: 100%; }
+  /* a check-in is their message (left), a change card and the attempts yours (right): as wide as their words, not the pane */
+  .mg:not(.wide) > .mc { width: auto; max-width: 100%; }
   .voice { display: flex; align-items: center; gap: var(--sp-3); }
   .voice .btn.icon { --h: var(--ctl-s); flex: none; }
   .voice .vt { min-width: 0; }
@@ -139,15 +141,11 @@
 
   /* ---------- the composer: the card's foot, one hairline above, no box of its own ---------- */
   .cmp { flex: none; padding: var(--sp-3) var(--sp-6) var(--sp-4); border-top: 1px solid var(--line); }
-  .cmp-top { display: flex; align-items: center; gap: var(--sp-3); min-height: 24px; }
-  .cmp-l { color: var(--ink-3); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); }
-  .cmp-top .link { margin-left: auto; }
   .cmp-t {
     display: block; width: 100%; min-height: 48px; max-height: calc(var(--lh-sub) * var(--fs-sub) * 12 + var(--sp-4)); margin: 0; padding: var(--sp-3);
     border: 0; border-radius: var(--r-field); outline: 0; background: var(--fill); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink); font: 400 var(--fs-sub)/var(--lh-sub) var(--font);   /* a field you can see (20 Nov): on the bare card the desk's own draft read as a message already sent */
     resize: none; field-sizing: content; overflow-y: auto;
   }
-  .cmp-t.is-draft { color: var(--ink-2); }
   .cmp-t:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .cmp-w { margin: var(--sp-1) 0 0; color: var(--warn); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
   .ride { margin-top: var(--sp-2); }
@@ -171,6 +169,47 @@
   .cmp-f > .btn.quiet:first-child { margin-left: calc(var(--sp-3) * -1); }
   .cmp-f [data-primary] { max-width: 100%; }
   .cmp-f [data-primary] span { overflow: hidden; text-overflow: ellipsis; }
+  /* a narrow thread (1280 with the sidebar pinned, about 360 px): the quiet moves say less so Send keeps its place */
+  .cmp { container-type: inline-size; }
+  .cmp-f .xs { display: none; }
+  @container (max-width: 480px) { .cmp-f .xl { display: none; } .cmp-f .xs { display: inline; } .cmp-f [data-primary] { min-width: 0; } .sg-f kbd { display: none; } }
+  .cmp-r { display: flex; margin-top: var(--sp-2); }
+  .cmp-r .tick { margin: 0; }
+
+  /* ---------- the suggestion (23 Nov, owner: "share this but also allow me to text smth completely seperate"): the
+     message box is an ordinary one, always empty and yours; what the desk would send sits above it in one hairline card
+     with its own moves. Use this puts it in the box, Send as is sends it, Not now folds it to one line ---------- */
+  .sg { margin: 0 0 var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line-2); border-radius: var(--r-pop); }
+  .sg-h { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+  .sg-k { flex: none; color: var(--ink-3); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); }
+  .sg-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .sg-q { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+  .sg-q.none { color: var(--ink-3); }
+  .sg .rl { padding-left: 0; margin-top: var(--sp-2); }
+  .sg .rn { margin-left: 0; }
+  .sg-f { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+  .sg-f .grow { flex: 1; }
+  .sg-f kbd, .chg-h kbd { margin-left: var(--sp-2); color: var(--ink-3); font: 600 var(--fs-cap)/1 var(--font); }
+  /* folded (Not now): one line, the whole line is the way back, worded as the list's Answered fold */
+  button.sg-fold { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 40px; margin: 0 0 var(--sp-2); padding: 0 var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-pop); background: none; color: var(--ink-2); text-align: left; font: 500 var(--fs-label)/var(--lh-label) var(--font); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out); }
+  button.sg-fold .sg-t { flex: 1; color: var(--ink-2); font-weight: 500; font-size: var(--fs-label); }
+  button.sg-fold .w { flex: none; color: var(--ink-3); }
+  button.sg-fold:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  @media (hover: hover) and (pointer: fine) { button.sg-fold:hover { background: var(--hover); } }
+  /* in the box: the change that goes with the words, as a chip you can take off (and put back) */
+  .chg-h { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+  .chg-h .grow { flex: 1; }
+  .chg-h .src { color: var(--ink-3); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); }
+  .chg { display: inline-flex; align-items: center; gap: var(--sp-1); height: 32px; max-width: 100%; padding: 0 var(--sp-3); border: 1px dashed var(--line-2); border-radius: var(--r-pill); background: none; color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-none) var(--font); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out); }
+  .chg > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chg.on { padding-right: var(--sp-1); border: 0; background: var(--fill); color: var(--ink); cursor: default; }
+  .chg.on .btn.icon { --h: 24px; flex: none; }
+  button.chg:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  @media (hover: hover) and (pointer: fine) { button.chg:hover { background: var(--fill); } }
+  .cmp .ride .rl { padding-left: 0; }
+  .cmp .ride { margin: 0 0 var(--sp-3); }
+  .cmp .ride .rn { margin-left: 0; }
+  @media (prefers-reduced-motion: reduce) { button.sg-fold, .chg { transition: none; } }
 
   /* ---------- the facts pane (the flush inspector) ---------- */
   /* its first line sits on the thread's name and the list's head (one top line across the three columns), not up in the
@@ -268,7 +307,7 @@
     <section class="card th" data-crop="thread" id="thread" aria-labelledby="th-name">
       <div class="th-h" id="th-h"></div>
       <div class="th-m" id="th-m" role="log" aria-label="Messages" tabindex="-1"></div>
-      <div class="cmp" data-crop="composer" id="cmp"></div>
+      <div class="cmp" data-crop="composer" id="cmpw"><div id="sg"></div><div id="cmp"></div></div>
     </section>
   </main>
 </div>
@@ -318,7 +357,7 @@
   function thursday() { var d = K.today, i; for (i = 1; i < 8; i++) { var x = K.add(K.today, i); if (K.d(x).getDay() === 4) { d = x; break; } } return d; }
 
   /* ---------------- state for the visit ---------------- */
-  var S = { id: null, groups: null, open: false, more: false, q: '', cmp: {}, done: {}, edited: {}, editing: null, rv: {} };
+  var S = { id: null, groups: null, open: false, more: false, q: '', cmp: {}, done: {}, edited: {}, editing: null, rv: {}, pick: {}, later: {} };
   var thread = function (id) { return dataOf(PL.threads.get(id)); };
   var list = function (q) { var r = PL.threads.list(q ? { q: q } : {}); return r && r.data ? r : { data: [], meta: { groups: { waiting: [], first: [], answered: [] } } }; };
   var waitingNow = function () { return list().meta.groups.waiting || []; };
@@ -370,43 +409,75 @@
     var a = it.acts.filter(function (x) { return x.id !== actId && x.reply == null && !x.go && !x.keep && x.ride && (x.says || (x.ops && x.ops.length)); })[0];
     return a ? { itemId: it.id, actId: a.id, says: a.says || null, label: a.label } : null;
   }
-  function cmpOf(id) {
-    var c = S.cmp[id];
-    if (!c) {
-      var b = S.done[id] ? { text: '', ride: null, row: null } : baseOf(id);
-      /* words with no change of their own (Jonah's check-in) offer the item's plan move as a ride, unticked: both can go in
-         one send, and picking one never wipes the other */
-      var opt = !b.ride && !b.row ? quietRide(b.itemId, b.actId) : null;
-      c = S.cmp[id] = { text: b.text, draft: b.text, touched: false, itemId: b.itemId || null, actId: b.actId || null, ride: b.ride || opt, rideOn: !opt, row: b.row, rowOn: true, edits: {}, other: {}, remind: false, sendWeek: false, attach: null, depthSaid: '' };
-    }
-    return c;
+  /* the message box: empty and the coach's own until he takes the suggestion into it (from: 'sug'); a thread keeps its box
+     while he looks at another (as every chat app keeps a draft per conversation) */
+  function blankCmp(text, attach) { return { text: text || '', draft: '', touched: true, from: null, own: null, itemId: null, actId: null, ride: null, rideOn: false, row: null, rowOn: false, edits: {}, other: {}, remind: false, sendWeek: false, attach: attach || null, depthSaid: '' }; }
+  function cmpOf(id) { return S.cmp[id] || (S.cmp[id] = blankCmp()); }
+  /* ---------------- the suggestion: what the desk would send for the open case, never in the box by itself ----------------
+     From the store's draft (threads.get().draft: its words, the change that rides along, a row of This week its words
+     decide), or the move picked under Other options (S.pick). The same shape as the box, so Use this copies it in and Send
+     as is sends it through the same writes the composer always used. */
+  function modelOf(id, itemId, actId) {
+    var it = dataOf(PL.items.get(itemId)), a = actOf(it, actId); if (!a || a.go || it.done) return null;
+    var pv = preview(itemId, actId, { for: id }), text = pv && pv.tell ? pv.tell.text || '' : (a.reply || '');
+    var hasChange = !!((a.ops && a.ops.length) || (a.says && a.reply != null) || a.reply == null), qr = hasChange ? null : quietRide(itemId, actId);
+    return { text: text, draft: text, touched: false, from: 'sug', itemId: itemId, actId: actId, picked: actId,
+      ride: hasChange ? { itemId: itemId, actId: actId, says: a.says || null, label: a.label, keep: a.reply == null && !(a.ops && a.ops.length) } : qr,
+      rideOn: hasChange, row: null, rowOn: false, edits: {}, other: {}, remind: false, sendWeek: false, attach: null, depthSaid: '' };
   }
-  /* an answer picked in the facts: its words and its change fill the composer; nothing is sent */
-  function pickAct(id, itemId, actId) {
-    var it = dataOf(PL.items.get(itemId)), a = actOf(it, actId); if (!a) return;
-    if (a.go) { if (a.go.place === 'messages') openReview(id); else DESK.go(a.go.place, a.go.hash + '&from=messages'); return; }
-    var pv = preview(itemId, actId, { for: id }), text = pv && pv.tell ? pv.tell.text : (a.reply || '');
-    var c0 = S.cmp[id];
-    if (!text && a.reply == null && c0 && c0.text.trim() && c0.itemId === itemId) {
-      /* a plan move with no words of its own (Hold week 3) rides with the words already in the box */
-      c0.ride = { itemId: itemId, actId: actId, says: a.says || null, label: a.label }; c0.rideOn = true; c0.picked = actId; c0.row = null; c0.rowOn = false;
-      renderComposer(); renderFacts();
-      var sb = $('[data-send]'); if (sb) sb.focus({ preventScroll: true });
-      return;
+  function sugOf(id) {
+    var pk = S.pick[id], m = null;
+    if (pk) { m = modelOf(id, pk.itemId, pk.actId); if (!m) delete S.pick[id]; }
+    if (!m) {
+      var b = baseOf(id);
+      if (!b.text && !b.ride && !b.row) {
+        /* no draft and no words on the main move (Leo, no check-in): the case's first move that does something, main first */
+        var it0 = openItem(id), acts = it0 ? it0.acts.slice().sort(function (x, y) { return (y.kind === 'primary') - (x.kind === 'primary'); }) : [];
+        for (var i = 0; i < acts.length && !m; i++) if (acts[i].id !== 'seen') { var x = modelOf(id, it0.id, acts[i].id); if (x && (x.text || x.ride)) { m = x; m.picked = null; } }
+        if (m) { if (S.pick[id]) delete S.pick[id]; return m; }
+        return null;
+      }
+      /* words with no change of their own (Jonah's check-in) offer the item's plan move beside them, off: both can go in
+         one send */
+      var opt = !b.ride && !b.row ? quietRide(b.itemId, b.actId) : null, t = thread(id);
+      m = { text: b.text, draft: b.text, touched: false, from: 'sug', itemId: b.itemId || null, actId: b.actId || null, ride: b.ride || opt, rideOn: !opt, row: b.row, rowOn: true, edits: {}, other: {}, remind: false, sendWeek: false, attach: null, depthSaid: '', follow: !!(t && t.draft && t.draft.follow) };
     }
-    var hasChange = (a.ops && a.ops.length) || (a.says && a.reply != null) || a.reply == null;
-    S.cmp[id] = { text: text, draft: text, touched: false, itemId: itemId, actId: actId, picked: actId,
-      ride: hasChange ? { itemId: itemId, actId: actId, says: a.says || null, label: a.label, keep: a.reply == null && !(a.ops && a.ops.length) } : quietRide(itemId, actId),
-      rideOn: !!hasChange || !!(S.cmp[id] && S.cmp[id].ride && S.cmp[id].rideOn && S.cmp[id].ride.itemId === itemId && quietRide(itemId, actId) && S.cmp[id].ride.actId === quietRide(itemId, actId).actId), row: null, rowOn: false, edits: {}, other: {}, remind: false, sendWeek: false, attach: (S.cmp[id] || {}).attach || null, depthSaid: '' };
-    renderComposer(); renderFacts();
-    var b = $('[data-send]'); if (b) b.focus({ preventScroll: true });
+    return m;
   }
-  function replyOnly(id) {
-    var it = openItem(id), a = it && it.acts.filter(function (x) { return x.reply != null && !(x.ops && x.ops.length) && !x.says; })[0];
-    var text = a ? a.reply : '';
-    S.cmp[id] = { text: text, draft: text, touched: false, itemId: a ? it.id : null, actId: a ? a.id : null, picked: 'reply', ride: null, rideOn: false, row: null, rowOn: false, edits: {}, other: {}, remind: false, sendWeek: false, attach: (S.cmp[id] || {}).attach || null, depthSaid: '' };
-    renderComposer(); renderFacts();
-    var ta = $('#cmp-t'); if (ta) ta.focus();
+  /* the suggestion in a few words: "Use Safe openers, ask Priya" (the move's own label, as Overview names it) */
+  function sugName(id, m) {
+    if (m.follow) return 'Tell ' + first(id) + ' what changed';
+    var it = m.itemId ? dataOf(PL.items.get(m.itemId)) : null, a = actOf(it, m.actId);
+    return a ? a.label : it ? it.title : 'Reply to ' + first(id);
+  }
+  /* the change as a chip: "Take the Safe openers", "Move to Saturday" (no "Also", no "tell Kofi": the words tell them) */
+  function chipName(c) {
+    if (c.ride) { var it = dataOf(PL.items.get(c.ride.itemId)), a = actOf(it, c.ride.actId); return cap(String((a && a.ride) || c.ride.label || (a && a.label) || 'The change').replace(/^Also:?\s*/i, '').replace(/,? (and )?(tell|ask|reply to) [A-Z][a-z]+$/, '')); }
+    return c.row ? cap(c.row.label) : '';
+  }
+  /* the other moves on the case, for Other options: everything but the one shown, and the meet's move (the facts' meet line
+     has it) */
+  function otherMoves(id, m) {
+    var it = m && m.itemId ? dataOf(PL.items.get(m.itemId)) : openItem(id); if (!it || it.done) return [];
+    var lx = dataOf(PL.lifters.get(id)) || {};
+    return it.acts.filter(function (a) { return a.id !== 'seen' && a.id !== (m && m.actId) && !(lx.meet && a.go && a.go.place === 'meets'); }).map(function (a) { return { it: it, a: a }; });
+  }
+  function runGo(id, a) { if (a.go.place === 'messages') openReview(id); else DESK.go(a.go.place, a.go.hash + '&from=messages'); }
+  function laterKey(id, m) { return (m && m.itemId) || id; }
+  /* Use this: the suggestion's words and its change go into the box for editing. Words of his own already there are kept
+     aside (never mixed in), and Take it out brings them back */
+  function useSug(id) {
+    var m = sugOf(id); if (!m) return;
+    var c = cmpOf(id), own = c.from !== 'sug' && c.text.trim() ? c.text : (c.from === 'sug' ? c.own : null);
+    m.own = own; m.attach = c.attach; m.remind = c.remind;
+    S.cmp[id] = m;
+    renderSug(); renderComposer();
+    var ta = $('#cmp-t'); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  }
+  function takeOut(id) {
+    var c = cmpOf(id); S.cmp[id] = blankCmp(c.own || '', c.attach);
+    renderSug(); renderComposer();
+    var ta = $('#cmp-t'); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
   }
 
   /* what rides along: the exact change, from the store's preview (never numbers of this page's own). The numbers the coach
@@ -531,13 +602,15 @@
   function attemptsCard(id, at) {
     var pl = fn(PL.meets, 'plan') ? dataOf(PL.meets.plan(id)) : null; if (!pl || !pl.attempts) return '';
     var cells = LIFTS.map(function (k) { return '<span data-lift="' + k + '">' + cap(k) + '</span>' + (pl.attempts[k] || []).map(function (x) { return '<span data-lift="' + k + '">' + esc(n(x)) + '</span>'; }).join(''); }).join('');
-    return '<div class="mg wide" data-msg data-kind="card"><div class="mc"><span class="k">Attempts</span><div class="a3">' + cells + '</div></div><div class="mt">Changed ' + esc(hm(at)) + '</div></div>';
+    return '<div class="mg me" data-msg data-kind="card" data-me><div class="mc"><span class="k">Attempts</span><div class="a3">' + cells + '</div></div><div class="mt">Changed ' + esc(hm(at)) + '</div></div>';
   }
   function figureThumb() {
     return '<svg class="rv-svg" viewBox="0 0 640 360" aria-hidden="true"><rect class="bg" width="640" height="360" rx="24"/>' + figureSvg(118, false, true) + '</svg>';
   }
   function msgHtml(id, m, lastMine) {
     var mine = m.me, kind = m.kind === 'card' || m.type === 'change' || m.type === 'checkin' || m.type === 'payment' || m.type === 'cut' ? 'card' : 'words', h = '';
+    /* a check-in reads as their message (left, as wide as its words), a change card as yours (right) */
+    var wide = kind === 'card' && m.type !== 'checkin' && m.type !== 'change';
     var foot = '<div class="mt"><time>' + esc(hm(m.at)) + '</time>';
     if (mine && (m.type === 'text' || m.type === 'voice')) {
       if (S.edited[m.at] || m.edited) foot += '<span>Edited</span>';
@@ -545,7 +618,7 @@
       if (m.type === 'text') foot += '<button class="btn quiet icon" type="button" data-more data-msgmore="' + esc(m.at) + '" aria-haspopup="menu" aria-label="More for this message">' + DESK.ic('more') + '</button>';
     }
     foot += '</div>';
-    var open = '<div class="mg' + (mine ? ' me' : '') + (kind === 'card' ? ' wide' : '') + '" data-msg data-kind="' + kind + '" data-at="' + esc(m.at) + '"' + (mine ? ' data-me' : '') + '>';
+    var open = '<div class="mg' + (mine ? ' me' : '') + (wide ? ' wide' : '') + '" data-msg data-kind="' + kind + '" data-at="' + esc(m.at) + '"' + (mine ? ' data-me' : '') + '>';
     if (S.editing === m.at) {
       return open + '<div class="ed"><textarea class="input" id="ed-t" aria-label="Edit your message" rows="2">' + esc(m.body) + '</textarea><div class="row"><button class="btn quiet sm" type="button" data-edcancel>Cancel</button><button class="btn sm" type="button" data-edsave>Save</button></div></div></div>';
     }
@@ -579,7 +652,10 @@
     else facts.push('No program yet');
     if (lx.meet && lx.meet.days != null && lx.meet.days <= 14) facts.push(lx.meet.name + ' ' + outT(lx.meet.days));
     $('#th-h').innerHTML = '<h1 id="th-name" title="' + esc(l.name) + '" data-ellipsis>' + esc(l.name) + '</h1><p class="facts">' + esc(facts.join(' · ')) + '</p>' +
-      '<div class="links"><button class="link" type="button" data-openpage>Open page</button><button class="link" type="button" data-openprog>Open program</button></div>';
+      '<div class="links"><button class="link" type="button" data-openpage>Open page</button><button class="link" type="button" data-openprog>Open program</button><span data-contact-slot data-lifter-id="' + esc(id) + '"></span></div>';
+    /* quick contact (email, Instagram, iMessage, WhatsApp) is DESK.contact's, built elsewhere: the slot is filled when it exists */
+    var slot = $('#th-h [data-contact-slot]');
+    if (slot && window.DESK && DESK.contact && typeof DESK.contact.button === 'function') { try { DESK.contact.button(slot, id); } catch (e) { /* the slot stays empty */ } }
     DESK.setTitle('Messages');
   }
   function renderMessages(keepScroll) {
@@ -605,38 +681,42 @@
   }
 
   /* ---------------- the composer ---------------- */
+  /* what the box can send right now: words, or (from the suggestion) a change with no words of its own */
+  function canSend(c) { return !!c.text.trim() || !!(c.from === 'sug' && c.ride && c.rideOn); }
   function sendLabel(id, c) {
-    var text = c.text.trim(), rideOn = c.ride && c.rideOn;
-    if (text) return 'Send to ' + first(id);
-    if (rideOn) { var it = dataOf(PL.items.get(c.ride.itemId)), a = actOf(it, c.ride.actId); return a ? (a.silent || a.label) : 'Apply'; }
-    var nx = nextUp(id);
-    return nx ? nextWords(nx) : quietThread(id) ? 'Send to ' + first(id) : 'Back to Overview';
+    if (!c.text.trim() && c.from === 'sug' && c.ride && c.rideOn) { var it = dataOf(PL.items.get(c.ride.itemId)), a = actOf(it, c.ride.actId); return a ? (a.silent || a.label) : 'Apply'; }
+    return 'Send to ' + first(id);
   }
-  /* a thread with no messages and nobody after it: the crimson waits for words (FTC §6) */
-  function quietThread(id) { var t = thread(id); return !(t && t.messages && t.messages.length) && !nextUp(id); }
-  function sendOff(id, c) { return !c.text.trim() && !(c.ride && c.rideOn) && quietThread(id); }
-  function rideHtml(id, c) {
+  /* the change that goes with the words: ro, the suggestion card's preview (numbers as text); otherwise the box's chip (take
+     it off with ×, put it back with +) and, while it is on, its lines with the numbers the coach can change */
+  function rideHtml(id, c, ro) {
     var h = '';
+    var chip = function (kind, on) {
+      var nm = chipName(c);
+      return on ? '<span class="chg on" data-chip="' + kind + '"><span title="' + esc(nm) + '">+ ' + esc(nm) + '</span><button class="btn quiet icon" type="button" data-tick="' + kind + '" aria-label="Take “' + esc(nm) + '” off this message" title="Send the words without this change">×</button></span>'
+        : '<button class="chg" type="button" data-tick="' + kind + '" data-chip="' + kind + '" title="Send this change with the words"><span>+ ' + esc(nm) + '</span></button>';
+    };
+    var head = function (kind, on) {
+      if (ro) return '';
+      return '<div class="chg-h">' + chip(kind, on) + '<span class="grow"></span><span class="src">From the suggestion</span><button class="link" type="button" data-sg-out title="' + esc(c.own ? 'Back to your own words' : 'Empty the box; the suggestion waits above it') + '">' + (c.own ? 'Back to my words' : 'Take it out') + '</button></div>';
+    };
     if (c.ride) {
-      var pv = rideOf(id, c), it = dataOf(PL.items.get(c.ride.itemId)), a = actOf(it, c.ride.actId), lands = pv && pv.ride ? pv.ride.lands : null;
-      /* the change in its own words: the words above already tell them, so "tell Kofi" / "ask Priya" is left off */
-      var label = c.ride.keep ? 'Also: ' + (a ? a.label.charAt(0).toLowerCase() + a.label.slice(1) : 'keep it') : 'Also: ' + String((a && a.ride) || c.ride.label || (a && a.label) || '').replace(/^Also:?\s*/i, '').replace(/,? (and )?(tell|ask|reply to) [A-Z][a-z]+$/, '').replace(/^./, function (x) { return x.toLowerCase(); });
-      h += '<div class="ride" data-ride="' + esc(c.ride.itemId + '|' + c.ride.actId) + '"' + (c.ride.says ? ' title="' + esc(c.ride.says) + '"' : '') + '>' +
-        '<button class="tick" type="button" role="checkbox" aria-checked="' + !!c.rideOn + '" data-tick="ride"><i>' + ICK + '</i><span>' + esc(label) + '</span></button>';
+      var pv = rideOf(id, c), lands = pv && pv.ride ? pv.ride.lands : null, show = ro || c.rideOn;
+      h += '<div class="ride" data-ride="' + esc(c.ride.itemId + '|' + c.ride.actId) + '"' + (c.ride.says ? ' title="' + esc(c.ride.says) + '"' : '') + '>' + head('ride', !!c.rideOn);
       /* a session that moves goes first (Tomas's missed bench to today), then the lines it carries */
-      var ch = (pv ? pv.changes || [] : []).slice().sort(function (x, y) { return (y.field === 'date') - (x.field === 'date'); });
+      var ch = show && pv ? (pv.changes || []).slice().sort(function (x, y) { return (y.field === 'date') - (x.field === 'date'); }) : [];
       if (ch.length) {
         h += '<ul class="rl">' + ch.map(function (x) {
           /* the other number the store offers for a line made easier ("Use 215"); once taken, the move's own number to go back */
           var took = c.other[x.key], other = took ? took.back : x.other != null ? x.other : null, lk = liftAt(liftKey(x.label));
-          var v = x.after == null ? '<b>out this week</b>' : x.edit ? '<b' + lk + '>' + (S.editKey === x.key ? '<input class="input" type="number" inputmode="decimal" step="2.5" min="0" data-edin="' + esc(x.key) + '" value="' + esc(x.edit.value) + '" aria-label="Load for ' + esc(x.label) + '">' : '<button class="ed-n" type="button" data-edit="' + esc(x.key) + '" title="Change the load (2.5 kg steps)">' + esc(rxWords(x.after)) + '</button>') + '</b>' : '<b' + (x.field === 'date' ? '' : lk) + '>' + esc(rxWords(x.after)) + '</b>';
+          var v = x.after == null ? '<b>out this week</b>' : x.edit && !ro ? '<b' + lk + '>' + (S.editKey === x.key ? '<input class="input" type="number" inputmode="decimal" step="2.5" min="0" data-edin="' + esc(x.key) + '" value="' + esc(x.edit.value) + '" aria-label="Load for ' + esc(x.label) + '">' : '<button class="ed-n" type="button" data-edit="' + esc(x.key) + '" title="Change the load (2.5 kg steps)">' + esc(rxWords(x.after)) + '</button>') + '</b>' : '<b' + (x.field === 'date' ? '' : lk) + '>' + esc(rxWords(x.after)) + '</b>';
           return '<li><span class="w"' + lk + '>' + esc(x.label) + '</span>' + (x.before != null ? '<span class="was">' + esc(rxWords(x.before)) + ' →</span>' : '<span class="was">new:</span>') + v +
-            (other != null && x.after != null ? '<button class="link" type="button" data-other="' + esc(x.key) + '" data-kg="' + esc(other) + '" data-now="' + esc(parseRx(x.after) ? parseRx(x.after).kg : x.after) + '">Use ' + esc(n(other)) + '</button>' : '') +
-            (S.editErr && S.editErr.key === x.key ? '<span class="err">' + esc(S.editErr.text) + '</span>' : '') + '</li>';
+            (!ro && other != null && x.after != null ? '<button class="link" type="button" data-other="' + esc(x.key) + '" data-kg="' + esc(other) + '" data-now="' + esc(parseRx(x.after) ? parseRx(x.after).kg : x.after) + '">Use ' + esc(n(other)) + '</button>' : '') +
+            (!ro && S.editErr && S.editErr.key === x.key ? '<span class="err">' + esc(S.editErr.text) + '</span>' : '') + '</li>';
         }).join('') + '</ul>';
       }
-      if (lands === 'draft') h += '<p class="rn">This goes out with week ' + esc(pv.ride.week) + ', not sent yet.</p><button class="tick" type="button" role="checkbox" aria-checked="' + !!c.sendWeek + '" data-tick="week"><i>' + ICK + '</i><span>Send week ' + esc(pv.ride.week) + ' to ' + esc(first(id)) + ' now too</span></button>';
-      if (pv && pv.warn) h += '<p class="cmp-w">' + esc(pv.warn) + '</p>';
+      if (show && lands === 'draft') h += '<p class="rn">This goes out with week ' + esc(pv.ride.week) + ', not sent yet.</p>' + (ro ? '' : '<button class="tick" type="button" role="checkbox" aria-checked="' + !!c.sendWeek + '" data-tick="week"><i>' + ICK + '</i><span>Send week ' + esc(pv.ride.week) + ' to ' + esc(first(id)) + ' now too</span></button>');
+      if (show && pv && pv.warn) h += '<p class="cmp-w">' + esc(pv.warn) + '</p>';
       h += '</div>';
     } else if (c.row) {
       var w = dataOf(PL.lifters.week(id)), row = w ? w.rows.filter(function (r) { return r.key === c.row.key; })[0] : null, nxt = row && row.next, nk = String(c.row.key).replace(/^w(\d+)/, function (m0, k) { return 'w' + (+k + 1); });
@@ -645,40 +725,66 @@
          the coach's to change before Send (load in 2.5 kg steps, reps, RPE in halves) */
       var rv = rowVals(id, c), was = nxt ? (nxt.w ? n(nxt.w) + ' × ' + nxt.r : nxt.kg ? 'about ' + n(nxt.kg) + ' × ' + nxt.r : nxt.r + ' reps') + (nxt.rpe != null ? ' @' + n(nxt.rpe) : '') : '';
       var num = function (f, v, pre) {
-        var lab = f === 'w' ? 'Load' : f === 'r' ? 'Reps' : 'RPE';
+        var lab = f === 'w' ? 'Load' : f === 'r' ? 'Reps' : 'RPE', at = f === 'rpe' ? '@' : '';
+        if (ro) return (at ? ' ' : pre) + at + esc(n(v));
         if (S.rowKey === f) return pre + '<input class="input" type="number" inputmode="decimal" step="' + (f === 'w' ? 2.5 : f === 'r' ? 1 : 0.5) + '" min="' + (f === 'w' ? 0 : 1) + '" max="' + (f === 'rpe' ? 10 : f === 'r' ? 30 : 1000) + '" data-rowin="' + f + '" value="' + esc(v) + '" aria-label="' + lab + ' for next week\'s ' + esc(row ? row.name.toLowerCase() : 'top set') + '">';
         /* the "@" sits inside the RPE's button so the line reads as one prescription ("182.5 × 3 @8.5") */
-        var at = f === 'rpe' ? '@' : ''; if (at) pre = ' ';
+        if (at) pre = ' ';
         return pre + '<button class="ed-n" type="button" data-rowedit="' + f + '" title="Change the ' + lab.toLowerCase() + '">' + at + esc(n(v)) + '</button>';
       };
-      var edited = rowEdited(id, c), lift = row ? row.name.toLowerCase() : 'squat';
-      var lab0 = edited ? 'set ' + lift + ' next week' : c.row.label.charAt(0).toLowerCase() + c.row.label.slice(1);
-      h += '<div class="ride" data-ride="' + esc((c.itemId || 'row') + '|' + (c.actId || 'msg')) + '" title="' + esc(c.row.label) + '"><button class="tick" type="button" role="checkbox" aria-checked="' + !!c.rowOn + '" data-tick="row"><i>' + ICK + '</i><span>Also: ' + esc(lab0) + '</span></button>' +
-        '<ul class="rl"><li><span class="w"' + liftAt(liftKey(lift)) + '>' + esc(cap(lift) + (r1 && r1.date ? ', ' + dmy(r1.date) : ', next week')) + '</span>' + (was ? '<span class="was">' + esc(was) + ' →</span>' : '') +
+      var lift = row ? row.name.toLowerCase() : 'squat', showR = ro || c.rowOn;
+      h += '<div class="ride" data-ride="' + esc((c.itemId || 'row') + '|' + (c.actId || 'msg')) + '" title="' + esc(c.row.label) + '">' + head('row', !!c.rowOn) +
+        (showR ? '<ul class="rl"><li><span class="w"' + liftAt(liftKey(lift)) + '>' + esc(cap(lift) + (r1 && r1.date ? ', ' + dmy(r1.date) : ', next week')) + '</span>' + (was ? '<span class="was">' + esc(was) + ' →</span>' : '') +
         '<b class="rx"' + liftAt(liftKey(lift)) + '>' + num('w', rv.w, '') + num('r', rv.r, ' × ') + (rv.rpe != null ? num('rpe', rv.rpe, ' @') : '') + '</b>' +
-        (S.editErr && S.editErr.key === 'row' ? '<span class="err">' + esc(S.editErr.text) + '</span>' : '') + '</li></ul></div>';
+        (!ro && S.editErr && S.editErr.key === 'row' ? '<span class="err">' + esc(S.editErr.text) + '</span>' : '') + '</li></ul>' : '') + '</div>';
+    } else if (!ro && c.from === 'sug') {
+      h += '<div class="chg-h"><span class="src">Suggested words, yours to change</span><span class="grow"></span><button class="link" type="button" data-sg-out>' + (c.own ? 'Back to my words' : 'Take it out') + '</button></div>';
     }
     return h;
   }
   function renderComposer() {
-    var id = S.id, c = cmpOf(id), box = $('#cmp'), at = c.attach, rec = S.rv[id];
+    var id = S.id, c = cmpOf(id), box = $('#cmp'), at = c.attach, ok = canSend(c);
     var remindText = 'Remind me Thu if no answer';
     if (c.ride) { var pv0 = rideOf(id, c); if (pv0 && pv0.remind && pv0.remind.text) remindText = pv0.remind.text; }
     box.innerHTML =
-      '<div class="cmp-top"><label class="cmp-l" for="cmp-t">' + (c.touched || !c.draft ? 'Message' : 'Draft') + '</label>' +
-      (c.touched && c.draft && c.text !== c.draft ? '<button class="link" type="button" data-bringback>Bring back the draft</button>' : '') + '</div>' +
-      '<textarea class="cmp-t' + (c.touched ? '' : ' is-draft') + '" id="cmp-t" rows="2" placeholder="Write to ' + esc(first(id)) + '" title="Tab keeps the words as yours" aria-label="Message to ' + esc(first(id)) + '">' + esc(c.text) + '</textarea>' +
-      rideHtml(id, c) +
+      (c.from === 'sug' ? rideHtml(id, c, false) : '') +
+      '<textarea class="cmp-t" id="cmp-t" rows="1" placeholder="Message ' + esc(first(id)) + '…" title="Enter sends, Shift+Enter starts a new line" aria-label="Message to ' + esc(first(id)) + '" aria-keyshortcuts="Enter">' + esc(c.text) + '</textarea>' +
       (at ? '<div class="att"><span><b>' + (at.kind === 'session' ? 'Session' : 'Your marks') + '</b> ' + esc(at.words) + '</span><button class="link" type="button" data-unattach>Remove</button></div>' : '') +
-      (c.text.trim() ? '<button class="tick" type="button" role="checkbox" aria-checked="' + !!c.remind + '" data-tick="remind"><i>' + ICK + '</i><span>' + esc(remindText) + '</span></button>' : '') +
-      '<div class="cmp-f"><button class="btn quiet sm" type="button" data-saved aria-haspopup="menu">Insert a saved reply</button><button class="btn quiet sm" type="button" data-attach aria-haspopup="menu">Attach</button><span class="grow"></span>' +
-      '<button class="btn" type="button" data-primary data-send' + (sendOff(id, c) ? ' disabled title="Write something first."' : ' title="' + esc(c.text.trim() ? 'Send (⌘↵)' : 'Next thread (J)') + '"') + '><span>' + esc(sendLabel(id, c)) + '</span></button></div>';
-    void rec;
+      /* the reminder belongs to what is being sent: it shows, quietly, once there is something to send (the box grows
+         upward, so Send never moves) */
+      (c.text.trim() ? '<div class="cmp-r"><button class="tick" type="button" role="checkbox" aria-checked="' + !!c.remind + '" data-tick="remind"><i>' + ICK + '</i><span>' + esc(remindText) + '</span></button></div>' : '') +
+      '<div class="cmp-f"><button class="btn quiet sm" type="button" data-saved aria-haspopup="menu" aria-label="Insert a saved reply"><span class="xl">Insert a saved reply</span><span class="xs">Saved reply</span></button><button class="btn quiet sm" type="button" data-attach aria-haspopup="menu">Attach</button><span class="grow"></span>' +
+      '<button class="btn" type="button" data-primary data-send aria-keyshortcuts="Enter Meta+Enter"' + (ok ? ' title="Send (Enter)"' : ' aria-disabled="true" title="Write something first"') + '><span>' + esc(sendLabel(id, c)) + '</span></button></div>';
   }
   function paintSend() {
     var b = $('[data-send] span'), c = cmpOf(S.id); if (!b) return;
     b.textContent = sendLabel(S.id, c);
-    var off = sendOff(S.id, c), btn = b.parentNode; btn.disabled = off; btn.title = off ? 'Write something first.' : c.text.trim() ? 'Send (⌘↵)' : 'Next thread (J)';
+    var ok = canSend(c), btn = b.parentNode; if (ok) btn.removeAttribute('aria-disabled'); else btn.setAttribute('aria-disabled', 'true'); btn.title = ok ? 'Send (Enter)' : 'Write something first';
+  }
+  /* the suggestion card above the box: what it is, the message, what it changes; Use this, Send as is, Other options, Not
+     now. Hidden while it is in the box; one line while folded */
+  function renderSug() {
+    var box = $('#sg'); if (!box) return;
+    var id = S.id; if (!id) { box.innerHTML = ''; return; }
+    var c = cmpOf(id), m = sugOf(id), alts = otherMoves(id, m);
+    if (!m && !alts.length) { box.innerHTML = ''; return; }
+    if (m && c.from === 'sug' && c.itemId === m.itemId && c.actId === m.actId) { box.innerHTML = ''; return; }
+    var name = m ? sugName(id, m) : 'What to do about it', k = laterKey(id, m);
+    if (S.later[k]) {
+      box.innerHTML = '<button class="sg-fold" type="button" data-sg-show aria-expanded="false" title="Show the suggestion again"><span class="sg-k">Suggested</span><span class="sg-t">' + esc(name) + '</span><span class="w">Show</span></button>';
+      return;
+    }
+    var it = m && m.itemId ? dataOf(PL.items.get(m.itemId)) : null, a = actOf(it, m && m.actId);
+    var asIs = m ? (m.text.trim() ? 'Send as is' : m.ride && m.rideOn ? (a && (a.silent || a.label)) || 'Apply' : '') : '';
+    var inUse = c.from === 'sug';
+    box.innerHTML = '<div class="sg" role="group" aria-label="Suggested: ' + esc(name) + '" data-sg="' + esc(m ? m.actId || '' : '') + '">' +
+      '<div class="sg-h"><span class="sg-k">Suggested</span><span class="sg-t" title="' + esc(name) + '">' + esc(name) + '</span></div>' +
+      (m ? (m.text.trim() ? '<p class="sg-q" data-quote title="' + esc(m.text) + '">“' + esc(m.text) + '”</p>' : '<p class="sg-q none">No words: ' + esc(first(id)) + ' sees the change.</p>') + rideHtml(id, m, true) : '') +
+      '<div class="sg-f">' +
+      (m ? '<button class="btn sm" type="button" data-sg-use aria-keyshortcuts="E" title="' + esc(inUse || c.text.trim() ? 'Put it in the box to edit; your words wait (E)' : 'Put it in the box to edit (E)') + '">Use this<kbd>E</kbd></button>' : '') +
+      (asIs ? '<button class="btn quiet sm" type="button" data-sg-send title="Send it now, as written">' + esc(asIs) + '</button>' : '') +
+      (alts.length ? '<button class="btn quiet sm" type="button" data-sg-more aria-haspopup="menu">Other options</button>' : '') +
+      '<span class="grow"></span><button class="btn quiet sm" type="button" data-sg-later title="Fold it; the case stays open in Needs you">Not now</button></div></div>';
   }
 
   /* a logged set in a thread (F6.1): "Set: squat 180 × 3 @8. e1RM now 205.5", the e1RM from PL.lifters.numbers */
@@ -729,25 +835,10 @@
     } else head += '<h2>' + esc(isWaiting(id) ? first(id) + ' is waiting for a reply' : 'Nothing open with ' + first(id)) + '</h2>';
     head += '</div>';
     var body = '';
-    /* 1. the one thing to decide: its main move and at most one quiet alternative, one style, the one in the draft ticked
-       (owner 16 Nov). The rest of the answers wait under "More about"; a move that opens the meet sits on the meet's line. */
-    var cur = c.picked || c.actId, more = [], meetGo = null;
-    var moveHtml = function (m, key) {
-      if (m.reply) return '<button class="mv" type="button" data-replyonly aria-pressed="' + (c.picked === 'reply') + '" title="Write your own words, change nothing"><span class="ck">' + ICK + '</span><span class="t">Reply only</span></button>';
-      var a = m.a, on = cur === a.id && !a.go;
-      return '<button class="mv" type="button" data-act="' + esc(it.id + '|' + a.id) + '" aria-pressed="' + on + '"' + (key ? ' aria-keyshortcuts="E" title="' + esc(a.label) + ' (E)"' : ' title="' + esc(a.label) + '"') + '><span class="ck">' + ICK + '</span><span class="t">' + esc(a.label) + '</span></button>';
-    };
-    if (it) {
-      var acts = it.acts.filter(function (a) { return a.id !== 'seen'; });
-      var opts = acts.map(function (a) { return { a: a }; });
-      if (!(acts.some(function (a) { return a.reply != null && !(a.ops && a.ops.length) && !a.says; }) || !acts.some(function (a) { return a.reply != null; }))) opts.push({ reply: true });
-      var main = opts.filter(function (o) { return o.a && o.a.kind === 'primary'; })[0] || opts[0];
-      if (lx.meet) meetGo = acts.filter(function (a) { return a !== (main && main.a) && a.go && a.go.place === 'meets'; })[0] || null;
-      var rest = opts.filter(function (o) { return o !== main && !(meetGo && o.a === meetGo); });
-      var alt = rest.filter(function (o) { return o.reply || !o.a.go; })[0] || rest[0] || null;
-      more = rest.filter(function (o) { return o !== alt; });
-      body += '<div class="ig"><div class="moves ans" role="group" aria-label="Answers">' + (main ? moveHtml(main, true) : '') + (alt ? moveHtml(alt, false) : '') + '</div></div>';
-    }
+    /* 1. the decision is the suggestion card's above the box (one place owns it, 23 Nov); the facts explain. The meet's
+       own move stays on the meet's line */
+    var meetGo = null;
+    if (it && lx.meet) meetGo = it.acts.filter(function (a) { return a.go && a.go.place === 'meets'; })[0] || null;
     /* 2. the numbers in one row (one source, F6.1: PL.lifters.numbers; the e1RM's basis is its title) */
     var nb = fn(PL.lifters, 'numbers') ? dataOf(PL.lifters.numbers(id)) : null, lifts = lx.lifts || {}, pw = painWords(id, lx);
     var e1Of = function (k) { var x = nb && nb.lifts && nb.lifts[k]; return x ? { v: x.shown, title: x.basis && x.basis.text } : lifts[k] && lifts[k].e1 != null ? { v: lifts[k].e1 } : null; };
@@ -767,7 +858,6 @@
     }
     /* 4. everything else behind one fold: the other answers, the week, the rest of the numbers, pain and class, attempts */
     var mb = '';
-    if (more.length) mb += '<div class="ig"><div class="ig-h"><h3>Other answers</h3></div><div class="moves ans" role="group" aria-label="Other answers">' + more.map(function (m) { return moveHtml(m, false); }).join('') + '</div></div>';
     var w = t ? t.week : [];
     /* the sessions the store calls this week; when every one fell before this Monday (a lifter who stopped, Jonah) they are last week's */
     var mon = K.monday(K.today), wkName = w.length && w.every(function (s) { return s.date && s.date < mon; }) ? 'Last week' : w.length && w.every(function (s) { return s.date && s.date > K.add(mon, 6); }) ? 'Next week' : 'This week';
@@ -797,7 +887,7 @@
 
   function renderAll(keep) {
     var box = $('#th-m'), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 48;
-    renderList(); renderHead(); renderMessages(keep); renderComposer(); renderFacts(keep);
+    renderList(); renderHead(); renderMessages(keep); renderSug(); renderComposer(); renderFacts(keep);
     if (!keep || atBottom) box.scrollTop = box.scrollHeight;
   }
 
@@ -830,6 +920,7 @@
     $('#groups').innerHTML = '';
     $('#th-h').innerHTML = '<h1 id="th-name">Messages</h1>';
     $('#th-m').innerHTML = '<p class="th-empty">No messages yet. Lifters write to you from their app.</p>';
+    $('#sg').innerHTML = '';
     $('#cmp').innerHTML = '<div class="cmp-f"><span class="grow"></span><button class="btn" type="button" data-primary data-add-first aria-haspopup="dialog">Add your first lifter…</button></div>';
     if (DESK.insp && fn(DESK.insp, 'close')) DESK.insp.close();
   }
@@ -844,9 +935,14 @@
 
   /* ---------------- sending ---------------- */
   function undoAll(tokens) { return function () { var r = null; tokens.slice().reverse().forEach(function (tk) { r = PL.undo(tk); }); return r; }; }
-  function send() {
-    var id = S.id, c = cmpOf(id), text = c.text.trim(), rideOn = !!(c.ride && c.rideOn), res, tokens = [], who = first(id), says = '', rowTok = null, rowSaid = '';
-    if (!text && !rideOn) { var nx = nextUp(id); if (nx) select(nx, { push: true }); else DESK.go('overview'); return; }
+  /* the box (Enter, ⌘↵, Send) or the card's Send as is: the same writes the composer always made. Words of the coach's own
+     go alone (ride: false): they never settle the case, so its suggestion stays; the suggestion's words go as before (with
+     its change, through items.run; without it, messages.send and the store's own replyFix) */
+  function send() { sendModel(S.id, cmpOf(S.id), 'box'); }
+  function sendSug() { var m = sugOf(S.id); if (m) sendModel(S.id, m, 'card'); }
+  function sendModel(id, c, from) {
+    var text = c.text.trim(), rideOn = !!(c.from === 'sug' && c.ride && c.rideOn), res, tokens = [], who = first(id), says = '', rowTok = null, rowSaid = '', own = c.from !== 'sug';
+    if (!text && !rideOn) { var ta0 = $('#cmp-t'); if (ta0) ta0.focus(); return; }
     /* the numbers the coach typed and the other number he took ("Use 215") ride as edits: one write, one Undo */
     var edits = editsOf(c);
     var ri = rideOn ? dataOf(PL.items.get(c.ride.itemId)) : null;
@@ -855,10 +951,11 @@
     else if (rideOn) res = PL.items.run(c.ride.itemId, c.ride.actId, { tell: false, edits: edits, for: id, sendWeek: !!c.sendWeek });
     else {
       var o = { text: text };
+      if (own) o.ride = false;
       /* the row the words decide: as the store suggests it (one write with the words, the change card after them), or with
          the numbers the coach changed in the ride line (next week's line written with them, under the same Undo) */
-      var rowSet = c.row && c.rowOn && rowEdited(id, c) ? rowVals(id, c) : null;
-      if (c.row && c.rowOn && !rowSet) o.decide = { key: c.row.key, how: 'use' };
+      var rowSet = !own && c.row && c.rowOn && rowEdited(id, c) ? rowVals(id, c) : null;
+      if (!own && c.row && c.rowOn && !rowSet) o.decide = { key: c.row.key, how: 'use' };
       if (c.attach) o.attach = c.attach.kind === 'session' ? { kind: 'session', week: c.attach.week, idx: c.attach.idx } : { kind: 'marks', n: c.attach.n, video: c.attach.video || null };
       /* words that answer an open fix that is only words (Arjun's question) settle it in the store (messages.send's own
          replyFix, LOGIC-FIX-3): no ride of the page's own */
@@ -879,12 +976,13 @@
     /* the toast in the one format (the store's words: what changed, then exactly what was sent) */
     var label = says || (text ? 'Sent to ' + who + ': “' + text + '”' : 'Done.');
     var it = c.itemId ? dataOf(PL.items.get(c.ride ? c.ride.itemId : c.itemId)) : null, act = it && actOf(it, c.ride ? c.ride.actId : c.actId);
-    S.done[id] = { at: hm(nowIso()), tokens: tokens.slice(), words: act && act.done ? act.done : text ? 'Replied to ' + who : 'Done', item: it ? { title: it.title } : null };
-    delete S.cmp[id]; S.cmp[id] = { text: '', draft: '', touched: false, itemId: null, actId: null, ride: null, rideOn: false, row: null, rowOn: false, edits: {}, other: {}, remind: false, sendWeek: false, attach: null, depthSaid: '' };
-    S.rv[id] = null;
+    S.done[id] = { at: hm(nowIso()), tokens: tokens.slice(), words: act && act.done ? act.done : text ? 'Replied to ' + who : 'Done', item: it ? { title: it.title } : null, own: own };
+    /* the box empties after its own send; a send from the card leaves whatever the coach is writing where it is */
+    if (from === 'box') { S.cmp[id] = blankCmp(); S.rv[id] = null; }
+    delete S.pick[id];
     DESK.toast(label, tokens.length ? undoAll(tokens) : null);
     renderAll(true);
-    var b = $('[data-send]'); if (b) b.focus({ preventScroll: true });
+    var ta = $('#cmp-t'); if (ta) { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); }
   }
   function undoRow(id) {
     var d = S.done[id]; if (!d) return;
@@ -894,16 +992,18 @@
   }
 
   /* ---------------- the composer's events ---------------- */
-  var cmpEl = $('#cmp');
+  var cmpEl = $('#cmpw');
   cmpEl.addEventListener('input', function (e) {
     if (e.target.id === 'cmp-t') {
-      var c = cmpOf(S.id), had = !!c.text.trim(); c.text = e.target.value; if (!c.touched) { c.touched = true; e.target.classList.remove('is-draft'); var lb = $('.cmp-l'); if (lb) lb.textContent = 'Message'; }
+      var c = cmpOf(S.id), had = !!c.text.trim(); c.text = e.target.value; c.touched = true;
+      /* the reminder comes and goes with the words; the caret stays where it was */
       if (had !== !!c.text.trim()) { var pos = e.target.selectionStart; renderComposer(); var ta = $('#cmp-t'); ta.focus(); ta.setSelectionRange(pos, pos); }
       else paintSend();
     }
   });
   cmpEl.addEventListener('keydown', function (e) {
-    if (e.target.id === 'cmp-t' && e.key === 'Tab' && !e.shiftKey) { var c = cmpOf(S.id); if (!c.touched && c.text) { e.preventDefault(); c.touched = true; e.target.classList.remove('is-draft'); e.target.setSelectionRange(c.text.length, c.text.length); var lb = $('.cmp-l'); if (lb) lb.textContent = 'Message'; } }
+    /* Enter sends, Shift+Enter starts a new line (every chat app); a word being composed (IME) is never sent half-way */
+    if (e.target.id === 'cmp-t' && e.key === 'Enter' && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); send(); return; }
     if (e.target.matches('[data-rowin]')) {
       if (e.key === 'Enter') { e.preventDefault(); keepRowEdit(e.target); }
       else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); S.rowKey = null; S.editErr = null; renderComposer(); }
@@ -926,9 +1026,16 @@
     var t = e.target.closest('button'); if (!t) return;
     var c = cmpOf(S.id);
     if (t.hasAttribute('data-send')) { send(); return; }
+    if (t.hasAttribute('data-sg-use')) { useSug(S.id); return; }
+    if (t.hasAttribute('data-sg-send')) { sendSug(); return; }
+    if (t.hasAttribute('data-sg-out')) { takeOut(S.id); return; }
+    if (t.hasAttribute('data-sg-later')) { S.later[laterKey(S.id, sugOf(S.id))] = true; renderSug(); var f0 = $('[data-sg-show]'); if (f0) f0.focus({ preventScroll: true }); return; }
+    if (t.hasAttribute('data-sg-show')) { delete S.later[laterKey(S.id, sugOf(S.id))]; renderSug(); var u0 = $('[data-sg-use]'); if (u0) u0.focus({ preventScroll: true }); return; }
+    if (t.hasAttribute('data-sg-more')) { sugMenu(t); return; }
     if (t.hasAttribute('data-tick')) {
       var k = t.getAttribute('data-tick');
       if (k === 'ride') c.rideOn = !c.rideOn; else if (k === 'row') c.rowOn = !c.rowOn; else if (k === 'remind') c.remind = !c.remind; else if (k === 'week') c.sendWeek = !c.sendWeek;
+      if (k === 'ride' || k === 'row') redraft(S.id, c);
       renderComposer(); var again = $('[data-tick="' + k + '"]'); if (again) again.focus(); return;
     }
     if (t.hasAttribute('data-rowedit')) { S.rowKey = t.getAttribute('data-rowedit'); S.editErr = null; renderComposer(); var ri = $('[data-rowin]'); if (ri) { ri.focus(); ri.select(); } return; }
@@ -940,11 +1047,24 @@
       redraft(S.id, c); renderComposer();
       var again2 = $('[data-other="' + key + '"]'); if (again2) again2.focus(); return;
     }
-    if (t.hasAttribute('data-bringback')) { c.text = c.draft; c.touched = false; renderComposer(); $('#cmp-t').focus(); return; }
     if (t.hasAttribute('data-unattach')) { c.attach = null; renderComposer(); return; }
     if (t.hasAttribute('data-saved')) { savedMenu(t); return; }
     if (t.hasAttribute('data-attach')) { attachMenu(t); return; }
   });
+  /* Other options: the case's other moves, most likely first as the store orders them; picking one shows it in the card
+     (nothing is sent); a move that opens a place (the rep review, meet day) opens it */
+  function sugMenu(btn) {
+    var id = S.id, m = sugOf(id), alts = otherMoves(id, m); if (!alts.length) return;
+    var items = alts.map(function (x) { var a = x.a; return { id: x.it.id + '|' + a.id, label: a.label, sub: a.go ? (a.go.place === 'messages' ? 'Opens the rep review' : 'Opens ' + cap(a.go.place)) : a.reply == null && !(a.ops && a.ops.length) ? 'Nothing changes; the case closes' : (a.says || a.reply || '').slice(0, 60) }; });
+    DESK.menu.open(btn, items, { title: 'Other options', label: 'Other options', run: function (mid) {
+      var p = String(mid).split('|'), it = dataOf(PL.items.get(p[0])), a = actOf(it, p[1]); if (!a) return;
+      if (a.go) { runGo(id, a); return; }
+      var b = baseOf(id);
+      if (b.itemId === p[0] && b.actId === p[1]) delete S.pick[id]; else S.pick[id] = { itemId: p[0], actId: p[1] };
+      renderSug();
+      var u = $('[data-sg-use]'); if (u) u.focus({ preventScroll: true });
+    } });
+  }
   function savedMenu(btn) {
     var s = fn(PL.settings, 'get') ? dataOf(PL.settings.get()) : null, saved = (s && s.saved) || [];
     var items = saved.length ? saved.map(function (x, i) { return { id: 's' + i, label: x.name || ('Reply ' + (i + 1)), sub: String(x.text || '').slice(0, 60) }; })
@@ -1045,8 +1165,7 @@
   document.addEventListener('click', function (e) {
     var ins = DESK.insp.el(); if (!ins || !ins.contains(e.target)) return;
     var b = e.target.closest('button'); if (!b) return;
-    if (b.hasAttribute('data-act')) { var p = b.getAttribute('data-act').split('|'); pickAct(S.id, p[0], p[1]); return; }
-    if (b.hasAttribute('data-replyonly')) { replyOnly(S.id); return; }
+    if (b.hasAttribute('data-act')) { var p = b.getAttribute('data-act').split('|'), ia = dataOf(PL.items.get(p[0])), aa = actOf(ia, p[1]); if (aa && aa.go) runGo(S.id, aa); return; }
     if (b.hasAttribute('data-more')) { S.more = !S.more; renderFacts(true); var mt = DESK.insp.el().querySelector('[data-more]'); if (mt) mt.focus({ preventScroll: true }); return; }
     if (b.hasAttribute('data-openmeet')) { var mx = (dataOf(PL.lifters.get(S.id)) || {}).meet; DESK.go('meets', (mx && mx.id ? 'id=' + encodeURIComponent(mx.id) + '&' : '') + 'lifter=' + encodeURIComponent(S.id) + '&from=messages'); return; }
     if (b.hasAttribute('data-step')) { DESK.listStepper(+b.getAttribute('data-step')); return; }
@@ -1065,7 +1184,9 @@
     if (e.key === 'Escape' && typing && e.target.id === 'cmp-t') { e.target.blur(); return; }
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === 'r' || e.key === 'R') { var ta = $('#cmp-t'); if (ta) { e.preventDefault(); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }
-    else if (e.key === 'e' || e.key === 'E') { var a = DESK.insp.el() && DESK.insp.el().querySelector('[data-act]'); if (a) { e.preventDefault(); a.click(); } }
+    else if (e.key === 'e' || e.key === 'E') { if (S.id && sugOf(S.id)) { e.preventDefault(); delete S.later[laterKey(S.id, sugOf(S.id))]; useSug(S.id); } }
+    /* ↑ ↓ move between threads anywhere but a list, a field or the words (the list has its own, the words scroll) */
+    else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !e.shiftKey && !(e.target.closest && e.target.closest('#list, #th-m, [role=menu], .insp-b, .more-b'))) { e.preventDefault(); DESK.listStepper(e.key === 'ArrowDown' ? 1 : -1); }
     else if (e.key === 'Escape' && S.q) { S.q = ''; $('#q').value = ''; DESK.url.set({ id: S.id }); renderList(); renderMessages(true); }
   });
 
@@ -1248,13 +1369,15 @@
     var c = cmpOf(id), before = thread(id) && thread(id).draft ? thread(id).draft.text : '';
     var r = PL.messages.depth(id, call); if (r && r.error) { DESK.toast(r.error.message); return; }
     var t = thread(id), now = t && t.draft ? t.draft.text : before;
+    /* the call goes into the suggestion's words (the card shows it); the coach's own words in the box are never touched */
+    if (c.from !== 'sug') { renderSug(); return; }
     if (!c.touched) { c.text = c.draft = now; if (c.row && c.rowEd && c.rowEd.w != null) c.text = c.draft = swapKg(now, rowBase(id, c).w, c.rowEd.w); }
     else {
       var said = now && before && now.length > before.length && now.slice(-before.length) === before ? now.slice(0, now.length - before.length).trim() : '';
       if (c.depthSaid && c.text.indexOf(c.depthSaid) === 0) c.text = c.text.slice(c.depthSaid.length).trim();
       if (said) { c.text = said + ' ' + c.text; c.depthSaid = said; }
     }
-    renderComposer();
+    renderSug(); renderComposer();
   }
   function doneReview(id) {
     var rv = rvOf(id), v = threadVideo(id), c = cmpOf(id); if (rv.rec) stopRec(id);
@@ -1266,10 +1389,12 @@
 
   /* ---------------- mount ---------------- */
   DESK.mount({ place: 'messages', title: 'Messages', fixed: true });
-  DESK.keyMap([['J K', 'Next or previous thread'], ['↑ ↓', 'Move through the list'], ['R', 'Write a reply'], ['Tab', 'Keep the draft as your words'], ['⌘↵', 'Send'], ['E', 'The first answer in the facts'],
+  DESK.keyMap([['J K', 'Next or previous thread'], ['↑ ↓', 'Move through the list'], ['R', 'Write a message'], ['Enter or ⌘↵', 'Send (Shift+Enter: a new line)'], ['E', 'Use the suggestion (put it in the box)'],
     ['Space', 'Play or pause the rep (review)'], ['← →', 'One frame, Shift for ten (review)'], ['⌘Z', 'Take back the last mark (review)'], ['Esc', 'Leave the box, then clear the search']]);
   DESK.actions([
     { title: 'Send what is in the box', keywords: 'reply message', run: function () { send(); } },
+    { title: 'Use the suggestion', keywords: 'draft suggested reply answer', run: function () { if (S.id) useSug(S.id); } },
+    { title: 'Send the suggestion as is', keywords: 'draft suggested reply answer', run: function () { sendSug(); } },
     { title: 'Review the rep', keywords: 'video form check depth', run: function () { openReview(S.id); } },
     { title: 'Next thread', keywords: 'messages waiting', run: function () { DESK.listStepper(1); } }
   ]);
@@ -1277,7 +1402,7 @@
   readHash();
   addEventListener('hashchange', function () { var u = DESK.url.get(); if (u.id && u.id !== S.id) select(u.id, { force: true }); if (u.review === '1' && (!DESK.sheet.isOpen())) openReview(u.id || S.id); });
   var pend = 0;
-  PL.on('change', function () { if (pend) return; pend = requestAnimationFrame(function () { pend = 0; if (!S.id) { snapshot(); readHash(); return; } renderList(); renderMessages(true); renderFacts(true); if (document.activeElement && document.activeElement.id === 'cmp-t') paintSend(); else if (!S.editKey) renderComposer(); }); });
+  PL.on('change', function () { if (pend) return; pend = requestAnimationFrame(function () { pend = 0; if (!S.id) { snapshot(); readHash(); return; } renderList(); renderMessages(true); renderFacts(true); renderSug(); if (document.activeElement && document.activeElement.id === 'cmp-t') paintSend(); else if (!S.editKey) renderComposer(); }); });
 })();
 </script>
 </body>

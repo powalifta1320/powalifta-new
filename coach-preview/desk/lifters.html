@@ -466,6 +466,10 @@
   .tv th[aria-sort] button::after { content: none; }
   @media (hover: hover) and (pointer: fine) { .tv th button:hover::after { opacity: 1; } }
   .tvc { overflow: visible; }
+  /* CONTACTS (23 Nov): where the toolbar is short (the sidebar pinned on a 1280 to 1400 screen, or any window under
+     1200) the quick contact keeps its icon and its name in the label and tooltip, so the crimson never leaves the window */
+  @media (max-width: 1199px) { #tbContact .ct-b { width: var(--h); padding: 0; } #tbContact .ct-b > span, #tbContact .ct-b .ct-cv { display: none; } }
+  @media (max-width: 1400px) { html.side-pinned #tbContact .ct-b { width: var(--h); padding: 0; } html.side-pinned #tbContact .ct-b > span, html.side-pinned #tbContact .ct-b .ct-cv { display: none; } }
 </style>
 </head>
 <body data-place="lifters">
@@ -799,7 +803,11 @@
     /* one button a job: the quiet Message only when the crimson is something else */
     var trail = (l && S.view === 'list' && l.stage !== 'invited' && !(c && c.kind === 'msg') ? '<button class="btn quiet" type="button" data-msg-btn title="Message ' + esc(first(l)) + ' (R)">Message</button>' : '') +
       (c ? '<button class="btn" type="button" data-primary data-crimson' + (c.kind === 'add' ? ' aria-haspopup="dialog"' : '') + ' title="' + esc(c.label) + ' (E)">' + esc(c.label) + '</button>' : S.view === 'table' ? tableCrimson() : '');
+    /* CONTACTS (23 Nov): the lifter's quick contact sits beside Message (Message stays the way to write in POWALIFTA, so
+       the contact menu leaves it out); a lifter with no details has none here: Add contact details… is in Notes */
+    if (l && S.view === 'list' && l.stage !== 'invited' && DESK.contact) trail = '<span class="tb-slot" id="tbContact"></span>' + trail;
     $('#tbLead').innerHTML = lead; $('#tbTrail').innerHTML = trail;
+    if ($('#tbContact')) DESK.contact.button($('#tbContact'), l.id, { inApp: false, none: 'hide', sm: false });
     $$('.tb .seg').forEach(function (s) { DESK.segSync(s); });
     DESK.setTitle(l && S.view === 'list' ? l.name : 'Lifters');
   }
@@ -1380,7 +1388,9 @@
   }
   function notesHtml(l) {
     var nt = dat(PL.lifters.notes(l.id)) || {}, pv = nt.private || [], se = nt.sessions || [];
-    return '<div data-crop="notes" data-sec="notes"><div class="sh"><h2>Your notes</h2></div><div class="notes2">' + (pv.length ? pv.map(function (x) { return '<div class="note2"><p data-quote>' + esc(x.text || x.body || '') + '</p><small>' + esc(dayS(String(x.at || x.d || '').slice(0, 10))) + '</small></div>'; }).join('') : '<p class="line2">No notes yet.</p>') +
+    /* CONTACTS (23 Nov): their email, Instagram, iMessage and WhatsApp, where a coach looks them up; Edit… beside the heading */
+    var ctH = DESK.contact && l.stage !== 'invited' ? '<div data-crop="contact" data-sec="contact" class="ct-sec"><div class="sh"><h2>Contact details</h2>' + ((PL.contacts && Object.keys(dat(PL.contacts.get(l.id)) || {}).length) ? '<button class="btn sm quiet" type="button" data-ct-edit="' + esc(l.id) + '" aria-haspopup="dialog">Edit…</button>' : '') + '</div>' + DESK.contact.details(l.id) + '</div>' : '';
+    return ctH + '<div data-crop="notes" data-sec="notes"' + (ctH ? ' style="margin-top:var(--sp-6)"' : '') + '><div class="sh"><h2>Your notes</h2></div><div class="notes2">' + (pv.length ? pv.map(function (x) { return '<div class="note2"><p data-quote>' + esc(x.text || x.body || '') + '</p><small>' + esc(dayS(String(x.at || x.d || '').slice(0, 10))) + '</small></div>'; }).join('') : '<p class="line2">No notes yet.</p>') +
       '<div class="reply2"><textarea class="input" data-note-new rows="1" placeholder="A note only you see" aria-label="A note only you see"></textarea><div class="row2"><span class="grow"></span><button class="btn" type="button" data-add-note>Add the note</button></div></div></div>' +
       '<div class="sh" style="margin-top:var(--sp-6)"><h2>' + esc(cap1((l.sex === 'M' ? 'his' : 'her') + ' session notes')) + '</h2></div>' + (se.length ? '<div class="notes2">' + se.map(function (x) { return '<div class="note2"><p data-quote>“' + esc(x.text || '') + '”</p><small>' + esc(dayS(x.date || x.d)) + (x.reply ? ', you replied' : '') + '</small></div>'; }).join('') + '</div>' : '<p class="line2">No session notes yet.</p>') + '</div>';
   }
@@ -2023,6 +2033,8 @@
     else if (e.key === 'e' || e.key === 'E') { var cb = $('[data-crimson]'); if (cb) { e.preventDefault(); runCrimson(cb); } }
     else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); if (S.tab !== 'overview') setTab('overview', { replace: true }); var ta = $('[data-reply]'); if (ta) { ta.scrollIntoView({ block: 'center', behavior: 'instant' }); ta.focus(); } }
     else if ((e.key === 'p' || e.key === 'P') && S.view === 'list' && S.id) { e.preventDefault(); openWeek(S.id); }
+    /* CONTACTS: C reaches the lifter on their own app (the quick contact beside Message), or asks for the details */
+    else if ((e.key === 'c' || e.key === 'C') && S.view === 'list' && S.id && DESK.contact) { e.preventDefault(); var ctb = $('#tbContact .ct-b'); if (ctb) ctb.click(); else DESK.contact.edit(S.id); }
   });
   document.addEventListener('input', function (e) {
     var t = e.target;
@@ -2049,7 +2061,7 @@
   document.addEventListener('desk:list-step', function () {});
   addEventListener('hashchange', function () { var was = S.id; readHash(); var h = DESK.url.get(); M = model(); if (h.id && K.L(h.id)) S.id = h.id; else if (!h.id) { var f = firstRow(); if (f) { if (S.f === 'since') { S.sinceKey = f; S.id = M.rows[0].lid; } else S.id = shownRows(M).some(function (r) { return r.lid === was; }) && !h.f ? was : f; } } render({ keepSection: true }); syncUrl(false); keepRowInView(selRowId()); });
 
-  DESK.keyMap([['↑ ↓', 'Next or previous lifter (in the list)'], ['Home End', 'First or last lifter'], ['⌥↓ ⌥↑ or J K', 'Next or previous lifter'], ['Enter', 'Into the lifter’s page'], ['Esc', 'Back to the list; close, cancel the edit, clear the search'], ['A letter', 'Jump to the first name starting with it (in the list)'], ['/', 'Search lifters'], ['E', 'Do what the red button says'], ['R', 'Write to the lifter'], ['P', 'Their week in Programs'], ['Space', 'Add the row to a selection'], ['← →', 'The tabs, once one has the focus'], ['↑ ↓ Enter', 'Move through the Table and open a lifter']]);
+  DESK.keyMap([['↑ ↓', 'Next or previous lifter (in the list)'], ['Home End', 'First or last lifter'], ['⌥↓ ⌥↑ or J K', 'Next or previous lifter'], ['Enter', 'Into the lifter’s page'], ['Esc', 'Back to the list; close, cancel the edit, clear the search'], ['A letter', 'Jump to the first name starting with it (in the list)'], ['/', 'Search lifters'], ['E', 'Do what the red button says'], ['R', 'Write to the lifter'], ['P', 'Their week in Programs'], ['C', 'Contact them on their own app (or add their details)'], ['Space', 'Add the row to a selection'], ['← →', 'The tabs, once one has the focus'], ['↑ ↓ Enter', 'Move through the Table and open a lifter']]);
 
   /* a section's top just under the toolbar band (no animation: the coach asked for it) */
   function revealSec(sel) { var el = $(sel); if (!el) return; var edge = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--edge-h')) || 56; scrollBy({ top: el.getBoundingClientRect().top - edge - 12, behavior: 'instant' }); }

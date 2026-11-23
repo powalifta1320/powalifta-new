@@ -28,7 +28,7 @@
      detail scrolls beside it); the detail is the month (the picture card), then Still to come this month and Seats on the
      floor, or one lifter's ledger. The crimson is the store's next decision, in the toolbar. Tokens only; widths in px. */
   .cv { display: grid; grid-template-columns: var(--list-w) minmax(0, 1fr); column-gap: var(--sp-6); align-items: start; }
-  .cv.is-wide { grid-template-columns: minmax(0, 1fr); }
+  .cv.is-wide, .cv.is-free { grid-template-columns: minmax(0, 1fr); }
   /* the list column starts right under the toolbar band with its head (PX3: the same y on every list page); the page's
      title and facts lead the detail column beside it */
   .cv { margin-top: calc(var(--sp-3) * -1); }
@@ -45,26 +45,48 @@
     -webkit-mask-image: linear-gradient(transparent, var(--ink) var(--sp-3), var(--ink) calc(100% - var(--sp-3)), transparent);
     mask-image: linear-gradient(transparent, var(--ink) var(--sp-3), var(--ink) calc(100% - var(--sp-3)), transparent);
   }
-  .td .lrow { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n e' 'w w' 'q q' 'm m'; align-items: baseline; row-gap: 2px; padding: var(--sp-3) var(--sp-3); }
+  /* 23 Nov (the owner: "clients page looks hella plain like the lists"): a To do row is a designed row. The face, the name
+     and the amount on one line (the amounts one column, tabular); under the name the state as a dot and words (the dot's
+     colour has a job: late is the warning colour, wanting in the page's own); its ONE move a real button at the row's
+     right edge (the same edge on every row), the quick contact and the "…" beside it on the row in hand. Rows sit in
+     named groups with counts, the money first. */
+  .td .lrow.cr { grid-template-columns: 32px minmax(0, 1fr) auto; grid-template-areas: 'av n e' 'av b b' '. q q'; column-gap: var(--sp-3); row-gap: 2px; align-items: center; padding: var(--sp-3); }
   .td .lrow + .lrow::before { left: var(--sp-3); right: var(--sp-3); }
+  .td .tg-h + .lrow::before { opacity: 0; }
+  .cr > .ph { grid-area: av; align-self: start; margin-top: 2px; }
   .td .nm { grid-area: n; }
-  .td .amt { grid-area: e; color: var(--ink); font: 600 var(--fs-body)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .td .why { grid-area: w; text-wrap: pretty; }
-  .td .q { grid-area: q; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
-  /* the moves under the words, their labels on the words' edge; the "…" ends the line */
-  .td .mv { grid-area: m; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); margin: var(--sp-2) calc(var(--sp-2) * -1) 0 calc(var(--sp-3) * -1); }
-  .td .mv .fix { padding: 0 var(--sp-3); }
-  .td .mv { padding-right: calc(var(--ctl-s) + var(--sp-1)); }
-  .td .mv .more { position: absolute; right: var(--sp-1); bottom: var(--sp-3); }
-  .td .done-row { grid-area: w; flex-wrap: wrap; row-gap: 2px; column-gap: var(--sp-3); margin-top: 2px; }
+  .td .amt { grid-area: e; color: var(--ink); font: 600 var(--fs-body)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+  .cr-b { grid-area: b; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; column-gap: var(--sp-2); row-gap: var(--sp-2); min-width: 0; }
+  .td .q { grid-area: q; margin-top: var(--sp-1); color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
+  /* the state: a dot and words; the figure beside it in quiet ink ("Lifts today", "Applied Fri") */
+  .st { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--sp-2); min-width: 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .st > i { flex: none; align-self: center; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+  .st .cx { color: var(--ink-3); font-weight: 400; }
+  .st[data-tone='late'] { color: var(--warn); } .st[data-tone='late'] > i { background: var(--warn); }
+  .st[data-tone='new'] { color: var(--place-ink); } .st[data-tone='new'] > i { background: var(--place-ink); }
+  .st[data-tone='soon'] { color: var(--ink); } .st[data-tone='soon'] > i { background: var(--ink-2); }
+  .st[data-tone='idle'] > i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+  .st[data-tone='leave'] > i { background: var(--ink-3); }
+  /* the row's moves: one button (quiet at rest, filled on the row in hand), then contact and "…" on that row */
+  .cr-a { display: flex; align-items: center; gap: var(--sp-1); margin-left: auto; margin-right: calc(var(--sp-1) * -1); }
+  .cr-a .rec { padding: 0 var(--sp-3); }
+  .lrow.is-sel .cr-a .rec, .lrow:focus-within .cr-a .rec { background: var(--btn-2); box-shadow: var(--btn-2-edge); }
+  @media (hover: hover) and (pointer: fine) { .lrow.cr:hover .cr-a .rec { background: var(--btn-2); box-shadow: var(--btn-2-edge); } .lrow.cr .cr-a .rec:hover { background-color: var(--btn-2-hover); } }
+  .cr-a .ct-b, .cr-a .more { opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+  .lrow.is-sel .cr-a :is(.ct-b, .more), .lrow:focus-within .cr-a :is(.ct-b, .more), .cr-a .is-open { opacity: 1; }
+  @media (hover: hover) and (pointer: fine) { .lrow.cr:hover .cr-a :is(.ct-b, .more) { opacity: 1; } }
+  .cr-ct:empty { display: none; }
+  /* a group: its name, its count, and what it is worth when it is money */
+  .tg-h { display: flex; align-items: baseline; gap: var(--sp-2); margin: var(--sp-4) var(--sp-3) var(--sp-1); color: var(--ink); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .tg-h:first-child { margin-top: var(--sp-1); }
+  .tg-h .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .tg-h .tg-v { margin-left: auto; color: var(--ink-2); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .tg-h[data-tone='late'] .tg-v { color: var(--warn); }
+  .td .done-row { grid-area: b; flex-wrap: wrap; row-gap: 2px; column-gap: var(--sp-3); margin-top: 2px; }
   .td .done-row .dw { white-space: normal; text-wrap: pretty; flex: 1 1 100%; }
   .td .done-tick { align-self: flex-start; margin-top: 1px; }
   .td .done-row .lnk { color: var(--ink-2); font-variant-numeric: tabular-nums; }
   .late, .kvs dd.late, .tbl td.late { color: var(--warn); }
-  /* the row's "…" shows on the row in hand, under the pointer, or with the keys inside it */
-  .lrow .more { opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
-  .lrow.is-sel .more, .lrow:focus-within .more, .lrow .more.is-open { opacity: 1; }
-  @media (hover: hover) and (pointer: fine) { .lrow:hover .more { opacity: 1; } }
   .td-h { display: flex; align-items: baseline; gap: var(--sp-2); margin: var(--sp-5) var(--sp-3) var(--sp-1); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
   .td-h .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
   .td-empty { margin: 0; padding: var(--sp-5) var(--sp-4); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
@@ -94,19 +116,53 @@
   .ov2 { display: grid; grid-template-columns: minmax(0, 1fr) 264px; gap: var(--sp-7); align-items: start; margin-top: var(--sp-7); }
   @media (max-width: 1280px) { .ov2 { grid-template-columns: minmax(0, 1fr) 232px; gap: var(--sp-6); } }
   .tc-l { padding: 0 var(--sp-1); }   /* the rows' words start under the title's (P46, PX2: .sec-h sits 4 px in) */
-  .tc-l .lrow { width: 100%; grid-template-columns: 96px minmax(0, 1fr) auto; min-height: 44px; padding: 0; border: 0; background-color: transparent; color: inherit; font: inherit; text-align: left; }
+  /* a payment to come: the face, the name with the package under it in quiet ink, the day as a small chip, the amount
+     right-aligned in tabular figures; the row opens that client's ledger. One paid while the page is open stays, ticked. */
+  .tc-l .lrow { width: 100%; grid-template-columns: 28px minmax(0, 1fr) auto 80px; column-gap: var(--sp-3); min-height: 52px; padding: var(--sp-2) 0; border: 0; background-color: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
   .tc-l .lrow + .lrow::before { left: 0; right: 0; }
-  .tc-l .d { color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tc-l .who { gap: 0; }
   .tc-l .nm { font-size: var(--fs-sub); }
-  .tc-l .v { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tc-l .pk { color: var(--ink-3); font: 400 var(--fs-label)/var(--lh-label) var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dchip { display: inline-flex; align-items: center; height: 24px; padding: 0 var(--sp-2); border-radius: var(--r-pill); background: var(--fill); color: var(--ink-2); font: 600 var(--fs-cap)/1 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tc-l .v { color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+  .tc-l .lrow.is-paid .nm, .tc-l .lrow.is-paid .v { color: var(--ink-3); }
+  .tc-l .lrow.is-paid .dchip { background: var(--up-tint); color: var(--up); gap: 4px; }
+  .tc-l .lrow.is-paid .dchip svg { width: 12px; height: 12px; }
+  .tc-t { display: grid; grid-template-columns: minmax(0, 1fr) 80px; column-gap: var(--sp-3); align-items: baseline; padding: var(--sp-3) 0 0; border-top: 1px solid var(--line-2); color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .tc-t b { color: var(--ink); font: 700 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; text-align: right; }
+  .tc-l + .tc-t { margin: 0 var(--sp-1); }
+  /* seats: the number, a meter of the plan's seats, the breakdown as aligned rows keyed to the meter, one clear move */
   .se-v { display: flex; align-items: baseline; gap: var(--sp-2); margin: 0 var(--sp-1); }
   .se-v b { font: 800 var(--fs-num)/var(--lh-num) var(--font); letter-spacing: var(--ls-num); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); }
   .se-v span { color: var(--ink-2); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); }
-  .se-l { margin: var(--sp-4) var(--sp-1) 0; padding: 0; list-style: none; }
-  .se-l li { display: flex; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) 0; border-top: 1px solid var(--line); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
-  .se-l li b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
-  .se-a { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); margin: var(--sp-4) 0 0; }
-  .se-a .btn { margin-left: calc(var(--sp-3) * -1); }
+  .se-m { display: flex; gap: 2px; height: 8px; margin: var(--sp-3) var(--sp-1) 0; border-radius: var(--r-pill); overflow: hidden; }
+  .se-m i { display: block; height: 100%; min-width: 4px; flex-basis: 0; }
+  .se-m .k-pay, .se-l .k-pay { background: var(--place-ink); }
+  .se-m .k-hold, .se-l .k-hold { background: var(--place-ink); opacity: .45; }
+  .se-m .k-free, .se-l .k-free { background: var(--fill-3); }
+  .se-l { margin: var(--sp-3) var(--sp-1) 0; padding: 0; list-style: none; }
+  .se-l li { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-2); padding: var(--sp-2) 0; border-top: 1px solid var(--line); color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .se-l li:first-child { border-top: 0; }
+  .se-l li > i { width: 8px; height: 8px; border-radius: 2px; }
+  .se-l li b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+  .se-a { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin: var(--sp-4) var(--sp-1) 0; }
+  /* the month's legend: each part opens who is in it (the same list as before; Remind is there for the late) */
+  .mo-k .mo-p { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 32px; margin: 0 calc(var(--sp-2) * -1); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-field); background: none; color: inherit; font: inherit; cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out); }
+  .mo-k .mo-p:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
+  @media (hover: hover) and (pointer: fine) { .mo-k .mo-p:hover { background: var(--fill); } }
+  .mo-k .mo-p.is-open { background: var(--fill-2); }
+  /* the ledger's quick contact sits beside its close */
+  .lg-h .lg-x { display: flex; align-items: center; gap: var(--sp-2); }
+  /* a coach with nobody to charge yet: the three steps that make this page work, the first one live */
+  .fr-steps { margin: var(--sp-5) 0 0; padding: 0; list-style: none; counter-reset: fr; }
+  .fr-steps li { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: var(--sp-3); padding: var(--sp-4) 0; border-top: 1px solid var(--line); counter-increment: fr; }
+  .fr-steps li::before { content: counter(fr); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--fill-2); color: var(--ink-2); font: 700 var(--fs-label)/1 var(--font); }
+  .fr-steps li.is-done::before { content: '✓'; background: var(--up-tint); color: var(--up); }
+  .fr-steps li.is-now::before { background: var(--place-sel); color: var(--place-ink); }
+  .fr-steps h3 { margin: 2px 0 0; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
+  .fr-steps li.is-done h3 { color: var(--ink-2); }
+  .fr-steps p { margin: 2px 0 0; color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
+  .fr-steps .btn { margin-top: var(--sp-3); justify-self: start; }
 
   /* ---- one lifter's ledger ---- */
   .lg { padding: var(--sp-5) var(--sp-6) var(--sp-6); }
@@ -149,7 +205,7 @@
   .free { max-width: 560px; margin: var(--sp-2) var(--sp-1) 0; }
   .free h2 { margin: 0; font: 600 var(--fs-body)/var(--lh-body) var(--font); }
   .free p { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
-  .free .btn { margin-top: var(--sp-5); }
+  .free > .btn { margin-top: var(--sp-5); }
 
   /* ---- sheets and popovers on this page ---- */
   .fx-sf .fx-set { margin-right: auto; }
@@ -245,7 +301,7 @@
     mid: '<div class="seg" role="group" aria-label="Show" data-show-seg><button type="button" data-view="todo" aria-pressed="true">To do</button><button type="button" data-view="everyone" aria-pressed="false">Everyone</button></div>',
     trail: '<div class="cluster" role="group" aria-label="Clients actions"><button class="btn" type="button" data-add aria-haspopup="dialog">Add a lifter…</button>' +
       '<button class="btn" type="button" data-primary data-crimson aria-keyshortcuts="E"></button></div>' });
-  DESK.keyMap([['J K', 'Next or previous decision'], ['E', 'Do what the red button says'], ['Enter', 'Open the ledger of the row in hand'], ['⌘↵', 'Send in a sheet'], ['Esc', 'Close the menu, the sheet, then the ledger']]);
+  DESK.keyMap([['J K', 'Next or previous decision'], ['E', 'Do what the red button says'], ['Enter', 'Open the ledger of the row in hand'], ['C', 'Contact the client in hand on their own app'], ['⌘↵', 'Send in a sheet'], ['Esc', 'Close the menu, the sheet, then the ledger']]);
 
   /* ---------------- the facts line: the four answers ---------------- */
   /* the seats in the coach's words (FTC §10.1): "Free, 1 of 3 lifters", "21 of 25 seats", from billing.summary only */
@@ -311,8 +367,9 @@
   /* the row's visible moves (screens.md §7.1), in its words */
   /* why a reminder waits for tomorrow: the lifter competes today (F8.5) */
   function laterWhy(r) { var l = lifter(r.lifterId); return actLabel(r, 'remind') === 'Remind tomorrow' && r.context ? (l && l.sex === 'F' ? 'She' : l && l.sex === 'M' ? 'He' : 'They') + (l && (l.sex === 'F' || l.sex === 'M') ? ' competes today' : ' compete today') : ''; }
+  /* every move a row has, the recommended one first (the ledger shows them all; a row shows the first, the rest in "…") */
   function movesOf(r) {
-    if (r.kind === 'late') return [['remind', actLabel(r, 'remind') === 'Remind tomorrow' ? 'Remind ' + first(r.name) + ' tomorrow' : actLabel(r, 'remind') || 'Remind', laterWhy(r)], ['paid', 'Mark paid']];   // FP F8.5
+    if (r.kind === 'late') return [['remind', actLabel(r, 'remind') === 'Remind tomorrow' ? 'Remind tomorrow' : actLabel(r, 'remind') || 'Remind', laterWhy(r)], ['paid', 'Mark paid']];   // FP F8.5
     if (r.kind === 'soon' || r.dueToday) return [['paid', 'Mark paid']];
     if (r.kind === 'app') return [['accept', 'Accept…'], ['replyApp', 'Reply']];
     if (r.kind === 'none') return [['package', 'Set a package…']];
@@ -320,17 +377,34 @@
     if (r.kind === 'leaving') return [['replyLeave', 'Reply…'], ['end', actLabel(r, 'end') || 'Stop billing after']];
     return [];
   }
-  /* the row's "…": every move it has, then its ledger */
+  /* the row's "…" (23 Nov: Hick, one recommended move on the row, so the menu never repeats it): the other moves, the
+     lifter's contact details, then the ledger */
   function menuOf(r) {
-    var it = [];
+    var it = [], rec = (movesOf(r)[0] || [])[0];
     if (r.kind === 'late' || r.kind === 'soon') { it.push({ id: 'remind', label: actLabel(r, 'remind') === 'Remind tomorrow' ? 'Remind ' + first(r.name) + ' tomorrow' : actLabel(r, 'remind') || 'Remind', sub: laterWhy(r) || null }, { id: 'paid', label: 'Mark paid' }, { id: 'pause', label: 'Pause billing' }); }
     else if (r.dueToday) it.push({ id: 'paid', label: 'Mark paid' });
     else if (r.kind === 'app') it.push({ id: 'accept', label: 'Accept…' }, { id: 'replyApp', label: 'Reply' }, { id: 'decline', label: 'Decline…' });
     else if (r.kind === 'none') it.push({ id: 'package', label: 'Set a package…' });
     else if (r.kind === 'paused') { it.push({ id: 'checkin', label: 'Check in' }, { id: 'restart', label: 'Restart billing' }); if (actLabel(r, 'hold')) it.push({ id: 'hold', label: actLabel(r, 'hold') }); }
     else if (r.kind === 'leaving') it.push({ id: 'replyLeave', label: 'Reply…' }, { id: 'end', label: actLabel(r, 'end') || 'Stop billing' });
-    it.push({ sep: true }, { id: 'ledger', label: r.kind === 'app' ? 'Open the application' : 'Open ledger' });
+    it = it.filter(function (x) { return x.id !== rec; });
+    it.push({ sep: true });
+    if (r.lifterId && DESK.contact) it.push({ id: 'contact', label: hasContact(r.lifterId) ? 'Edit contact details…' : 'Add contact details…' });
+    it.push({ id: 'ledger', label: r.kind === 'app' ? 'Open the application' : 'Open ledger' });
+    if (it[0] && it[0].sep) it.shift();
     return it;
+  }
+  var hasContact = function (id) { return !!(PL.contacts && Object.keys(data(PL.contacts.get(id)) || {}).length); };
+  /* a row's state as a dot and words, and the figure beside it (the colour has a job: late warns, wanting in is new) */
+  var GROUP = { late: 'Late', soon: 'Due soon', app: 'Want in', none: 'No price yet', paused: 'Paused', leaving: 'Leaving', invite: 'Invited' };
+  function stateOf(r) {
+    if (r.kind === 'late') return { tone: 'late', w: cap1(String(r.text || '').replace(/^\$[\d,.]+,\s*/, '')), cx: r.context ? 'Lifts today' : '' };
+    if (r.kind === 'soon' || r.dueToday) return { tone: 'soon', w: r.dueToday || K.daysTo(r.due) === 0 ? 'Due today' : 'Due ' + K.wd3(r.due) + ' ' + K.d(r.due).getDate() };
+    if (r.kind === 'app') { var it = item(r.itemId) || {}; return { tone: 'new', w: r.replied ? 'You replied' : 'Wants in', cx: r.replied ? 'Waiting for an answer' : 'Applied ' + K.wd3(String(r.at || '').slice(0, 10)) + (it.context ? ', ' + it.context : '') }; }
+    if (r.kind === 'paused') { var m = /paused\.\s*(.+)$/i.exec(r.text || ''); return { tone: 'idle', w: 'Paused', cx: m ? cap1(m[1]) : '' }; }
+    if (r.kind === 'leaving') { var i = String(r.text).indexOf(': '); return { tone: 'leave', w: i > 0 ? r.text.slice(0, i) : r.text }; }
+    if (r.kind === 'none') return { tone: 'idle', w: 'No price yet' };
+    return { tone: 'idle', w: r.text || '' };
   }
   /* what a done row says, in the act's done words */
   function doneOf(r) {
@@ -358,17 +432,22 @@
   /* a row is named by its lifter when the lifter has one row (so a lifter's row is [data-row=<id>]), else by its key */
   function rid(r) { var n = r.lifterId ? TODO().filter(function (x) { return x.lifterId === r.lifterId; }).length : 0; return n === 1 ? r.lifterId : r.key; }
   function rowHtml(r) {
-    var sel = isSel(r), done = doneOf(r);
-    var h = '<div class="lrow' + (sel ? ' is-sel' : '') + '" data-row="' + esc(rid(r)) + '" tabindex="0"' + (sel ? ' aria-current="true"' : '') + '>' +
+    var sel = isSel(r), done = doneOf(r), l = r.lifterId ? lifter(r.lifterId) : null;
+    var h = '<div class="lrow cr' + (sel ? ' is-sel' : '') + '" data-row="' + esc(rid(r)) + '" data-kind="' + esc(r.kind) + '" tabindex="0"' + (sel ? ' aria-current="true"' : '') + '>' +
+      DESK.photo(l || { name: r.name, id: r.key }, 32) +
       '<span class="nm" data-fact="name">' + esc(r.name) + '</span>' +
-      (r.amount != null ? '<span class="amt" data-fact="number">' + money(r.amount) + '</span>' : '');
+      '<span class="amt" data-fact="number">' + (r.amount != null ? money(r.amount) : '') + '</span>';
     if (done) return h + done + '</div>';
-    h += '<span class="why" data-fact="reason">' + lineOf(r) + '</span>';
+    var s = stateOf(r), mv = movesOf(r)[0];
+    h += '<div class="cr-b"><span class="st" data-tone="' + s.tone + '" data-fact="reason"><i aria-hidden="true"></i><span>' + esc(s.w) + '</span>' + (s.cx ? '<span class="cx">' + esc(s.cx) + '</span>' : '') + '</span>' +
+      /* the quick contact before the move (it shows on the row in hand), the "…" last: the move's right edge is the same
+         on every row, one column for the eye and the pointer */
+      '<span class="cr-a" data-fact="action">' + (r.lifterId && DESK.contact && /^(late|leaving|paused|soon)$/.test(r.kind) ? '<span class="cr-ct" data-ct-row="' + esc(r.lifterId) + '"></span>' : '') +
+      (mv ? '<button class="btn sm quiet rec" type="button" data-do="' + mv[0] + '"' + (mv[2] ? ' title="' + esc(mv[2]) + '"' : '') + '>' + esc(mv[1]) + '</button>' : '') +
+      '<button class="btn sm icon quiet more" type="button" data-more data-menu aria-haspopup="menu" aria-expanded="false" aria-label="More for ' + esc(r.name) + '" title="More">' + ICON.more + '</button></span></div>';
     /* their own words, under the line (a lifter who is leaving says why) */
     var qi = r.kind === 'leaving' ? String(r.text).indexOf(': ') : -1;
     if (qi > 0) h += '<span class="q" data-quote>' + esc(r.text.slice(qi + 2)) + '</span>';
-    h += '<div class="mv" data-fact="action">' + movesOf(r).map(function (m) { return '<button class="btn sm fix" type="button" data-do="' + m[0] + '"' + (m[2] ? ' title="' + esc(m[2]) + '"' : '') + '>' + esc(m[1]) + '</button>'; }).join('') +
-      '<button class="btn sm icon quiet more" type="button" data-more data-menu aria-haspopup="menu" aria-expanded="false" aria-label="More for ' + esc(r.name) + '" title="More">' + ICON.more + '</button></div>';
     return h + '</div>';
   }
   function isSel(r) { return !!st.sel && (st.sel === r.key || st.sel === r.lifterId || st.sel === r.id); }
@@ -382,8 +461,15 @@
     if (!doneAtLoad) { doneAtLoad = {}; rows.forEach(function (r) { if (r.done) doneAtLoad[r.key] = true; }); }
     var folded = rows.filter(function (r) { return r.done && doneAtLoad[r.key]; }), live = rows.filter(function (r) { return folded.indexOf(r) < 0; });
     var open = live.filter(function (r) { return !r.done; }).length;
+    /* named groups in the store's order (the money first), each with its count and, for money, what it is worth */
+    var order = [], by = {};
+    live.forEach(function (r) { var g = r.kind === 'soon' || r.dueToday ? 'soon' : r.kind; if (!by[g]) { by[g] = []; order.push(g); } by[g].push(r); });
+    var groups = order.map(function (g) {
+      var rs = by[g], openN = rs.filter(function (r) { return !r.done; }).length, sum = rs.filter(function (r) { return !r.done && r.amount != null; }).reduce(function (s, r) { return s + r.amount; }, 0);
+      return '<h3 class="tg-h" data-group="' + g + '" data-tone="' + (g === 'late' ? 'late' : '') + '">' + esc(GROUP[g] || cap1(g)) + ' <span class="n">' + openN + '</span>' + ((g === 'late' || g === 'soon') && sum ? '<span class="tg-v">' + money(sum) + '</span>' : '') + '</h3>' + rs.map(rowHtml).join('');
+    }).join('');
     return '<div class="card td" data-crop="todo"><div class="list td-l" id="tdl" data-list data-step="click" aria-label="To do">' +
-      live.map(rowHtml).join('') + (!open ? '<p class="td-empty">Every decision is made.</p>' : '') +
+      groups + (!open ? '<p class="td-empty">Every decision is made.</p>' : '') +
       (folded.length ? '<h3 class="td-h">Done today <span class="n">' + folded.length + '</span></h3>' + folded.map(function (r) { return rowHtml(r).replace(' data-row="', ' data-done-key="'); }).join('') : '') + '</div></div>';
   }
 
@@ -395,41 +481,59 @@
       '<div class="mo-h"><h2 id="mo-h">' + esc(m.name || 'This month') + '</h2><button class="btn sm quiet" type="button" data-export>Export payments (CSV)</button></div>' +
       '<p class="mo-v"><b class="acc">' + money(m.in) + '</b><span>of ' + money(m.total) + ' in</span></p>' +
       '<div class="mbar" data-chart role="img" aria-label="' + esc(money(m.in) + ' in, ' + money(m.late) + ' late, ' + money(m.toCome) + ' to come') + '">' + bar('in', m.in) + bar('lt2', m.late) + bar('tc', m.toCome) + '</div>' +
+      /* 23 Nov: each part of the legend opens who is in it (it was words beside a separate "See who is late"; now one
+         kind of control, three doors, and the late one still offers Remind) */
       '<ul class="mo-k">' +
-      '<li><i class="in" data-mark aria-hidden="true"></i><span><b>' + money(m.in) + '</b> in</span></li>' +
-      '<li><i class="lt2" data-mark aria-hidden="true"></i><span><b>' + money(m.late) + '</b> late</span></li>' +
-      '<li><i class="tc" data-mark aria-hidden="true"></i><span><b>' + money(m.toCome) + '</b> to come</span></li>' +
-      (m.late > 0 ? '<li class="moves"><button class="mv" type="button" data-part="late" aria-haspopup="dialog">See who is late</button></li>' : '') + '</ul>' +
+      '<li><button class="mo-p" type="button" data-part="in" aria-haspopup="dialog" title="Who paid in ' + esc(m.name || 'this month') + '"><i class="in" data-mark aria-hidden="true"></i><span><b>' + money(m.in) + '</b> in</span></button></li>' +
+      '<li><button class="mo-p" type="button" data-part="late" aria-haspopup="dialog" title="Who is late"' + (m.late > 0 ? '' : ' disabled') + '><i class="lt2" data-mark aria-hidden="true"></i><span><b>' + money(m.late) + '</b> late</span></button></li>' +
+      '<li><button class="mo-p" type="button" data-part="come" aria-haspopup="dialog" title="Who pays later this month"><i class="tc" data-mark aria-hidden="true"></i><span><b>' + money(m.toCome) + '</b> to come</span></button></li></ul>' +
       (line ? '<p class="mo-n">' + esc(line) + '</p>' : '') + '</div>';
   }
+  /* the payments to come this month; one paid while the page is open keeps its place, ticked (the store knows it is in) */
+  var comeAtLoad = null;
   function comeHtml() {
-    var rows = SUM().month.rows.come || [];
+    var rows = (SUM().month.rows.come || []).slice(), keyOf = function (x) { return x.id + '|' + x.date; };
+    if (!comeAtLoad) comeAtLoad = rows.map(function (x) { return Object.assign({}, x); });
+    var live = {}; rows.forEach(function (x) { live[keyOf(x)] = true; });
+    var paidNow = comeAtLoad.filter(function (x) { if (live[keyOf(x)]) return false; var g = LED(x.id); return !!(g && (g.payments || []).some(function (p) { return p.on === K.today; })); });
+    var all = rows.map(function (x) { return { x: x, paid: false }; }).concat(paidNow.map(function (x) { return { x: x, paid: true }; })).sort(function (a, b) { return a.x.date < b.x.date ? -1 : a.x.date > b.x.date ? 1 : 0; });
+    var pk = {}; (data(PL.billing.list({})) || []).forEach(function (r) { pk[r.id] = r.pkg ? r.pkg + (r.cadence && r.cadence !== 'monthly' ? ', every ' + (EVERY[r.cadence] || r.cadence).toLowerCase() : '') : ''; });
+    var total = rows.reduce(function (s, x) { return s + (x.amount || 0); }, 0);
     return '<div class="sec flat" data-crop="thismonth" aria-labelledby="tc-h"><div class="sec-h"><h2 class="sec-t" id="tc-h">Still to come this month <span class="n">' + rows.length + '</span></h2></div>' +
-      (rows.length ? '<div class="list tc-l">' + rows.map(function (x) {
-        var l = lifter(x.id) || { name: x.id };
-        return '<button class="lrow" type="button" data-row="come-' + esc(x.id) + '-' + esc(x.date) + '" data-open="' + esc(x.id) + '"><span class="d">' + esc(K.wd3(x.date) + ' ' + K.d(x.date).getDate()) + '</span><span class="nm">' + esc(l.name) + '</span><span class="v">' + money(x.amount) + '</span></button>';
-      }).join('') + '</div>' : '<p class="td-empty">Nothing else is due this month.</p>') + '</div>';
+      (all.length ? '<div class="list tc-l">' + all.map(function (o) {
+        var x = o.x, l = lifter(x.id) || { name: x.id, id: x.id }, sel = st.sel === x.id;
+        return '<button class="lrow' + (o.paid ? ' is-paid' : '') + (sel ? ' is-sel' : '') + '" type="button" data-row="come-' + esc(x.id) + '-' + esc(x.date) + '" data-open="' + esc(x.id) + '" aria-label="' + esc(l.name + ', ' + money(x.amount) + (o.paid ? ', paid today' : ', due ' + K.wd3(x.date) + ' ' + K.d(x.date).getDate()) + '. Open the ledger') + '">' +
+          DESK.photo(l, 28) + '<span class="who"><span class="nm">' + esc(l.name) + '</span>' + (pk[x.id] ? '<span class="pk">' + esc(pk[x.id]) + '</span>' : '') + '</span>' +
+          '<span class="dchip">' + (o.paid ? ICON.check + 'Paid' : esc(K.wd3(x.date) + ' ' + K.d(x.date).getDate())) + '</span><span class="v">' + money(x.amount) + '</span></button>';
+      }).join('') + '</div><p class="tc-t"><span>' + (rows.length ? 'Still to come by ' + esc(K.wd3(SUM().month.end || K.today) + ' ' + K.d(SUM().month.end || K.today).getDate()) : 'Everything this month is in') + '</span><b>' + money(total) + '</b></p>' : '<p class="td-empty">Nothing else is due this month.</p>') + '</div>';
   }
   function seatsHtml() {
     var s = SUM(), se = s.seats || {}, bk = se.breakdown || {}, inv = s.invite || {};
     var nm = function (ids) { return (ids || []).map(function (id) { var l = lifter(id); return l ? l.first : id; }).join(', '); };
     var li = [];
-    if (bk.paying != null) li.push(['Paying', bk.paying]);
-    if (bk.paused) li.push(['Paused' + (bk.pausedIds ? ', ' + nm(bk.pausedIds) : ''), bk.paused]);
-    if (bk.none) li.push(['No price yet' + (bk.noneIds ? ', ' + nm(bk.noneIds) : ''), bk.none]);
-    if (bk.invites) li.push([bk.invites === 1 && bk.link ? 'Open invite link' : 'Invites out', bk.invites]);
-    return '<div class="sec" data-crop="seats" aria-labelledby="se-h"><div class="sec-h"><h2 id="se-h">Seats</h2></div>' +
-      '<p class="se-v"><b>' + (se.unlimited ? esc(String(se.used)) : esc(se.used + ' of ' + se.limit)) + '</b><span>' + (se.unlimited ? 'used, no limit' : 'seats used') + '</span></p>' +
-      '<ul class="se-l">' + li.map(function (x) { return '<li><span>' + esc(x[0]) + '</span><b>' + x[1] + '</b></li>'; }).join('') + '</ul>' +
-      '<div class="se-a">' + (inv.cancelled ? '<button class="btn sm quiet" type="button" data-link-new>New invite link</button>'
-        : '<button class="btn sm quiet" type="button" data-copy="' + esc(inv.link || '') + '" title="' + esc((inv.link || '') + '. An unused invite holds a seat.') + '">Copy the invite link</button><button class="btn sm quiet" type="button" data-link-cancel>Cancel the open link</button>') +
-      '<a class="btn sm quiet" href="' + esc(DESK.href('settings', 's=plan') || 'settings.html#s=plan') + '">Change plan</a></div></div>';
+    if (bk.paying != null) li.push(['k-pay', 'Paying', bk.paying]);
+    if (bk.paused) li.push(['k-hold', 'Paused' + (bk.pausedIds ? ', ' + nm(bk.pausedIds) : ''), bk.paused]);
+    if (bk.none) li.push(['k-hold', 'No price yet' + (bk.noneIds ? ', ' + nm(bk.noneIds) : ''), bk.none]);
+    if (bk.invites) li.push(['k-hold', bk.invites === 1 && bk.link ? 'Open invite link' : 'Invites out', bk.invites]);
+    if (!se.unlimited && se.free != null) li.push(['k-free', 'Free', se.free]);
+    var seg = function (cls, nmb) { return nmb > 0 ? '<i class="' + cls + '" style="flex-grow:' + nmb + '"></i>' : ''; };
+    var held = (bk.paused || 0) + (bk.none || 0) + (bk.invites || 0);
+    /* one clear move (Copy the invite link: Copied in place), Change plan beside it, the rare one (cancel the link) in "…" */
+    return '<div class="sec" data-crop="seats" aria-labelledby="se-h"><div class="sec-h"><h2 id="se-h">Seats</h2>' + (se.plan ? '<span class="sub">' + esc(se.plan) + ' plan</span>' : '') + '</div>' +
+      '<p class="se-v"><b>' + (se.unlimited ? esc(String(se.used)) : esc(se.used + ' of ' + se.limit)) + '</b><span>' + (se.unlimited ? 'used, no limit' : 'used') + '</span></p>' +
+      (se.unlimited ? '' : '<div class="se-m" role="meter" aria-label="Seats used" aria-valuemin="0" aria-valuemax="' + se.limit + '" aria-valuenow="' + se.used + '" aria-valuetext="' + esc(se.used + ' of ' + se.limit + ' seats used') + '">' + seg('k-pay', bk.paying || 0) + seg('k-hold', held) + seg('k-free', se.free || 0) + '</div>') +
+      '<ul class="se-l">' + li.map(function (x) { return '<li><i class="' + x[0] + '" aria-hidden="true"></i><span>' + esc(x[1]) + '</span><b>' + x[2] + '</b></li>'; }).join('') + '</ul>' +
+      '<div class="se-a">' + (inv.cancelled ? '<button class="btn sm" type="button" data-link-new>New invite link</button>'
+        : '<button class="btn sm" type="button" data-copy="' + esc(inv.link || '') + '" title="' + esc((inv.link || '') + '. An unused invite holds a seat.') + '">' + DESK.ic('copy') + '<span>Copy the invite link</span></button>') +
+      '<a class="btn sm quiet" href="' + esc(DESK.href('settings', 's=plan') || 'settings.html#s=plan') + '">Change plan</a>' +
+      (inv.cancelled ? '' : '<button class="btn sm icon quiet" type="button" data-seat-more aria-haspopup="menu" aria-expanded="false" aria-label="More for the invite link" title="More">' + ICON.more + '</button>') + '</div></div>';
   }
 
   /* ---------------- one lifter's ledger, or an application ---------------- */
   function ledgerHtml() {
     var r = rowFor(st.sel), l = lifter(st.sel);
-    var head = function (title, sub) { return '<div class="lg-h"><div><h2>' + esc(title) + '</h2>' + (sub ? '<p class="lg-p">' + sub + '</p>' : '') + '</div><button class="btn icon quiet" type="button" data-close-ledger aria-label="Close the ledger" title="Close (Esc)">' + ICON.x + '</button></div>'; };
+    /* the ledger's head: the name, the package, and (23 Nov) the lifter's quick contact beside the close */
+    var head = function (title, sub) { return '<div class="lg-h"><div><h2>' + esc(title) + '</h2>' + (sub ? '<p class="lg-p">' + sub + '</p>' : '') + '</div><div class="lg-x">' + (l && DESK.contact ? '<span data-ct-slot="' + esc(l.id) + '"></span>' : '') + '<button class="btn icon quiet" type="button" data-close-ledger aria-label="Close the ledger" title="Close (Esc)">' + ICON.x + '</button></div></div>'; };
     if (r && (r.kind === 'app' || r.kind === 'invite')) {
       var it = item(r.itemId) || {}, ev = it.ev || [];
       var q = function (w) { var e = ev.filter(function (x) { return x.when === w; })[0]; return e ? '<q data-quote>' + esc(e.text) + '</q>' : ''; };
@@ -497,8 +601,13 @@
   var PKG_LINK = function () { return '<a class="link" href="' + esc(DESK.href('settings', 's=packages') || 'settings.html#s=packages') + '">Packages and reminders</a>'; };
   function freeHtml() {
     var n = (data(PL.billing.list({})) || []).length;
-    return '<div class="free" data-crop="free"><h2>Nobody pays you yet.</h2><p><span>POWALIFTA never charges your lifters.</span> <span>They pay you their usual way; you mark it paid.</span></p>' +
-      '<button class="btn" type="button" data-charge aria-haspopup="dialog"' + (n ? '' : ' disabled title="Add a lifter first."') + '>Charge a lifter…</button></div>';
+    /* 23 Nov: a teaching empty state, the three steps that fill this page, the one to do now lit and live (FTC §10.1:
+       no crimson here; the step's own button is the move) */
+    return '<div class="free" data-crop="free"><h2>Nobody pays you yet.</h2><p><span>POWALIFTA never charges your lifters.</span> <span>They pay you their usual way; you mark it paid, and this page keeps the money straight.</span></p>' +
+      '<ol class="fr-steps">' +
+      '<li class="' + (n ? 'is-done' : 'is-now') + '"><div><h3>' + (n ? K.plural(n, 'lifter') + ' on your roster' : 'Add a lifter') + '</h3><p>Send them your invite link, or add them by hand.</p>' + (n ? '' : '<button class="btn" type="button" data-add aria-haspopup="dialog">Add a lifter…</button>') + '</div></li>' +
+      '<li class="' + (n ? 'is-now' : '') + '"><div><h3>Set their price</h3><p>A package: how much, how often, and the first payment day.</p>' + (n ? '<button class="btn" type="button" data-charge aria-haspopup="dialog">Charge a lifter…</button>' : '') + '</div></li>' +
+      '<li><div><h3>Mark payments as they come in</h3><p>The month adds up here. Anyone late shows at the top with Remind, and you can reach them on their own app.</p></div></li></ol></div>';
   }
   function openCharge() {
     if (!fn(DESK, 'charge')) return;
@@ -519,6 +628,8 @@
     if (!selValid) st.sel = null;
     var free = isFree(), seg = $('[data-show-seg]');
     if (seg) seg.hidden = free;
+    /* nobody on the roster yet: the first step's own Add a lifter… is the move, so the toolbar does not say it twice */
+    var tbAdd = $('.tb [data-add]'); if (tbAdd) tbAdd.hidden = free && !(data(PL.billing.list({})) || []).length;
     cv.classList.toggle('is-free', free);
     if (free) {
       /* FTC §10.1: one flat section; no To do / Everyone, no month, no seats, no crimson */
@@ -533,6 +644,11 @@
       DESK.listHead(cl, st.view === 'everyone' ? { name: 'Everyone', count: (PL.counts().data || {}).lifters || 0, countKey: 'lifters', action: PKG_LINK() }
         : { name: 'To do', count: (PL.counts().data || {}).clientsToDo || 0, countKey: 'clientsToDo', action: PKG_LINK() });
       cd.innerHTML = st.sel ? ledgerHtml() : monthHtml() + '<div class="ov2">' + comeHtml() + seatsHtml() + '</div>';
+    }
+    /* the quick contacts: on the rows where a coach chases someone (icon, the row in hand shows it) and in the ledger's head */
+    if (DESK.contact) {
+      $$('#cl [data-ct-row]').forEach(function (s) { DESK.contact.button(s, s.getAttribute('data-ct-row'), { icon: true, none: 'hide' }); });
+      $$('#cd [data-ct-slot]').forEach(function (s) { DESK.contact.button(s, s.getAttribute('data-ct-slot'), {}); });
     }
     var t2 = $('#tdl'); if (t2) t2.scrollTop = top;
     var e2 = $('#cl .ev'); if (e2) e2.scrollTop = etop;
@@ -589,6 +705,7 @@
       case 'hold': if (fn(DESK.fix, 'open')) DESK.fix.open(fixTrigger(btn, anchor), { itemId: 'quiet-' + id, actId: 'hold', anchor: anchor }); return;
       case 'replyLeave': openReply(r, btn, anchor); return;
       case 'ledger': select(r.lifterId || r.id, { push: true }); return;
+      case 'contact': if (DESK.contact && id) DESK.contact.edit(id); return;
     }
   }
   if (DESK.fix || DESK.remind) document.addEventListener('desk:fix', function (e) { var d = e.detail || {}; var r = d.lifterId ? rowFor(d.lifterId) : d.itemId ? TODO().filter(function (x) { return x.itemId === d.itemId || 'quiet-' + x.lifterId === d.itemId; })[0] : null; if (r) stamp(r.key); render(); });
@@ -828,6 +945,11 @@
     if (t.closest('[data-export]')) { exportCsv(t.closest('[data-export]')); return; }
     var cp = t.closest('[data-copy]'); if (cp) { copy(cp.getAttribute('data-copy'), cp); return; }
     if (t.closest('[data-link-cancel]')) { toastRes(PL.billing.inviteCancel()); return; }
+    var sm = t.closest('[data-seat-more]'); if (sm) {
+      if (DESK.pop.justClosed(sm)) return;
+      DESK.menu.open(sm, [{ id: 'cancel', label: 'Cancel the open link', sub: 'Frees its seat; the link stops working', red: true }], { label: 'The invite link', anchor: sm, run: function (mid) { if (mid === 'cancel') toastRes(PL.billing.inviteCancel()); } });
+      return;
+    }
     if (t.closest('[data-link-new]')) { toastRes(PL.billing.inviteNew()); return; }
     var pt = t.closest('[data-part]'); if (pt) { if (DESK.pop.justClosed(pt)) return; partPop(pt, pt.getAttribute('data-part')); return; }
     if (t.closest('[data-close-ledger]')) { select(null); return; }
@@ -871,6 +993,15 @@
     var layer = DESK.pop.isOpen() || !!document.querySelector('dialog[open]');
     if (e.key === 'Enter' && !typing && !layer && a && a.matches && a.matches('#cl [data-row], #cl [data-done-key]')) { e.preventDefault(); a.click(); return; }
     if ((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey && !e.altKey && !typing && !layer) { var b = $('[data-crimson]'); if (b && !b.hidden) { e.preventDefault(); b.click(); } return; }
+    /* C: reach the client in hand on their own app (the row's quick contact, else the ledger's), or add their details */
+    if ((e.key === 'c' || e.key === 'C') && !e.metaKey && !e.ctrlKey && !e.altKey && !typing && !layer && DESK.contact) {
+      var hr = (a && a.closest ? a.closest('#cl [data-row]') : null) || $('#cl .lrow.is-sel'), rr0 = hr ? rowByKey(hr.getAttribute('data-row')) : null, cid = rr0 ? rr0.lifterId : st.sel && lifter(st.sel) ? st.sel : null;
+      if (!cid) return;
+      e.preventDefault();
+      var cb = (hr && hr.querySelector('.ct-b')) || $('#cd [data-ct-slot] .ct-b');
+      if (cb && !cb.classList.contains('is-none')) cb.click(); else DESK.contact.edit(cid);
+      return;
+    }
   });
   /* Esc: the menu, the sheet and the popover close themselves first; then the ledger */
   addEventListener('keydown', function (e) {

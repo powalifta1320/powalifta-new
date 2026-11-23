@@ -7308,5 +7308,112 @@
     };
   })(PL);
 
+  /* ================= CONTACTS (23 Nov, contacts-clients worker; additions only) =================
+     The owner: "what if coach wants to contact them on some other platform etc, for each athlete they should be able to
+     add- their mail, insta, imessage, whatsapp, they can add either any or none of em". Each lifter may have any or none
+     of four ways: email, instagram (a handle), imessage (a phone number or an Apple ID email), whatsapp (a phone number in
+     international form). POWALIFTA keeps the details only; the links open the other app, and nothing sent there comes
+     back into a thread.
+       PL.contacts.get(id)        { data: { email, instagram, imessage, whatsapp } }  (a missing way is absent)
+       PL.contacts.set(id, o)     validates every field, normalises (trims; a pasted instagram.com link or a leading @
+                                  becomes the handle; a phone keeps its digits and a leading +, 00 becomes +); an empty
+                                  field removes that way. A refusal is { error: { code: 'invalid', message, details:
+                                  [{ field, message }] } } and changes nothing. One write, one Undo; 'contact:changed'
+                                  then 'change' fire like every other write.
+       PL.contacts.check(field, value)  { data: normalised } or { error } for one field (the editor's inline check)
+       PL.contacts.list()         { data: { <id>: { … } } } every lifter with at least one way
+     Kept in sessionStorage under <prefix>contacts (cleared by ?reset=1 with the rest of the desk), seeded from the demo
+     roster below on purpose unevenly: some lifters have all four, some one or two, eight none. Every value is made up:
+     +44 7700 900xxx is Ofcom's drama range, example.com is reserved, the handles end in .demo. */
+  (function (P) {
+    var KEY = PFX + 'contacts', FIELDS = ['email', 'instagram', 'imessage', 'whatsapp'];
+    var SEED = D.fresh ? {} : {
+      'demo-d2': { email: 'priya.shah@example.com', instagram: 'priya.lifts.demo', imessage: '+447700900101', whatsapp: '+447700900101' },
+      'demo-a2': { email: 'sarah.kim@example.com', instagram: 'sarahkim.pulls.demo', imessage: 'sarah.kim@example.com', whatsapp: '+447700900102' },
+      'demo-d12': { email: 'sofia.alvarez@example.com', instagram: 'sofia.squats.demo', imessage: '+447700900112', whatsapp: '+447700900112' },
+      'demo-d15': { whatsapp: '+447700900115' },
+      'demo-a3': { email: 'tom.boyle@example.com', whatsapp: '+447700900103' },
+      'demo-d13': { email: 'ryan.oneill@example.com' },
+      'demo-d5': { instagram: 'jonah.reed.demo', imessage: '+447700900105' },
+      'demo-a1': { email: 'arjun.mehta@example.com', instagram: 'arjun.benches.demo' },
+      'demo-d4': { email: 'elena.rossi@example.com', whatsapp: '+447700900104' },
+      'demo-d1': { imessage: '+447700900111' },
+      'demo-d8': { instagram: 'ines.duarte.demo', whatsapp: '+447700900108' },
+      'demo-d9': { email: 'kofi.mensah@example.com' }
+    };
+    var MINE = {};   /* the coach's edits: { <id>: { …the whole record… } }, an emptied record kept as {} */
+    function load() { var o = parseJSON(sGet(KEY)); MINE = o && typeof o === 'object' && !Array.isArray(o) ? o : {}; }
+    function save() { if (Object.keys(MINE).length) sSet(KEY, JSON.stringify(MINE)); else sDel(KEY); }
+    load();
+    function recOf(id) { var r = has(MINE, id) ? MINE[id] : SEED[id]; var out = {}; if (r) FIELDS.forEach(function (f) { if (isStr(r[f]) && r[f]) out[f] = r[f]; }); return out; }
+    function phone(raw, field, needPlus) {
+      var s = String(raw).replace(/[\s().\- ]/g, '');
+      if (/^00\d/.test(s)) s = '+' + s.slice(2);
+      if (!/^\+?\d+$/.test(s)) return { error: field === 'whatsapp' ? 'Write a phone number: digits, with a + and the country code first.' : 'Write a phone number (digits, a + first), or an Apple ID email.' };
+      var digits = s.replace(/\D/g, '');
+      if (needPlus && s.charAt(0) !== '+') return { error: 'Start with + and the country code, like +44 7700 900123: WhatsApp needs the whole number.' };
+      if (digits.length < 7 || digits.length > 15) return { error: 'That number has ' + digits.length + ' digits; a phone number has 7 to 15.' };
+      return { v: s };
+    }
+    function email(raw) {
+      var s = String(raw).trim().replace(/^mailto:/i, '');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@.]{2,}$/.test(s)) return { error: 'An email needs a name, an @ and a domain, like name@example.com.' };
+      return { v: s };
+    }
+    function check(field, raw) {
+      if (FIELDS.indexOf(field) < 0) return { error: 'There is no contact field “' + field + '”.' };
+      var s = raw == null ? '' : String(raw).trim();
+      if (!s) return { v: '' };
+      if (s.length > 200) return { error: 'That is too long for a contact detail (200 characters at most).' };
+      if (field === 'email') return email(s);
+      if (field === 'instagram') {
+        var h = s.replace(/^https?:\/\//i, '').replace(/^(www\.)?(instagram\.com|instagr\.am|ig\.me\/m)\//i, '').replace(/[?#].*$/, '').replace(/\/+$/, '').replace(/^@/, '').toLowerCase();
+        if (/\//.test(h)) return { error: 'Paste their profile link or their name, like priya.lifts.' };
+        if (!/^[a-z0-9._]{1,30}$/.test(h)) return { error: 'Instagram names use letters, numbers, dots and underscores, 30 at most.' };
+        if (/^\.|\.$|\.\./.test(h)) return { error: 'An Instagram name cannot start or end with a dot, or have two in a row.' };
+        return { v: h };
+      }
+      if (field === 'imessage') return /@/.test(s) ? email(s) : phone(s, field, false);
+      return phone(s, field, true);
+    }
+    OPS.contact = function (a) {
+      var id = a.id, had = has(MINE, id), prev = had ? clone(MINE[id]) : null, l = K.L(id);
+      MINE[id] = clone(a.rec); save();
+      var n0 = Object.keys(a.rec).length;
+      return { changed: true, kind: 'contact', persist: false, data: { id: id, contact: clone(a.rec) }, keys: ['contact:' + id], ids: [id], events: [['contact:changed', { id: id }]],
+        undo: function () { if (had) MINE[id] = prev; else delete MINE[id]; save(); },
+        label: n0 ? l.first + '’s contact details are saved.' : l.first + ' has no contact details now.', undoLabel: l.first + '’s contact details are back as they were.' };
+    };
+    P.contacts = {
+      get: function (id) {
+        if (!L(id)) return noLifter(id);
+        return sel('contact', id, function () { return { data: recOf(id) }; });
+      },
+      list: function () {
+        return sel('contacts', undefined, function () {
+          var out = {}; (D.lifters || []).forEach(function (l) { var r = recOf(l.id); if (Object.keys(r).length) out[l.id] = r; });
+          return { data: out };
+        });
+      },
+      check: function (field, value) { var r = check(field, value); return r.error ? bad(r.error, field) : ok(r.v); },
+      set: function (id, o) {
+        var l = L(id); if (!l) return noLifter(id);
+        if (!o || typeof o !== 'object') return bad('Give the contact details as { email, instagram, imessage, whatsapp }.');
+        var errs = [], rec = {}, cur = recOf(id);
+        FIELDS.forEach(function (f) {
+          var raw = has(o, f) ? o[f] : cur[f];   /* a field left out keeps what it was; '' or null removes it */
+          var r = check(f, raw);
+          if (r.error) errs.push({ field: f, message: r.error }); else if (r.v) rec[f] = r.v;
+        });
+        if (errs.length) return fail('invalid', errs.length === 1 ? errs[0].message : 'Check the ' + errs.length + ' fields marked.', errs);
+        if (stableKey(rec) === stableKey(cur)) return ok(recOf(id), { undo: null, label: 'Nothing changed.' });
+        return commit('contact', { id: id, rec: rec, at: stamp() });
+      }
+    };
+    /* another tab saved contact details: read them again, then tell the page (the store's own handler has fired already) */
+    W.addEventListener('storage', function (e) { if (!e || e.key !== KEY && e.key !== null) return; load(); bump(); emit('change', { type: 'storage', ids: [], v: v, key: KEY }); });
+  })(PL);
+  /* ================= end CONTACTS ================= */
+
   W.PL = PL;
 })();

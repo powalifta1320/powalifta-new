@@ -1779,4 +1779,195 @@
     var done = typeof DESK.listStepper === 'function' && DESK.listStepper(step) === true;
     if (done || DESK.listStep(step)) e.preventDefault();
   });
+
+  /* ================= DESK.contact (23 Nov, contacts-clients worker; additions only) =================
+     A lifter's other ways to be reached (PL.contacts: email, Instagram, iMessage, WhatsApp, any or none) as one quick
+     contact button, its menu and its editor. POWALIFTA keeps the details only: every link opens the other app, and what
+     is written there never comes back into a thread (the editor says so in one line).
+       DESK.contact.links(id)  [{ kind, label, href, value, raw, web, here, alt? }] in the coach's last-used order, then
+                               Email, Instagram, iMessage, WhatsApp. Email mailto:, Instagram https://ig.me/m/<handle> (a
+                               DM; alt: the profile https://instagram.com/<handle>), iMessage sms:<number> or
+                               imessage:<Apple ID email> (here: false off Apple devices: the value with Copy instead),
+                               WhatsApp https://wa.me/<digits>. Web links open in a new tab with rel="noopener".
+       DESK.contact.button(el, id, opts)  ONE button in el: exactly one way that opens here → that way, one click ("WhatsApp
+                               Tomas"); several → a menu: Message in POWALIFTA first (opts.inApp; off on Messages and where
+                               the page shows Message beside it), each way with Copy, Edit contact details… last; none →
+                               "Add contact details…" (opts.none: 'hide' draws nothing). opts.sm, opts.icon (icon only,
+                               32 px, the name in its label). It redraws itself when the store changes. Answers the button.
+       DESK.contact.menu(trigger, id, opts)  the menu by itself (a row's own trigger).
+       DESK.contact.edit(id, { from })  the sheet: four optional labelled fields, inline checks, Save (⌘↵ or Enter) and
+                               Cancel (Esc); focus goes in, and back to where it was (or the lifter's button) on close.
+       DESK.contact.details(id)  the details as a list (label, value, Copy), for a lifter's page.
+     Icons are plain line glyphs in the kit's hand, never the platforms' marks or colours: the label carries the name. */
+  XI.mail = '<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="m4.5 7.5 7.5 5.5 7.5-5.5"/>';
+  XI.at = '<circle cx="12" cy="12" r="3.4"/><path d="M15.4 12v1.3a2.5 2.5 0 0 0 5 0V12a8.4 8.4 0 1 0-3.3 6.7"/>';
+  XI.bubble = '<path d="M4.5 6.5a2.5 2.5 0 0 1 2.5-2.5h10a2.5 2.5 0 0 1 2.5 2.5v7a2.5 2.5 0 0 1-2.5 2.5h-6l-4.5 3.5V16a2.5 2.5 0 0 1-2-2.5z"/>';
+  XI.phone = '<path d="M8.2 4.5H6.3a1.8 1.8 0 0 0-1.8 2A13.5 13.5 0 0 0 17.5 19.5a1.8 1.8 0 0 0 2-1.8v-1.9a1 1 0 0 0-.7-1l-2.9-.9a1 1 0 0 0-1 .3l-1.3 1.4a10.5 10.5 0 0 1-5.2-5.2l1.4-1.3a1 1 0 0 0 .3-1l-.9-2.9a1 1 0 0 0-1-.7z"/>';
+  XI.contact = '<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16.3a3.4 3.4 0 0 1 6.4 0M14.5 10h3M14.5 13.5h3"/>';
+  (function () {
+    var C_ORDER = ['email', 'instagram', 'imessage', 'whatsapp'];
+    var C_LABEL = { email: 'Email', instagram: 'Instagram', imessage: 'iMessage', whatsapp: 'WhatsApp' };
+    var C_ICON = { email: 'mail', instagram: 'at', imessage: 'bubble', whatsapp: 'phone' };
+    var C_USED = 'powa-r6-contact-used';
+    var apple = function () { if (typeof DESK.contact._apple === 'boolean') return DESK.contact._apple; var n = navigator, ua = n.userAgent || '', pf = n.platform || ''; return /Mac|iPhone|iPad|iPod/.test(pf) || /Mac OS X|iPhone|iPad|iPod/.test(ua); };
+    var lifterOf = function (id) { return id && K.L ? K.L(id) : null; };
+    var firstOf = function (id) { var l = lifterOf(id); return l ? (l.first || String(l.name || '').split(' ')[0]) : ''; };
+    var dataOf = function (r) { return r && !r.error ? r.data : null; };
+    function rec(id) { return PL && PL.contacts ? dataOf(PL.contacts.get(id)) || {} : {}; }
+    function pretty(raw) {
+      var s = String(raw || '');
+      if (/@/.test(s)) return s;
+      var m = /^\+44(\d{4})(\d{6})$/.exec(s); if (m) return '+44 ' + m[1] + ' ' + m[2];
+      m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(s); if (m) return '+1 ' + m[1] + ' ' + m[2] + ' ' + m[3];
+      return s;
+    }
+    function used(id) { var o = json(store.get('localStorage', C_USED)) || {}; return Array.isArray(o[id]) ? o[id] : []; }
+    function markUsed(id, kind) { var o = json(store.get('localStorage', C_USED)) || {}, l = (Array.isArray(o[id]) ? o[id] : []).filter(function (k) { return k !== kind; }); l.unshift(kind); o[id] = l.slice(0, 4); store.set('localStorage', C_USED, JSON.stringify(o)); }
+    function links(id) {
+      var r = rec(id), u = used(id), out = [];
+      C_ORDER.forEach(function (k) {
+        var v = r[k]; if (!v) return;
+        if (k === 'email') out.push({ kind: k, label: C_LABEL[k], href: 'mailto:' + v, value: v, raw: v, web: false, here: true });
+        else if (k === 'instagram') out.push({ kind: k, label: C_LABEL[k], href: 'https://ig.me/m/' + encodeURIComponent(v), value: '@' + v, raw: v, web: true, here: true, alt: { label: 'Profile', href: 'https://instagram.com/' + encodeURIComponent(v) } });
+        else if (k === 'imessage') out.push({ kind: k, label: C_LABEL[k], href: (/@/.test(v) ? 'imessage:' : 'sms:') + v, value: pretty(v), raw: v, web: false, here: apple(), apple: true });
+        else out.push({ kind: k, label: C_LABEL[k], href: 'https://wa.me/' + String(v).replace(/\D/g, ''), value: pretty(v), raw: v, web: true, here: true });
+      });
+      return out.sort(function (a, b) { var ia = u.indexOf(a.kind), ib = u.indexOf(b.kind); ia = ia < 0 ? 9 + C_ORDER.indexOf(a.kind) : ia; ib = ib < 0 ? 9 + C_ORDER.indexOf(b.kind) : ib; return ia - ib; });
+    }
+    var tgt = function (w) { return w.web ? ' target="_blank" rel="noopener noreferrer"' : ''; };
+    var opensIn = function (w) { return w.kind === 'email' ? 'your mail app' : w.kind === 'imessage' ? 'Messages' : w.label; };
+    /* the button: one way, several, none */
+    var slots = [];
+    function paint(el) {
+      var id = el._ctId, o = el._ctOpts || {}, l = lifterOf(id);
+      if (!l) { el.innerHTML = ''; return null; }
+      var w = links(id), f = firstOf(id), sz = o.sm === false ? '' : ' sm', icon = !!o.icon, h;
+      var lab = function (text) { return icon ? '' : '<span>' + esc(text) + '</span>'; };
+      if (!w.length) {
+        if (o.none === 'hide') { el.innerHTML = ''; return null; }
+        h = '<button class="btn quiet' + sz + (icon ? ' icon' : '') + ' ct-b is-none" type="button" data-ct-edit="' + esc(id) + '" data-ct-for="' + esc(id) + '" aria-haspopup="dialog" aria-label="Add contact details for ' + esc(l.name) + '" title="Add ' + esc(f) + '’s email, Instagram, iMessage or WhatsApp">' + DESK.ic('contact') + lab('Add contact details…') + '</button>';
+      } else if (w.length === 1 && w[0].here) {
+        var one = w[0];
+        h = '<a class="btn quiet' + sz + (icon ? ' icon' : '') + ' ct-b" href="' + esc(one.href) + '"' + tgt(one) + ' data-ct-go="' + esc(one.kind) + '" data-ct-id="' + esc(id) + '" data-ct-for="' + esc(id) + '" aria-label="' + esc(one.label + ' ' + l.name + ', opens ' + opensIn(one)) + '" title="' + esc(one.label + ' ' + f + ': ' + one.value + '. Opens ' + opensIn(one) + '; nothing sent there shows in POWALIFTA.') + '">' + DESK.ic(C_ICON[one.kind]) + lab(one.label + ' ' + f) + '</a>';
+      } else {
+        h = '<button class="btn quiet' + sz + (icon ? ' icon' : '') + ' ct-b" type="button" data-ct-menu="' + esc(id) + '" data-ct-for="' + esc(id) + '" aria-haspopup="menu" aria-expanded="false" aria-label="Contact ' + esc(l.name) + ': ' + esc(w.map(function (x) { return x.label; }).join(', ')) + '" title="Contact ' + esc(f) + ' (' + esc(w.map(function (x) { return x.label; }).join(', ')) + ')">' + DESK.ic(w.length === 1 ? C_ICON[w[0].kind] : 'contact') + lab('Contact ' + f) + (icon ? '' : DESK.ic('down', 2).replace('<svg', '<svg class="ct-cv"')) + '</button>';
+      }
+      el.innerHTML = h;
+      return el.firstElementChild;
+    }
+    function button(el, id, opts) {
+      if (!el) return null;
+      el._ctId = id; el._ctOpts = opts || {};
+      if (slots.indexOf(el) < 0) slots.push(el);
+      return paint(el);
+    }
+    if (PL && fn(PL, 'on')) PL.on('change', function () {
+      slots = slots.filter(function (s) { return s.isConnected; });
+      slots.forEach(function (s) { var had = s.contains(document.activeElement), b = paint(s); if (had && b) b.focus({ preventScroll: true }); });
+    });
+    /* the menu: Message in POWALIFTA, each way (its value under it, Copy beside it), Edit contact details… */
+    function menu(trigger, id, opts) {
+      opts = opts || (trigger.closest('[data-ct-for]') && trigger.parentNode && trigger.parentNode._ctOpts) || {};
+      var l = lifterOf(id); if (!l) return null;
+      var w = links(id), f = firstOf(id), inApp = opts.inApp != null ? !!opts.inApp : HERE !== 'messages';
+      var row = function (x) {
+        var main = x.here
+          ? '<a class="mi" role="menuitem" href="' + esc(x.href) + '"' + tgt(x) + ' data-ct-go="' + esc(x.kind) + '" data-ct-id="' + esc(id) + '"><span class="mi-t">' + esc(x.label) + '<small>' + esc(x.value) + '</small></span></a>'
+          : '<button class="mi" type="button" role="menuitem" data-ct-copy="' + esc(x.raw) + '" data-ct-what="' + esc(f + '’s ' + x.label) + '"><span class="mi-t">' + esc(x.label) + '<small>' + esc(x.value) + ', opens on Apple devices</small></span></button>';
+        var alt = x.alt ? '<a class="ct-x" role="menuitem" href="' + esc(x.alt.href) + '" target="_blank" rel="noopener noreferrer" data-ct-go="' + esc(x.kind) + '" data-ct-id="' + esc(id) + '" aria-label="' + esc(f + '’s Instagram profile') + '">' + esc(x.alt.label) + '</a>' : '';
+        return '<div class="ct-r" role="none">' + main + alt + '<button class="ct-x" type="button" role="menuitem" data-ct-copy="' + esc(x.raw) + '" data-ct-what="' + esc(f + '’s ' + x.label) + '" aria-label="' + esc('Copy ' + f + '’s ' + x.label + ' ' + (x.kind === 'email' ? 'address' : x.kind === 'instagram' ? 'name' : 'number')) + '">Copy</button></div>';
+      };
+      var h = '<div class="mn ct-m" role="menu" aria-label="Contact ' + esc(l.name) + '" data-ct-menu-of="' + esc(id) + '"><p class="mn-h" aria-hidden="true">Contact ' + esc(f) + '</p>' +
+        (inApp ? '<a class="mi" role="menuitem" href="' + esc(DESK.href('messages', 'id=' + encodeURIComponent(id)) || 'messages.html#id=' + encodeURIComponent(id)) + '" data-ct-app><span class="mi-t">Message in POWALIFTA</span></a>' + (w.length ? '<div class="mn-sep" role="separator"></div>' : '') : '') +
+        w.map(row).join('') +
+        '<div class="mn-sep" role="separator"></div><button class="mi" type="button" role="menuitem" data-ct-edit="' + esc(id) + '"><span class="mi-t">' + (w.length ? 'Edit contact details…' : 'Add contact details…') + '</span></button></div>';
+      var tr = trigger.getBoundingClientRect(), place = tr.left + tr.width / 2 < document.documentElement.clientWidth / 2 ? 'below-start' : 'below-end';
+      var el = DESK.pop.open(trigger, h, { label: 'Contact ' + l.name, layer: 'menu', place: place, focus: '.ct-m .mi' });
+      el.classList.add('ct-pop');
+      return el;
+    }
+    /* the menu's keys: ↑ ↓ between ways, ← → along a way (the way, Profile, Copy), Home End */
+    document.addEventListener('keydown', function (e) {
+      var m = e.target && e.target.closest && e.target.closest('.ct-m'); if (!m || !/^(ArrowDown|ArrowUp|ArrowLeft|ArrowRight|Home|End)$/.test(e.key)) return;
+      var rows = $$('.ct-m > .mi, .ct-m > .ct-r', m), cur = e.target.closest('.ct-r') || e.target, i = rows.indexOf(cur);
+      var head = function (r) { return r.classList.contains('ct-r') ? r.firstElementChild : r; };
+      e.preventDefault();
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        if (!cur.classList.contains('ct-r')) return;
+        var parts = $$(':scope > a, :scope > button', cur), j = parts.indexOf(e.target), nj = Math.max(0, Math.min(parts.length - 1, j + (e.key === 'ArrowRight' ? 1 : -1)));
+        parts[nj].focus(); return;
+      }
+      var n = e.key === 'Home' ? rows[0] : e.key === 'End' ? rows[rows.length - 1] : rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+      if (n) head(n).focus();
+    });
+    function copyText(text, btn, what) {
+      var done = function () { if (btn && btn.isConnected) DESK.swap(btn, 'Copied', { say: 'Copied ' + (what || '') + ': ' + text }); else DESK.toast('Copied ' + text + '.'); };
+      try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done); else done(); } catch (e) { done(); }
+    }
+    /* the editor */
+    var F = [['email', 'Email', 'email', 'name@example.com', 'email'], ['instagram', 'Instagram', 'text', '@name or a link to their profile', 'off'], ['imessage', 'iMessage', 'text', 'Phone number or Apple ID email', 'off'], ['whatsapp', 'WhatsApp', 'tel', '+44 7700 900123', 'tel']];
+    function edit(id, o) {
+      o = o || {};
+      var l = lifterOf(id); if (!l || !PL.contacts) return null;
+      var back = document.activeElement, r = rec(id), f = firstOf(id);
+      var show = function (k, v) { return !v ? '' : k === 'instagram' ? '@' + v : pretty(v); };
+      if (DESK.pop.isOpen()) DESK.pop.close();
+      var h = '<div class="fx-s ct-ed" data-crop="contact"><div class="fx-sh"><h2 class="fx-st">' + esc(f) + '’s contact details</h2><p class="fx-who">Add any of them, or none. Each one becomes a way to reach ' + esc(f) + ' in one click.</p></div><div class="fx-sb">' +
+        F.map(function (x) { return '<div class="fx-f"><label class="fx-fl" for="ct-' + x[0] + '">' + x[1] + ' <span class="ct-opt">optional</span></label><input class="input" id="ct-' + x[0] + '" type="' + x[2] + '" data-ct-f="' + x[0] + '" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="' + (x[0] === 'whatsapp' ? 'tel' : x[0] === 'email' ? 'email' : 'text') + '" placeholder="' + esc(x[3]) + '" aria-describedby="ct-e-' + x[0] + '" value="' + esc(show(x[0], r[x[0]])) + '"><p class="fx-err" id="ct-e-' + x[0] + '" data-ct-err="' + x[0] + '" hidden></p></div>'; }).join('') +
+        '<p class="fx-note ct-limit">These open the other app. POWALIFTA does not send or read those messages, and they do not show in your thread with ' + esc(f) + '.</p></div>' +
+        '<div class="fx-sf"><span class="ct-k">⌘↵ saves</span><button type="button" class="btn quiet" data-close>Cancel</button><button type="button" class="btn" data-primary data-ct-save>Save</button></div></div>';
+      var d = DESK.sheet.open({ label: f + '’s contact details', cls: 'fx-sheet ct-sheet', html: h, onClose: function () {
+        d.removeAttribute('data-sheet');
+        setTimeout(function () {
+          var to = back && back.isConnected && back !== document.body ? back : document.querySelector('[data-ct-for="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+          if (to) to.focus({ preventScroll: true });
+        }, 0);
+      } });
+      d.setAttribute('data-sheet', 'contact');
+      var box = $('.ct-ed', d);
+      var err = function (k, t) { var e = $('[data-ct-err="' + k + '"]', box), i = $('[data-ct-f="' + k + '"]', box); e.textContent = t || ''; e.hidden = !t; if (t) i.setAttribute('aria-invalid', 'true'); else i.removeAttribute('aria-invalid'); };
+      var tidy = function (i) { var k = i.getAttribute('data-ct-f'), res = PL.contacts.check(k, i.value); if (res.error) { err(k, res.error.message); return false; } err(k, ''); if (res.data !== '') i.value = show(k, res.data); return true; };
+      var save = function () {
+        var vals = {}; $$('[data-ct-f]', box).forEach(function (i) { vals[i.getAttribute('data-ct-f')] = i.value; });
+        var res = PL.contacts.set(id, vals);
+        if (res && res.error) {
+          F.forEach(function (x) { err(x[0], ''); });
+          (res.error.details || []).forEach(function (x) { err(x.field, x.message); });
+          var bad = $('[aria-invalid="true"]', box); if (bad) bad.focus();
+          return;
+        }
+        d.close();
+        var tok = res && res.meta && res.meta.undo;
+        if (res && res.meta && res.meta.label) DESK.toast(res.meta.label, tok ? function () { return PL.undo(tok); } : null);
+      };
+      box.addEventListener('focusout', function (e) { var i = e.target.closest && e.target.closest('[data-ct-f]'); if (i && d.open) tidy(i); });
+      box.addEventListener('input', function (e) { var i = e.target.closest && e.target.closest('[data-ct-f]'); if (i && i.getAttribute('aria-invalid')) err(i.getAttribute('data-ct-f'), ''); });
+      box.addEventListener('click', function (e) { if (e.target.closest('[data-ct-save]')) save(); });
+      d.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey || (e.target.matches && e.target.matches('[data-ct-f]')))) { e.preventDefault(); save(); }
+      });
+      var first = o.field ? $('[data-ct-f="' + o.field + '"]', box) : $('[data-ct-f]', box);
+      if (first) setTimeout(function () { if (d.open) first.focus(); }, 0);
+      return d;
+    }
+    /* the details as a list, for the place on a lifter's page where a coach looks them up */
+    function details(id) {
+      var w = links(id).sort(function (a, b) { return C_ORDER.indexOf(a.kind) - C_ORDER.indexOf(b.kind); }), f = firstOf(id);
+      if (!w.length) return '<p class="ct-none">No contact details yet. <button class="btn sm quiet" type="button" data-ct-edit="' + esc(id) + '" aria-haspopup="dialog">Add contact details…</button></p>';
+      return '<dl class="ct-dl">' + w.map(function (x) {
+        return '<div class="ct-di"><dt>' + esc(x.label) + '</dt><dd>' + (x.here ? '<a class="ct-v" href="' + esc(x.href) + '"' + tgt(x) + ' data-ct-go="' + esc(x.kind) + '" data-ct-id="' + esc(id) + '" title="' + esc('Opens ' + opensIn(x)) + '">' + esc(x.value) + '</a>' : '<span class="ct-v" title="Opens on Apple devices">' + esc(x.value) + '</span>') +
+          '<button class="btn sm quiet" type="button" data-ct-copy="' + esc(x.raw) + '" data-ct-what="' + esc(f + '’s ' + x.label) + '" aria-label="' + esc('Copy ' + f + '’s ' + x.label) + '">Copy</button></dd></div>';
+      }).join('') + '</dl>';
+    }
+    document.addEventListener('click', function (e) {
+      var t = e.target, b;
+      if ((b = t.closest('[data-ct-go]'))) { markUsed(b.getAttribute('data-ct-id'), b.getAttribute('data-ct-go')); if (b.closest('.ct-m')) DESK.pop.close(); return; }
+      if ((b = t.closest('[data-ct-app]'))) { DESK.pop.close(); return; }
+      if ((b = t.closest('[data-ct-copy]'))) { e.preventDefault(); copyText(b.getAttribute('data-ct-copy'), b, b.getAttribute('data-ct-what')); return; }
+      if ((b = t.closest('[data-ct-edit]'))) { e.preventDefault(); var eid = b.getAttribute('data-ct-edit'); if (b.closest('.ct-m')) { var trg = DESK.pop.trigger(); DESK.pop.close(); if (trg) trg.focus({ preventScroll: true }); } edit(eid, {}); return; }
+      if ((b = t.closest('[data-ct-menu]'))) { e.preventDefault(); if (DESK.pop.justClosed(b)) return; menu(b, b.getAttribute('data-ct-menu'), b.parentNode && b.parentNode._ctOpts); return; }
+    });
+    DESK.contact = { links: links, button: button, menu: menu, edit: edit, details: details, pretty: pretty, icon: function (k) { return DESK.ic(C_ICON[k] || 'contact'); }, _apple: null };
+  })();
+  /* ================= end DESK.contact ================= */
 })();
