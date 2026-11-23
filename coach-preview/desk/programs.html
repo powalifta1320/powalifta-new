@@ -595,24 +595,22 @@
   .pc-what { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; min-height: 20px; margin: 0; padding-left: 52px; color: var(--ink); font: 500 var(--fs-label)/20px var(--font); }
   .pc-what .tg { flex: none; }
   .pc-wt { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  /* the block in miniature: a column a week, its sets stacked in the lift colours, over its state */
-  .pc-m { display: flex; align-items: flex-end; gap: var(--sp-3); min-width: 0; padding-left: 52px; }
-  .pc-tl { flex: 1 1 auto; display: flex; align-items: stretch; gap: 3px; height: 34px; min-width: 0; max-width: 220px; }
-  .pc-tl.is-none { height: 0; }
-  .pc-w { position: relative; flex: 1 1 0; max-width: 22px; display: flex; flex-direction: column; gap: 3px; }
-  .pc-col { flex: 1 1 auto; display: flex; align-items: flex-end; min-height: 0; }
-  .pc-stack { display: flex; flex-direction: column; width: 100%; min-height: 3px; gap: 1px; border-radius: 3px; overflow: hidden; }
-  .pc-stack i { display: block; min-height: 2px; background: var(--fill-3); }
-  .pc-stack i[data-k='squat'] { background: var(--sq); } .pc-stack i[data-k='bench'] { background: var(--bp); } .pc-stack i[data-k='deadlift'] { background: var(--dl); }
-  .pc-w::after { content: ''; display: block; flex: none; height: 3px; border-radius: 2px; background: var(--fill-3); }
-  .pc-w[data-st='lifted']::after { background: var(--up); }
-  .pc-w[data-st='now']::after { background: var(--ink); }
-  .pc-w[data-st='sent']::after { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-2); }
-  .pc-w[data-st='draft']::after { background: var(--warn); }
-  .pc-w[data-st='written']::after { background: var(--ink-3); }
-  .pc-w[data-st='empty']::after { background: transparent; box-shadow: inset 0 0 0 1px var(--line-2); }
-  .pc-w[data-st='lifted'] .pc-stack, .pc-w[data-st='empty'] .pc-stack { opacity: .5; }
-  .pc-w[data-now] { outline: 1.5px solid var(--ink-3); outline-offset: 2px; border-radius: 3px; }
+  /* the block on a card: its weeks as labelled chips (W1 ✓, W2 Now, W3 Sent, W4 Draft, W5 –) */
+  .pc-m { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; padding-left: 52px; }
+  .pc-tl { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 3px; min-width: 0; }
+  .pc-tl.is-none { display: none; }
+  .pc-wk { display: inline-flex; align-items: baseline; gap: 4px; height: 24px; padding: 0 7px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink-3); font: 500 12px/24px var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pc-wk b { color: var(--ink-2); font-weight: 650; }
+  .pc-wk[data-st='lifted'] { box-shadow: none; background: var(--up-tint, var(--fill)); color: var(--up-ink); }
+  .pc-wk[data-st='lifted'] b { color: var(--up-ink); }
+  .pc-wk[data-st='now'] { box-shadow: none; background: var(--ink); color: var(--floor); font-weight: 650; }
+  .pc-wk[data-st='now'] b { color: var(--floor); }
+  .pc-wk[data-st='sent'] { color: var(--ink-2); }
+  .pc-wk[data-st='draft'] { box-shadow: inset 0 0 0 1px var(--warn); color: var(--warn); }
+  .pc-wk[data-st='empty'] { box-shadow: inset 0 0 0 1px var(--line); }
+  .pc-wk[data-st='empty'] b { color: var(--ink-3); font-weight: 500; }
+  .pc-wk-more { color: var(--ink-3); font: 500 12px/24px var(--font); white-space: nowrap; }
+  .pc-m:has(.pc-wk) .pc-where { display: none; }   /* the chips say which week it is; the days a week sit beside the program's name */
   .pc-where { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; margin-left: auto; color: var(--ink-2); font: 500 13px/1.2 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .pc-where b { color: var(--ink); font-weight: 600; }
   .pc-f { display: flex; align-items: center; gap: var(--sp-2); min-height: 40px; margin: 0 calc(var(--sp-2) * -1) 0 0; padding-top: var(--sp-2); border-top: 1px solid var(--line); }
@@ -931,15 +929,24 @@
   function listRowOf(id) { var r = fn(PL.programs, 'list') ? PL.programs.list() : null, d = r && Array.isArray(r.data) ? r.data : []; for (var i = 0; i < d.length; i++) if (d[i].lifterId === id) return d[i]; return null; }
   function exNames(b) { var o = []; if (b) b.rows.forEach(function (row) { if (!row.line && o.indexOf(row.name) < 0) o.push(row.name); }); return o; }
   function daysOfBlock(b) { return b ? (b.days || []).length || b.perWeek || 0 : 0; }
-  /* the week strip in miniature: each week a small stacked column of its sets (squat, bench, deadlift in their colours,
-     the rest neutral) over its state bar; the week in hand ringed. The same picture as the editor's shape strip */
+  /* the block on a card (23 Nov, the owner: "weird bars under each lifter"): its weeks as labelled chips, each saying
+     what happened in words, W1 ✓ (lifted), W2 Now, W3 Sent, W4 Draft (written, not sent), W5 – (not written). Up to 4
+     chips, from the week before the week in hand; the rest is counted, so a card keeps one line. */
+  var MINI_WORD = { lifted: '✓', now: 'Now', sent: 'Sent', draft: 'Draft', written: 'Written', empty: '–' };
+  var MINI_SAY = { lifted: 'lifted', now: 'this week', sent: 'sent', draft: 'written, not sent', written: 'written', empty: 'not written' };
   function miniHtml(b, states, now) {
     if (!b || !b.weeks.length) return '<span class="pc-tl is-none" aria-hidden="true"></span>';
-    var ws = b.weeks.slice(0, 16), sets = ws.map(function (x, i) { return weekSets(b, i); }), top = Math.max.apply(null, sets.map(function (s) { return s.all; }).concat([1]));
-    return '<span class="pc-tl" aria-hidden="true">' + ws.map(function (x, i) {
-      var s = sets[i], seg = function (k) { return s[k] ? '<i data-k="' + k + '" style="flex-grow:' + s[k] + '"></i>' : ''; };
-      return '<span class="pc-w" data-st="' + (states[i] || (s.all ? 'written' : 'empty')) + '"' + (i === now ? ' data-now' : '') + '><span class="pc-col"><span class="pc-stack" style="height:' + Math.max(8, Math.round(100 * s.all / top)) + '%">' + seg('acc') + seg('deadlift') + seg('bench') + seg('squat') + '</span></span></span>';
-    }).join('') + '</span>';
+    var n = b.weeks.length, from = 0, MAX = 4;
+    /* a longer block: the weeks before the one in hand become one chip (W1–3 ✓), then this week and the next two */
+    if (n > MAX && now > 0) from = Math.min(now, n - (MAX - 1));
+    else if (n > MAX) from = 0;
+    var chip = function (i, label, st) { return '<span class="pc-wk" data-st="' + st + '"' + (i === now ? ' data-now' : '') + ' title="' + esc(label.replace(/^W/, 'Week ').replace('–', ' to ') + ': ' + MINI_SAY[st]) + '"><b>' + label + '</b>' + (st === 'empty' ? '' : '<span>' + MINI_WORD[st] + '</span>') + '</span>'; };
+    var take = from ? MAX - 1 : MAX, ws = b.weeks.slice(from, from + take);
+    var chips = ws.map(function (x, k) { var i = from + k; return chip(i, 'W' + (x.n || i + 1), states[i] || (weekSets(b, i).all ? 'written' : 'empty')); }).join('');
+    var before = '';
+    if (from) { var b0 = b.weeks[0].n || 1, b1 = b.weeks[from - 1].n || from, allDone = states.slice(0, from).every(function (x) { return x === 'lifted'; }); before = chip(-1, 'W' + b0 + (b1 > b0 ? '–' + b1 : ''), allDone ? 'lifted' : (states[from - 1] || 'sent')); }
+    var more = n > from + take ? '<span class="pc-wk-more">+' + (n - from - take) + '</span>' : '';
+    return '<span class="pc-tl" aria-hidden="true">' + before + chips + more + '</span>';
   }
   function lifterStates(id, b) {
     var ws = weeksOf(id).filter(function (w) { return (w.block || 'current') === 'current'; }), now = -1;
@@ -994,7 +1001,7 @@
     else { var nx = lr && lr.next ? lr.next.text : ''; status = lr && lr.state === 'up-to-date' ? { text: 'Sent ahead', tone: 'up' } : lr && lr.state === 'to-write' ? { text: 'To write', tone: '' } : null; what = shortNext(nx || whatOf(r)); }
     var act = o.done ? (o.done.undo ? { label: 'Undo', btn: 'data-q-undo="' + esc(id) + '"', quiet: true } : null) : (r.group === 'todo' || r.group === 'ending') ? { label: dueAct(r) } : null;
     var title = r.name || l.name || '';
-    return { key: id, kind: 'lifter', id: id, title: title, sub: sub, face: DESK.photo(Kl(id) || { name: title }, 40), status: status, tag: o.done ? '' : tagOf(r), what: what, mini: miniHtml(b, ls0.states, ls0.now), where: wk, where2: wk2,
+    return { key: id, kind: 'lifter', id: id, title: title, sub: wk2 && b && b.weeks.length ? sub + ' · ' + wk2 : sub, face: DESK.photo(Kl(id) || { name: title }, 40), status: status, tag: o.done ? '' : tagOf(r), what: what, mini: miniHtml(b, ls0.states, ls0.now), where: wk, where2: wk2,
       act: act, label: title + ', ' + sub + (wk ? ', ' + wk : '') + (wk2 ? ', ' + wk2 : '') + (status ? ', ' + status.text : '') + (act ? '. ' + act.label : ''), find: [title, sub, what, r.flag && r.flag.text, exNames(b).join(' ')].join(' '), row: r };
   }
   function teamCard(r) {
