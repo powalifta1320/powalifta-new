@@ -23,7 +23,11 @@ body.site {
   --col: 720px;                                   /* the reading column: lines near 70 to 80 characters */
   --act-top: #dc2637; --act-bot: #c41a2c;           /* the one action: darker crimson, white label */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --t-press: 140ms; --t-state: 220ms;
+  /* The shared interaction tokens (MOTION.md, 23 Nov). */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-press: 110ms; --dur-hover: 120ms; --dur-fast: 150ms; --dur-pop: 180ms; --dur-pop-out: 110ms;
+  --dur-sheet: 260ms; --dur-sheet-out: 160ms; --dur-move: 220ms; --dur-moment: 700ms; --press-scale: 0.97;
+  --t-press: var(--dur-press); --t-state: 220ms;
   --head-top: clamp(48px, 6.6vw, 96px);
   --end: clamp(88px, 9vw, 136px);
   --num-stretch: 112%;
@@ -339,6 +343,7 @@ body.site .stars .st-on { color: var(--gold); }
 body.site .stars .st-off { color: var(--line-2); }
 body.site :is(.mk-loading, .mk-empty) { padding: 56px 0 24px; text-align: left; color: var(--text-2); }
 body.site .mk-loading p { font-size: 16px; }
+body.site #mkGrid[aria-busy="true"] { opacity: 0.55; transition: opacity var(--dur-fast) var(--ease-out); }   /* asking again: the cards wait, dimmed */
 body.site .mk-empty h3 { margin: 0 0 8px; font-size: clamp(24px, 0.95rem + 0.85vw, 28px); font-weight: 800; letter-spacing: -0.024em; color: var(--text); }
 body.site .mk-empty p { font-size: 17px; color: var(--text-2); }
 body.site .mk-empty .btn { margin-top: 22px; }
@@ -348,6 +353,7 @@ body.site .mk-empty .quiet { margin-top: 28px; }
 body.site .skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--cg); padding: var(--head-top) 0 var(--end); }
 body.site .mk-skel { padding: 0; }   /* the cards waiting under the shop's head, where the filters and the grid will be */
 body.site .mk-skel .skel-grid { padding-top: 56px; }
+body.site .mk-slow { margin: 20px 0 0; font-size: 15px; color: var(--text-2); }
 body.site .skel-card { padding: 24px; border: 0; border-radius: 20px; background: var(--card); box-shadow: var(--card-sh); }
 body.site .skel-line { background: var(--fill-2); animation: none; }
 body.site .grid-pager { margin: 40px 0 0; justify-content: flex-start; }
@@ -596,6 +602,18 @@ body.nf-page .bar .bar-pill { display: none; }
 
 /* Inside the iPhone app (html.native): the bar clears the status bar (site.css); single-task cards fill the screen. */
 html.native body.site :is(.reset-wrap, .unsub-wrap) { min-height: calc(100svh - 56px - env(safe-area-inset-top)); }
+
+/* How it answers (23 Nov; nothing here shows at rest). Text links press on the finger; the small controls reach 44 px to
+   a thumb through an invisible margin, never a bigger look: the leaderboard's All / Men / Women and kg / lb (38 px), the
+   invite page's Copy (36 px) and its logo link (26 px). */
+body.site .quiet:active { opacity: 0.6; transition: opacity 0s; }
+body.site :is(.lb-seg-btn, .lb-unit-btn) { position: relative; }
+body.site :is(.lb-seg-btn, .lb-unit-btn)::after { content: ''; position: absolute; inset: -3px 0; }
+body.site :is(.lb-seg-btn, .lb-unit-btn):active { opacity: 0.7; }
+body.site .jn-code .btn-sm { position: relative; }
+body.site .jn-code .btn-sm::after { content: ''; display: block; position: absolute; inset: -4px; border-radius: inherit; }
+body.site .jn-brand { position: relative; }
+body.site .jn-brand::after { content: ''; position: absolute; inset: -9px 0; }
 
 /* Reduced motion: no press or arrow travel, no answer arriving. */
 @media (prefers-reduced-motion: reduce) {

@@ -31,7 +31,11 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);       /* state changes and presses: strong ease-out, no overshoot */
   --ease-enter: cubic-bezier(0.22, 1, 0.36, 1);     /* things entering (the motion brief) */
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);   /* moving on screen */
-  --t-press: 140ms; --t-state: 220ms;
+  /* The shared interaction tokens (MOTION.md, 23 Nov): presses and hovers are frequent (short), windows are transitions. */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-press: 110ms; --dur-hover: 120ms; --dur-fast: 150ms; --dur-pop: 180ms; --dur-pop-out: 110ms;
+  --dur-sheet: 260ms; --dur-sheet-out: 160ms; --dur-move: 220ms; --dur-moment: 700ms; --press-scale: 0.97;
+  --t-press: var(--dur-press); --t-state: 220ms;
   /* The floors and surfaces (the app's dark): the gym, the coach's graphite, a card raised on it, the dark desk's own
      ground (every window onto Sam's screen), the platform. */
   --floor: #0b0b0c; --desk: #141416; --raised: #1b1b1e; --screen: #0c0c0e; --black: #030304;
@@ -1064,6 +1068,26 @@ body.home .foot { padding: 48px 0 32px; }
   html:not(.native) .bar .bar-pill:hover { filter: none; background-color: #2a2a30; }
   html:not(.native) body.home .modal-backdrop .sa-apple:hover { filter: brightness(1.25); }
 }
+
+/* ---------- How it answers (23 Nov; nothing here shows at rest)
+   A control that opens an account waits for the app (1.4 MB, fetched on intent): from the press it dims and says it is
+   working, so a slow line never looks like a dead click (index.html openModal sets aria-busy). */
+:is([data-intent], .act-btn, .bar-link, .bar-pill)[aria-busy="true"] { cursor: progress; opacity: 0.62; transition: opacity var(--dur-fast) var(--ease-out); animation: homeBusy 900ms ease-in-out 150ms infinite alternate; }
+@keyframes homeBusy { from { opacity: 0.62; } to { opacity: 0.38; } }   /* a slow line (about 5 s on 4G): it keeps saying so */
+/* Links press on the finger, not on release (the buttons already scale): a quick dim, back as it lifts. */
+.quiet:active, .demo-pick a:active { opacity: 0.6; transition: opacity 0s; }   /* the bar's and the footer's: site.css */
+/* Log set on Arjun's phone: the picture's button is 38 px tall; its tap area reaches 44 without changing the picture. */
+html.js .log-tap::after { content: ''; position: absolute; inset: -3px -2px; border-radius: inherit; }
+/* The account windows open from the middle as a transition (a 180 ms veil, the window 240 ms on the app's ease-out; no
+   ease-in) and close at once: the next thing the visitor does never waits on them. The dialog itself takes focus on a
+   touch screen (index.html) and draws no ring for it. */
+html:not(.native) body.home .modal-backdrop.open { animation: fadeIn var(--dur-pop) var(--ease-out); }
+html:not(.native) body.home .modal-backdrop.open .modal { animation: homeModalIn 240ms var(--ease-out); }
+@keyframes homeModalIn { from { opacity: 0; transform: translateY(12px) scale(0.985); } }
+body.home .modal[tabindex="-1"]:focus { outline: none; }
+/* The calculator, while a field can't make a max (empty, 0, reps under 1, RPE outside 5 to 10): the last answer waits, dimmed. */
+.mx .mx-n, .mx .mx-att, .mx .mx-bar { transition: opacity var(--dur-fast) var(--ease-out); }
+.mx.is-stale :is(.mx-n, .mx-att, .mx-bar) { opacity: 0.4; }
 
 /* ---------- Reduced motion: the designed still. No settle, no scroll play; every chapter at its last frame. */
 @media (prefers-reduced-motion: reduce) {

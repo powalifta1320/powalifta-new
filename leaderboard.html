@@ -152,7 +152,13 @@ document.querySelectorAll('.lb-seg-btn').forEach(btn => {
 // Units live with the numbers they change (the nav has no kg/lb on the website).
 document.querySelectorAll('.lb-unit-btn').forEach(b => {
   b.classList.toggle('active', b.dataset.unit === getUnit());
-  b.addEventListener('click', () => { if (b.dataset.unit !== getUnit()) { setUnit(b.dataset.unit); location.reload(); } });
+  // The board draws again in the new unit, in place (it used to reload the whole page; nothing else here shows a unit).
+  b.addEventListener('click', () => {
+    if (b.dataset.unit === getUnit()) return;
+    setUnit(b.dataset.unit);
+    document.querySelectorAll('.lb-unit-btn').forEach(x => x.classList.toggle('active', x === b));
+    renderBoard();
+  });
 });
 
 bootstrap(null, async () => {

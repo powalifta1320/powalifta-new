@@ -944,9 +944,9 @@
 
 <!-- LOGIN MODAL -->
 <div class="modal-backdrop" id="loginModal">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle" tabindex="-1">
     <button class="modal-close" aria-label="Close" onclick="closeModal('loginModal')">&times;</button>
-    <h3>Log in</h3>
+    <h3 id="loginTitle">Log in</h3>
     <!-- Continue with Apple / Google (social-auth.js fills the row; a first-time account is asked
          the sign-up's questions when it comes back). The email form below is unchanged. -->
     <div class="sa-row" data-social-buttons="login"></div>
@@ -977,9 +977,9 @@
 
 <!-- FORGOT PASSWORD MODAL -->
 <div class="modal-backdrop" id="forgotModal">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="forgotTitle" tabindex="-1">
     <button class="modal-close" aria-label="Close" onclick="closeModal('forgotModal')">&times;</button>
-    <h3>Reset your password</h3>
+    <h3 id="forgotTitle">Reset your password</h3>
     <p class="dim text-sm mb-16">We'll email you a reset link.</p>
     <div class="form-group">
       <label for="forgotEmail">Email</label>
@@ -992,7 +992,7 @@
 
 <!-- SIGNUP MODAL -->
 <div class="modal-backdrop" id="signupModal">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="signupTitle" tabindex="-1">
     <button class="modal-close" aria-label="Close" onclick="closeModal('signupModal')">&times;</button>
     <h3 id="signupTitle">Sign up</h3>
     <div class="auth-seg auth-seg-3" data-for="signupType" role="radiogroup" aria-label="I am a">
@@ -1259,12 +1259,90 @@ function homeBoot() {
 function openModal(id) {
   const t = window.__powaIntent;
   if (t && !document.documentElement.classList.contains('app-ready')) t.setAttribute('aria-busy', 'true');
+  // Who opened it, so focus can go back there when it closes (a modal opened from another keeps the first opener).
+  const a = document.activeElement;
+  if (!(a && a.closest && a.closest('.modal-backdrop'))) _modalOpener = (a && a !== document.body) ? a : (t || null);
   PowaApp.ready(() => {
     if (t) t.removeAttribute('aria-busy');
-    document.getElementById(id).classList.add('open'); attachPwdToggles();
+    const m = document.getElementById(id);
+    m.classList.add('open'); attachPwdToggles();
+    _modalFocusIn(m);
   });
 }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// The account modals' keyboard and focus (2026-11-23): focus goes in when one opens (the first field with a mouse or a
+// keyboard; the dialog itself on a touch screen, so the keyboard doesn't jump up over Apple and Google), stays inside
+// while it is open (Tab wraps), Enter in a field presses the modal's action, and when it closes however it closes
+// (×, Esc, the backdrop, a link to the next one, a sign-in) focus returns to what opened it. Nothing here changes
+// what the forms do.
+var _modalOpener = null;   // var, not let: a #login in the address opens a modal before this line has run
+var _ACCOUNT_MODALS = ['loginModal', 'forgotModal', 'signupModal'];
+var _FOCUSABLE = 'a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+function _modalFocusables(m) { return [...m.querySelectorAll(_FOCUSABLE)].filter(e => e.offsetParent !== null || e === document.activeElement); }
+function _modalFocusIn(m) {
+  const box = m.querySelector('.modal');
+  const coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  // An empty email first (log in, reset), the name on sign-up; one already filled moves on to the next empty field.
+  const fields = [...m.querySelectorAll('input[type="email"], input[type="text"], input[type="password"]')].filter(e => e.offsetParent !== null);
+  const first = fields.find(e => !e.value) || fields[0];
+  const target = (!coarse && first) || box;
+  try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+}
+(function () {
+  _ACCOUNT_MODALS.forEach(id => {
+    const m = document.getElementById(id);
+    if (!m || !window.MutationObserver) return;
+    let was = m.classList.contains('open');
+    new MutationObserver(() => {
+      const is = m.classList.contains('open');
+      if (was && !is) {
+        _modalVV(null);
+        // Closed: back to the opener, unless focus has already gone somewhere else on purpose (the next modal).
+        const a = document.activeElement;
+        const lost = !a || a === document.body || m.contains(a);
+        if (lost && !document.querySelector('.modal-backdrop.open') && _modalOpener && _modalOpener.isConnected) {
+          try { _modalOpener.focus({ preventScroll: true }); } catch (e) {}
+        }
+      }
+      if (!was && is) _modalVV(m);
+      was = is;
+    }).observe(m, { attributes: true, attributeFilter: ['class'] });
+    m.addEventListener('keydown', e => {
+      if (!m.classList.contains('open')) return;
+      if (e.key === 'Tab') {
+        const f = _modalFocusables(m);
+        if (!f.length) return;
+        const i = f.indexOf(document.activeElement);
+        if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+        else if (!e.shiftKey && (i === f.length - 1 || i < 0)) { e.preventDefault(); f[0].focus(); }
+      } else if (e.key === 'Enter' && !e.isComposing && e.target.matches('input[type="email"], input[type="text"], input[type="password"]')) {
+        const go = m.querySelector('.modal > .btn-primary');
+        if (go && !go.disabled) { e.preventDefault(); go.click(); }
+      }
+    });
+  });
+  // A phone's keyboard: the open modal fits the part of the screen the keyboard leaves (the visual viewport), so the
+  // field being typed in is never under it; the field in focus is brought into the modal's view.
+  let vvFor = null;
+  function fit() {
+    const vv = window.visualViewport, m = vvFor;
+    if (!vv || !m) return;
+    const kb = window.innerHeight - vv.height > 120;
+    m.style.top = kb ? vv.offsetTop + 'px' : '';
+    m.style.height = kb ? vv.height + 'px' : '';
+    m.style.bottom = kb ? 'auto' : '';
+    const a = document.activeElement;
+    if (kb && a && m.contains(a) && a.matches('input, textarea')) a.scrollIntoView({ block: 'nearest' });
+  }
+  window.__modalFit = function (m) {
+    if (vvFor && vvFor !== m) { vvFor.style.top = vvFor.style.height = vvFor.style.bottom = ''; }
+    vvFor = m;
+    if (m) fit();
+  };
+  if (window.visualViewport) { visualViewport.addEventListener('resize', fit); visualViewport.addEventListener('scroll', fit); }
+})();
+function _modalVV(m) { if (window.__modalFit) window.__modalFit(m); }
 function openLoginModal() { openModal('loginModal'); }
 function openForgotModal() {
   // Pre-fill from login email if it's there
@@ -1274,9 +1352,19 @@ function openForgotModal() {
 }
 window.openForgotModal = openForgotModal;
 
+// A required field left empty: focus goes to it (and it is marked for a screen reader) beside the message saying what to
+// add; typing in it clears the mark. The checks themselves are unchanged.
+function _fieldNeeded(id) {
+  const f = document.getElementById(id);
+  if (!f) return;
+  f.setAttribute('aria-invalid', 'true');
+  f.addEventListener(f.type === 'checkbox' ? 'change' : 'input', () => f.removeAttribute('aria-invalid'), { once: true });
+  try { f.focus({ preventScroll: true }); } catch (e) { f.focus(); }
+  if (f.scrollIntoView) f.scrollIntoView({ block: 'nearest' });
+}
 async function doForgotPassword() {
   const email = document.getElementById('forgotEmail').value.trim().toLowerCase();
-  if (!email) return toast('Enter your email');
+  if (!email) { _fieldNeeded('forgotEmail'); return toast('Enter your email'); }
   const btn = document.getElementById('forgotBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
   try {
@@ -1319,7 +1407,7 @@ async function doLogin() {
   const type = document.getElementById('loginType').value;
   const email = document.getElementById('loginEmail').value.trim().toLowerCase();
   const pwd = document.getElementById('loginPwd').value;
-  if (!email || !pwd) return toast('Email and password required');
+  if (!email || !pwd) { _fieldNeeded(!email ? 'loginEmail' : 'loginPwd'); return toast('Email and password required'); }
   if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
   try {
     await DB.signIn(email, pwd);
@@ -1355,9 +1443,9 @@ async function doSignup() {
   const pwd = document.getElementById('signupPwd').value;
   const bio = document.getElementById('signupBio').value.trim();
   const code = document.getElementById('signupCode').value.trim().toUpperCase();
-  if (!name || !email || !pwd) return toast('Name, email, password required');
-  if (pwd.length < 6) return toast('Password must be at least 6 chars');
-  if (!document.getElementById('signupAge').checked) return toast('Please confirm you\'re 16 or older.');
+  if (!name || !email || !pwd) { _fieldNeeded(!name ? 'signupName' : !email ? 'signupEmail' : 'signupPwd'); return toast('Name, email, password required'); }
+  if (pwd.length < 6) { _fieldNeeded('signupPwd'); return toast('Password must be at least 6 chars'); }
+  if (!document.getElementById('signupAge').checked) { _fieldNeeded('signupAge'); return toast('Please confirm you\'re 16 or older.'); }
   if (!checkUserText([name], { name: true })) return;          // the content filter: no slurs as a name
   const bioOk = type === 'coach' ? checkUserText([bio]) : [''];
   if (!bioOk) return;
@@ -1422,7 +1510,7 @@ function sendWelcomeEmail(email, name, type) {
     const wEl = $('calcW'), rEl = $('calcR'), rpeEl = $('calcRpe');
     if (!wEl) return;
     let unit = 'kg';
-    let shown = 0, animFrom = 0, animTo = 0, animStart = 0;
+    let shown = 0, animFrom = 0, animTo = 0, animStart = 0, animId = 0;
     const still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     function e1rm(w, r, rpe) {
@@ -1435,14 +1523,24 @@ function sendWelcomeEmail(email, name, type) {
     const round = (x, s) => Math.round(x / s) * s;
     const show = (v) => { $('calcOut').textContent = round(v, 0.5).toLocaleString(); };
 
+    // A unit switch rolls the number to its new value (160 ms, one loop at a time); typing shows the new max in the
+    // same frame, since a count on every keystroke would show a number that isn't the answer yet.
     function animate(ts) {
       if (!animStart) animStart = ts;
-      const t = Math.min((ts - animStart) / 350, 1);
+      const t = Math.min((ts - animStart) / 160, 1);
       const ease = 1 - Math.pow(1 - t, 3);
       shown = animFrom + (animTo - animFrom) * ease;
       show(shown);
-      if (t < 1) requestAnimationFrame(animate);
+      animId = t < 1 ? requestAnimationFrame(animate) : 0;
     }
+    function setShown(v, roll) {
+      if (animId) { cancelAnimationFrame(animId); animId = 0; }
+      if (!roll || still) { shown = v; show(v); return; }
+      animFrom = shown; animTo = v; animStart = 0; animId = requestAnimationFrame(animate);
+    }
+    // A field that can't make a max yet (empty, 0, reps or RPE out of range): the last answer stays, dimmed, until it can.
+    const mxBox = wEl.closest('.mx');
+    function stale(on) { if (mxBox) mxBox.classList.toggle('is-stale', on); }
 
     // The plates a side for that max, the heaviest first (kg: a 20 kg bar and 2.5 kg collars; lb: a 45 lb bar).
     const KG = { sizes: [25, 20, 15, 10, 5, 2.5, 1.25], bar: 20, collar: 2.5 };
@@ -1462,12 +1560,12 @@ function sendWelcomeEmail(email, name, type) {
         : '';
     }
 
-    function recalc() {
+    function recalc(roll) {
       const w = parseFloat(wEl.value), r = parseInt(rEl.value, 10), rpe = parseFloat(rpeEl.value);
-      if (!w || !r || !rpe || r < 1 || rpe < 5 || rpe > 10) return;
+      if (!(w > 0) || !r || !rpe || r < 1 || rpe < 5 || rpe > 10) { stale(true); return; }
+      stale(false);
       const max = e1rm(w, Math.min(r, 12), rpe);
-      if (still) { shown = max; show(max); }
-      else { animFrom = shown; animTo = max; animStart = 0; requestAnimationFrame(animate); }
+      setShown(max, roll === true);
       renderBar(max);
       const step = unit === 'kg' ? 2.5 : 5;
       const att = [['Opener', 0.91], ['Second', 0.96], ['Third', 1.01]];
@@ -1485,11 +1583,11 @@ function sendWelcomeEmail(email, name, type) {
       $('calcOutUnit').textContent = u;
       $('calcKg').classList.toggle('active', u === 'kg'); $('calcKg').setAttribute('aria-pressed', u === 'kg' ? 'true' : 'false');
       $('calcLb').classList.toggle('active', u === 'lb'); $('calcLb').setAttribute('aria-pressed', u === 'lb' ? 'true' : 'false');
-      recalc();
+      recalc(true);
     }
     $('calcKg').addEventListener('click', () => setUnit('kg'));
     $('calcLb').addEventListener('click', () => setUnit('lb'));
-    [wEl, rEl, rpeEl].forEach(el => el.addEventListener('input', recalc));
+    [wEl, rEl, rpeEl].forEach(el => el.addEventListener('input', () => recalc()));
 
     // --- Share ---
     $('calcShare').addEventListener('click', async () => {

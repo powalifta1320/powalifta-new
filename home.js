@@ -6,10 +6,11 @@
    without GSAP.
    The score (the owner, 31 Oct: a landing page that moves as it scrolls, never a held stage): every chapter is in the
    page's flow and complete at any scroll position; its motion plays in place as it arrives. Two kinds of moment:
-   - a state change, played forward as its block arrives and back (faster) if the reader scrolls back above it:
+   - a state change, played forward as its block arrives and rewound, out of sight, once the reader scrolls back up
+     past it (its block off the screen's foot; never backwards in view, never replayed by a small scroll back):
      a screen easing up 30 to 40 px as it arrives (it only moves; the page's words never animate), lists building in
      their order, numbers counting from the old value to the new, a message arriving, a press;
-   - a short scrubbed touch, tied to the reader's scroll: the depth between the laptop and the phone, the set's flight
+   - a short scrubbed touch, tied to the reader's scroll 1:1 (scrub: true; no catch-up after the finger stops): the depth between the laptop and the phone, the set's flight
      from Arjun's phone to Sam's list, the window zooming from Sam's whole screen to that list, then on to Needs you.
    Only transform, opacity and clip-path move (plus two small SVG strokes drawing). Curves: cubic-bezier(0.22, 1, 0.36,
    1) for anything entering, (0.77, 0, 0.175, 1) for moves between stops, the app's (0.23, 1, 0.32, 1) for presses and
@@ -91,7 +92,7 @@
     var body = $('.qa', d);
     d.addEventListener('toggle', function () {
       if (!d.open || !motionOK() || !body || !body.animate || d.dataset.held) return;
-      body.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+      body.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
     });
   });
 
@@ -244,6 +245,24 @@
     if (tap.fx ? tap.fx() !== false : (logStill(), true)) saidLogged();
   });
 
+  /* --- Try the demo: a pointer on, a touch of or focus on a demo link fetches its page ahead (once, at the browser's
+     low priority): about 200 ms sooner on a 4G line (measured 23 Nov). The app's own 1.4 MB is not fetched ahead: in
+     the 400 ms a pointer rests before a click it won back only about 100 ms. --- */
+  var warmed = {};
+  function prefetch(u, as) {
+    if (warmed[u]) return;
+    warmed[u] = true;
+    var l = document.createElement('link'); l.rel = 'prefetch'; l.href = u; if (as) l.as = as;
+    document.head.appendChild(l);
+  }
+  function warmDemo(e) {
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    var u = a && a.getAttribute('href');
+    if (!u || !/^\/(coach-preview\/desk\/overview\.html|athlete\.html\?demo=1|coach\.html\?demo=1)/.test(u)) return;
+    prefetch(u, 'document');
+  }
+  ['pointerover', 'touchstart', 'focusin'].forEach(function (ev) { document.addEventListener(ev, warmDemo, { capture: true, passive: true }); });
+
   function relayout() { fitFw(); measurePage(); placeTocBar(); paintNav(); paintReds(); }
   relayout();
   window.addEventListener('scroll', onScroll, { passive: true });
@@ -293,12 +312,17 @@
     tl.fromTo(a, { autoAlpha: 1, y: 0 }, { autoAlpha: 0, y: -4, duration: 0.16, ease: OUT, immediateRender: false }, at)
       .fromTo(b, { autoAlpha: 0, y: 4 }, { autoAlpha: 1, y: 0, duration: 0.3, ease: OUT, immediateRender: false }, at + 0.1);
   }
-  /* A state change: plays as its block arrives, back (faster) if the reader scrolls back above it. */
+  /* A state change: plays as its block arrives. It rewinds only once its block has left the screen below (the reader
+     scrolled back up past it), out of sight, so nothing ever plays backwards in front of the reader, and a reader who
+     scrolls up a little and down again sees it finished, not replayed. o.away: the element whose top leaving the
+     screen's foot rewinds it (default the trigger). The scroll-position triggers (the window's) pass theirs. */
   function onState(tl, o) {
-    return ST.create(Object.assign({
-      onEnter: function () { if (booting) tl.progress(1); else tl.timeScale(1).play(); },
-      onLeaveBack: function () { tl.timeScale(Math.max(1.6, tl.duration() / 0.9)).reverse(); }
+    var away = o.away || o.trigger; delete o.away;
+    var main = ST.create(Object.assign({
+      onEnter: function () { if (booting) tl.progress(1); else tl.timeScale(1).play(); }
     }, o));
+    if (away) ST.create({ trigger: away, start: 'top bottom', end: 'max', onLeaveBack: function () { tl.timeScale(Math.max(1.6, tl.duration() / 0.9)).reverse(); } });
+    return main;
   }
   /* A screen easing up into place as it arrives: it only moves, the way the laptop and the phone arrive at the top (never
      a fade, never a scale), so no picture waits on a script to be seen. The page's words do not animate at all. */
@@ -334,7 +358,7 @@
      opening, on the transform (the arrival moved the individual translate). */
   var mm = gsap.matchMedia();
   mm.add('(min-width: 1100px)', function () {
-    var depth = gsap.timeline({ scrollTrigger: { start: 0, end: function () { return vhOf() * 1.1; }, scrub: 0.4, invalidateOnRefresh: true } })
+    var depth = gsap.timeline({ scrollTrigger: { start: 0, end: function () { return vhOf() * 1.1; }, scrub: true, invalidateOnRefresh: true } })
       .fromTo(laptop, { y: 0 }, { y: 96, ease: 'none', duration: 1 }, 0)
       .fromTo(phone, { y: 0 }, { y: -48, ease: 'none', duration: 1 }, 0);
     return function () { depth.scrollTrigger.kill(); depth.kill(); gsap.set([laptop, phone], { clearProps: 'transform' }); };
@@ -441,7 +465,7 @@
   var winTop = function () { return layoutTop(fwPort); };
   var crossStart = function () { return logStart() + (small() ? 140 : wide() ? 200 : 160); };
   var landAt = function () { return Math.max(crossStart() + 320, winTop() - vhOf() * (wide() ? 0.4 : 0.34)); };
-  gsap.timeline({ defaults: { ease: 'none' }, scrollTrigger: { start: crossStart, end: landAt, scrub: 0.5, invalidateOnRefresh: true } })
+  gsap.timeline({ defaults: { ease: 'none' }, scrollTrigger: { start: crossStart, end: landAt, scrub: true, invalidateOnRefresh: true } })
     .fromTo(F, { p: 0 }, { p: 1, duration: 1, onUpdate: placeFly }, 0)
     .fromTo(fly, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.02 }, 0)
     .to(fly, { autoAlpha: 0, duration: 0.02 }, 0.98);
@@ -469,7 +493,7 @@
     /* In vh of scroll before the window's top reaches 8% of the screen: zoom in as it rises, hold while the set lands,
        then move on to Needs you (the Overview comes in over the list in the first part of the move). */
     var A = ctx.conditions.side ? [1, 0.44, 0.3] : [0.92, 0.4, 0.24];
-    gsap.timeline({ scrollTrigger: { start: function () { return winTop() - vhOf() * A[0]; }, end: listAt, scrub: 0.6, invalidateOnRefresh: true } })
+    gsap.timeline({ scrollTrigger: { start: function () { return winTop() - vhOf() * A[0]; }, end: listAt, scrub: true, invalidateOnRefresh: true } })
       .fromTo(fwDesk, { x: at(deskFit, 'x'), y: at(deskFit, 'y'), scale: at(deskFit, 's') }, { x: at(deskHold, 'x'), y: at(deskHold, 'y'), scale: at(deskHold, 's'), ease: INOUT, duration: A[0] - A[1] }, 0)
       .to(fwDesk, { x: at(deskList, 'x'), y: at(deskList, 'y'), scale: at(deskList, 's'), ease: INOUT, duration: A[2] - 0.08 }, A[0] - A[2])
       .fromTo(fwOv, { autoAlpha: 0 }, { autoAlpha: 1, ease: 'none', duration: (A[2] - 0.08) * 0.5 }, A[0] - A[2] + (A[2] - 0.08) * 0.12);
@@ -493,7 +517,7 @@
   /* Sam's laptop in the opening, live for Try it (index.html #ltLive): at rest it is the laptop's picture. */
   var heroLive = $('#ltLive'), heroLaptop = $('#laptop');
   var L = landing(desk, '.was'), HL = heroLive ? landing(heroLive, '.now') : null;
-  onState(L.a, { start: landAt, end: 'max' });
+  onState(L.a, { start: landAt, end: 'max', away: fwPort });
 
   /* --- Try it (the page layer's Log set button). A tap logs the set (the ring, where it's on Log set, rides into the
      press); then, where Sam's laptop is in the opening and his screen in view, a copy of the set lifts off the phone and
@@ -561,14 +585,14 @@
       .fromTo(grps[g - 1], { opacity: 0 }, { opacity: 1, duration: 0.3, ease: OUT, immediateRender: false }, gat)
       .to(grps[g - 1], { opacity: 0.14, duration: 0.5, ease: INOUT }, gat + 0.5);
   }
-  onState(listTl, { start: listAt, end: 'max' });
+  onState(listTl, { start: listAt, end: 'max', away: fwPort });
 
   /* =====================================================================
      ANSWERS: the thread eases up beside the words; Sam's note, then Arjun's set arrive the way messages do; Sent becomes
      Seen; Sam's reply lands under it.
      ===================================================================== */
   rise([$('#thread .th-crop')], { trigger: $('#thread'), y: 40, start: 'top 94%', dur: 0.8 });
-  gsap.fromTo('#thread', { y: 26 }, { y: -26, ease: 'none', scrollTrigger: { trigger: '#answers', start: 'top bottom', end: 'bottom top', scrub: 0.4 } });
+  gsap.fromTo('#thread', { y: 26 }, { y: -26, ease: 'none', scrollTrigger: { trigger: '#answers', start: 'top bottom', end: 'bottom top', scrub: true } });
   var sent = $('.tl-sent'), seen = $('.tl-seen'), reply = $('#reply'), tlNote = $('.tl-note'), tlSet = $('.tl-set');
   gsap.set(seen, { autoAlpha: 0 });
   var threadTl = gsap.timeline({ paused: true })

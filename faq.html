@@ -164,7 +164,7 @@ document.querySelectorAll('details.q').forEach(d => {
   const body = d.querySelector('.qa');
   d.addEventListener('toggle', () => {
     if (!d.open || !body || !body.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    body.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+    body.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
   });
 });
 </script>

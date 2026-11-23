@@ -30,6 +30,8 @@ body.site { --font-display: 'Archivo', 'Archivo Fallback', 'Arial Black', system
 }
 .bar *, .bar *::before, .bar *::after, .foot *, .foot *::before, .foot *::after { box-sizing: border-box; }
 .bar :focus-visible, .foot :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 6px; }
+/* Links press on the finger, not on release (23 Nov): a quick dim while held, back as it lifts. Nothing at rest. */
+:is(.bar .bar-link, .bar .bar-brand, .foot .foot-cols a):active { opacity: 0.6; transition: opacity 0s; }
 
 /* The bar: the app's glass. Dark on every page in the dark (the default); daylight glass on the website when the visitor's
    setting is light, and on an inside page shown in the iPhone app in the app's light theme (both below). The homepage

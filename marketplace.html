@@ -74,6 +74,7 @@
         <div class="skel-card"><div class="skel-line skel-w60"></div><div class="skel-line skel-w90"></div><div class="skel-line skel-w80"></div><div class="skel-line skel-w40 skel-tall"></div></div>
         <div class="skel-card"><div class="skel-line skel-w60"></div><div class="skel-line skel-w90"></div><div class="skel-line skel-w80"></div><div class="skel-line skel-w40 skel-tall"></div></div>
       </div>
+      <p class="mk-slow" id="mkSlow" hidden></p>
     </div>
   </div>
 </main>
@@ -243,19 +244,28 @@ function sortPrograms(programs, sort, statsByProgram) {
   return arr;
 }
 
+// Each filter, search or sort change asks again; only the newest answer is drawn (a slow earlier one never lands over
+// it). While it is asked, the programs already shown stay, dimmed, instead of the grid collapsing to a line and
+// jumping back on every keystroke; the first load says Loading programs….
+let _mkSeq = 0;
 async function loadAndRenderGrid(tier, search, sort, category) {
   const grid = document.getElementById('mkGrid');
   if (!grid) return;
-  grid.innerHTML = '<div class="mk-loading" role="status"><p>Loading programs…</p></div>';
+  const seq = ++_mkSeq;
+  if (grid.querySelector('.mk-card')) grid.setAttribute('aria-busy', 'true');
+  else grid.innerHTML = '<div class="mk-loading" role="status"><p>Loading programs…</p></div>';
 
   let programs = [];
   try {
     programs = await DB.listPublishedPrograms({ tier: tier || undefined, search: search || undefined });
   } catch (e) {
+    if (seq !== _mkSeq) return;
     console.error('listPublishedPrograms', e);
-    grid.innerHTML = '<div class="mk-empty"><h3>Could not load programs</h3><p>Try refreshing.</p></div>';
+    grid.removeAttribute('aria-busy');
+    grid.innerHTML = '<div class="mk-empty"><h3>Could not load programs</h3><p>Check your connection, then try again.</p><p><button type="button" class="btn" onclick="reloadGrid()">Try again</button></p></div>';
     return;
   }
+  if (seq !== _mkSeq) return;
 
   // Training-focus filter is client-side (the column may not exist pre-migration,
   // so we never push it into the query). Listings with no category never match a
@@ -269,6 +279,7 @@ async function loadAndRenderGrid(tier, search, sort, category) {
   }
 
   if (!programs.length) {
+    grid.removeAttribute('aria-busy');
     grid.innerHTML = '';
     const empty = el('div', { class: 'mk-empty' });
     empty.appendChild(el('h3', {}, (tier || search || category) ? 'Nothing matches that' : 'No programs here yet'));
@@ -286,6 +297,8 @@ async function loadAndRenderGrid(tier, search, sort, category) {
     reviews.forEach(r => { (byProg[r.marketplaceProgramId] = byProg[r.marketplaceProgramId] || []).push(r); });
     programs.forEach(p => { statsByProgram[p.id] = reviewStats(byProg[p.id] || []); });
   } catch (e) { console.warn('reviews aggregate', e); }
+  if (seq !== _mkSeq) return;
+  grid.removeAttribute('aria-busy');
 
   // Order client-side once ratings are known (so "Top rated" works without
   // an extra query). Default "featured" leaves the DB order intact.
@@ -575,6 +588,19 @@ function onBuyClick(program) {
   window.location.href = url.toString();
 }
 
+// A slow or missing connection never leaves the waiting cards unexplained: after 8 s (or at once when the browser knows
+// it is offline) a line under them says so; the page carries on as soon as the programs arrive.
+(function () {
+  function say() {
+    const p = document.getElementById('mkSlow');
+    if (!p || !document.querySelector('.mk-skel')) return;
+    p.textContent = navigator.onLine === false ? 'You’re offline. The programs show here once you’re back online.' : 'Taking longer than usual. Check your connection; the programs show here as soon as they arrive.';
+    p.hidden = false;
+  }
+  if (navigator.onLine === false) say();
+  setTimeout(say, 8000);
+  window.addEventListener('offline', say);
+})();
 bootstrap(null, async () => {
   renderNav('#nav');
   _currentUser = getCurrentUser();
