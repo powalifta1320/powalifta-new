@@ -810,7 +810,7 @@
       elSay.classList.toggle('is-warn', !!s.warn);
       /* 23 Nov, upgrade 2: the edit bar shows the cell in hand as it is written, and takes typing (Enter saves, Esc puts
          it back), as a spreadsheet's formula bar does */
-      if (elFx && document.activeElement !== elFx) { var hh = st.hand, okFx = !!(hh && !isAdd(hh.key) && editable(hh.key, hh.col)); elFx.value = st.ed ? st.ed.input.value : hh && !isAdd(hh.key) && hh.col !== 'last' ? rawText(hh.key, hh.col) || '' : ''; elFx.readOnly = !okFx; elFx.classList.toggle('is-ro', !okFx); elFx.setAttribute('data-v', elFx.value); }
+      if (elFx && document.activeElement !== elFx) { var hh = st.hand, okFx = !!(hh && !isAdd(hh.key) && editable(hh.key, hh.col)); elFx.value = st.ed ? st.ed.input.value : hh && !isAdd(hh.key) && hh.col !== 'last' ? rawText(hh.key, hh.col) || '' : ''; elFx.readOnly = !okFx; elFx.classList.toggle('is-ro', !okFx); elFx.placeholder = !elFx.value && hh && !isAdd(hh.key) && hh.col !== 'last' ? (hh.col === 'load' ? 'Worked out from the RPE or %' : okFx ? 'Empty: type to fill it' : '') : '';   /* never an empty box beside the cell's name */ elFx.setAttribute('data-v', elFx.value); }
       var acts = (s.acts || []).filter(canAct).slice(0, 2);
       st.acts = acts;
       elActs.innerHTML = acts.map(function (a, i) { return '<button class="btn sm' + (i ? ' quiet' : '') + '" type="button" data-act="' + i + '">' + esc(a) + '</button>'; }).join('');

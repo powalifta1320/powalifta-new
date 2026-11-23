@@ -837,7 +837,8 @@
          week takes what is left, up to a week's width, so the card ends on a column, not on empty space; a width the
          coach dragged is kept as dragged */
       if (k >= B.weeks.length && !(isFinite(pf.wk) && pf.wk > 0)) {
-        var spare = bodyEl.clientWidth - (exw + cxw + B.weeks.length * colW + GHW + 8);
+        var spare = bodyEl.clientWidth - (exw + cxw + B.weeks.length * colW + 8);
+        if (spare >= GHW) spare -= GHW;   /* room for + Add week: keep it; else the spare all goes to the names */
         if (spare > 0 && !(isFinite(pf.ex) && pf.ex > 0)) { var addEx = Math.min(spare, 300 - exw); if (addEx > 0) { exw += addEx; spare -= addEx; gridEl.style.setProperty('--sx-ex', exw + 'px'); } }
       }
       var gh = bodyEl.querySelector('.sx-ghost'); if (gh) { var at = exw + cxw + B.weeks.length * colW; gh.hidden = at + GHW > bodyEl.clientWidth; gh.style.left = at + 'px'; gh.style.width = Math.max(GHW - 8, Math.min(colW - 8, bodyEl.clientWidth - at - 16)) + 'px'; }

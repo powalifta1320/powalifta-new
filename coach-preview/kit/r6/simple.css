@@ -292,7 +292,9 @@
    - Secondary words (last week, a variant, back-offs, the column heads, the status bar) are 13 to 14 px in ink-2, never
      12 px grey. Same tokens, same strip, same colours. */
 .wk .sv {
-  --sv-cols: 18px minmax(170px, 300px) 56px 12px 68px 78px 112px minmax(160px, 1fr) minmax(160px, 1.6fr) 32px;
+  /* 23 Nov (the owner: blank spaces, awkward spacing): the name sits next to its numbers (240 at most, it was 300), and
+     what was lifted last week stays close to them; the note takes the room that is left */
+  --sv-cols: 18px minmax(170px, 240px) 56px 12px 68px 78px 112px minmax(150px, 0.8fr) minmax(160px, 2fr) 32px;
   --sv-gap: 8px;
   padding: 0 var(--sp-5);
 }
@@ -348,5 +350,6 @@
 .sv-qa .sv-qk { opacity: 0; }
 .sv-qa:focus-within .sv-qk { opacity: 1; }
 .sv-qbad { color: var(--warn); white-space: normal; }
-.sv-qa .sv-add { flex: none; width: auto; margin: 0 0 0 auto; height: 36px; padding: 0 var(--sp-3); }
+.sv-qa .sv-add { flex: none; order: 1; width: auto; margin: 0; height: 36px; padding: 0 var(--sp-3); }   /* Browse sits beside the field it belongs to, not at the far end of the row */
+.sv-qa .sv-qs { order: 2; }
 .sv-qa .sv-add::after { inset: -4px 0; }
