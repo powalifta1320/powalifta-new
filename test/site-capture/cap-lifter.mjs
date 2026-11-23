@@ -54,7 +54,9 @@ const pr = await p.evaluate(() => {
   const box = (e) => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map((v) => Math.round(v * 10) / 10); };
   const type = (e) => { const c = getComputedStyle(e); return { size: c.fontSize, weight: c.fontWeight, stretch: c.fontStretch, spacing: c.letterSpacing, line: c.lineHeight, color: c.color, family: c.fontFamily.slice(0, 40), bg: c.backgroundColor, pad: c.padding, radius: c.borderRadius }; };
   const q = (s) => document.querySelector('.pr-moment ' + s);
-  return { plate: box(q('.prm-plate')), plateSvg: q('.prm-plate svg').outerHTML, plateFilter: getComputedStyle(q('.prm-plate')).filter,
+  /* 23 Nov: the PR moment has no plate any more (the owner); null when it is gone */
+  const pl = q('.prm-plate');
+  return { plate: pl ? box(pl) : null, plateSvg: pl ? pl.querySelector('svg').outerHTML : null, plateFilter: pl ? getComputedStyle(pl).filter : null,
     num: { box: box(q('.prm-val')), text: q('.prm-val').textContent, type: type(q('.prm-num')) }, unit: box(q('.prm-unit')),
     delta: { box: box(q('.prm-delta')), text: q('.prm-delta').textContent, type: type(q('.prm-delta')) },
     tag: box(q('.prm-tag')), sub: box(q('.prm-sub')), set: box(q('.prm-set')), acts: box(q('.prm-acts')), done: box(q('.prm-done')), text: q('.prm-stage').innerText };

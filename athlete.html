@@ -4144,7 +4144,7 @@ async function toggleSet(exerciseId, setIndex, checked, opts) {
 // ===== PR TOAST =====
 function showPRToast(lift, e1rmComp, log, opts) {
   opts = opts || {};
-  // UI v8: the PR moment, full screen. A gold plate rolls in and lands with a thud you feel,
+  // UI v8: the PR moment, full screen (23 Nov, the owner: no gold plate, anywhere). A thud you feel,
   // the number counts up from your old best, the jump shows in green, and one tap makes the
   // tall Story card. Tap anywhere else (or Done) to get back to the session.
   const reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -4157,15 +4157,8 @@ function showPRToast(lift, e1rmComp, log, opts) {
   const now = toD(e1rmComp), was = before > 0 ? toD(before) : null;
   const fmtN = (v) => opts.single ? String(Math.round(v * 10) / 10) : String(Math.round(v));
   const overlay = el('div', { class: 'pr-toast pr-moment', role: 'dialog', 'aria-label': 'New PR: ' + now + ' ' + unitLabel() });
-  overlay.appendChild(el('div', { class: 'prm-light', 'aria-hidden': 'true' }));
   // (No confetti, 23 Nov: the moment is the plate landing and the number climbing from the old best.)
   const stage = el('div', { class: 'prm-stage' });
-  const plate = el('div', { class: 'prm-plate', 'aria-hidden': 'true', html:
-    '<svg viewBox="0 0 120 120"><defs><radialGradient id="prmGold" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#ffe9a8"/><stop offset="0.55" stop-color="#f2c25b"/><stop offset="1" stop-color="#a87a24"/></radialGradient></defs>' +
-    '<circle cx="60" cy="60" r="58" fill="url(#prmGold)"/><circle cx="60" cy="60" r="45" fill="none" stroke="rgba(60,40,0,0.22)" stroke-width="2"/>' +
-    '<circle cx="60" cy="60" r="19" fill="#dcdfe5"/><circle cx="60" cy="60" r="19" fill="none" stroke="rgba(0,0,0,0.18)" stroke-width="1.5"/><circle cx="60" cy="60" r="8" fill="#0b0b0c"/>' +
-    '<text x="60" y="33" text-anchor="middle" font-family="Archivo, sans-serif" font-size="13" font-weight="800" fill="rgba(60,40,0,0.5)">PR</text></svg>' });
-  stage.appendChild(plate);
   stage.appendChild(el('div', { class: 'prm-tag' }, opts.single ? 'New 1RM' : 'New PR'));
   const val = el('span', { class: 'prm-val' }, String(reduce || was == null ? now : was));
   stage.appendChild(el('div', { class: 'prm-num' + (fmtN(now).length > 4 ? ' is-long' : '') }, val, el('span', { class: 'prm-unit' }, unitLabel())));
@@ -4188,12 +4181,11 @@ function showPRToast(lift, e1rmComp, log, opts) {
   overlay.appendChild(stage);
   overlay.addEventListener('click', leave);
   document.body.appendChild(overlay);
-  // The success haptic now; a heavy thud as the plate lands.
+  // The success haptic now; a heavy thud as the number starts to climb.
   const native = !!(window.PowaNative && PowaNative.isNative && PowaNative.isNative());
   try { if (native) PowaNative.notify('SUCCESS'); else if (navigator.vibrate) navigator.vibrate([40, 60, 120]); } catch (e) {}
   if (!reduce) {
     setTimeout(() => {
-      plate.classList.add('landed');
       try { if (native && PowaNative.haptic) PowaNative.haptic('HEAVY'); else if (navigator.vibrate) navigator.vibrate(30); } catch (e) {}
     }, 820);
     // Count up from the old best (or the last tenth of the way when there wasn't one).

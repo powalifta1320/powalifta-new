@@ -680,17 +680,13 @@
      number counts up from his old best, 223 to 228, then the jump shows); then Progress draws its line up to his new
      total. Side by side (760 and up) one beat, the moment then the line; stacked, each as its phone comes up.
      ===================================================================== */
-  var lfPr = $('#lfPr'), lfProg = $('#lfProg'), lfPlate = $('.lf-plate', lfPr), lfN = $('.lf-n', lfPr), lfD = $('.lf-d', lfPr), lfLine = $('.lf-line', lfProg);
+  var lfPr = $('#lfPr'), lfProg = $('#lfProg'), lfN = $('.lf-n', lfPr), lfD = $('.lf-d', lfPr), lfLine = $('.lf-line', lfProg);
   rise([$('.lf-crop', lfPr), $('.lf-crop', lfProg)], { trigger: '.lf-phones', y: 40, start: 'top 94%', dur: 0.8, stagger: 0.12 });
   lfN.dataset.from = '223'; lfN.dataset.to = '228';
-  gsap.set(lfPlate, { xPercent: -221, rotation: -250, transformOrigin: '50% 50%' });   // the app's -72vw: 283 of its 393 pt, 2.21 plates
   gsap.set(lfD, { autoAlpha: 0, yPercent: 18 });
   gsap.set(lfLine, { clipPath: 'inset(0% 100% 0% 0%)' });
   function prMoment() {
     var tl = gsap.timeline({ paused: true })
-      .to(lfPlate, { xPercent: 0, rotation: 0, duration: 0.86, ease: ENTER }, 0)
-      .to(lfPlate, { scaleX: 1.04, scaleY: 0.95, yPercent: 1.6, duration: 0.1, ease: 'power1.out' }, 0.82)
-      .to(lfPlate, { scaleX: 1, scaleY: 1, yPercent: 0, duration: 0.2, ease: 'power1.out' }, 0.92)
       .to(lfD, { autoAlpha: 1, yPercent: 0, duration: 0.24, ease: OUT }, 1.15);
     count(tl, lfN, 0.25, 0.9, 'power2.out');   // the app's own count: 900 ms, a cubic ease-out, from 250 ms
     return tl;
