@@ -196,6 +196,87 @@ for (; n < 60; n++) { const s = (await week()).snap; if (s === start.snap) break
 const end = await week();
 ok('Undo on the week bar walks every change back to the week as it opened', end.snap === start.snap, n + ' undos');
 
+// 9. round 3 (23 Nov, the owner chose "A library of programs" and "One switch, three views"): Programs opens on a library of
+// cards; a program needs no lifter and opens in the same editor; one switch for Simple · Week sheet · Block sheet
+{
+  const LIB = BASE + '/coach-preview/desk/programs.html?theme=dark&reset=1';
+  const c2 = await b.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block', colorScheme: 'dark' });
+  await c2.route(/supabase\.co|plausible\.io/, (r) => r.abort('blockedbyclient'));
+  await c2.addInitScript(() => { try { localStorage.setItem('powa-r6-side', 'fold'); localStorage.setItem('powa-r6-prog-mode', 'simple'); } catch (e) {} });
+  const q = await c2.newPage();
+  q.on('pageerror', (e) => errs.push(e.message.slice(0, 300)));
+  q.on('console', (m) => { if (m.type() === 'error' && !/ERR_BLOCKED_BY_CLIENT|Failed to load resource/.test(m.text())) errs.push('console: ' + m.text().slice(0, 300)); });
+  await q.goto(LIB, { waitUntil: 'load' }); await q.waitForTimeout(900);
+  const lib = await q.evaluate(() => ({ due: document.querySelectorAll('[data-group="due"] .pc').length, mine: document.querySelectorAll('[data-group="mine"] .pc').length, crimson: (document.querySelector('[data-primary]') || {}).textContent, lefts: [...new Set([...document.querySelectorAll('[data-group="due"] .pc')].map((x) => Math.round(x.getBoundingClientRect().left)))].length, filters: [...document.querySelectorAll('[data-lib-filter]')].map((x) => x.textContent) }));
+  ok('Programs opens on a library: due this week first, your own programs beside them, three cards across at 1440', lib.due >= 9 && lib.mine >= 2 && lib.lefts === 3, JSON.stringify(lib));
+  ok('its one crimson is New program, and its filter is one control of four', lib.crimson === 'New program' && lib.filters.join() === 'All,Due,Not assigned,Sent', lib.crimson + ' · ' + lib.filters.join(', '));
+  const al = await q.evaluate(() => { const out = []; document.querySelectorAll('.pc-what').forEach((w) => { const t = w.querySelector('.tg'), s = w.querySelector('.pc-wt'); if (!t || !s) return; const base = (el) => { const r = document.createRange(); r.selectNodeContents(el); const rs = r.getClientRects(); return rs.length ? rs[rs.length - 1].bottom : el.getBoundingClientRect().bottom; }; out.push({ dy: Math.round(Math.abs(base(t) - base(s)) * 10) / 10, x: Math.round(t.getBoundingClientRect().left - w.closest('.pc').getBoundingClientRect().left) }); }); return out; });
+  ok('every flag sits on the line of the words it goes with, in the same place on every card', al.length >= 3 && al.every((x) => x.dy <= 2) && new Set(al.map((x) => x.x)).size === 1, JSON.stringify(al.slice(0, 4)));
+  // the sidebar: pinned, the page sits beside it; hovered open, it covers no card
+  await q.mouse.move(30, 400); await q.waitForTimeout(600);
+  const cov = await q.evaluate(() => { const sw = document.querySelector('.side').getBoundingClientRect().width, open = parseFloat(getComputedStyle(document.querySelector('.side .it .l')).opacity) > 0.5; const left = Math.min(...[...document.querySelectorAll('.pc, #ql-q, .lib-t')].map((x) => x.getBoundingClientRect().left)); return { open, sw: Math.round(sw), left: Math.round(left) }; });
+  ok('with the sidebar hovered open, nothing on the library is under it', cov.open && cov.left >= cov.sw, JSON.stringify(cov));
+  await q.mouse.move(900, 500); await q.waitForTimeout(400);
+  // keys: the arrows walk the cards, Enter opens, Esc comes back
+  await q.locator('.pc').first().focus(); await q.keyboard.press('ArrowRight'); await q.waitForTimeout(80);
+  const k1 = await q.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-card'));
+  await q.keyboard.press('Enter'); await q.waitForTimeout(700);
+  const k2 = await q.evaluate(() => ({ hash: location.hash, h1: (document.querySelector('#pd #ttl') || {}).textContent }));
+  ok('→ moves to the next card and Enter opens it in the editor', !!k1 && /id=/.test(k2.hash) && !!k2.h1, k1 + ' → ' + JSON.stringify(k2));
+  await q.keyboard.press('Escape'); await q.waitForTimeout(150); await q.keyboard.press('Escape'); await q.waitForTimeout(500);
+  ok('Esc goes back to the library, the card it opened in hand', (await q.locator('.lib').count()) === 1 && await q.evaluate((k) => document.activeElement && document.activeElement.getAttribute('data-card') === k, k1));
+  // search over exercises
+  await q.locator('#ql-q').fill('tricep'); await q.waitForTimeout(300);
+  const found = await q.evaluate(() => [...document.querySelectorAll('.pc')].length);
+  await q.locator('#ql-q').fill('zzqx'); await q.waitForTimeout(300);
+  const none = await q.evaluate(() => document.querySelectorAll('.pc').length), said = /No program, lifter or exercise/.test(await q.locator('.lib').innerText());
+  await q.locator('#ql-q').fill(''); await q.waitForTimeout(300);
+  ok('the search finds programs by an exercise in them, and says when nothing matches', found >= 1 && none === 0 && said, found + ' found, ' + none + ' for nonsense');
+  // New program: no lifter
+  await q.locator('[data-primary]').click(); await q.waitForTimeout(400);
+  await q.locator('#np-name').fill('Test base'); await q.locator('[data-np-days="4"]').click();
+  await q.locator('[data-np-go]').click(); await q.waitForTimeout(700);
+  const np = await q.evaluate(() => { const id = (location.hash.match(/prog=([^&]+)/) || [])[1], t = id && PL.templates.list().data.filter((x) => x.id === id)[0]; return { id, name: t && t.name, weeks: t && t.weeks, days: t && t.perWeek, crimson: document.querySelector('[data-primary]').textContent, simple: !!document.querySelector('.sv[data-simple]'), focus: document.activeElement && document.activeElement.className }; });
+  ok('New program needs no lifter: named, 4 weeks, 4 days, it opens in the editor to write', !!np.id && np.name === 'Test base' && np.weeks === 4 && np.days === 4 && np.simple && /sv-qin/.test(np.focus || ''), JSON.stringify(np));
+  ok('a program of nobody’s has Assign to a lifter… as its crimson', np.crimson === 'Assign to a lifter…', np.crimson);
+  const lines = () => q.evaluate((id) => { const j = PL.templates.get(id).data, u = j.weeks[0].uid; return j.rows.filter((r) => r.cells[u]).map((r) => r.name + ' ' + BLOCK.text(BLOCK.cellOf(r.cells[u]))); }, np.id);
+  await q.keyboard.type('squat 3x5 @8'); await q.keyboard.press('Enter'); await q.waitForTimeout(250);
+  await q.keyboard.type('db row 3x10 30kg'); await q.keyboard.press('Enter'); await q.waitForTimeout(400);
+  const l1 = await lines();
+  ok('quick add writes the program’s day, kilos kept', l1.join() === 'Squat 3x5 @8,Dumbbell row 3x10 30kg', l1.join(' | '));
+  await q.keyboard.press('Meta+z'); await q.waitForTimeout(300); const l2 = await lines();
+  await q.keyboard.press('Meta+Shift+z'); await q.waitForTimeout(300); const l3 = await lines();
+  ok('⌘Z and ⇧⌘Z walk a program’s edits too', l2.length === 1 && l3.length === 2, l2.length + ' → ' + l3.length);
+  // one switch, three views
+  const sw = await q.evaluate(() => ({ segs: [...document.querySelectorAll('.tb .seg')].length, labels: [...document.querySelectorAll('.tb [data-look]')].map((x) => x.textContent) }));
+  ok('one switch in the toolbar: Simple · Week sheet · Block sheet', sw.segs === 1 && sw.labels.join() === 'Simple,Week sheet,Block sheet', JSON.stringify(sw));
+  const seen = [];
+  for (const v of ['block', 'week', 'simple']) { await q.locator('.tb [data-look="' + v + '"]').click(); await q.waitForTimeout(350); seen.push(await q.evaluate(() => (document.querySelector('#wg .sx-c') ? 'block' : document.querySelector('#wg .wg-line') ? 'week' : document.querySelector('.sv') ? 'simple' : '?') + ':' + document.querySelectorAll('.tb .seg').length)); }
+  ok('one click to any view, and no second switch appears', seen.join() === 'block:1,week:1,simple:1', seen.join(', '));
+  await q.keyboard.press('Alt+Digit3'); await q.waitForTimeout(300); const a3 = await q.evaluate(() => document.querySelector('.tb [data-look][aria-pressed="true"]').dataset.look);
+  await q.keyboard.press('Alt+Digit1'); await q.waitForTimeout(300); const a1 = await q.evaluate(() => document.querySelector('.tb [data-look][aria-pressed="true"]').dataset.look);
+  ok('⌥3 and ⌥1 switch the view from the keys', a3 === 'block' && a1 === 'simple', a3 + ', ' + a1);
+  // its header: rename in place, Open a copy
+  await q.locator('[data-prog-name]').click(); await q.waitForTimeout(150); await q.keyboard.press('Meta+a'); await q.keyboard.type('Test base A'); await q.keyboard.press('Enter'); await q.waitForTimeout(400);
+  ok('the name is renamed where it is', (await q.locator('#pd #ttl').innerText()).trim() === 'Test base A' && await q.evaluate((id) => PL.templates.list().data.some((t) => t.id === id && t.name === 'Test base A'), np.id));
+  await q.locator('#pd [data-prog-menu]').click(); await q.waitForTimeout(300);
+  const pm = (await q.locator('.pop .mi').allInnerTexts()).map((x) => x.split('\n')[0]);
+  ok('its menu holds weeks, days a week, a copy, Share, import, rename and delete, seven at most', pm.length <= 7 && ['Weeks', 'Days a week', 'Open a copy', 'Share', 'Rename'].every((x) => pm.indexOf(x) >= 0), pm.join(' | '));
+  await q.locator('.pop .mi', { hasText: 'Open a copy' }).click(); await q.waitForTimeout(600);
+  const cp = await q.evaluate(() => ({ hash: location.hash, h1: document.querySelector('#pd #ttl').textContent }));
+  ok('Open a copy makes one of your programs and opens it', /prog=tpl-test-base-a-copy/.test(cp.hash) && /Test base A copy/.test(cp.h1), JSON.stringify(cp));
+  // assign it to a lifter: their start, with it picked
+  await q.locator('[data-primary]').click(); await q.waitForTimeout(400);
+  await q.locator('#nb-q').type('hann'); await q.waitForTimeout(200); await q.keyboard.press('Enter'); await q.waitForTimeout(700);
+  const sp = await q.evaluate(() => ({ crimson: document.querySelector('[data-primary]').textContent, pick: (document.querySelector('[data-start-opt][aria-checked="true"]') || {}).textContent || '' }));
+  ok('Assign to a lifter… opens their start with this program picked', /Start Hannah/.test(sp.crimson) && /Test base A copy/.test(sp.pick), JSON.stringify(sp));
+  // old links still land
+  await q.goto(BASE + '/coach-preview/desk/programs.html?theme=dark#tab=templates&tpl=tpl-strength-block', { waitUntil: 'load' }); await q.waitForTimeout(800);
+  const old = await q.evaluate(() => ({ h1: document.querySelector('#pd #ttl').textContent, grid: !!document.querySelector('#wg .sv, #wg .wg-line, #wg .sx-c'), hash: location.hash }));
+  ok('an old template link opens the program in the editor, editable', /Strength Block/.test(old.h1) && old.grid && /prog=tpl-strength-block/.test(old.hash), JSON.stringify(old));
+  await c2.close();
+}
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'no script errors');
 await b.close();

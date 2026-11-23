@@ -7308,6 +7308,80 @@
     };
   })(PL);
 
+  /* ================= PROGRAMS LIBRARY (23 Nov, programs-library worker; additions only) =================
+     The owner: "what if coach just wants to make a new program and not assign it to a lifter yet". A program that belongs
+     to nobody yet is what the desk kept as a template (ST.tpls, its edits in ST.tplEdits): the same records, the same
+     persisted and replayed ops (tplSave, tplUpdate, tplRename, tplRemove), so every write here is one step with one Undo
+     (PL.undo(meta.undo)) and survives a reload like every other coach edit.
+       PL.templates.create({ name, weeks, days, from })  a new program with no lifter. from: null (blank: `days` days a week,
+                        `weeks` empty weeks) | { template: id } | { starter: id } | { lifter: id } (a copy of their block:
+                        its lines and rules, not their loads: BLOCK.asTemplate) | { json }. The name is made unique
+                        ("New program 2"). { data: { id, name }, meta: { undo } }
+       PL.templates.write(id, json, { label })  the program's block as the editor holds it. Unlike update() it keeps what
+                        the coach typed (kilos included: a program of your own may carry them); weeks stay unsent and
+                        undated. One step, one Undo. Only the last 40 writes of one program are kept in the log (older
+                        ones fold into the next: the program is the same, its undo reaches 40 steps back)
+       PL.templates.edited(id)          { data: iso | null } the time of the program's last write
+       PL.templates.uniqueName(name)    { data: name } the name, or "<name> 2", "<name> 3" when it is taken */
+  (function (P) {
+    var KEEP = 40;
+    function byId(id) { return templates().filter(function (x) { return x.id === id; })[0] || null; }
+    function uniqueName(nm) {
+      nm = words0(nm) || 'New program'; var taken = function (s) { return templates().some(function (t) { return t.name.toLowerCase() === s.toLowerCase() || t.id === 'tpl-' + slug(s); }); };
+      if (!taken(nm)) return nm; var base = nm.replace(/ \d+$/, ''), k = 2; while (taken(base + ' ' + k)) k++; return base + ' ' + k;
+    }
+    /* a program of nobody's: no lifter, no maxes, no dates; every week still to send */
+    function norm(j, name) {
+      j = clone(j); j.id = null; if (name) j.name = name; j.blockKind = 'template'; j.start = null; j.meet = null;
+      j.maxes = { squat: null, bench: null, deadlift: null }; j.maxFrom = {}; j.today = {};
+      (j.weeks || []).forEach(function (w, i) { w.state = 'next'; w.sent = false; w.sentAt = null; w.started = {}; w.was = null; w.taken = false; w.dates = {}; w.off = w.off || {}; w.n = i + 1; });
+      (j.rows || []).forEach(function (row) { ['nod', 'bad', 'badf', 'mx', 'max', 'maxFrom', 'last', 'swapFor', 'only'].forEach(function (k) { delete row[k]; }); Object.keys(row.cells || {}).forEach(function (u) { var x = row.cells[u]; if (x && x.lifted) delete x.lifted; }); });
+      if (Array.isArray(j.days)) j.perWeek = j.days.length;
+      return j;
+    }
+    function trim(id) {
+      var key = 'tpl:' + id, ups = []; LOG.forEach(function (r, i) { if (r.op === 'tplUpdate' && r.a && r.a.id === id && r.persist) ups.push(i); });
+      if (ups.length <= KEEP) return;
+      for (var k = ups.length - KEEP - 1; k >= 0; k--) LOG.splice(ups[k], 1);
+      persistEdits(); void key;
+    }
+    P.templates.uniqueName = function (name) { return ok(uniqueName(name)); };
+    P.templates.edited = function (id) {
+      var t = byId(id); if (!t) return fail('not_found', 'There is no program ' + (isStr(id) ? id : '') + '.');
+      for (var i = LOG.length - 1; i >= 0; i--) if ((LOG[i].keys || []).indexOf('tpl:' + id) >= 0) return ok(LOG[i].at || (LOG[i].a && LOG[i].a.at) || null);
+      return ok(null);
+    };
+    P.templates.create = function (o) {
+      o = argObj(o); var Bk = BLK(); if (!Bk) return fail('invalid', 'A new program needs block.js on the page.');
+      var from = o.from || null, json = null, src = '';
+      if (from && from.template) { var t = byId(from.template) || templates().filter(function (x) { return x.name === from.template; })[0]; if (!t) return fail('not_found', 'There is no program ' + from.template + '.'); json = clone(tplBlock(t)); src = t.name; }
+      else if (from && from.starter) { var s = (D.starters || []).filter(function (x) { return x.id === from.starter; })[0], g = s && P.starters && P.starters.get ? P.starters.get(s.id) : null; if (!g || !g.data) return fail('not_found', 'There is no starter program ' + from.starter + '.'); json = clone(g.data); src = s.name; }
+      else if (from && from.lifter) { var l = L(from.lifter); if (!l) return noLifter(from.lifter); if (!l.program) return bad(l.first + ' has no block to copy.', 'from'); var g2 = P.programs.get(l.id); var b0 = g2 && g2.data ? Bk.from(g2.data) : null; if (!b0) return fail('invalid', 'That block cannot be read.'); json = Bk.asTemplate(b0, {}); src = l.first + '’s ' + (l.program.name || 'block'); }
+      else if (from && from.json) { if (!Array.isArray(from.json.weeks)) return bad('Give a block (block.toJSON()).', 'json'); json = clone(from.json); }
+      else {
+        var nd = Math.max(1, Math.min(7, Math.round(Number(o.days) || 3))), nw = Math.max(1, Math.min(16, Math.round(Number(o.weeks) || 4)));
+        var b = Bk.blank(null, { days: nd, name: 'x' }); for (var k = 1; k < nw; k++) b.addWeek();
+        json = b.toJSON();
+      }
+      if (!json || !Array.isArray(json.weeks) || !json.weeks.length) return fail('invalid', 'That program has no weeks.');
+      var name = uniqueName(o.name || (src ? src + ' copy' : 'New program'));
+      if (name.length > 60) return bad('A program’s name is 60 characters at most.', 'name');
+      json = norm(json, name);
+      return commit('tplSave', { id: 'tpl-' + slug(name), name: name, json: json, at: stamp(), label: (src ? 'A copy of ' + src + ': ' : '') + name + ' is one of your programs, not assigned yet.' });
+    };
+    P.templates.write = function (id, json, o) {
+      o = argObj(o); var t = byId(id); if (!t) return fail('not_found', 'There is no program ' + (isStr(id) ? id : '') + '.');
+      if (!json || !Array.isArray(json.weeks) || !json.weeks.length) return bad('A program keeps at least one week.', 'json');
+      var j = norm(json, t.name), was = tplBlock(t);
+      if (was && JSON.stringify(norm(was, t.name)) === JSON.stringify(j)) return ok({ id: id, name: t.name, weeks: j.weeks.length }, { undo: null, label: '' });
+      var r = commit('tplUpdate', { id: id, json: j, at: stamp() });
+      if (r && !r.error) trim(id);
+      if (r && r.meta && o.label) r.meta.label = o.label;
+      return r;
+    };
+  })(PL);
+  /* ================= end PROGRAMS LIBRARY ================= */
+
   /* ================= CONTACTS (23 Nov, contacts-clients worker; additions only) =================
      The owner: "what if coach wants to contact them on some other platform etc, for each athlete they should be able to
      add- their mail, insta, imessage, whatsapp, they can add either any or none of em". Each lifter may have any or none

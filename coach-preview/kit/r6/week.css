@@ -173,7 +173,7 @@ button.wg-dn::after { content: ''; position: absolute; inset: -4px 0; }
   text-decoration: none; text-align: left; white-space: nowrap; cursor: pointer;
   transition: color var(--dur-fast) var(--ease-out);
 }
-.add-row::before { content: '+'; position: absolute; right: 100%; top: 50%; margin: -0.6em 0.4em 0 0; color: inherit; font: 500 var(--fs-sub)/var(--lh-tight) var(--font); pointer-events: none; }
+.add-row::before { content: '+'; position: absolute; right: 100%; top: 50%; margin: 0 0.4em 0 0; transform: translateY(-52%); color: inherit; font: 500 var(--fs-sub)/1 var(--font); pointer-events: none; }   /* centred on the words (it sat low) */
 button.add-row::after { content: ''; position: absolute; inset: -4px -8px; }   /* 44 px to hit, the words stay where they are */
 .wg-c > .wg-t.add-row { min-height: 0; }
 .wg-add .wg-k-ex .wg-t.add-row { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-tight) var(--font); letter-spacing: 0; }   /* over the name's 16/600 */
@@ -327,5 +327,13 @@ button.add-row::after { content: ''; position: absolute; inset: -4px -8px; }   /
 .wg-fx { flex: 0 1 280px; min-width: 120px; height: 28px; padding: 0 var(--sp-2); border: 0; border-radius: var(--sp-2); background: var(--fill); color: var(--ink); font: 500 var(--fs-label)/1 var(--font); font-variant-numeric: tabular-nums; outline: 0; }
 .wg-fx:focus { background: var(--card); outline: 2px solid var(--focus); outline-offset: 0; }
 .wg-fx.is-ro { background: transparent; color: var(--ink-2); }
+.wg-fx::placeholder { color: var(--ink-3); opacity: 1; }
 .wg-h[data-col] { cursor: default; }
 @media (hover: hover) and (pointer: fine) { .wg-h[data-col]:not(.wg-k-last):hover { background: var(--hover); cursor: s-resize; } }
+
+/* round 3: the Week sheet's edit bar as a formula bar, the same as the Block sheet's: the cell's name in a fixed slot (a
+   quiet box), the field, then what it means in quieter words */
+.wg-addr { flex: none; width: 184px; max-width: none; height: 28px; padding: 0 var(--sp-2); border-radius: var(--sp-2); background: var(--fill); color: var(--ink-2); font: 600 13px/28px var(--font); }
+.wg-addr:empty { display: block; }
+.wg-fx { flex: 0 0 220px; }
+.wg-say { color: var(--ink-2); font: 400 var(--fs-label)/1.3 var(--font); }

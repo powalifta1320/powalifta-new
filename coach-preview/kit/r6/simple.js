@@ -11,6 +11,8 @@
    change is one Undo step and Advanced shows it at once. SIMPLE.grid(host, opts) answers what the page asks of any grid:
    render, select, sel, focus, flush, day, destroy.
    opts: block() the page's block, c the week's index, lifter { first }, apply(fn(block), label, { say }),
+   undated (round 3: a program of nobody's has no dates and no last week: the day heads say only the sets, the Last week
+   column has no heading, the note column is "Note"),
    onRowMenu(r, btn), onDayMenu(day, btn), onSaveTemplate(btn), onAdvanced(), onUndo(), onRedo() (the page's own history,
    else the block's). */
 (function () {
@@ -105,7 +107,7 @@
       var sets = rs.reduce(function (a, r) { var t = bb.fieldText(r, ci, 'sets', { ascii: true }); return a + (isInt(t) ? +t : 0); }, 0);
       var w = bb.weeks[ci], begun = w && w.state === 'now' && w.started && w.started[d.name];
       var head = '<div class="sv-dh" data-day="' + esc(d.name) + '"><h3><button type="button" data-day-name data-sv-rename data-f="' + esc('@' + d.name + '|name') + '" title="Rename the day">' + esc(sentence(d.name)) + '</button></h3>' +
-        '<span class="sv-dd">' + esc([dLong(d.iso), d.off ? 'out this week' : rs.length ? K.plural(sets, 'set') : '', begun ? 'under way' : ''].filter(Boolean).join(', ')) + '</span>' +
+        '<span class="sv-dd">' + esc([o.undated ? '' : dLong(d.iso), d.off ? 'out this week' : rs.length ? K.plural(sets, 'set') : '', begun ? 'under way' : ''].filter(Boolean).join(', ')) + '</span>' +
         '<button class="sv-more" type="button" data-sv-daymenu data-more data-f="' + esc('@' + d.name + '|menu') + '" aria-haspopup="menu" aria-label="' + esc(sentence(d.name) + ' menu') + '" title="Duplicate, move or remove the day">' + MORE + '</button></div>';
       var body;
       if (d.off) body = '<p class="sv-none">' + esc(sentence(d.name)) + ' is out of this week. <button class="sv-link" type="button" data-sv-restore="' + esc(d.name) + '">Put it back</button></p>';
@@ -180,10 +182,10 @@
     function html() {
       var bb = b(), w = bb.weeks[ci]; if (!w) return '<p class="sv-none">There is no week here.</p>';
       var days = bb.daysOf(ci), lifted = w.state === 'lifted';
-      var heads = '<div class="sv-cols" aria-hidden="true"><span></span><span>Exercise</span><span class="n">Sets</span><span></span><span class="n">Reps</span><span class="r" title="RPE, or a percent of the training max">RPE or %</span><span class="r">Load</span><span class="sv-c-last">Last week</span><span>Note for ' + esc(first) + '</span><span></span></div>';
+      var heads = '<div class="sv-cols" aria-hidden="true"><span></span><span>Exercise</span><span class="n">Sets</span><span></span><span class="n">Reps</span><span class="r" title="RPE, or a percent of the training max">RPE or %</span><span class="r">Load</span><span class="sv-c-last">' + (o.undated ? '' : 'Last week') + '</span><span>' + (o.undated ? 'Note' : 'Note for ' + esc(first)) + '</span><span></span></div>';
       var body = days.length ? days.map(function (d) { return dayHtml(bb, d, lifted); }).join('') : '<p class="sv-none">This block has no days yet. Add the first one.</p>';
       var addDay = lifted ? '' : '<button class="sv-addday" type="button" data-sv-addday data-f="day|+">' + PLUS + '<span>Add a day</span></button>';
-      var foot = '<div class="sv-foot">' + (o.onSaveTemplate ? '<button class="btn quiet sm" type="button" data-sv-tpl>Save this block as a template…</button>' : '') +
+      var foot = '<div class="sv-foot">' + (o.onSaveTemplate ? '<button class="btn quiet sm" type="button" data-sv-tpl>Save as one of your programs…</button>' : '') +
         (o.onAdvanced ? '<span class="sv-adv">Ranges, formulas, every week side by side: <button class="sv-link" type="button" data-sv-adv>open Advanced</button></span>' : '') + '</div>';
       /* the status bar: the load in hand explained, or the lifts picked and what to do with them */
       var bar = '<div class="sv-status" data-sv-bar><p class="sv-say" data-sv-status aria-live="polite">' + esc(lifted ? LIFTED : HINT) + '</p>' +

@@ -588,7 +588,9 @@
        sendWeek()         the week Send would send (else the week to write): Send is held while it holds unread text
        onWeekMenu(c, btn), onLifter(step), onSend(), onItem(item, move, el)
      } */
-  var EXW = 200, MINW = 124;   /* 22 Nov: one line a cell, so six weeks fit a laptop (they were 232 and 168: four) */
+  /* a lifted cell starts with a small check (it started with a lone "×", which read as a set count cut off) */
+  var CHK = '<svg viewBox="0 0 12 12" width="11" height="11"><path d="M2.5 6.4 5 8.8l4.5-5.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var EXW = 200, MINW = 124, MAXW = 240, CXW = 196, GHW = 176;   /* round 3 (the owner on a one-week block: "idk the point of this"): a week column is never wider than 240 px; the lifter's weeks before the block read beside it (196 px each), and + Add week after it, when there is room */   /* 22 Nov: one line a cell, so six weeks fit a laptop (they were 232 and 168: four) */
   S.grid = function (host, opts) {
     var b = function () { return opts.block(); }, ctx = function () { return opts.ctx ? opts.ctx() : {}; };
     var toast = function (t) { if (opts.toast) opts.toast(t); };
@@ -608,7 +610,7 @@
       var B = b(), cw = st.cw, ho = headOpts(), marked = {};
       var nav = '<span class="sx-nav"><button class="sx-navb" type="button" data-nav="-1" aria-label="Earlier weeks" title="Earlier weeks">' + K.ic('back', 2.2) + '</button><button class="sx-navb" type="button" data-nav="1" aria-label="Later weeks" title="Later weeks">' + K.ic('chev', 2.2) + '</button></span>';
       var rz = function (k) { return '<i class="sx-rz" data-rzc="' + k + '" aria-hidden="true" title="Drag to size ' + (k === 'ex' ? 'the column' : 'the weeks') + '. Double-click puts it back."></i>'; };
-      return '<div class="sx-r sx-hr" role="row" aria-rowindex="1"><div class="sx-ex sx-corner" role="columnheader" aria-colindex="1" title="Select the whole block (⌘A)"><span class="sx-ch">Exercise</span>' + nav + rz('ex') + '</div>' +
+      return '<div class="sx-r sx-hr" role="row" aria-rowindex="1"><div class="sx-ex sx-corner" role="columnheader" aria-colindex="1" title="Select the whole block (⌘A)"><span class="sx-ch">Exercise</span>' + nav + rz('ex') + '</div>' + cxCells('head') +
         B.weeks.map(function (w, c) {
           var h = S.weekHead(B, c, ho), lit = c === cw, all = h.name + '. ' + h.state + (h.movedText ? '. ' + h.movedText : '');
           var tk = h.kind && BL.KIND_TERM ? BL.KIND_TERM[h.kind] : null, mk = tk && !marked[tk]; if (mk) marked[tk] = 1;
@@ -620,7 +622,24 @@
             '<button class="sx-wm" type="button" data-menu="week" data-more data-week="' + w.n + '" data-c="' + c + '" aria-haspopup="menu" aria-expanded="false" aria-label="' + esc(h.name.split(',')[0]) + ' moves" title="' + esc(h.name.split(',')[0]) + ' moves">' + K.ic('more', 2.2) + '</button>' + rz('wk') + '</div>';
         }).join('') + '</div>' +
         /* the scroll edge under the heads (sheet.css .sx-fr): one box per column, so the lit week fades lit */
-        '<div class="sx-r sx-fr" aria-hidden="true"><i class="sx-fz0" data-fade></i>' + B.weeks.map(function (w, c) { return '<i' + (c === cw ? ' class="is-lit"' : '') + ' data-fade data-c="' + c + '"></i>'; }).join('') + '</div>';
+        '<div class="sx-r sx-fr" aria-hidden="true"><i class="sx-fz0" data-fade></i>' + cxCells('fr') + B.weeks.map(function (w, c) { return '<i' + (c === cw ? ' class="is-lit"' : '') + ' data-fade data-c="' + c + '"></i>'; }).join('') + '</div>';
+    }
+    /* round 3: the weeks before this block (the lifter's previous block, as lifted), read-only, quieter, left of week 1;
+       only when the page gives them (opts.context) and they fit beside the block at its natural width */
+    function cxList() {
+      var B = b(), list = typeof opts.context === 'function' ? (opts.context() || []) : [], room = bodyEl.clientWidth || host.clientWidth || 0, exw = EXW;
+      var pf = rzPrefs(); if (isFinite(pf.ex) && pf.ex > 0) exw = pf.ex;
+      while (list.length && exw + list.length * CXW + B.weeks.length * MAXW > room) list = list.slice(1);
+      return list;
+    }
+    function cxCells(kind, r) {
+      var cx = st.cx || []; if (!cx.length) return '';
+      return cx.map(function (col) {
+        if (kind === 'head') return '<div class="sx-cxh" role="columnheader" aria-readonly="true" title="' + esc(col.label + ', ' + col.sub + '. For reading: it is not part of this block.') + '"><span class="sx-wn" data-ellipsis>' + esc(col.label) + '</span><span class="sx-wf" data-ellipsis>' + esc(col.sub) + '</span></div>';
+        if (kind === 'fr') return '<i class="sx-cxf"></i>';
+        if (kind === 'line') { var v = col.cell ? col.cell(b().rows[r]) : null; return '<div class="sx-cx" role="gridcell" aria-readonly="true"><span class="sx-l1">' + (v && v.t ? '<span class="sx-t">' + esc(v.t) + '</span>' : '') + '</span><span class="sx-l2">' + (v && v.kg ? '<span class="sx-kg">' + esc(v.kg) + '</span>' : '') + '</span>' + (!v || (!v.t && !v.kg) ? '<span class="sr">none</span>' : '') + '</div>'; }
+        return '<div class="sx-cx is-empty" aria-hidden="true"></div>';
+      }).join('');
     }
     function exHtml(r) {
       var B = b(), row = B.rows[r], sub = '';
@@ -664,7 +683,7 @@
            for the week in the cell's title and on the bar above */
         var wrote = S.gridText(cellOf(x), { row: row, mark: mk, words: true }), tm = /^([\d.]+(?:-[\d.]+)?)\s*[×x]\s*(.+)$/.exec(tt), did = tm ? tm[2] : tt;
         var over = mk && mk.kind === 'over' && x.lifted.top;
-        l1 = '<span class="sx-t" title="' + esc('Written ' + wrote + '. Lifted ' + tt + '.') + '">' + (tm ? '<i class="sx-x" aria-hidden="true">×</i>' : '') + (over ? esc(did.replace(/ @[\d.]+$/, '')) + ' <span class="sx-over">@' + nf(x.lifted.top.felt) + '</span>' : esc(did)) + '</span>';
+        l1 = '<span class="sx-t" title="' + esc('Written ' + wrote + '. Lifted ' + tt + '.') + '">' + (tm ? '<i class="sx-x" aria-hidden="true">' + CHK + '</i>' : '') + (over ? esc(did.replace(/ @[\d.]+$/, '')) + ' <span class="sx-over">@' + nf(x.lifted.top.felt) + '</span>' : esc(did)) + '</span>';
         l2 = tm ? '<span class="sx-kg">' + esc(tm[1]) + '</span>' : '';
         sr = ', written ' + wrote;
         cls += ' is-lifted';
@@ -707,7 +726,7 @@
         if ((w.state === 'lifted' || w.state === 'now') && w.started[day.name]) { var sk = 0; B.rows.forEach(function (row) { if (row.day !== day.name || row.lift) return; var x = row.cells[w.uid]; if (x && x.lifted && x.lifted.done < x.lifted.of) sk++; }); if (sk) news = plural(sk, 'accessory', 'accessories') + ' skipped'; }
         return '<div class="sx-dc' + (c === st.cw ? ' is-lit' : '') + (news === 'Missed' ? ' is-warn' : '') + '" role="gridcell" aria-readonly="true" aria-colindex="' + (c + 2) + '" data-c="' + c + '">' + (news ? '<span class="sx-news" data-ellipsis title="' + esc(news) + '">' + esc(news) + '</span>' : '') + '</div>';
       }).join('');
-      return '<div class="sx-r sx-dr" role="row" data-day="' + esc(day.name) + '" aria-rowindex="' + ri + '"><div class="sx-ex" role="rowheader"><span class="sx-dn" data-ellipsis title="' + esc(S.dayLabel(day.name)) + '">' + esc(S.dayLabel(day.name)) + '</span>' + (wd ? '<span class="sx-dw">' + wd + '</span>' : '') + '</div>' + cells + '</div>';
+      return '<div class="sx-r sx-dr" role="row" data-day="' + esc(day.name) + '" aria-rowindex="' + ri + '"><div class="sx-ex" role="rowheader"><span class="sx-dn" data-ellipsis title="' + esc(S.dayLabel(day.name)) + '">' + esc(S.dayLabel(day.name)) + '</span>' + (wd ? '<span class="sx-dw">' + wd + '</span>' : '') + '</div>' + cxCells('day') + cells + '</div>';
     }
     function addHtml(day) {
       return '<div class="sx-r sx-ar" data-add-row="' + esc(day.name) + '"><div class="sx-ex"><button class="sx-addb add-row" type="button" data-add-ex="' + esc(day.name) + '">Add an exercise</button></div><div class="sx-arw" aria-hidden="true"></div></div>';
@@ -715,9 +734,9 @@
     function bandHtml(ri) {
       var B = b(), live = LIFTS.filter(function (lf) { return B.rows.some(function (row) { return row.lift === lf; }); });
       if (!live.length) return '';
-      return '<div class="sx-r sx-bh" role="row" aria-rowindex="' + ri + '"><div class="sx-ex" role="rowheader"><span class="sx-dn">Hard sets and top set</span></div>' + B.weeks.map(function (w, c) { return '<div class="sx-dc' + (c === st.cw ? ' is-lit' : '') + '" role="gridcell" aria-readonly="true" aria-colindex="' + (c + 2) + '" data-c="' + c + '"></div>'; }).join('') + '</div>' +
+      return '<div class="sx-r sx-bh" role="row" aria-rowindex="' + ri + '"><div class="sx-ex" role="rowheader"><span class="sx-dn">Hard sets and top set</span></div>' + cxCells('band') + B.weeks.map(function (w, c) { return '<div class="sx-dc' + (c === st.cw ? ' is-lit' : '') + '" role="gridcell" aria-readonly="true" aria-colindex="' + (c + 2) + '" data-c="' + c + '"></div>'; }).join('') + '</div>' +
         live.map(function (lf, i) {
-          return '<div class="sx-r sx-br" role="row" aria-rowindex="' + (ri + 1 + i) + '" data-band="' + lf + '"><div class="sx-ex" role="rowheader"><span class="sx-exb is-band"><span class="sx-exn">' + K.LIFT[lf] + '</span></span></div>' +
+          return '<div class="sx-r sx-br" role="row" aria-rowindex="' + (ri + 1 + i) + '" data-band="' + lf + '"><div class="sx-ex" role="rowheader"><span class="sx-exb is-band"><span class="sx-exn">' + K.LIFT[lf] + '</span></span></div>' + cxCells('band') +
             B.weeks.map(function (w, c) {
               var bd = S.band(B, lf, c), sel = st.kind === 'band' && st.lift === lf && st.cur.c === c;
               return '<div class="sx-bc' + (c === st.cw ? ' is-lit' : '') + (sel ? ' is-cur' : '') + '" role="gridcell" aria-readonly="true" aria-selected="' + sel + '" aria-colindex="' + (c + 2) + '" id="sxb-' + lf + '-' + c + '" data-band="' + lf + '" data-c="' + c + '">' +
@@ -729,6 +748,9 @@
       var B = b(), keepX = bodyEl.scrollLeft, ri = 2, html = '';
       st.cw = S.writeCol(B);
       gridEl.style.setProperty('--sx-n', String(B.weeks.length));
+      st.cx = cxList();
+      if (st.cx.length) { gridEl.style.setProperty('--sx-ctx', st.cx.map(function () { return CXW + 'px'; }).join(' ')); gridEl.style.setProperty('--sx-ctxw', st.cx.length * CXW + 'px'); }
+      else { gridEl.style.removeProperty('--sx-ctx'); gridEl.style.removeProperty('--sx-ctxw'); }
       gridEl.style.setProperty('--sx-cw', String(Math.max(0, st.cw)));
       gridEl.setAttribute('aria-label', (ctx().first ? ctx().first + '’s ' : '') + B.name + ', weeks across, exercises down by day');
       gridEl.setAttribute('aria-colcount', String(B.weeks.length + 1));
@@ -737,12 +759,13 @@
       st.boFirst = -1; (B.days || []).some(function (day) { return B.rows.some(function (row, r) { if (row.day === day.name && row.line && backName(B, r) === 'Back-offs') { st.boFirst = r; return true; } return false; }); });
       (B.days || []).forEach(function (day) {
         html += dayHtml(day, ri++);
-        B.rows.forEach(function (row, r) { if (row.day !== day.name) return; html += '<div class="sx-r sx-lr' + (row.line ? ' is-sub' : '') + '" role="row" data-row="' + esc(row.key) + '" aria-rowindex="' + (ri++) + '">' + exHtml(r) + B.weeks.map(function (w, c) { return cellHtml(r, c); }).join('') + '</div>'; });
+        B.rows.forEach(function (row, r) { if (row.day !== day.name) return; html += '<div class="sx-r sx-lr' + (row.line ? ' is-sub' : '') + '" role="row" data-row="' + esc(row.key) + '" aria-rowindex="' + (ri++) + '">' + exHtml(r) + cxCells('line', r) + B.weeks.map(function (w, c) { return cellHtml(r, c); }).join('') + '</div>'; });
         html += addHtml(day);
       });
       var band = bandHtml(ri);
       gridEl.setAttribute('aria-rowcount', String(ri + (band ? 4 : 0)));
-      bodyEl.innerHTML = (st.cw >= 0 ? '<i class="sx-lit" aria-hidden="true"></i>' : '') + html + band + '<div class="sx-sel" aria-hidden="true" hidden><i class="sx-handle" data-fill-handle data-handle title="Drag to fill" aria-label="Drag to fill"></i></div><div class="sx-fpv" aria-hidden="true" hidden></div>';
+      var ghost = typeof opts.onAddWeek === 'function' ? '<div class="sx-ghost" hidden><button class="sx-ghb" type="button" data-add-week title="Week ' + (B.weeks.length + 1) + ', from week ' + B.weeks.length + ' with its weekly step (Undo takes it back)">' + '<span aria-hidden="true">+</span><span>Add week</span></button><span class="sx-ghs">' + esc(B.weeks.length < 3 ? 'Add the next week to see the progression side by side.' : 'Week ' + (B.weeks.length + 1) + ' from week ' + B.weeks.length + '.') + '</span></div>' : '';
+      bodyEl.innerHTML = (st.cw >= 0 ? '<i class="sx-lit" aria-hidden="true"></i>' : '') + ghost + html + band + '<div class="sx-sel" aria-hidden="true" hidden><i class="sx-handle" data-fill-handle data-handle title="Drag to fill" aria-label="Drag to fill"></i></div><div class="sx-fpv" aria-hidden="true" hidden></div>';
       bodyEl.scrollLeft = keepX; headEl.scrollLeft = keepX;
       sizeCols();
       st.off = null; markOff();
@@ -805,8 +828,19 @@
     function sizeCols() {
       var pf = rzPrefs(), exw = isFinite(pf.ex) && pf.ex > 0 ? pf.ex : EXW;
       if (isFinite(pf.ex) && pf.ex > 0) gridEl.style.setProperty('--sx-ex', exw + 'px'); else gridEl.style.removeProperty('--sx-ex');
-      var B = b(), avail = Math.max(MINW, bodyEl.clientWidth - exw), k = Math.max(1, Math.min(B.weeks.length, Math.floor(avail / MINW))), colW = Math.floor(avail / k);
+      var cxw = (st.cx || []).length * CXW;
+      var B = b(), avail = Math.max(MINW, bodyEl.clientWidth - exw - cxw), k = Math.max(1, Math.min(B.weeks.length, Math.floor(avail / MINW))), colW = Math.min(MAXW, Math.floor(avail / k));
       if (isFinite(pf.wk) && pf.wk > 0) { colW = pf.wk; k = Math.max(1, Math.min(B.weeks.length, Math.floor(avail / colW))); }
+      /* the + Add week column after the last week, when the block ends inside the card */
+      /* 23 Nov (the owner: blank spaces, names cut off): when every week fits with room to spare, the exercise column takes
+         the spare first (up to 300 px, so "Close-grip bench, 1 s pause" reads whole); the + Add week column after the last
+         week takes what is left, up to a week's width, so the card ends on a column, not on empty space; a width the
+         coach dragged is kept as dragged */
+      if (k >= B.weeks.length && !(isFinite(pf.wk) && pf.wk > 0)) {
+        var spare = bodyEl.clientWidth - (exw + cxw + B.weeks.length * colW + GHW + 8);
+        if (spare > 0 && !(isFinite(pf.ex) && pf.ex > 0)) { var addEx = Math.min(spare, 300 - exw); if (addEx > 0) { exw += addEx; spare -= addEx; gridEl.style.setProperty('--sx-ex', exw + 'px'); } }
+      }
+      var gh = bodyEl.querySelector('.sx-ghost'); if (gh) { var at = exw + cxw + B.weeks.length * colW; gh.hidden = at + GHW > bodyEl.clientWidth; gh.style.left = at + 'px'; gh.style.width = Math.max(GHW - 8, Math.min(colW - 8, bodyEl.clientWidth - at - 16)) + 'px'; }
       st.k = k; st.colW = colW;
       gridEl.style.setProperty('--sx-w', colW + 'px');
       host.classList.toggle('is-wide', B.weeks.length > k);
@@ -853,7 +887,7 @@
     function say(t) {
       if (t) { liveEl.textContent = t; return; }
       var B = b(), sel = api.sel(), info = S.why(B, sel, ctx());
-      if (st.kind === 'cell') { var row = B.rows[st.cur.r], x = rawAt(B, st.cur.r, st.cur.c), L = S.loadOf(B, st.cur.r, st.cur.c), dl = S.deltaOf(B, st.cur.r, st.cur.c); t = 'Week ' + B.weeks[st.cur.c].n + ', ' + S.dayLabel(row.day) + ', ' + lineName(row).toLowerCase() + ', ' + (x ? S.readBack(x).replace(/\.$/, '') : 'empty') + (L.kg != null && !(x && x.lifted) ? ', ' + nf(L.kg) + ' kilos' : '') + (dl ? ', ' + (dl.d > 0 ? 'up ' : 'down ') + nf(Math.abs(dl.d)) : '') + (x && x.lifted ? ', lifted ' + S.topText(x.lifted) : ''); }
+      if (st.kind === 'cell' && B.rows[st.cur.r] && B.weeks[st.cur.c]) { var row = B.rows[st.cur.r], x = rawAt(B, st.cur.r, st.cur.c), L = S.loadOf(B, st.cur.r, st.cur.c), dl = S.deltaOf(B, st.cur.r, st.cur.c); t = 'Week ' + B.weeks[st.cur.c].n + ', ' + S.dayLabel(row.day) + ', ' + lineName(row).toLowerCase() + ', ' + (x ? S.readBack(x).replace(/\.$/, '') : 'empty') + (L.kg != null && !(x && x.lifted) ? ', ' + nf(L.kg) + ' kilos' : '') + (dl ? ', ' + (dl.d > 0 ? 'up ' : 'down ') + nf(Math.abs(dl.d)) : '') + (x && x.lifted ? ', lifted ' + S.topText(x.lifted) : ''); }
       else t = info.addr + '. ' + info.text;
       liveEl.textContent = t;
     }
@@ -1135,6 +1169,7 @@
     host.addEventListener('click', function (e) {
       var t = e.target, el;
       if ((el = t.closest('[data-bar]'))) { barAct(+el.getAttribute('data-bar'), el); return; }
+      if ((el = t.closest('[data-add-week]'))) { if (opts.onAddWeek) opts.onAddWeek(); return; }
       if ((el = t.closest('[data-menu="week"]'))) { if (opts.onWeekMenu) opts.onWeekMenu(+el.getAttribute('data-c'), el); return; }
       if ((el = t.closest('[data-nav]'))) { scrollWeeks(firstShown() + Number(el.getAttribute('data-nav')), true); return; }
       if ((el = t.closest('[data-ex-open]'))) { gridEl.focus({ preventScroll: true }); selectRow(+el.getAttribute('data-ex-open')); return; }

@@ -131,6 +131,28 @@ const outRow = p.locator('#wg .wg-line.is-out');
 ok('a whole line deleted is out of this week, and says so', (await outRow.count()) === 1 && /not this week/.test(await outRow.first().innerText()) && /out of week 5\. Undo/.test(await toast()), (await outRow.first().innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 60) + ' · ' + await toast());
 await shot('grids-block.png');
 
+// ---------------------------------------------------------------- round 3: the Block sheet of a short block (23 Nov, the owner: "improve this. even idk the point of this")
+{
+  const BB = BASE + '/coach-preview/desk/programs.html?theme=dark&reset=1';
+  await p.setViewportSize({ width: 1440, height: 900 });
+  await p.goto(BB + '#id=demo-d2&view=block', { waitUntil: 'load' }); await p.waitForTimeout(900);
+  const pr = await p.evaluate(() => ({ weeks: [...document.querySelectorAll('.sx-hr .sx-wh')].map((x) => Math.round(x.getBoundingClientRect().width)), cx: [...document.querySelectorAll('.sx-hr .sx-cxh')].map((x) => x.textContent), cxRO: [...document.querySelectorAll('.sx-cx')].every((x) => x.getAttribute('aria-readonly') === 'true' || x.getAttribute('aria-hidden') === 'true') && !document.querySelector('.sx-cx[data-c], .sx-cx[id]'), firstCx: (document.querySelector('.sx-lr .sx-cx') || {}).textContent || '' }));
+  ok('a one-week block: its week column is no wider than 240 px', pr.weeks.length === 1 && pr.weeks[0] <= 240, JSON.stringify(pr.weeks));
+  ok('the weeks it follows read beside it, labelled, read-only, as lifted', pr.cx.length === 2 && pr.cx.every((x) => /lifted/.test(x)) && pr.cxRO && /117\.5|115/.test(pr.firstCx), JSON.stringify(pr.cx) + ' ' + pr.firstCx);
+  await p.locator('.sx-lr .sx-cx').first().click(); await p.waitForTimeout(150);
+  ok('a click on a context cell writes nothing and opens no editor', (await p.locator('.sx-ed').count()) === 0);
+  // a one-week program of nobody's: + Add week after its last week, one Undo
+  await p.goto(BB + '#tab=templates', { waitUntil: 'load' }); await p.waitForTimeout(500);
+  const tid = await p.evaluate(() => PL.templates.create({ name: 'One week', weeks: 1, days: 2 }).data.id);
+  await p.evaluate((id) => { location.hash = 'prog=' + id + '&view=block'; }, tid); await p.waitForTimeout(900);
+  const nW = () => p.evaluate((id) => PL.templates.get(id).data.weeks.length, tid);
+  ok('after the last week stands + Add week', await p.locator('.sx-ghost:not([hidden]) [data-add-week]').count() === 1);
+  await p.locator('[data-add-week]').click(); await p.waitForTimeout(500);
+  const w2 = await nW();
+  await p.locator('#pd .hd .facts').click(); await p.keyboard.press('Meta+z'); await p.waitForTimeout(500);
+  ok('it adds a week, and ⌘Z takes it back', w2 === 2 && (await nW()) === 1, w2 + ' → ' + await nW());
+}
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'no script errors');
 await b.close();
