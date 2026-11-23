@@ -1,0 +1,19 @@
+/* Logo trace loader (logo-trace-loader.js). Colour it with `color` on the svg or a parent; --logo-plate the red plate. */
+.ltl { display: inline-block; flex: none; overflow: visible; vertical-align: middle; }
+.ltl-guide { opacity: 0.18; }
+/* loop: a short stroke running round the outline */
+.ltl-trace { stroke-dasharray: 0.16 0.84; stroke-dashoffset: 0; animation: logo-trace-loader-loop var(--ltl-loop, 1.4s) linear infinite; }
+/* closingOutline: the outline draws itself whole */
+.ltl[data-phase='closingOutline'] .ltl-trace { stroke-dasharray: 1 1; animation: logo-trace-loader-close var(--ltl-close, 0.45s) cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+/* fadingFill / done: the outline gives way as the filled mark fades in, so it resolves into the mark itself */
+.ltl-trace, .ltl-guide { transition: opacity var(--ltl-fade, 0.3s) ease-out; }
+.ltl[data-phase='fadingFill'] .ltl-trace, .ltl[data-phase='done'] .ltl-trace { stroke-dasharray: none; animation: none; opacity: 0; }
+.ltl[data-phase='fadingFill'] .ltl-guide, .ltl[data-phase='done'] .ltl-guide { opacity: 0; }
+.ltl-fill { opacity: 0; transition: opacity var(--ltl-fade, 0.3s) ease-out; }
+.ltl[data-phase='fadingFill'] .ltl-fill, .ltl[data-phase='done'] .ltl-fill { opacity: 1; }
+@keyframes logo-trace-loader-loop { to { stroke-dashoffset: -1; } }
+@keyframes logo-trace-loader-close { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+/* reduced motion: the filled mark from the first frame, nothing moves */
+.ltl[data-still] .ltl-trace, .ltl[data-still] .ltl-guide { display: none; }
+.ltl[data-still] .ltl-fill { opacity: 1; transition: none; }
+@media (prefers-reduced-motion: reduce) { .ltl-trace { animation: none; } .ltl-fill { transition: none; } }
