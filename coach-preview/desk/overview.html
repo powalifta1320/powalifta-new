@@ -149,6 +149,55 @@
   .pop .inv { margin: var(--sp-3) 0 0; font: 600 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; user-select: all; }
   .pop .seats { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
   .pop .compose { display: block; width: 100%; margin-top: var(--sp-3); }
+
+  /* ---------------- 23 Nov: the same page, organised by Hick, Fitts and Jakob ---------------- */
+  /* Fitts: a row's one fix fills its column at the toolbar's height, so every row's button has the same two edges and a
+     coach clears the list down one vertical line. The crimson stays the largest button on the page (same height, wider). */
+  .need .lrow .go { --h: var(--ctl-h); width: 100%; justify-content: flex-start; }
+  .need .lrow .go > span { flex: 1 1 auto; text-align: left; }
+  /* a key, shown where its action is: the fix's E on the row the keys are on; the menu's own keys in the menu */
+  .kk { display: inline-grid; place-items: center; flex: none; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 6px; box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink-3); font: 600 var(--fs-cap)/1 var(--font); font-style: normal; }
+  .need .lrow .go .kk { display: none; }
+  .need .lrow:focus-visible .go .kk, .need .lrow .go:focus-visible .kk { display: inline-grid; }
+  /* Hick: a row's other moves wait behind its ⋯, drawn on the row the pointer or the keys are on (touch keeps it drawn);
+     its place is held, so nothing moves when it appears */
+  @media (hover: hover) and (pointer: fine) {
+    .need .lrow:not(.is-done):not(:hover):not(:focus-within):not(.is-sel) .more { opacity: 0; }
+  }
+  /* the first five, then one line for the rest: how many, who, and the way to show them */
+  .need .nmore { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 48px; margin: 0; padding: 0 var(--sp-4); border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; color: var(--ink-3); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-align: left; cursor: pointer; }
+  .need .nmore .w { min-width: 0; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .need .nmore .w b { color: var(--ink-2); font-weight: 500; }
+  .need .nmore .l { flex: none; color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
+  @media (hover: hover) and (pointer: fine) { .need .nmore:hover { background: var(--hover); } .need .nmore:hover .l { text-decoration-color: currentColor; } }
+  .need .nmore:focus-visible { outline: 0; box-shadow: inset 0 0 0 2px var(--focus); }
+  /* decided in this sitting: the done rows follow the open ones (the next case slides up into the place just decided) */
+  .need .nmore + .lrow::before { opacity: 0; }
+  /* the list's own width decides (the sidebar kept open takes 180 px): under it, the figure column goes and the name
+     keeps its room, as below 1100 px already (23 Nov: at 1280 with the sidebar pinned every name was cut to "Priy…") */
+  .sec.need { container: needc / inline-size; }
+  @media (min-width: 1281px) { @container needc (max-width: 880px) { .need .lrow:not(.c2) { grid-template-columns: 40px minmax(0, 1fr) var(--fix-w) var(--more-w); } .need .lrow .fg-col { display: none; } } }
+  @media (max-width: 1280px) { @container needc (max-width: 800px) { .need .lrow:not(.c2) { grid-template-columns: 40px minmax(0, 1fr) var(--fix-w) var(--more-w); } .need .lrow .fg-col { display: none; } } }
+  /* "2 done today" opens the day's done rows, as an archive */
+  #need-sum button { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
+  @media (hover: hover) and (pointer: fine) { #need-sum button:hover { color: var(--ink); text-decoration-color: currentColor; } }
+  /* Messages: who waits and is not already in Needs you; the rest is one line */
+  .flat .msg-in { min-height: var(--rh); display: flex; align-items: center; margin: 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  /* a chart's people, drawn: the week as seven days (lifted, to come, missed, rest), effort as written against felt */
+  .wk7 { display: inline-flex; gap: 3px; vertical-align: middle; }
+  .wk7 i { display: grid; place-items: center; width: 16px; height: 18px; border-radius: 5px; background: transparent; color: var(--ink-4); font: 600 10px/1 var(--font); font-style: normal; }
+  .wk7 i.come { box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink-3); }
+  .wk7 i.done { background: var(--place-sel); color: var(--place-ink); box-shadow: inset 0 0 0 1px var(--place-ink); }
+  .wk7 i.miss { background: var(--warn-tint); box-shadow: inset 0 0 0 1px var(--warn); color: color-mix(in srgb, var(--warn) 80%, var(--ink)); text-decoration: line-through; }
+  /* names keep their capitals in the Health headline ("2 in pain: Sarah, Priya") */
+  .ch[data-chart-pop=health] .unit { text-transform: none; }
+  .wk7 i.now { font-weight: 800; color: var(--ink); }
+  .pop .pick .v .wk7 + small, .pop .pick .v .n7 { display: block; margin-top: 3px; color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); text-align: right; }
+  .pop .pick .v .fg { height: 22px; width: 132px; gap: var(--sp-2); }
+  .pop .pick .v .fg b { font-size: var(--fs-sub); }
+  .pop .key7 { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); margin: var(--sp-2) 0 0; color: var(--ink-3); font: 500 var(--fs-cap)/1.3 var(--font); }
+  .pop .key7 span { display: inline-flex; align-items: center; gap: 5px; }
+  .pop .key7 .wk7 i { width: 12px; height: 14px; font-size: 0; }
 </style>
 </head>
 <body data-place="overview">
@@ -163,7 +212,7 @@
     <div class="card charts" id="charts" data-crop="charts" role="group" aria-label="This week across your lifters"></div>
     <div class="mid" id="mid">
       <div class="sec need" aria-labelledby="need-h">
-        <div class="sec-h" id="need-hd"><h2 id="need-h">Needs you <span class="n acc" data-count="needYou"></span></h2><span class="grow"></span><span class="sub" id="need-sum"><span data-count="doneToday"></span> done today</span></div>
+        <div class="sec-h" id="need-hd"><h2 id="need-h">Needs you <span class="n acc" data-count="needYou"></span></h2><span class="grow"></span><span class="sub" id="need-sum"><button type="button" data-donejump aria-label="Show what was done today"><span data-count="doneToday"></span> done today</button></span></div>
         <div class="card" data-crop="needs"><div class="list" id="need" data-list aria-label="Needs you"></div><div id="need-f"></div></div>
       </div>
       <div class="col">
@@ -226,7 +275,8 @@
     var s = setupOf(); if (!s || !s.show || s.done >= s.of || !s.next) return null;
     return s.steps.filter(function (x) { return x.key === s.next; })[0] || null;
   }
-  DESK.keyMap([['↑ ↓', 'Move between Needs you rows'], ['Enter', 'Open in Lifters'], ['E', 'Do what the red button says'], ['⌘↵', 'Apply the open fix'], ['Esc', 'Close the fix or the popover']]);
+  /* the list keys, as in a mail inbox: move, open, act, archive (Nothing to change), undo (⌘Z, the desk's) */
+  DESK.keyMap([['↑ ↓', 'Move between Needs you rows'], ['Enter', 'Open the lifter'], ['E', 'The row’s fix (no row picked: go through them all)'], ['D', 'Nothing to change: keep it as written'], ['⌘↵', 'Apply the open fix'], ['Esc', 'Close the fix or the popover']]);
 
   /* ---------------- the title row and the crimson, in this order of truth (§5.2) ---------------- */
   /* Keep an eye on: the store's list, and the ones not handled today (function-polish F10.1: the line counts open ones) */
@@ -286,8 +336,8 @@
       return { label: wd.charAt(0), now: d.future ? 0 : d.done, ghost: d.prev, today: d.today, tip: tip };
     });
     var maxPct = Math.max.apply(null, LIFTS.map(function (k) { return Math.abs(s.lifts[k] || 0); }));
-    var hb = LIFTS.map(function (k) { var v = s.lifts[k] || 0; return { cls: 'lc-' + k, label: K.LIFT[k], value: v, text: minus(v, 1) + '%', tip: K.LIFT[k] + ': ' + minus(v, 1) + '% on average in 4 weeks' }; });
-    var dv = e.perLifter.map(function (x) { return { v: x.drift, tip: firstOf(x.id) + ': ' + (Math.abs(x.drift) < 0.05 ? 'as written' : minus(x.drift) + ' RPE on average') }; });
+    var hb = LIFTS.map(function (k) { var v = s.lifts[k] || 0; return { cls: 'lc-' + k, label: K.LIFT[k], value: v, text: minus(v, 1) + '%', tip: K.LIFT[k] + ': best lift ' + minus(v, 1) + '% on average in 4 weeks (estimated max, e1RM)' }; });
+    var dv = e.perLifter.map(function (x) { return { v: x.drift, tip: firstOf(x.id) + ': ' + (Math.abs(x.drift) < 0.05 ? 'felt as written' : 'felt ' + (x.drift > 0 ? 'harder' : 'easier') + ' than written, ' + minus(x.drift) + ' on the 1 to 10 effort scale (RPE)') }; });
     var order = h.pain.map(function (id) { return { id: id, tone: 'pain', w: 'pain' }; }).concat(h.low.map(function (id) { return { id: id, tone: 'warn', w: 'low recovery' }; }), h.ok.map(function (id) { return { id: id, tone: 'up', w: 'fine' }; }), h.none.map(function (id) { return { id: id, none: true, w: 'no check-in' }; }));
     var dots = order.map(function (x) { return { tone: x.tone, none: x.none, tip: firstOf(x.id) + ': ' + x.w }; });
     var bunches = []; m.list.forEach(function (mm) { var b = bunches[bunches.length - 1]; if (b && mm.days - b.days <= 4) b.list.push(mm); else bunches.push({ days: mm.days, list: [mm] }); });
@@ -306,27 +356,47 @@
     var flat = s.flat.length ? 'Flat: ' + esc(names(s.flat)) : 'Nobody is flat';
     var harder = e.harder.length ? 'Harder: ' + esc(names(e.harder)) : 'Nobody found it harder';
     var meetLine = today ? 'Today: ' + esc(names(today.ids)) : 'No meet this week';
-    return col('behind', 'Training', 'Mon to Sun', t.done, 'of ' + t.planned + ' sessions', CH.bars(days), CH.legend([{ label: 'This week', tone: 'up' }, { label: 'Last week', ghost: true }]) + '<span class="said">' + behind + '</span>',
-        'Training, Monday to Sunday: ' + t.done + ' of ' + t.planned + ' sessions. ' + behind + '. Show who.') +
-      col('stalled', 'Strength', '4 weeks', minus(s.pct, 1) + '%', 'on average', CH.hbars(hb, { max: maxPct }), flat,
-        'Strength over 4 weeks: ' + minus(s.pct, 1) + '% on average. ' + flat + '. Show who.') +
-      col('harder', 'Effort', '7 days', e.asWrittenPct + '%', 'felt as written', CH.diverging(dv), harder,
-        'Effort over 7 days: ' + e.asWrittenPct + '% of sets felt as written. ' + harder + '. Show who.') +
-      col('health', 'Health', 'Today', cnt.pain, 'in pain', CH.waffle(dots), CH.legend([{ label: h.pain.length + ' pain', tone: 'pain' }, { label: h.low.length + ' low', tone: 'warn' }, { label: h.ok.length + ' fine', tone: 'up' }, { label: h.none.length + ' no check-in', none: true }]),
-        'Health today: ' + h.pain.length + ' in pain, ' + h.low.length + ' low recovery, ' + h.ok.length + ' fine, ' + h.none.length + ' without a check-in. Show who.') +
-      col('meet', 'Meets', '8 weeks', cnt.meetsSoon, 'meets, ' + cnt.meetLifters + ' lifters', CH.timeline(marks, { ticks: ticks, left: 'Today', right: K.dm(K.add(K.today, m.span)) }), meetLine,
-        'Meets in the next 8 weeks: ' + cnt.meetsSoon + ' meets, ' + cnt.meetLifters + ' lifters. ' + meetLine + '. Show who.');
+    /* Health names who in its headline ("2 in pain: Sarah, Priya": the red dots), its key counts the other colours */
+    var sore = h.pain.length ? 'In pain: ' + esc(names(h.pain)) : 'Nobody in pain';
+    var tiles = {
+      behind: col('behind', 'Training', 'Mon to Sun', t.done, 'of ' + t.planned + ' sessions', CH.bars(days), CH.legend([{ label: 'This week', tone: 'up' }, { label: 'Last week', ghost: true }]) + '<span class="said">' + behind + '</span>',
+        'Training, Monday to Sunday: ' + t.done + ' of ' + t.planned + ' sessions. ' + behind + '. Show who.'),
+      stalled: col('stalled', 'Strength', '4 weeks', minus(s.pct, 1) + '%', 'on average', CH.hbars(hb, { max: maxPct }), flat,
+        'Strength over 4 weeks: best lifts ' + minus(s.pct, 1) + '% on average (estimated max, e1RM). ' + flat + '. Show who.'),
+      harder: col('harder', 'Effort', '7 days', e.asWrittenPct + '%', 'felt as written', CH.diverging(dv), harder,
+        'Effort over 7 days: ' + e.asWrittenPct + '% of sets felt as hard as written (RPE). ' + harder + '. Show who.'),
+      health: col('health', 'Health', 'Today', cnt.pain, 'in pain' + (h.pain.length ? ': ' + esc(names(h.pain, 2)) : ''), CH.waffle(dots), CH.legend([{ label: h.low.length + ' low', tone: 'warn' }, { label: h.ok.length + ' fine', tone: 'up' }, { label: h.none.length + ' no check-in', none: true }]),
+        'Health today: ' + h.pain.length + ' in pain, ' + h.low.length + ' low recovery, ' + h.ok.length + ' fine, ' + h.none.length + ' without a check-in. ' + sore + '. Show who.'),
+      meet: col('meet', 'Meets', '8 weeks', cnt.meetsSoon, 'meets, ' + cnt.meetLifters + ' lifters', CH.timeline(marks, { ticks: ticks, left: 'Today', right: K.dm(K.add(K.today, m.span)) }), meetLine,
+        'Meets in the next 8 weeks: ' + cnt.meetsSoon + ' meets, ' + cnt.meetLifters + ' lifters. ' + meetLine + '. Show who.')
+    };
+    return chartOrder(h).map(function (k) { return tiles[k]; }).join('');
   }
+  /* the most urgent picture first (Hick: the eye starts where the answer is): Health leads while someone is in pain */
+  function chartOrder(h) { return h && h.pain && h.pain.length ? ['health', 'behind', 'stalled', 'harder', 'meet'] : ['behind', 'stalled', 'harder', 'health', 'meet']; }
   /* a chart's people (§5.3): title and count, up to 8 rows, each opening the lifter in Lifters, one quiet way on */
   function pickHtml(id, f, sub, val) {
     var l = L(id); if (!l) return '';
-    return '<a class="pick" href="' + esc(lifterHref(id, f)) + '"><span class="pk"><b>' + esc(l.name) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>' + (val ? '<span class="v">' + esc(val) + '</span>' : '') + '</a>';
+    return '<a class="pick" href="' + esc(lifterHref(id, f)) + '"><span class="pk"><b>' + esc(l.name) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>' + (val ? '<span class="v">' + (val.html || esc(val)) + '</span>' : '') + '</a>';
   }
+  /* a lifter's week as seven days, Monday first: lifted (lit), to come (outlined), missed (struck), rest (blank); today bold */
+  var D1 = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  function week7(id) {
+    var w = fn(PL.lifters, 'week') ? data(PL.lifters.week(id)) : null, td = dayNow(), dow = (new Date(td + 'T12:00:00').getDay() + 6) % 7, by = {}, done = 0, of = 0, said = [];
+    ((w && w.sessions) || []).forEach(function (x) { if (x.date) by[x.date] = x; });
+    var cells = D1.map(function (l, i) {
+      var iso = K.add(td, i - dow), x = by[iso], c = 'rest', st = 'rest';
+      if (x) { of++; if (x.state === 'done' || x.state === 'part') { c = 'done'; st = 'lifted'; done++; } else if (x.state === 'missed') { c = 'miss'; st = 'missed'; } else { c = 'come'; st = 'to come'; } said.push(WD[i] + ' ' + st); }
+      return '<i class="' + c + (iso === td ? ' now' : '') + '" title="' + esc(WD[i] + ': ' + (x ? x.name + ', ' + st : 'rest')) + '">' + l + '</i>';
+    }).join('');
+    return { h: '<span class="wk7" role="img" aria-label="' + esc(said.join(', ') || 'No sessions this week') + '">' + cells + '</span>', done: done, of: of };
+  }
+  var KEY7 = '<p class="key7"><span><span class="wk7"><i class="done"></i></span>Lifted</span><span><span class="wk7"><i class="come"></i></span>To come</span><span><span class="wk7"><i class="miss"></i></span>Missed</span></p>';
   function rowsOf(f) { var r = PL.lifters.list({ f: f }); return r && r.data ? r.data : []; }
   var POPS = {
     behind: function () {
       var rows = rowsOf('behind');
-      return { title: 'Behind on sessions', n: rows.length, f: 'behind', rows: rows.slice(0, 8).map(function (r) { return pickHtml(r.id, 'behind', null, r.week ? r.week.done + ' of ' + r.week.of : ''); }).join('') };
+      return { title: 'Behind on sessions', n: rows.length, f: 'behind', key: KEY7, rows: rows.slice(0, 8).map(function (r) { var wk = week7(r.id); return pickHtml(r.id, 'behind', null, { html: wk.h + '<small>' + (r.week ? r.week.done + ' of ' + r.week.of : wk.done + ' of ' + wk.of) + ' this week</small>' }); }).join('') };
     },
     stalled: function () {
       var rows = rowsOf('stalled');
@@ -334,7 +404,8 @@
     },
     harder: function () {
       var rows = rowsOf('harder');
-      return { title: 'Finding it harder', n: rows.length, f: 'harder', rows: rows.slice(0, 8).map(function (r) { return pickHtml(r.id, 'harder', r.reason ? r.reason.text : '', null); }).join('') };
+      /* effort as written against felt: the ring is what was written, the dot what it felt like (RPE, 6 to 10) */
+      return { title: 'Finding it harder', n: rows.length, f: 'harder', key: '<p class="key7">Ring: as written. Dot: as it felt (effort out of 10, RPE).</p>', rows: rows.slice(0, 8).map(function (r) { var lt = r.lastTop; return pickHtml(r.id, 'harder', r.reason ? r.reason.text : '', lt && lt.felt != null && lt.written != null ? { html: figRpe(lt.felt, lt.written) } : null); }).join('') };
     },
     health: function () {
       var rows = rowsOf('health'), none = rowsOf('nocheckin');
@@ -351,7 +422,7 @@
   };
   function openChart(btn) {
     var p = POPS[btn.getAttribute('data-chart-pop')](); if (!p) return;
-    var html = '<h3>' + esc(p.title) + '<span class="n">' + p.n + '</span></h3><div class="pop-b"><div class="ppl">' + p.rows + '</div>' +
+    var html = '<h3>' + esc(p.title) + '<span class="n">' + p.n + '</span></h3>' + (p.key || '') + '<div class="pop-b"><div class="ppl">' + p.rows + '</div>' +
       '<div class="pop-f"><a class="btn quiet sm" href="' + LIFTERS + '#f=' + p.f + '">Show them in Lifters</a></div>' + (p.after || '') + '</div>';
     DESK.pop.open(btn, html, { label: p.title });
   }
@@ -360,7 +431,9 @@
   /* lifters handled before this visit fold into "Done today"; lifters handled during it keep their row in place. The
      visit is the coach's sitting: everything since they last looked (the store's lastLook, the line "Trained since you
      looked" counts from). So a row handled on Lifters a minute ago still shows its done row here, with its Undo. */
-  var folded = {}, foldOpen = false, here = null;
+  /* "Elena, Marcus, Kofi and 3 others": who waits under the fold */
+  var restNames = function (xs) { var f = xs.map(function (x) { return firstOf(x.id); }); return f.length <= 4 ? f.slice(0, -1).join(', ') + (f.length > 1 ? ' and ' : '') + f[f.length - 1] : f.slice(0, 3).join(', ') + ' and ' + (f.length - 3) + ' others'; };
+  var folded = {}, foldOpen = false, here = null, hereIdx = -1, showAll = false, SHOW = 5;
   var since = fn(PL.lifters, 'since') ? PL.lifters.since() : null, lastLook = since && since.meta && since.meta.from ? String(since.meta.from) : null;
   PL.roster.needs().data.forEach(function (x) { if (x.done && lastLook && x.done.at && String(x.done.at) < lastLook) folded[x.id] = true; });
   function ctxHtml(c) {
@@ -431,11 +504,11 @@
     if (why && why.type === 'weight') tone = 'bw';
     var kick = it && it.kicker ? (it.kicker.length > 22 ? (/form check/i.test(it.kicker) ? 'Form check' : it.kicker.split(/ and |, /)[0]) : it.kicker) : '';
     var tag = kick ? '<span class="tg"' + (tone ? ' data-tone="' + esc(tone) + '"' : '') + '>' + esc(kick) + '</span>' : '';
-    var more = menuOf(x).length ? '<button class="btn quiet sm icon more" type="button" data-more="' + esc(x.id) + '" aria-haspopup="menu" aria-label="' + esc('More for ' + x.first) + '" title="More">' + DESK.ic('more') + '</button>' : '<span class="more-slot" aria-hidden="true"></span>';
+    var more = menuOf(x).length ? '<button class="btn quiet sm icon more" type="button" data-more="' + esc(x.id) + '" aria-haspopup="menu" aria-label="' + esc('Other moves for ' + x.first) + '" title="Other moves">' + DESK.ic('more') + '</button>' : '<span class="more-slot" aria-hidden="true"></span>';
     /* the label in full: a trailing "…" (the store's "opens a sheet" mark) reads as cut words on a button in a list */
     var said = f ? String(f.short || f.label).replace(/\s*…$/, '') : '';
     var fix = f ? '<button class="btn sm go" type="button" data-fact="action" data-fixbtn data-item="' + esc(f.itemId || '') + '" data-act="' + esc(f.actId || '') + '"' + (f.reminderId ? ' data-reminder="' + esc(f.reminderId) + '"' : '') +
-      ' data-for="' + esc(x.id) + '" title="' + esc(String(f.label).replace(/\s*…$/, '')) + '"><span>' + esc(said) + '</span>' + (f.go ? DESK.ic('chev', 2.2) : '') + '</button>' : '<span class="fix-none"></span>';
+      ' data-for="' + esc(x.id) + '" title="' + esc(String(f.label).replace(/\s*…$/, '') + ' (E)') + '" aria-keyshortcuts="E"><span>' + esc(said) + '</span><kbd class="kk" aria-hidden="true">E</kbd>' + (f.go ? DESK.ic('chev', 2.2) : '') + '</button>' : '<span class="fix-none"></span>';
     return '<div class="lrow' + (here === x.id ? ' is-sel' : '') + '" data-row="' + esc(x.id) + '" tabindex="0" aria-label="' + esc(x.name + (why ? ', ' + why.text : '')) + '">' + face +
       '<span class="who"><span class="who-n">' + nm + tag + '</span>' + (why ? '<span class="why" data-fact="reason"><span class="t" data-ellipsis title="' + esc(why.full || why.text) + '">' + esc(why.text) + '</span></span>' : '') + '</span>' +
       figHtml(x) + '<span class="act">' + fix + more + '</span></div>';
@@ -447,13 +520,19 @@
   }
   /* a row's ⋯ holds what is not its fix: the item's own menu moves (a first block's "Do it Saturday", function-polish F4.4)
      and, for pain read only from words in a note, "Not pain: clear the flag" (P2) */
+  /* 23 Nov (Hick): the button is the one recommended move; the case's other moves (each previewed in the same fix sheet,
+     the "keep as written" one on D) wait here, then the two ways out: the lifter (Enter) and their thread */
   function menuOf(x) {
     var out = [], f = x.fix, why = x.reason;
-    var it = f && f.itemId && fn(PL.items, 'get') ? data(PL.items.get(f.itemId)) : null;
+    var it = f && f.itemId && fn(PL.items, 'get') ? data(PL.items.get(f.itemId)) : null, kp = keepAct(it);
+    (it && it.acts || []).forEach(function (a) { if (a && a.id && !(f && a.id === f.actId)) out.push({ id: 'act:' + a.id, label: String(a.label).replace(/\s*…$/, '…'), item: it.id, act: a.id, key: kp && kp.id === a.id ? 'D' : null }); });
     (it && it.menu || []).forEach(function (m) { if (m && m.id) out.push({ id: 'item:' + m.id, label: m.label, item: it.id, act: m.id }); });
     if (why && why.type === 'note' && why.tone === 't-pain' && fn(PL.lifters, 'notPain')) out.push({ id: 'notpain', label: 'Not pain: clear the flag', title: 'Their words stay waiting; the pain hold on ' + x.first + '’s lift lifts' });
-    return out;
+    if (!x.done) { out.push({ id: 'open', label: 'Open ' + x.first + ' in Lifters', key: '↵' }); out.push({ id: 'msg', label: 'Message ' + x.first }); }
+    return out.slice(0, 7);
   }
+  /* the case's "nothing to change" move, when it has one (Keep as written, Keep Friday, Keep 155, Fine, keep watching) */
+  function keepAct(it) { return ((it && it.acts) || []).filter(function (a) { return a && /^(keep|watch)$/.test(a.id); })[0] || null; }
   function needHtml() {
     var all = needsNow();
     all.forEach(function (x) { if (!x.done) delete folded[x.id]; });
@@ -462,7 +541,15 @@
       var w = watchOpen().length;
       return '<p class="empty">Nobody needs you right now.' + (w ? '<br><a class="btn quiet sm" href="' + LIFTERS + '#f=watch">Go through the ' + w + ' to keep an eye on</a>' : '') + '</p>' + (foldOpen ? fold.map(rowHtml).join('') : '');
     }
-    return clearHtml(shown) + shown.map(rowHtml).join('') + (foldOpen ? fold.map(rowHtml).join('') : '');
+    /* 23 Nov (Hick, Fitts): an inbox. The open cases, worst first, the first five drawn; one line holds the rest; a case
+       decided now leaves the open five at once (the next one slides up into its place, under the pointer and the keys)
+       and its done row follows the open ones, with its tick, its receipt and its Undo */
+    var open = shown.filter(function (x) { return !x.done; }), done = shown.filter(function (x) { return x.done; });
+    var cut = showAll || open.length <= SHOW + 1 ? open.length : SHOW, rest = open.slice(cut);
+    var more = open.length > SHOW + 1 ? '<button class="nmore" type="button" data-showall aria-expanded="' + (cut === open.length) + '">' +
+      (cut === open.length ? '<span class="w">All ' + open.length + ' shown</span><span class="l">Show the first ' + SHOW + '</span>'
+        : '<span class="w"><b>' + rest.length + ' more</b> · ' + esc(restNames(rest)) + '</span><span class="l">Show all ' + open.length + '</span>') + '</button>' : '';
+    return clearHtml(shown) + open.slice(0, cut).map(rowHtml).join('') + more + done.map(rowHtml).join('') + (foldOpen ? fold.map(rowHtml).join('') : '');
   }
   /* every row on the list decided today: one line over them says the day's list is done, its end state (DESK.done lands
      it once, when the last decision makes it) */
@@ -541,10 +628,11 @@
       var sub;
       if (live[id]) sub = 'Lifting now, ' + K.plural(live[id].sets, 'set') + ' in';
       else { var ses = sessionToday(id); sub = ses ? ses.name + ', ' + (liftedToday(id) ? 'done' : 'to come') : 'To come'; }
-      return pickHtml(id, null, sub, null);
+      var wk = week7(id);
+      return pickHtml(id, null, sub, { html: wk.h + '<small>' + wk.done + ' of ' + wk.of + ' this week</small>' });
     }).join('');
     var title = tt.ids.length + ' training today';
-    DESK.pop.open(btn, '<h3>' + esc(title) + '</h3><div class="pop-b"><div class="ppl">' + rows + '</div></div>', { label: title });
+    DESK.pop.open(btn, '<h3>' + esc(title) + '</h3>' + KEY7 + '<div class="pop-b"><div class="ppl">' + rows + '</div></div>', { label: title });
   }
   function meetMenu(btn) {
     var row = btn.closest('[data-meet]'), id = row.getAttribute('data-meet'), all = row.getAttribute('data-all');
@@ -590,13 +678,18 @@
     var ids = r.meta && r.meta.groups ? r.meta.groups.waiting : (r.data || []).filter(function (t) { return t.waiting; }).map(function (t) { return t.id; });
     $('#msgs-sub').hidden = !counts().waitingThreads;
     if (!ids.length) return '<p class="empty">No one is waiting for a reply.</p>';
+    /* 23 Nov (Hick): a lifter with an open case in Needs you is answered from that row (its fix carries the words); here
+       only the others, then one line for those (the way to every thread stays at the foot: Open messages) */
+    var inNeed = {}; needsNow().forEach(function (x) { if (!x.done) inNeed[x.id] = true; });
+    var dup = ids.filter(function (id) { return inNeed[id]; }).length; ids = ids.filter(function (id) { return !inNeed[id]; });
+    var line = dup ? '<p class="msg-in">' + (ids.length ? (dup === 1 ? 'One more is' : dup + ' more are') : dup === 1 ? 'The one waiting is' : 'All ' + dup + ' are') + ' in Needs you.</p>' : '';
     return ids.map(function (id) {
       var x = by[id]; if (!x) return '';
       var w = theirWords(x);
       return '<a class="lrow two" data-row="' + esc(id) + '" href="' + esc(MESSAGES + '#id=' + encodeURIComponent(id)) + '">' + DESK.photo(L(id) || x, 32) + '<span class="nm" data-fact="name" data-ellipsis title="' + esc(x.name) + '">' + esc(x.name) + '</span>' +
         '<span class="when" data-fact="context">' + esc(whenWords(x.since || (x.last && x.last.at))) + '</span>' +
         '<span class="why" data-fact="reason"><span class="t" data-quote data-ellipsis title="' + esc(w) + '">' + esc(w) + '</span></span></a>';
-    }).join('');
+    }).join('') + line;
   }
 
   /* ---------------- painting: once at load, then on every store change while no popover is open ---------------- */
@@ -651,7 +744,7 @@
     var lost = !document.activeElement || document.activeElement === document.body || !!hadRow;
     /* a row decided during this visit turns into its done row where it is (DESK.done: the tick draws, the words come up);
        the decision that empties the day's list is a moment: the line that says so lands once (clearHtml) */
-    var wasDone = {}, wasOpen = painted ? $$('#need [data-row]:not(.is-done)').length : -1;
+    var wasDone = {}, wasOpen = painted ? $$('#need [data-row]:not(.is-done)').length : -1, prevOpen = $$('#need [data-row]:not(.is-done)').map(function (r) { return r.getAttribute('data-row'); });
     $$('#need [data-row].is-done').forEach(function (r) { wasDone[r.getAttribute('data-row')] = 1; });
     $('#need').innerHTML = needHtml();
     if (painted && fn(DESK, 'done')) {
@@ -667,10 +760,21 @@
     $('#today').innerHTML = todayHtml();
     $('#msgs').innerHTML = msgsHtml();
     var back = rowId || (lost && here) || null, row = back ? rowEl(back) : null;
+    /* a case just decided has left the open rows: the keys stay where they were, on the case that took its place */
+    if (back && (!row || row.classList.contains('is-done')) && (prevOpen.indexOf(back) >= 0 || hereIdx >= 0)) {
+      var opens = $$('#need [data-row]:not(.is-done)'), at = prevOpen.indexOf(back) >= 0 ? prevOpen.indexOf(back) : hereIdx;
+      if (opens.length) row = opens[Math.min(at, opens.length - 1)];
+    }
     if (row && lost) row.focus({ preventScroll: true });
-    here = null;
+    here = null; hereIdx = -1;
     /* the one-time tip under the Needs you head, on a desk under 4 lifters (first-time-coach §8.4) */
     if (size() !== 'full' && $('#need [data-row]') && fn(DESK, 'tip')) DESK.tip('needs', $('#need-hd'), 'Worst first. Each button shows the change before it makes it.');
+  }
+  /* the day's done rows, as an archive: unfolded, the first one focused */
+  function doneJump() {
+    if (!foldOpen && $('[data-fold]')) { foldOpen = true; paint(); }
+    var d = $('#need [data-row].is-done'); if (!d) return;
+    d.focus({ preventScroll: true }); d.scrollIntoView({ block: 'nearest', behavior: 'auto' });
   }
   function rowEl(id) { return $$('#need [data-row]').filter(function (r) { return r.getAttribute('data-row') === id; })[0] || null; }
   PL.on('change', function () { if (DESK.pop.isOpen()) stale = true; else paint(); });
@@ -689,18 +793,33 @@
       if (x && x.fix && x.fix.go) DESK.go(x.fix.go.place, x.fix.go.hash + '&from=overview');
       return;
     }
-    here = id;
+    fixFor(btn, row, id, item, act);
+  }
+  /* the one way a case's move opens: the fix sheet grown from what was pressed, under its row */
+  function fixFor(btn, row, id, item, act) {
+    here = id; hereIdx = $$('#need [data-row]:not(.is-done)').indexOf(row);
     if (fn(DESK, 'tip') && DESK.tip.done) DESK.tip.done('needs');
     var opened = DESK.fix.open(btn, { itemId: item, actId: act, forId: id, anchor: row });
     if (opened && DESK.pop.isOpen()) row.classList.add('is-sel');
   }
+  /* D: nothing to change. The case's keep move, previewed like any other (⌘↵ applies it); a case with none says so */
+  function keepRow(row) {
+    var id = row.getAttribute('data-row'), x = needsNow().filter(function (y) { return y.id === id; })[0]; if (!x || x.done) return;
+    var it = itemOf(x), k = keepAct(it);
+    if (!k) { DESK.toast(x.first + '’s case has no “keep as written”: E opens the fix, the ⋯ its other moves.'); return; }
+    fixFor($('[data-fixbtn]', row) || row, row, id, it.id, k.id);
+  }
   function rowMenu(btn) {
     var id = btn.getAttribute('data-more'), x = PL.roster.needs().data.filter(function (y) { return y.id === id; })[0]; if (!x) return;
     var items = menuOf(x); if (!items.length) return;
-    DESK.menu.open(btn, items.map(function (m) { return { id: m.id, label: m.label, title: m.title }; }), {
+    DESK.menu.open(btn, items.map(function (m) { return { id: m.id, label: m.label, title: m.title, key: m.key || undefined }; }), {
       label: x.name, anchor: btn, place: 'below-end',
       run: function (k) {
         var m = items.filter(function (y) { return y.id === k; })[0]; if (!m) return;
+        var row = btn.closest('[data-row]');
+        if (m.id === 'open') { location.href = lifterHref(id, 'need'); return; }
+        if (m.id === 'msg') { location.href = MESSAGES + '#id=' + encodeURIComponent(id); return; }
+        if (/^act:/.test(m.id)) { fixFor(btn, row, id, m.item, m.act); return; }
         var r = m.id === 'notpain' ? PL.lifters.notPain(id) : PL.items.run(m.item, m.act, { for: id });
         if (r && r.error) DESK.toast(r.error.message); else PL.toast(r);
       }
@@ -722,6 +841,8 @@
     if ((b = t.closest('#need [data-fixbtn]'))) { if (DESK.pop.justClosed(b)) return; openFix(b); return; }
     if ((b = t.closest('#need [data-undo]'))) { var r = PL.items.undo(b.getAttribute('data-undo')); if (r && r.error) DESK.toast(r.error.message); else if (r && r.meta && r.meta.label) DESK.toast(r.meta.label); return; }
     if ((b = t.closest('[data-fold]'))) { foldOpen = !foldOpen; paint(); return; }
+    if ((b = t.closest('[data-showall]'))) { showAll = b.getAttribute('aria-expanded') !== 'true'; paint(); var sb = $('[data-showall]'); if (sb) sb.focus({ preventScroll: true }); return; }
+    if ((b = t.closest('[data-donejump]'))) { doneJump(); return; }
     if ((b = t.closest('#today [data-row="sessions-today"]'))) { if (DESK.pop.justClosed(b)) return; trainingPop(b); return; }
     /* a Needs you row opens that lifter in Lifters, anywhere but its buttons and links */
     if ((b = t.closest('#need [data-row]')) && !t.closest('a, button')) { var a = $('a.nm', b); if (a) location.href = a.href; }
@@ -733,13 +854,24 @@
     var row = t && t.closest ? t.closest('#need [data-row]') : null;
     if (row && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); step(row, e.key === 'ArrowDown' ? 1 : -1); return; }
     if (row && t === row && e.key === 'Enter') { e.preventDefault(); var a = $('a.nm', row); if (a) location.href = a.href; return; }
-    if ((e.key === 'e' || e.key === 'E') && !e.shiftKey && !document.querySelector('dialog[open]') && !DESK.pop.isOpen()) {
+    var free = !e.shiftKey && !document.querySelector('dialog[open]') && !DESK.pop.isOpen();
+    if ((e.key === 'e' || e.key === 'E') && free) {
+      /* on a case: its fix (the row's button); anywhere else: the walk through everyone (the crimson) */
+      var fb = row && !row.classList.contains('is-done') ? $('[data-fixbtn]', row) : null;
+      if (fb) { e.preventDefault(); openFix(fb); return; }
       var w = $('[data-walk]'); if (w && (w.getAttribute('href') || w.hasAttribute('data-setup-step'))) { e.preventDefault(); w.click(); }
+      return;
     }
+    if ((e.key === 'd' || e.key === 'D') && free && row && !row.classList.contains('is-done')) { e.preventDefault(); keepRow(row); return; }
   });
   /* ↑ ↓ (and ⌥↓ ⌥↑, J K) move between Needs you rows, instantly */
   function step(row, dir) {
     var rows = $$('#need [data-row]'), i = row ? rows.indexOf(row) : -1, nx = rows[i < 0 ? (dir > 0 ? 0 : rows.length - 1) : i + dir];
+    /* past the fifth open case, the list opens on (an inbox never ends at its fold) */
+    var opens = $$('#need [data-row]:not(.is-done)');
+    if (dir > 0 && row && opens.length && row === opens[opens.length - 1] && !showAll && $('[data-showall]')) {
+      var k = opens.length; showAll = true; paint(); nx = $$('#need [data-row]:not(.is-done)')[k] || null;
+    }
     if (!nx) return;
     nx.focus({ preventScroll: true }); nx.scrollIntoView({ block: 'nearest', behavior: 'auto' });
   }
