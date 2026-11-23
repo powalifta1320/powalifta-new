@@ -1422,7 +1422,7 @@
     else if (c.kind === 'next') select(c.sinceKey || c.id);
     else if (c.kind === 'watch') { S.f = 'watch'; S.q = ''; S.qRaw = null; S.sort = null; S.id = c.id; syncUrl(true); render({ top: true }); }
     else if (c.kind === 'add') addLifter();
-    else if (c.kind === 'copy') copyLink(l);
+    else if (c.kind === 'copy') copyLink(l, btn);
     else if (c.kind === 'gap') fillGap(l);
     else composer(btn, [l.id]);
   }
@@ -1493,9 +1493,10 @@
 
   /* ---------------- a new lifter: add, the link, the invite (first-time-coach §3) ---------------- */
   function addLifter() { if (fn(DESK, 'addLifter')) DESK.addLifter({ from: 'lifters' }); }
-  function copyLink(l) {
+  /* copied: the button says so where it was pressed (DESK.swap, read out too); only a refusal needs the toast, with the link */
+  function copyLink(l, btn) {
     var link = l && l.made && l.made.link; if (!link) return;
-    var said = function (ok) { DESK.toast(ok ? first(l) + '’s link copied.' : first(l) + '’s link is ' + link + '.'); };
+    var said = function (ok) { if (ok && btn && btn.isConnected && fn(DESK, 'swap')) DESK.swap(btn, 'Copied', { say: first(l) + '’s link copied.' }); else DESK.toast(ok ? first(l) + '’s link copied.' : first(l) + '’s link is ' + link + '.'); };
     try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText('https://' + link).then(function () { said(true); }, function () { said(false); }); return; } } catch (e) { /* refused */ }
     said(false);
   }
@@ -1577,7 +1578,7 @@
     if ((b = t.closest('.tb [data-view]'))) { if (b.hasAttribute('data-go-f')) { S.f = b.getAttribute('data-go-f'); S.q = ''; S.qRaw = null; S.sort = null; S.multi = []; M = model(); S.id = firstRow() || S.id; } S.view = b.getAttribute('data-view'); S.viewSet = true; if (S.view === 'table' && !S.tsort) S.tsort = null; syncUrl(true); render({ top: true }); return; }
     if ((b = t.closest('[data-crimson]'))) { runCrimson(b); return; }
     if ((b = t.closest('#list [data-add]'))) { addLifter(); return; }
-    if ((b = t.closest('[data-copy-link]'))) { copyLink(L(S.id)); return; }
+    if ((b = t.closest('[data-copy-link]'))) { copyLink(L(S.id), b); return; }
     if ((b = t.closest('[data-resend]'))) { toastRes(PL.invites.resend(b.getAttribute('data-resend'))); return; }
     if ((b = t.closest('[data-cancel-inv]'))) { var cl = S.id, rc = PL.invites.cancel(b.getAttribute('data-cancel-inv')); if (toastRes(rc)) { M = model(); if (!L(cl)) { S.id = firstRow(); render({ top: true }); syncUrl(false); } } return; }
     if ((b = t.closest('[data-play-join]'))) { var rj = PL.demo.join(b.getAttribute('data-play-join')); if (rj && rj.error) DESK.toast(rj.error.message); else DESK.toast((rj && rj.meta && rj.meta.label) || 'Joined.'); return; }
@@ -1606,7 +1607,14 @@
     if ((b = t.closest('[data-log]'))) { S.edit = { kind: 'log', key: b.getAttribute('data-log') }; renderDetail({ keepY: true }); return; }
     if ((b = t.closest('[data-att]'))) { S.edit = { kind: 'att', key: b.getAttribute('data-att') }; renderDetail({ keepY: true }); return; }
     if ((b = t.closest('[data-save-loads]'))) { commitOpen(); saveLoads(+b.getAttribute('data-save-loads')); return; }
-    if ((b = t.closest('[data-reset-loads]'))) { var lw = dat(PL.lifters.week(S.id)), ix = +b.getAttribute('data-reset-loads'); (lw.rows || []).forEach(function (r) { if (r.session === ix && S.loads[S.id]) delete S.loads[S.id][r.key]; }); S.edit = null; renderDetail({ keepY: true }); return; }
+    /* Reset drops the loads typed and not saved; nothing else keeps them, so it says so with an Undo (undo beats a confirm) */
+    if ((b = t.closest('[data-reset-loads]'))) {
+      var lw = dat(PL.lifters.week(S.id)), ix = +b.getAttribute('data-reset-loads'), rid = S.id, kept = {};
+      (lw.rows || []).forEach(function (r) { if (r.session === ix && S.loads[rid] && r.key in S.loads[rid]) { kept[r.key] = S.loads[rid][r.key]; delete S.loads[rid][r.key]; } });
+      S.edit = null; renderDetail({ keepY: true });
+      if (Object.keys(kept).length) DESK.toast('Typed loads cleared.', function () { S.loads[rid] = S.loads[rid] || {}; Object.keys(kept).forEach(function (k) { S.loads[rid][k] = kept[k]; }); if (S.id === rid) renderDetail({ keepY: true }); return { meta: { label: 'Undone: typed loads back' } }; });
+      return;
+    }
     if ((b = t.closest('[data-move]'))) { movePop(b, +b.getAttribute('data-move')); return; }
     if ((b = t.closest('[data-move-to]'))) {
       var pop = b.closest('[data-move-pop]'), idx = +pop.getAttribute('data-move-pop'), sc = $('[data-scope][aria-pressed=true]', pop);

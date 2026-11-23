@@ -67,7 +67,13 @@ body::before {
 /* the sidebar (20 Nov): folded to a rail of icons, each place in its own colour; it opens over the page while the
    pointer or the keyboard is in it, and a pin keeps it open (then the page makes room). The element is always the open
    width and is clipped to the rail, so opening moves no layout: only clip-path and opacity change. Every icon sits on
-   the rail's centre line; the words start on one line beside them. */
+   the rail's centre line; the words start on one line beside them.
+   23 Nov (the owner: it "doesn't always retract"): open is one class, .is-open, that desk.js sideBehaviour sets and
+   clears, never :hover or :focus-within, so a click inside, a finished navigation or a focus left behind can no longer
+   hold it open. desk.js opens it after the pointer has rested 70 ms (brushing past does nothing), or at once for the
+   keyboard; it closes the moment the pointer leaves and no key focus is in it. Open and close run on the drawer curve as
+   transitions, so a reversal mid-way carries on from where it is. .no-anim draws a state without moving (a page that
+   arrives with it open). */
 .side {
   --icon: 20px; --pad: 10px; --it-pad: calc((var(--rail-w) - var(--pad) * 2 - var(--icon)) / 2);
   --tile: calc(var(--rail-w) - var(--pad) * 2);
@@ -75,25 +81,25 @@ body::before {
   display: flex; flex-direction: column; padding: var(--sp-3) var(--pad);
   background: var(--side);
   clip-path: inset(0 calc(100% - var(--rail-w)) 0 0);
-  transition: clip-path var(--dur-exit-move) var(--ease-out) 60ms;
+  transition: clip-path var(--dur-sheet-out) var(--ease-drawer);
   view-transition-name: sidebar; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: none;
 }
 .side::-webkit-scrollbar { display: none; }
 /* its right edge: one hairline that rides with the fold (a transform, never a width) */
 .side::after {
   content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: var(--line); pointer-events: none;
-  transform: translateX(calc(var(--rail-w) - 1px)); transition: transform var(--dur-exit-move) var(--ease-out) 60ms;
+  transform: translateX(calc(var(--rail-w) - 1px)); transition: transform var(--dur-sheet-out) var(--ease-drawer);
 }
-.side:is(:hover, :focus-within, .is-open), .side-pinned .side {
-  clip-path: inset(0 -48px 0 0); transition-duration: var(--dur-move); transition-delay: 90ms;
-}
-.side:is(:hover, :focus-within, .is-open)::after, .side-pinned .side::after { transform: translateX(calc(var(--side-open) - 1px)); transition-duration: var(--dur-move); transition-delay: 90ms; }
+.side.is-open, .side-pinned .side { clip-path: inset(0 -48px 0 0); transition-duration: var(--dur-sheet); }
+.side.is-open::after, .side-pinned .side::after { transform: translateX(calc(var(--side-open) - 1px)); transition-duration: var(--dur-sheet); }
+.side.no-anim, .side.no-anim::after, .side.no-anim *, .side.no-anim *::before { transition: none !important; }
 /* open over the page it casts a drop to its right; pinned it is part of the layout and casts none */
-:root:not(.side-pinned) .side:is(:hover, :focus-within, .is-open) { box-shadow: var(--shadow-side); }
-/* what only the open sidebar shows: words, counts, the Views. They fade with the fold. */
-.side :is(.brand b, .find span, .find kbd, .it .l, .it .n, .side-h, .me .who, .pin) { opacity: 0; transition: opacity var(--dur-exit-snap) var(--ease-out); }
-.side:is(:hover, :focus-within, .is-open) :is(.brand b, .find span, .find kbd, .it .l, .it .n, .side-h, .me .who, .pin),
-.side-pinned .side :is(.brand b, .find span, .find kbd, .it .l, .it .n, .side-h, .me .who, .pin) { opacity: 1; transition: opacity var(--dur-move) var(--ease-out) 120ms; }
+:root:not(.side-pinned) .side.is-open { box-shadow: var(--shadow-side); }
+/* what only the open sidebar shows: words, counts, the Views. They go at once on the fold and come in just behind the
+   opening edge; the words never move or wrap (one line, the element never changes width). */
+.side :is(.brand b, .find span, .find kbd, .it .l, .it .n, .side-h, .me .who, .pin) { opacity: 0; transition: opacity var(--dur-pop-out) var(--ease-out); }
+.side.is-open :is(.brand b, .find span, .find kbd, .it .l, .it .n, .side-h, .me .who, .pin),
+.side-pinned .side :is(.brand b, .find span, .find kbd, .it .l, .it .n, .side-h, .me .who, .pin) { opacity: 1; transition: opacity var(--dur-pop) var(--ease-out) 50ms; }
 .side .top { display: flex; align-items: center; min-height: 40px; }
 .side .brand { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; min-height: 40px; padding: 0 calc((var(--tile) - 26px) / 2); color: var(--ink); text-decoration: none; border-radius: var(--r-row); }
 .side .brand .mark { width: 26px; height: 26px; flex: none; }
@@ -110,7 +116,7 @@ body::before {
   border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink-3); font: 500 var(--fs-sub)/1 var(--font); cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
-.side:is(:hover, :focus-within, .is-open) .find, .side-pinned .side .find { background: var(--fill); }
+.side.is-open .find, .side-pinned .side .find { background: var(--fill); }
 .side .find svg { width: var(--icon); height: var(--icon); flex: none; }
 .side .find kbd { margin-left: auto; font: 500 var(--fs-label)/1 var(--font); color: var(--ink-3); }
 .side nav { display: flex; flex-direction: column; gap: 2px; }
@@ -128,9 +134,9 @@ body::before {
 .side .it::before {
   content: ''; position: absolute; inset: 0; z-index: -1; border-radius: var(--r-row); background: transparent;
   clip-path: inset(0 calc(100% - var(--tile)) 0 0 round var(--r-row));
-  transition: clip-path var(--dur-exit-move) var(--ease-out) 60ms, background-color var(--dur-fast) var(--ease-out);
+  transition: clip-path var(--dur-sheet-out) var(--ease-drawer), background-color var(--dur-hover) var(--ease-out);
 }
-.side:is(:hover, :focus-within, .is-open) .it::before, .side-pinned .side .it::before { clip-path: inset(0 0 0 0 round var(--r-row)); transition-duration: var(--dur-move), var(--dur-fast); transition-delay: 90ms, 0ms; }
+.side.is-open .it::before, .side-pinned .side .it::before { clip-path: inset(0 0 0 0 round var(--r-row)); transition-duration: var(--dur-sheet), var(--dur-hover); }
 .side .it svg { width: var(--icon); height: var(--icon); flex: none; color: var(--it-ink, var(--ink-3)); }
 .side .it .l { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .side .it .n { font: 600 var(--fs-label)/1 var(--font); color: var(--ink-2); font-variant-numeric: tabular-nums; padding-right: var(--sp-1); }
@@ -153,13 +159,16 @@ body::before {
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 .side .it .pip:empty { display: none; }
-.side:is(:hover, :focus-within, .is-open) .it .pip, .side-pinned .side .it .pip { opacity: 0; }
+.side.is-open .it .pip, .side-pinned .side .it .pip { opacity: 0; }
 .side .side-h { margin: var(--sp-5) var(--it-pad) var(--sp-2); font: 600 var(--fs-label)/1 var(--font); color: var(--ink-3); letter-spacing: var(--ls-label); white-space: nowrap; }
 .side .spacer { flex: 1 1 var(--sp-4); }
 /* a View is words and a count (no icon): its words line up with the places' labels, and it is out of the tab order
    and out of sight while the sidebar is folded */
 .side nav[aria-labelledby='views-h'] .it { padding-left: calc(var(--it-pad) + var(--icon) + var(--sp-3)); min-height: 36px; }
-.side:not(:hover, :focus-within, .is-open) nav[aria-labelledby='views-h'], .side:not(:hover, :focus-within, .is-open) .side-h { visibility: hidden; }
+/* folded, the Views leave the tab order once their words have faded (visibility waits out the fade) */
+.side nav[aria-labelledby='views-h'], .side .side-h { transition: visibility 0s linear var(--dur-pop-out); }
+.side:not(.is-open) nav[aria-labelledby='views-h'], .side:not(.is-open) .side-h { visibility: hidden; }
+.side.is-open nav[aria-labelledby='views-h'], .side.is-open .side-h { transition-delay: 0s; }
 .side-pinned .side nav[aria-labelledby='views-h'], .side-pinned .side .side-h { visibility: visible; }
 /* the coach: a quiet mark on the rail, name and plan beside it when open. It opens the account menu (theme, keys). */
 .side .me {
@@ -279,6 +288,24 @@ body.is-fixed .tb { pointer-events: auto; }
 .btn:disabled, .btn[aria-disabled='true'] { background: var(--fill); box-shadow: none; color: var(--ink-4); cursor: default; text-decoration: none; }
 .btn[data-primary]:disabled, .btn[data-primary][aria-disabled='true'] { background: var(--fill); color: var(--ink-4); box-shadow: none; }
 .btn.is-busy { pointer-events: none; opacity: .7; }
+/* a key press shows on the key's way down, as a pointer's does (desk.js .is-pressed) */
+.btn.is-pressed:not(:disabled) { transform: scale(var(--press)); }
+/* the one crimson is a face on its own 1 px base (the drop already under it): under the pointer it sinks half way, and
+   pressed it sits flush, the base gone and the top in shade. At rest it is exactly as it was; never a colour or a size
+   change (23 Nov, the owner's "tactile button"). */
+.btn[data-primary] { transition: transform var(--dur-press) var(--ease-out), box-shadow var(--dur-press) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), filter var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out); }
+.btn[data-primary]:not([data-under] *):not(:disabled):not([aria-disabled='true']):is(:active, .is-pressed) { transform: translateY(1px); box-shadow: var(--crimson-sunk); }
+@media (hover: hover) and (pointer: fine) {
+  .btn[data-primary]:not([data-under] *):not(:disabled):not([aria-disabled='true']):hover:not(:active, .is-pressed) { transform: translateY(.5px); box-shadow: var(--crimson-half); }
+}
+/* DESK.swap: the new words come in where the old ones were (desk.js animates them once, and the width) */
+.btn .sw-l { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.btn .sw-l svg { width: 16px; height: 16px; }
+/* DESK.hold: the fill runs left to right while held (linear: progress), drains back on a release; a click nudges it */
+.btn.is-hold { isolation: isolate; }
+.btn .hold-fill { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: currentColor; opacity: .18; pointer-events: none; clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-sheet-out) var(--ease-out); }
+.btn.is-holding .hold-fill, .btn.is-held .hold-fill { clip-path: inset(0 0 0 0); transition: clip-path var(--hold-ms, 900ms) linear; }
+.btn.is-nudge .hold-fill { clip-path: inset(0 82% 0 0); transition-duration: 120ms; }
 @media (hover: hover) and (pointer: fine) {
   .btn:hover:not(:disabled) { background-color: var(--btn-2-hover); }
   .btn.quiet:hover:not(:disabled) { background-color: var(--fill); }
@@ -585,10 +612,13 @@ textarea.input { height: auto; min-height: 76px; max-height: 40vh; padding: var(
   padding: var(--sp-5); border: 0; border-radius: var(--r-pop); background: var(--pop); color: var(--ink); box-shadow: var(--shadow-pop); z-index: var(--z-pop);
   transform-origin: var(--ox, 0) var(--oy, 0);
   opacity: 0; transform: scale(.97);
-  transition: opacity var(--dur-exit-snap) var(--ease-out), transform var(--dur-exit-snap) var(--ease-out), display var(--dur-exit-snap) allow-discrete, overlay var(--dur-exit-snap) allow-discrete;
+  transition: opacity var(--dur-pop-out) var(--ease-out), transform var(--dur-pop-out) var(--ease-out), display var(--dur-pop-out) allow-discrete, overlay var(--dur-pop-out) allow-discrete;
 }
-.pop:popover-open { opacity: 1; transform: none; transition-duration: var(--dur-snap); }
+.pop:popover-open { opacity: 1; transform: none; transition-duration: var(--dur-pop); }
 @starting-style { .pop:popover-open { opacity: 0; transform: scale(.97); } }
+/* opened from the keys: no entrance and no exit (a menu run from the keys is used too often to be watched) */
+.pop.is-key, .pop.is-key:popover-open { transition: none; }
+@starting-style { .pop.is-key:popover-open { opacity: 1; transform: none; } }
 .pop:popover-open:has(> .pop-b) { display: flex; flex-direction: column; }
 .pop > .pop-b {
   flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: calc(var(--sp-3) * -1) 0; padding: var(--sp-3) 0;
@@ -992,6 +1022,29 @@ dialog.sheet:has(.finder-q) { --sheet-top: 96px; width: 640px; }
 .finder-r .fterm b { display: block; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-sub) var(--font); }
 .finder-r .fterm p { margin: 2px 0 0; color: var(--ink); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
 
+/* ================= press: every pressable answers on the way down (23 Nov) =================
+   An audit of every cursor:pointer selector in the kit and the pages found hover and focus on nearly all, and a pressed
+   state on few. One layer here gives each kind its press, in the same frame as the pointer goes down, with no transition
+   (a press is never watched): a row or a list item takes the pressed fill (unless the press is on a control inside it),
+   a small control dips to --press, words dim. `html` lifts these over a page's own :hover rule of the same weight. The
+   person rows in a popover (.pop .pick, Teams' .who-k) also get the hover fill they lacked, reaching 8 px past their
+   words so nothing at rest moves. */
+html :is(.lrow, .lr, .mr, .rw, .wr, .fold, .finder-r .fr, .pko, .csel, .row.swr, .blk tbody tr, .tv tbody tr):active:not(:has(:is(button, a, input, select, textarea, label, [role='button']):active)),
+html .tbl tr[data-row]:active:not(:has(:is(button, a, input):active)) td { background-color: var(--fill-2); transition-duration: 0s; }
+html :is(.tile, .maxb, .cellb, .fact, .lift3 > button):active:not(:has(:is(button, a):active)) { transform: scale(.985); }
+html :is(.pp .daysg button, .pp .chip, .pop .days button, .ll-v, .ll-fold, .nd-o button, .tml-sw, .wk-tab, button.ml-gh, .rv-l .rv-go, .ag .cell .pm, .wu .r .nmb, .bd .tbl td.lf .flb, .tb-title, .tbl th button, .rl .ed-n, .fx-opt):active:not(:disabled) { transform: scale(var(--press)); }
+html .ag .cell .pm:active:not(:disabled) { transform: scale(.94); }
+html :is(.link, .ln-n, .pop .tw, .mr .undo):active { opacity: .72; }
+html .tabs > [role='tab']:active { color: var(--ink); }
+.pop :is(.pick, .who-k) { position: relative; isolation: isolate; }
+.pop :is(.pick, .who-k)::before { content: ''; position: absolute; inset: 0 calc(var(--sp-2) * -1); z-index: -1; border-radius: var(--r-field); background: transparent; transition: background-color var(--dur-hover) var(--ease-out); pointer-events: none; }
+@media (hover: hover) and (pointer: fine) {
+  .pop :is(.pick, .who-k):hover::before { background: var(--hover); }
+  .pp :is(.daysg button, .chip):hover:not(:disabled):not([aria-pressed='true']) { background: var(--fill-2); }
+  .ll-fold:hover { background: var(--hover); }
+}
+.pop :is(.pick, .who-k):active::before { background: var(--fill-2); transition-duration: 0s; }
+
 /* ================= reduced motion: short fades, no movement ================= */
 @media (prefers-reduced-motion: reduce) {
   .btn, .seg > button, .vbtn, .side .it, .side .find, .side .me, .ch { transition: background-color 150ms linear, color 150ms linear, opacity 150ms linear; }
@@ -1002,6 +1055,7 @@ dialog.sheet:has(.finder-q) { --sheet-top: 96px; width: 640px; }
   dialog.sheet.is-instant, dialog.sheet.is-instant[open] { transition: none; }
   @starting-style { .insp, .pop:popover-open, .toast, dialog.sheet[open] { transform: none; } }
   .grid td.cell.flash { animation: none; }
+  .btn[data-primary]:is(:hover, :active, .is-pressed), .btn.is-pressed { transform: none !important; }
 }
 
 /* ================= colour on words and numbers (13 Nov evening) =================

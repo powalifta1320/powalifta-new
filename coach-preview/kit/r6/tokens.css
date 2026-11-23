@@ -45,6 +45,8 @@
   --crimson-hover: brightness(1.07);
   --on-crimson: #fff;
   --crimson-lit: inset 0 1px 0 rgb(255 255 255 / .22), 0 1px 2px rgb(0 0 0 / .3);
+  --crimson-half: inset 0 1px 0 rgb(255 255 255 / .18), 0 .5px 1px rgb(0 0 0 / .3);   /* the crimson under the pointer: half sunk */
+  --crimson-sunk: inset 0 1px 2px rgb(0 0 0 / .22);                                   /* pressed: flush, its top in shade */
   --brand-plate: #dc2637;   /* the 25 kg plate in the mark: the logo's own red, never an action */
 
   /* ---- lifts: marks and lines (--sq), and their names and numbers as text (--sq-ink, [data-lift] in ui.css) ---- */
@@ -137,6 +139,15 @@
   --dur-exit-snap: 120ms;
   --dur-exit-move: 160ms;
   --press: .97;
+  /* the shared interaction language (MOTION.md, 23 Nov): the names every surface uses; the older names above stay for
+     the pages and the editor that read them */
+  --ease-in-out: cubic-bezier(.77, 0, .175, 1);   /* a thing moving on screen */
+  --ease-drawer: cubic-bezier(.32, .72, 0, 1);    /* sheets and the sidebar */
+  --dur-hover: 120ms;
+  --dur-pop: 180ms; --dur-pop-out: 110ms;         /* menus, popovers, tooltips */
+  --dur-sheet: 260ms; --dur-sheet-out: 160ms;     /* dialogs, sheets, the sidebar */
+  --dur-moment: 700ms;                            /* meaningful moments only */
+  --press-scale: var(--press);
 
   /* ---- one z-index scale ---- */
   --z-content: 0; --z-edge: 10; --z-toolbar: 20; --z-side: 30; --z-light: 35; --z-insp: 40; --z-pop: 50; --z-menu: 60; --z-toast: 70;
@@ -202,6 +213,8 @@
   --shadow-side: 24px 0 48px -30px rgb(20 20 40 / .22);
   --shadow-thumb: 0 1px 3px rgb(20 20 40 / .16), 0 0 0 .5px rgb(11 11 13 / .06);
   --crimson-lit: inset 0 1px 0 rgb(255 255 255 / .22), 0 1px 2px rgb(140 10 25 / .25);
+  --crimson-half: inset 0 1px 0 rgb(255 255 255 / .18), 0 .5px 1px rgb(140 10 25 / .25);
+  --crimson-sunk: inset 0 1px 2px rgb(90 0 10 / .25);
 }
 
 /* ================= places: a hue each, lit from above =================

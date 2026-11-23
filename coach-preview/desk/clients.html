@@ -799,16 +799,17 @@
   }
 
   /* ---------------- the CSV, the link ---------------- */
-  function exportCsv() {
+  /* both finish in place: the button says Saved or Copied where it was pressed (DESK.swap); the toast keeps the words */
+  function exportCsv(btn) {
     var r = PL.billing.exportCsv(), text = r && r.data != null ? r.data : r, name = (r && r.meta && r.meta.filename) || 'payments.csv';
     try {
       var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = name;
       document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-      DESK.toast('Saved ' + name + '.');
+      if (btn && fn(DESK, 'swap')) DESK.swap(btn, 'Saved', { say: 'Saved ' + name + '.' }); else DESK.toast('Saved ' + name + '.');
     } catch (e) { DESK.toast('The file could not be saved here.'); }
   }
-  function copy(text) {
-    var done = function () { var s = SUM(); DESK.toast('Copied ' + text + (s.seats && !s.seats.unlimited ? '. ' + K.plural(s.seats.free || 0, 'seat') + ' left.' : '.')); };
+  function copy(text, btn) {
+    var done = function () { var s = SUM(); if (btn && btn.isConnected && fn(DESK, 'swap')) DESK.swap(btn, 'Copied'); DESK.toast('Copied ' + text + (s.seats && !s.seats.unlimited ? '. ' + K.plural(s.seats.free || 0, 'seat') + ' left.' : '.')); };
     try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText('https://' + text).then(done, done); else done(); } catch (e) { done(); }
   }
 
@@ -824,8 +825,8 @@
     }
     if (t.closest('[data-add]')) { addLifter(); return; }
     if (t.closest('[data-charge]')) { openCharge(); return; }
-    if (t.closest('[data-export]')) { exportCsv(); return; }
-    var cp = t.closest('[data-copy]'); if (cp) { copy(cp.getAttribute('data-copy')); return; }
+    if (t.closest('[data-export]')) { exportCsv(t.closest('[data-export]')); return; }
+    var cp = t.closest('[data-copy]'); if (cp) { copy(cp.getAttribute('data-copy'), cp); return; }
     if (t.closest('[data-link-cancel]')) { toastRes(PL.billing.inviteCancel()); return; }
     if (t.closest('[data-link-new]')) { toastRes(PL.billing.inviteNew()); return; }
     var pt = t.closest('[data-part]'); if (pt) { if (DESK.pop.justClosed(pt)) return; partPop(pt, pt.getAttribute('data-part')); return; }

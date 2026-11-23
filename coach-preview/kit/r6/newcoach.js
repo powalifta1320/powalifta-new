@@ -363,7 +363,7 @@
       }
       if (b.hasAttribute('data-nc-copy')) {
         var ln = linkOf(); if (!ln) return;
-        copy('https://' + ln).then(function () { b.textContent = 'Copied'; }, function () { b.textContent = 'Copy'; footErr(d, 'Copy did not work here. The link is ' + ln + '.'); });
+        copy('https://' + ln).then(function () { if (DESK.swap) DESK.swap(b, 'Copied', { revert: 2400 }); else b.textContent = 'Copied'; }, function () { b.textContent = 'Copy'; footErr(d, 'Copy did not work here. The link is ' + ln + '.'); });
         return;
       }
       if (b.hasAttribute('data-nc-charge')) {
@@ -493,7 +493,11 @@
         /* from the intake step (the first-time walk: "Read Jess's intake" before she joined seemed to do nothing): say why
            there is nothing to read yet, then what was done */
         var fromIntake = !!(trigger && trigger.getAttribute && trigger.getAttribute('data-nc-step') === 'intake'), pre = fromIntake ? f + ' hasn’t answered yet. ' : '';
-        copy('https://' + link).then(function () { DESK.toast(pre + (fromIntake ? 'Link copied to send ' + obj + ' again.' : f + '’s link copied.')); }, function () { DESK.toast(pre + f + '’s link is ' + link + '.'); });
+        copy('https://' + link).then(function () {
+          /* pressed on a button (the crimson): it says Copied where it was pressed; from a step row, the toast says it */
+          if (!fromIntake && trigger && trigger.classList && trigger.classList.contains('btn') && fn(DESK, 'swap')) DESK.swap(trigger, 'Copied', { say: f + '’s link copied.' });
+          else DESK.toast(pre + (fromIntake ? 'Link copied to send ' + obj + ' again.' : f + '’s link copied.'));
+        }, function () { DESK.toast(pre + f + '’s link is ' + link + '.'); });
         return true;
       }
       if (act.go && act.go.place) { var here = DESK.here || document.body.getAttribute('data-place') || ''; return DESK.go(act.go.place, act.go.hash || '', here ? { from: here } : null); }
@@ -513,6 +517,21 @@
     }
     return '<div class="lrow c2 nc-step is-later"' + attrs + '><span class="who"><span class="nm" data-fact="name">' + esc(s.title) + '</span></span></div>';
   }
+  /* a step done since the coach last saw this card ticks itself in, once (DESK.done): the first lifter in and the first
+     week sent are the two moments of a new desk and get the full 700 ms (big); reading the intake and week one, the short
+     one. "You're set up" lands the same way. What was seen is kept for the session (powa-r6-setup-seen), so a reload or
+     another page never replays it; the first card drawn in a session takes what is done as seen. */
+  var SEEN_KEY = 'powa-r6-setup-seen', BIG = { add: 1, send: 1 };
+  function justDone(el, s) {
+    if (!s || !fn(DESK, 'done')) return;
+    var seen = null; try { seen = JSON.parse(sessionStorage.getItem(SEEN_KEY) || 'null'); } catch (e) { seen = null; }
+    var now = (s.steps || []).filter(function (x) { return x.done; }).map(function (x) { return x.key; }), all = s.done >= s.of;
+    if (all) now.push('all');
+    try { sessionStorage.setItem(SEEN_KEY, JSON.stringify(now)); } catch (e) { /* storage blocked: no moment, no harm */ }
+    if (!seen) return;
+    if (all && seen.indexOf('all') < 0) { var line = $('.nc-set-done', el); if (line) DESK.done(line, { big: true }); return; }
+    now.forEach(function (k) { if (seen.indexOf(k) >= 0) return; var row = $('[data-row="setup-' + k + '"]', el); if (row) DESK.done(row, { big: !!BIG[k] }); });
+  }
   DESK.setupCard = function (el, o) {
     o = o || {};
     if (!el) return false;
@@ -531,6 +550,7 @@
         '<button type="button" class="btn quiet sm icon" data-more data-nc-more aria-haspopup="menu" aria-label="More for Getting started" title="More">' + DESK.ic('more') + '</button></div>' +
         '<div class="list nc-steps" data-list aria-label="Getting started">' + s.steps.map(function (x) { return stepRow(x, s.next); }).join('') + '</div>';
     }
+    justDone(el, s);
     if (!el._nc) {
       el._nc = true;
       var act = function (row) { var cur = data(PL.setup.get()), st = cur && cur.steps.filter(function (x) { return x.key === row.getAttribute('data-nc-step'); })[0]; if (st && !st.done) DESK.setup.run(st.act, row); };
@@ -586,10 +606,11 @@
   }
   DESK.offAppWords = offWords;
   /* copies a not-yet-joined lifter's link; the toast says it, or gives the link when the clipboard says no */
-  DESK.copyLink = function (l) {
+  DESK.copyLink = function (l, btn) {
     var off = l && l.notOnApp, url = off && off.url, link = off && off.link, who = (l && (l.first || l.name)) || 'Their';
     if (!url) return;
-    var said = function (ok) { DESK.toast(ok ? who + '’s link copied.' : who + '’s link is ' + link + '.'); };
+    /* copied: the button says so in place (DESK.swap); a refusal gives the link in a toast */
+    var said = function (ok) { if (ok && btn && btn.isConnected && fn(DESK, 'swap')) DESK.swap(btn, 'Copied', { say: who + '’s link copied.' }); else DESK.toast(ok ? who + '’s link copied.' : who + '’s link is ' + link + '.'); };
     try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(url).then(function () { said(true); }, function () { said(false); }); return; } } catch (e) { /* refused */ }
     said(false);
   };
@@ -630,7 +651,7 @@
       el._ncs = true;
       el.addEventListener('click', function (e) {
         var cp = e.target.closest('[data-nc-copy]');
-        if (cp) { var lc = data(PL.lifters.get(cp.getAttribute('data-nc-copy'))) || {}; DESK.copyLink(lc); return; }
+        if (cp) { var lc = data(PL.lifters.get(cp.getAttribute('data-nc-copy'))) || {}; DESK.copyLink(lc, cp); return; }
         var b = e.target.closest('[data-nc-session]'); if (!b) return;
         var r = quiet(function () { return PL.demo.firstSession(b.getAttribute('data-nc-session')); });
         if (r && r.error) DESK.toast(r.error.message); else if (r && r.meta && r.meta.label) DESK.toast(r.meta.label);

@@ -163,7 +163,7 @@
   function lifterKnown(id) { if (!id) return false; try { var g = PL.lifters.get(id); return !!(g && g.data); } catch (e) { return false; } }
   function liftersHref() { var id = store.get('sessionStorage', LAST_KEY); return DESK.routes.lifters + (lifterKnown(id) ? '#id=' + encodeURIComponent(id) : ''); }
   function noteLastLifter() { if (HERE !== 'lifters') return; var id = DESK.url.get().id; if (lifterKnown(id)) store.set('sessionStorage', LAST_KEY, id); }
-  function sidebarHtml() {
+  function sidebarHtml(heldOpen) {
     var c = counts();
     var due = Object.prototype.hasOwnProperty.call(c, 'programsDue');
     /* a number in the sidebar is work waiting (weeks to send, replies, client tasks, meets coming), never a head count:
@@ -190,9 +190,9 @@
       return '<nav' + (i === 0 ? ' aria-label="Places"' : i === 1 ? ' aria-label="Lifters and clients"' : ' aria-label="Settings"') + '>' + g.map(function (k) { return it(byKey[k]); }).join('') + '</nav>';
     });
     var pinned = isPinned();
-    return '<aside class="side" data-crop="sidebar" aria-label="Coach desk">' +
+    return '<aside class="side' + (heldOpen ? ' is-open no-anim' : '') + '" data-crop="sidebar" aria-label="Coach desk">' +
       '<div class="top"><a class="brand" href="' + DESK.routes.overview + '" aria-label="POWALIFTA, the Overview">' + DESK.mark + '<b>POWALIFTA</b></a>' +
-      '<button class="pin" type="button" data-side-pin aria-pressed="' + pinned + '" aria-label="Keep the sidebar open" title="' + (pinned ? 'Fold the sidebar' : 'Keep the sidebar open') + '">' + DESK.ic('sidebar') + '</button></div>' +
+      '<button class="pin" type="button" data-side-pin aria-pressed="' + pinned + '" aria-label="Keep the sidebar open" aria-keyshortcuts="Meta+Backslash Control+Backslash" title="' + (pinned ? 'Fold the sidebar' : 'Keep the sidebar open') + ' (⌘\\)">' + DESK.ic('sidebar') + '</button></div>' +
       '<button class="find" type="button" data-find aria-keyshortcuts="Meta+K" aria-label="Find">' + DESK.ic('find', 2) + '<span>Find</span><kbd>⌘K</kbd></button>' +
       navs[0] + navs[1] +
       '<div class="side-h" id="views-h"' + (viewsShown(c) ? '' : ' hidden') + '>Lifters who</div><nav aria-labelledby="views-h"' + (viewsShown(c) ? '' : ' hidden') + '>' + VIEWS.map(view).join('') + '</nav>' +
@@ -207,7 +207,7 @@
   function setPinned(on) {
     store.set('localStorage', SIDE_KEY, on ? 'open' : 'fold');
     document.documentElement.classList.toggle('side-pinned', !!on);
-    var b = $('.side [data-side-pin]'); if (b) { b.setAttribute('aria-pressed', String(!!on)); b.title = on ? 'Fold the sidebar' : 'Keep the sidebar open'; }
+    var b = $('.side [data-side-pin]'); if (b) { b.setAttribute('aria-pressed', String(!!on)); b.title = (on ? 'Fold the sidebar' : 'Keep the sidebar open') + ' (⌘\\)'; }
     dispatchEvent(new Event('resize'));
   }
   if (isPinned()) document.documentElement.classList.add('side-pinned');
@@ -215,21 +215,117 @@
   /* going to another place from the open sidebar: the next page draws it open (no fold-then-open flicker) and lets it
      fold once the pointer has left it */
   var HOLD_KEY = 'powa-r6-side-hold';
-  function sideBehaviour() {
+  /* read once, before the sidebar is drawn: a page reached by a click in the open sidebar draws it open from its first
+     frame (sidebarHtml), so it never folds and opens again across the page change */
+  function sideHeld() {
+    var held = +store.get('sessionStorage', HOLD_KEY) || 0; store.set('sessionStorage', HOLD_KEY, null);
+    return !!held && Date.now() - held < 4000 && !isPinned();
+  }
+  /* 23 Nov: the sidebar's one state (.is-open) is this function's, never CSS :hover or :focus-within, so it always folds:
+     - the pointer opens it after resting 70 ms on it (passing over it on the way to the page does nothing) and folds it
+       the moment it leaves, unless a key focus is in it or a menu it opened (the account menu) is still up;
+     - the keyboard opens it at once (Tab into it, a :focus-visible focus) and folds it when the focus leaves;
+     - a mouse click inside leaves no hold behind: the clicked item's focus is not a key focus;
+     - Esc folds it (and it stays folded until the pointer leaves and comes back, or the focus leaves);
+     - ⌘\ (Ctrl+\ elsewhere) toggles the pin; pinned, the page makes room (tokens.css :root.side-pinned);
+     - a touch screen (no hover): a tap on the rail's free space opens it, a tap outside folds it; wide touch screens
+       start pinned (isPinned).
+     DESK.side.open() / .close() / .isOpen() for a page or a test; DESK.on('side', fn) hears it change. */
+  function sideBehaviour(heldOpen) {
     var side = $('.side'); if (!side) return;
+    var T = 0, over = false, quiet = false, INTENT = 70;
+    var isTouch = function (e) { return e && e.pointerType === 'touch'; };
+    /* the keyboard holds the sidebar open only when the coach Tabbed into it. A focus that lands there some other way (a
+       click on Find, then Esc handing the focus back to the Find button) must not: that was the owner's "doesn't always
+       retract" (lead, 23 Nov: Find, Esc, pointer away left it open) */
+    var byTab = false;
+    addEventListener('keydown', function (e) { if (e.key === 'Tab') byTab = true; }, true);
+    addEventListener('pointerdown', function () { byTab = false; }, true);
+    var keyFocusIn = function () { var a = document.activeElement; try { return !!(byTab && a && side.contains(a) && a.matches(':focus-visible')); } catch (x) { return false; } };
+    var menuFromSide = function () { var t = DESK.pop.isOpen() && DESK.pop.trigger(); return !!(t && side.contains(t)); };
+    var set = function (on) {
+      clearTimeout(T); T = 0;
+      if (side.classList.contains('is-open') === !!on) return;
+      side.classList.remove('no-anim');
+      side.classList.toggle('is-open', !!on);
+      emit('side', !!on);
+    };
+    var settle = function () { if (!over && !keyFocusIn() && !menuFromSide()) set(false); };
+    DESK.side.open = function () { quiet = false; set(true); };
+    DESK.side.close = function () { set(false); };
+    DESK.side.isOpen = function () { return side.classList.contains('is-open') || isPinned(); };
+    side.addEventListener('pointerenter', function (e) {
+      if (isTouch(e)) return;
+      over = true;
+      if (quiet || side.classList.contains('is-open')) return;
+      clearTimeout(T); T = setTimeout(function () { set(true); }, INTENT);
+    });
+    /* the pointer is over the sidebar's visible part (the rail, or the open width) */
+    var under = function (e) { var r = side.getBoundingClientRect(), w = side.classList.contains('is-open') || isPinned() ? r.width : px('--rail-w', 68); return e.clientX >= r.left && e.clientX < r.left + w && e.clientY >= r.top && e.clientY < r.bottom; };
+    /* a leave that the pointer did not make (a page arriving under a resting pointer, a layer drawn over the sidebar) is
+       checked against where the pointer is: still over it, the sidebar stays, and the next move that is really outside
+       folds it */
+    var watchOut = function () {
+      var w = function (e) { if (under(e)) return; removeEventListener('pointermove', w, true); over = false; settle(); };
+      addEventListener('pointermove', w, true);
+    };
+    side.addEventListener('pointerleave', function (e) {
+      if (isTouch(e)) return;
+      clearTimeout(T); T = 0;
+      if (under(e) && side.classList.contains('is-open')) { watchOut(); return; }
+      over = false; quiet = false;
+      settle();
+    });
+    side.addEventListener('focusin', function (e) {
+      if (quiet) return;
+      var t = e.target; try { if (t && t.matches(':focus-visible')) set(true); } catch (x) { /* no :focus-visible: the pointer decides */ }
+    });
+    side.addEventListener('focusout', function () { setTimeout(function () { if (!side.contains(document.activeElement)) { quiet = false; settle(); } }, 0); });
+    DESK.on('pop:closed', function () { setTimeout(settle, 0); });
     side.addEventListener('click', function (e) {
       var pin = e.target.closest('[data-side-pin]');
       if (pin) { setPinned(!isPinned()); return; }
-      if (e.target.closest('a[href]') && !isPinned()) store.set('sessionStorage', HOLD_KEY, String(Date.now()));
+      /* a click (not a key, not a new tab) that leaves the page: the next page draws the sidebar open (sideHeld) */
+      var a = e.target.closest('a[href]');
+      if (a && !isPinned() && e.detail > 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+        var u = null; try { u = new URL(a.href, location.href); } catch (x) { /* a bad href: no hold */ }
+        if (u && u.pathname !== location.pathname) store.set('sessionStorage', HOLD_KEY, String(Date.now()));
+      }
     });
-    var held = +store.get('sessionStorage', HOLD_KEY) || 0; store.set('sessionStorage', HOLD_KEY, null);
-    if (held && Date.now() - held < 4000 && !isPinned()) {
-      side.classList.add('is-open');
-      var off = function (e) { if (e.type === 'mousemove' && side.contains(e.target)) return; side.classList.remove('is-open'); removeEventListener('mousemove', off, true); removeEventListener('keydown', off, true); };
-      addEventListener('mousemove', off, true); addEventListener('keydown', off, true);
+    /* touch: the rail's free space (not a place, not a button) opens it; a tap anywhere outside folds it */
+    side.addEventListener('pointerdown', function (e) {
+      if (!isTouch(e) || isPinned() || e.target.closest('a[href], button')) return;
+      set(!side.classList.contains('is-open'));
+    });
+    document.addEventListener('pointerdown', function (e) { if (isTouch(e) && !isPinned() && side.classList.contains('is-open') && !side.contains(e.target)) set(false); }, true);
+    /* Esc folds it before anything else closes (it is the topmost thing over the page); a focused View, which a folded
+       sidebar hides, hands its focus to the current place on the rail */
+    addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || isPinned() || !side.classList.contains('is-open')) return;
+      if ($('dialog[open]') || DESK.pop.isOpen()) return;
+      e.preventDefault(); e.stopPropagation();
+      quiet = true; set(false);
+      var a = document.activeElement;
+      if (a && side.contains(a) && a.closest('nav[aria-labelledby="views-h"]')) { var cur = $('.it[aria-current="page"]', side) || $('.it', side); if (cur) cur.focus(); }
+    }, true);
+    /* ⌘\ (Ctrl+\): pin or unpin, from anywhere */
+    addEventListener('keydown', function (e) {
+      if (e.key !== '\\' || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+      e.preventDefault(); setPinned(!isPinned());
+      if (!isPinned()) settle();
+    }, true);
+    /* drawn open on arrival (a click in the sidebar brought us here): it stays while the pointer is on it and folds on the
+       first move elsewhere, or the first key */
+    if (heldOpen) {
+      requestAnimationFrame(function () { requestAnimationFrame(function () { side.classList.remove('no-anim'); }); });
+      var first = function (e) {
+        removeEventListener('pointermove', first, true); removeEventListener('keydown', first, true);
+        if (e.type === 'pointermove' && under(e)) { over = true; return; }
+        if (e.type === 'keydown' && keyFocusIn()) return;
+        settle();
+      };
+      addEventListener('pointermove', first, true); addEventListener('keydown', first, true);
     }
-    /* Escape folds it again when the keyboard is what opened it */
-    side.addEventListener('keydown', function (e) { if (e.key === 'Escape' && side.contains(document.activeElement) && !isPinned() && !$('[data-layer]')) document.activeElement.blur(); });
   }
   /* the coach line's plan and seats, from the store (an accepted application holds a seat) */
   function seatsLine() {
@@ -300,8 +396,9 @@
     o = o || {};
     var page = document.getElementById('page');
     if (o.fixed) document.body.classList.add('is-fixed');
-    document.body.insertAdjacentHTML('afterbegin', sidebarHtml());
-    sideBehaviour();
+    var heldOpen = sideHeld();
+    document.body.insertAdjacentHTML('afterbegin', sidebarHtml(heldOpen));
+    sideBehaviour(heldOpen);
     /* a view switch sits in the leading group, right after back and the arrows (function-polish PX4): what a page gives as
        mid goes there, before the collapsed title; the middle group stays empty. Arriving at the example desk from the
        fresh one, the Overview leads with a quiet way back (first-time-coach §2.1). */
@@ -461,6 +558,116 @@
     if (!u) { DESK.toast('Nothing to undo.'); return false; }
     runUndo(u); return true;
   };
+  /* ---------------- three button behaviours (23 Nov, the owner's three components, in the desk's own look) ----------------
+     DESK.swap(btn, words, { icon, revert }): the button's label changes in place to what just happened (Copy → Copied,
+     Export → Saved), a check before it, the width following the words on the drawer's ease (one button's width, 180 ms);
+     back to its own label after revert ms (1800 by default; false keeps it). Reduced motion: the words change, nothing
+     moves. Answers the button. */
+  DESK.swap = function (btn, words, o) {
+    o = o || {};
+    if (!btn || !btn.isConnected) return btn;
+    clearTimeout(btn._swapT);
+    if (btn._swapHome == null) btn._swapHome = btn.innerHTML;
+    var put = function (html, home) {
+      if (!btn.isConnected) return;
+      var from = btn.getBoundingClientRect().width;
+      btn.style.width = ''; btn.style.transition = '';
+      btn.innerHTML = home ? html : '<span class="sw-l">' + html + '</span>';
+      if (home) btn._swapHome = null;
+      if (reduced()) return;
+      var to = btn.getBoundingClientRect().width;
+      var lab = btn.querySelector(':scope > .sw-l') || btn;
+      lab.animate([{ opacity: 0.45, transform: 'translateY(3px)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'cubic-bezier(.23, 1, .32, 1)' });
+      if (Math.abs(to - from) < 1) return;
+      btn.style.width = from + 'px'; void btn.offsetWidth;
+      btn.style.transition = 'width 180ms cubic-bezier(.32, .72, 0, 1), transform var(--dur-press) var(--ease-out), background-color var(--dur-fast) var(--ease-out)';
+      btn.style.width = to + 'px';
+      var end = function (e) { if (e && e.propertyName !== 'width') return; btn.removeEventListener('transitionend', end); btn.style.width = ''; btn.style.transition = ''; };
+      btn.addEventListener('transitionend', end); setTimeout(end, 260);
+    };
+    var ic = o.icon === false ? '' : DESK.ic(o.icon || 'check', 2.2);
+    put(ic + '<span>' + esc(words) + '</span>');
+    /* read out once (o.say, else the words), in a live region of its own: a button's new label is not announced */
+    var live = $('#desk-said'); if (!live) { live = document.createElement('span'); live.id = 'desk-said'; live.className = 'sr'; live.setAttribute('role', 'status'); live.setAttribute('aria-live', 'polite'); document.body.appendChild(live); }
+    live.textContent = ''; setTimeout(function () { live.textContent = String(o.say || words); }, 30);
+    btn.classList.add('is-swapped');
+    if (o.revert !== false) {
+      var home = btn._swapHome;
+      btn._swapT = setTimeout(function () { btn.classList.remove('is-swapped'); put(home, true); }, typeof o.revert === 'number' ? o.revert : 1800);
+    }
+    return btn;
+  };
+  /* DESK.hold(btn, { ms, done, onConfirm }): hold to confirm, for a move that cannot be taken back (where an Undo exists,
+     the Undo is the better answer and no hold is used). The fill runs left to right while the pointer, Space or Enter is
+     held (ms, 900 by default, linear: it is progress); let go early and it drains back. A plain click never confirms: it
+     nudges the fill a little, which says "hold". At the end onConfirm() runs and, with done words, the label swaps to them.
+     Answers { cancel }. */
+  DESK.hold = function (btn, o) {
+    o = o || {};
+    if (!btn) return null;
+    var ms = o.ms || 900, T = 0, on = false, fired = false, nudgeT = 0;
+    btn.classList.add('is-hold'); btn.style.setProperty('--hold-ms', ms + 'ms');
+    if (!btn.querySelector(':scope > .hold-fill')) btn.insertAdjacentHTML('afterbegin', '<span class="hold-fill" aria-hidden="true"></span>');
+    if (!btn.title) btn.title = 'Press and hold';
+    btn.setAttribute('aria-description', 'Press and hold to confirm');
+    var start = function () {
+      if (on || btn.disabled || btn.getAttribute('aria-disabled') === 'true') return;
+      on = true; fired = false; clearTimeout(nudgeT); btn.classList.remove('is-nudge'); btn.classList.add('is-holding');
+      T = setTimeout(function () {
+        on = false; fired = true; btn.classList.remove('is-holding'); btn.classList.add('is-held');
+        if (typeof o.onConfirm === 'function') o.onConfirm();
+        if (o.done) DESK.swap(btn, o.done, { revert: false });
+      }, ms);
+    };
+    var stop = function () { if (!on) return; on = false; clearTimeout(T); btn.classList.remove('is-holding'); };
+    btn.addEventListener('pointerdown', function (e) { if (e.button !== 0) return; try { btn.setPointerCapture(e.pointerId); } catch (x) { /* no capture */ } start(); });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (t) { btn.addEventListener(t, stop); });
+    btn.addEventListener('keydown', function (e) { if ((e.key === ' ' || e.key === 'Enter') && !e.metaKey && !e.ctrlKey) { e.preventDefault(); if (!e.repeat) start(); } });
+    btn.addEventListener('keyup', function (e) { if (e.key === ' ' || e.key === 'Enter') stop(); });
+    btn.addEventListener('blur', stop);
+    /* the click a press ends with never confirms by itself; a short one (released before the end) says "hold" */
+    btn.addEventListener('click', function (e) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (fired) return;
+      btn.classList.add('is-nudge'); clearTimeout(nudgeT); nudgeT = setTimeout(function () { btn.classList.remove('is-nudge'); }, 220);
+    }, true);
+    return { cancel: function () { stop(); btn.classList.remove('is-held'); } };
+  };
+  /* DESK.done(el, { big }): a thing just finished, drawn once where it sits: its tick draws itself (stroke), its words
+     come up from 45 % (never from nothing), and with big (a meaningful moment: a first lifter in, a first week sent, the
+     day's list cleared) the row's own place light swells and settles behind it, 700 ms in all. Without big it is the
+     150 to 250 ms of a row changing state. Skippable: any key or press finishes it at once; reduced motion draws the end
+     state only. Answers nothing. */
+  DESK.done = function (el, o) {
+    o = o || {};
+    if (!el || !el.isConnected || reduced() || !el.animate) return;
+    var big = !!o.big, ease = 'cubic-bezier(.23, 1, .32, 1)', anims = [];
+    $$('svg path, svg polyline', el).slice(0, 4).forEach(function (p) {
+      p.setAttribute('pathLength', '1');
+      anims.push(p.animate([{ strokeDasharray: '1 1', strokeDashoffset: 1 }, { strokeDasharray: '1 1', strokeDashoffset: 0 }], { duration: big ? 420 : 220, delay: big ? 120 : 30, easing: ease, fill: 'backwards' }));
+    });
+    var words = $$('.dw, .done-tick span, .nm-done, [data-done-words]', el);
+    (words.length ? words : [el]).forEach(function (w) { anims.push(w.animate([{ opacity: 0.45, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: big ? 360 : 200, delay: big ? 160 : 0, easing: ease, fill: 'backwards' })); });
+    if (big) {
+      var rgb = (getComputedStyle(el).getPropertyValue('--place-rgb') || '').trim() || '128 128 128';
+      anims.push(el.animate([{ backgroundColor: 'rgb(' + rgb + ' / .18)' }, { backgroundColor: 'rgb(' + rgb + ' / .10)', offset: .35 }, { backgroundColor: 'rgb(' + rgb + ' / 0)' }], { duration: 700, easing: 'ease-out' }));
+    }
+    var skip = function () { anims.forEach(function (a) { try { a.finish(); } catch (e) { /* gone */ } }); off(); };
+    var off = function () { removeEventListener('keydown', skip, true); removeEventListener('pointerdown', skip, true); };
+    addEventListener('keydown', skip, true); addEventListener('pointerdown', skip, true);
+    setTimeout(off, 900);
+  };
+  /* a button pressed from the keys shows its press the moment the key goes down (a pointer gets :active by itself):
+     Space and Enter on a .btn wear .is-pressed until the key comes up */
+  addEventListener('keydown', function (e) {
+    if ((e.key !== ' ' && e.key !== 'Enter') || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+    var b = e.target && e.target.closest && e.target.closest('.btn'); if (!b || b.disabled) return;
+    b.classList.add('is-pressed');
+    var up = function () { b.classList.remove('is-pressed'); removeEventListener('keyup', up, true); b.removeEventListener('blur', up); };
+    addEventListener('keyup', up, true); b.addEventListener('blur', up);
+    if (e.key === 'Enter') setTimeout(up, 140);   /* Enter acts on the way down: the press shows, then lets go */
+  }, true);
+
   /* coach.js C.run calls K.toast; store.js owns K.toast and hands every toast (with its Undo) to this hook */
   if (PL && PL.hooks) PL.hooks.toast = function (t) { DESK.toast(t.text, t.undo); };
   K.toast = function (text, undo) { return DESK.toast(text, undo); };   // the renderer behind the hook (no store: direct)
@@ -573,6 +780,8 @@
       if (typeof o.onClick === 'function') popEl.onclick = o.onClick;
       if (typeof o.onKey === 'function') popEl.onkeydown = o.onKey;
       popEl.classList.remove('is-held', 'is-cut');
+      /* opened from the keys (many times a day): there at once, no entrance (ui.css .pop.is-key) */
+      popEl.classList.toggle('is-key', lastInput === 'key');
       /* one element serves every popover and menu: each open names its own layer, so a popover after a menu is a popover */
       popEl.setAttribute('data-layer', o.layer === 'menu' ? 'menu' : 'popover');
       popEl.innerHTML = html; popEl.setAttribute('aria-label', o.label || 'Details');
@@ -1375,7 +1584,7 @@
   var keysOpen = function () { return DESK.sheet.isOpen() && sheetEl.getAttribute('aria-label') === 'Keys'; };
   DESK.keys = function () {
     var pageHasList = !!pageList() && !keyList.some(function (k) { return /⌥↓|^J\b|\bJ$/.test(k[0]); });
-    var desk = [['⌘K', 'Find a name, or ask a question'], ['⌘Z', 'Undo the last move'], ['⌘/ or ?', 'These keys'], ['Esc', keyEsc || 'Close the popover, the sheet, then the panel']]
+    var desk = [['⌘K', 'Find a name, or ask a question'], ['⌘Z', 'Undo the last move'], ['⌘/ or ?', 'These keys'], ['⌘\\', 'Keep the sidebar open, or fold it'], ['Esc', keyEsc || 'Close the popover, the sheet, then the panel']]
       .concat(pageHasList ? [['⌥↓ ⌥↑ or J K', 'Next or previous in the list']] : []);
     var all = desk.concat(keyList);
     var dl = function (l) { return '<dl>' + l.map(function (k) { return '<dt>' + esc(k[0]) + '</dt><dd>' + esc(k[1]) + '</dd>'; }).join('') + '</dl>'; };
@@ -1505,6 +1714,7 @@
     if (k === 'k') { e.preventDefault(); e.stopPropagation(); DESK.find(); }
     else if (k === '/') { e.preventDefault(); e.stopPropagation(); toggleKeys(); }
   }, true);
+  var ahead = '', aheadAt = 0;
   document.addEventListener('keydown', function (e) {
     var typing = typingIn(e.target);
     /* a DESK.menu's items: ↑ ↓ move between them, Home and End to its ends (a page's own menus keep their own keys) */
@@ -1514,6 +1724,15 @@
       var its = $$('.mi:not(:disabled):not([hidden])', mi.closest('.mn')), k = its.indexOf(mi);
       var nk = e.key === 'Home' ? its[0] : e.key === 'End' ? its[its.length - 1] : its[Math.max(0, Math.min(its.length - 1, k + (e.key === 'ArrowDown' ? 1 : -1)))];
       if (nk) nk.focus();
+      return;
+    }
+    /* type-ahead: letters typed within half a second find the next item that starts with them */
+    if (mi && e.key.length === 1 && /\S/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      var now = Date.now(); ahead = now - aheadAt < 500 ? ahead + e.key.toLowerCase() : e.key.toLowerCase(); aheadAt = now;
+      var list = $$('.mi:not(:disabled):not([hidden])', mi.closest('.mn')), at = list.indexOf(mi), lab = function (x) { var b = x.querySelector('.mi-t'); return ((b ? b.firstChild && b.firstChild.textContent : x.textContent) || '').trim().toLowerCase(); };
+      var from = ahead.length > 1 ? at : at + 1, hit = null;
+      for (var j = 0; j < list.length && !hit; j++) { var c = list[(from + j) % list.length]; if (lab(c).indexOf(ahead) === 0) hit = c; }
+      if (hit) { e.preventDefault(); hit.focus(); }
       return;
     }
     if (e.key === 'Escape') {
