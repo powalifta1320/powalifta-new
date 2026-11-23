@@ -22,12 +22,12 @@
      never answered from an old copy. Change the number whenever one of these files changes. -->
 <link rel="stylesheet" href="../kit/r6/tokens.css">
 <link rel="stylesheet" href="../kit/r6/glass.css">
-<link rel="stylesheet" href="../kit/r6/ui.css?v=1123v">
-<link rel="stylesheet" href="../kit/r6/week.css?v=1123v">
-<link rel="stylesheet" href="../kit/r6/sheet.css?v=1123v">
-<link rel="stylesheet" href="../kit/r6/simple.css?v=1123v">
-<link rel="stylesheet" href="../kit/r6/picker.css?v=1123v">
-<link rel="stylesheet" href="../kit/r6/importer.css?v=1123v">
+<link rel="stylesheet" href="../kit/r6/ui.css?v=1124i">
+<link rel="stylesheet" href="../kit/r6/week.css?v=1124i">
+<link rel="stylesheet" href="../kit/r6/sheet.css?v=1124i">
+<link rel="stylesheet" href="../kit/r6/simple.css?v=1124i">
+<link rel="stylesheet" href="../kit/r6/picker.css?v=1124i">
+<link rel="stylesheet" href="../kit/r6/importer.css?v=1124i">
 <link rel="stylesheet" href="../kit/r6/fix.css">
 <link rel="stylesheet" href="../kit/r6/newcoach.css">
 <link rel="stylesheet" href="../kit/r6/case.css">
@@ -452,6 +452,98 @@
   .sp-make .k { display: block; margin-bottom: 2px; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
   .pop .nb-rec { margin: var(--sp-3) 0 var(--sp-1); color: var(--ink-3); font: 600 var(--fs-label)/var(--lh-label) var(--font); }
   .pop .nb-l .pick.is-on { background: var(--hover); }
+
+  /* ================= 23 Nov, upgrade 2 (the owner chose "Hide it while editing"): two states of one page =================
+     Nobody in hand: the queue is the page, full width, one lifter a line (name, their week and what they said, when it is
+     due), easy to run an eye down. A lifter in hand: the editor takes the whole width; "‹ To do" and the lifter ↑ ↓ sit
+     top left where the list was. */
+  .pg .split.is-hand, .pg .split.is-queue { grid-template-columns: minmax(0, 1fr); }
+  .pg .split.is-hand > .pane-list { display: none; }
+  .pg .split.is-hand > .pane-detail { padding-left: 0; }
+  .pg .split.is-queue > .pane-detail { display: none; }
+  .pg .split.is-queue > .pane-list { position: static; height: auto; margin-top: 0; overflow: visible; box-shadow: none; -webkit-mask-image: none; mask-image: none; padding: 0 0 var(--sp-8); }
+  .is-queue .ql { max-width: 1040px; gap: var(--sp-4); padding-right: 0; }
+  .is-queue .ql-g > .lh[data-list-head] { padding-left: var(--sp-4); }
+  .is-queue .ql-q { max-width: 640px; margin-left: var(--sp-4); }
+  .is-queue .ql .lrow.qrow { grid-template-columns: minmax(150px, 220px) minmax(0, 1fr) minmax(88px, auto); grid-template-areas: 'n t e'; align-items: center; column-gap: var(--sp-5); min-height: 56px; padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
+  .is-queue .ql .lrow.qrow.has-ph { grid-template-columns: 32px minmax(150px, 220px) minmax(0, 1fr) minmax(88px, auto); grid-template-areas: 'p n t e'; }
+  .is-queue .ql .qrow .why .t { -webkit-line-clamp: 1; line-clamp: 1; white-space: nowrap; }
+  .is-queue .ql .qrow .ctx { text-align: right; }
+  .is-queue .ql .qrow.is-done { grid-template-columns: minmax(150px, 220px) minmax(0, 1fr) auto; grid-template-areas: 'n r e' 't t t'; }
+  .is-queue .ql .qrow.is-done > .rc { padding-left: 0; }
+  .is-queue .ql-say { margin: 0 0 var(--sp-2); padding: var(--sp-6); }
+  .is-queue .ql-say h2 { font-size: var(--fs-head); line-height: var(--lh-head); }
+  /* the way back and along the queue, at the toolbar's left edge */
+  .tb .pg-back { display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 var(--sp-3) 0 var(--sp-2); font-weight: 600; }
+  .tb .pg-back svg { width: 18px; height: 18px; }
+  .tb .pg-back .n { margin-left: 4px; color: var(--ink-3); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tb .pg-step { display: inline-flex; align-items: center; gap: 2px; margin: 0 var(--sp-3) 0 2px; }
+  .tb .pg-step .btn.icon.sm { width: 32px; height: 32px; }
+  .tb .pg-step .btn.icon.sm svg { width: 18px; height: 18px; }
+  .tb .pg-step svg.is-up { transform: rotate(180deg); }
+  .tb .pg-of { margin-left: var(--sp-1); color: var(--ink-2); font: 500 var(--fs-label)/1 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #pd .wk:focus { outline: none; }
+  /* a narrow toolbar (the sidebar pinned on a 1280 laptop): the place in the queue and the word "To do" give way first,
+     so the crimson never leaves the window; the count, the arrows and their titles stay */
+  @media (max-width: 1500px) { html.side-pinned .tb .pg-of { display: none; } }
+  body.pg-frame:not(.pg-queue) .tb-lead .tb-title { display: none; }   /* the editor names the lifter in its own header; the shell's folded title only took room */
+  @media (max-width: 1380px) { html.side-pinned .tb .pg-back > span:not(.n) { display: none; } html.side-pinned .tb .pg-back .n { margin-left: 2px; } }
+  /* upgrade 2 (the owner: "less small grey text"): nothing on this page under 13 px; the kit's 12 px caption size is 13 here */
+  body[data-place='programs'] { --fs-cap: 13px; }
+  .pg .ph.ini { font-size: 13px !important; }
+  /* the block's shape: a quiet strip over the work card (about 84 px), on the floor like the header, no card of its own */
+  .bs { margin: 0 var(--sp-1) var(--sp-2); }
+  .bs-h { display: flex; align-items: center; gap: var(--sp-4); min-height: 24px; color: var(--ink-2); font: 500 13px/1.2 var(--font); }
+  .bs-t { color: var(--ink); font-weight: 600; font-size: var(--fs-label); }
+  .bs-key { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-3); row-gap: 2px; min-width: 0; }
+  .bs-k, .bs-st { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .bs-k::before { content: ''; width: 9px; height: 9px; border-radius: 3px; background: var(--fill-3); }
+  .bs-k[data-k='squat']::before { background: var(--sq); } .bs-k[data-k='bench']::before { background: var(--bp); } .bs-k[data-k='deadlift']::before { background: var(--dl); }
+  .bs-st::before { content: ''; width: 14px; height: 4px; border-radius: 2px; background: var(--fill-3); }
+  .bs-st[data-st='lifted']::before, .bs-w[data-st='lifted'] .bs-lab::before { background: var(--up); }
+  .bs-st[data-st='now']::before, .bs-w[data-st='now'] .bs-lab::before { background: var(--ink); }
+  .bs-st[data-st='sent']::before, .bs-w[data-st='sent'] .bs-lab::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-2); }
+  .bs-st[data-st='draft']::before, .bs-w[data-st='draft'] .bs-lab::before { background: var(--warn); }
+  .bs-st[data-st='empty']::before, .bs-w[data-st='empty'] .bs-lab::before { background: transparent; box-shadow: inset 0 0 0 1px var(--line-2); }
+  .bs-sep { width: 1px; height: 14px; background: var(--line-2); }
+  .bs-hide { margin-left: auto; height: 28px; padding: 0 var(--sp-2); background: transparent; color: var(--ink-2); font: 500 13px/1 var(--font); }
+  .bs-row { display: flex; align-items: stretch; gap: var(--sp-1); height: 58px; margin-top: var(--sp-1); }
+  .bs-w { position: relative; flex: 1 1 0; max-width: 132px; min-width: 40px; display: flex; flex-direction: column; gap: 3px; padding: 4px 6px 3px; border: 0; border-radius: var(--r-row); background: transparent; color: var(--ink-2); cursor: pointer; text-align: left; font: inherit;
+    transition: background-color var(--dur-hover, 120ms) var(--ease-out); }
+  .bs-col { flex: 1 1 auto; display: flex; align-items: flex-end; min-height: 0; }
+  .bs-stack { display: flex; flex-direction: column; width: min(100%, 44px); min-height: 2px; border-radius: 4px; overflow: hidden; gap: 1px; }
+  .bs-stack i { display: block; min-height: 2px; background: var(--fill-3); }
+  .bs-stack i[data-k='squat'] { background: var(--sq); } .bs-stack i[data-k='bench'] { background: var(--bp); } .bs-stack i[data-k='deadlift'] { background: var(--dl); }
+  .bs-w[data-st='lifted'] .bs-stack, .bs-w[data-st='empty'] .bs-stack { opacity: .55; }
+  .bs-lab { position: relative; display: flex; align-items: baseline; justify-content: space-between; gap: 4px; padding-top: 5px; font: 600 13px/1 var(--font); font-variant-numeric: tabular-nums; }
+  .bs-lab::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 2px; background: var(--fill-3); }
+  .bs-n { color: var(--ink); }
+  .bs-s { color: var(--ink-2); font-weight: 500; }
+  .bs-w[aria-current='true'] { background: var(--place-sel); box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+  .bs-w:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  @media (hover: hover) and (pointer: fine) { .bs-w:not([aria-current='true']):hover { background: var(--hover); } }
+  .bs-end { flex: none; display: flex; flex-direction: column; justify-content: flex-end; gap: 3px; margin-left: var(--sp-3); padding: 0 0 3px var(--sp-3); border-left: 2px dashed var(--line-2); color: var(--ink-2); font: 500 13px/1.2 var(--font); white-space: nowrap; }
+  .bs-end b { color: var(--ink); font-weight: 600; }
+  .bs-end.is-meet { border-left-color: var(--gold, var(--dl)); }
+  .wb .wb-shape[aria-pressed='true'] { background: var(--fill); color: var(--ink); }
+  @media (prefers-reduced-motion: reduce) { .bs-w { transition: none; } }
+  /* Make week N from this: the action on the week bar, and its popover (presets, then what each line becomes) */
+  .wb .wb-next { height: 30px; margin-right: 2px; padding: 0 var(--sp-3); background: var(--fill); color: var(--ink); font: 600 var(--fs-label)/1 var(--font); }
+  @media (hover: hover) and (pointer: fine) { .wb .wb-next:hover { background: var(--fill-2); } }
+  .pop:has(.nx) { width: 460px; }
+  .nx h3 { margin-bottom: var(--sp-2); }
+  .nx-k { display: flex; flex-direction: column; margin: 0 calc(var(--sp-3) * -1); }
+  .nx-k .sp-o { min-height: 44px; }
+  .nx-k .sp-o small { font-size: 13px; }
+  .nx-pv { margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+  .nx-l { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; }
+  .nx-r { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 14px minmax(0, 1fr); align-items: baseline; column-gap: var(--sp-2); min-height: 26px; font: 500 var(--fs-label)/1.3 var(--font); font-variant-numeric: tabular-nums; }
+  .nx-n { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 600; }
+  .nx-n[data-lift] { color: var(--lc-ink); }
+  .nx-a { color: var(--ink-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .nx-ar { color: var(--ink-3); }
+  .nx-z { color: var(--ink); font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .nx-why, .nx-foot { margin: var(--sp-2) 0 0; color: var(--ink-2); font: 500 13px/1.35 var(--font); }
 </style>
 </head>
 <body data-place="programs">
@@ -459,15 +551,15 @@
 <script src="../kit/data.js"></script>
 <script src="../kit/kit.js"></script>
 <script src="../kit/coach.js"></script>
-<script src="../kit/r6/block.js?v=1123v"></script>
+<script src="../kit/r6/block.js?v=1124i"></script>
 <script src="../kit/r6/store.js"></script>
-<script src="../kit/r6/desk.js?v=1123v"></script>
-<script src="../kit/r6/picker.js?v=1123v"></script>
-<script src="../kit/r6/import.js?v=1123v"></script>
-<script src="../kit/r6/importer.js?v=1123v"></script>
-<script src="../kit/r6/week.js?v=1123v"></script>
-<script src="../kit/r6/sheet.js?v=1123v"></script>
-<script src="../kit/r6/simple.js?v=1123v"></script>
+<script src="../kit/r6/desk.js?v=1124i"></script>
+<script src="../kit/r6/picker.js?v=1124i"></script>
+<script src="../kit/r6/import.js?v=1124i"></script>
+<script src="../kit/r6/importer.js?v=1124i"></script>
+<script src="../kit/r6/week.js?v=1124i"></script>
+<script src="../kit/r6/sheet.js?v=1124i"></script>
+<script src="../kit/r6/simple.js?v=1124i"></script>
 <script src="../kit/r6/fix.js"></script>
 <script src="../kit/r6/newcoach.js"></script>
 <script>
@@ -584,7 +676,7 @@
   }
 
   /* ================= the URL: the selection in the hash (shared.md §7) ================= */
-  var st = { tab: 'lifters', mode: ls.get('powa-r6-prog-mode') === 'advanced' ? 'advanced' : 'simple', view: ls.get('powa-r6-prog-view') === 'block' ? 'block' : 'week', q: '', from: null, rest: json(ls.get('powa-r6-prog-rest2')) || { open: false, sort: 'due' }, later: false, sentOpen: false };   /* 23 Nov (upgrade, Hick): Everyone else folds to its count at rest (it used to show: the list read 15 choices before the week); Show sticks */
+  var st = { tab: 'lifters', mode: ls.get('powa-r6-prog-mode') === 'advanced' ? 'advanced' : 'simple', view: ls.get('powa-r6-prog-view') === 'block' ? 'block' : 'week', q: '', from: null, rest: json(ls.get('powa-r6-prog-rest2')) || { open: false, sort: 'due' }, later: false, sentOpen: false, page: 'queue', lastId: null, synced: null };   /* 23 Nov (upgrade, Hick): Everyone else folds to its count at rest (it used to show: the list read 15 choices before the week); Show sticks */
   function readHash() {
     var h = DESK.url.get(), changed = false;
     if (h.view === 'sheet') { h.view = 'block'; changed = true; }
@@ -609,7 +701,12 @@
     }
     if (st.ids && st.tab !== 'templates') h.ids = st.ids.join(',');
     if (st.from) h.from = st.from;
-    DESK.url.set(h);
+    /* from the queue into the editor is a step the browser's Back undoes (a new history entry); every other move,
+       another lifter or another week included, replaces the address */
+    var push = st.synced === 'queue' && st.page === 'hand';
+    DESK.url.set(h, push);
+    if (push) st.pushed = true; else if (st.page === 'queue') st.pushed = false;
+    st.synced = st.page;
   }
 
   /* ================= the shell ================= */
@@ -711,7 +808,7 @@
     return '<div class="ql-q"><label class="field">' + K.ic('find', 2) + '<input type="search" id="ql-q" placeholder="' + esc(hint || ph) + '" aria-label="' + esc(ph) + '" value="' + esc(st.q) + '" autocomplete="off"></label>' + (extra || '') + '</div>';
   }
   function paintQueue() {
-    var q = queue(), rows = q.data, openId = cur && cur.id ? cur.id : null, openTeam = null;
+    var q = queue(), rows = q.data, openId = cur && cur.id ? cur.id : st.page === 'queue' ? st.lastId : null, openTeam = null;
     var todo = rows.filter(function (r) { return r.group === 'todo'; }), ending = rows.filter(function (r) { return r.group === 'ending'; }), rest = rows.filter(function (r) { return r.group === 'rest'; });
     /* a send held behind its toast leaves To do at once (Undo puts it back) */
     var heldIds = SENT.filter(function (s) { return !s.gone && s.held; }).map(function (s) { return s.id; });
@@ -749,7 +846,12 @@
     var none = !lifterCount();
     /* To do is the list's first group: its head is the list head (PX3), then the search and New block… */
     var head = DESK.listHead(null, { name: 'To do', count: st.ids ? T.length : q.meta.left, countKey: st.ids ? null : 'programsDue', action: segTabs() });
-    html += '<div class="ql-g" data-group="todo">' + head + (none ? '' : searchHtml('Find a lifter', '<button class="btn quiet sm ql-new" type="button" data-new-block aria-haspopup="dialog">New block…</button>', 'Search')) +
+    /* the queue page (nobody in hand): what is empty or done says so at its top, in the words the detail used to hold */
+    var top = '';
+    if (st.page === 'queue' && none) top = '<div class="card ad ql-say" data-crop="week"><h2>Nothing to write yet. Add a lifter first.</h2><p>Here you write each lifter’s next week, in a simple form or a spreadsheet, and send it to their phone. Add your first lifter with the red button above.</p><p><button class="link" type="button" data-list-tab="templates">Look at the starter programs meanwhile</button></p></div>';
+    else if (st.page === 'queue' && !T.length && !st.q) { var tc = todayCounts(), nx0 = nextDue(); top = '<div class="card ad ql-say" data-crop="week"><h2>' + esc(tc.weeks || tc.changes ? 'All done. ' + plural(tc.weeks, 'week') + ' and ' + plural(tc.changes, 'change') + ' sent today.' : nx0 ? 'Nothing due. ' + nx0.first + '’s week ' + nx0.n + ' is due ' + dShort(nx0.by) + '.' : 'Nothing due this week.') + '</h2>' + (nx0 && (tc.weeks || tc.changes) ? '<p>Next due: ' + esc(nx0.first) + ', week ' + nx0.n + (nx0.by ? ' by ' + esc(dShort(nx0.by)) : '') + '.</p>' : '') + '</div>'; }
+    html += top;
+    html += '<div class="ql-g" data-group="todo">' + head + (none ? '' : searchHtml('Find a lifter', '<button class="btn quiet sm ql-new" type="button" data-new-block aria-haspopup="dialog">New block…</button>' + (st.page === 'queue' ? '<button class="btn quiet sm ql-new" type="button" data-import title="Paste rows, a file, or a Google Sheets link">Import…</button>' : ''), 'Search')) +
       (st.ids ? '<p class="ql-pick">' + esc(plural(st.ids.length, 'lifter') + ' from Lifters') + '<button class="link" type="button" data-ids-clear>Show everyone</button></p>' : '') +
       '<div data-list role="listbox" aria-label="To do">' + T0.map(function (r) { var id = r.lifterId || 'team:' + r.teamId; return rowHtml(r, id === openId || (openTeam && id === openTeam)); }).join('') + '</div>' +
       /* 23 Nov (upgrade, Hick): the weeks due after this Sunday fold to a count under this week's; the open lifter's row
@@ -830,6 +932,7 @@
     if (cur && cur.grid && cur.grid.destroy) { try { cur.grid.destroy(); } catch (e) { /* gone */ } }
     var was = cur && cur.id;
     cur = o; if (cur) cur.grid = null;
+    st.page = cur && (cur.id || cur.tpl) ? 'hand' : 'queue';
     /* another lifter starts at the top of the page; the queue beside it keeps its own scroll */
     if (cur && cur.id && was !== cur.id && scrollY > 0) scrollTo(0, 0);
     if (cur && cur.id) ss.set('powa-r6-prog-lifter', cur.id);
@@ -898,20 +1001,36 @@
     paintAll({ focus: true });
   }
   function teamOf(id) { var l = Lf(id), t = l && l.program && l.program.team; if (!t || !fn(PL.teams, 'get')) return null; var g = PL.teams.get(t); return g && g.data ? { id: t, name: g.data.name } : null; }
-  function openFirst() {
+  /* 23 Nov (upgrade 2, the owner: "Hide it while editing"): the page has two states. With nobody in hand the queue IS the
+     page, full width; with a lifter (or a template) in hand the editor takes the whole width, and "‹ To do" (Esc, the
+     browser's Back) returns to the queue. openFirst no longer opens the first lifter by itself: it shows the queue, whose
+     crimson opens the first lifter due (the recommended next step, already chosen) */
+  function openFirst() { openQueue(); }
+  function openQueue(o) {
+    o = o || {};
+    if (cur && cur.grid && cur.grid.flush) { try { cur.grid.flush(); } catch (e) { /* gone */ } }
+    if (cur && cur.id) st.lastId = cur.id;
+    setCur({ kind: lifterCount() ? 'queue' : 'empty', id: null });
+    paintAll();
+    if (o.focus !== false) setTimeout(function () { var a = document.activeElement; if (a && a !== document.body && a.isConnected && !a.closest('.ql')) return; var r = QL.querySelector('[data-row][aria-current="true"]') || QL.querySelector('[data-list] [data-row]'); if (r) r.focus({ preventScroll: false }); }, 0);
+  }
+  function openFirstLifter() {
     var t = todoRows().filter(function (r) { return r.lifterId; });
     var heldIds = SENT.filter(function (s) { return !s.gone && s.held; }).map(function (s) { return s.id; });
     t = t.filter(function (r) { return heldIds.indexOf(r.lifterId) < 0; });
     if (st.ids) { var mineIds = t.filter(function (r) { return st.ids.indexOf(r.lifterId) >= 0; }); if (mineIds.length) return openLifter(mineIds[0].lifterId); return openLifter(st.ids[0]); }
     if (t.length) return openLifter(t[0].lifterId);
     if (!lifterCount()) { setCur({ kind: 'empty', id: null }); paintAll(); return; }
-    openDone();
+    openQueue();
   }
-  function openDone() { setCur({ kind: 'done', id: null }); paintAll(); }
+  /* all done: the queue page says so at its top, with the next week due as its crimson */
+  function openDone() { openQueue(); }
 
   /* ================= painting ================= */
   function paintAll(o) {
     o = o || {};
+    var sp = main.querySelector('.split'); if (sp) { sp.classList.toggle('is-queue', st.page === 'queue'); sp.classList.toggle('is-hand', st.page === 'hand'); }
+    document.body.classList.toggle('pg-queue', st.page === 'queue');
     paintQueue(); paintDetail(o); paintToolbar(); syncHash(); setKeys(); setActions();
     var t = cur && cur.l ? cur.l.name : cur && cur.tpl ? cur.tpl.name : 'Programs';
     DESK.setTitle(t); document.title = t + ', Programs, POWALIFTA Coach';
@@ -919,7 +1038,7 @@
   /* the toolbar: back (where the coach came from), the Week | Block switch, the program's moves, the preview, the crimson */
   function paintToolbar() {
     var back = $('#tb-back'), mid = $('#tb-mid'), trail = $('#tb-trail');
-    back.innerHTML = st.from ? DESK.backHtml() : '';
+    back.innerHTML = (st.from ? DESK.backHtml() : '') + (st.page === 'hand' ? queueNavHtml() : '');
     var lifterBlock = cur && cur.b && (cur.kind === 'week' || cur.kind === 'change' || cur.kind === 'recovery');
     /* folded, the page's h1 moves into the toolbar after the view switch, on the large title's own left edge (PX5) */
     var folded = cur && cur.folded && cur.l && document.body.classList.contains('pg-frame');
@@ -954,6 +1073,28 @@
       var room = tbEl && lead && tr ? tr.getBoundingClientRect().left - th.getBoundingClientRect().right - 24 : 0;
       th.style.marginLeft = Math.max(0, Math.min(Math.round(room), Math.round(Math.max(cur.h1x, after) - nat))) + 'px';
     }
+  }
+  /* the way back to the queue and along it, top left where the list was (Fitts: the screen's corner): "‹ To do 10", then
+     the previous and next lifter in the queue's order with where this one sits ("3 of 10"). A template goes back to
+     Templates. */
+  function queueNavHtml() {
+    if (st.tab === 'templates') return '<button class="btn quiet pg-back" type="button" data-to-queue title="Back to the templates (Esc)">' + K.ic('back', 2.2) + '<span>Templates</span></button>';
+    var rows = stepList(), ids = rows.map(function (r) { return r.lifterId; }), i = cur && cur.id ? ids.indexOf(cur.id) : -1, left = queue().meta.left;
+    var nm = function (j) { var r = rows[j]; return r ? r.first || (Lf(r.lifterId) || {}).first || r.name : ''; };
+    var prev = i > 0 ? nm(i - 1) : i < 0 && ids.length ? nm(ids.length - 1) : '', next = i >= 0 && i < ids.length - 1 ? nm(i + 1) : i < 0 && ids.length ? nm(0) : '';
+    return '<button class="btn quiet pg-back" type="button" data-to-queue title="Back to the list of lifters to write (Esc)">' + K.ic('back', 2.2) + '<span>To do</span>' + (isNum(left) ? '<span class="n">' + left + '</span>' : '') + '</button>' +
+      '<span class="pg-step" role="group" aria-label="Lifters in the queue">' +
+      '<button class="btn icon quiet sm" type="button" data-lifter-step="-1"' + (prev ? ' aria-label="Previous lifter: ' + esc(prev) + '" title="' + esc(prev) + ' (⌥↑)"' : ' disabled aria-label="No lifter before"') + '>' + K.ic('down', 2.2).replace('<svg ', '<svg class="is-up" ') + '</button>' +
+      '<button class="btn icon quiet sm" type="button" data-lifter-step="1"' + (next ? ' aria-label="Next lifter: ' + esc(next) + '" title="' + esc(next) + ' (⌥↓)"' : ' disabled aria-label="No lifter after"') + '>' + K.ic('down', 2.2) + '</button>' +
+      (i >= 0 ? '<span class="pg-of">' + (i + 1) + ' of ' + ids.length + '</span>' : '') + '</span>';
+  }
+  /* back to the queue: the browser's own Back when the editor was opened from it (so Forward returns), else the queue */
+  function toQueue() {
+    if (st.page !== 'hand') return;
+    if (cur && cur.grid && cur.grid.flush) { try { cur.grid.flush(); } catch (e) { /* gone */ } }
+    if (st.pushed && history.length > 1) { history.back(); return; }
+    if (st.tab === 'templates') { openQueue(); return; }
+    openQueue();
   }
   /* the crimson, by what the detail holds (programs.md §10, function-polish F4): the first rule that applies wins.
      C1 a cell the engine cannot read · C1b a line with no load · C2 lines about a full RPE off what is written · C3 a first
@@ -1105,6 +1246,12 @@
     if (st.tab === 'templates' && cur.tpl) return { label: 'Use ' + cur.tpl.name + ' for a lifter…', run: function (b) { useTemplate(cur.tpl, b); } };
     if (cur.kind === 'start') return { label: cur.start.kind === 'first' ? 'Start ' + first + '’s first block' : 'Start ' + first + '’s next block', run: startNow, disabled: startBlocked() };
     if (cur.kind === 'runin') return { label: 'Plan ' + first + '’s run-in', run: runinNow };
+    /* the queue page: the first lifter due, already chosen (the list's first row); with nobody due, the next week due */
+    if (cur.kind === 'queue') {
+      if (st.tab === 'templates') return null;
+      var q0 = firstDue(); if (q0) return { label: 'Write ' + q0.first + '’s ' + q0.what, title: 'The first lifter due, at the top of the list', run: function () { openRow(q0.row); } };
+      var nq = nextDue(); return nq ? { label: 'Write ' + nq.first + '’s week ' + nq.n, run: function () { openWeek(nq.id, nq.n); } } : null;
+    }
     if (cur.kind === 'done') { var nx = nextDue(); return nx ? { label: 'Write ' + nx.first + '’s week ' + nx.n, run: function () { openWeek(nx.id, nx.n); } } : null; }
     if (cur.kind === 'recovery') return { label: 'Send the recovery week to ' + first, key: '⌘⇧↵', run: sendNow };
     if (cur.kind === 'change') { var n = changeCount(); return { label: 'Send ' + plural(n, 'change') + ' to ' + first, key: '⌘⇧↵', run: sendNow }; }
@@ -1233,6 +1380,16 @@
     var it = openItemOf(cur.id), a = it ? mainAct(it) : null;
     return a && a.ops && a.ops.length && !a.go ? { item: it, act: a, label: a.label } : null;
   }
+  /* the first lifter the queue lists as due (a send held behind its toast is skipped): the queue page's crimson */
+  function firstDue() {
+    var held = SENT.filter(function (s) { return !s.gone && s.held; }).map(function (s) { return s.id; });
+    var r = todoRows().filter(function (x) { return x.lifterId && held.indexOf(x.lifterId) < 0 && (!st.ids || st.ids.indexOf(x.lifterId) >= 0); })[0];
+    if (!r) return null;
+    var w = whatOf(r), m = /^(Recovery week|Week \d+)/.exec(w);
+    return { row: r, first: r.first || (Lf(r.lifterId) || {}).first || r.name, what: m ? low1(m[1]) : r.kind === 'change' ? 'change' : 'week' };
+  }
+  /* the lifters in the queue's order, to work down it from the editor (‹ › beside "To do"; ⌥↑ ⌥↓, J K) */
+  function stepList() { return todoRows().filter(function (r) { return r.lifterId; }).concat(queue().data.filter(function (r) { return r.group === 'ending'; })); }
   function nextRow(id) {
     var t = todoRows().filter(function (r) { return r.lifterId && r.lifterId !== id; });
     var ids = todoRows().map(function (r) { return r.lifterId; }), i = ids.indexOf(id);
@@ -1463,7 +1620,8 @@
     var sp = storeDates && storeDates.data && storeDates.data.from ? storeDates.data : ds;
     /* the block at a glance: one mark a week (lifted, this week, sent, not sent yet), the week in hand lit; a click goes there */
     if (b.weeks.length > 1 && b.weeks.length <= 14 && cur.kind !== 'recovery') {
-      out += '<span class="wb-blk" role="group" aria-label="Weeks of this block">' + b.weeks.map(function (x, i) {
+      out += '<button class="btn icon quiet sm wb-shape" type="button" data-shape-tog aria-pressed="' + shapeOpen() + '" aria-label="The block’s shape" title="' + (shapeOpen() ? 'Hide the block’s shape' : 'Show the block’s shape: its weeks and sets per lift') + '">' + SHAPE_IC + '</button>';
+      if (!shapeOpen()) out += '<span class="wb-blk" role="group" aria-label="Weeks of this block">' + b.weeks.map(function (x, i) {
         var stt = x.state === 'lifted' ? 'lifted' : x.state === 'now' ? 'now' : x.sent ? 'sent' : 'draft', word = { lifted: 'lifted', now: 'this week', sent: 'sent', draft: 'not sent' }[stt];
         return '<button type="button" class="wb-wk" data-wk-go="' + i + '" data-st="' + stt + '"' + (i === c ? ' aria-current="true"' : '') + ' title="' + esc(weekName(b, i) + ', ' + word) + '" aria-label="' + esc(weekName(b, i) + ', ' + word) + '">' + (x.n || i + 1) + '</button>';
       }).join('') + '</span>';
@@ -1482,7 +1640,9 @@
     if (meetWeek && kind !== 'Meet week') out += '<span class="wb-o">Meet week</span>'; else if (fo && mt && mt <= 16 && kind !== 'Meet week' && said.indexOf(fo.text) < 0) out += '<span class="wb-o" title="' + esc(fo.title) + '">' + esc(fo.text) + '</span>';
     /* 22 Nov: Undo and Redo are two buttons on the week bar in every view (they were keys only, and a pair hidden in Simple) */
     var canEdit = w && w.state !== 'lifted' && cur.kind !== 'change';
-    var menuBtn = '<span class="wb-end">' + (canEdit ? '<button class="btn icon quiet sm" type="button" data-wk-undo aria-label="Undo" title="Undo (⌘Z)">' + UNDO_IC + '</button><button class="btn icon quiet sm" type="button" data-wk-redo aria-label="Redo" title="Redo (⇧⌘Z)">' + REDO_IC + '</button><i class="wb-rule" aria-hidden="true"></i>' : '') +
+    var nw = b.weeks[c + 1], canNext = cur.kind === 'week' && w && !emptyWeek(b, c) && !(nw && nw.state === 'lifted');
+    var nextBtn = canNext ? '<button class="link wb-next" type="button" data-make-next aria-haspopup="dialog" title="Copy this week to the next with a progression you pick, previewed first">' + esc('Make week ' + (nw ? nw.n || c + 2 : c + 2) + ' from this') + '…</button><i class="wb-rule" aria-hidden="true"></i>' : '';
+    var menuBtn = '<span class="wb-end">' + nextBtn + (canEdit ? '<button class="btn icon quiet sm" type="button" data-wk-undo aria-label="Undo" title="Undo (⌘Z)">' + UNDO_IC + '</button><button class="btn icon quiet sm" type="button" data-wk-redo aria-label="Redo" title="Redo (⇧⌘Z)">' + REDO_IC + '</button><i class="wb-rule" aria-hidden="true"></i>' : '') +
       '<button class="btn icon quiet sm" type="button" data-week-menu data-more aria-haspopup="menu" aria-label="' + esc(weekName(b, c)) + ' menu" title="Copy this week onto another, duplicate, deload, fill, insert or add a week">' + K.ic('more', 2.2) + '</button></span>';
     if (unread) notes += '<button class="link is-stop" type="button" data-fix title="It stops the send until it reads">' + esc(plural(unread, 'cell') + ' to fix') + '</button>';
     if (chk) notes += '<button class="link" type="button" data-checks title="The next line to check (⌘G)">' + chk + ' to check</button>';
@@ -1500,6 +1660,40 @@
     if (later.length) notes += '<button class="link" type="button" data-later="' + later[0].n + '">' + esc((later.length === 1 ? 'Week ' + later[0].n : 'Weeks ' + K.list(later.map(function (x) { return x.n; }), 9)) + ': ' + later.reduce(function (a, x) { return a + x.check; }, 0) + ' to check') + '</button>';
     return '<div class="wb" data-crop="weekbar"><div class="wb-r1">' + out + '</div>' + (notes ? '<div class="wb-r2">' + notes + '</div>' : '') + menuBtn + '</div>';
   }
+  /* ---------------- 23 Nov, upgrade 2 (the owner: "a clear picture of the block above the editor"): the block's shape.
+     One strip over the work card: the weeks as a timeline, each with its state (lifted, this week, sent, written not
+     sent, not written) and a small stacked column of its sets per lift (squat, bench, deadlift in their colours, the
+     rest neutral), so volume going up, a deload and a peak read at a glance; the week in hand ringed; a click goes there;
+     the meet or the block's end at the right. Its numbers are the ones the editor writes (each line's sets).
+     Folded, the week bar's small week marks stand in for it. Open by default when the window is tall enough to keep the
+     first lift high on the screen (860 px), else folded; the coach's own choice is kept (powa-r6-prog-shape). */
+  var SHAPE_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 19V12M10 19V7M15 19v-9M20 19V5"/></svg>';
+  function shapeOpen() { var v = ls.get('powa-r6-prog-shape'); return v === 'open' ? true : v === 'fold' ? false : (W.innerHeight || 0) >= 860; }
+  function weekSets(b, c) {
+    var w = b.weeks[c], o = { squat: 0, bench: 0, deadlift: 0, acc: 0, all: 0 }; if (!w) return o;
+    b.rows.forEach(function (row) { var x = row.cells[w.uid]; if (!x) return; var cl = BL.cellOf(x), n = cl && isNum(cl.n) ? cl.n : 0; if (!n) return; var k = LIFTS.indexOf(row.lift) >= 0 ? row.lift : 'acc'; o[k] += n; o.all += n; });
+    return o;
+  }
+  function shapeHtml() {
+    var b = cur && cur.b; if (!b || !shapeOpen() || cur.kind === 'recovery' || b.weeks.length < 2 || b.weeks.length > 16) return '';
+    var sets = b.weeks.map(function (x, i) { return weekSets(b, i); }), top = Math.max.apply(null, sets.map(function (s) { return s.all; }).concat([1]));
+    var l = cur.l, meet = l && l.meet && l.meet.date ? l.meet : null, last = weekDates(b, b.weeks.length - 1), ends = last ? last.to : null;
+    var meetIn = meet && ends && String(meet.date).slice(0, 10) <= K.add(ends, 7);
+    var WORD = { lifted: 'Lifted', now: 'This week', sent: 'Sent', draft: 'Written, not sent', empty: 'Not written' };
+    var cols = b.weeks.map(function (x, i) {
+      var ww = weekWords(cur.id, cur.next ? i + 1 : x.n || i + 1, which()), s = sets[i];
+      var stt = x.state === 'lifted' ? 'lifted' : x.state === 'now' ? 'now' : (x.sent || (ww && /^Sent\b/.test(ww.state || ''))) ? 'sent' : s.all ? 'draft' : 'empty';
+      var seg = function (k) { return s[k] ? '<i data-k="' + k + '" style="flex-grow:' + s[k] + '"></i>' : ''; };
+      var tip = weekName(b, i) + ': ' + WORD[stt].toLowerCase() + '. ' + (s.all ? s.all + ' sets: ' + LIFTS.filter(function (k) { return s[k]; }).map(function (k) { return LIFT[k] + ' ' + s[k]; }).concat(s.acc ? ['other ' + s.acc] : []).join(', ') : 'no sets yet') + (x.deload ? '. A deload.' : '') + '.';
+      return '<button type="button" class="bs-w" data-wk-go="' + i + '" data-st="' + stt + '"' + (i === cur.c ? ' aria-current="true"' : '') + ' title="' + esc(tip) + '" aria-label="' + esc(tip) + '">' +
+        '<span class="bs-col"><span class="bs-stack" style="height:' + Math.round(100 * s.all / top) + '%">' + seg('acc') + seg('deadlift') + seg('bench') + seg('squat') + '</span></span>' +
+        '<span class="bs-lab"><span class="bs-n">W' + (x.n || i + 1) + '</span><span class="bs-s">' + (s.all ? s.all : '–') + '</span></span></button>';
+    }).join('');
+    var end = meetIn ? '<span class="bs-end is-meet" title="' + esc(meet.name + ', ' + dShort(meet.date)) + '"><b>' + esc(meet.name) + '</b><span>' + esc(dShort(meet.date)) + '</span></span>' : ends ? '<span class="bs-end"><b>Block ends</b><span>' + esc(dShort(ends)) + '</span></span>' : '';
+    var key = '<span class="bs-key"><span class="bs-k" data-k="squat">Squat</span><span class="bs-k" data-k="bench">Bench</span><span class="bs-k" data-k="deadlift">Deadlift</span><span class="bs-k" data-k="acc">Other</span>' +
+      '<span class="bs-sep" aria-hidden="true"></span><span class="bs-st" data-st="lifted">Lifted</span><span class="bs-st" data-st="now">This week</span><span class="bs-st" data-st="sent">Sent</span><span class="bs-st" data-st="draft">Not sent</span><span class="bs-st" data-st="empty">Not written</span></span>';
+    return '<div class="bs" id="bs" data-crop="shape" role="group" aria-label="The block’s shape: sets per week"><div class="bs-h"><span class="bs-t">Sets per week</span>' + key + '<button class="link bs-hide" type="button" data-shape-tog aria-pressed="true">Hide</button></div><div class="bs-row">' + cols + end + '</div></div>';
+  }
   /* the mode switch's two marks: a form's lines (Simple) and a spreadsheet's grid (Advanced) */
   var MODE_IC = {
     simple: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6.5h4M11 6.5h9M4 12h4M11 12h9M4 17.5h4M11 17.5h9"/></svg>',
@@ -1514,7 +1708,8 @@
     var g = cur.grid; if (fn(g, 'flush')) g.flush();
     var r = fn(g, dir) ? g[dir]() : storeWalk(dir);
     if (!fn(g, dir) && fn(g, 'render')) g.render({ c: cur.c, force: true });
-    if (r && r.data && r.data.label && !(r.meta && r.meta.label)) DESK.toast(r.data.label);
+    /* round 2: every walk says what it took back, and replaces the toast of the change it undid (whose Undo is spent) */
+    if (r && !r.error) { var lb = (r.meta && r.meta.label) || (r.data && r.data.label) || ''; lb = String(lb).replace(/\.$/, ''); DESK.toast(lb ? (/^(Undone|Redone)\b/.test(lb) ? lb : (dir === 'undo' ? 'Undone: ' : 'Redone: ') + low1(lb)) + '.' : dir === 'undo' ? 'Undone.' : 'Redone.'); }
     paintWeekbar(); paintToolbar(); paintQueue();
   }
   /* the next thing the desk flags in the week on screen: the grid's own walk, else the first flagged line's field */
@@ -1545,7 +1740,7 @@
   }
   function paintDetail(o) {
     o = o || {};
-    if (!cur) { setFrame(false); PD.innerHTML = ''; return; }
+    if (!cur || cur.kind === 'queue' || (cur.kind === 'empty' && st.page === 'queue')) { setFrame(false); PD.innerHTML = ''; return; }
     var doc = cur.kind === 'done' || cur.kind === 'empty' || cur.kind === 'start' || cur.kind === 'runin' || (st.tab === 'templates' && cur.tpl);
     setFrame(!doc);
     if (cur.kind === 'done') return paintDone();
@@ -1557,14 +1752,14 @@
     if (cur.kind === 'runin') return paintRunin();
     if (st.tab === 'templates' && cur.tpl) return paintTemplate();
     var simple = isSimple(), sheet = !simple && st.view === 'block' && SH && fn(SH, 'grid');
-    PD.innerHTML = headerHtml() + '<div class="card wk ' + (sheet ? 'is-sheet' : 'is-rows') + (simple ? ' is-simple' : '') + '" data-crop="week">' + weekbarHtml() + (cur.kind === 'change' ? footHtml() : '') + '<div id="wg"></div>' + (cur.kind === 'change' || sheet ? '' : footHtml()) + '</div>';
+    PD.innerHTML = headerHtml() + shapeHtml() + '<div class="card wk ' + (sheet ? 'is-sheet' : 'is-rows') + (simple ? ' is-simple' : '') + '" data-crop="week">' + weekbarHtml() + (cur.kind === 'change' ? footHtml() : '') + '<div id="wg"></div>' + (cur.kind === 'change' || sheet ? '' : footHtml()) + '</div>';
     mountGrid(o);
     /* the week's note goes in above the shape foot, so the foot stays the card's last line */
     var note = $('#pd .wk > .wk-f:not(.is-msg)'), tail = $('#wg .wg-tail'); if (note && tail) tail.appendChild(note);
     paintWeekbar();
     bindScroll();
   }
-  function paintWeekbar() { var wb = $('.wb'); if (wb && cur && cur.b) { wb.outerHTML = weekbarHtml(); syncWbH(); } }
+  function paintWeekbar() { var wb = $('.wb'); if (wb && cur && cur.b) { var bs = $('#bs'); if (bs) { var sh = shapeHtml(); if (sh) bs.outerHTML = sh; else bs.remove(); } wb.outerHTML = weekbarHtml(); syncWbH(); } }
   /* after each paint of the week bar: its compact size, its notes beside the week when they fit, the grid's pinned edges */
   function syncWbH() {
     var card = $('#pd .wk'), wb = card && card.querySelector('.wb'); if (!wb) return;
@@ -1672,6 +1867,9 @@
     });
     cur.grid.render({ c: cur.c });
     if (cur.hand && cur.hand.key) quietly(function () { cur.grid.select(cur.hand.key, cur.hand.col); });
+    /* round 2: a lifter opened (from the queue, after a send) puts the keys in the week, as the sheet does: the first
+       field to write, never the page body; a click elsewhere is left alone */
+    else if (o && o.focus) setTimeout(function () { var a = document.activeElement; if (cur && cur.grid && (!a || a === document.body || !a.isConnected || a.matches('.pg-frame'))) quietly(function () { cur.grid.focus(); }); }, 0);
     /* the week gets the window when the coach works it by keys, as in the Week view (P17): the header folds, the lines stay put */
     host.addEventListener('focusin', function (e) { var from = e.relatedTarget; if (quiet || ptrDown || !isSimple() || (from && from.closest && from.closest('[data-layer], dialog'))) return; focusMode(); });
   }
@@ -1931,7 +2129,9 @@
   }
   /* ⌥↓ ⌥↑: the next and previous row in queue order, not done rows (programs.md §3.4) */
   function stepLifter(step) {
-    var rows = todoRows().filter(function (r) { return r.lifterId; }).concat(queue().data.filter(function (r) { return r.group === 'ending'; }));
+    /* on the queue page the keys move down the list (Enter opens), as every list does */
+    if (st.page === 'queue') { var qr = $$('.ql [data-list] [data-row]'), a0 = document.activeElement, k0 = qr.indexOf(a0 && a0.closest ? a0.closest('[data-row]') : null), n0 = qr[k0 < 0 ? 0 : Math.max(0, Math.min(qr.length - 1, k0 + step))]; if (n0) n0.focus(); return; }
+    var rows = stepList();
     var ids = rows.map(function (r) { return r.lifterId; }), i = cur && cur.id ? ids.indexOf(cur.id) : -1;
     var j = i < 0 ? (step > 0 ? 0 : ids.length - 1) : i + step;
     if (j < 0 || j >= ids.length) return;
@@ -2756,6 +2956,74 @@
     if (restW.length) topW.push({ sep: true }, { id: 'more', label: 'More', subs: restW });
     menu(btn, topW, { title: weekName(b, c), label: weekName(b, c) + ' menu' });
   }
+  /* ---------------- 23 Nov, upgrade 2 (the owner: "one click to make next week from this week with a progression"):
+     "Make week 6 from this" on the week bar. The coach picks how it moves from three or four plain presets and sees
+     what each line becomes before anything is written: Same again · Each line's own weekly step (the block's rule: a
+     line's Each-week setting, else the coach's own kilos on a main lift; BLOCK copyWeek) · +2.5 kg on the main lifts ·
+     +0.5 RPE on the main lifts (BLOCK.stepOf). The week after is written over (added when there is none); a lifted
+     week is never touched. One write, one Undo. */
+  var NEXT_KINDS = [['same', 'Same again', 'Every line as written'], ['rule', 'Each line’s own weekly step', 'The block’s rule: a line’s Each-week step, else your kilos on a main lift'], ['kg', '+2.5 kg on the main lifts', 'Squat, bench and deadlift top sets; back-offs follow'], ['rpe', '+0.5 RPE on the main lifts', 'Squat, bench and deadlift lines written at an RPE']];
+  function makeNext(bb, c, kind) {
+    var to = c + 1;
+    return bb.batch('Week ' + (to + 1) + ' from week ' + (c + 1), function (b) {
+      if (!b.weeks[to]) { var a = b.addWeek(); if (a && a.error) return a; }
+      var cp = b.copyWeek(c, to, kind === 'rule' ? {} : { same: true }); if (cp && cp.error) return cp;
+      if (kind === 'kg' || kind === 'rpe') b.rows.forEach(function (row, r) {
+        if (LIFTS.indexOf(row.lift) < 0 || row.line || b.isRO(r, to) || row.only) return;
+        var x = row.cells[b.weeks[c].uid]; if (!x) return; var cl = BL.cellOf(x); if (kind === 'rpe' && (!cl || cl.rpe == null)) return; if (kind === 'kg' && cl && cl.off != null) return;
+        var L = b.load(r, c), nx = BL.stepOf({ prog: kind === 'kg' ? 'kg2.5' : 'rpe0.5', lift: row.lift }, x, 1, L ? L.kg : null); if (nx) b.set(r, to, BL.text(nx));
+      });
+      return { data: { c: to } };
+    });
+  }
+  function nextPlan(kind) {
+    var b0 = cur.b, c = cur.c, bb = BL.from(b0.toJSON()), res = makeNext(bb, c, kind), out = [];
+    if (res && res.error) return { error: res.error, lines: [] };
+    var w0 = b0.weeks[c], w1 = bb.weeks[c + 1], was1 = b0.weeks[c + 1];
+    bb.rows.forEach(function (row, r) {
+      var a = row.cells[w0.uid], z = row.cells[w1.uid]; if (!z || row.line) return;
+      var ta = a ? BL.text(BL.cellOf(a)) : '', tz = BL.text(BL.cellOf(z)), L = bb.load(r, c + 1), La = b0.load(r, c);
+      out.push({ name: row.name, lift: LIFTS.indexOf(row.lift) >= 0 ? row.lift : null, from: ta + (La && La.kg != null && !/kg/.test(ta) ? ' · ' + nf(La.kg) : ''), to: tz + (L && L.kg != null && !/kg/.test(tz) ? ' · ' + nf(L.kg) : ''), moved: ta !== tz || (La && L && La.kg !== L.kg) });
+    });
+    return { lines: out, over: !!(was1 && b0.rows.some(function (row) { return row.cells[was1.uid]; })), sent: !!(was1 && was1.sent), n: (w1 && w1.n) || c + 2 };
+  }
+  function nextPop(btn) {
+    if (!cur || !cur.b || !DESK.pop) return;
+    if (cur.grid && cur.grid.flush) cur.grid.flush();
+    var b = cur.b, c = cur.c, nxt = b.weeks[c + 1];
+    if (nxt && nxt.state === 'lifted') { DESK.toast(b.weekName(c + 1) + ' was lifted. It stays as it was.'); return; }
+    var plans = {}; NEXT_KINDS.forEach(function (k) { plans[k[0]] = nextPlan(k[0]); });
+    var moves = function (k) { return plans[k] && !plans[k].error ? plans[k].lines.filter(function (x) { return x.moved; }).length : 0; };
+    var kinds = NEXT_KINDS.filter(function (k) { return k[0] !== 'rule' || moves('rule'); });
+    var pick = moves('rule') ? 'rule' : 'same', n = (plans.same && plans.same.n) || c + 2, wn = 'week ' + ((b.weeks[c] || {}).n || c + 1);
+    var list = function () {
+      var p = plans[pick]; if (!p || p.error) return '<p class="nx-why">' + esc(p && p.error ? p.error.message : 'That cannot be made.') + '</p>';
+      var mv = p.lines.filter(function (x) { return x.moved; }), same = p.lines.length - mv.length;
+      return '<div class="nx-l" role="list" aria-label="What week ' + n + ' gets">' + (mv.length ? mv.slice(0, 8).map(function (x) { return '<div class="nx-r" role="listitem"><span class="nx-n"' + (x.lift ? ' data-lift="' + x.lift + '"' : '') + '>' + esc(x.name) + '</span><span class="nx-a">' + esc(x.from) + '</span><span class="nx-ar" aria-hidden="true">→</span><span class="nx-z">' + esc(x.to) + '</span></div>'; }).join('') : '<p class="nx-why">Every line is copied as written.</p>') + '</div>' +
+        '<p class="nx-foot">' + esc((mv.length > 8 ? (mv.length - 8) + ' more change, ' : '') + (same ? plural(same, 'line') + ' as written. ' : '') + (p.over ? 'Week ' + n + ' is written over' + (p.sent ? '; ' + cur.l.first + ' has it, so it goes as a change to send.' : '.') : 'Week ' + n + ' is added after ' + wn + '.')) + '</p>';
+    };
+    var html = function () {
+      return '<div class="nx"><h3>' + esc('Make week ' + n + ' from ' + wn) + '</h3><div class="nx-k" role="radiogroup" aria-label="How it moves">' + kinds.map(function (k) { var on = k[0] === pick, m = moves(k[0]); return '<button type="button" class="sp-o nx-o" role="radio" aria-checked="' + on + '" data-nx="' + k[0] + '"' + (on ? '' : ' tabindex="-1"') + '><span class="rd" aria-hidden="true"></span><span class="t"><b>' + esc(k[1]) + (k[0] === 'rule' ? '<span class="rec">Recommended</span>' : '') + '</b><small>' + esc(k[2] + (k[0] !== 'same' ? ': ' + plural(m, 'line') + ' change' + (m === 1 ? 's' : '') : '')) + '</small></span></button>'; }).join('') + '</div>' +
+        '<div class="nx-pv">' + list() + '</div><div class="acts"><button class="btn sm" type="button" data-nx-go>' + esc('Make week ' + n) + '</button><button class="btn quiet sm" type="button" data-pop-close>Cancel</button></div></div>';
+    };
+    var el = DESK.pop.open(btn, html(), { label: 'Make week ' + n + ' from ' + wn, focus: '[data-nx][aria-checked="true"]' });
+    el.classList.add('is-nx');
+    var redraw = function (focusPick) { el.querySelector('.nx').outerHTML = html(); if (focusPick) { var f = el.querySelector('[data-nx][aria-checked="true"]'); if (f) f.focus(); } };
+    var go = function () {
+      var kind = pick, label = NEXT_KINDS.filter(function (k) { return k[0] === kind; })[0][1];
+      DESK.pop.close();
+      var res = gridApply(function (bb) { return makeNext(bb, c, kind); }, 'Week ' + n + ' from ' + wn, { say: 'Week ' + n + ' made from ' + wn + ': ' + low1(label) + '.', warn: true, focus: false });
+      /* round 2: the coach stays on the week being written (the next step is usually its Send); the strip shows week N
+         at once and its toast says what it holds */
+      if (res && !res.error) { var bt = $('[data-make-next]'); if (bt) bt.focus({ preventScroll: true }); }
+    };
+    el.addEventListener('click', function (e) { var o = e.target.closest('[data-nx]'); if (o) { pick = o.getAttribute('data-nx'); redraw(true); return; } if (e.target.closest('[data-nx-go]')) { go(); return; } if (e.target.closest('[data-pop-close]')) DESK.pop.close(); });
+    el.addEventListener('keydown', function (e) {
+      var o = e.target.closest && e.target.closest('[data-nx]');
+      if (o && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); var ids = kinds.map(function (k) { return k[0]; }), i = ids.indexOf(pick); pick = ids[(i + (e.key === 'ArrowDown' ? 1 : ids.length - 1)) % ids.length]; redraw(true); return; }
+      if (e.key === 'Enter' && !e.target.closest('[data-pop-close]')) { e.preventDefault(); go(); }
+    });
+  }
   function planTaper(m) { var tp = null; try { tp = BL.taper(cur.b, m.date, { c: cur.c }); } catch (e) { tp = null; } if (!tp || !tp.block) { DESK.toast('The taper could not be planned.'); return; } cur.p = tp; cur.b = tp.block; cur.fresh = true; cur.sendC = tp.c != null ? tp.c : cur.c; paintAll({ focus: true }); }
   function sendAll(ns) {
     if (cur.grid && cur.grid.flush) cur.grid.flush();
@@ -2803,8 +3071,18 @@
     var DM = {}; items.forEach(function (x) { if (x.id) DM[x.id] = x; });
     var merges = items.filter(function (x) { return /^merge-/.test(x.id || ''); }).map(function (x) { return { id: x.id, label: x.label.replace(/^Merge with /, '').replace(/ this week$/, ''), run: x.run }; });
     var swaps = items.filter(function (x) { return /^swap-/.test(x.id || ''); });
-    var topD = [DM.addx, DM.dupd, DM.ren, DM.mvw, DM.mve, merges.length ? { id: 'merge', label: 'Merge this week with', subs: merges } : null].filter(Boolean);
-    var restD = swaps.concat([DM.back || DM.out, { sep: true }, DM.del]).filter(Boolean);
+    /* 23 Nov, upgrade 2 (the owner: "copy days and weeks around quickly"): the day, as written this week, onto the same
+       day of another week (its lines there are replaced; lifted weeks are left alone) or onto another day of this week
+       (its lines added after that day's). One write, one Undo. */
+    var ixOf = function (bb, key) { for (var i = 0; i < bb.rows.length; i++) if (bb.rows[i].key === key) return i; return -1; };
+    var copyDayTo = function (k) { var wk = b.weekName(k), cr = gridApply(function (bb) { return bb.batch('Copy ' + dn + ' onto ' + low1(wk), function (bx) { var src = bx.weeks[c], dst = bx.weeks[k], n0 = 0; bx.rows.forEach(function (row, r) { if (row.day !== day || bx.isRO(r, k) || row.only) return; var x = row.cells[src.uid]; if (!x && !row.cells[dst.uid]) return; var st1 = bx.set(r, k, x ? BL.text(BL.cellOf(x)) : ''); if (st1 && !st1.error) n0++; }); return n0 ? { data: { n: n0 } } : { error: { message: 'Nothing to copy: ' + low1(dn) + ' has no lines this week, or ' + low1(wk) + ' was lifted.' } }; }); }, null, { say: dn + ' copied onto ' + low1(wk) + ', as written.', warn: true }); if (cr && !cr.error && cr.data && cr.data.changed === false) DESK.toast(dn + ' in ' + low1(wk) + ' already reads the same.'); };
+    var copyDayOn = function (to) { gridApply(function (bb) { return bb.batch('Copy ' + dn + ' onto ' + to, function (bx) { var w0 = bx.weeks[c], top = {}, n0 = 0, src = bx.rows.filter(function (row) { return row.day === day && row.cells[w0.uid]; }); src.forEach(function (row) { var t0 = BL.text(BL.cellOf(row.cells[w0.uid])); if (!row.line) { var a = bx.addExercise(to, row.name, row.lift ? { lift: row.lift, variant: row.variant || undefined } : { lift: null }); if (!a || a.error) return; bx.set(a.data.r, c, t0); top[row.ex] = bx.rows[a.data.r].key; n0++; } else if (top[row.ex]) { var al = bx.addLine(ixOf(bx, top[row.ex])); if (al && !al.error) bx.set(al.data.r, c, t0); } }); return n0 ? { data: { n: n0 } } : { error: { message: dn + ' has no lines this week.' } }; }); }, null, { say: dn + '’s lines added to ' + low1(sentence(to)) + '.', warn: true }); };
+    var cpSubs = [];
+    b.weeks.forEach(function (x, k) { if (k === c || x.state === 'lifted') return; cpSubs.push({ id: 'cpd-' + k, label: b.weekName(k) + ', ' + dn.toLowerCase(), run: function () { copyDayTo(k); } }); });
+    others.forEach(function (o) { cpSubs.push({ id: 'cpo-' + o.name, label: sentence(o.name) + ', this week', run: function () { copyDayOn(o.name); } }); });
+    var copyD = cpSubs.length && !(w && w.state === 'lifted') ? { id: 'cpday', label: 'Copy the day onto', subs: cpSubs } : null;
+    var topD = [DM.addx, DM.dupd, copyD, DM.mvw, DM.mve, merges.length ? { id: 'merge', label: 'Merge this week with', subs: merges } : null].filter(Boolean);
+    var restD = [DM.ren].concat(swaps, [DM.back || DM.out, { sep: true }, DM.del]).filter(Boolean);
     topD.push({ sep: true }, { id: 'more', label: 'More', subs: restD });
     menu(btn, topD, { title: sentence(day), label: sentence(day) + ' menu' });
   }
@@ -2868,7 +3146,11 @@
     var top = [RM.chg, RM.dup, RM.bo || RM.line,
       RM.swapw ? { id: 'swap', label: 'Swap the exercise', subs: [{ id: 'swapw', label: 'This week only…', run: RM.swapw.run }, { id: 'swapf', label: 'From this week on…', run: RM.swapf.run }] } : null,
       RM.each, RM.today].filter(Boolean);
-    var rest = [RM.bo ? RM.line : null, RM.up, RM.down, { sep: true }, RM.out, RM.del].filter(Boolean);
+    /* 23 Nov, upgrade 2: the line, as written this week, onto the same line next week (a spreadsheet's copy to the next
+       column); a lifted next week is left alone */
+    var nwk = b.weeks[c + 1], cx0 = row.cells[(b.weeks[c] || {}).uid];
+    var toNext = nwk && cx0 && !b.isRO(rowIx(b, row.key), c + 1) ? { id: 'tonext', label: 'Copy to ' + low1(b.weekName(c + 1)), run: function () { gridApply(function (bb) { var rr = rowIx(bb, row.key), x0 = bb.rows[rr] && bb.rows[rr].cells[bb.weeks[c].uid]; return x0 ? bb.set(rr, c + 1, BL.text(BL.cellOf(x0))) : { error: { message: 'That line has nothing this week.' } }; }, null, { say: nm + ' copied to ' + low1(b.weekName(c + 1)) + ', as written.' }); } } : null;
+    var rest = [toNext, RM.bo ? RM.line : null, RM.up, RM.down, { sep: true }, RM.out, RM.del].filter(Boolean);
     top.push({ sep: true }, { id: 'more', label: 'More', subs: rest });
     menu(btn, top, { title: row.name, label: row.name + ' menu' });
   }
@@ -3400,7 +3682,11 @@
   document.addEventListener('click', function (e) {
     var t = e.target, b;
     if ((b = t.closest('[data-primary]')) && !b.closest('[data-layer]')) { goPrimary(b); return; }
-    if ((b = t.closest('button[data-list-tab]'))) { var tab = b.getAttribute('data-list-tab'); if (tab === st.tab) return; st.tab = tab; st.q = ''; if (tab === 'templates') openTemplate(cur && cur.tpl ? cur.tpl.id : null); else openFirst(); return; }
+    if ((b = t.closest('button[data-list-tab]'))) { var tab = b.getAttribute('data-list-tab'); if (tab === st.tab) return; st.tab = tab; st.q = ''; openQueue(); return; }
+    if ((b = t.closest('[data-to-queue]'))) { toQueue(); return; }
+    if ((b = t.closest('[data-make-next]'))) { if (DESK.pop.justClosed(b)) return; nextPop(b); return; }
+    if ((b = t.closest('[data-shape-tog]'))) { ls.set('powa-r6-prog-shape', shapeOpen() ? 'fold' : 'open'); var bs0 = $('#bs'), sh = shapeHtml(); if (bs0) { if (sh) bs0.outerHTML = sh; else bs0.remove(); } else if (sh) { var wk0 = $('#pd .wk'); if (wk0) wk0.insertAdjacentHTML('beforebegin', sh); } paintWeekbar(); var tg0 = $('[data-shape-tog]'); if (tg0) tg0.focus({ preventScroll: true }); return; }
+    if ((b = t.closest('[data-lifter-step]'))) { stepLifter(+b.getAttribute('data-lifter-step')); return; }
     if ((b = t.closest('[data-new-block]'))) { if (DESK.pop.justClosed(b)) return; newBlockMenu(b); return; }
     if ((b = t.closest('[data-later-fold]'))) { st.later = !st.later; paintQueue(); var lf0 = $('[data-later-fold]'); if (lf0) lf0.focus({ preventScroll: true }); return; }
     if ((b = t.closest('[data-sent-fold]'))) { st.sentOpen = !st.sentOpen; paintQueue(); var sf0 = $('[data-sent-fold]'); if (sf0) sf0.focus({ preventScroll: true }); return; }
@@ -3508,7 +3794,32 @@
   /* 23 Nov: a menu or popover opened from the keys (⇧F10 on a line, Enter on a "…", a week's menu) is there at once,
      without the grow (MOTION.md: no entrance animation on a keyboard action). The kit's own .is-cut does it; the next
      opening clears it. From the pointer it still grows from its trigger. */
-  var keyAt = 0;
+  /* does this field hold typing of its own (something Esc or ⌘Z would act on in the field itself)? The quick-add line
+     when it has text; a Simple field or an edit bar whose value differs from the one it showed (data-v); any other
+     field (a note, the search, a message) always */
+  function fieldOwn(t) {
+    if (!t || !t.matches) return false;
+    if (t.matches('.sv-qin')) return !!t.value;
+    if (t.matches('.sv-in, .wg-fx, .sx-fx')) return t.value !== (t.getAttribute('data-v') || '');
+    return true;
+  }
+  var keyAt = 0, escAt = null;
+  /* Esc with nothing being edited goes back to the queue: what was open when the key went down is read first (a picker,
+     a menu, a sheet, a field, a cell or a range in the grid each take Esc for themselves) */
+  addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') { escAt = null; return; }
+    var a = document.activeElement, g = $('#wg');
+    escAt = { open: !!document.querySelector('dialog[open]') || DESK.pop.isOpen() || !!document.querySelector('.pop:popover-open, [popover]:popover-open'), field: !!(a && a.matches && a.matches('input, textarea, select, [contenteditable="true"]')), grid: !!(a && g && g.contains(a)), range: !!(g && g.querySelector('.is-picked, .is-whole, .is-cut, .sx-ed, .wg-ed')) };
+  }, true);
+  addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || e.defaultPrevented || !escAt || st.page !== 'hand') return;
+    var x = escAt; escAt = null;
+    if (x.open || x.range || DESK.pop.isOpen() || document.querySelector('dialog[open]')) return;
+    /* a Simple field with nothing typed in it lets go on the first Esc (one level out); the next Esc is the queue */
+    if (x.field) { var f0 = e.target; if (f0 && f0.matches && !fieldOwn(f0) && f0.getAttribute('aria-invalid') !== 'true') { e.preventDefault(); f0.blur(); var wk0 = $('#pd .wk'); if (wk0) { wk0.setAttribute('tabindex', '-1'); wk0.focus({ preventScroll: true }); } } return; }
+    if (x.grid && cur && cur.grid && fn(cur.grid, 'sel')) { var s0 = cur.grid.sel() || {}; if (s0.r1 != null && (s0.r1 !== s0.r0 || s0.c1 !== s0.c0)) return; }
+    e.preventDefault(); toQueue();
+  });
   document.addEventListener('keydown', function () { keyAt = Date.now(); }, true);
   document.addEventListener('pointerdown', function () { keyAt = 0; }, true);
   if (DESK.pop && fn(DESK.pop, 'open')) {
@@ -3538,7 +3849,11 @@
        the last toast, answered "Nothing to undo"). A field, a grid and an open sheet or popover keep their own. */
     if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'z' || e.key === 'Z' || (!e.shiftKey && (e.key === 'y' || e.key === 'Y'))) && cur && cur.grid && cur.b) {
       var inField = t.matches && t.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
-      if (!inField && !(t.closest && t.closest('#wg')) && !document.querySelector('dialog[open]') && !DESK.pop.isOpen()) { e.preventDefault(); walkHistory(e.shiftKey || e.key === 'y' || e.key === 'Y' ? 'redo' : 'undo'); return; }
+      /* round 2 (the lead: "⌘Z right after adding a line removes it"): a field with nothing typed of its own (the empty
+         quick-add line, an edit bar still showing its cell) hands ⌘Z to the week's history, as an empty spreadsheet
+         cell does; a field holding typing keeps its own undo */
+      var idle = inField && !fieldOwn(t);
+      if ((idle || (!inField && !(t.closest && t.closest('#wg')))) && !document.querySelector('dialog[open]') && !DESK.pop.isOpen()) { e.preventDefault(); e.stopPropagation(); walkHistory(e.shiftKey || e.key === 'y' || e.key === 'Y' ? 'redo' : 'undo'); return; }
     }
   });
   /* the store changed elsewhere (another page's write, an Undo from a toast): the queue and the counts follow; the block
@@ -3547,8 +3862,21 @@
   PL.on('change', function () {
     if (mine) return;
     cancelAnimationFrame(pend);
-    pend = requestAnimationFrame(function () { if (cur && cur.kind === 'empty' && lifterCount()) { openFirst(); return; } if (cur && cur.id && cur.kind !== 'start' && cur.kind !== 'runin') { var keep = cur.grid && cur.grid.sel ? cur.grid.sel() : null; reopen(); if (keep && cur && cur.grid && keep.key && !keep.add) cur.grid.select(keep.key, keep.col, { scroll: false }); } else { paintQueue(); paintToolbar(); if (cur && cur.kind === 'done') paintDone(); } });
+    pend = requestAnimationFrame(function () { if (cur && cur.kind === 'empty' && lifterCount()) { openFirst(); return; } if (cur && cur.id && cur.kind !== 'start' && cur.kind !== 'runin') { var keep = cur.grid && cur.grid.sel ? cur.grid.sel() : null, fk = keepField(); reopen(); if (keep && cur && cur.grid && keep.key && !keep.add) cur.grid.select(keep.key, keep.col, { scroll: false }); backField(fk); } else { paintQueue(); paintToolbar(); if (cur && cur.kind === 'done') paintDone(); } });
   });
+  /* round 2 (ten runs as a coach): a write from elsewhere (a held send going out five seconds later, another page)
+     redraws the week; the field the coach is typing in keeps its focus, its text and its caret */
+  function keepField() {
+    var a = document.activeElement, g = $('#wg'); if (!a || !g || !g.contains(a) || !a.matches('input, textarea') || !a.getAttribute('data-f')) return null;
+    var sel = null; try { sel = [a.selectionStart, a.selectionEnd]; } catch (e) { /* not text */ }
+    return { f: a.getAttribute('data-f'), v: a.value, sel: sel };
+  }
+  function backField(k) {
+    if (!k) return; var g = $('#wg'); if (!g) return;
+    var el = [].slice.call(g.querySelectorAll('[data-f]')).filter(function (x) { return x.getAttribute('data-f') === k.f; })[0]; if (!el || el.disabled) return;
+    if (el.value !== k.v) { el.value = k.v; el.dispatchEvent(new Event('input', { bubbles: true })); }
+    el.focus({ preventScroll: true }); if (k.sel) { try { el.setSelectionRange(k.sel[0], k.sel[1]); } catch (e) { /* fine */ } }
+  }
   addEventListener('hashchange', function () { route(); });
   addEventListener('pagehide', function () { if (fn(PL.programs, 'flush')) PL.programs.flush(); });
 
@@ -3560,7 +3888,7 @@
     st.ids = h.ids ? String(h.ids).split(',').map(function (x) { return x.trim(); }).filter(function (x) { return !!Lf(x); }) : null;
     if (st.ids && !st.ids.length) st.ids = null;
     if (h.view === 'block' || h.view === 'week') { st.view = h.view; st.mode = 'advanced'; }
-    if (h.tab === 'templates') { openTemplate(h.tpl || null); return; }
+    if (h.tab === 'templates') { st.tab = 'templates'; if (h.tpl) openTemplate(h.tpl); else openQueue(); return; }
     st.tab = 'lifters';
     if (h.id) { openLifter(h.id, { week: h.week ? Number(h.week) : null, row: h.row, start: h.start, runin: h.runin, day: h.day, prefill: h.prefill, block: h.block }); return; }
     openFirst();

@@ -305,3 +305,12 @@
    any spreadsheet; a long address ends in an ellipsis and keeps its title. */
 .sx-bar { grid-template-columns: calc(var(--sx-ex) - 24px) 184px minmax(0, 1fr) auto; }
 .sx-addr { max-width: none; }
+
+/* 23 Nov, upgrade 2: a head's edge sizes its column (Exercise on its own, the weeks together); the corner selects all */
+.sx-corner, .sx-wh { position: relative; }
+.sx-rz { position: absolute; top: 0; bottom: 0; right: -4px; z-index: 3; width: 8px; cursor: col-resize; touch-action: none; }
+.sx-rz::after { content: ''; position: absolute; top: 6px; bottom: 6px; left: 3px; width: 2px; border-radius: 1px; background: transparent; transition: background-color var(--dur-hover, 120ms) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) { .sx-rz:hover::after { background: var(--focus); } .sx-corner:hover { cursor: cell; } }
+.sx.is-sizing, .sx.is-sizing * { cursor: col-resize !important; user-select: none; }
+.sx.is-sizing .sx-rz::after { background: var(--focus); }
+.sx-fx:not([readonly]) { cursor: text; }

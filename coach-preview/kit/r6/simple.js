@@ -113,9 +113,69 @@
         body = '<div class="sv-grid" data-day="' + esc(d.name) + '" role="group" aria-label="' + esc(sentence(d.name) + ' lifts') + '">' +
           mains.concat(orphans).map(function (r) { var x = bb.rows[r]; return exHtml(bb, r, x.line === 0 ? rs.filter(function (s) { return bb.rows[s].ex === x.ex && bb.rows[s].line > 0; }) : []); }).join('') +
           (lifted ? (rs.length ? '' : '<p class="sv-none">Nothing was written for this day.</p>') :
-            '<button class="sv-add" type="button" data-sv-add="' + esc(d.name) + '" data-f="' + esc('+' + d.name + '|add') + '" aria-haspopup="dialog">' + PLUS + '<span>' + (rs.length ? 'Add an exercise' : 'Add the first exercise') + '</span></button>') + '</div>';
+            qaHtml(d, rs.length)) + '</div>';
       }
       return '<section class="sv-day' + (d.off ? ' is-off' : '') + '" data-sv-day="' + esc(d.name) + '" aria-label="' + esc(sentence(d.name)) + '">' + head + body + '</section>';
+    }
+    /* 23 Nov, upgrade 2 (the owner: "type a line like 'squat 3x5 @8' to add it"): the day's last line is a field where a
+       whole line is typed the way coaches write it ("bench 4x6 80%", "rdl 3x8-10", "paused squat 3x4 @7 2s pause").
+       Beside it, as it is typed, what it read: the exercise matched (in its lift's colour), the sets, reps and RPE or %.
+       Enter adds it and leaves the field ready for the next line; what does not read is said there and kept, never
+       dropped. "Browse" beside it is the picker, as before, for looking through the library. */
+    function qaHtml(d, n) {
+      return '<div class="sv-qa" data-sv-qa-day="' + esc(d.name) + '"><span class="sv-qa-ic" aria-hidden="true">' + PLUS + '</span>' +
+        '<input class="sv-qin" type="text" autocomplete="off" spellcheck="false" data-sv-qa="' + esc(d.name) + '" data-f="' + esc('+' + d.name + '|qa') + '" placeholder="' + esc(n ? 'Add a line: squat 3x5 @8' : 'Add the first line: squat 3x5 @8') + '" aria-label="' + esc('Add a line to ' + sentence(d.name) + ': type the exercise, sets x reps and RPE or %') + '" aria-describedby="' + esc('sv-qs-' + qid(d.name)) + '">' +
+        '<span class="sv-qs" id="' + esc('sv-qs-' + qid(d.name)) + '" aria-live="polite"><span class="sv-qk">Enter adds it</span></span>' +
+        '<button class="sv-add" type="button" data-sv-add="' + esc(d.name) + '" data-f="' + esc('+' + d.name + '|add') + '" aria-haspopup="dialog" title="Look through the exercise library">' + '<span>Browse exercises</span></button></div>';
+    }
+    function qid(t) { return String(t).toLowerCase().replace(/[^a-z0-9]+/g, '-'); }
+    /* a typed line → { name, lift, variant, known, rx, cell, ok, why } */
+    function readLine(t) {
+      var s0 = String(t || '').replace(/\s+/g, ' ').trim(); if (!s0) return null;
+      var s = s0.replace(/(\d+(?:\.\d+)?)\s*s(?:ec(?:onds?)?)?\s+pause[ds]?\b/i, 'paused $1s').replace(/\bpause[ds]?\s+(\d+(?:\.\d+)?)\s*s(?:ec(?:onds?)?)?\b/i, 'paused $1s');
+      var m = /(^|\s)(\d|@|[x×]\s*\d)/i.exec(s);
+      var name = (m ? s.slice(0, m.index) : s).trim(), rx = m ? s.slice(m.index).trim() : '';
+      var mp = /\s+paused$/i.exec(name); if (mp && /paused \d/.test(rx) === false && /^\d+(?:\.\d+)?\s*s$/i.test(rx)) { name = name.slice(0, mp.index); rx = 'paused ' + rx; }
+      if (!name) return { name: '', rx: rx, ok: false, why: 'Start with the exercise: “squat 3x5 @8”.' };
+      var hit = BL.libFind ? BL.libFind(name) : null, known = !!hit;
+      if (!hit && BL.libSearch) { var h0 = BL.libSearch(name, { block: b(), limit: 1 })[0], nq = name.toLowerCase(); if (h0 && (h0.name.toLowerCase().indexOf(nq) === 0 || h0.here)) { hit = h0; known = true; } }
+      var nm = hit ? hit.name : name.charAt(0).toUpperCase() + name.slice(1);
+      var lv = BL.readLiftName ? BL.readLiftName(nm) : { lift: hit ? hit.lift : null, variant: '' };
+      var lift = hit && hit.lift !== undefined ? (/^(squat|bench|deadlift)$/.test(hit.lift) ? hit.lift : null) : lv.lift;
+      var out = { name: nm, lift: lift || null, variant: lift ? lv.variant || '' : '', known: known, rx: rx, cell: null, ok: true, why: '' };
+      if (rx) { var pr = BL.parse(rx, {}); if (!pr || !pr.ok) { out.ok = false; out.why = (pr && pr.why) || 'That does not read as sets and reps.'; } else out.cell = pr.cell; }
+      return out;
+    }
+    function qaSay(inp) {
+      var s = inp.parentNode.querySelector('.sv-qs'); if (!s) return;
+      var x = readLine(inp.value);
+      inp.removeAttribute('aria-invalid');
+      if (!x) { s.innerHTML = '<span class="sv-qk">Enter adds it</span>'; return; }
+      if (!x.ok) { inp.setAttribute('aria-invalid', 'true'); s.innerHTML = '<span class="sv-qbad">' + esc(x.why) + '</span>'; return; }
+      var c = x.cell, bits = [];
+      if (c) { bits.push(c.n != null && c.r != null ? c.n + ' × ' + c.r + (c.rHi != null ? '–' + c.rHi : '') : c.r != null ? '× ' + c.r : ''); if (c.rpe != null) bits.push('@' + nf(c.rpe) + (c.rpeHi != null ? '–' + nf(c.rpeHi) : '')); if (c.pct != null) bits.push(nf(c.pct) + '%'); if (c.w != null) bits.push(nf(c.w) + ' kg'); if (c.pause) bits.push(nf(c.pause) + ' s pause'); if (c.tempo) bits.push('tempo ' + c.tempo); }
+      else bits.push(x.lift ? '3 × 5, to start' : '3 × 10, to start');
+      s.innerHTML = '<b' + (x.lift ? ' data-lift="' + esc(x.lift) + '"' : '') + '>' + esc(x.name) + '</b>' + (!x.known && x.variant && x.variant !== 'Competition' && x.name.toLowerCase().indexOf(x.variant.toLowerCase()) < 0 ? '<span class="sv-qv">' + esc(x.variant) + '</span>' : '') +
+        '<span class="sv-qn">' + esc(bits.filter(Boolean).join(' · ')) + '</span>' + (x.known ? '' : '<span class="sv-qv">new, ' + (x.lift ? 'counts as ' + x.lift : 'an accessory') + '</span>') + '<span class="sv-qk">Enter</span>';
+    }
+    function qaAdd(inp) {
+      var d = inp.getAttribute('data-sv-qa'), x = readLine(inp.value); if (!x) return false;
+      if (!x.ok) { qaSay(inp); inp.select(); return false; }
+      flush();
+      var name = x.name, text = x.cell ? BL.text(x.cell) : null;
+      var res = apply(function (bb) {
+        return bb.batch('Add ' + name + ' to ' + d, function () {
+          var r = -1, w = bb.weeks[ci];
+          bb.rows.forEach(function (y, i) { if (r < 0 && y.day === d && y.line === 0 && y.name.toLowerCase() === name.toLowerCase() && !y.cells[w.uid]) r = i; });
+          if (r < 0) { var a = bb.addExercise(d, name, x.lift ? { lift: x.lift, variant: x.variant || undefined } : { lift: null }); if (!a || a.error) return a; r = a.data.r; }
+          var lw = null; if (!text) for (var k = ci - 1; k >= 0 && !lw; k--) { var cx = bb.rows[r].cells[bb.weeks[k].uid]; if (cx && cx.n && cx.r) lw = cx.n + 'x' + cx.r; }
+          var st = bb.set(r, ci, text || lw || (bb.rows[r].lift ? '3x5' : '3x10')); if (st && st.error) return st;
+          return { data: { r: r } };
+        });
+      }, 'Add ' + name, name + ' added to ' + low1(sentence(d)) + '.');
+      if (!res || res.error) return false;
+      var again = byF('+' + d + '|qa'); if (again) { again.value = ''; again.focus({ preventScroll: true }); qaSay(again); var sc = scroller(host), rr = again.getBoundingClientRect(); if (sc && sc.getBoundingClientRect && rr.bottom > Math.min(innerHeight, (sc === document.scrollingElement ? innerHeight : sc.getBoundingClientRect().bottom)) - 56) again.scrollIntoView({ block: 'center' }); }
+      return true;
     }
     function html() {
       var bb = b(), w = bb.weeks[ci]; if (!w) return '<p class="sv-none">There is no week here.</p>';
@@ -133,12 +193,12 @@
     }
 
     /* ---------- drawing, keeping the field in hand ---------- */
-    function hand() { var a = document.activeElement; if (!a || !host.contains(a) || !a.getAttribute('data-f')) return null; var s = null; try { s = [a.selectionStart, a.selectionEnd]; } catch (e) { /* a button */ } return { f: a.getAttribute('data-f'), sel: s, typed: a.matches('input') && a.value !== a.getAttribute('data-v') && a.hasAttribute('data-v') ? a.value : null }; }
+    function hand() { var a = document.activeElement; if (!a || !host.contains(a) || !a.getAttribute('data-f')) return null; var s = null; try { s = [a.selectionStart, a.selectionEnd]; } catch (e) { /* a button */ } return { f: a.getAttribute('data-f'), sel: s, typed: a.matches('.sv-qin') ? a.value || null : a.matches('input') && a.value !== a.getAttribute('data-v') && a.hasAttribute('data-v') ? a.value : null }; }
     function byF(f) { return [].slice.call(host.querySelectorAll('[data-f]')).filter(function (x) { return x.getAttribute('data-f') === f; })[0] || null; }
     function take(h) {
       if (!h) return;
       var el = byF(h.f) || (/\|[-+]$/.test(h.f) ? byF(h.f.replace(/\|[-+]$/, '')) : null); if (!el || el.disabled) return;
-      if (h.typed != null && el.matches('input')) el.value = h.typed;
+      if (h.typed != null && el.matches('input')) { el.value = h.typed; if (el.matches('.sv-qin')) qaSay(el); }
       el.focus({ preventScroll: true });
       if (h.sel && el.matches('input')) try { el.setSelectionRange(h.sel[0], h.sel[1]); } catch (e) { /* not a text field */ }
     }
@@ -567,6 +627,12 @@
     function onKey(e) {
       var t = e.target, k = e.key, meta = e.metaKey || e.ctrlKey;
       if (drag || !t || !t.matches) return;
+      if (t.matches('.sv-qin')) {
+        if (k === 'Enter' && !meta) { e.preventDefault(); e.stopPropagation(); if (!t.value.trim()) { var gq = t.closest('[data-sv-day]'), secs = [].slice.call(host.querySelectorAll('[data-sv-day]')), nxs = secs[secs.indexOf(gq) + (e.shiftKey ? -1 : 1)], nq = nxs && nxs.querySelector('.sv-qin'); if (nq) { nq.focus(); nq.scrollIntoView({ block: 'nearest' }); } return; } qaAdd(t); return; }
+        if (k === 'Escape') { if (t.value) { e.preventDefault(); e.stopPropagation(); t.value = ''; qaSay(t); } return; }
+        if (k === 'ArrowUp' && !t.value) { var rows0 = [].slice.call(t.closest('.sv-grid').querySelectorAll('.sv-row')), lr = rows0[rows0.length - 1], lf = lr && lr.querySelector('.sv-in:not([disabled])'); if (lf) { e.preventDefault(); lf.focus(); } }
+        return;
+      }
       if (k === 'Escape' && picked.length) { unpick(); e.stopPropagation(); return; }
       if ((k === 'Backspace' || k === 'Delete') && picked.length && !t.matches('input, textarea')) { e.preventDefault(); e.stopPropagation(); delPicked(); return; }
       var isField = t.matches('[data-sv-field]'), typed = isField && pendingEl !== t && t.value !== (t.getAttribute('data-v') || '');
@@ -591,7 +657,10 @@
         return;
       }
       if (!isField) return;
-      if (k === 'Enter') { e.preventDefault(); if (commit(t, true) === false) { t.select(); return; } var again = byF(t.getAttribute('data-f')) || t, nx = sameCol(again, e.shiftKey ? -1 : 1); if (nx) nx.focus(); return; }
+      if (k === 'Enter') { e.preventDefault(); if (commit(t, true) === false) { t.select(); return; } var again = byF(t.getAttribute('data-f')) || t, nx = sameCol(again, e.shiftKey ? -1 : 1);
+        /* Enter on a day's last line goes on to that day's quick-add line (keep typing the week) */
+        var lastOfDay = !e.shiftKey && again.closest('.sv-grid') && (!nx || nx.closest('.sv-grid') !== again.closest('.sv-grid')); if (lastOfDay) { var qa = again.closest('.sv-grid').querySelector('.sv-qin'); if (qa) { qa.focus(); return; } }
+        if (nx) nx.focus(); return; }
       if (k === 'Escape') { if (pendingEl === t) { clearTimeout(pending); pending = null; pendingEl = null; } clearBad(t); if (t.value !== (t.getAttribute('data-v') || '')) { t.value = t.getAttribute('data-v') || ''; t.select(); e.stopPropagation(); } return; }
       if ((k === 'ArrowUp' || k === 'ArrowDown') && !e.altKey && !meta && !t.matches('.sv-note')) { if (stepField(t, k === 'ArrowUp' ? 1 : -1)) e.preventDefault(); return; }
       /* ← → at the edge of the text walk to the field beside it on the line */
@@ -605,7 +674,7 @@
        it used to land beside it as "35", Chrome's mouseup undoing the select on focus). A drag across the text keeps
        its own selection; a second click places the caret. */
     var firstClick = null, typedN = 0;
-    function onInput() { typedN++; }
+    function onInput(e) { typedN++; if (e && e.target && e.target.matches && e.target.matches('.sv-qin')) qaSay(e.target); }
     function onPointerDown(e) {
       var t = e.target, g = t.closest && t.closest('[data-sv-grip]'); if (g && host.contains(g)) { startDrag(e, g); return; }
       firstClick = t.matches && t.matches('.sv-in:not(.sv-note)') && document.activeElement !== t ? t : null;

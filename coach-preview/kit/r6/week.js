@@ -180,7 +180,7 @@
     root.setAttribute('data-mode', mode);
     root.innerHTML =
       /* the status line is the grid's formula bar: its sentence (.wg-say) is the [data-crop=formula] the checks read (P24) */
-      '<div class="wg-status" data-crop="status" aria-live="polite"><span class="wg-addr" data-ellipsis></span><span class="wg-say" data-crop="formula" data-ellipsis></span><span class="wg-acts"></span></div>' +
+      '<div class="wg-status" data-crop="status" aria-live="polite"><span class="wg-addr" data-ellipsis></span><input class="wg-fx" type="text" autocomplete="off" spellcheck="false" aria-label="The cell in hand: type here to change it, Enter saves"><span class="wg-say" data-crop="formula" data-ellipsis></span><span class="wg-acts"></span></div>' +
       '<i class="wg-pin" aria-hidden="true"></i>' +
       /* .wg-tip: the slot under the column heads where a one-time tip sits in flow (first-time-coach §8.4, DESK.tip('grid', …));
          empty, it takes no room. It is outside the cells, so the grid's keys never reach a tip's own button */
@@ -191,7 +191,7 @@
       '<div class="wg-shape" data-crop="shape" data-fade><span class="wg-shape-t"></span><span class="wg-shape-a"></span></div>';
     host.innerHTML = '';
     host.appendChild(root);
-    var elStatus = root.querySelector('.wg-status'), elAddr = root.querySelector('.wg-addr'), elSay = root.querySelector('.wg-say'), elActs = root.querySelector('.wg-acts');
+    var elStatus = root.querySelector('.wg-status'), elAddr = root.querySelector('.wg-addr'), elSay = root.querySelector('.wg-say'), elActs = root.querySelector('.wg-acts'), elFx = root.querySelector('.wg-fx');
     var elGrid = root.querySelector('.wg-grid'), elHead = root.querySelector('.wg-head'), elBody = root.querySelector('.wg-body'), elTip = root.querySelector('.wg-tip');
     var elDays = root.querySelector('.wg-more-days'), elShape = root.querySelector('.wg-shape'), elShapeT = root.querySelector('.wg-shape-t'), elShapeA = root.querySelector('.wg-shape-a');
     var pins = root.querySelectorAll('.wg-pin');
@@ -808,6 +808,9 @@
       elAddr.textContent = s.addr || ''; elAddr.title = s.addr || '';
       elSay.textContent = s.say || ''; elSay.title = s.say || '';
       elSay.classList.toggle('is-warn', !!s.warn);
+      /* 23 Nov, upgrade 2: the edit bar shows the cell in hand as it is written, and takes typing (Enter saves, Esc puts
+         it back), as a spreadsheet's formula bar does */
+      if (elFx && document.activeElement !== elFx) { var hh = st.hand, okFx = !!(hh && !isAdd(hh.key) && editable(hh.key, hh.col)); elFx.value = st.ed ? st.ed.input.value : hh && !isAdd(hh.key) && hh.col !== 'last' ? rawText(hh.key, hh.col) || '' : ''; elFx.readOnly = !okFx; elFx.classList.toggle('is-ro', !okFx); elFx.setAttribute('data-v', elFx.value); }
       var acts = (s.acts || []).filter(canAct).slice(0, 2);
       st.acts = acts;
       elActs.innerHTML = acts.map(function (a, i) { return '<button class="btn sm' + (i ? ' quiet' : '') + '" type="button" data-act="' + i + '">' + esc(a) + '</button>'; }).join('');
@@ -1078,6 +1081,31 @@
           cols.forEach(function (k) {
             var f = COL[k] ? COL[k].field : k, t = k === 'note' ? ((bb.rows[sr].cells[bb.weeks[c].uid] || {}).note || '') : bb.fieldText(sr, c, f, { ascii: true });
             rows.slice(1).forEach(function (x) { if (!editable(x.key, k)) return; var rr = rowIdxIn(bb, x.key); if (rr >= 0) { bb.setField(rr, c, f, t); n++; } });
+          });
+          return { data: { cells: n } };
+        });
+      }, { kind: 'fill-down' });
+      after(res);
+    }
+    /* 23 Nov, upgrade 2: the fill handle dragged from two or more cells carries on what they set, as a spreadsheet does:
+       a number that steps evenly (100, 102.5 → 105, 107.5; RPE 7, 7.5 → 8) goes on stepping; anything else repeats the
+       cells in turn. One write, one Undo. */
+    function fillOn(src, dst, cols0) {
+      var c = st.c, n = 0, cols = cols0.filter(function (k) { return k !== 'ex' && k !== 'last'; });
+      if (!dst.length || !cols.length) return;
+      var num = function (t) { t = String(t == null ? '' : t).trim(); return /^-?\d+(?:\.\d+)?$/.test(t) ? Number(t) : null; };
+      var res = write(function (bb) {
+        return batch(bb, 'Fill', function () {
+          cols.forEach(function (k) {
+            var f = COL[k] ? COL[k].field : k;
+            var vals = src.map(function (x) { var rr = rowIdxIn(bb, x.key); if (rr < 0) return ''; return k === 'note' ? ((bb.rows[rr].cells[bb.weeks[c].uid] || {}).note || '') : bb.fieldText(rr, c, f, { ascii: true }) || ''; });
+            var ns = vals.map(num), step = null;
+            if (k !== 'note' && ns.length > 1 && ns.every(function (v) { return v != null; })) { var d = Math.round((ns[1] - ns[0]) * 1000) / 1000; if (d && ns.every(function (v, i) { return !i || Math.abs(v - ns[i - 1] - d) < 1e-6; })) step = d; }
+            dst.forEach(function (x, j) {
+              if (!editable(x.key, k)) return; var rr = rowIdxIn(bb, x.key); if (rr < 0) return;
+              var t = step != null ? nf(Math.round((ns[ns.length - 1] + step * (j + 1)) * 1000) / 1000) : vals[j % vals.length];
+              bb.setField(rr, c, f, t); n++;
+            });
           });
           return { data: { cells: n } };
         });
@@ -1503,7 +1531,9 @@
       if (i1 <= navIdx(f.from.rows[f.from.rows.length - 1].key)) return;
       st.anchor = { key: f.from.rows[0].key, col: f.from.cols[0] };
       st.hand = { key: f.to, col: f.from.cols[f.from.cols.length - 1] };
-      fillDown({ rows: st.nav.slice(i0, i1 + 1).filter(function (x) { return !x.add; }), cols: f.from.cols, many: true });
+      var all = st.nav.slice(i0, i1 + 1).filter(function (x) { return !x.add; });
+      if (f.from.rows.length > 1) fillOn(f.from.rows, all.slice(f.from.rows.length), f.from.cols);
+      else fillDown({ rows: all, cols: f.from.cols, many: true });
     }
     handle.addEventListener('pointerup', endFill);
     handle.addEventListener('pointercancel', endFill);
@@ -1546,6 +1576,30 @@
       } });
     }
     /* whole lines, from the gutter or ⇧Space: every column of the line, from the line taken first to this one */
+    function lineKeys() { return st.nav.filter(function (x) { return !x.add; }); }
+    function selectCol(col, extend) {
+      var ls = lineKeys(); if (!ls.length || st.order.indexOf(col) < 0) return;
+      var from = extend && st.anchor ? st.anchor.col : extend && st.hand ? st.hand.col : col;
+      st.anchor = { key: ls[0].key, col: from }; st.hand = { key: ls[ls.length - 1].key, col: col }; st.want = col;
+      st.msg = null; paintSel(); focusHand(false); paintStatus();
+    }
+    /* a right-click on a column's head: what a spreadsheet offers there, seven at most */
+    function colMenu(col, el) {
+      if (!D || !D.menu) return;
+      var pf = colPrefs(), hd = COL[col] ? COL[col].head : col, canWrite = col !== 'last' && col !== 'ex', items = [];
+      items.push({ id: 'sel', label: 'Select the column' });
+      if (canWrite) { items.push({ id: 'fill', label: 'Fill down from the first line' }); }
+      if (col === 'last' || col === 'tempo') items.push({ id: 'hide', label: 'Hide the column' });
+      if (pf.w[col]) items.push({ id: 'width', label: 'Put the width back' });
+      if (canWrite) items.push({ sep: true }, { id: 'clear', label: 'Clear the column, this week', red: true });
+      D.menu.open(el, items, { title: hd, label: hd + ' column', run: function (id) {
+        if (id === 'sel') selectCol(col);
+        else if (id === 'fill') { selectCol(col); var R = rect(); if (R && R.rows.length > 1) fillDown(R); }
+        else if (id === 'clear') { selectCol(col); clearSel(); }
+        else if (id === 'hide') { var p2 = colPrefs(); p2.hide[col] = 1; delete p2.show[col]; saveColPrefs(p2); paint(true); }
+        else if (id === 'width') { var p3 = colPrefs(); delete p3.w[col]; saveColPrefs(p3); paint(true); }
+      } });
+    }
     function selectLines(key, extend) {
       if (!key || isAdd(key) || navIdx(key) < 0) return;
       var from = extend && st.hand && !isAdd(st.hand.key) ? (st.anchor || st.hand).key : key;
@@ -1558,6 +1612,10 @@
       if (st.ed && t === st.ed.input) return;
       var gut = t.closest && t.closest('[data-gut]');
       if (gut && elBody.contains(gut)) { e.preventDefault(); if (st.ed) commit(null); var gk = gut.parentNode.getAttribute('data-row'); selectLines(gk, e.shiftKey); gutDrag = { key: st.anchor ? st.anchor.key : gk }; return; }
+      /* 23 Nov, upgrade 2: a click on a column's head takes the whole column for the week (shift: the columns to it), as
+         in a spreadsheet; the edge still sizes it and the Last week head keeps its own menu */
+      var hc = t.closest && t.closest('.wg-h[data-col]');
+      if (hc && root.contains(hc) && !t.closest('[data-rz], button')) { e.preventDefault(); if (st.ed) commit(null); selectCol(hc.getAttribute('data-col'), e.shiftKey); return; }
       if (t.closest('button, a, input, textarea')) return;
       var cell = cellOfEvent(t) || addExOf(t); if (!cell) return;
       e.preventDefault();
@@ -1603,7 +1661,30 @@
       var ed = st.ed; if (!ed || e.target !== ed.input) return;
       setTimeout(function () { if (st.ed === ed && document.activeElement !== ed.input && !(sugEl && sugEl.contains(document.activeElement))) commit(null); }, 0);
     });
-    root.addEventListener('input', function (e) { if (st.ed && e.target === st.ed.input && st.ed.col === 'ex') suggest(); });
+    root.addEventListener('input', function (e) { if (st.ed && e.target === st.ed.input) { if (elFx) elFx.value = st.ed.input.value; if (st.ed.col === 'ex') suggest(); } });
+    /* the edit bar: Enter (or Tab) writes what it holds into the cell in hand, Esc puts it back; the grid keeps the keys after */
+    function fxCommit(move) {
+      fxCancel = true;
+      var h = st.hand; if (!h || isAdd(h.key) || !editable(h.key, h.col)) { focusHand(); return; }
+      var v = elFx.value; if (v === (rawText(h.key, h.col) || '')) { focusHand(); if (move) go(move); return; }
+      if (openEditor(v, 'enter')) commit(move || null, { force: true }); else focusHand();
+    }
+    /* the cell the bar was opened on: a click away writes into THAT cell (the click has already moved the hand), Esc
+       cancels, as a spreadsheet's formula bar does */
+    var fxHand = null, fxCancel = false;
+    if (elFx) elFx.addEventListener('focus', function () { fxHand = st.hand && !isAdd(st.hand.key) ? { key: st.hand.key, col: st.hand.col } : null; fxCancel = false; });
+    if (elFx) elFx.addEventListener('blur', function () {
+      var h = fxHand, v = elFx.value; fxHand = null;
+      if (fxCancel || !h || !editable(h.key, h.col) || v === (rawText(h.key, h.col) || '')) return;
+      var r = rowAt(h.key); if (r < 0) return;
+      if (h.col === 'ex') rename(r, v); else setField(r, COL[h.col] ? COL[h.col].field : h.col, v, { focus: false });
+      paintStatus();
+    });
+    if (elFx) elFx.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); e.stopPropagation(); fxCommit(e.shiftKey ? 'up' : 'down'); }
+      else if (e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); fxCommit(e.shiftKey ? 'prev' : 'next'); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fxCancel = true; elFx.blur(); focusHand(); paintStatus(); }
+    });
     root.addEventListener('click', function (e) {
       var t = e.target, b;
       if ((b = t.closest('[data-act]'))) { var a = st.acts[+b.getAttribute('data-act')]; if (a) runAct(a); return; }
@@ -1620,6 +1701,10 @@
       }
     });
     root.addEventListener('contextmenu', function (e) {
+      var hc0 = e.target.closest && e.target.closest('.wg-h[data-col]');
+      if (hc0 && root.contains(hc0)) { e.preventDefault(); if (st.ed) commit(null); colMenu(hc0.getAttribute('data-col'), hc0); return; }
+      var g0 = e.target.closest && e.target.closest('[data-gut]');
+      if (g0 && elBody.contains(g0) && typeof opts.onRowMenu === 'function') { var gk0 = g0.parentNode.getAttribute('data-row'), gr0 = rowAt(gk0); if (gr0 >= 0) { e.preventDefault(); if (!(st.anchor && rect() && rect().rows.some(function (x) { return x.key === gk0; }))) selectLines(gk0, false); opts.onRowMenu(gr0, g0); } return; }
       var cell = cellOfEvent(e.target); if (!cell || typeof opts.onRowMenu !== 'function') return;
       var key = keyOfCell(cell); if (!key || isAdd(key)) return;
       e.preventDefault();

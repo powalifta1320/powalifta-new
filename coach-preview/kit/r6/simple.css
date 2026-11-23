@@ -282,3 +282,71 @@
 /* 23 Nov (upgrade, Fitts): "Add an exercise" is the full width of its day, as the sheet's add row is: the words stay at the
    start, the whole line takes the click (and lights under the pointer), 36 px tall with its reach */
 .sv-add { justify-self: stretch; justify-content: flex-start; }
+
+/* ---------------- 23 Nov, upgrade 2 (the owner: "bigger numbers and rows, each training day a clearly separate block,
+   less small grey text; same live style, more breathing room") ----------------
+   - A line is 46 px; the numbers a coach reads (sets × reps, RPE or %, the load) are 16 px in ink, the load 18 px, all
+     tabular, in one set of columns for the whole week, so the eye runs down a column across the days.
+   - Each day is its own block: its name as a real heading (18 px), its date and set count beside it, quieter; a band of
+     space and a rule between days.
+   - Secondary words (last week, a variant, back-offs, the column heads, the status bar) are 13 to 14 px in ink-2, never
+     12 px grey. Same tokens, same strip, same colours. */
+.wk .sv {
+  --sv-cols: 18px minmax(170px, 300px) 56px 12px 68px 78px 112px minmax(160px, 1fr) minmax(160px, 1.6fr) 32px;
+  --sv-gap: 8px;
+  padding: 0 var(--sp-5);
+}
+.wk .sv.is-mid { --sv-cols: 18px minmax(140px, 1.2fr) 52px 12px 64px 72px 104px minmax(140px, 1fr) minmax(100px, 1fr) 32px; }
+.wk .sv.is-tight { --sv-cols: 18px minmax(130px, 1.2fr) 52px 12px 64px 72px 104px minmax(120px, 1.3fr) 32px; }
+.wk .sv-cols { min-height: 32px; margin: 0 calc(var(--sp-5) * -1); padding: 0 var(--sp-5); color: var(--ink-2); font: 500 13px/1 var(--font); }
+.wk .sv-day { padding: var(--sp-3) 0 var(--sp-3); }
+.wk .sv-day + .sv-day { margin-top: var(--sp-2); border-top: 1px solid var(--line-2); }
+.wk .sv-dh { gap: var(--sp-3); min-height: 40px; margin-bottom: var(--sp-1); }
+.wk .sv-dh h3 { font: 700 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); }
+.wk .sv-dd { color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+.wk .sv-row { min-height: 46px; }
+.wk .sv-row::before { height: 38px; border-radius: 10px; }
+.wk .sv-name { height: 36px; color: var(--ink); font: 600 var(--fs-body)/1 var(--font); }
+.wk .sv-name[data-lift='squat'] { color: var(--sq-ink); }
+.wk .sv-name[data-lift='bench'] { color: var(--bp-ink); }
+.wk .sv-name[data-lift='deadlift'] { color: var(--dl-ink); }
+.wk .sv-var { color: var(--ink-2); font: 500 var(--fs-label)/1 var(--font); }
+.wk .sv-sub { color: var(--ink-2); font: 500 var(--fs-label)/1 var(--font); }
+.wk .sv-in { height: 34px; color: var(--ink); font: 600 var(--fs-body)/1 var(--font); font-variant-numeric: tabular-nums; font-stretch: var(--num-stretch); }
+.wk .sv-kg .sv-in, .wk .sv-kg.is-auto .sv-in::placeholder { font-size: var(--fs-head); font-weight: 700; }
+.wk .sv-kg .sv-in { padding-right: 30px; }
+.wk .sv-kg i { color: var(--ink-2); font: 500 13px/1 var(--font); }
+.wk .sv-x { color: var(--ink-2); font: 500 var(--fs-label)/1 var(--font); }
+.wk .sv-step button { width: 18px; font-size: var(--fs-label); }
+.wk .sv-c-effort::before, .wk .sv-c-load::before { top: 8px; bottom: 8px; }
+.wk .sv-last { color: var(--ink-2); font: 500 var(--fs-label)/1.2 var(--font); }
+.wk .sv-last.is-done { color: var(--ink); }
+.wk .sv-in.sv-note, .wk .sv-in.sv-note:placeholder-shown:not(:focus) { height: 34px; color: var(--ink-2); font: 400 var(--fs-label)/1 var(--font); font-stretch: 100%; }
+.wk .sv-in.sv-note:focus { color: var(--ink); }
+.wk .sv-add, .wk .sv-addday { height: 36px; color: var(--ink-2); font: 500 var(--fs-label)/1 var(--font); }
+.wk .sv-grip { height: 36px; }
+.wk .sv-status { min-height: 40px; margin: 0 calc(var(--sp-5) * -1); padding-left: var(--sp-5); color: var(--ink-2); font: 400 13px/1.3 var(--font); }
+.wk .sv-sb { height: 28px; font: 600 13px/1 var(--font); }
+.wk .sv-err { font: 500 13px/1.3 var(--font); }
+.wk .sv-none { font-size: var(--fs-label); }
+.wk .sv-adv { color: var(--ink-2); }
+/* quick add: the day's last line, a field to type a whole line in; what it read beside it; Browse for the library */
+.sv-qa { grid-column: 2 / -1; display: flex; align-items: center; gap: var(--sp-3); min-height: 46px; margin: 2px 0 0; }
+.sv-qa-ic { flex: none; display: grid; place-items: center; width: 18px; margin-left: var(--sp-2); color: var(--ink-3); }
+.sv-qa-ic svg { width: 16px; height: 16px; }
+.sv-qin { flex: 0 1 380px; min-width: 200px; height: 36px; padding: 0 var(--sp-3); border: 0; border-radius: 10px; background: var(--hover); color: var(--ink); font: 500 var(--fs-body)/1 var(--font); outline: 0; }
+.sv-qin::placeholder { color: var(--ink-3); opacity: 1; }
+.sv-qin:focus { background: var(--fill); outline: 2px solid var(--focus); outline-offset: 0; }
+.sv-qin[aria-invalid='true'] { box-shadow: inset 0 0 0 1.5px var(--warn); }
+@media (hover: hover) and (pointer: fine) { .sv-qin:not(:focus):hover { background: var(--fill); } }
+.sv-qs { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: var(--sp-2); overflow: hidden; white-space: nowrap; color: var(--ink-2); font: 500 var(--fs-label)/1.2 var(--font); }
+.sv-qs b { color: var(--ink); font-weight: 700; font-size: var(--fs-body); }
+.sv-qs b[data-lift='squat'] { color: var(--sq-ink); } .sv-qs b[data-lift='bench'] { color: var(--bp-ink); } .sv-qs b[data-lift='deadlift'] { color: var(--dl-ink); }
+.sv-qn { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.sv-qv { color: var(--ink-2); }
+.sv-qk { color: var(--ink-3); font-size: 13px; }
+.sv-qa .sv-qk { opacity: 0; }
+.sv-qa:focus-within .sv-qk { opacity: 1; }
+.sv-qbad { color: var(--warn); white-space: normal; }
+.sv-qa .sv-add { flex: none; width: auto; margin: 0 0 0 auto; height: 36px; padding: 0 var(--sp-3); }
+.sv-qa .sv-add::after { inset: -4px 0; }

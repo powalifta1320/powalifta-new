@@ -607,7 +607,8 @@
     function headHtml() {
       var B = b(), cw = st.cw, ho = headOpts(), marked = {};
       var nav = '<span class="sx-nav"><button class="sx-navb" type="button" data-nav="-1" aria-label="Earlier weeks" title="Earlier weeks">' + K.ic('back', 2.2) + '</button><button class="sx-navb" type="button" data-nav="1" aria-label="Later weeks" title="Later weeks">' + K.ic('chev', 2.2) + '</button></span>';
-      return '<div class="sx-r sx-hr" role="row" aria-rowindex="1"><div class="sx-ex sx-corner" role="columnheader" aria-colindex="1"><span class="sx-ch">Exercise</span>' + nav + '</div>' +
+      var rz = function (k) { return '<i class="sx-rz" data-rzc="' + k + '" aria-hidden="true" title="Drag to size ' + (k === 'ex' ? 'the column' : 'the weeks') + '. Double-click puts it back."></i>'; };
+      return '<div class="sx-r sx-hr" role="row" aria-rowindex="1"><div class="sx-ex sx-corner" role="columnheader" aria-colindex="1" title="Select the whole block (⌘A)"><span class="sx-ch">Exercise</span>' + nav + rz('ex') + '</div>' +
         B.weeks.map(function (w, c) {
           var h = S.weekHead(B, c, ho), lit = c === cw, all = h.name + '. ' + h.state + (h.movedText ? '. ' + h.movedText : '');
           var tk = h.kind && BL.KIND_TERM ? BL.KIND_TERM[h.kind] : null, mk = tk && !marked[tk]; if (mk) marked[tk] = 1;
@@ -616,7 +617,7 @@
             '<span class="sx-wn" data-ellipsis title="' + esc(h.name) + '">' + nameHtml + '</span>' +
             '<span class="sx-wf' + (h.strong ? ' is-strong' : '') + '" data-week-state data-ellipsis title="' + esc(h.state) + '">' + esc(h.state) + '</span>' +
             (h.movedText ? '<span class="sr">, ' + esc(h.movedText) + '</span>' : '') +
-            '<button class="sx-wm" type="button" data-menu="week" data-more data-week="' + w.n + '" data-c="' + c + '" aria-haspopup="menu" aria-expanded="false" aria-label="' + esc(h.name.split(',')[0]) + ' moves" title="' + esc(h.name.split(',')[0]) + ' moves">' + K.ic('more', 2.2) + '</button></div>';
+            '<button class="sx-wm" type="button" data-menu="week" data-more data-week="' + w.n + '" data-c="' + c + '" aria-haspopup="menu" aria-expanded="false" aria-label="' + esc(h.name.split(',')[0]) + ' moves" title="' + esc(h.name.split(',')[0]) + ' moves">' + K.ic('more', 2.2) + '</button>' + rz('wk') + '</div>';
         }).join('') + '</div>' +
         /* the scroll edge under the heads (sheet.css .sx-fr): one box per column, so the lit week fades lit */
         '<div class="sx-r sx-fr" aria-hidden="true"><i class="sx-fz0" data-fade></i>' + B.weeks.map(function (w, c) { return '<i' + (c === cw ? ' class="is-lit"' : '') + ' data-fade data-c="' + c + '"></i>'; }).join('') + '</div>';
@@ -794,12 +795,18 @@
       /* the bar reads the cell as its editor will show it (one set written out) */
       if (!focusIn) fx.value = info.field ? (/^\d+(?:-\d+)?(?:\s|$)/.test(info.field) && !/^\d+\s*[x×]/i.test(info.field) ? '1x' + info.field : info.field) : '';
       /* one writing surface: the field reads the cell; typing in it opens the Week view (keydown below) */
-      fx.readOnly = true; fx.setAttribute('aria-label', 'The cell in hand: ' + info.addr + (info.ro ? ', lifted' : ''));
+      /* 23 Nov, upgrade 2: the edit bar takes typing itself (it opened the cell's own editor at the first key): what it
+         holds is written to the cell in hand on Enter or Tab, Esc puts it back, as a spreadsheet's formula bar */
+      if (!focusIn) fx.setAttribute('data-v', fx.value);
+      fx.readOnly = !!info.ro || st.kind !== 'cell'; fx.setAttribute('aria-label', 'The cell in hand: ' + info.addr + (info.ro ? ', lifted' : '') + (fx.readOnly ? '' : '. Type here to change it, Enter saves'));
       barEl.querySelector('.sx-acts').innerHTML = barActs.slice(0, 2).map(actHtml).join('');
     }
     /* week columns share the card's width in whole weeks, never under 168 px */
     function sizeCols() {
-      var B = b(), avail = Math.max(MINW, bodyEl.clientWidth - EXW), k = Math.max(1, Math.min(B.weeks.length, Math.floor(avail / MINW))), colW = Math.floor(avail / k);
+      var pf = rzPrefs(), exw = isFinite(pf.ex) && pf.ex > 0 ? pf.ex : EXW;
+      if (isFinite(pf.ex) && pf.ex > 0) gridEl.style.setProperty('--sx-ex', exw + 'px'); else gridEl.style.removeProperty('--sx-ex');
+      var B = b(), avail = Math.max(MINW, bodyEl.clientWidth - exw), k = Math.max(1, Math.min(B.weeks.length, Math.floor(avail / MINW))), colW = Math.floor(avail / k);
+      if (isFinite(pf.wk) && pf.wk > 0) { colW = pf.wk; k = Math.max(1, Math.min(B.weeks.length, Math.floor(avail / colW))); }
       st.k = k; st.colW = colW;
       gridEl.style.setProperty('--sx-w', colW + 'px');
       host.classList.toggle('is-wide', B.weeks.length > k);
@@ -1061,7 +1068,32 @@
         return;
       }
       if ((el = t.closest('.sx-bc'))) { e.preventDefault(); gridEl.focus({ preventScroll: true }); select(0, +el.getAttribute('data-c'), { kind: 'band', lift: el.getAttribute('data-band'), reveal: false }); return; }
+      if ((el = t.closest('.sx-rz'))) { startRz(e, el); return; }
       if ((el = t.closest('.sx-wh'))) { e.preventDefault(); gridEl.focus({ preventScroll: true }); select(st.cur.r, +el.getAttribute('data-c'), { kind: 'week', reveal: false }); return; }
+      /* 23 Nov, upgrade 2: the corner takes the whole block, as a spreadsheet's corner does (⌘A too) */
+      if ((el = t.closest('.sx-corner'))) { e.preventDefault(); gridEl.focus({ preventScroll: true }); var B0 = b(); if (B0.rows.length) { st.kind = 'range'; st.anc = { r: B0.rows.length - 1, c: B0.weeks.length - 1 }; st.cur = { r: 0, c: 0 }; paintSel(); say(); } return; }
+    });
+    /* 23 Nov, upgrade 2: column widths. The Exercise column's edge sizes it; any week's edge sizes every week (one width,
+       so the weeks stay a timeline). Remembered on this desk; a double click puts the default back. Wider weeks than
+       the card holds scroll sideways with Exercise pinned. */
+    var RZ_KEY = 'powa-r6-sx-cols';
+    function rzPrefs() { try { var v = JSON.parse(W.localStorage.getItem(RZ_KEY) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (x) { return {}; } }
+    function rzSave(v) { try { W.localStorage.setItem(RZ_KEY, JSON.stringify(v)); } catch (x) { /* storage blocked */ } }
+    var rzLast = { k: null, t: 0 }, rzAt = 0;
+    function startRz(e, el) {
+      e.preventDefault(); e.stopPropagation(); if (ed) endEdit(true);
+      rzAt = Date.now();
+      var k = el.getAttribute('data-rzc'), x0 = e.clientX, cell = el.parentNode, w0 = Math.round(cell.getBoundingClientRect().width);
+      if (rzLast.k === k && Date.now() - rzLast.t < 450) { rzLast = { k: null, t: 0 }; var pd = rzPrefs(); delete pd[k]; rzSave(pd); sizeCols(); api.render(); return; }
+      rzLast = { k: k, t: Date.now() };
+      host.classList.add('is-sizing');
+      var mv = function (ev) { var wv = Math.max(k === 'ex' ? 120 : 90, Math.min(k === 'ex' ? 420 : 360, Math.round(w0 + ev.clientX - x0))); if (k === 'ex') gridEl.style.setProperty('--sx-ex', wv + 'px'); else { gridEl.style.setProperty('--sx-w', wv + 'px'); st.colW = wv; } st.rzw = wv; };
+      var up = function () { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); host.classList.remove('is-sizing'); if (st.rzw) { var pf = rzPrefs(); pf[k] = st.rzw; rzSave(pf); st.rzw = null; sizeCols(); api.render(); } };
+      document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
+    }
+    gridEl.addEventListener('contextmenu', function (e) {
+      var wh = e.target.closest && e.target.closest('.sx-wh'); if (!wh || !opts.onWeekMenu) return;
+      e.preventDefault(); var c0 = +wh.getAttribute('data-c'); select(st.cur.r, c0, { kind: 'week', reveal: false }); opts.onWeekMenu(c0, wh.querySelector('[data-menu="week"]') || wh);
     });
     var onMove = function (e) {
       if (!st.drag) return;
@@ -1095,6 +1127,7 @@
       pv.hidden = false; pv.style.left = (ra.left - rb.left + bodyEl.scrollLeft) + 'px'; pv.style.top = (ra.top - rb.top) + 'px'; pv.style.width = (rz.right - ra.left) + 'px'; pv.style.height = (rz.bottom - ra.top) + 'px';
     }
     gridEl.addEventListener('dblclick', function (e) {
+      if (e.target.closest('.sx-rz') || Date.now() - rzAt < 700) return;   /* an edge's double click puts its width back, nothing more */
       var el = e.target.closest('.sx-c'), wh = e.target.closest('.sx-wh');
       if (el) { select(+el.getAttribute('data-r'), +el.getAttribute('data-c')); write1(null); }
       else if (wh && !e.target.closest('button')) openWeek(+wh.getAttribute('data-c'), { r: st.cur.r });
@@ -1132,13 +1165,26 @@
     });
 
     /* ---------- the cell in hand's field: it reads the cell; a typed character opens the Week view ---------- */
+    /* 23 Nov, upgrade 2 (round 2): a click away from the bar writes what it holds into the cell it showed (Esc, Enter and
+       Tab have already dealt with it) */
+    var fxDone = false;
+    barEl.addEventListener('focusin', function (e) { if (e.target.classList.contains('sx-fx')) fxDone = false; });
+    barEl.addEventListener('focusout', function (e) {
+      var fx = e.target; if (!fx.classList.contains('sx-fx') || fxDone || fx.readOnly || ed) return;
+      var v = fx.value, was = fx.getAttribute('data-v') || ''; if (v.trim() === was.trim() || st.kind !== 'cell' || b().isRO(st.cur.r, st.cur.c)) return;
+      var res = v.trim() ? S.set(b(), st.cur.r, st.cur.c, v.trim()) : S.clear(b(), { r0: st.cur.r, r1: st.cur.r, c0: st.cur.c, c1: st.cur.c });
+      write(res, { kind: v.trim() ? 'set' : 'clear' });
+    });
     barEl.addEventListener('keydown', function (e) {
       if (!e.target.classList.contains('sx-fx')) return;
-      if (e.key === 'Escape') { e.preventDefault(); gridEl.focus({ preventScroll: true }); }
-      else if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); gridEl.focus({ preventScroll: true }); if (st.kind === 'cell') write1(null); }
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === 'Tab') fxDone = true;
+      var fxEl = e.target, was0 = cellText(st.cur.r, st.cur.c);
+      var fxSave = function (move) { var v = fxEl.value; if (st.kind === 'cell' && !b().isRO(st.cur.r, st.cur.c) && v.trim() !== String(was0).trim()) { if (write1(v)) endEdit(true, move); else gridEl.focus({ preventScroll: true }); } else { gridEl.focus({ preventScroll: true }); if (move) go(move[0], move[1]); } };
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fxEl.value = was0; gridEl.focus({ preventScroll: true }); }
+      else if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); fxSave([e.shiftKey ? -1 : 1, 0]); }
+      else if (e.key === 'Tab') { e.preventDefault(); fxSave([0, e.shiftKey ? -1 : 1]); }
       else if ((e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) || e.key === 'Backspace' || e.key === 'Delete') {
         if (b().isRO(st.cur.r, st.cur.c)) { e.preventDefault(); toast(LIFTED); }
-        else if (st.kind === 'cell' && e.key.length === 1) { e.preventDefault(); write1(e.key); }
       }
     });
 
