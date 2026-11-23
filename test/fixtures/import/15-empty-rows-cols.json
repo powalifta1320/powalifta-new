@@ -1,0 +1,78 @@
+{
+ "about": "An empty first column, an empty column in the middle, runs of empty rows, header names with trailing spaces",
+ "tabs": [
+  {
+   "name": "Sheet1",
+   "rows": [
+    [],
+    [],
+    [
+     null,
+     "Exercise ",
+     "Sets",
+     null,
+     "Reps ",
+     "Load"
+    ],
+    [],
+    [
+     null,
+     "Squat",
+     3,
+     null,
+     5,
+     140
+    ],
+    [
+     null,
+     "Leg Press",
+     3,
+     null,
+     10,
+     180
+    ],
+    [],
+    [],
+    [
+     null,
+     "Bench",
+     4,
+     null,
+     6,
+     90
+    ],
+    [
+     null,
+     "Barbell Row",
+     4,
+     null,
+     8,
+     70
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 1,
+  "days": [
+   "Day 1",
+   "Day 2"
+  ],
+  "lines": 4,
+  "bad": 0,
+  "has": [
+   [
+    "Day 1",
+    "Squat",
+    1,
+    "3x5 140kg"
+   ],
+   [
+    "Day 2",
+    "Bench",
+    1,
+    "4x6 90kg"
+   ]
+  ]
+ }
+}

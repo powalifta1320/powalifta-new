@@ -1,0 +1,286 @@
+{
+ "about": "One tab per week (Week 1, Week 2, Week 3), each with two titled day blocks and the header repeated per day",
+ "tabs": [
+  {
+   "name": "Week 1",
+   "rows": [
+    [
+     "Hypertrophy block, week 1"
+    ],
+    [],
+    [
+     "Day 1 – Squat"
+    ],
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "Load (kg)",
+     "RPE",
+     "Notes"
+    ],
+    [
+     "Squat",
+     4,
+     6,
+     140,
+     7,
+     "belt from set 2"
+    ],
+    [
+     "Paused Bench",
+     4,
+     5,
+     80,
+     7,
+     ""
+    ],
+    [
+     "Leg Press",
+     3,
+     10,
+     200,
+     8,
+     ""
+    ],
+    [],
+    [
+     "Day 2 – Bench"
+    ],
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "Load (kg)",
+     "RPE",
+     "Notes"
+    ],
+    [
+     "Bench Press",
+     5,
+     5,
+     90,
+     7.5,
+     ""
+    ],
+    [
+     "RDL",
+     3,
+     8,
+     140,
+     7,
+     ""
+    ],
+    [
+     "Lat Pulldown",
+     3,
+     12,
+     null,
+     8,
+     ""
+    ]
+   ]
+  },
+  {
+   "name": "Week 2",
+   "rows": [
+    [
+     "Hypertrophy block, week 2"
+    ],
+    [],
+    [
+     "Day 1 – Squat"
+    ],
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "Load (kg)",
+     "RPE",
+     "Notes"
+    ],
+    [
+     "Squat",
+     4,
+     6,
+     145,
+     7,
+     ""
+    ],
+    [
+     "Paused Bench",
+     4,
+     5,
+     82.5,
+     7,
+     ""
+    ],
+    [
+     "Leg Press",
+     3,
+     10,
+     200,
+     8,
+     ""
+    ],
+    [],
+    [
+     "Day 2 – Bench"
+    ],
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "Load (kg)",
+     "RPE",
+     "Notes"
+    ],
+    [
+     "Bench Press",
+     5,
+     5,
+     92.5,
+     7.5,
+     ""
+    ],
+    [
+     "RDL",
+     3,
+     8,
+     140,
+     7,
+     ""
+    ],
+    [
+     "Lat Pulldown",
+     3,
+     12,
+     null,
+     8,
+     ""
+    ]
+   ]
+  },
+  {
+   "name": "Week 3",
+   "rows": [
+    [
+     "Hypertrophy block, week 3"
+    ],
+    [],
+    [
+     "Day 1 – Squat"
+    ],
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "Load (kg)",
+     "RPE",
+     "Notes"
+    ],
+    [
+     "Squat",
+     4,
+     6,
+     150,
+     7,
+     ""
+    ],
+    [
+     "Paused Bench",
+     4,
+     5,
+     85,
+     7,
+     ""
+    ],
+    [
+     "Leg Press",
+     3,
+     10,
+     200,
+     8,
+     ""
+    ],
+    [],
+    [
+     "Day 2 – Bench"
+    ],
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "Load (kg)",
+     "RPE",
+     "Notes"
+    ],
+    [
+     "Bench Press",
+     5,
+     5,
+     95,
+     7.5,
+     ""
+    ],
+    [
+     "RDL",
+     3,
+     8,
+     140,
+     7,
+     ""
+    ],
+    [
+     "Lat Pulldown",
+     3,
+     12,
+     null,
+     8,
+     ""
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "tab": "3 week tabs as one program",
+  "weeks": 3,
+  "days": [
+   "Day 1 – Squat",
+   "Day 2 – Bench"
+  ],
+  "lines": 6,
+  "bad": 0,
+  "has": [
+   [
+    "Day 1 – Squat",
+    "Squat",
+    1,
+    "4x6 @7 140kg"
+   ],
+   [
+    "Day 1 – Squat",
+    "Squat",
+    3,
+    "4x6 @7 150kg"
+   ],
+   [
+    "Day 2 – Bench",
+    "Bench",
+    2,
+    "5x5 @7.5 92.5kg"
+   ]
+  ],
+  "pasted": {
+   "weeks": 1,
+   "has": [
+    [
+     "Day 1 – Squat",
+     "Squat",
+     1,
+     "4x6 @7 140kg"
+    ]
+   ]
+  }
+ }
+}

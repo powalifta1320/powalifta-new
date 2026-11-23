@@ -22,12 +22,12 @@
      never answered from an old copy. Change the number whenever one of these files changes. -->
 <link rel="stylesheet" href="../kit/r6/tokens.css">
 <link rel="stylesheet" href="../kit/r6/glass.css">
-<link rel="stylesheet" href="../kit/r6/ui.css?v=1123f">
-<link rel="stylesheet" href="../kit/r6/week.css?v=1123f">
-<link rel="stylesheet" href="../kit/r6/sheet.css?v=1123f">
-<link rel="stylesheet" href="../kit/r6/simple.css?v=1123f">
-<link rel="stylesheet" href="../kit/r6/picker.css?v=1123f">
-<link rel="stylesheet" href="../kit/r6/importer.css?v=1123f">
+<link rel="stylesheet" href="../kit/r6/ui.css?v=1123v">
+<link rel="stylesheet" href="../kit/r6/week.css?v=1123v">
+<link rel="stylesheet" href="../kit/r6/sheet.css?v=1123v">
+<link rel="stylesheet" href="../kit/r6/simple.css?v=1123v">
+<link rel="stylesheet" href="../kit/r6/picker.css?v=1123v">
+<link rel="stylesheet" href="../kit/r6/importer.css?v=1123v">
 <link rel="stylesheet" href="../kit/r6/fix.css">
 <link rel="stylesheet" href="../kit/r6/newcoach.css">
 <link rel="stylesheet" href="../kit/r6/case.css">
@@ -425,6 +425,33 @@
   @keyframes pg-tick { from { stroke-dashoffset: 22; } to { stroke-dashoffset: 0; } }
   @keyframes pg-sent { from { opacity: .45; } }
   @media (prefers-reduced-motion: reduce) { .btn.is-sent svg path, .btn.is-sent span { animation: none; } }
+
+  /* ================= 23 Nov, the upgrade by Hick, Fitts and Jakob: same look, fewer choices at a time ================= */
+  /* one mode switch: Simple | Advanced, and inside Advanced its Week | Block, joined on one pill so it reads as one control */
+  .pg-mode { display: inline-flex; align-items: center; border-radius: var(--r-pill); }
+  .pg-mode .seg > button[data-mode] svg { width: 15px; height: 15px; }
+  .pg-mode.is-adv { gap: 2px; background: var(--fill); }
+  .pg-mode.is-adv > .seg { background: transparent; }
+  .pg-mode.is-adv > .seg-sub { position: relative; padding-left: 7px; }
+  .pg-mode.is-adv > .seg-sub::before { content: ''; position: absolute; left: 0; top: 9px; bottom: 9px; width: 1px; background: var(--line-2); }
+  /* the queue: what is due this week leads; next week's, what went and everyone else fold to a count */
+  .ql-fold.is-sub { min-height: 36px; margin-top: var(--sp-1); }
+  /* what the lifter said: the one recommended answer, then Other options (a menu) */
+  .hd-words .hd-more { display: inline-flex; align-items: center; gap: 4px; }
+  .hd-words .hd-more svg { width: 12px; height: 12px; }
+  /* the week's name and its arrows never shrink under the strip of weeks (at 1280 with the sidebar pinned the arrow sat
+     on week 1); the dates give way first, with an ellipsis */
+  .wb .wb-step { flex: none; }
+  .wb .wb-d { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* Fitts: the block's week marks are 32 px targets (26 px marks, the rest invisible) */
+  .wb-wk::after { inset: -9px -2px; }
+  /* the start panel: the pick's recommended tag and what Create makes, in one line above it */
+  .sp-o .rec { margin-left: var(--sp-2); color: var(--ink-3); font: 500 var(--fs-cap)/1 var(--font); }
+  .sp-make { margin: var(--sp-4) 0 0; padding: var(--sp-3) var(--sp-3); border-radius: var(--r-row); background: var(--fill); color: var(--ink); font: 500 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
+  .sp-make b { font-weight: 600; }
+  .sp-make .k { display: block; margin-bottom: 2px; color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
+  .pop .nb-rec { margin: var(--sp-3) 0 var(--sp-1); color: var(--ink-3); font: 600 var(--fs-label)/var(--lh-label) var(--font); }
+  .pop .nb-l .pick.is-on { background: var(--hover); }
 </style>
 </head>
 <body data-place="programs">
@@ -432,15 +459,15 @@
 <script src="../kit/data.js"></script>
 <script src="../kit/kit.js"></script>
 <script src="../kit/coach.js"></script>
-<script src="../kit/r6/block.js?v=1123f"></script>
+<script src="../kit/r6/block.js?v=1123v"></script>
 <script src="../kit/r6/store.js"></script>
-<script src="../kit/r6/desk.js?v=1123f"></script>
-<script src="../kit/r6/picker.js?v=1123f"></script>
-<script src="../kit/r6/import.js?v=1123f"></script>
-<script src="../kit/r6/importer.js?v=1123f"></script>
-<script src="../kit/r6/week.js?v=1123f"></script>
-<script src="../kit/r6/sheet.js?v=1123f"></script>
-<script src="../kit/r6/simple.js?v=1123f"></script>
+<script src="../kit/r6/desk.js?v=1123v"></script>
+<script src="../kit/r6/picker.js?v=1123v"></script>
+<script src="../kit/r6/import.js?v=1123v"></script>
+<script src="../kit/r6/importer.js?v=1123v"></script>
+<script src="../kit/r6/week.js?v=1123v"></script>
+<script src="../kit/r6/sheet.js?v=1123v"></script>
+<script src="../kit/r6/simple.js?v=1123v"></script>
 <script src="../kit/r6/fix.js"></script>
 <script src="../kit/r6/newcoach.js"></script>
 <script>
@@ -557,7 +584,7 @@
   }
 
   /* ================= the URL: the selection in the hash (shared.md §7) ================= */
-  var st = { tab: 'lifters', mode: ls.get('powa-r6-prog-mode') === 'advanced' ? 'advanced' : 'simple', view: ls.get('powa-r6-prog-view') === 'block' ? 'block' : 'week', q: '', from: null, rest: json(ls.get('powa-r6-prog-rest')) || { open: true, sort: 'due' } };   /* Everyone else shows at rest (function-polish F6.1: Arjun's row says where he is and his meet without a click); Hide sticks */
+  var st = { tab: 'lifters', mode: ls.get('powa-r6-prog-mode') === 'advanced' ? 'advanced' : 'simple', view: ls.get('powa-r6-prog-view') === 'block' ? 'block' : 'week', q: '', from: null, rest: json(ls.get('powa-r6-prog-rest2')) || { open: false, sort: 'due' }, later: false, sentOpen: false };   /* 23 Nov (upgrade, Hick): Everyone else folds to its count at rest (it used to show: the list read 15 choices before the week); Show sticks */
   function readHash() {
     var h = DESK.url.get(), changed = false;
     if (h.view === 'sheet') { h.view = 'block'; changed = true; }
@@ -716,15 +743,24 @@
     var picked = function (r) { var id = r.lifterId || r.id; return !st.ids || st.ids.indexOf(id) >= 0; };
     var shown = function (list) { return list.filter(match).filter(picked); };
     var T = shown(todo), E = shown(ending), Dn = done.filter(match).filter(picked), R = shown(rest);
+    var sun = K.add(K.monday(TODAY), 6), laterOpen = !!st.later;
+    var isLater = function (r) { var id = r.lifterId || 'team:' + r.teamId; return !st.q && !st.ids && !!r.due && r.due > sun && id !== openId; };
+    var T0 = T.filter(function (r) { return !isLater(r); }), TL = T.filter(isLater);
     var none = !lifterCount();
     /* To do is the list's first group: its head is the list head (PX3), then the search and New block… */
     var head = DESK.listHead(null, { name: 'To do', count: st.ids ? T.length : q.meta.left, countKey: st.ids ? null : 'programsDue', action: segTabs() });
     html += '<div class="ql-g" data-group="todo">' + head + (none ? '' : searchHtml('Find a lifter', '<button class="btn quiet sm ql-new" type="button" data-new-block aria-haspopup="dialog">New block…</button>', 'Search')) +
       (st.ids ? '<p class="ql-pick">' + esc(plural(st.ids.length, 'lifter') + ' from Lifters') + '<button class="link" type="button" data-ids-clear>Show everyone</button></p>' : '') +
-      '<div data-list role="listbox" aria-label="To do">' + T.map(function (r) { var id = r.lifterId || 'team:' + r.teamId; return rowHtml(r, id === openId || (openTeam && id === openTeam)); }).join('') + '</div>' +
-      (!T.length && !st.q && !none ? '<p class="ql-empty">Nothing to write or send.</p>' : '') + '</div>';
+      '<div data-list role="listbox" aria-label="To do">' + T0.map(function (r) { var id = r.lifterId || 'team:' + r.teamId; return rowHtml(r, id === openId || (openTeam && id === openTeam)); }).join('') + '</div>' +
+      /* 23 Nov (upgrade, Hick): the weeks due after this Sunday fold to a count under this week's; the open lifter's row
+         is never folded away, and a search shows everything it finds */
+      (TL.length ? '<button class="ql-fold is-sub" type="button" data-later-fold aria-expanded="' + laterOpen + '"><span>Due next week<span class="n">' + TL.length + '</span></span><span class="sh">' + (laterOpen ? 'Hide' : 'Show') + '</span></button>' +
+        (laterOpen ? '<div data-list role="listbox" aria-label="Due next week">' + TL.map(function (r) { var id = r.lifterId || 'team:' + r.teamId; return rowHtml(r, id === openId); }).join('') + '</div>' : '') : '') +
+      (!T.length && !st.q && !none ? '<p class="ql-empty">Nothing to write or send.</p>' : '') + (none ? '<p class="ql-empty">Each lifter you add shows here when their next week is due.</p>' : '') + '</div>';
     if (E.length) html += '<div class="ql-g" data-group="ending"><div class="ql-h"><span>Blocks ending</span> <span class="n">' + E.length + '</span></div><div data-list role="listbox" aria-label="Blocks ending">' + E.map(function (r) { return rowHtml(r, r.lifterId === openId); }).join('') + '</div></div>';
-    if (Dn.length) html += '<div class="ql-g" data-group="done"><div class="ql-h"><span>Sent this week</span> <span class="n">' + Dn.length + '</span></div><div data-list role="listbox" aria-label="Sent this week">' + Dn.map(function (d) { return doneHtml(d, d.id === openId); }).join('') + '</div></div>';
+    /* what went this week folds to a count too; it opens by itself while a send from this visit is in it (its Undo) */
+    var sentOpen = st.sentOpen || !!st.q || SENT.some(function (s) { return !s.gone; }) || Dn.some(function (d) { return d.id === openId; });
+    if (Dn.length) html += '<div class="ql-g" data-group="done"><button class="ql-fold" type="button" data-sent-fold aria-expanded="' + sentOpen + '"><span>Sent this week<span class="n">' + Dn.length + '</span></span><span class="sh">' + (sentOpen ? 'Hide' : 'Show') + '</span></button>' + (sentOpen ? '<div data-list role="listbox" aria-label="Sent this week">' + Dn.map(function (d) { return doneHtml(d, d.id === openId); }).join('') + '</div>' : '') + '</div>';
     var open = st.rest.open || !!st.q || !!st.ids;
     if (!none && (rest.length || st.q || st.ids)) html += '<div class="ql-g" data-group="rest"><button class="ql-fold" type="button" data-rest-fold aria-expanded="' + open + '"><span>Everyone else<span class="n">' + (st.ids ? R.length : rest.length) + '</span></span><span class="sh">' + (open ? 'Hide' : 'Show') + '</span></button>' +
       (open ? '<div class="ql-sort"><span>Sort</span><button class="btn quiet sm" type="button" data-rest-sort aria-haspopup="menu">' + ({ due: 'Next due', status: 'Status', name: 'Name' }[st.rest.sort] || 'Next due') + '</button></div><div data-list role="listbox" aria-label="Everyone else">' + restSort(R).map(function (r) { return rowHtml(r, r.lifterId === openId); }).join('') + '</div>' : '') + '</div>';
@@ -890,11 +926,14 @@
     /* two ways to write the same program (20 Nov, the owner): Simple, one day of plain fields at a time (kit/r6/simple.js),
        and Advanced, the sheet, as a week of rows or the whole block with its weeks across */
     var simple = isSimple(), canSimple = simpleOK();
-    mid.innerHTML = (lifterBlock ? '<div class="seg" role="group" aria-label="How to write"><button type="button" data-mode="simple" aria-pressed="' + simple + '"' + (canSimple ? ' title="The whole week, every lift a line you change in place"' : ' disabled title="A change is checked on the sheet"') + '>Simple</button><button type="button" data-mode="advanced" aria-pressed="' + !simple + '" title="The sheet: every line a row, every week a column">Advanced</button></div>' +
-      (simple ? '' : '<div class="seg seg-sub" role="group" aria-label="Sheet"><button type="button" data-view="week" aria-pressed="' + (st.view === 'week') + '" title="The week in rows">Week</button><button type="button" data-view="block" aria-pressed="' + (st.view === 'block') + '" title="The whole block, weeks across">Block</button></div>') : '') +
+    /* 23 Nov (upgrade, Hick and Jakob): one mode switch whose two sides say what they are before a click: Simple wears a
+       form's lines, Advanced a spreadsheet's grid (the owner's two words kept). Week and Block are the sheet's own views,
+       so they show only inside Advanced, joined to it as one control (.pg-mode), never a second switch beside it */
+    mid.innerHTML = (lifterBlock ? '<div class="pg-mode' + (simple ? '' : ' is-adv') + '"><div class="seg" role="group" aria-label="How to write"><button type="button" data-mode="simple" aria-pressed="' + simple + '"' + (canSimple ? ' title="Simple: a form, every lift a line of fields (Sets, Reps, RPE or %, Load)"' : ' disabled title="A change is checked on the sheet"') + '>' + MODE_IC.simple + '<span>Simple</span></button><button type="button" data-mode="advanced" aria-pressed="' + !simple + '" title="Advanced: a spreadsheet, every line a row, every week a column, keys as in Google Sheets">' + MODE_IC.adv + '<span>Advanced</span></button></div>' +
+      (simple ? '' : '<div class="seg seg-sub" role="group" aria-label="Sheet"><button type="button" data-view="week" aria-pressed="' + (st.view === 'week') + '" title="One week, a row a line">Week</button><button type="button" data-view="block" aria-pressed="' + (st.view === 'block') + '" title="The whole block, weeks across">Block</button></div>') + '</div>' : '') +
       (folded ? '<h1 class="tb-h1" id="ttl-tb"><button type="button" data-unfold title="Back to the top of ' + esc(cur.l.name) + '"><span data-ellipsis title="' + esc(cur.l.name) + '">' + esc(cur.l.name) + '</span></button></h1>' : '');
     var pr = primaryFor(), h = '';
-    if (cur && cur.id && cur.b && cur.kind !== 'start' && cur.kind !== 'runin') h += '<button class="btn icon quiet" type="button" data-prog-menu data-more aria-haspopup="menu" aria-label="Program menu" title="Import a sheet, export, templates, rules">' + K.ic('more', 2.2) + '</button>';
+    if (cur && cur.id && cur.b && cur.kind !== 'start' && cur.kind !== 'runin') h += '<button class="btn icon quiet" type="button" data-prog-menu data-more aria-haspopup="menu" aria-label="Program menu" title="More: import from a spreadsheet, the next block, save as a template, rules">' + K.ic('more', 2.2) + '</button>';
     if (st.tab === 'templates' && cur && cur.tpl && cur.tpl.starter && PL.templates && fn(PL.templates, 'save')) h += '<button class="btn icon quiet" type="button" data-starter-menu data-more aria-haspopup="menu" aria-label="' + esc(cur.tpl.name) + ' moves" title="Starter moves">' + K.ic('more', 2.2) + '</button>';
     if (st.tab === 'templates' && cur && cur.tpl && !cur.tpl.starter && PL.templates && fn(PL.templates, 'duplicate')) h += '<button class="btn icon quiet" type="button" data-tpl-menu data-more aria-haspopup="menu" aria-label="' + esc(cur.tpl.name) + ' moves" title="Template moves">' + K.ic('more', 2.2) + '</button>';
     if (cur && cur.l && cur.b && (cur.kind === 'week' || cur.kind === 'change' || cur.kind === 'recovery')) h += '<button class="btn quiet" type="button" data-preview>Preview as ' + esc(cur.l.first) + '</button>';
@@ -934,7 +973,9 @@
     ws.forEach(function (c) { var k = checksIn(cur.b, c, ['noload']).length; if (k && nlWeek == null) nlWeek = c; nl += k; });
     if (nl) return keep({ title: plural(nl, 'line') + ' with no load yet', blocked: true, run: function () { DESK.toast((nl === 1 ? 'One line has' : nl + ' lines have') + ' no load yet. Give ' + (nl === 1 ? 'it' : 'each') + ' a load, an RPE or a percent first.'); walkChecks(nlWeek, ['noload']); } });
     /* the lifter's open note holds the week (P13): asked once, with their words, when the send is pressed */
-    var hd0 = cur.kind === 'week' ? holdAct() : null, hkey = hd0 ? 'hold:' + cur.id + ':' + hd0.item.id : null;
+    /* 23 Nov (upgrade, job 1 walk): once the coach has taken the recommended answer (the cap), the note is answered: the
+       send no longer asks about it (it used to ask again, and its first button applied the cap a second time) */
+    var hd0 = cur.kind === 'week' && !cur.applied ? holdAct() : null, hkey = hd0 ? 'hold:' + cur.id + ':' + hd0.item.id : null;
     if (hd0 && !ASKED[hkey]) return keep({ title: 'Asks about ' + cur.l.first + '’s note first', run: function (btn) { askHold(btn, pr, hd0, hkey); } });
     /* C2: the lines this send carries that are about a full RPE off what is written (FD7, F4.1) */
     var rp = rpeLines(pr);
@@ -1341,7 +1382,14 @@
       var it0 = cur.kind === 'change' ? cur.item : openItemOf(cur.id), tn0 = it0 && DESK.TONE ? DESK.TONE[it0.tone] || '' : '';
       var tg0 = wl && !wl.done && it0 && it0.kicker ? '<span class="tg"' + (tn0 ? ' data-tone="' + esc(tn0) + '"' : '') + '>' + esc(it0.kicker.length > 22 ? it0.kicker.split(/ and |, /)[0] : it0.kicker) + '</span>' : '';
       if (wl) h += '<div class="hd-line hd-words">' + tg0 + (wl.done ? '<span class="done-say">' + esc(wl.say) + '</span>' : '<span class="say"' + (wl.quote ? ' data-quote' : '') + '>' + esc(wl.say) + (wl.who ? ' <span class="who">' + esc(wl.who) + '</span>' : '') + '</span>') +
-        (wl.acts.length ? '<span class="acts">' + wl.acts.map(function (a, i) { return '<button class="btn sm' + (a.main ? ' is-main' : ' quiet') + '" type="button" data-hd-act="' + i + '"' + (a.main ? ' data-hd-main' : '') + '>' + esc(a.label) + '</button>'; }).join('') + '</span>' : '') + '</div>';
+        /* 23 Nov (upgrade, Hick): ONE answer beside the words, the one the desk recommends (the filled one when there is
+           one), and the rest behind "Other options" (a menu); two or three equal buttons made the coach choose cold */
+        (wl.acts.length ? '<span class="acts">' + (function () {
+          var mi = 0; wl.acts.forEach(function (a, i) { if (a.main && !wl.acts[mi].main) mi = i; });
+          var a0 = wl.acts[mi], more = wl.acts.length - 1;
+          return '<button class="btn sm' + (a0.main ? ' is-main' : ' quiet') + '" type="button" data-hd-act="' + mi + '"' + (a0.main ? ' data-hd-main' : '') + '>' + esc(a0.label) + '</button>' +
+            (more ? '<button class="btn quiet sm hd-more" type="button" data-hd-more aria-haspopup="menu" title="' + esc(wl.acts.filter(function (x, i) { return i !== mi; }).map(function (x) { return x.label; }).join(' · ')) + '">Other options' + K.ic('down', 2.4) + '</button>' : '');
+        })() + '</span>' : '') + '</div>';
       cur.wl = wl;
       h += '<div class="composer" id="cmp" hidden></div>';
       var lim = limitsLine(); if (lim) h += '<p class="hd-line hd-limits">' + esc(lim) + '</p>';
@@ -1434,8 +1482,8 @@
     if (meetWeek && kind !== 'Meet week') out += '<span class="wb-o">Meet week</span>'; else if (fo && mt && mt <= 16 && kind !== 'Meet week' && said.indexOf(fo.text) < 0) out += '<span class="wb-o" title="' + esc(fo.title) + '">' + esc(fo.text) + '</span>';
     /* 22 Nov: Undo and Redo are two buttons on the week bar in every view (they were keys only, and a pair hidden in Simple) */
     var canEdit = w && w.state !== 'lifted' && cur.kind !== 'change';
-    var menuBtn = '<span class="wb-end">' + (canEdit ? '<button class="btn icon quiet sm" type="button" data-wk-undo aria-label="Undo" title="Undo (⌘Z)">' + UNDO_IC + '</button><button class="btn icon quiet sm" type="button" data-wk-redo aria-label="Redo" title="Redo (⇧⌘Z)">' + REDO_IC + '</button><button class="btn icon quiet sm" type="button" data-wk-copy aria-haspopup="menu" aria-label="Copy this week onto another" title="Copy this week onto another week">' + COPY_IC + '</button><i class="wb-rule" aria-hidden="true"></i>' : '') +
-      '<button class="btn icon quiet sm" type="button" data-week-menu data-more aria-haspopup="menu" aria-label="' + esc(weekName(b, c)) + ' menu" title="Copy, duplicate, deload, add a day">' + K.ic('more', 2.2) + '</button></span>';
+    var menuBtn = '<span class="wb-end">' + (canEdit ? '<button class="btn icon quiet sm" type="button" data-wk-undo aria-label="Undo" title="Undo (⌘Z)">' + UNDO_IC + '</button><button class="btn icon quiet sm" type="button" data-wk-redo aria-label="Redo" title="Redo (⇧⌘Z)">' + REDO_IC + '</button><i class="wb-rule" aria-hidden="true"></i>' : '') +
+      '<button class="btn icon quiet sm" type="button" data-week-menu data-more aria-haspopup="menu" aria-label="' + esc(weekName(b, c)) + ' menu" title="Copy this week onto another, duplicate, deload, fill, insert or add a week">' + K.ic('more', 2.2) + '</button></span>';
     if (unread) notes += '<button class="link is-stop" type="button" data-fix title="It stops the send until it reads">' + esc(plural(unread, 'cell') + ' to fix') + '</button>';
     if (chk) notes += '<button class="link" type="button" data-checks title="The next line to check (⌘G)">' + chk + ' to check</button>';
     if (src) notes += '<button class="link" type="button" data-changes aria-haspopup="dialog">' + esc(src) + '</button>';
@@ -1452,6 +1500,11 @@
     if (later.length) notes += '<button class="link" type="button" data-later="' + later[0].n + '">' + esc((later.length === 1 ? 'Week ' + later[0].n : 'Weeks ' + K.list(later.map(function (x) { return x.n; }), 9)) + ': ' + later.reduce(function (a, x) { return a + x.check; }, 0) + ' to check') + '</button>';
     return '<div class="wb" data-crop="weekbar"><div class="wb-r1">' + out + '</div>' + (notes ? '<div class="wb-r2">' + notes + '</div>' : '') + menuBtn + '</div>';
   }
+  /* the mode switch's two marks: a form's lines (Simple) and a spreadsheet's grid (Advanced) */
+  var MODE_IC = {
+    simple: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6.5h4M11 6.5h9M4 12h4M11 12h9M4 17.5h4M11 17.5h9"/></svg>',
+    adv: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15"/></svg>'
+  };
   var COPY_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V7a2.5 2.5 0 0 0-2.5-2.5H7A2.5 2.5 0 0 0 4.5 7v6A2.5 2.5 0 0 0 7 15.5h1.5"/></svg>';
   var UNDO_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8h7a5 5 0 0 1 0 10H9M8 8l3.5-3.5M8 8l3.5 3.5"/></svg>';
   var REDO_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 8H9a5 5 0 0 0 0 10h6M16 8l-3.5-3.5M16 8l-3.5 3.5"/></svg>';
@@ -1497,7 +1550,9 @@
     setFrame(!doc);
     if (cur.kind === 'done') return paintDone();
     /* nobody on the desk yet (first-time-coach §6): what is empty, and the crimson adds the first lifter */
-    if (cur.kind === 'empty') { PD.innerHTML = '<div class="hd" id="hd" data-crop="header"><h1 id="ttl">Programs</h1></div><div class="card ad" data-crop="week"><h2>Nothing to write yet. Add a lifter first.</h2></div>'; return; }
+    /* 23 Nov (upgrade): the page taught in one sentence, the one next step the crimson above (Add your first lifter), and
+       the starters a coach can look at meanwhile */
+    if (cur.kind === 'empty') { PD.innerHTML = '<div class="hd" id="hd" data-crop="header"><h1 id="ttl">Programs</h1></div><div class="card ad" data-crop="week"><h2>Nothing to write yet. Add a lifter first.</h2><p>Here you write each lifter’s next week, in a simple form or a spreadsheet, and send it to their phone. Add your first lifter with the red button above.</p><p><button class="link" type="button" data-list-tab="templates">Look at the starter programs meanwhile</button></p></div>'; return; }
     if (cur.kind === 'start') return paintStart();
     if (cur.kind === 'runin') return paintRunin();
     if (st.tab === 'templates' && cur.tpl) return paintTemplate();
@@ -2170,12 +2225,15 @@
         var f = fn(PL.templates, 'fit') ? PL.templates.fit(t.id, id) : null, fit = f && f.data ? f.data : null;
         opts.push({ id: t.id, tpl: t, label: t.name, sub: plural(t.weeks, 'week') + ', ' + plural(t.perWeek || (t.days || []).length, 'day') + (fit && fit.text ? ': ' + fit.text : ''), fit: fit });
       });
-      if (l.program) opts.push({ id: 'repeat', label: 'Repeat ' + l.program.name, sub: plural(l.program.of || 1, 'week') + ', ' + her + ' days, new maxes' });
+      /* 23 Nov (upgrade): the block they are on, again, with its weekly steps and the maxes it ends on, leads the list:
+         it is what a coach most often does next, so it is the recommended default (Questions for the owner) */
+      if (l.program) opts.unshift({ id: 'repeat', label: 'Repeat ' + l.program.name, sub: plural(l.program.of || 1, 'week') + ', ' + her + ' days, its weekly steps, from the maxes it ends on', rec: true });
       opts.push({ id: 'blank', label: 'Blank', sub: her + ' days, 1 empty week' });
     }
     /* the default pick (first-time-coach §7.2): the store's; a template the coach came with is kept */
     var pick = kind === 'first' ? (fn(PL.starters, 'pick') ? (PL.starters.pick(id).data || {}) : {}) : {};
     var first = kind === 'first' && pick.id && opts.some(function (o) { return o.id === pick.id && !o.disabled; }) ? pick.id : (opts.filter(function (o) { return !o.disabled; })[0] || { id: 'blank' }).id;
+    opts.forEach(function (o) { o.rec = o.id === first; });
     if (keepPick && opts.some(function (o) { return o.id === keepPick; })) first = keepPick;
     var lifts = kind === 'first' ? (pick.lifts === 'old' ? 'old' : 'recent') : 'recent';
     var maxes = kind === 'first' ? (est ? { squat: est.squat, bench: est.bench, deadlift: est.deadlift } : null) : b0 ? { squat: b0.maxes.squat, bench: b0.maxes.bench, deadlift: b0.maxes.deadlift } : null;
@@ -2211,7 +2269,7 @@
   function paintStart() {
     var s = cur.start, l = cur.l, first = l.first, it = Kl(cur.id) && Kl(cur.id).intake, m = startMaxes(), her = sexWord(Kl(cur.id), 'his', 'her', 'their');
     var pick = s.opts.filter(function (o) { return o.id === s.pick; })[0] || null;
-    var opt = function (o) { return '<button class="sp-o" type="button" role="radio" data-start-opt="' + esc(o.id) + '" aria-checked="' + (s.pick === o.id) + '"' + (o.disabled ? ' aria-disabled="true" title="' + esc(o.title || o.disabled) + '"' : '') + '><i class="rd" aria-hidden="true"></i><span class="t"><b>' + esc(o.label) + '</b><small>' + esc(o.sub || '') + '</small></span></button>'; };
+    var opt = function (o) { return '<button class="sp-o" type="button" role="radio" data-start-opt="' + esc(o.id) + '" aria-checked="' + (s.pick === o.id) + '"' + (o.disabled ? ' aria-disabled="true" title="' + esc(o.title || o.disabled) + '"' : '') + '><i class="rd" aria-hidden="true"></i><span class="t"><b>' + esc(o.label) + (o.rec ? '<span class="rec">Recommended</span>' : '') + '</b><small>' + esc(o.sub || '') + '</small></span></button>'; };
     var optsHtml = '', lastGroup = null;
     s.opts.forEach(function (o) { if (o.group && o.group !== lastGroup) optsHtml += '<p class="sp-sub">' + esc(o.group) + '</p>'; lastGroup = o.group || null; optsHtml += opt(o); });
     var title = s.kind === 'first' ? 'Start ' + first + '’s first block' : first + '’s next block';
@@ -2248,8 +2306,17 @@
       var mx2 = m ? LIFTS.map(function (k) { return '<span class="mx" data-lift="' + k + '">' + LIFT[k] + ' ' + (m[k] != null ? nf(m[k]) : 'not set') + '</span>'; }).join('') : '<span>None yet</span>';
       kv += '<span class="k"><span data-term="max">Training maxes</span></span><span class="v">' + mx2 + '</span>';
     }
-    PD.innerHTML = headerHtml() + '<div class="sp"><div class="card sp-c' + (s.kind === 'first' ? ' is-first' : '') + '" data-crop="start"><h2>' + esc(title) + '</h2><div class="sp-opts' + (s.kind === 'first' ? ' is-two' : '') + '" role="radiogroup" aria-label="Start from">' + optsHtml + '</div>' + teamWarn + about +
-      '<div class="sp-kv">' + kv + '</div></div>' + intake + '</div>';
+    /* 23 Nov (upgrade): what the one Create (the crimson) will make, in a line, before it is pressed, and the third way in,
+       a program from the coach's own spreadsheet, as one named door under the choices */
+    var mk = '';
+    if (pick && !pick.disabled) {
+      var mxw = m ? LIFTS.filter(function (k) { return m[k] != null; }).map(function (k) { return LIFT[k] + ' ' + nf(m[k]); }).join(', ') : '';
+      var dys = s.kind === 'first' && s.days && s.days.length ? s.days.join(' ') : '';
+      mk = '<p class="sp-make" data-crop="make"><span class="k">Create makes</span><b>' + esc(pick.label) + '</b>' + esc((pick.sub ? ', ' + low1(pick.sub) : '') + (dys && (pick.sub || '').indexOf(dys) < 0 ? ', on ' + dys : '') + ', starting ' + dShort(s.starts) + '.' + (mxw ? ' Loads from ' + mxw + '.' : '') + ' Nothing reaches ' + first + ' until you send it.') + '</p>';
+    }
+    var imp = '<p class="sp-sub sp-imp"><button class="link" type="button" data-import>Or import one from a spreadsheet…</button></p>';
+    PD.innerHTML = headerHtml() + '<div class="sp"><div class="card sp-c' + (s.kind === 'first' ? ' is-first' : '') + '" data-crop="start"><h2>' + esc(title) + '</h2><div class="sp-opts' + (s.kind === 'first' ? ' is-two' : '') + '" role="radiogroup" aria-label="Start from">' + optsHtml + '</div>' + imp + teamWarn + about +
+      '<div class="sp-kv">' + kv + '</div>' + mk + '</div>' + intake + '</div>';
   }
   function startNow() {
     var s = cur.start, id = cur.id, first = cur.l.first, pick = s.opts.filter(function (o) { return o.id === s.pick; })[0] || { id: 'blank' };
@@ -2485,6 +2552,8 @@
     };
     el.onclick = function (e) { var b = e.target.closest('[data-pick-lifter]'); if (b) go(b.getAttribute('data-pick-lifter')); };
     if (inp) setTimeout(function () { inp.focus({ preventScroll: true }); }, 30);
+    /* 23 Nov (upgrade, Hick): the first, most likely lifter is in hand from the start, so Enter takes the recommended one */
+    mark(0);
   }
   /* ================= the popovers: maxes, the changes, logging for a lifter ================= */
   function maxPop(lift, btn) {
@@ -2591,7 +2660,7 @@
       sub.addEventListener('keydown', function (e) { if (e.key === 'Escape' || e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); var p = sub._parent; closeSub(); if (p && p.isConnected) p.focus(); } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); var its = $$('.mi:not(:disabled)', sub), k = its.indexOf(document.activeElement); var nx = its[Math.max(0, Math.min(its.length - 1, k + (e.key === 'ArrowDown' ? 1 : -1)))]; if (nx) nx.focus(); } });
     }
     sub._parent = itemBtn;
-    sub.innerHTML = '<div class="mn" role="menu">' + items.map(function (it, i) { if (it.sep) return '<div class="mn-sep" role="separator"></div>'; var radio = it.checked != null; return '<button class="mi' + (it.red ? ' is-red' : '') + '" type="button" role="' + (radio ? 'menuitemradio' : 'menuitem') + '"' + (radio ? ' aria-checked="' + !!it.checked + '"' : '') + ' data-si="' + i + '"' + (it.disabled ? ' disabled' : '') + '><span class="mi-t">' + esc(it.label) + (it.sub ? '<small>' + esc(it.sub) + '</small>' : '') + '</span>' + (radio ? DESK.ic('check', 2.4).replace('<svg', '<svg class="ck"') : '') + '</button>'; }).join('') + '</div>';
+    sub.innerHTML = '<div class="mn" role="menu">' + items.map(function (it, i) { if (it.sep) return '<div class="mn-sep" role="separator"></div>'; var radio = it.checked != null; return '<button class="mi' + (it.red ? ' is-red' : '') + '" type="button" role="' + (radio ? 'menuitemradio' : 'menuitem') + '"' + (radio ? ' aria-checked="' + !!it.checked + '"' : '') + ' data-si="' + i + '"' + (it.disabled ? ' disabled' : '') + '><span class="mi-t">' + esc(it.label) + (it.sub ? '<small>' + esc(it.sub) + '</small>' : '') + '</span>' + (it.key ? '<kbd class="mi-k">' + esc(it.key) + '</kbd>' : '') + (radio ? DESK.ic('check', 2.4).replace('<svg', '<svg class="ck"') : '') + '</button>'; }).join('') + '</div>';
     sub.onclick = function (e) { var b = e.target.closest('[data-si]'); if (!b || b.disabled) return; var it = items[+b.getAttribute('data-si')]; closeSub(); DESK.pop.close(); run(it.id, it); };
     if (!sub.matches(':popover-open')) sub.showPopover();
     var r = itemBtn.getBoundingClientRect(), w = sub.offsetWidth, h = sub.offsetHeight, x = r.right + 8, y = r.top - 12;
@@ -2675,7 +2744,17 @@
     if (c === b.weeks.length - 1 && w && w.state === 'next' && b.weeks.length > 1) items.push({ id: 'rm', label: 'Remove ' + low1(wn), red: true, run: function () { var res = gridApply(function (bb) { return bb.removeWeek(c); }, null, { say: wn + ' removed.' }); if (res && !res.error) stepWeek(-1); } });
     /* the week bar's own Copy button opens just the copies (the cold review: "everything useful is behind the dots") */
     if (btn && btn.hasAttribute && btn.hasAttribute('data-wk-copy')) { var cp = (items.filter(function (x) { return x.id === 'copyto'; })[0] || {}).subs || []; var dup = items.filter(function (x) { return x.id === 'dupw'; })[0]; if (dup) cp = cp.concat([{ sep: true }, dup]); if (!cp.length) { DESK.toast('There is no other week to copy onto yet. Add one from the week menu.'); return; } menu(btn, cp, { title: 'Copy ' + low1(weekName(b, c)) + ' onto', label: 'Copy this week onto' }); return; }
-    menu(btn, items, { title: weekName(b, c), label: weekName(b, c) + ' menu' });
+    /* 23 Nov (upgrade, Hick): six moves at the top, the ones a coach uses every week (copy, duplicate, deload, fill, insert,
+       add; a waiting change's send before them), then More with the rest: a run-in, sending several weeks, scheduling,
+       compact rows, and the destructive pair last */
+    var WM = {}; items.forEach(function (x) { if (x.id) WM[x.id] = x; });
+    var order = ['sendch', 'copyto', 'dupw', 'deload', 'fill', 'ins', 'add'].map(function (k) { return WM[k]; }).filter(Boolean);
+    var topW = order.slice(0, 6), restW = order.slice(6);
+    items.forEach(function (x) { if (x.id && order.indexOf(x) < 0 && !x.red) restW.push(x); });
+    var redW = items.filter(function (x) { return x.red; });
+    if (redW.length) restW = restW.concat([{ sep: true }], redW);
+    if (restW.length) topW.push({ sep: true }, { id: 'more', label: 'More', subs: restW });
+    menu(btn, topW, { title: weekName(b, c), label: weekName(b, c) + ' menu' });
   }
   function planTaper(m) { var tp = null; try { tp = BL.taper(cur.b, m.date, { c: cur.c }); } catch (e) { tp = null; } if (!tp || !tp.block) { DESK.toast('The taper could not be planned.'); return; } cur.p = tp; cur.b = tp.block; cur.fresh = true; cur.sendC = tp.c != null ? tp.c : cur.c; paintAll({ focus: true }); }
   function sendAll(ns) {
@@ -2719,7 +2798,15 @@
     items.push({ sep: true });
     var liftedAny = b.rows.some(function (row) { return row.day === day && b.weeks.some(function (x, k2) { return x.state === 'lifted' && row.cells[x.uid]; }); });
     items.push({ id: 'del', label: 'Delete the day', red: true, disabled: liftedAny, sub: liftedAny ? 'It has lifted sessions.' : '', run: function () { gridApply(function (bb) { return bb.removeDay(day); }, null, { say: dn + ' deleted.' }); } });
-    menu(btn, items, { title: sentence(day), label: sentence(day) + ' menu' });
+    /* 23 Nov (upgrade, Hick): the day's six common moves at the top, merges as one "Merge this week with ›", and the
+       rest (swapping dates, taking it out of the week, deleting it) under More, destructive last */
+    var DM = {}; items.forEach(function (x) { if (x.id) DM[x.id] = x; });
+    var merges = items.filter(function (x) { return /^merge-/.test(x.id || ''); }).map(function (x) { return { id: x.id, label: x.label.replace(/^Merge with /, '').replace(/ this week$/, ''), run: x.run }; });
+    var swaps = items.filter(function (x) { return /^swap-/.test(x.id || ''); });
+    var topD = [DM.addx, DM.dupd, DM.ren, DM.mvw, DM.mve, merges.length ? { id: 'merge', label: 'Merge this week with', subs: merges } : null].filter(Boolean);
+    var restD = swaps.concat([DM.back || DM.out, { sep: true }, DM.del]).filter(Boolean);
+    topD.push({ sep: true }, { id: 'more', label: 'More', subs: restD });
+    menu(btn, topD, { title: sentence(day), label: sentence(day) + ' menu' });
   }
   /* the picker from a line's moves (kit/r6/picker.js): the line becomes the exercise chosen. Weeks already lifted keep the
      old one, and the words say so */
@@ -2748,7 +2835,7 @@
     var who = keys.length > 1 ? plural(keys.length, 'line') : nm;
     /* the rule for every selected line in one step: one save, one ⌘Z (programs.md §5.8, F25) */
     var progs = PROG_WORDS.map(function (p) { return { id: 'pg-' + p[0], label: p[1], checked: row.prog === p[0], run: function () { gridApply(function (bb) { var lab = 'How ' + (keys.length > 1 ? plural(keys.length, 'line') : row.name.toLowerCase()) + ' move each week'; var go = function () { keys.forEach(function (k) { var rr = rowIx(bb, k); if (rr >= 0) bb.setProg(rr, p[0]); }); return { data: { rows: keys.length } }; }; return fn(bb, 'batch') ? bb.batch(lab, go) : bb.commit(lab, go); }, null, { say: who + ': ' + (p[0] === 'same' ? 'the same each week' : p[1] + ' each week') + '.', warn: true }); } }; });
-    var items = [];
+    var items = [], RM = {};
     if (row.line === 0 && row.lift && !b.rows.some(function (x) { return x.day === row.day && x.ex === row.ex && x.line > 0; })) items.push({ id: 'bo', label: 'Add back-offs', run: function () { gridApply(function (bb) { var a = bb.addLine(rowIx(bb, row.key)); if (a && a.data) bb.set(a.data.r, c, '2x5 -10%'); return a; }, null, { say: 'Back-offs under ' + row.name.toLowerCase() + ': 2 × 5, 10% lighter.' }); } });
     items.push({ id: 'line', label: 'Add a line under it', run: function () { gridApply(function (bb) { return bb.addLine(rowIx(bb, row.key)); }); } });
     /* 22 Nov (the owner: "I'm not able to edit the lift if it's already been entered"): every line's exercise can be
@@ -2775,7 +2862,15 @@
     items.push({ id: 'out', label: 'Take it out of ' + low1(b.weekName(c)), red: true, run: function () { gridApply(function (bb) { return fn(bb, 'dropLine') ? bb.dropLine(rowIx(bb, row.key), c) : bb.set(rowIx(bb, row.key), c, ''); }, null, { say: nm + ' out of ' + low1(b.weekName(c)) + '.' }); } });
     var lifted = b.weeks.some(function (w) { return w.state === 'lifted' && row.cells[w.uid]; });
     items.push({ id: 'del', label: 'Delete the line', red: true, disabled: lifted, sub: lifted ? 'Lifted already' : '', run: function () { gridApply(function (bb) { return bb.removeRow(rowIx(bb, row.key)); }, null, { say: nm + ' deleted.' }); } });
-    menu(btn, items, { title: row.name, label: row.name + ' menu' });
+    /* 23 Nov (upgrade, Hick): seven at most at the top, most used first (change, duplicate, add, swap, the weekly step,
+       another day), and the rest one level down under More, the destructive pair last and apart */
+    items.forEach(function (x) { if (x.id) RM[x.id] = x; });
+    var top = [RM.chg, RM.dup, RM.bo || RM.line,
+      RM.swapw ? { id: 'swap', label: 'Swap the exercise', subs: [{ id: 'swapw', label: 'This week only…', run: RM.swapw.run }, { id: 'swapf', label: 'From this week on…', run: RM.swapf.run }] } : null,
+      RM.each, RM.today].filter(Boolean);
+    var rest = [RM.bo ? RM.line : null, RM.up, RM.down, { sep: true }, RM.out, RM.del].filter(Boolean);
+    top.push({ sep: true }, { id: 'more', label: 'More', subs: rest });
+    menu(btn, top, { title: row.name, label: row.name + ' menu' });
   }
   /* a swap (programs.md §5.8, §6.4): this week only (the line out of the week, the new one under it with its sets), or
      from this week on (the weeks before keep the old exercise). Around an injury (first-time-coach §7.3) the box offers
@@ -2827,16 +2922,16 @@
     if (!cur || !cur.b) return;
     var b = cur.b, c = cur.c, first = cur.l ? cur.l.first : '';
     var mains = PROG_WORDS.map(function (p) { return { id: 'mp-' + p[0], label: p[1], run: function () { gridApply(function (bb) { var go = function () { bb.rows.forEach(function (row, r) { if (row.lift && !row.only && !row.progSet) bb.setProg(r, p[0]); }); return { data: { prog: p[0] } }; }, lab = 'Each week for the main lifts: ' + p[1]; return fn(bb, 'batch') ? bb.batch(lab, go) : bb.commit(lab, go); }, null, { say: 'Main lifts: ' + (p[0] === 'same' ? 'the same each week' : p[1] + ' each week') + ', except lines you set.', warn: true }); } }; });
-    var items = [{ id: 'ren', label: 'Rename the block', run: renameBlock },
-      { id: 'next', label: 'Start the next block…', run: function () { openStart(cur.id, 'next'); } },
-      { id: 'mains', label: 'Each week for the main lifts…', subs: mains },
-      { id: 'rules', label: 'Rules for ' + first + '…', run: function () { rulesPop(btn); } },
-      { id: 'keys', label: 'Keys', key: '?', run: function () { DESK.keys(); } }];
+    /* 23 Nov (upgrade, Hick): the toolbar's one More. Six moves, bringing a program in first (the one named door for an
+       import), then the block's own moves; the rarely used (exports, the keys) one level down */
+    var items = [{ id: 'imp', label: 'Import from a spreadsheet…', run: function () { importSheet(); } },
+      { id: 'next', label: 'Start the next block…', run: function () { openStart(cur.id, 'next'); } }];
     if (PL.templates && fn(PL.templates, 'save')) items.push({ id: 'tpl', label: 'Save as a template…', run: function () { saveTemplatePop(btn); } });
-    items.push({ id: 'imp', label: 'Import a sheet…', run: function () { importSheet(); } });
-    items.push({ sep: true });
-    items.push({ id: 'csv', label: 'Export the block as CSV', run: function () { exportCSV(false); } });
-    items.push({ id: 'csv2', label: 'Export every set as CSV', run: function () { exportCSV(true); } });
+    items.push({ id: 'mains', label: 'Each week for the main lifts', subs: mains },
+      { id: 'rules', label: 'Rules for ' + first + '…', run: function () { rulesPop(btn); } },
+      { id: 'ren', label: 'Rename the block', run: renameBlock },
+      { sep: true },
+      { id: 'more', label: 'More', subs: [{ id: 'csv', label: 'Export the block as CSV', run: function () { exportCSV(false); } }, { id: 'csv2', label: 'Export every set as CSV', run: function () { exportCSV(true); } }, { sep: true }, { id: 'keys', label: 'Keys', key: '?', run: function () { DESK.keys(); } }] });
     menu(btn, items, { title: b.name, label: 'Program menu' });
   }
   function renameBlock() {
@@ -2878,8 +2973,15 @@
   function newBlockMenu(btn) {
     var ids = (DEMO.lifters || []).map(function (l) { return l.id; }), list = ids.map(function (id) { return Lf(id); }).filter(Boolean);
     list.sort(function (a, b) { var ka = a.program ? 1 : 0, kb = b.program ? 1 : 0; return ka - kb || ((a.program ? a.program.of - a.program.week : 0) - (b.program ? b.program.of - b.program.week : 0)) || a.name.localeCompare(b.name); });
+    /* 23 Nov (upgrade, Hick): one question, "for whom", the likely answers first and named (no program yet, a block in its
+       last week), the first already in hand so Enter takes it; everyone else under their own heading */
+    var pk = function (l) { return '<button class="pick" type="button" role="option" data-pick-lifter="' + esc(l.id) + '"><span class="pk"><b>' + esc(l.name) + '</b><small>' + esc(l.program ? l.program.name + ', week ' + l.program.week + ' of ' + l.program.of : 'No program yet') + '</small></span></button>'; };
+    var gNone = list.filter(function (l) { return !l.program; }), gEnd = list.filter(function (l) { return l.program && l.program.week >= l.program.of; }), gRest = list.filter(function (l) { return gNone.indexOf(l) < 0 && gEnd.indexOf(l) < 0; });
     var html = '<h3>New block for</h3><div class="nb-q"><label class="field">' + K.ic('find', 2) + '<input type="search" id="nb-q" placeholder="Find a lifter" aria-label="Find a lifter" autocomplete="off"></label></div><div class="nb-div" role="separator"></div>' +
-      '<div class="pop-b nb-l"><div class="pick-l" role="listbox" aria-label="Lifters">' + list.map(function (l) { return '<button class="pick" type="button" role="option" data-pick-lifter="' + esc(l.id) + '"><span class="pk"><b>' + esc(l.name) + '</b><small>' + esc(l.program ? l.program.name + ', week ' + l.program.week + ' of ' + l.program.of : 'No program yet') + '</small></span></button>'; }).join('') + '</div></div>';
+      '<div class="pop-b nb-l"><div class="pick-l" role="listbox" aria-label="Lifters">' +
+      (gNone.length ? '<p class="nb-g">No program yet</p>' + gNone.map(pk).join('') : '') +
+      (gEnd.length ? '<p class="nb-g">In the last week of a block</p>' + gEnd.map(pk).join('') : '') +
+      (gRest.length ? '<p class="nb-g">Everyone else</p>' + gRest.map(pk).join('') : '') + '</div></div>';
     var el = DESK.pop.open(btn, html, { label: 'New block for' });
     wirePicker(el, function (id) { DESK.pop.close(); st.tab = 'lifters'; openStart(id, Lf(id).program ? 'next' : 'first'); });
   }
@@ -3300,8 +3402,10 @@
     if ((b = t.closest('[data-primary]')) && !b.closest('[data-layer]')) { goPrimary(b); return; }
     if ((b = t.closest('button[data-list-tab]'))) { var tab = b.getAttribute('data-list-tab'); if (tab === st.tab) return; st.tab = tab; st.q = ''; if (tab === 'templates') openTemplate(cur && cur.tpl ? cur.tpl.id : null); else openFirst(); return; }
     if ((b = t.closest('[data-new-block]'))) { if (DESK.pop.justClosed(b)) return; newBlockMenu(b); return; }
-    if ((b = t.closest('[data-rest-fold]'))) { st.rest.open = !st.rest.open; ls.set('powa-r6-prog-rest', JSON.stringify(st.rest)); paintQueue(); return; }
-    if ((b = t.closest('[data-rest-sort]'))) { DESK.menu.open(b, [{ id: 'due', label: 'Next due', checked: st.rest.sort === 'due' }, { id: 'status', label: 'Status', checked: st.rest.sort === 'status' }, { id: 'name', label: 'Name', checked: st.rest.sort === 'name' }], { label: 'Sort everyone else', run: function (id) { st.rest.sort = id; ls.set('powa-r6-prog-rest', JSON.stringify(st.rest)); paintQueue(); } }); return; }
+    if ((b = t.closest('[data-later-fold]'))) { st.later = !st.later; paintQueue(); var lf0 = $('[data-later-fold]'); if (lf0) lf0.focus({ preventScroll: true }); return; }
+    if ((b = t.closest('[data-sent-fold]'))) { st.sentOpen = !st.sentOpen; paintQueue(); var sf0 = $('[data-sent-fold]'); if (sf0) sf0.focus({ preventScroll: true }); return; }
+    if ((b = t.closest('[data-rest-fold]'))) { st.rest.open = !st.rest.open; ls.set('powa-r6-prog-rest2', JSON.stringify(st.rest)); paintQueue(); return; }
+    if ((b = t.closest('[data-rest-sort]'))) { DESK.menu.open(b, [{ id: 'due', label: 'Next due', checked: st.rest.sort === 'due' }, { id: 'status', label: 'Status', checked: st.rest.sort === 'status' }, { id: 'name', label: 'Name', checked: st.rest.sort === 'name' }], { label: 'Sort everyone else', run: function (id) { st.rest.sort = id; ls.set('powa-r6-prog-rest2', JSON.stringify(st.rest)); paintQueue(); } }); return; }
     if ((b = t.closest('[data-q-clear]'))) { st.q = ''; paintQueue(); return; }
     if ((b = t.closest('[data-ids-clear]'))) { st.ids = null; paintQueue(); syncHash(); var f0 = $('.ql [aria-current="true"]') || $('.ql [data-row]'); if (f0) f0.focus(); return; }
     if ((b = t.closest('[data-q-undo]'))) { e.stopPropagation(); var did = b.getAttribute('data-q-undo'); queueUndo(did); return; }
@@ -3334,6 +3438,14 @@
     if ((b = t.closest('[data-rules]'))) { if (DESK.pop.justClosed(b)) return; rulesPop(b); return; }
     /* the title in the toolbar: back to the top of the week, the header open again */
     if ((b = t.closest('[data-unfold], [data-top]')) && scrollerEl()) { var sc0 = scrollerEl(); setFold(false); if (sc0) sc0.scrollTop = 0; return; }
+    if ((b = t.closest('[data-hd-more]'))) {
+      if (DESK.pop.justClosed(b)) return;
+      var wl1 = cur && cur.wl, main1 = $('[data-hd-act]'), mk = main1 ? +main1.getAttribute('data-hd-act') : -1;
+      if (!wl1) return;
+      var its1 = wl1.acts.map(function (a, i) { return { id: 'hd-' + i, label: a.label, run: a.run }; }).filter(function (x, i) { return i !== mk; });
+      DESK.menu.open(b, its1, { title: 'Other options', label: 'Other options', run: function (id) { var it1 = its1.filter(function (x) { return x.id === id; })[0]; if (it1) it1.run(); } });
+      return;
+    }
     if ((b = t.closest('[data-hd-act]'))) { var a = cur && cur.wl && cur.wl.acts[+b.getAttribute('data-hd-act')]; if (a) a.run(); return; }
     if ((b = t.closest('[data-cmp-send]'))) { composerSend(); return; }
     if ((b = t.closest('[data-cmp-cancel]'))) { var wasHold = cur && cur.applied; closeComposer(); if (wasHold) reopen(); return; }

@@ -1,0 +1,74 @@
+{
+ "about": "Loads in pounds: a \"Weight (lb)\" column with 315, \"225 lbs\", \"135lb\", BW and a weighted chin-up \"+25\"",
+ "tabs": [
+  {
+   "name": "Sheet1",
+   "rows": [
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "Weight (lb)"
+    ],
+    [
+     "Back Squat",
+     5,
+     5,
+     315
+    ],
+    [
+     "Bench Press",
+     5,
+     5,
+     "225 lbs"
+    ],
+    [
+     "Overhead Press",
+     3,
+     8,
+     "135lb"
+    ],
+    [
+     "Chin-ups",
+     3,
+     8,
+     "BW"
+    ],
+    [
+     "Weighted Chin-ups",
+     3,
+     5,
+     "+25"
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "unit": "lb",
+  "weeks": 1,
+  "lines": 5,
+  "has": [
+   [
+    "Day 1",
+    "Squat",
+    1,
+    "5x5 142.5kg"
+   ],
+   [
+    "Day 1",
+    "Bench",
+    1,
+    "5x5 102.5kg"
+   ],
+   [
+    "Day 1",
+    "Chin-ups",
+    1,
+    "3x8 bw"
+   ]
+  ],
+  "badText": [
+   "+25"
+  ]
+ }
+}

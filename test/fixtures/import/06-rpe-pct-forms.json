@@ -1,0 +1,96 @@
+{
+ "about": "Separate RPE and %1RM columns, each written several ways (@8, RPE 8, 8, 7-8; 80%, 0.8, 80, 75-80%)",
+ "tabs": [
+  {
+   "name": "Sheet1",
+   "rows": [
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "%1RM",
+     "RPE"
+    ],
+    [
+     "Squat",
+     3,
+     5,
+     "80%",
+     "@8"
+    ],
+    [
+     "Bench",
+     3,
+     5,
+     0.8,
+     "RPE 8"
+    ],
+    [
+     "Deadlift",
+     2,
+     3,
+     80,
+     8
+    ],
+    [
+     "Pause Bench",
+     3,
+     4,
+     "75-80%",
+     "7-8"
+    ],
+    [
+     "Front Squat",
+     3,
+     6,
+     null,
+     "7.5"
+    ],
+    [
+     "Leg Press",
+     3,
+     10,
+     null,
+     "8-9"
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 1,
+  "lines": 6,
+  "bad": 0,
+  "has": [
+   [
+    "Day 1",
+    "Squat",
+    1,
+    "3x5 80% @8"
+   ],
+   [
+    "Day 1",
+    "Bench",
+    1,
+    "3x5 80% @8"
+   ],
+   [
+    "Day 1",
+    "Deadlift",
+    1,
+    "2x3 80% @8"
+   ],
+   [
+    "Day 1",
+    "Paused bench",
+    1,
+    "3x4 75-80% @7-8"
+   ],
+   [
+    "Day 1",
+    "Front squat",
+    1,
+    "3x6 @7.5"
+   ]
+  ]
+ }
+}

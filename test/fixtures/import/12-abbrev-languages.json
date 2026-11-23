@@ -1,0 +1,132 @@
+{
+ "about": "Short names (SQ, BP, DL, CGBP, RDL, SSB, OHP, Comp BP, Pause SQ) and Spanish and German names",
+ "tabs": [
+  {
+   "name": "Sheet1",
+   "rows": [
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "RPE"
+    ],
+    [
+     "SQ",
+     3,
+     5,
+     7
+    ],
+    [
+     "BP",
+     4,
+     5,
+     7
+    ],
+    [
+     "DL",
+     2,
+     3,
+     8
+    ],
+    [
+     "CGBP",
+     3,
+     8,
+     7
+    ],
+    [
+     "RDL",
+     3,
+     8,
+     7
+    ],
+    [
+     "SSB",
+     3,
+     6,
+     7
+    ],
+    [
+     "OHP",
+     3,
+     8,
+     7
+    ],
+    [
+     "Comp BP",
+     1,
+     1,
+     8
+    ],
+    [
+     "Pause SQ",
+     3,
+     3,
+     7
+    ],
+    [],
+    [
+     "Sentadilla",
+     3,
+     5,
+     7
+    ],
+    [
+     "Press de banca",
+     3,
+     5,
+     7
+    ],
+    [
+     "Peso muerto",
+     3,
+     3,
+     8
+    ],
+    [
+     "Kniebeuge",
+     3,
+     5,
+     7
+    ],
+    [
+     "Bankdrücken",
+     3,
+     5,
+     7
+    ],
+    [
+     "Kreuzheben",
+     2,
+     3,
+     8
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 1,
+  "bad": 0,
+  "names": {
+   "Day 1": [
+    "Squat",
+    "Bench",
+    "Deadlift",
+    "Close-grip bench",
+    "Romanian deadlift",
+    "Safety bar squat",
+    "Overhead press",
+    "Bench (2)",
+    "Paused squat"
+   ],
+   "Day 2": [
+    "Squat",
+    "Bench",
+    "Deadlift",
+    "Squat (2)",
+    "Bench (2)",
+    "Deadlift (2)"
+   ]
+  }
+ }
+}

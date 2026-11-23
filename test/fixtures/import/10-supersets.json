@@ -1,0 +1,78 @@
+{
+ "about": "Accessories paired as supersets: A1. / A2. / B1) / B2) / C1 - in front of the names",
+ "tabs": [
+  {
+   "name": "Upper",
+   "rows": [
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "RPE"
+    ],
+    [
+     "Bench Press",
+     4,
+     5,
+     7
+    ],
+    [
+     "A1. Incline DB Press",
+     3,
+     10,
+     8
+    ],
+    [
+     "A2. Chest Supported Row",
+     3,
+     12,
+     8
+    ],
+    [
+     "B1) Tricep Pushdown",
+     3,
+     15,
+     null
+    ],
+    [
+     "B2) Face Pull",
+     3,
+     20,
+     null
+    ],
+    [
+     "C1 - Hammer Curl",
+     2,
+     12,
+     null
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 1,
+  "lines": 6,
+  "bad": 0,
+  "unknown": 0,
+  "has": [
+   [
+    "Day 1",
+    "Incline dumbbell bench",
+    1,
+    "3x10 @8"
+   ],
+   [
+    "Day 1",
+    "Face pull",
+    1,
+    "3x20"
+   ],
+   [
+    "Day 1",
+    "Hammer curl",
+    1,
+    "2x12"
+   ]
+  ]
+ }
+}

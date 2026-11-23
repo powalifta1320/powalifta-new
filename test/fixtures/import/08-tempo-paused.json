@@ -1,0 +1,80 @@
+{
+ "about": "A Tempo column (3-1-0, 3-0-3-0, 31X0) and paused variants written in the name",
+ "tabs": [
+  {
+   "name": "Sheet1",
+   "rows": [
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "Tempo",
+     "Load"
+    ],
+    [
+     "Tempo Squat",
+     3,
+     5,
+     "3-1-0",
+     120
+    ],
+    [
+     "Paused Squat (2s)",
+     3,
+     3,
+     null,
+     130
+    ],
+    [
+     "Pause Bench 1ct",
+     4,
+     4,
+     null,
+     85
+    ],
+    [
+     "Pin Squat",
+     3,
+     3,
+     null,
+     120
+    ],
+    [
+     "DB Bench",
+     3,
+     10,
+     "3-0-3-0",
+     30
+    ],
+    [
+     "Leg Extension",
+     3,
+     12,
+     "31X0",
+     null
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 1,
+  "lines": 6,
+  "has": [
+   [
+    "Day 1",
+    "Tempo squat",
+    1,
+    "3x5 120kg tempo 3-1-0"
+   ],
+   [
+    "Day 1",
+    "Pin squat",
+    1,
+    "3x3 120kg"
+   ]
+  ],
+  "noteText": [
+   "31X0"
+  ]
+ }
+}

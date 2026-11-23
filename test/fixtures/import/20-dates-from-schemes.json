@@ -1,0 +1,49 @@
+{
+ "about": "A scheme column where Google Sheets turned \"5/3/1\" and \"3/5\" into dates (only an .xlsx or a link shows it; a copied range shows the date text)",
+ "tabs": [
+  {
+   "name": "Sheet1",
+   "rows": [
+    [
+     "Exercise",
+     "Scheme",
+     "Load"
+    ],
+    [
+     "Squat",
+     "3x5",
+     140
+    ],
+    [
+     "Bench",
+     {
+      "d": "2001-05-03",
+      "w": "5/3/2001"
+     },
+     95
+    ],
+    [
+     "Deadlift",
+     {
+      "d": "2026-03-05",
+      "w": "3/5/2026"
+     },
+     180
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 1,
+  "lines": 3,
+  "has": [
+   [
+    "Day 1",
+    "Squat",
+    1,
+    "3x5 140kg"
+   ]
+  ],
+  "badCount": 2
+ }
+}

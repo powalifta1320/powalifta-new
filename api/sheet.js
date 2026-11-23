@@ -7,6 +7,7 @@
 //   → 413 { error: 'big' }     over 4 MB
 //   → 429 { error: 'busy' }    too many reads this hour
 //   → 502 { error: 'upstream' } Google answered with something else
+//   → 504 { error: 'slow' }     Google took longer than 9 s
 // Why a function: Google's export sends no CORS headers, so a page cannot read it directly. This reads
 // one fixed host, follows Google's own redirect to its download host and nowhere else, keeps nothing,
 // logs nothing about the sheet, and answers only this site's own pages. The id comes in the body, never
@@ -43,13 +44,18 @@ function clientIp(req) {
   return (one(h['x-real-ip']) || one(h['x-forwarded-for']) || 'unknown').slice(0, 64);
 }
 // A sheet's link, as a coach copies it → { id } or { pub } or null. The page uses the same rule.
-//   https://docs.google.com/spreadsheets/d/<id>/edit#gid=0        the share link
-//   https://docs.google.com/spreadsheets/d/e/<2PACX-…>/pubhtml    "Publish to the web"
+//   https://docs.google.com/spreadsheets/d/<id>/edit#gid=0        the share link (also ?usp=sharing, ?gid=, /htmlview)
+//   https://docs.google.com/spreadsheets/u/1/d/<id>/edit          the same, signed in to a second Google account
+//   https://docs.google.com/a/<domain>/spreadsheets/d/<id>/edit   an old Workspace link
+//   https://docs.google.com/spreadsheets/d/e/<2PACX-…>/pubhtml    "Publish to the web" (also /pub?output=csv)
+const PATH = 'docs\\.google\\.com\\/(?:a\\/[^\\/\\s]+\\/)?spreadsheets\\/(?:u\\/\\d+\\/)?d\\/';
+const PUB_LINK = new RegExp(PATH + 'e\\/(2PACX-[A-Za-z0-9_-]+)'), ID_LINK = new RegExp(PATH + '([A-Za-z0-9_-]+)');
 function parseLink(text) {
   const t = String(text == null ? '' : text).trim();
-  let m = /docs\.google\.com\/spreadsheets\/d\/e\/(2PACX-[A-Za-z0-9_-]+)/.exec(t);
+  if (!/^(?:https?:\/\/)?docs\.google\.com\//i.test(t) && /[\/:]/.test(t)) return null;   // a link to anywhere else, even one that names docs.google.com in its path
+  let m = PUB_LINK.exec(t);
   if (m && PUB_RE.test(m[1])) return { pub: m[1] };
-  m = /docs\.google\.com\/spreadsheets\/d\/([A-Za-z0-9_-]+)/.exec(t);
+  m = ID_LINK.exec(t);
   if (m && ID_RE.test(m[1])) return { id: m[1] };
   if (PUB_RE.test(t)) return { pub: t };
   if (ID_RE.test(t)) return { id: t };
@@ -71,6 +77,8 @@ async function readBody(req) {
   try { return JSON.parse(raw || '{}'); } catch (e) { return {}; }
 }
 const looksHtml = (buf) => /<html|<!doctype/i.test(buf.slice(0, 200).toString('utf8'));
+// Google's sign-in page, served in place of the file: the sheet is not shared by link. Any other page is Google's error.
+const looksSignIn = (buf) => /accounts\.google\.com|ServiceLogin|\bsign[ -]?in\b/i.test(buf.slice(0, 20000).toString('utf8'));
 // The body, read as it arrives and dropped the moment it passes the cap: Google sends no Content-Length on some
 // exports, and a whole oversized sheet must never sit in the function's memory. → Buffer, or null when too big.
 async function readCapped(r, max) {
@@ -111,9 +119,12 @@ async function fetchSheet(ref, timeoutMs) {
       const buf = await readCapped(r, MAX_BYTES);
       if (!buf) return { status: 413, error: 'big' };
       // An .xlsx is a zip. Anything else (Google's sign-in page as HTML, an error page) is not the sheet.
-      if (buf.length < 4 || buf[0] !== 0x50 || buf[1] !== 0x4b) return looksHtml(buf) ? { status: 403, error: 'private' } : { status: 502, error: 'upstream' };
+      if (buf.length < 4 || buf[0] !== 0x50 || buf[1] !== 0x4b) return looksHtml(buf) && looksSignIn(buf) ? { status: 403, error: 'private' } : { status: 502, error: 'upstream' };
       return { status: 200, bytes: buf };
     }
+    return { status: 502, error: 'upstream' };
+  } catch (e) {
+    if (ctl.signal.aborted) return { status: 504, error: 'slow' };
     return { status: 502, error: 'upstream' };
   } finally { clearTimeout(t); }
 }
@@ -127,6 +138,7 @@ module.exports = handler;
 module.exports._parseLink = parseLink;   // for test/sheet-api.test.cjs and the import screen's own copy
 module.exports._allow = allow;
 module.exports._exportUrl = exportUrl;
+module.exports._fetchSheet = fetchSheet;
 async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');

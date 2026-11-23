@@ -22,6 +22,11 @@
   var uid = 0;
   var cap1 = function (s) { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.charAt(0).toUpperCase() + s.slice(1); };
 
+  /* the last exercises picked on this desk, newest first (this browser only; a convenience, never data) */
+  var RECENT = 'powa-r6-pick-recent';
+  function recent() { try { var v = JSON.parse(W.localStorage.getItem(RECENT) || '[]'); return Array.isArray(v) ? v.filter(function (x) { return typeof x === 'string'; }) : []; } catch (e) { return []; } }
+  function remember(name) { try { var n = String(name || '').trim(); if (!n) return; var v = recent().filter(function (x) { return x.toLowerCase() !== n.toLowerCase(); }); v.unshift(n); W.localStorage.setItem(RECENT, JSON.stringify(v.slice(0, 8))); } catch (e) { /* storage blocked */ } }
+
   function open(trigger, o) {
     o = o || {};
     var b = o.block || null, c = o.c, id = 'pk' + (++uid), q = '', group = '', at = 0, opts = [], done = false;
@@ -53,6 +58,9 @@
       } else {
         var own = group ? [] : mine();
         if (own.length) { head('In this block'); own.forEach(function (e) { add(e, e.last ? 'last week ' + e.last : ''); html += row(e, list.length - 1); }); }
+        /* 23 Nov (upgrade, Fitts and Hick): the coach's own last picks come next, so the likely one is near the top */
+        var rec = group ? [] : recent().filter(function (n) { return !own.some(function (e) { return e.name.toLowerCase() === n.toLowerCase(); }); }).slice(0, 5);
+        if (rec.length) { head('You used lately'); rec.forEach(function (n) { var f = BL.libFind ? BL.libFind(n) : null; add({ name: f ? f.name : n, lift: f ? f.lift || null : null }, ''); html += row(list[list.length - 1], list.length - 1); }); }
         (group ? groups.filter(function (g) { return g.id === group; }) : groups).forEach(function (g) {
           var es = BL.libSearch('', { group: g.id }); if (!es.length) return;
           if (!group) head(g.label);
@@ -86,6 +94,7 @@
     function paint() { listEl.innerHTML = build(); listEl.scrollTop = 0; light(false); }
     function finish(e) {
       if (done) return; done = true;
+      remember(e.name);
       var read = BL.readLiftName ? BL.readLiftName(e.name) : { lift: e.lift || null, variant: '' };
       var out = { name: e.name, lift: e.fresh ? e.lift : (e.lift !== undefined ? e.lift : read.lift), variant: read.variant || '', known: !e.fresh };
       D.pop.close();

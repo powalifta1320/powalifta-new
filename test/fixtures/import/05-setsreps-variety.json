@@ -1,0 +1,117 @@
+{
+ "about": "One \"Scheme\" column written every way a coach does: 3x5, 3 x 5, 5,5,5, 3×5 @8, 5/3/1 style 5+, 3x8-10, AMRAP, 5 sets of 3",
+ "tabs": [
+  {
+   "name": "Day",
+   "rows": [
+    [
+     "Exercise",
+     "Scheme"
+    ],
+    [
+     "Squat",
+     "3x5"
+    ],
+    [
+     "Bench",
+     "3 x 5"
+    ],
+    [
+     "Deadlift",
+     "5,5,5"
+    ],
+    [
+     "Front Squat",
+     "3×5 @8"
+    ],
+    [
+     "Overhead Press",
+     "5/3/1 style 5+"
+    ],
+    [
+     "Lat Pulldown",
+     "3x8-10"
+    ],
+    [
+     "Chin-ups",
+     "AMRAP"
+    ],
+    [
+     "Barbell Row",
+     "5 sets of 3"
+    ],
+    [
+     "Dips",
+     "3 x AMRAP"
+    ],
+    [
+     "Leg Press",
+     "4 x 10-12"
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 1,
+  "lines": 10,
+  "has": [
+   [
+    "Day 1",
+    "Squat",
+    1,
+    "3x5"
+   ],
+   [
+    "Day 1",
+    "Bench",
+    1,
+    "3x5"
+   ],
+   [
+    "Day 1",
+    "Deadlift",
+    1,
+    "3x5"
+   ],
+   [
+    "Day 1",
+    "Front squat",
+    1,
+    "3x5 @8"
+   ],
+   [
+    "Day 1",
+    "Lat pulldown",
+    1,
+    "3x8-10"
+   ],
+   [
+    "Day 1",
+    "Chin-ups",
+    1,
+    "1x1+"
+   ],
+   [
+    "Day 1",
+    "Barbell row",
+    1,
+    "5x3"
+   ],
+   [
+    "Day 1",
+    "Dip",
+    1,
+    "3x1+"
+   ],
+   [
+    "Day 1",
+    "Leg press",
+    1,
+    "4x10-12"
+   ]
+  ],
+  "badText": [
+   "5/3/1 style 5+"
+  ]
+ }
+}

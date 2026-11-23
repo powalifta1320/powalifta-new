@@ -1,0 +1,66 @@
+{
+ "about": "The exercise cell merged down over its top-set and back-off rows (one name, two rows), weeks across",
+ "tabs": [
+  {
+   "name": "Sheet1",
+   "merges": [
+    "A3:A4",
+    "A5:A6"
+   ],
+   "rows": [
+    [
+     "Exercise",
+     "Week 1",
+     "Week 2",
+     "Week 3"
+    ],
+    [
+     "Day 1"
+    ],
+    [
+     "Squat",
+     "1x3 @8",
+     "1x2 @8",
+     "1x1 @8"
+    ],
+    [
+     null,
+     "3x5 -10%",
+     "3x4 -10%",
+     "3x3 -10%"
+    ],
+    [
+     "Bench",
+     "1x3 @8",
+     "1x2 @8",
+     "1x1 @8"
+    ],
+    [
+     null,
+     "4x5 -10%",
+     "4x4 -10%",
+     "4x3 -10%"
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 3,
+  "lines": 4,
+  "bad": 0,
+  "has": [
+   [
+    "Day 1",
+    "Squat",
+    1,
+    "3 @8"
+   ],
+   [
+    "Day 1",
+    "Bench",
+    3,
+    "1 @8"
+   ]
+  ]
+ }
+}

@@ -121,6 +121,65 @@ await p.route('**/api/sheet', (r) => r.fulfill({ status: 403, contentType: 'appl
 await p.locator('[data-im-read]').click(); await p.waitForTimeout(700);
 ok('a sheet that is not shared says how to share it', /Anyone with the link/.test(await text('.im2-err')));
 
+
+// 22 Nov, the sheets QA: what a coach's real sheet does to the flow
+await p.unroute('**/api/sheet');
+// a workbook with one tab per week, and days split only by empty rows (a workbook leaves empty rows out)
+const wb2 = X.utils.book_new();
+for (const n of [1, 2, 3]) X.utils.book_append_sheet(wb2, X.utils.aoa_to_sheet([['Block B, week ' + n], [], ['Exercise', 'Sets', 'Reps', 'Load'], ['Squat', 3, 5, 140 + n * 5], ['Leg Press', 3, 10, 180], [], ['Bench', 4, 6, 90 + n * 2.5], ['Barbell Row', 4, 8, 70]]), 'Week ' + n);
+const WEEKS_BYTES = Buffer.from(X.write(wb2, { type: 'array', bookType: 'xlsx' }));
+let asks = 0, hold = null;
+await p.route('**/api/sheet', async (r) => { asks++; if (hold) await hold; await r.fulfill({ status: 200, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', body: WEEKS_BYTES }); });
+await p.locator('#im2-link').fill('https://docs.google.com/spreadsheets/u/1/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit?usp=sharing#gid=0');
+await p.locator('[data-im-read]').click(); await p.waitForTimeout(1500);
+ok('a link from a second Google account (/u/1/) is read', asks === 1 && !(await text('.im2-err')), asks + ' ' + await text('.im2-err'));
+ok('one tab per week comes in as one program, offered first', /3 week tabs as one program/.test(await text('.im2-tab[aria-pressed="true"]')) && /4 lines on 2 days over 3 weeks/.test(await sum()), (await text('.im2-tab[aria-pressed="true"]')) + ' / ' + await sum());
+ok('days split by an empty row stay apart when read from a workbook', (await p.locator('.im2-prev h4').allInnerTexts()).join('|') === 'Day 1|Day 2');
+ok('and it says which tabs it was read from', /Read from the tabs Week 1, Week 2, Week 3/.test(await text('.im2-res')));
+// Read pressed twice while the first is still coming: one read, the button says it is reading, focus stays on it
+asks = 0; let let_go; hold = new Promise((res) => { let_go = res; });
+await p.locator('[data-im-read]').click(); await p.waitForTimeout(150);
+const busyBtn = await p.locator('#im2-read').evaluate((x) => ({ dis: x.getAttribute('aria-disabled') === 'true', t: x.textContent, focus: document.activeElement === x || (document.activeElement && document.activeElement.id === 'im2-link') }));
+await p.locator('#im2-link').press('Enter'); await p.waitForTimeout(150);
+let_go(); hold = null; await p.waitForTimeout(1400);
+ok('a second Read while the first is coming in sends nothing more', asks === 1 && busyBtn.dis && /Reading/.test(busyBtn.t), asks + ' ' + JSON.stringify(busyBtn));
+ok('and focus is not lost while it reads', busyBtn.focus);
+// closed while the sheet is still coming in: nothing paints, nothing breaks
+let let_go2; hold = new Promise((res) => { let_go2 = res; });
+await p.locator('[data-im-read]').click(); await p.waitForTimeout(150);
+await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+const closedFirst = await p.locator('dialog.sheet.is-import[open]').count();
+let_go2(); hold = null; await p.waitForTimeout(1200);
+ok('closed mid-read, the late answer opens nothing and breaks nothing', closedFirst === 0 && await p.locator('dialog.sheet.is-import[open]').count() === 0 && !errs.length, closedFirst + ' ' + errs.join(' | '));
+// a private sheet: what to do, and the link the coach gave, said back
+await openImport(); await p.locator('[data-im-src="link"]').click();
+await p.unroute('**/api/sheet');
+await p.route('**/api/sheet', (r) => r.fulfill({ status: 403, contentType: 'application/json', body: '{"error":"private"}' }));
+const given = 'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit';
+await p.locator('#im2-link').fill(given); await p.locator('[data-im-read]').click(); await p.waitForTimeout(600);
+const perr = await text('.im2-err');
+ok('a private sheet says Share, Anyone with the link, Viewer, and echoes the link given', /Share/.test(perr) && /Anyone with the link/.test(perr) && /Viewer/.test(perr) && perr.indexOf('1BxiMVs0XRA5nFMdKv') >= 0, perr.slice(0, 160));
+await p.unroute('**/api/sheet');
+await p.route('**/api/sheet', (r) => r.fulfill({ status: 504, contentType: 'application/json', body: '{"error":"slow"}' }));
+await p.locator('[data-im-read]').click(); await p.waitForTimeout(600);
+ok('Google being slow is said as slow, with a way on', /too long/.test(await text('.im2-err')), await text('.im2-err'));
+await p.locator('#im2-link').fill('https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/view'); await p.locator('[data-im-read]').click(); await p.waitForTimeout(200);
+ok('a Drive file link is told apart from a sheet link', /file in Google Drive/.test(await text('.im2-err')));
+// a column the reader leaves out is said, by its letter and name
+await p.locator('[data-im-src="paste"]').click();
+await p.locator('#im2-paste').fill('Exercise\tSets\tReps\tRest\tNotes\tVideo\nSquat\t3\t5\t3 min\tbelt\thttps://youtu.be/x\nBench\t4\t6\t2 min\t\t'); await p.waitForTimeout(500);
+const nrb = await text('.im2-res .im2-box');
+ok('a column left out that holds something is listed as not read', /Column D “Rest”/.test(nrb) && /Column F “Video”/.test(nrb) && !/none left out/.test(await sum()), nrb.slice(0, 160));
+await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+// a template keeps no kilos and no unread cells (block.js asTemplate): said before Import, and unread text kept in a note
+await openImport();
+await p.locator('#im2-paste').fill('Exercise\tSets\tReps\tLoad\nSquat\t3\t5\t140\nBench\t4\t6\t90\nMeet\tOpener 180\t\t'); await p.waitForTimeout(500);
+await p.locator('[data-im-to="tpl"]').click(); await p.waitForTimeout(150);
+const kgWarn = await text('.im2-note.is-warn');
+ok('as a template, the kilos it cannot keep are said before Import', /2 loads in kg are left out/.test(kgWarn), kgWarn);
+await p.locator('#im2-name').fill('Kilo block'); await p.locator('[data-im-go]').click(); await p.waitForTimeout(600);
+const kept = await p.evaluate(() => { const t = (PL.templates.list().data || []).filter((x) => x.name === 'Kilo block')[0]; if (!t) return null; const g = PL.templates.get(t.id).data; return (g.json || g).rows.map((r) => r.note || '').join('|'); });
+ok('and a set it could not read is in the exercise’s note, not lost', /Not read from the sheet, week 1: Opener 180/.test(kept || ''), kept);
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'no script errors');
 await b.close(); try { fs.unlinkSync(book); } catch (e) { /* gone */ }

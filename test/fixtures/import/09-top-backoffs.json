@@ -1,0 +1,77 @@
+{
+ "about": "A top set and its back-offs on separate rows, the back-off row with no exercise name and a drop written as -10%",
+ "tabs": [
+  {
+   "name": "Sheet1",
+   "rows": [
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "RPE",
+     "Load",
+     "Notes"
+    ],
+    [
+     "Squat",
+     1,
+     3,
+     8,
+     null,
+     "top triple"
+    ],
+    [
+     null,
+     3,
+     5,
+     null,
+     "-10%",
+     "back-offs"
+    ],
+    [
+     "Bench",
+     1,
+     1,
+     8,
+     null,
+     "single"
+    ],
+    [
+     null,
+     4,
+     4,
+     null,
+     "-12%",
+     ""
+    ],
+    [
+     "Leg Curl",
+     3,
+     12,
+     null,
+     null,
+     ""
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 1,
+  "lines": 5,
+  "bad": 0,
+  "has": [
+   [
+    "Day 1",
+    "Squat",
+    1,
+    "3 @8"
+   ],
+   [
+    "Day 1",
+    "Hamstring curl",
+    1,
+    "3x12"
+   ]
+  ]
+ }
+}

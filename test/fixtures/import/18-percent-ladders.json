@@ -1,0 +1,46 @@
+{
+ "about": "Weeks across with percent ladders in each cell (50%x5, 60%x4, 70%x3x2), as Sheiko-style programs are written",
+ "tabs": [
+  {
+   "name": "Sheet1",
+   "rows": [
+    [
+     "Exercise",
+     "Week 1",
+     "Week 2"
+    ],
+    [
+     "Day 1"
+    ],
+    [
+     "Squat",
+     "50%x5, 60%x4, 70%x3x2, 75%x3x4",
+     "50%x5, 60%x4, 70%x3, 80%x2x4"
+    ],
+    [
+     "Bench",
+     "50% x 5, 60% x 4, 70% x 3 x 5",
+     "50% x 5, 60% x 4, 75% x 3 x 4"
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 2,
+  "bad": 0,
+  "has": [
+   [
+    "Day 1",
+    "Squat",
+    1,
+    "1x5 50%"
+   ],
+   [
+    "Day 1",
+    "Bench",
+    1,
+    "1x5 50%"
+   ]
+  ]
+ }
+}

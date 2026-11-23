@@ -35,17 +35,22 @@
     }, Promise.resolve()).then(function () { return W.ImportCore; }, function (e) { libsP = null; throw e; });
     return libsP;
   }
-  /* a sheet's link as a coach copies it (the same rule as api/sheet.js) */
+  /* a sheet's link as a coach copies it (the same rule as api/sheet.js): the address bar or Share's link, with or without
+     /u/1/ (a second Google account) or /a/<domain>/ (an old Workspace link), a tab's #gid, or "Publish to the web".
+     → { id } | { pub } | { drive: true } (a file in Drive, not a sheet) | { office: true, id } (an Excel file opened in Sheets) | null */
   function parseLink(text) {
-    var t = String(text == null ? '' : text).trim(), m = /docs\.google\.com\/spreadsheets\/d\/e\/(2PACX-[A-Za-z0-9_-]{20,140})/.exec(t);
+    var t = String(text == null ? '' : text).trim(), m = /docs\.google\.com\/(?:a\/[^\/\s]+\/)?spreadsheets\/(?:u\/\d+\/)?d\/e\/(2PACX-[A-Za-z0-9_-]{20,140})(?![A-Za-z0-9_-])/.exec(t);
     if (m) return { pub: m[1] };
-    m = /docs\.google\.com\/spreadsheets\/d\/([A-Za-z0-9_-]{25,100})/.exec(t);
-    return m ? { id: m[1] } : null;
+    m = /docs\.google\.com\/(?:a\/[^\/\s]+\/)?spreadsheets\/(?:u\/\d+\/)?d\/([A-Za-z0-9_-]{25,100})(?![A-Za-z0-9_-])/.exec(t);
+    if (m) return /[?&]rtpof=true/.test(t) ? { id: m[1], office: true } : { id: m[1] };
+    if (/drive\.google\.com\/(?:file\/d\/|open\?id=)/.test(t)) return { drive: true };
+    return null;
   }
+  var short = function (t) { t = String(t || '').trim(); return t.length > 90 ? t.slice(0, 60) + '…' + t.slice(-20) : t; };
 
   function open(o) {
     o = o || {};
-    var S = { src: 'paste', text: '', link: '', tables: [], tab: 0, over: {}, res: null, name: '', to: o.to || null, busy: '', err: '', from: '' };
+    var S = { src: 'paste', text: '', link: '', tables: [], tab: 0, over: {}, res: null, name: '', to: o.to || null, busy: '', err: '', from: '', seq: 0, closed: false };
     var names = {}; try { names = JSON.parse(ls.get(NAMES) || '{}') || {}; } catch (e) { names = {}; }
     var el, pasteT = 0;
     var overOf = function () { return S.over[S.tab] || (S.over[S.tab] = { roles: {}, kinds: {} }); };
@@ -58,54 +63,83 @@
     }
     /* the tab that reads as the most programme goes first */
     function setTables(tables, from) {
-      /* a workbook is a zip: a small file can hold a very large sheet. Only so many tabs and rows are ever taken from it */
-      S.tables = (tables || []).filter(function (t) { return t && t.rows && t.rows.length; }).slice(0, MAX_TABS).map(function (t) { return { name: String(t.name || 'Sheet').slice(0, 60), rows: t.rows.slice(0, MAX_READ), cut: t.rows.length > MAX_READ }; });
-      S.over = {}; S.err = ''; S.from = from || '';
-      var best = 0, most = -1;
-      S.tables.forEach(function (t, i) { var r = IM.read(t.rows, { names: names }); var n = r.ok ? r.lines.length : -1; if (n > most) { most = n; best = i; } });
-      S.tab = best;
-      if (!S.name && S.tables[best]) S.name = (S.tables.length > 1 || !from ? S.tables[best].name : from).replace(/\.(csv|tsv|txt|xlsx|xls|ods)$/i, '').slice(0, 60);
+      if (S.closed) return;
+      /* a workbook is a zip: a small file can hold a very large sheet. Only so many tabs and rows are ever taken from it.
+         IMPORT.prepare puts back the empty rows a workbook leaves out, offers week tabs as one program, and picks the tab
+         that reads as the most programme */
+      var pr = IM.prepare(tables, { names: names, maxTabs: MAX_TABS, maxRows: MAX_READ });
+      S.tables = pr.tables; S.tab = pr.best;
+      S.over = {}; S.err = ''; S.busy = ''; S.from = from || '';
+      var t0 = S.tables[S.tab];
+      if (!S.name && t0) S.name = (S.tables.length > 1 || !from ? (t0.of ? from || t0.name : t0.name) : from).replace(/\.(csv|tsv|txt|xlsx|xls|ods)$/i, '').slice(0, 60);
       analyse(); paint();
     }
-    function fail(text) { S.busy = ''; S.err = text; S.tables = []; S.res = null; paint(); }
-    function readBook(bytes, from) {
+    function fail(text) { if (S.closed) return; S.busy = ''; S.err = text; S.tables = []; S.res = null; paint(); }
+    /* 22 Nov (sheets QA): every read is numbered. A second file dropped, or a second click on Read, while the first is
+       still coming in wins; the first's answer is dropped, and nothing is painted after the screen is closed */
+    function mine(n) { return !S.closed && n === S.seq; }
+    function readBook(bytes, from, n) {
+      n = n || ++S.seq;
       S.busy = 'Reading ' + (from || 'the workbook') + '…'; S.err = ''; paintSrc();
       libs().then(function (IC) {
+        if (!mine(n)) return;
         var tables; try { tables = IC.readWorkbook(bytes, {}); } catch (e) { fail(e && e.user && e.message ? e.message : 'That file could not be read as a spreadsheet. Save it as .xlsx or .csv and try again.'); return; }
-        S.busy = '';
         if (!tables || !tables.length) { fail('That workbook has no tab with anything in it.'); return; }
         setTables(tables.filter(function (t) { return !t.hidden; }).length ? tables.filter(function (t) { return !t.hidden; }) : tables, from);
-      }, function () { fail('The spreadsheet reader could not be loaded. Check the connection, or paste the cells instead.'); });
+      }, function () { if (mine(n)) fail('The spreadsheet reader could not be loaded. Check the connection, or paste the cells instead.'); });
     }
     function readFile(f) {
       if (!f) return;
-      if (f.size > MAX_FILE) { fail('That file is over 6 MB. Export just the programme’s tab, or paste the cells.'); return; }
+      var n = ++S.seq;
+      if (!/\.(xlsx|xlsm|ods|csv|tsv|txt)$/i.test(f.name || '') && !/^text\//.test(f.type || '') && !/spreadsheet/.test(f.type || '')) { fail('“' + short(f.name) + '” is not a spreadsheet. Choose an .xlsx, .ods or .csv file' + (/\.xls$/i.test(f.name || '') ? ' (an old .xls: open it and save it as .xlsx first)' : '') + '.'); return; }
+      if (f.size > MAX_FILE) { fail('That file is over 6 MB. Export just the program’s tab, or paste the cells.'); return; }
       var rd = new FileReader();
-      if (/\.(csv|tsv|txt)$/i.test(f.name) || /^text\//.test(f.type || '')) { rd.onload = function () { setTables([{ name: f.name, rows: IM.table(String(rd.result || '')) }], f.name); }; rd.onerror = function () { fail('That file could not be read.'); }; rd.readAsText(f); return; }
-      rd.onload = function () { readBook(new Uint8Array(rd.result), f.name); };
-      rd.onerror = function () { fail('That file could not be read.'); };
+      if (/\.(csv|tsv|txt)$/i.test(f.name) || /^text\//.test(f.type || '')) { rd.onload = function () { if (mine(n)) setTables([{ name: f.name, rows: IM.table(String(rd.result || '')) }], f.name); }; rd.onerror = function () { if (mine(n)) fail('That file could not be read.'); }; rd.readAsText(f); return; }
+      rd.onload = function () { if (mine(n)) readBook(new Uint8Array(rd.result), f.name, n); };
+      rd.onerror = function () { if (mine(n)) fail('That file could not be read.'); };
       rd.readAsArrayBuffer(f);
     }
+    /* the link, read once through the site's own function. What goes wrong is said with what to do, and the link the
+       coach gave is said back to them, so a wrong copy is plain to see */
     function readLink() {
-      var ref = parseLink(S.link);
-      if (!ref) { S.err = 'That is not a Google Sheets link. Copy it from the sheet’s address bar or its Share button.'; paintSrc(); return; }
-      if (S.busy) return;   /* one read at a time: a second press or Enter while it reads does nothing */
+      var given = String(S.link || '').trim(), ref = parseLink(given);
+      if (!given) { S.err = 'Paste the sheet’s link first: in Google Sheets, Share, then Copy link.'; paintSrc(); return; }
+      if (ref && ref.drive) { S.err = 'That is a link to a file in Google Drive, not to a Google Sheet. Open it in Google Sheets and copy that link, or download it and choose the file. You gave: ' + short(given); paintSrc(); return; }
+      if (!ref) { S.err = 'That is not a Google Sheets link. Copy it from the sheet’s address bar, or from Share, then Copy link. A Sheets link starts https://docs.google.com/spreadsheets/d/. You gave: ' + short(given); paintSrc(); return; }
+      if (S.busy) return;
+      var n = ++S.seq;
       S.busy = 'Reading the sheet…'; S.err = ''; paintSrc();
-      fetch('/api/sheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ref) }).then(function (r) {
-        if (r.status === 200 && /spreadsheetml/.test(r.headers.get('content-type') || '')) return r.arrayBuffer().then(function (buf) { readBook(new Uint8Array(buf), 'Google Sheet'); });
-        var words = { 403: 'That sheet is not shared. In Google Sheets choose Share, then General access, then Anyone with the link, and try again.', 404: 'Google has no sheet at that link. Copy the link again from the sheet itself.',
-          413: 'That sheet is over 4 MB. Copy the programme’s tab into a new sheet, or paste the cells.', 429: 'Too many sheets have been read this hour. Paste the cells instead, or try again later.' }[r.status];
-        fail(words || (r.status === 404 || r.status === 405 || r.status === 501 ? 'The link reader runs on the live site, not on this copy. Paste the cells or choose the file instead.' : 'Google did not hand the sheet over. Paste the cells or download it as .xlsx and choose the file.'));
-      }, function () { fail('The sheet could not be reached. Check the connection, or paste the cells instead.'); });
+      var body = ref.pub ? { pub: ref.pub } : { id: ref.id };
+      fetch('/api/sheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) {
+        if (!mine(n)) return null;
+        if (r.status === 200 && /spreadsheetml/.test(r.headers.get('content-type') || '')) return r.arrayBuffer().then(function (buf) { if (mine(n)) readBook(new Uint8Array(buf), 'Google Sheet', n); });
+        return r.text().then(function (t) {
+          if (!mine(n)) return;
+          var code = ''; try { code = (JSON.parse(t) || {}).error || ''; } catch (e) { code = ''; }
+          fail(linkWords(code, r.status, given, ref));
+        }, function () { if (mine(n)) fail(linkWords('', r.status, given, ref)); });
+      }).catch(function () { if (mine(n)) fail('The sheet could not be reached. Check the connection, or paste the cells instead.'); });
+    }
+    function linkWords(code, status, given, ref) {
+      var you = ' The link you gave: ' + short(given);
+      if (code === 'private') return 'That sheet is not shared with a link yet. In Google Sheets choose Share, then under General access pick Anyone with the link, as Viewer, and read it again.' + you;
+      if (code === 'missing') return (ref && ref.office ? 'That is an Excel file opened in Google Sheets, which cannot be read by its link. In Sheets choose File, then Save as Google Sheets, and copy the new sheet’s link. Or download it and choose the file.' : 'Google has no sheet at that link, or it was deleted. Copy the link again from the sheet itself.') + you;
+      if (code === 'big') return 'That sheet is over 4 MB. Copy the program’s tab into a new sheet and share that, or paste the cells.';
+      if (code === 'busy') return 'Too many sheets have been read from here this hour. Paste the cells instead, or try again in an hour.';
+      if (code === 'slow') return 'Google took too long to hand the sheet over. Try again, or paste the cells instead.';
+      if (code === 'link') return 'That link has no sheet in it the reader can use. Copy it again from Share, then Copy link.' + you;
+      if (code) return 'Google did not hand the sheet over. Try again, or download it as .xlsx and choose the file.';
+      /* no answer from the function itself: a copy of the site with no /api (a local preview) */
+      return 'The link reader runs on the live site, not on this copy. Paste the cells or choose the file instead.';
     }
 
     /* ---------- the picture ---------- */
     function srcHtml() {
       var tab = function (id, label) { return '<button type="button" data-im-src="' + id + '" aria-pressed="' + (S.src === id) + '">' + label + '</button>'; };
       var body = S.src === 'paste' ? '<textarea class="input im2-paste" id="im2-paste" spellcheck="false" placeholder="Select the cells in Google Sheets or Excel, copy, and paste them here" aria-label="Pasted cells">' + esc(S.text) + '</textarea>'
-        : S.src === 'file' ? '<div class="im2-file"><button class="btn" type="button" data-im-choose>Choose a file</button><input type="file" id="im2-file" accept=".xlsx,.ods,.csv,.tsv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden><span class="im2-hint">.xlsx, .ods or .csv. You can also drop a file anywhere on this sheet.' + (S.from && S.tables.length ? ' Read: ' + esc(S.from) + '.' : '') + '</span></div>'
-        : '<div class="im2-link"><label class="field"><input type="url" id="im2-link" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/…" aria-label="Google Sheets link" value="' + esc(S.link) + '"></label><button class="btn" type="button" data-im-read' + (S.busy ? ' aria-disabled="true" aria-busy="true"' : '') + '>' + (S.busy ? 'Reading…' : 'Read the sheet') + '</button></div><p class="im2-hint">The sheet has to be shared as Anyone with the link can view. It is read once; nothing is kept and nothing is changed in it.</p>';
-      return '<div class="seg im2-seg" role="group" aria-label="Where the programme is">' + tab('paste', 'Paste cells') + tab('file', 'A file') + tab('link', 'Google Sheets link') + '</div>' + body +
+        : S.src === 'file' ? '<div class="im2-file"><button class="btn" type="button" id="im2-choose" data-im-choose>Choose a file</button><input type="file" id="im2-file" accept=".xlsx,.ods,.csv,.tsv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden><span class="im2-hint">.xlsx, .ods or .csv. You can also drop a file anywhere on this sheet.' + (S.from && S.tables.length ? ' Read: ' + esc(S.from) + '.' : '') + '</span></div>'
+        : '<div class="im2-link"><label class="field"><input type="url" id="im2-link" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/…" aria-label="Google Sheets link" value="' + esc(S.link) + '"></label><button class="btn" type="button" id="im2-read" data-im-read' + (S.busy ? ' aria-disabled="true" aria-busy="true"' : '') + '>' + (S.busy ? 'Reading…' : 'Read the sheet') + '</button></div><p class="im2-hint">Share the sheet first: Share, then General access, Anyone with the link, Viewer. Every tab is read once, and you pick the one to import; nothing is kept and nothing in the sheet changes.</p>';
+      return '<div class="seg im2-seg" role="group" aria-label="Where the program is">' + tab('paste', 'Paste') + tab('file', 'File') + tab('link', 'Google Sheets link') + '</div>' + body +
         (S.busy ? '<p class="im2-busy" role="status">' + esc(S.busy) + '</p>' : '') + (S.err ? '<p class="im2-err" role="alert">' + esc(S.err) + '</p>' : '');
     }
     function roleSelect(c) {
@@ -131,9 +165,25 @@
       var res = S.res; if (!res) return '';
       if (!res.ok) return '<div class="im2-res"><h3>Not read yet</h3><p class="im2-err" role="status">' + esc(res.why || 'This sheet could not be read.') + '</p><p class="im2-hint">Set what each column holds above the sheet, and mark which rows are lifts. If it still does not come through, paste one week at a time.</p></div>';
       var unit = (res.analysis && res.analysis.unit) || 'kg', nBad = res.bad.length, cells = (res.read && res.read.cells) || 0;
-      var head = '<h3>What it becomes</h3><p class="im2-sum"><b>' + plural(res.lines.length, 'line') + '</b> on ' + plural(res.days.length, 'day') + ' over ' + plural(res.weeks, 'week') + '. ' + (nBad ? '<span class="im2-warn">' + plural(nBad, 'set') + ' could not be read.</span>' : plural(cells, 'set') + ' read, none left out.') + '</p>' +
+      var head = '<h3>What it becomes</h3><p class="im2-sum"><b>' + plural(res.lines.length, 'line') + '</b> on ' + plural(res.days.length, 'day') + ' over ' + plural(res.weeks, 'week') + '. ' + (nBad ? '<span class="im2-warn">' + plural(nBad, 'set') + ' could not be read.</span>' : plural(cells, 'set') + ' read' + ((res.notRead || []).some(function (x) { return !x.kept; }) ? '.' : ', none left out.')) + '</p>' +
         '<div class="im2-unit"><span>Loads are in</span><div class="seg" role="group" aria-label="Loads are in"><button type="button" data-im-unit="kg" aria-pressed="' + (unit === 'kg') + '">kg</button><button type="button" data-im-unit="lb" aria-pressed="' + (unit === 'lb') + '">lb</button></div></div>';
-      var issues = nBad ? '<div class="im2-box"><h4>Not read</h4><ul class="im2-list">' + res.bad.slice(0, 12).map(function (b) { return '<li><b>' + esc(b.name) + '</b><span>' + esc('row ' + (b.r + 1) + ': “' + b.text + '”') + '</span></li>'; }).join('') + '</ul>' + (nBad > 12 ? '<p class="im2-hint">And ' + (nBad - 12) + ' more.</p>' : '') + '<p class="im2-hint">These sets are left empty. Fix them in the sheet and paste again, or write them in after importing.</p></div>' : '';
+      /* 22 Nov (sheets QA): everything the reader did not take is listed here with the coach's own text and where it is:
+         sets it could not read (kept as written, marked in the program), columns and rows it left out, and what it kept in
+         a note instead. Nothing is dropped without a line here */
+      var left = (res.notRead || []).filter(function (x) { return !x.kept; }), kept = (res.notRead || []).filter(function (x) { return x.kept; });
+      var li = function (b, what) { return '<li><b>' + esc(what) + '</b><span title="' + esc(b.why || '') + '">' + esc((b.r >= 0 ? 'row ' + (b.r + 1) + ': ' : '') + '“' + b.text + '”' + (b.why ? '. ' + b.why : '')) + '</span></li>'; };
+      var issues = nBad || left.length ? '<div class="im2-box"><h4>Not read</h4><ul class="im2-list">' +
+        res.bad.slice(0, 12).map(function (b) { return li({ r: b.r, text: b.text, why: /date/.test(b.why) ? b.why : '' }, b.name); }).join('') +
+        left.slice(0, 8).map(function (x) { return x.col != null ? '<li><b>' + esc(x.text) + '</b><span>' + esc(x.why) + '</span></li>' : x.row ? '<li><b>' + esc('Row ' + (x.r + 1)) + '</b><span>' + esc('“' + x.text + '”. ' + x.why) + '</span></li>' : li(x, x.name || 'Set'); }).join('') + '</ul>' +
+        (nBad > 12 || left.length > 8 ? '<p class="im2-hint">And ' + plural(Math.max(0, nBad - 12) + Math.max(0, left.length - 8), 'more') + '.</p>' : '') +
+        (nBad ? '<p class="im2-hint">' + (S.to === 'tpl' ? 'As a template, ' + (nBad === 1 ? 'that text goes' : 'their text goes') + ' in the exercise’s note. Into a lifter’s block, ' + (nBad === 1 ? 'it comes' : 'they come') + ' in as you wrote ' + (nBad === 1 ? 'it' : 'them') + ', marked unread, and that week cannot be sent until it is fixed.' : (nBad === 1 ? 'That set comes in' : 'Those sets come in') + ' as you wrote ' + (nBad === 1 ? 'it' : 'them') + ', marked unread in the program. A week with an unread set cannot be sent until it is fixed there, or fix the sheet and read it again.') + '</p>' : '') + '</div>' : '';
+      var keptBox = kept.length ? '<div class="im2-box"><h4>Kept in a note</h4><ul class="im2-list">' + kept.slice(0, 8).map(function (x) { return li({ r: x.r, text: x.text }, x.name || 'Set'); }).join('') + '</ul></div>' : '';
+      var t0 = S.tables[S.tab] || {}, facts = [];
+      if (res.renumbered) facts.push('Your weeks ' + res.renumbered.from + ' to ' + res.renumbered.to + ' come in as weeks 1 to ' + (res.renumbered.to - res.renumbered.from + 1) + '. You choose where they start below.');
+      if (t0.of) facts.push('Read from the tabs ' + t0.of.join(', ') + ', one week each.');
+      if (t0.cut) facts.push('Only the first ' + MAX_READ.toLocaleString('en') + ' rows of ' + t0.cut.toLocaleString('en') + ' were read.');
+      if (t0.dropped && t0.dropped.length) facts.push('Left out, as payment details: ' + t0.dropped.map(function (d) { return d && d.name ? d.name : String(d); }).join(', ') + '.');
+      var factsHtml = facts.length ? facts.map(function (f) { return '<p class="im2-hint">' + esc(f) + '</p>'; }).join('') : '';
       var unk = res.unknown.length ? '<div class="im2-box"><h4>Names not in the library</h4><ul class="im2-list">' + res.unknown.slice(0, 16).map(function (n) { return '<li><b>' + esc(n) + '</b><button type="button" class="link" data-im-name="' + esc(n) + '" aria-haspopup="dialog">Match to an exercise…</button></li>'; }).join('') + '</ul><p class="im2-hint">Left alone, each comes in under its own name as your exercise.</p></div>' : '';
       var show = Math.min(res.weeks, 3);
       var prev = '<div class="im2-prev">' + res.days.map(function (d) {
@@ -142,15 +192,20 @@
           return '<tr><th scope="row"' + (l.line ? ' class="is-sub"' : '') + '>' + esc(l.line ? 'more sets' : l.name) + '</th>' + cells2 + '</tr>';
         }).join('') + '</tbody></table>';
       }).join('') + (res.weeks > show ? '<p class="im2-hint">Weeks 1 to ' + show + ' shown of ' + res.weeks + '.</p>' : '') + '</div>';
-      return '<div class="im2-res">' + head + issues + unk + prev + '</div>';
+      return '<div class="im2-res">' + head + factsHtml + issues + keptBox + unk + prev + '</div>';
     }
     function saveHtml() {
       var ts = targets(); if (!S.to && ts[0]) S.to = ts[0].id;
-      return '<div class="im2-save"><label class="im2-name"><span>Name</span><input class="input" id="im2-name" maxlength="60" aria-label="The programme\u2019s name" value="' + esc(S.name) + '"></label>' +
+      return '<div class="im2-save"><label class="im2-name"><span>Name</span><input class="input" id="im2-name" maxlength="60" aria-label="The program\u2019s name" value="' + esc(S.name) + '"></label>' +
         (ts.length ? '<div class="im2-to" role="radiogroup" aria-label="Import as">' + ts.map(function (t) { return '<button type="button" role="radio" class="im2-opt" aria-checked="' + (S.to === t.id) + '" data-im-to="' + esc(t.id) + '">' + esc(t.label) + '</button>'; }).join('') + '</div>' : '') +
         /* what the import will do where it lands, in the page's own words (22 Nov: a week was replaced with no warning) */
-        (function () { var nt = typeof o.note === 'function' && S.res ? o.note({ lines: S.res.lines.length, weeks: S.res.weeks }, S.to) : ''; return nt ? '<p class="im2-note' + (nt.warn ? ' is-warn' : '') + '" role="note">' + esc(nt.text || nt) + '</p>' : ''; })() + '</div>';
+        (function () { var nt = typeof o.note === 'function' && S.res ? o.note({ lines: S.res.lines.length, weeks: S.res.weeks }, S.to) : ''; return nt ? '<p class="im2-note' + (nt.warn ? ' is-warn' : '') + '" role="note">' + esc(nt.text || nt) + '</p>' : ''; })() +
+        /* 22 Nov (sheets QA): a template is saved without kilos (block.js asTemplate: they belong to one lifter's maxes) and
+           without unread sets. Said before Import, never found out after */
+        (function () { var k = S.to === 'tpl' && S.res ? kgOnly(S.res.block) : 0; return k ? '<p class="im2-note is-warn" role="note">' + esc('A template keeps sets, reps, RPE and percents, not kilos: ' + plural(k, 'load') + ' in kg ' + (k === 1 ? 'is' : 'are') + ' left out. Import into a lifter’s block to keep them.') + '</p>' : ''; })() + '</div>';
     }
+    /* the sets whose only weight is kilos (no RPE, no percent): what a template cannot keep */
+    function kgOnly(b) { var n = 0; (b && b.rows || []).forEach(function (row) { Object.keys(row.cells || {}).forEach(function (u) { var x = row.cells[u]; if (x && x.w != null && x.rpe == null && x.pct == null) n++; }); }); return n; }
     function checkHtml() {
       if (!S.tables.length) return '<p class="im2-lede">Most layouts read: a line a row, a block for each day, weeks side by side or one under another. You check what was read before anything is saved. If a sheet does not come through, you will be told, and nothing is imported.</p>';
       var tabs = S.tables.length > 1 ? '<div class="im2-tabs" role="group" aria-label="Tabs in the workbook">' + S.tables.map(function (t, i) { return '<button type="button" class="im2-tab" data-im-tab="' + i + '" aria-pressed="' + (i === S.tab) + '">' + esc(t.name) + '</button>'; }).join('') + '</div>' : '';
@@ -173,7 +228,7 @@
     }
     function paint() { paintSrc(); paintCheck(); }
 
-    el = D.sheet.open({ label: 'Import a programme', cls: 'is-import', html: '<div class="shb"><div class="shb-h"><h2>Import a programme</h2><p>From your own spreadsheet. Check what was read, fix anything, then import.</p></div><div class="shb-b im2"><div class="im2-src"></div><div class="im2-check"></div></div><div class="shb-f"></div></div>', onClose: function () { clearTimeout(pasteT); } });
+    el = D.sheet.open({ label: 'Import a program', cls: 'is-import', html: '<div class="shb"><div class="shb-h"><h2>Import a program</h2><p>From your own spreadsheet. Check what was read, fix anything, then import.</p></div><div class="shb-b im2"><div class="im2-src"></div><div class="im2-check"></div></div><div class="shb-f"></div></div>', onClose: function () { clearTimeout(pasteT); S.closed = true; S.seq++; } });
     paint();
 
     /* ---------- events ---------- */
@@ -199,6 +254,8 @@
         if (!S.res || !S.res.ok) return;
         var nmEl = el.querySelector('#im2-name'); if (nmEl) S.name = nmEl.value.trim();
         var name = S.name || 'Imported program'; S.res.block.name = name;
+        /* a template keeps no unread cells (block.js asTemplate): their text goes in the exercise's note, so it is not lost */
+        if (S.to === 'tpl') S.res.block.rows.forEach(function (row) { if (!row.bad) return; var wk = S.res.block.weeks; var t = Object.keys(row.bad).map(function (u) { var i = wk.findIndex(function (w) { return w.uid === u; }); return 'week ' + (i + 1) + ': ' + row.bad[u]; }); if (t.length && (row.note || '').indexOf('Not read') < 0) row.note = (row.note ? row.note + ' · ' : '') + 'Not read from the sheet, ' + t.join('; '); });
         var out = typeof o.save === 'function' ? o.save({ block: S.res.block, name: name, lines: S.res.lines.length, weeks: S.res.weeks, bad: S.res.bad.length }, S.to) : 'Nowhere to save it.';
         if (out !== true) { S.err = typeof out === 'string' ? out : 'It could not be saved.'; paintSrc(); }
       }

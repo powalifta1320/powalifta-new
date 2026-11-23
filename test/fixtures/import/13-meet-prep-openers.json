@@ -1,0 +1,70 @@
+{
+ "about": "The last three weeks of a prep (Week 10, Week 11, Week 12 – Meet) with the attempts written in the meet week",
+ "tabs": [
+  {
+   "name": "Peak",
+   "rows": [
+    [
+     "Exercise",
+     "Week 10",
+     "Week 11",
+     "Week 12 – Meet"
+    ],
+    [
+     "Day 1"
+    ],
+    [
+     "Squat",
+     "1x2 @8, 2x3 80%",
+     "1x1 @8",
+     "Opener 180 / 192.5 / 200"
+    ],
+    [
+     "Bench",
+     "1x2 @8, 2x3 80%",
+     "1x1 @8",
+     "Opener 115 / 120 / 125"
+    ],
+    [
+     "Day 2"
+    ],
+    [
+     "Deadlift",
+     "1x2 @8",
+     "1x1 @7.5",
+     "Opener 210 / 222.5 / 232.5"
+    ],
+    [
+     "Bench",
+     "3x3 75%",
+     "2x2 70%",
+     ""
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 3,
+  "days": [
+   "Day 1",
+   "Day 2"
+  ],
+  "has": [
+   [
+    "Day 1",
+    "Squat",
+    1,
+    "2 @8"
+   ],
+   [
+    "Day 1",
+    "Squat",
+    2,
+    "1 @8"
+   ]
+  ],
+  "badText": [
+   "Opener 180 / 192.5 / 200"
+  ]
+ }
+}

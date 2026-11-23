@@ -1,0 +1,84 @@
+{
+ "about": "Weeks stacked, but week 2 was rewritten with other columns in another order (Lift / Sets x Reps / RPE / Weight / Notes)",
+ "tabs": [
+  {
+   "name": "Sheet1",
+   "rows": [
+    [
+     "Week 1"
+    ],
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "Weight",
+     "RPE"
+    ],
+    [
+     "Squat",
+     3,
+     5,
+     140,
+     7
+    ],
+    [
+     "Bench",
+     4,
+     6,
+     90,
+     7
+    ],
+    [],
+    [
+     "Week 2"
+    ],
+    [
+     "Lift",
+     "Sets x Reps",
+     "RPE",
+     "Weight",
+     "Notes"
+    ],
+    [
+     "Squat",
+     "3x5",
+     7.5,
+     145,
+     "add a belt"
+    ],
+    [
+     "Bench",
+     "4x6",
+     7.5,
+     92.5,
+     ""
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 2,
+  "lines": 2,
+  "bad": 0,
+  "has": [
+   [
+    "Day 1",
+    "Squat",
+    1,
+    "3x5 @7 140kg"
+   ],
+   [
+    "Day 1",
+    "Squat",
+    2,
+    "3x5 @7.5 145kg"
+   ],
+   [
+    "Day 1",
+    "Bench",
+    2,
+    "4x6 @7.5 92.5kg"
+   ]
+  ]
+ }
+}

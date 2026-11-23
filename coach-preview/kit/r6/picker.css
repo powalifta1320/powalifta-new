@@ -38,3 +38,6 @@
 .pk-ask .btn[data-lift='bench'] { color: var(--bp-ink); }
 .pk-ask .btn[data-lift='deadlift'] { color: var(--dl-ink); }
 @media (prefers-reduced-motion: reduce) { .pk * { transition-duration: 1ms !important; } }
+
+/* 23 Nov (upgrade, Fitts): a result is a 36 px target; the lit one is the one Enter takes */
+.pk-o { min-height: 36px; align-items: center; }

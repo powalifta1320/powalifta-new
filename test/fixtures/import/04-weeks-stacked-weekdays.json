@@ -1,0 +1,142 @@
+{
+ "about": "WEEK 1 / WEEK 2 rows stacked down one tab, weekday day blocks (\"Monday – Squat\"), the header only once at the top",
+ "tabs": [
+  {
+   "name": "Sheet1",
+   "rows": [
+    [
+     "Exercise",
+     "Sets x Reps",
+     "RPE",
+     "Load",
+     "Notes"
+    ],
+    [
+     "WEEK 1"
+    ],
+    [
+     "Monday – Squat"
+    ],
+    [
+     "Comp Squat",
+     "3x5",
+     "@7",
+     "150kg",
+     ""
+    ],
+    [
+     "Pause Squat",
+     "3x3",
+     "@7",
+     "120kg",
+     "2 count"
+    ],
+    [
+     "Wednesday – Bench"
+    ],
+    [
+     "Comp Bench",
+     "4x5",
+     "@7",
+     "95kg",
+     ""
+    ],
+    [
+     "DB Row",
+     "3x10",
+     "@8",
+     "32kg",
+     "each arm"
+    ],
+    [
+     "Friday – Deadlift"
+    ],
+    [
+     "Deadlift",
+     "3x3",
+     "@7",
+     "190kg",
+     ""
+    ],
+    [],
+    [
+     "WEEK 2"
+    ],
+    [
+     "Monday – Squat"
+    ],
+    [
+     "Comp Squat",
+     "3x5",
+     "@7.5",
+     "155kg",
+     ""
+    ],
+    [
+     "Pause Squat",
+     "3x3",
+     "@7.5",
+     "125kg",
+     ""
+    ],
+    [
+     "Wednesday – Bench"
+    ],
+    [
+     "Comp Bench",
+     "4x5",
+     "@7.5",
+     "97.5kg",
+     ""
+    ],
+    [
+     "DB Row",
+     "3x10",
+     "@8",
+     "34kg",
+     ""
+    ],
+    [
+     "Friday – Deadlift"
+    ],
+    [
+     "Deadlift",
+     "3x3",
+     "@7.5",
+     "195kg",
+     ""
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 2,
+  "days": [
+   "Monday – Squat",
+   "Wednesday – Bench",
+   "Friday – Deadlift"
+  ],
+  "lines": 5,
+  "bad": 0,
+  "has": [
+   [
+    "Monday – Squat",
+    "Squat",
+    2,
+    "3x5 @7.5 155kg"
+   ],
+   [
+    "Friday – Deadlift",
+    "Deadlift",
+    1,
+    "3x3 @7 190kg"
+   ],
+   [
+    "Monday – Squat",
+    "Paused squat",
+    1,
+    "3x3 @7 120kg"
+   ]
+  ]
+ }
+}

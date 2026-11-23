@@ -91,5 +91,27 @@ const call = (body, o) => new Promise((resolve) => {
   assert.strictEqual(handler._allow('203.0.113.1', T0), false);
   assert.strictEqual(handler._allow('203.0.113.2', T0), true);
   assert.strictEqual(handler._allow('203.0.113.1', T0 + 3600000), true);
+  // 22 Nov (sheets QA): every link form a coach copies, and the ones that only look like a sheet's
+  const PUBID = '2PACX-1vQabcdefghijklmnopqrstuvwxyz0123456789';
+  for (const l of ['https://docs.google.com/spreadsheets/d/' + ID + '/edit#gid=1234567', 'https://docs.google.com/spreadsheets/d/' + ID + '/edit?gid=0#gid=0', 'https://docs.google.com/spreadsheets/u/1/d/' + ID + '/edit?usp=sharing',
+    'https://docs.google.com/a/example.org/spreadsheets/d/' + ID + '/edit', 'https://docs.google.com/spreadsheets/d/' + ID + '/htmlview', 'https://docs.google.com/spreadsheets/d/' + ID + '/export?format=csv&gid=0', 'docs.google.com/spreadsheets/d/' + ID]) assert.deepStrictEqual(handler._parseLink(l), { id: ID }, l);
+  for (const l of ['https://docs.google.com/spreadsheets/d/e/' + PUBID + '/pubhtml?gid=0&single=true', 'https://docs.google.com/spreadsheets/d/e/' + PUBID + '/pub?output=csv', 'https://docs.google.com/spreadsheets/u/0/d/e/' + PUBID + '/pubhtml']) assert.deepStrictEqual(handler._parseLink(l), { pub: PUBID }, l);
+  for (const l of ['https://evil.example/?next=https://docs.google.com/spreadsheets/d/' + ID, 'https://docs.google.com.evil.example/spreadsheets/d/' + ID, 'https://drive.google.com/file/d/' + ID + '/view']) assert.strictEqual(handler._parseLink(l), null, l);
+  // Google's own error page is not a private sheet; its sign-in page is
+  mock([['https://docs.google.com/', 200, {}, '<!DOCTYPE html><html><title>Google Sheets - unavailable</title>Sorry, unable to open the file at this time.</html>']]);
+  r = await call({ id: ID }); assert.deepStrictEqual([r.status, r.json], [502, { error: 'upstream' }]);
+  mock([['https://docs.google.com/', 200, {}, '<!doctype html><html><head><title>Sign-in</title></head><a href="https://accounts.google.com/ServiceLogin">x</a></html>']]);
+  r = await call({ id: ID }); assert.deepStrictEqual([r.status, r.json], [403, { error: 'private' }]);
+  // Google too slow: the read is stopped and said as slow, not as a broken sheet
+  global.fetch = (url, o) => new Promise((res, rej) => { o.signal.addEventListener('abort', () => { const e = new Error('aborted'); e.name = 'AbortError'; rej(e); }); });
+  r = await handler._fetchSheet({ id: ID }, 30); assert.deepStrictEqual(r, { status: 504, error: 'slow' });
+  // a network failure is upstream, not slow
+  global.fetch = async () => { throw new TypeError('fetch failed'); };
+  r = await call({ id: ID }); assert.deepStrictEqual([r.status, r.json], [502, { error: 'upstream' }]);
+  // a redirect chain that never ends is cut off
+  mock([['https://docs.google.com/', 307, { location: 'https://docs.google.com/spreadsheets/d/' + ID + '/again' }, '']]);
+  r = await call({ id: ID }); assert.strictEqual(r.status, 502); assert.ok(calls.length <= 4, 'at most four hops: ' + calls.length);
+  // every answer, good or bad, is never cached and never sniffed
+  assert.strictEqual(r.headers['cache-control'], 'no-store'); assert.strictEqual(r.headers['x-content-type-options'], 'nosniff');
   console.log('sheet-api: all passed');
 })().catch((e) => { console.error('sheet-api: FAILED', e.message); process.exit(1); });

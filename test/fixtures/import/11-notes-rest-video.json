@@ -1,0 +1,63 @@
+{
+ "about": "A long Notes column, a Rest column and a Video link column a coach keeps beside each lift",
+ "tabs": [
+  {
+   "name": "Sheet1",
+   "rows": [
+    [
+     "Exercise",
+     "Sets",
+     "Reps",
+     "RPE",
+     "Rest",
+     "Notes",
+     "Video"
+    ],
+    [
+     "Squat",
+     3,
+     5,
+     7,
+     "3 min",
+     "Brace before you unrack, push the knees out on the way down, stay over mid-foot. If the second set moves slower than @7, hold the load for the rest of the day and tell me in the log how it felt.",
+     "https://youtu.be/example1"
+    ],
+    [
+     "Bench",
+     4,
+     6,
+     7,
+     "2-3 min",
+     "Feet planted, slight pause",
+     "https://youtu.be/example2"
+    ],
+    [
+     "Back Extension",
+     3,
+     15,
+     null,
+     "60s",
+     "",
+     ""
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 1,
+  "lines": 3,
+  "bad": 0,
+  "has": [
+   [
+    "Day 1",
+    "Squat",
+    1,
+    "3x5 @7"
+   ]
+  ],
+  "skippedCols": [
+   "Rest",
+   "Video"
+  ]
+ }
+}

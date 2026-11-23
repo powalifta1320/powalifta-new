@@ -278,3 +278,7 @@
 .sv-more::after { content: ''; position: absolute; inset: -4px; }
 .sv-grip::after { content: ''; position: absolute; inset: -3px -5px; }
 .sv-add::after { content: ''; position: absolute; inset: -3px 0; }
+
+/* 23 Nov (upgrade, Fitts): "Add an exercise" is the full width of its day, as the sheet's add row is: the words stay at the
+   start, the whole line takes the click (and lights under the pointer), 36 px tall with its reach */
+.sv-add { justify-self: stretch; justify-content: flex-start; }

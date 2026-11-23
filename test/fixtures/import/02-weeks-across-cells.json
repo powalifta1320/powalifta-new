@@ -1,0 +1,98 @@
+{
+ "about": "Weeks across (Week 1 … Week 4 (deload)), the whole set in each cell, a title block and an empty row above the header",
+ "tabs": [
+  {
+   "name": "Program",
+   "rows": [
+    [
+     "Off-season block 2"
+    ],
+    [
+     "Lifter: (name)",
+     null,
+     "Start: Monday"
+    ],
+    [],
+    [
+     "Exercise",
+     "Week 1",
+     "Week 2",
+     "Week 3",
+     "Week 4 (deload)"
+    ],
+    [
+     "Day 1 - Squat / Bench"
+    ],
+    [
+     "Comp Squat",
+     "4x5 @7",
+     "4x4 @7.5",
+     "4x3 @8",
+     "3x3 @6"
+    ],
+    [
+     "Comp Bench",
+     "5x5 @7",
+     "5x4 @7.5",
+     "5x3 @8",
+     "3x4 @6"
+    ],
+    [
+     "Leg Curl",
+     "3x12",
+     "3x12",
+     "3x10",
+     "2x10"
+    ],
+    [],
+    [
+     "Day 2 - Deadlift"
+    ],
+    [
+     "Deadlift",
+     "3x4 @7",
+     "3x3 @7.5",
+     "3x2 @8",
+     "2x2 @6"
+    ],
+    [
+     "Close Grip Bench",
+     "4x6 @7",
+     "4x6 @7.5",
+     "4x5 @8",
+     "3x5 @6"
+    ],
+    [
+     "Barbell Row",
+     "4x10",
+     "4x10",
+     "4x8",
+     "3x8"
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 4,
+  "days": [
+   "Day 1 - Squat / Bench",
+   "Day 2 - Deadlift"
+  ],
+  "lines": 6,
+  "bad": 0,
+  "has": [
+   [
+    "Day 1 - Squat / Bench",
+    "Squat",
+    4,
+    "3x3 @6"
+   ],
+   [
+    "Day 2 - Deadlift",
+    "Close-grip bench",
+    2,
+    "4x6 @7.5"
+   ]
+  ]
+ }
+}

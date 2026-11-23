@@ -1,0 +1,48 @@
+{
+ "about": "No header row: lift, set, effort in three columns, two days split by an empty row",
+ "tabs": [
+  {
+   "name": "Sheet1",
+   "rows": [
+    [
+     "Squat",
+     "3x5",
+     "@7"
+    ],
+    [
+     "Leg press",
+     "3x10",
+     "@8"
+    ],
+    [],
+    [
+     "Bench",
+     "4x6",
+     "@7"
+    ],
+    [
+     "Barbell row",
+     "4x8",
+     "@8"
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "weeks": 1,
+  "days": [
+   "Day 1",
+   "Day 2"
+  ],
+  "lines": 4,
+  "bad": 0,
+  "has": [
+   [
+    "Day 2",
+    "Bench",
+    1,
+    "4x6 @7"
+   ]
+  ]
+ }
+}

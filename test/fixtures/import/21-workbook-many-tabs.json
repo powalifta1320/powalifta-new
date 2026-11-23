@@ -1,0 +1,81 @@
+{
+ "about": "A workbook with an Instructions tab, a Maxes tab, the program tab and a hidden calc tab",
+ "tabs": [
+  {
+   "name": "Read me",
+   "rows": [
+    [
+     "How to use this sheet"
+    ],
+    [
+     "Fill in your maxes on the Maxes tab."
+    ],
+    [
+     "Log your RPE in the program tab."
+    ]
+   ]
+  },
+  {
+   "name": "Maxes",
+   "rows": [
+    [
+     "Lift",
+     "Max (kg)"
+    ],
+    [
+     "Squat",
+     200
+    ],
+    [
+     "Bench",
+     130
+    ],
+    [
+     "Deadlift",
+     240
+    ]
+   ]
+  },
+  {
+   "name": "Program",
+   "rows": [
+    [
+     "Exercise",
+     "Week 1",
+     "Week 2"
+    ],
+    [
+     "Day 1"
+    ],
+    [
+     "Squat",
+     "3x5 75%",
+     "3x4 80%"
+    ],
+    [
+     "Bench",
+     "4x5 75%",
+     "4x4 80%"
+    ],
+    [
+     "Day 2"
+    ],
+    [
+     "Deadlift",
+     "3x3 80%",
+     "3x2 85%"
+    ]
+   ]
+  }
+ ],
+ "expect": {
+  "tab": "Program",
+  "weeks": 2,
+  "days": [
+   "Day 1",
+   "Day 2"
+  ],
+  "lines": 3,
+  "bad": 0
+ }
+}
