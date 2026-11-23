@@ -404,6 +404,11 @@
     .lr:hover .tv, .lr:hover .nv { visibility: hidden; }
   }
   .ll.is-compact .lr .ra .btn { --h: 26px; width: 30px; }
+  /* 23 Nov (the owner: a weird overlap): the line under the name stops short of the two moves, never runs under them */
+  .lr .rs.ses { display: block; padding-top: 0; padding-bottom: 0; }   /* the page's .ses (a session's grid) is not this line's: it kept the words from ending in an ellipsis */
+  .lr[aria-selected='true'] .rs { padding-right: 84px; }
+  .ll.is-compact .lr[aria-selected='true'] .rs { padding-right: 72px; }
+  @media (hover: hover) and (pointer: fine) { .lr:hover .rs { padding-right: 84px; } .ll.is-compact .lr:hover .rs { padding-right: 72px; } }
 
   /* the tabs: the whole slot is the target, not just the word (Fitts); the underline still sits under the word */
   .ld .tabs { gap: 0; }
