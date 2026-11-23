@@ -492,40 +492,37 @@
   body[data-place='programs'] { --fs-cap: 13px; }
   .pg .ph.ini { font-size: 13px !important; }
   /* the block's shape: a quiet strip over the work card (about 84 px), on the floor like the header, no card of its own */
+  /* the block as numbers (23 Nov): weeks across, a row per main lift, the top set in kg, its move, its hard sets */
   .bs { margin: 0 var(--sp-1) var(--sp-2); }
-  .bs-h { display: flex; align-items: center; gap: var(--sp-4); min-height: 24px; color: var(--ink-2); font: 500 13px/1.2 var(--font); }
-  .bs-t { color: var(--ink); font-weight: 600; font-size: var(--fs-label); }
-  .bs-key { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-3); row-gap: 2px; min-width: 0; }
-  .bs-k, .bs-st { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-  .bs-k::before { content: ''; width: 9px; height: 9px; border-radius: 3px; background: var(--fill-3); }
-  .bs-k[data-k='squat']::before { background: var(--sq); } .bs-k[data-k='bench']::before { background: var(--bp); } .bs-k[data-k='deadlift']::before { background: var(--dl); }
-  .bs-st::before { content: ''; width: 14px; height: 4px; border-radius: 2px; background: var(--fill-3); }
-  .bs-st[data-st='lifted']::before, .bs-w[data-st='lifted'] .bs-lab::before { background: var(--up); }
-  .bs-st[data-st='now']::before, .bs-w[data-st='now'] .bs-lab::before { background: var(--ink); }
-  .bs-st[data-st='sent']::before, .bs-w[data-st='sent'] .bs-lab::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-2); }
-  .bs-st[data-st='draft']::before, .bs-w[data-st='draft'] .bs-lab::before { background: var(--warn); }
-  .bs-st[data-st='empty']::before, .bs-w[data-st='empty'] .bs-lab::before { background: transparent; box-shadow: inset 0 0 0 1px var(--line-2); }
-  .bs-sep { width: 1px; height: 14px; background: var(--line-2); }
+  .bs-h { display: flex; align-items: baseline; gap: var(--sp-3); min-height: 24px; color: var(--ink-3); font: 500 13px/1.2 var(--font); }
+  .bs-t { color: var(--ink); font-weight: 650; font-size: var(--fs-label); }
   .bs-hide { margin-left: auto; height: 28px; padding: 0 var(--sp-2); background: transparent; color: var(--ink-2); font: 500 13px/1 var(--font); }
-  .bs-row { display: flex; align-items: stretch; gap: var(--sp-1); height: 58px; margin-top: var(--sp-1); }
-  .bs-w { position: relative; flex: 1 1 0; max-width: 132px; min-width: 40px; display: flex; flex-direction: column; gap: 3px; padding: 4px 6px 3px; border: 0; border-radius: var(--r-row); background: transparent; color: var(--ink-2); cursor: pointer; text-align: left; font: inherit;
-    transition: background-color var(--dur-hover, 120ms) var(--ease-out); }
-  .bs-col { flex: 1 1 auto; display: flex; align-items: flex-end; min-height: 0; }
-  .bs-stack { display: flex; flex-direction: column; width: min(100%, 44px); min-height: 2px; border-radius: 4px; overflow: hidden; gap: 1px; }
-  .bs-stack i { display: block; min-height: 2px; background: var(--fill-3); }
-  .bs-stack i[data-k='squat'] { background: var(--sq); } .bs-stack i[data-k='bench'] { background: var(--bp); } .bs-stack i[data-k='deadlift'] { background: var(--dl); }
-  .bs-w[data-st='lifted'] .bs-stack, .bs-w[data-st='empty'] .bs-stack { opacity: .55; }
-  .bs-lab { position: relative; display: flex; align-items: baseline; justify-content: space-between; gap: 4px; padding-top: 5px; font: 600 13px/1 var(--font); font-variant-numeric: tabular-nums; }
-  .bs-lab::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 2px; background: var(--fill-3); }
-  .bs-n { color: var(--ink); }
-  .bs-s { color: var(--ink-2); font-weight: 500; }
-  .bs-w[aria-current='true'] { background: var(--place-sel); box-shadow: inset 0 0 0 1.5px var(--ink-3); }
-  .bs-w:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .bs-row { display: flex; align-items: stretch; gap: var(--sp-3); margin-top: var(--sp-1); overflow-x: auto; }
+  .bs-g { flex: 0 1 auto; display: grid; grid-template-columns: 96px repeat(var(--n), minmax(104px, 168px)); align-items: center; column-gap: 2px; row-gap: 0; font-variant-numeric: tabular-nums; }
+  .bs-c0 { padding-right: var(--sp-2); white-space: nowrap; }
+  .bs-hd { display: flex; align-items: center; height: 32px; color: var(--ink-3); font: 500 12px/1.2 var(--font); }
+  .bs-lf { height: 28px; display: flex; align-items: center; font: 650 var(--fs-label)/1 var(--font); }
+  .bs-lf[data-k='squat'] { color: var(--sq-ink); } .bs-lf[data-k='bench'] { color: var(--bp-ink); } .bs-lf[data-k='deadlift'] { color: var(--dl-ink); }
+  .bs-w { display: flex; align-items: baseline; gap: 6px; min-width: 0; height: 32px; padding: 0 var(--sp-2); border: 0; border-radius: var(--r-row) var(--r-row) 0 0; background: transparent; color: var(--ink-3); font: 500 12px/1 var(--font); white-space: nowrap; cursor: pointer; text-align: left; transition: background-color var(--dur-fast) var(--ease-out); }
+  .bs-w b { color: var(--ink); font: 700 13px/1 var(--font); }
+  .bs-w span { overflow: hidden; text-overflow: ellipsis; }
+  .bs-w[data-st='lifted'] span { color: var(--up-ink); }
+  .bs-w[data-st='now'] span { color: var(--ink); font-weight: 650; }
+  .bs-w[data-st='draft'] span { color: var(--warn); }
+  .bs-w[aria-current='true'] { background: var(--place-sel); }
+  .bs-w:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
   @media (hover: hover) and (pointer: fine) { .bs-w:not([aria-current='true']):hover { background: var(--hover); } }
-  .bs-end { flex: none; display: flex; flex-direction: column; justify-content: flex-end; gap: 3px; margin-left: var(--sp-3); padding: 0 0 3px var(--sp-3); border-left: 2px dashed var(--line-2); color: var(--ink-2); font: 500 13px/1.2 var(--font); white-space: nowrap; }
-  .bs-end b { color: var(--ink); font-weight: 600; }
+  .bs-v { display: flex; align-items: baseline; gap: 6px; min-width: 0; height: 28px; padding: 0 var(--sp-2); border-top: 1px solid var(--line); color: var(--ink-2); font: 500 12px/28px var(--font); white-space: nowrap; overflow: hidden; }
+  .bs-v.is-cur { background: var(--place-sel); }
+  .bs-v b { color: var(--ink); font: 700 var(--fs-label)/28px var(--font); }
+  .bs-v.is-done b { color: var(--ink-2); font-weight: 600; }
+  .bs-d { font-style: normal; font-weight: 600; }
+  .bs-d.up { color: var(--up-ink); } .bs-d.dn { color: var(--ink-3); }
+  .bs-hs { margin-left: auto; color: var(--ink-3); }
+  .bs-no { color: var(--ink-4, var(--ink-3)); }
+  .bs-end { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding-left: var(--sp-3); border-left: 2px dashed var(--line-2); color: var(--ink-2); font: 500 12px/1.2 var(--font); white-space: nowrap; }
+  .bs-end b { color: var(--ink); font-weight: 650; font-size: 13px; }
   .bs-end.is-meet { border-left-color: var(--gold, var(--dl)); }
-  .wb .wb-shape[aria-pressed='true'] { background: var(--fill); color: var(--ink); }
   @media (prefers-reduced-motion: reduce) { .bs-w { transition: none; } }
   /* Make week N from this: the action on the week bar, and its popover (presets, then what each line becomes) */
   .wb .wb-next { height: 30px; margin-right: 2px; padding: 0 var(--sp-3); background: var(--fill); color: var(--ink); font: 600 var(--fs-label)/1 var(--font); }
@@ -1909,10 +1906,9 @@
     return '<div class="wb" data-crop="weekbar"><div class="wb-r1">' + out + '</div>' + (notes ? '<div class="wb-r2">' + notes + '</div>' : '') + menuBtn + '</div>';
   }
   /* ---------------- 23 Nov, upgrade 2 (the owner: "a clear picture of the block above the editor"): the block's shape.
-     One strip over the work card: the weeks as a timeline, each with its state (lifted, this week, sent, written not
-     sent, not written) and a small stacked column of its sets per lift (squat, bench, deadlift in their colours, the
-     rest neutral), so volume going up, a deload and a peak read at a glance; the week in hand ringed; a click goes there;
-     the meet or the block's end at the right. Its numbers are the ones the editor writes (each line's sets).
+     One strip over the work card: the weeks across, each with its state in words, and per main lift its top set and hard
+     sets (shapeHtml below, since 23 Nov; it was a stacked column of sets per lift); the week in hand marked; a click goes
+     there; the meet or the block's end at the right.
      Folded, the week bar's small week marks stand in for it. Open by default when the window is tall enough to keep the
      first lift high on the screen (860 px), else folded; the coach's own choice is kept (powa-r6-prog-shape). */
   var SHAPE_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 19V12M10 19V7M15 19v-9M20 19V5"/></svg>';
@@ -1922,26 +1918,39 @@
     b.rows.forEach(function (row) { var x = row.cells[w.uid]; if (!x) return; var cl = BL.cellOf(x), n = cl && isNum(cl.n) ? cl.n : 0; if (!n) return; var k = LIFTS.indexOf(row.lift) >= 0 ? row.lift : 'acc'; o[k] += n; o.all += n; });
     return o;
   }
+  /* 23 Nov (the owner: "yellow purple blue bars... idek what that means"): the block as numbers, not coloured stacks.
+     A small table: the weeks across (each with its state in words), a row per main lift; each cell is that week's top
+     set in kg, how it moved from the week before, and its hard sets (RPE 7 and up), the same figures as the Block
+     sheet's "Hard sets and top set" rows (SHEET.band). A click on a week goes there; the meet or the block's end closes it. */
   function shapeHtml() {
-    var b = cur && cur.b; if (!b || !shapeOpen() || cur.kind === 'recovery' || b.weeks.length < 2 || b.weeks.length > 16) return '';
-    var sets = b.weeks.map(function (x, i) { return weekSets(b, i); }), top = Math.max.apply(null, sets.map(function (s) { return s.all; }).concat([1]));
+    var b = cur && cur.b; if (!b || !shapeOpen() || cur.kind === 'recovery' || b.weeks.length < 2 || b.weeks.length > 16 || !fn(SH, 'band')) return '';
     var l = cur.l, meet = l && l.meet && l.meet.date ? l.meet : null, last = weekDates(b, b.weeks.length - 1), ends = last ? last.to : null;
     var meetIn = meet && ends && String(meet.date).slice(0, 10) <= K.add(ends, 7);
-    var WORD = { lifted: 'Lifted', now: 'This week', sent: 'Sent', draft: 'Written, not sent', written: 'Written', empty: 'Not written' };
-    var cols = b.weeks.map(function (x, i) {
-      var ww = cur.kind === 'tpl' ? null : weekWords(cur.id, cur.next ? i + 1 : x.n || i + 1, which()), s = sets[i];
-      var stt = cur.kind === 'tpl' ? (s.all ? 'written' : 'empty') : x.state === 'lifted' ? 'lifted' : x.state === 'now' ? 'now' : (x.sent || (ww && /^Sent\b/.test(ww.state || ''))) ? 'sent' : s.all ? 'draft' : 'empty';
-      var seg = function (k) { return s[k] ? '<i data-k="' + k + '" style="flex-grow:' + s[k] + '"></i>' : ''; };
-      var tip = weekName(b, i) + ': ' + WORD[stt].toLowerCase() + '. ' + (s.all ? s.all + ' sets: ' + LIFTS.filter(function (k) { return s[k]; }).map(function (k) { return LIFT[k] + ' ' + s[k]; }).concat(s.acc ? ['other ' + s.acc] : []).join(', ') : 'no sets yet') + (x.deload ? '. A deload.' : '') + '.';
-      return '<button type="button" class="bs-w" data-wk-go="' + i + '" data-st="' + stt + '"' + (i === cur.c ? ' aria-current="true"' : '') + ' title="' + esc(tip) + '" aria-label="' + esc(tip) + '">' +
-        '<span class="bs-col"><span class="bs-stack" style="height:' + Math.round(100 * s.all / top) + '%">' + seg('acc') + seg('deadlift') + seg('bench') + seg('squat') + '</span></span>' +
-        '<span class="bs-lab"><span class="bs-n">W' + (x.n || i + 1) + '</span><span class="bs-s">' + (s.all ? s.all : '–') + '</span></span></button>';
+    var WORD = { lifted: 'Lifted', now: 'This week', sent: 'Sent', draft: 'Not sent', written: 'Written', empty: 'Not written' };
+    var states = b.weeks.map(function (x, i) {
+      var ww = cur.kind === 'tpl' ? null : weekWords(cur.id, cur.next ? i + 1 : x.n || i + 1, which()), all = weekSets(b, i).all;
+      return cur.kind === 'tpl' ? (all ? 'written' : 'empty') : x.state === 'lifted' ? 'lifted' : x.state === 'now' ? 'now' : (x.sent || (ww && /^Sent\b/.test(ww.state || ''))) ? 'sent' : all ? 'draft' : 'empty';
+    });
+    var bands = {}; LIFTS.forEach(function (lf) { bands[lf] = b.weeks.map(function (w, i) { try { return SH.band(b, lf, i); } catch (e) { return null; } }); });
+    var lifts = LIFTS.filter(function (lf) { return bands[lf].some(function (d) { return d && (d.hard || d.top); }); });
+    if (!lifts.length) return '';
+    var n = b.weeks.length;
+    var head = '<span class="bs-c0 bs-hd">Top set, hard sets</span>' + b.weeks.map(function (x, i) {
+      var tip = weekName(b, i) + ': ' + WORD[states[i]].toLowerCase() + (x.deload ? ', a deload' : '') + '. Open it.';
+      return '<button type="button" class="bs-w" data-wk-go="' + i + '" data-st="' + states[i] + '"' + (i === cur.c ? ' aria-current="true"' : '') + ' title="' + esc(tip) + '" aria-label="' + esc(tip) + '"><b>W' + (x.n || i + 1) + '</b><span>' + esc(WORD[states[i]]) + '</span></button>';
+    }).join('');
+    var rows = lifts.map(function (lf) {
+      return '<span class="bs-c0 bs-lf" data-k="' + lf + '">' + LIFT[lf] + '</span>' + bands[lf].map(function (d, i) {
+        var top = d && d.top, prev = i > 0 && bands[lf][i - 1] && bands[lf][i - 1].top, dk = top && prev ? Math.round((top.kg - prev.kg) * 10) / 10 : 0;
+        var words = top ? LIFT[lf] + ', ' + weekName(b, i) + ': top set ' + nf(top.kg) + ' kg (' + top.pct + '% of the max)' + (dk ? ', ' + (dk > 0 ? 'up ' : 'down ') + nf(Math.abs(dk)) + ' kg' : '') + ', ' + (d.hard || 0) + ' hard sets' : LIFT[lf] + ', ' + weekName(b, i) + ': nothing written';
+        return '<span class="bs-v' + (i === cur.c ? ' is-cur' : '') + (states[i] === 'lifted' ? ' is-done' : '') + '" title="' + esc(words) + '">' +
+          (top ? '<b>' + nf(top.kg) + '</b>' + (dk ? '<i class="bs-d ' + (dk > 0 ? 'up' : 'dn') + '">' + (dk > 0 ? '+' : '−') + nf(Math.abs(dk)) + '</i>' : '') + (d.hard ? '<span class="bs-hs">' + d.hard + ' hard</span>' : '') : '<span class="bs-no">–</span>') + '</span>';
+      }).join('');
     }).join('');
     if (cur.kind === 'tpl') ends = null;
     var end = meetIn ? '<span class="bs-end is-meet" title="' + esc(meet.name + ', ' + dShort(meet.date)) + '"><b>' + esc(meet.name) + '</b><span>' + esc(dShort(meet.date)) + '</span></span>' : ends ? '<span class="bs-end"><b>Block ends</b><span>' + esc(dShort(ends)) + '</span></span>' : '';
-    var key = '<span class="bs-key"><span class="bs-k" data-k="squat">Squat</span><span class="bs-k" data-k="bench">Bench</span><span class="bs-k" data-k="deadlift">Deadlift</span><span class="bs-k" data-k="acc">Other</span>' +
-      '<span class="bs-sep" aria-hidden="true"></span>' + (cur.kind === 'tpl' ? '<span class="bs-st" data-st="written">Written</span><span class="bs-st" data-st="empty">Not written</span></span>' : '<span class="bs-st" data-st="lifted">Lifted</span><span class="bs-st" data-st="now">This week</span><span class="bs-st" data-st="sent">Sent</span><span class="bs-st" data-st="draft">Not sent</span><span class="bs-st" data-st="empty">Not written</span></span>');
-    return '<div class="bs" id="bs" data-crop="shape" role="group" aria-label="The block’s shape: sets per week"><div class="bs-h"><span class="bs-t">Sets per week</span>' + key + '<button class="link bs-hide" type="button" data-shape-tog aria-pressed="true">Hide</button></div><div class="bs-row">' + cols + end + '</div></div>';
+    return '<div class="bs" id="bs" data-crop="shape" role="group" aria-label="The block, week by week: top set and hard sets per lift"><div class="bs-h"><span class="bs-t">The block</span><span class="bs-u">kg, top set of the week · hard sets are RPE 7 and up</span><button class="link bs-hide" type="button" data-shape-tog aria-pressed="true">Hide</button></div>' +
+      '<div class="bs-row"><div class="bs-g" style="--n:' + n + '">' + head + rows + '</div>' + end + '</div></div>';
   }
   /* the mode switch's two marks: a form's lines (Simple) and a spreadsheet's grid (Advanced) */
   var MODE_IC = {
