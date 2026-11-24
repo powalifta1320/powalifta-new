@@ -168,11 +168,12 @@ html.js .bar:not(.has-pill) .bar-pill { opacity: 0; transform: translateY(-4px);
    ACT ONE: the flow (the still, phones, tablets, short laptops). The stage (below) re-places it on laptops.
    ===================================================================== */
 .s-home .act { position: relative; z-index: 3; isolation: isolate; padding: 0; }
-/* 24 Nov (the owner, a friend's suggestion: "some red gradient, just a tad"): a faint crimson light at the top of the
-   first screen, strongest behind the headline, gone before the screen ends; the crimson is the brand's one action colour */
-.s-home .act::before { content: ''; position: absolute; z-index: -1; left: 0; right: 0; top: 0; height: min(100vh, 980px); pointer-events: none;
-  background: radial-gradient(64% 64% at 18% 0%, rgba(220, 38, 55, 0.24), transparent 72%), radial-gradient(48% 48% at 78% 6%, rgba(220, 38, 55, 0.11), transparent 70%); }
-@media (prefers-color-scheme: light) { html:not(.native) .s-home .act::before { background: radial-gradient(64% 64% at 18% 0%, rgba(220, 38, 55, 0.13), transparent 72%), radial-gradient(48% 48% at 78% 6%, rgba(220, 38, 55, 0.06), transparent 70%); } }
+/* 24 Nov (the owner: "some red gradient", then "in the bg so it isn't solid black"): the opening's whole background is a
+   dark crimson-black, deepest at the top behind the headline and the laptop, easing to the page's black as the act ends */
+.s-home .act::before { content: ''; position: absolute; z-index: -1; inset: 0; pointer-events: none;
+  background: radial-gradient(70% 55vh at 18% 0%, rgba(220, 38, 55, 0.26), transparent 75%), radial-gradient(55% 50vh at 80% 8%, rgba(220, 38, 55, 0.13), transparent 72%),
+    linear-gradient(180deg, rgba(220, 38, 55, 0.12) 0, rgba(220, 38, 55, 0.07) 70vh, rgba(220, 38, 55, 0.03) 140vh, transparent 100%); }
+@media (prefers-color-scheme: light) { html:not(.native) .s-home .act::before { background: radial-gradient(70% 55vh at 18% 0%, rgba(220, 38, 55, 0.14), transparent 75%), radial-gradient(55% 50vh at 80% 8%, rgba(220, 38, 55, 0.07), transparent 72%), linear-gradient(180deg, rgba(220, 38, 55, 0.07) 0, rgba(220, 38, 55, 0.04) 70vh, transparent 100%); } }
 .stage { position: relative; padding-top: calc(var(--fold) - var(--ph) * var(--pin) + var(--ph) + 44px); }
 .open-copy { position: absolute; left: calc(var(--fx) + var(--gut)); top: calc(64px + clamp(32px, 8vh, 96px)); width: min(var(--fw) * 0.37, 548px); z-index: 4; }
 .lede { margin-top: var(--s3); max-width: 25em; font-size: clamp(17px, 0.95rem + 0.3vw, 19px); line-height: 1.5; color: var(--text-2); text-wrap: pretty; }
