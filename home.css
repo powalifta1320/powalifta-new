@@ -129,7 +129,7 @@ body.home::before, body.home::after { content: none; display: none; }   /* the a
 .app-dl svg { flex: none; margin-top: -2px; }
 .app-dl:active { transform: scale(0.97); }
 @media (hover: hover) and (pointer: fine) { .app-dl:hover { background: rgba(255, 255, 255, 0.07); } }
-.app-soon { font-size: 14px; font-weight: 550; color: var(--text-3); }
+.app-soon { display: flex; flex-direction: column; gap: 2px; font-size: 14px; font-weight: 550; line-height: 1.35; color: var(--text-3); white-space: nowrap; }
 /* The three demos beside Start free: quiet words, never a second red. Each link is 44 px tall to the touch. */
 .demo-pick { display: inline-flex; align-items: center; flex-wrap: wrap; column-gap: 2px; font-size: 16px; font-weight: 600; }
 .demo-pick .dp-l { margin-right: 2px; color: var(--text-3); font-weight: 550; }
