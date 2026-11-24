@@ -57,6 +57,11 @@
   .td .nm { grid-area: n; }
   .td .amt { grid-area: e; color: var(--ink); font: 600 var(--fs-body)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
   .cr-b { grid-area: b; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; column-gap: var(--sp-2); row-gap: var(--sp-2); min-width: 0; }
+  /* 24 Nov (polish): on a To do card the move always sits on its own line, under the state and in line with the name (it
+     sat beside a short state and wrapped right-aligned under a long one, the hidden contact and "…" pushing it in) */
+  .td .cr-b { flex-direction: column; align-items: flex-start; justify-content: flex-start; row-gap: var(--sp-2); }
+  .td .cr-a { margin-left: 0; margin-right: 0; }
+  .td .cr-a > .rec { order: -1; }   /* the move first; contact and "…" (shown on hover) after it */
   .td .q { grid-area: q; margin-top: var(--sp-1); color: var(--ink-2); font: 400 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
   /* the state: a dot and words; the figure beside it in quiet ink ("Lifts today", "Applied Fri") */
   .st { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--sp-2); min-width: 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }

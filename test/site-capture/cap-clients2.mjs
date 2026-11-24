@@ -30,6 +30,8 @@ const r1 = (v) => Math.round(v * 10) / 10;
 const clean = (y, x0, x1) => g.lines.filter((l) => l.r[0] < x1 && l.r[0] + l.r[2] > x0 && l.r[1] < y && l.r[1] + l.r[3] > y);
 const desk = [r1(g.td[0] - 16), r1(g.tb[1] + g.tb[3]), r1(g.mo[0] + g.mo[2] + 16 - (g.td[0] - 16)), 0];
 desk[3] = r1(g.mo[1] + g.mo[3] + 24 - desk[1]);
+/* 24 Nov: a cut that would pass through a line of the To do list moves down to the gap under that line */
+for (let i = 0, hit; i < 8 && (hit = clean(desk[1] + desk[3], desk[0], desk[0] + desk[2])).length; i++) desk[3] = r1(Math.max(...hit.map((l) => l.r[1] + l.r[3])) + 6 - desk[1]);
 const cutD = clean(desk[1] + desk[3], desk[0], desk[0] + desk[2]);
 if (cutD.length) throw new Error('site-capture: the desk cut passes through ' + JSON.stringify(cutD));
 const phone = [g.td[0], g.td[1], g.td[2], Math.round(g.td[2] * 328 / 251)];

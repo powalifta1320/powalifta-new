@@ -212,10 +212,11 @@ ok('Undo on the week bar walks every change back to the week as it opened', end.
   ok('its one crimson is New program, and its filter is one control of four', lib.crimson === 'New program' && lib.filters.join() === 'All,Due,Not assigned,Sent', lib.crimson + ' · ' + lib.filters.join(', '));
   const al = await q.evaluate(() => { const out = []; document.querySelectorAll('.pc-what').forEach((w) => { const t = w.querySelector('.tg'), s = w.querySelector('.pc-wt'); if (!t || !s) return; const base = (el) => { const r = document.createRange(); r.selectNodeContents(el); const rs = r.getClientRects(); return rs.length ? rs[rs.length - 1].bottom : el.getBoundingClientRect().bottom; }; out.push({ dy: Math.round(Math.abs(base(t) - base(s)) * 10) / 10, x: Math.round(t.getBoundingClientRect().left - w.closest('.pc').getBoundingClientRect().left) }); }); return out; });
   ok('every flag sits on the line of the words it goes with, in the same place on every card', al.length >= 3 && al.every((x) => x.dy <= 2) && new Set(al.map((x) => x.x)).size === 1, JSON.stringify(al.slice(0, 4)));
-  // the sidebar: pinned, the page sits beside it; hovered open, it covers no card
+  // the sidebar: pinned, the page sits beside it; hovered open, it lays over the page as on every page
   await q.mouse.move(30, 400); await q.waitForTimeout(600);
   const cov = await q.evaluate(() => { const sw = document.querySelector('.side').getBoundingClientRect().width, open = parseFloat(getComputedStyle(document.querySelector('.side .it .l')).opacity) > 0.5; const left = Math.min(...[...document.querySelectorAll('.pc, #ql-q, .lib-t')].map((x) => x.getBoundingClientRect().left)); return { open, sw: Math.round(sw), left: Math.round(left) }; });
-  ok('with the sidebar hovered open, nothing on the library is under it', cov.open && cov.left >= cov.sw, JSON.stringify(cov));
+  /* 24 Nov (polish): the library starts at the page's own edge as every page does (it kept a 170 px band free for the open sidebar); the hovered sidebar lays over it as it does everywhere */
+  ok('with the sidebar hovered open, it opens over the page and the library starts at the page edge, as on every page', cov.open && cov.left < cov.sw && cov.left >= 64, JSON.stringify(cov));
   await q.mouse.move(900, 500); await q.waitForTimeout(400);
   // keys: the arrows walk the cards, Enter opens, Esc comes back
   await q.locator('.pc').first().focus(); await q.keyboard.press('ArrowRight'); await q.waitForTimeout(80);

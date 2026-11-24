@@ -302,7 +302,7 @@
     if (bd.noneIds && bd.noneIds.length) rows += row(esc(K.list(bd.noneIds.map(name))) + ', no price yet', '', '<a class="link" href="' + DESK.href('clients', 'id=' + encodeURIComponent(bd.noneIds[0])) + '">Set a package</a>');
     var inv = b && b.invite;
     /* P48: one quiet action per row, every one ending on the section's right edge (Cancel the link stays in Clients › Seats) */
-    if (inv && inv.link && !inv.cancelled) rows += row('1 open invite link', esc(inv.link), '<button class="mv" type="button" data-k="inv-copy" data-copy="' + esc(inv.url || inv.link) + '" aria-label="Copy the invite link">Copy</button>');
+    if (inv && inv.link && !inv.cancelled) rows += row('1 open invite link', esc(inv.link), '<button class="link" type="button" data-k="inv-copy" data-copy="' + esc(inv.url || inv.link) + '" aria-label="Copy the invite link">Copy</button>');
     else if (inv) rows += row('No open invite link', '', '<button class="mv" type="button" data-k="inv-new">New invite link</button>');
     var emailed = Math.max(0, (bd.invites || 0) - (bd.link || 0));
     if (emailed) rows += row(K.plural(emailed, 'invite') + ' emailed, not accepted yet', '', '<a class="link" href="' + DESK.href('clients') + '">Open Clients</a>');

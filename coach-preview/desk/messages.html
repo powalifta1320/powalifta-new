@@ -166,7 +166,7 @@
   .cmp-f .grow { flex: 1; min-width: 0; }
   .cmp-f .btn.quiet { padding: 0 var(--sp-3); }
   /* the first quiet move's words start on the draft's edge, as the ticks above it do */
-  .cmp-f > .btn.quiet:first-child { margin-left: calc(var(--sp-3) * -1); }
+  .cmp-f > .btn.quiet:first-child { margin-left: 0; }   /* 24 Nov (polish): its pill lines up with the box above (it hung 12 px out) */
   .cmp-f [data-primary] { max-width: 100%; }
   .cmp-f [data-primary] span { overflow: hidden; text-overflow: ellipsis; }
   /* a narrow thread (1280 with the sidebar pinned, about 360 px): the quiet moves say less so Send keeps its place */
