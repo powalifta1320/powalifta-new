@@ -198,6 +198,22 @@
   .pop .key7 { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); margin: var(--sp-2) 0 0; color: var(--ink-3); font: 500 var(--fs-cap)/1.3 var(--font); }
   .pop .key7 span { display: inline-flex; align-items: center; gap: 5px; }
   .pop .key7 .wk7 i { width: 12px; height: 14px; font-size: 0; }
+
+  /* 24 Nov: Training as a cell a day (done of planned), Effort as three counts of lifters, in words */
+  .dr { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; width: 100%; }
+  .dr-d { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 7px; border-radius: 8px; background: var(--fill); font-variant-numeric: tabular-nums; }
+  .dr-d b { color: var(--ink-3); font: 600 11px/1 var(--font); }
+  .dr-d > span { color: var(--ink); font: 750 15px/1 var(--font); }
+  .dr-d > span i { color: var(--ink-3); font-style: normal; font-weight: 500; font-size: 11px; }
+  .dr-d[data-st='full'] { background: var(--up-tint); } .dr-d[data-st='full'] > span { color: var(--up-ink); }
+  .dr-d[data-st='short'] > span { color: var(--warn); }
+  .dr-d[data-st='future'] { background: none; box-shadow: inset 0 0 0 1px var(--line); } .dr-d[data-st='future'] > span { color: var(--ink-3); font-weight: 600; }
+  .dr-d[data-today] { box-shadow: inset 0 0 0 1.5px var(--ink); } .dr-d[data-today] b { color: var(--ink); }
+  .er { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; width: 100%; }
+  .er-c { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 8px 8px; border-radius: 8px; background: var(--fill); }
+  .er-c b { font: 800 20px/1 var(--font); font-variant-numeric: tabular-nums; color: var(--ink); }
+  .er-c span { overflow: hidden; color: var(--ink-2); font: 500 11px/1.2 var(--font); white-space: nowrap; text-overflow: ellipsis; }
+  .er-c[data-k='h'] b { color: var(--warn); } .er-c[data-k='a'] b { color: var(--up-ink); }
 </style>
 </head>
 <body data-place="overview">
@@ -333,11 +349,17 @@
       var wd = K.wd(d.iso), last = d.prev + ' last week', plan = d.planned ? d.planned + ' on the plan' : 'nothing on the plan';
       var tip = d.today ? wd + ', today: ' + (d.planned ? d.planned + ' on the plan, ' + (d.done ? d.done + ' done so far' : 'none done yet') : 'nothing on the plan') + '. ' + last
         : d.future ? wd + ': ' + plan + ', ' + last : wd + ': ' + (d.planned > d.done ? d.done + ' of ' + d.planned + ' done' : d.done + ' done') + ', ' + last;
-      return { label: wd.charAt(0), now: d.future ? 0 : d.done, ghost: d.prev, today: d.today, tip: tip };
+      return { label: wd.charAt(0), now: d.future ? 0 : d.done, ghost: d.prev, today: d.today, future: d.future, planned: d.planned, done: d.done, tip: tip };
     });
+    /* 24 Nov (the owner: bars nobody can read): the week as numbers, a cell a day, done of planned in words */
+    var dayRow = '<span class="dr" role="img" aria-label="' + esc(days.map(function (d) { return d.tip; }).join('. ')) + '">' + days.map(function (d) {
+      var st = d.future ? 'future' : d.planned && d.done >= d.planned ? 'full' : d.done < d.planned ? 'short' : 'none';
+      return '<span class="dr-d" data-st="' + st + '"' + (d.today ? ' data-today' : '') + ' title="' + esc(d.tip) + '"><b>' + esc(d.label) + '</b><span>' + (d.future ? (d.planned ? d.planned : '–') : d.planned ? d.done + '<i>/' + d.planned + '</i>' : (d.done || '–')) + '</span></span>';
+    }).join('') + '</span>';
     var maxPct = Math.max.apply(null, LIFTS.map(function (k) { return Math.abs(s.lifts[k] || 0); }));
     var hb = LIFTS.map(function (k) { var v = s.lifts[k] || 0; return { cls: 'lc-' + k, label: K.LIFT[k], value: v, text: minus(v, 1) + '%', tip: K.LIFT[k] + ': best lift ' + minus(v, 1) + '% on average in 4 weeks (estimated max, e1RM)' }; });
-    var dv = e.perLifter.map(function (x) { return { v: x.drift, tip: firstOf(x.id) + ': ' + (Math.abs(x.drift) < 0.05 ? 'felt as written' : 'felt ' + (x.drift > 0 ? 'harder' : 'easier') + ' than written, ' + minus(x.drift) + ' on the 1 to 10 effort scale (RPE)') }; });
+    var eh = 0, ea = 0, ee = 0; e.perLifter.forEach(function (x) { if (Math.abs(x.drift) < 0.05) ea++; else if (x.drift > 0) eh++; else ee++; });
+    var effRow = '<span class="er">' + [['h', eh, 'Harder'], ['a', ea, 'As written'], ['e', ee, 'Easier']].map(function (q) { return '<span class="er-c" data-k="' + q[0] + '"><b>' + q[1] + '</b><span>' + q[2] + '</span></span>'; }).join('') + '</span>';
     var order = h.pain.map(function (id) { return { id: id, tone: 'pain', w: 'pain' }; }).concat(h.low.map(function (id) { return { id: id, tone: 'warn', w: 'low recovery' }; }), h.ok.map(function (id) { return { id: id, tone: 'up', w: 'fine' }; }), h.none.map(function (id) { return { id: id, none: true, w: 'no check-in' }; }));
     var dots = order.map(function (x) { return { tone: x.tone, none: x.none, tip: firstOf(x.id) + ': ' + x.w }; });
     var bunches = []; m.list.forEach(function (mm) { var b = bunches[bunches.length - 1]; if (b && mm.days - b.days <= 4) b.list.push(mm); else bunches.push({ days: mm.days, list: [mm] }); });
@@ -359,11 +381,11 @@
     /* Health names who in its headline ("2 in pain: Sarah, Priya": the red dots), its key counts the other colours */
     var sore = h.pain.length ? 'In pain: ' + esc(names(h.pain)) : 'Nobody in pain';
     var tiles = {
-      behind: col('behind', 'Training', 'Mon to Sun', t.done, 'of ' + t.planned + ' sessions', CH.bars(days), CH.legend([{ label: 'This week', tone: 'up' }, { label: 'Last week', ghost: true }]) + '<span class="said">' + behind + '</span>',
+      behind: col('behind', 'Training', 'Mon to Sun', t.done, 'of ' + t.planned + ' sessions', dayRow, '<span class="said">' + behind + '</span>',
         'Training, Monday to Sunday: ' + t.done + ' of ' + t.planned + ' sessions. ' + behind + '. Show who.'),
       stalled: col('stalled', 'Strength', '4 weeks', minus(s.pct, 1) + '%', 'on average', CH.hbars(hb, { max: maxPct }), flat,
         'Strength over 4 weeks: best lifts ' + minus(s.pct, 1) + '% on average (estimated max, e1RM). ' + flat + '. Show who.'),
-      harder: col('harder', 'Effort', '7 days', e.asWrittenPct + '%', 'felt as written', CH.diverging(dv), harder,
+      harder: col('harder', 'Effort', '7 days', e.asWrittenPct + '%', 'felt as written', effRow, harder,
         'Effort over 7 days: ' + e.asWrittenPct + '% of sets felt as hard as written (RPE). ' + harder + '. Show who.'),
       health: col('health', 'Health', 'Today', cnt.pain, 'in pain' + (h.pain.length ? ': ' + esc(names(h.pain, 2)) : ''), CH.waffle(dots), CH.legend([{ label: h.low.length + ' low', tone: 'warn' }, { label: h.ok.length + ' fine', tone: 'up' }, { label: h.none.length + ' no check-in', none: true }]),
         'Health today: ' + h.pain.length + ' in pain, ' + h.low.length + ' low recovery, ' + h.ok.length + ' fine, ' + h.none.length + ' without a check-in. ' + sore + '. Show who.'),
