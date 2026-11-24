@@ -478,7 +478,7 @@
       var oo = {};
       var res = apply(function (x) {
         var rr = ixIn(x, key); if (rr < 0) return gone();
-        var r2 = x.moveRowTo(rr, day, idx);
+        var r2 = x.moveRowTo(rr, day, blockIndex(x, day, key, beforeKey, afterKey));   /* 24 Nov: the place is read on the block being changed (the view's copy can be a step behind after an undo) */
         if (!same && r2 && !r2.error && r2.data) oo.say = r2.data.split ? name + ' moves to ' + low1(sentence(day)) + ' from week ' + weekNo(x, r2.data.from) + ' on. The weeks already lifted stay on ' + low1(sentence(was)) + '.' : name + ' moved to ' + low1(sentence(day)) + '.';
         return r2;
       }, 'Move ' + low1(name), oo);
@@ -546,9 +546,18 @@
       };
       var edge = function () {
         if (!drag || !drag.moved) return;
-        var sc = drag.sc, isDoc = sc === document.scrollingElement || sc === document.documentElement, rc = isDoc ? { top: 0, bottom: innerHeight } : sc.getBoundingClientRect(), pad = 56, v = 0;
+        var sc = drag.sc, isDoc = sc === document.scrollingElement || sc === document.documentElement, rc0 = isDoc ? { top: 0, bottom: innerHeight } : sc.getBoundingClientRect(), pad = 24, v = 0;
+        /* 24 Nov: the edges are those of what can be seen, inside the pinned heads and the status bar at the foot (it
+           scrolled while the pointer rested on a line just above that bar, so the line landed one place lower) */
+        var rc = { top: rc0.top, bottom: rc0.bottom };
+        [].forEach.call(host.querySelectorAll('.sv-cols, .wb, .sv-status'), function (el) { var r = el.getBoundingClientRect(); if (!r.height) return; if (el.classList.contains('sv-status')) { if (r.top > rc.top && r.top < rc.bottom) rc.bottom = Math.min(rc.bottom, r.top); } else if (r.bottom > rc.top && r.bottom < rc.bottom) rc.top = Math.max(rc.top, r.bottom); });
         if (drag.y < rc.top + pad) v = -Math.ceil((rc.top + pad - drag.y) / 5); else if (drag.y > rc.bottom - pad) v = Math.ceil((drag.y - (rc.bottom - pad)) / 5);
-        if (v) { sc.scrollBy(0, Math.max(-18, Math.min(18, v))); paintDrag(); }
+        /* it scrolls once the pointer has rested at an edge for 300 ms: passing near an edge, or dropping a line by it,
+           never moves the page under the pointer */
+        var now = performance.now();
+        if (!v) drag.edgeAt = 0; else if (!drag.edgeAt) drag.edgeAt = now;
+        if (v && now - drag.edgeAt >= 300) sc.scrollBy(0, Math.max(-18, Math.min(18, v)));
+        paintDrag();   /* every frame: the page can redraw under a still pointer (the field just left saves), and the rule follows it */
         drag.raf = requestAnimationFrame(edge);
       };
       var end = function (dropIt) {
@@ -560,7 +569,7 @@
         if (d.ghost) d.ghost.remove();
         if (d.mark) d.mark.remove();
         exEl.classList.remove('is-drag'); host.classList.remove('is-dragging');
-        if (dropIt && d.moved && d.drop) moveTo(d.key, d.drop.day, d.drop.before, d.drop.after, from);
+        if (dropIt && d.moved) { var dp = place(d.y) || d.drop; if (dp) moveTo(d.key, dp.day, dp.before, dp.after, from); }   /* read where it lands as it is let go */
         else if (dropIt && !d.moved) pick(d.key, mods.shift, mods.more);   /* a click on the grip picks the lift */
       };
       var onMove = function (e) {
