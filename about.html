@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- iPhone app: tag the document as native before first paint (same snippet as athlete.html). -->
 <script>(function(){try{var C=window.Capacitor;if(C&&C.isNativePlatform&&C.isNativePlatform()){document.documentElement.classList.add('native');if(!localStorage.getItem('powa-theme'))document.documentElement.setAttribute('data-theme','dark');var vp=document.querySelector('meta[name="viewport"]');if(vp&&!/viewport-fit/.test(vp.getAttribute('content')||'')){vp.setAttribute('content',(vp.getAttribute('content')||'')+', viewport-fit=cover');}}}catch(e){}})();</script>
-<title>About | POWALIFTA</title>
+<title>About POWALIFTA: The Powerlifting Coaching App, Built for the Barbell</title>
 <meta name="description" content="Why we built a powerlifting platform. RPE-native logging, automatic e1RM, programs that actually adapt, and a coaching desk that shows who needs you first.">
 <meta property="og:title" content="About POWALIFTA | Built for the barbell.">
 <meta property="og:description" content="Why we built a powerlifting platform. RPE-native logging, automatic e1RM, programs that actually adapt, and a coaching desk that shows who needs you first.">
@@ -37,6 +37,15 @@
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
 <script defer src="cookie-consent.js"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  "name": "About POWALIFTA",
+  "url": "https://www.powalifta.com/about.html",
+  "about": { "@type": "Organization", "@id": "https://www.powalifta.com/#org", "name": "POWALIFTA", "url": "https://www.powalifta.com/", "logo": "https://www.powalifta.com/icon-512.png", "slogan": "Built for the barbell.", "sameAs": ["https://instagram.com/powa.lifta", "https://apps.apple.com/app/powalifta/id6788506689"] }
+}
+</script>
 </head>
 <body class="site">
 

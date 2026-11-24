@@ -1,0 +1,27 @@
+# POWALIFTA
+
+> POWALIFTA is a powerlifting app for coaches and their lifters. Lifters log every set with RPE on their phone; the app works out each lifter's estimated one-rep max (e1RM) from every set. Coaches see each set land on a laptop dashboard that ranks who needs them today (pain on a check-in, a meet coming up, weight to cut, a lift that felt harder than written), write programs in RPE or percentages, and send next week in a few clicks. Free for lifters; coaches coach three lifters free, then pay for more seats.
+
+Built for the barbell. iPhone app on the App Store; Android in the browser (its own app in late December). Apple Health from December: sleep, resting heart rate and weigh-ins into each lifter's readiness, shared with their coach when the lifter chooses.
+
+## Product
+- [Home](https://www.powalifta.com/): what POWALIFTA does for a coach's week, with the real product, pricing and FAQ
+- [Coach demo](https://www.powalifta.com/coach-preview/desk/overview.html): the coach website on demo data, no sign-up
+- [Bring your history in](https://www.powalifta.com/switch.html): moving a coaching business, its lifters, history and programs, over
+- [Your data](https://www.powalifta.com/data.html): who owns training data, export and deletion
+- [Program marketplace](https://www.powalifta.com/marketplace.html): programs written by coaches
+- [DOTS leaderboard](https://www.powalifta.com/leaderboard.html): opt-in totals ranked by DOTS
+- [FAQ](https://www.powalifta.com/faq.html)
+- [About](https://www.powalifta.com/about.html)
+
+## Guides
+- [RPE for powerlifting](https://www.powalifta.com/guide-rpe.html): RIR, autoregulation and how to use RPE
+- [Estimated 1RM (e1RM)](https://www.powalifta.com/guide-e1rm.html): the formula and why it beats maxing out
+- [DOTS score](https://www.powalifta.com/guide-dots.html): comparing totals across bodyweights
+- [Peaking for a meet](https://www.powalifta.com/guide-peaking.html): a taper walkthrough
+- [Exercise library](https://www.powalifta.com/exercises.html): cues and faults for the lifts and their variants
+
+## Facts
+- e1RM: weight / (1 - ((reps - 1) + (10 - RPE)) * 0.0333)
+- Plans: Free (up to 3 lifters), Basic (4 to 10), Pro (11 to 25), Premium (26 or more)
+- Contact: powalifta1320@gmail.com
