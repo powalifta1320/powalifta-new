@@ -23,13 +23,12 @@ Tiers → athlete limits (source of truth `app.js` `TIER_LIMITS`, enforced serve
   function ignores events from the other biller, so nobody is charged twice or downgraded
   by the wrong one.
 - `app.js` `LS_CHECKOUT_URLS` holds the three hosted checkout URLs (one per variant of the
-  product "POWALIFTA Coach Plan"). Checked 2026-10-21: all three load, $24.99 / $49.99 /
-  $99.99 a month, **still in test mode**.
-- `LS_CHECKOUT_LIVE` (app.js, `false` today): while the store is in test mode, the web
-  checkout buttons show only for testers (admins, or a browser that opened any page with
-  `?lstest=1`) and are labelled "(test)". Everyone else is told plans are on sale in the
-  iPhone app. The webhook only honours test-mode events while `LS_ALLOW_TEST=1`, and only
-  for buyers listed in `LS_TEST_EMAILS` when that is set.
+  product "POWALIFTA Coach Plan"). **Live mode.** Checked 2026-11-25: all three open live
+  checkouts, $24.99 / $49.99 / $99.99 a month.
+- `LS_CHECKOUT_LIVE` (app.js, `true`): web checkout is open to every coach on the web.
+  Set to `false`, the buttons show only for testers (admins, or a browser that opened any
+  page with `?lstest=1`), labelled "(test)". The webhook only honours test-mode events while
+  `LS_ALLOW_TEST=1`, and only for buyers listed in `LS_TEST_EMAILS`: delete both secrets.
 - `buildCheckoutUrl(tier, user)` appends `checkout[email]` (prefill) + `checkout[custom][user_id]`
   (so the webhook can match the sub back to the coach) + `checkout[name]`.
 - `openUpgradeModal()` (web) decides by biller: a new coach gets checkout; a Lemon Squeezy

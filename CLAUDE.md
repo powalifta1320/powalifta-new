@@ -18,7 +18,7 @@ When work lands, update `Current state.md`, `Roadmap.md` and `Changelog.md` (plu
 
 - **Hosting:** Vercel (custom domain `powalifta.com`, `www` canonical)
 - **Backend:** Supabase (Postgres + Auth + Edge Functions). Project URL is in `db.js`.
-- **Payments:** iPhone app: Apple in-app subscriptions for coach plans (StoreKit 2; `apple-iap` + `apple-notifications` edge functions). Web: Lemon Squeezy, checkouts still in test mode (`LS_CHECKOUT_LIVE` false = web checkout for testers only). One biller per coach (`profiles.billing_provider`); the plan in force is `effectiveTier()` in app.js = `powa_effective_tier()` in SQL. Runbook: `docs/payments-runbook.md`.
+- **Payments:** iPhone app: Apple in-app subscriptions for coach plans (StoreKit 2; `apple-iap` + `apple-notifications` edge functions). Web: Lemon Squeezy, live checkouts since 2026-11-25 (`LS_CHECKOUT_LIVE` true). One biller per coach (`profiles.billing_provider`); the plan in force is `effectiveTier()` in app.js = `powa_effective_tier()` in SQL. Runbook: `docs/payments-runbook.md`.
 - **Email:** Resend (transactional via edge functions)
 - **Analytics:** Plausible (`powalifta.com`, GDPR-compliant, no cookie banner needed)
 - **Error tracking:** local `error-log.js` + optional Sentry/Supabase forwarding

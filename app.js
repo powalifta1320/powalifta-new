@@ -2240,17 +2240,16 @@ const TIER_PRICES = {
   pro: 49.99,
   premium: 99.99
 };
-// Lemon Squeezy checkouts are still in TEST mode (the 4242 card works, real cards
-// don't). Until the store goes live, web checkout opens only for testers: admins, or
-// a browser that once opened any page with ?lstest=1. Everyone else is pointed at the
-// iPhone app. Going live: copy the products to live mode in Lemon Squeezy, paste the
-// live checkout links below, set this to true, and delete LS_ALLOW_TEST and
-// LS_TEST_EMAILS from the edge function secrets.
-const LS_CHECKOUT_LIVE = false;
+// The Lemon Squeezy store is live and these are its live checkout links (checked
+// 2026-11-25: Basic $24.99, Pro $49.99, Premium $99.99 a month). Never in the iPhone
+// app (Apple 3.1.1). With this set to false, web checkout opens only for testers:
+// admins, or a browser that once opened any page with ?lstest=1, and everyone else is
+// pointed at the iPhone app.
+const LS_CHECKOUT_LIVE = true;
 const LS_CHECKOUT_URLS = {
-  basic:   'https://powalifta.lemonsqueezy.com/checkout/buy/d9320c9a-e603-402c-b2c0-f88189ccde14',
-  pro:     'https://powalifta.lemonsqueezy.com/checkout/buy/20e2ec1f-744c-46c9-8a86-62fa13bcb899',
-  premium: 'https://powalifta.lemonsqueezy.com/checkout/buy/a5dbff0b-9950-4831-ab91-99e10d20c3a0'
+  basic:   'https://powalifta.lemonsqueezy.com/checkout/buy/c1b66719-98e8-4161-b557-bbfb17ffb681',
+  pro:     'https://powalifta.lemonsqueezy.com/checkout/buy/08a73a63-32ea-473b-8579-3b72152e42b5',
+  premium: 'https://powalifta.lemonsqueezy.com/checkout/buy/e4c677bd-e26a-4747-a33b-94b6759c88a4'
 };
 const TIER_RANK = { free: 0, basic: 1, pro: 2, premium: 3 };
 // Yearly plans (2026-10-22): each plan billed once a year at ten months' price. Paste the
