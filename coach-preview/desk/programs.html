@@ -11,7 +11,10 @@
 <script>
 /* a phone gets the coach's phone app: this desk is a laptop screen (22 Nov: at 393 px its menu filled the page and the
    rest overlapped). A phone held sideways counts too. ?desk=1 keeps the desk. */
-(function () { try { if (window.matchMedia && matchMedia('(max-width: 760px), (pointer: coarse) and (max-height: 520px)').matches && !/[?&]desk=1\b/.test(location.search)) location.replace('/coach.html?demo=1'); } catch (e) {} })();
+(function () { try { if (window.matchMedia && matchMedia('(max-width: 760px), (pointer: coarse) and (max-height: 520px)').matches && !/[?&]desk=1\b/.test(location.search) && !/[?&]solo=1\b/.test(location.search)) location.replace('/coach.html?demo=1'); } catch (e) {} })();
+/* 26 Nov (solo): ?solo=1 is the self-coached lifter's program editor inside athlete.html (lifter-program.js, kit/r6/solo.js).
+   Opened on its own, with no lifter page around it, it goes to the lifter demo's Program; nothing below runs. */
+(function () { if (!/[?&]solo=1\b/.test(location.search)) return; var ok = false; try { ok = window.parent !== window && !!window.parent.LifterProgram; } catch (e) { ok = false; } if (!ok) { location.replace('/athlete.html?demo=1&solo=1&tab=program'); document.write('<plaintext style="display:none">'); return; } document.documentElement.classList.add('solo'); })();
 /* the sidebar's pin before any paint, so a desk kept open does not slide sideways as it loads (desk.js isPinned holds the same rule) */
 (function () { try { var v = localStorage.getItem('powa-r6-side'); if (v === 'open' || (v !== 'fold' && window.matchMedia && matchMedia('(hover: none) and (min-width: 1100px)').matches)) document.documentElement.classList.add('side-pinned'); } catch (e) {} })();
 /* the theme before any CSS: ?theme= wins, then powa-r6-theme (auto follows the Mac), else dark */
@@ -31,6 +34,7 @@
 <link rel="stylesheet" href="../kit/r6/fix.css">
 <link rel="stylesheet" href="../kit/r6/newcoach.css">
 <link rel="stylesheet" href="../kit/r6/case.css">
+<link rel="stylesheet" href="../kit/r6/solo.css"><!-- 26 Nov: the lifter's own editor (?solo=1); every rule is under html.solo -->
 <style>
   /* Programs (r6/spec-b/programs.md): the queue of weeks to write beside the week in hand. The queue is the desk's one
      list width and never hides; the detail is the lifter's header, flat on the floor, then one work card: the week bar,
@@ -673,6 +677,7 @@
 <body data-place="programs">
 <div class="page" id="page"><main class="pg" id="main"></main></div>
 <script src="../kit/data.js"></script>
+<script src="../kit/r6/solo.js"></script><!-- ?solo=1 only: one lifter, you, from the lifter page around it -->
 <script src="../kit/kit.js"></script>
 <script src="../kit/coach.js"></script>
 <script src="../kit/r6/block.js?v=1125c"></script>
@@ -4449,6 +4454,300 @@
     if (h.id) { openLifter(h.id, { week: h.week ? Number(h.week) : null, row: h.row, start: h.start, runin: h.runin, day: h.day, prefill: h.prefill, block: h.block }); return; }
     openFirst();
   }
+
+  /* ================= SOLO (26 Nov): the self-coached lifter's own editor (programs.html?solo=1) =================
+     The owner: "For the solo athlete as well [...] They should have a similar option to the coach where they can make
+     their own templates. They can put simple and advanced. They can change blocks, everything." kit/r6/solo.js has
+     made DEMO one lifter, you, from the lifter page around this frame (athlete.html, lifter-program.js); this block
+     turns the coach's moves into a lifter's own, and nothing above changes without ?solo=1. One block, yours: no queue,
+     no sends (every edit is saved as made and the lifter page writes it into your program), no rule proposals (only
+     what you change moves), no messages, items, reminders, teams or seats. The crimson is the next job: Start your next
+     block when the block is finished, Write week N when the next week is empty, else none. The library is your block,
+     your templates and the starter programs. */
+  var SOLO = W.SOLO && DEMO.solo ? W.SOLO : null;
+  if (SOLO) (function () {
+    var SID = SOLO.id;
+    var you = function () { return Lf(SID); };
+    var nowIdx = function (b) { for (var i = 0; i < b.weeks.length; i++) if (b.weeks[i].state === 'now') return i; for (var j = 0; j < b.weeks.length; j++) if (b.weeks[j].state === 'next') return j; return b.weeks.length - 1; };
+    var finished = function (b) { return !!b && b.weeks.length > 0 && b.weeks.every(function (w) { return w.state === 'lifted'; }); };
+    var emptyAhead = function (b) { for (var i = 0; i < b.weeks.length; i++) if (b.weeks[i].state !== 'lifted' && emptyWeek(b, i)) return i; return -1; };
+    var saidOnce = false;
+    /* only what you change moves: no week is proposed by the coach's rules */
+    proposalFor = function () { return null; };
+    holdAct = function () { return null; };
+    openItemOf = function () { return null; };
+    wordsLine = function () { return null; };
+    limitsLine = function () { return ''; };
+    offApp = function () { return null; };
+    footHtml = function () { return ''; };
+    stepLifter = function () { /* one lifter: you */ };
+    pendingN = function () { return 0; };   /* nothing waits to be sent: an edit is saved as made */
+    nextRow = function () { return null; };
+    /* your block, at the week under way */
+    openFirst = function () {
+      var b = blockOf(SID);
+      if (!you() || !you().program || !b) return soloStart();
+      openWeek(SID, b.weeks[nowIdx(b)].n || nowIdx(b) + 1, { focus: false });
+    };
+    openLifter = function (id, o) { o = o || {}; if (o.start || !blockOf(SID)) return soloStart(o.start && o.start !== 'next' && o.start !== 'first' ? o.start : null); if (o.week) return openWeek(SID, Number(o.week), { day: o.day }); return openFirst(); };
+    openStart = function (id, kind, keep) { soloStart(keep || null); };
+    clickRow = function (id) { if (/^[ps]:/.test(id)) { openProgram(id.slice(2)); return; } openFirst(); };
+    stateWord = function (b, c) {
+      var w = b.weeks[c]; if (!w) return '';
+      if (cur && cur.kind === 'tpl') return emptyWeek(b, c) ? 'Not written' : '';
+      if (w.state === 'lifted') return 'Lifted';
+      if (w.state === 'now') return 'This week';
+      return emptyWeek(b, c) ? 'Not written' : '';
+    };
+    /* the crimson: the next job */
+    primaryOf = function () {
+      if (!cur) return null;
+      if (cur.kind === 'start') return { label: cur.start.has ? 'Start this block' : 'Start your first block', run: soloStartNow, disabled: cur.start.pick ? null : 'Pick how it starts.' };
+      if (cur.kind === 'tpl') return null;
+      var b = blockOf(SID);
+      if (!b) return { label: 'Start your first block', run: function () { soloStart(); } };
+      if (finished(b)) return { label: 'Start your next block', run: function () { soloStart(); } };
+      var e = emptyAhead(b);
+      if (e >= 0) { var n = b.weeks[e].n || e + 1; return { label: 'Write week ' + n, run: function () { writeWeek(n); } }; }
+      return null;
+    };
+    primaryFor = function () { return primaryOf(); };
+    function writeWeek(n) {
+      openWeek(SID, n, { focus: false });
+      setTimeout(function () {
+        var qa = $('#wg .sv-qin'); if (qa) { qa.focus(); return; }
+        var b = cur && cur.b, d0 = b && b.days[0]; if (cur && cur.grid && d0) { cur.grid.select('+' + d0.name, 'ex'); if (fn(cur.grid, 'focus')) cur.grid.focus(); }
+      }, 30);
+    }
+    /* the toolbar: the way to the library, the three views, the crimson; nothing of the coach's */
+    queueNavHtml = function () { return '<button class="btn quiet pg-back" type="button" data-to-queue title="Your templates and the starter programs (Esc)">' + K.ic('back', 2.2) + '<span>Library</span></button>'; };
+    var paintToolbar0 = paintToolbar;
+    paintToolbar = function () {
+      paintToolbar0();
+      var trail = $('#tb-trail'); if (!trail) return;
+      $$('[data-preview]', trail).forEach(function (x) { x.remove(); });
+      if (cur && cur.kind === 'tpl') trail.insertAdjacentHTML('afterbegin', '<button class="btn quiet" type="button" data-solo-use="' + esc((cur.tpl.starter ? 's:' : 'p:') + cur.tpl.id) + '">Start a block from this</button>');
+    };
+    var paintAll0 = paintAll;
+    paintAll = function (o) {
+      paintAll0(o);
+      var b = cur && cur.b, t = cur && cur.kind === 'tpl' && cur.tpl ? cur.tpl.name : b ? (cur.b0 || b).name : cur && cur.kind === 'start' ? 'Your next block' : 'Library';
+      DESK.setTitle(t); document.title = t + ', POWALIFTA';
+      if (!saidOnce) { saidOnce = true; SOLO.start(); }
+    };
+    /* the head: your block's name (rename it in place), what it is, where you are, the training maxes */
+    var headerHtml0 = headerHtml;
+    function soloFacts(b) {
+      var out = [plural(b.weeks.length, 'week'), plural(daysOfBlock(b), 'day') + ' a week'], i = -1;
+      b.weeks.forEach(function (w, k) { if (w.state === 'now') i = k; });
+      if (finished(b)) out.push('every week lifted'); else if (i >= 0) out.push('week ' + (b.weeks[i].n || i + 1) + ' of ' + b.weeks.length);
+      return out;
+    }
+    headerHtml = function () {
+      if (!cur || cur.kind === 'tpl') return headerHtml0();
+      var b = cur.b0 || cur.b; if (!b) return '<div class="hd" id="hd" data-crop="header"><h1 id="ttl">Your program</h1></div>';
+      var f = soloFacts(b);
+      return '<div class="hd" id="hd" data-crop="header"><div class="hd-top"><div class="hd-id"><h1 id="ttl" title="' + esc(b.name) + '"><button class="hd-nm" type="button" data-solo-rename title="Rename your block">' + esc(b.name) + '</button></h1>' +
+        '<p class="facts hd-prog" title="' + esc(f.join(' · ')) + '">' + f.map(function (x, i) { return '<span' + (i === 0 ? ' class="hd-pn"' : '') + '>' + esc(x) + '</span>'; }).join('') + PROG_MORE + '</p></div>' + maxesHtml(cur.b) + '</div></div>';
+    };
+    /* the block's "…": templates, a new block, the weekly step for the main lifts, rename, share, export */
+    progMenu = function (btn) {
+      if (!cur || !cur.b) return;
+      var b = cur.b;
+      var mains = PROG_WORDS.map(function (p) { return { id: 'mp-' + p[0], label: p[1], run: function () { gridApply(function (bb) { var go = function () { bb.rows.forEach(function (row, r) { if (row.lift && !row.only && !row.progSet) bb.setProg(r, p[0]); }); return { data: { prog: p[0] } }; }, lab = 'Each week for the main lifts: ' + p[1]; return fn(bb, 'batch') ? bb.batch(lab, go) : bb.commit(lab, go); }, null, { say: 'Main lifts: ' + (p[0] === 'same' ? 'the same each week' : p[1] + ' each week') + ', except lines you set.', warn: true }); } }; });
+      menu(btn, [
+        { id: 'tpl', label: 'Save as a template…', run: function () { saveTemplatePop(btn); } },
+        { id: 'new', label: 'Start a new block…', run: function () { soloStart(); } },
+        { id: 'mains', label: 'Each week for the main lifts', subs: mains },
+        { id: 'ren', label: 'Rename the block', run: renameBlock },
+        { id: 'imp', label: 'Import from a spreadsheet…', run: function () { importSheet(); } },
+        { sep: true },
+        { id: 'more', label: 'More', subs: shareItems(b, b.name).concat([{ id: 'csv2', label: 'Export every set as CSV', run: function () { exportCSV(true); } }, { sep: true }, { id: 'keys', label: 'Keys', key: '?', run: function () { DESK.keys(); } }]) }
+      ], { title: b.name, label: 'Program menu' });
+    };
+    /* your block as a template: its lines and steps, not the kilos (your maxes set them when you start from it) */
+    saveTemplatePop = function (btn) {
+      var sb = cur.b, nm0 = fn(PL.templates, 'uniqueName') ? PL.templates.uniqueName(sb.name).data : sb.name;
+      var el = DESK.pop.open(btn, '<h3>Save as a template</h3><p class="pop-p">Its days, exercises, sets, reps and RPE, to start a block from later. Kilos stay out: your training maxes set them when you use it.</p><div class="row-f nm-f"><label class="sr" for="tn-in">Name</label><input class="input" id="tn-in" placeholder="Name" maxlength="60" value="' + esc(nm0) + '"></div><div class="acts"><button class="btn sm" type="button" data-tn-save>Save</button><button class="btn quiet sm" type="button" data-pop-close>Cancel</button></div>', { label: 'Save as a template', focus: '#tn-in' });
+      var go = function () {
+        var v = words0($('#tn-in').value); if (!v) return;
+        DESK.pop.close();
+        var r = own(function () { return PL.templates.save({ name: v, from: SID, json: BL.asTemplate(sb, { name: v }) }); });
+        if (r && r.error) { DESK.toast(r.error.message); return; }
+        DESK.toast(v + ' is one of your templates now. Find it in the Library.', r && r.meta && r.meta.undo ? function () { var u = PL.undo(r.meta.undo); paintQueue(); return u; } : null);
+        paintQueue();
+      };
+      el.addEventListener('click', function (e) { if (e.target.closest('[data-tn-save]')) go(); if (e.target.closest('[data-pop-close]')) DESK.pop.close(); });
+      el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+    };
+    /* the coach's moves go from every menu (send, schedule, run-in, rules, assign, open a copy for a lifter) */
+    var COACH_ONLY = /^(sendch|send1|sendall|sched|rules|assign|copy|start|next)$|^runin-/;
+    function soloItems(items) {
+      var out = [];
+      (items || []).forEach(function (x) {
+        if (!x) return;
+        if (x.id && COACH_ONLY.test(x.id)) return;
+        if (x.subs) { var y = {}; for (var k in x) y[k] = x[k]; y.subs = soloItems(x.subs); if (!y.subs.length) return; x = y; }
+        if (x.sep && (!out.length || out[out.length - 1].sep)) return;
+        out.push(x);
+      });
+      while (out.length && out[out.length - 1].sep) out.pop();
+      return out;
+    }
+    var menu0 = menu;
+    menu = function (btn, items, o) { return menu0(btn, soloItems(items), o); };
+    /* a card's "…" in the library */
+    cardMenu = function (key, btn) {
+      var c = CARDS[key]; if (!c) return;
+      var items = [{ id: 'open', label: 'Open', key: '↵', run: function () { openCard(key); } }];
+      if (c.kind === 'prog') {
+        var t = c.t, b = progBlockFor(t.id);
+        items.push({ id: 'use', label: 'Start a block from this…', run: function () { soloStart('p:' + t.id); } });
+        if (b) items.push({ id: 'share', label: 'Share', subs: shareItems(b, t.name) });
+        items.push({ id: 'ren', label: 'Rename', run: function () { openProgram(t.id, { focus: false }); setTimeout(renameInPlace, 0); } });
+        items.push({ sep: true }, { id: 'del', label: 'Delete…', red: true, run: function () { deleteProgram(t.id, btn.isConnected ? btn : $('[data-card="' + cssq(key) + '"] [data-card-menu]')); } });
+      } else if (c.kind === 'starter') {
+        var sb = starterBlockFor(c.sid);
+        items.push({ id: 'use', label: 'Start a block from this…', run: function () { soloStart('s:' + c.sid); } });
+        if (sb) items.push({ id: 'share', label: 'Share', subs: shareItems(sb, c.title) });
+      } else {
+        var lb = lifterBlockFor(SID);
+        if (lb) { items.push({ id: 'save', label: 'Save as a template…', run: function () { cur.b = cur.b || lb; saveTemplatePop(btn); } }); items.push({ id: 'share', label: 'Share', subs: shareItems(lb, lb.name) }); }
+        items.push({ id: 'new', label: 'Start a new block…', run: function () { soloStart(); } });
+      }
+      menu(btn, items, { title: c.title, label: c.title + ' menu' });
+    };
+    openCard = function (key) {
+      var c = CARDS[key]; st.libKey = key;
+      if (c && c.kind === 'prog') return openProgram(c.tid);
+      if (c && c.kind === 'starter') return openProgram(c.sid);
+      if (/^[ps]:/.test(key)) return openProgram(key.slice(2));
+      openFirst();
+    };
+    /* the library: your block, your templates, the starter programs */
+    paintQueue = function () {
+      if (st.page === 'hand') { QL.setAttribute('data-stale', ''); return; }
+      QL.removeAttribute('data-stale');
+      var qq = st.q ? st.q.toLowerCase() : '', hit = function (c) { return !qq || String(c.find || '').toLowerCase().indexOf(qq) >= 0; };
+      CARDS = {};
+      var firstKey = null, html = '';
+      var grid = function (list) { return '<div class="lib-grid" role="list">' + list.map(function (c) { CARDS[c.key] = c; if (!firstKey) firstKey = c.key; return cardHtml(c, false); }).join('') + '</div>'; };
+      var group = function (id, name, list, empty) { var shown = list.filter(hit); if (!shown.length && !empty) return ''; return '<section class="lib-g" data-group="' + id + '" aria-label="' + esc(name) + '"><h2 class="lib-gh"><span class="lib-gt">' + esc(name) + '<span class="n">' + shown.length + '</span></span></h2>' + (shown.length ? grid(shown) : empty) + '</section>'; };
+      var b = lifterBlockFor(SID), mine = templates().filter(function (t) { return t.mine; });
+      var useAct = function (k) { return { label: 'Start a block from this', btn: 'data-solo-use="' + esc(k) + '"', quiet: true }; };
+      var cards = [];
+      if (b) {
+        var ls0 = lifterStates(SID, b), i = nowIdx(b), fin = finished(b);
+        cards.push({ key: 'me', kind: 'me', title: b.name, sub: plural(b.weeks.length, 'week') + ' · ' + plural(daysOfBlock(b), 'day') + ' a week', face: PROG_MARK,
+          status: fin ? { text: 'Finished', tone: 'gold' } : { text: 'Your block', tone: 'up' }, what: fin ? 'Every week lifted. Start your next block.' : 'Week ' + (b.weeks[i].n || i + 1) + ' of ' + b.weeks.length,
+          mini: miniHtml(b, ls0.states.map(function (x) { return x === 'sent' || x === 'draft' ? 'written' : x; }), ls0.now), where: fin ? 'Finished' : 'Week ' + (b.weeks[i].n || i + 1) + ' of ' + b.weeks.length, where2: plural(daysOfBlock(b), 'day') + ' a week',
+          act: { label: 'Open' }, label: b.name + ', your block', find: [b.name, exNames(b).join(' ')].join(' ') });
+      }
+      var tcards = mine.map(function (t) { var c = progCard(t); c.sub = plural(t.weeks, 'week') + ' · ' + plural(t.perWeek || (t.days || []).length, 'day') + ' a week'; c.status = { text: 'Template', tone: '' }; c.what = edAgo(t.id) || 'Every week written'; c.act = useAct('p:' + t.id); c.label = t.name + ', your template, ' + c.sub; return c; });
+      var scards = starters().map(function (s) { var c = starterCard(s); c.act = useAct('s:' + s.id); return c; });
+      html += '<div class="lib-h"><h1 class="lib-t" id="lib-ttl">Library</h1><p class="lib-sum">' + esc((b ? 'Your block' : 'No block yet') + ' · ' + plural(mine.length, 'template') + ' of your own · ' + plural(scards.length, 'starter program')) + '</p></div>';
+      html += '<div class="lib-bar"><label class="field lib-q">' + K.ic('find', 2) + '<input type="search" id="ql-q" placeholder="Search your templates and exercises" aria-label="Search your templates and exercises" value="' + esc(st.q) + '" autocomplete="off"></label>' +
+        '<button class="btn quiet lib-imp" type="button" data-import title="Paste rows, a file, or a Google Sheets link">Import…</button></div>';
+      if (cards.length) html += group('me', 'Your block', cards);
+      html += group('mine', 'Your templates', tcards, qq ? '' : '<p class="lib-empty">Save your block as a template from its “…” menu, and it waits here to start a block from.</p>');
+      html += group('starters', 'Starter programs', scards);
+      if (qq && !Object.keys(CARDS).length) html += '<p class="lib-empty">Nothing called “' + esc(st.q) + '”. <button class="link" type="button" data-q-clear>Show everything</button></p>';
+      keepSearch(function () { QL.innerHTML = '<div class="lib">' + html + '</div>'; });
+      var on = (st.libKey && CARDS[st.libKey] ? st.libKey : null) || firstKey;
+      var el = on ? QL.querySelector('[data-card="' + cssq(on) + '"]') : null; if (el) el.setAttribute('tabindex', '0');
+    };
+    /* ---------------- a new block: repeat this one, a starter, one of your templates, or blank ---------------- */
+    function curMaxes(b) { var l = Kl(SID) || {}, o = {}; LIFTS.forEach(function (k) { var v = b && b.maxes ? b.maxes[k] : null; if (!isNum(v) || !v) { var e = l.lifts && l.lifts[k] && l.lifts[k].e1; v = isNum(e) && e ? BL.math.round(e, 2.5) : null; } o[k] = v; }); return o; }
+    function soloStart(pick) {
+      var b0 = blockOf(SID), has = !!(b0 && you() && you().program), opts = [];
+      if (has) opts.push({ id: 'repeat', label: 'Repeat ' + b0.name, sub: plural(b0.weeks.length, 'week') + ', ' + plural(daysOfBlock(b0), 'day') + ' a week, its weekly steps, from the maxes it ends on' });
+      var mineOpts = templates().filter(function (t) { return t.mine; }).map(function (t) { return { id: 'p:' + t.id, tid: t.id, group: 'Your templates', label: t.name, sub: plural(t.weeks, 'week') + ', ' + plural(t.perWeek || (t.days || []).length, 'day') + ' a week' }; });
+      /* a block under way: yours first (repeat it, or one of your templates); a first block: the starters first */
+      if (has) opts = opts.concat(mineOpts);
+      starters().forEach(function (s) {
+        var per = (s.perWeek || [3]).slice(-1)[0], f = starterFit(SID, s.id, per), m = f ? f.meta || {} : {};
+        opts.push({ id: 's:' + s.id, sid: s.id, per: per, group: 'Starter programs', label: s.name, sub: (m.disabled ? m.disabled : plural(isNum(m.weeks) ? m.weeks : s.weeks === 'fit' ? 13 : s.weeks || 8, 'week') + ', ' + plural(per, 'day') + ' a week'), for: s.for, how: s.how, disabled: m.disabled || null, kinds: m.kinds || null, weeks: m.weeks, starter: s });
+      });
+      if (!has) opts = opts.concat(mineOpts);
+      opts.push({ id: 'blank', group: 'Write it yourself', label: 'Blank', sub: '4 empty weeks, 3 days a week: write every line yourself' });
+      var first = pick && opts.some(function (o) { return o.id === pick && !o.disabled; }) ? pick : (opts.filter(function (o) { return !o.disabled; })[0] || { id: 'blank' }).id;
+      opts.forEach(function (o) { o.rec = !pick && o.id === first; });
+      setCur({ kind: 'start', id: SID, l: you(), b0: b0, start: { kind: has ? 'next' : 'first', has: has, opts: opts, pick: first, maxes: curMaxes(b0), typed: {}, lifts: 'recent', starts: TODAY, days: null, rec: null } });
+      paintAll();
+    }
+    paintStart = function () {
+      var s = cur.start, pick = s.opts.filter(function (o) { return o.id === s.pick; })[0] || null, m = s.maxes || {};
+      var opt = function (o) { return '<button class="sp-o" type="button" role="radio" data-start-opt="' + esc(o.id) + '" aria-checked="' + (s.pick === o.id) + '"' + (o.disabled ? ' aria-disabled="true" title="' + esc(o.disabled) + '"' : '') + '><i class="rd" aria-hidden="true"></i><span class="t"><b>' + esc(o.label) + (o.rec ? '<span class="rec">Recommended</span>' : '') + '</b><small>' + esc(o.sub || '') + '</small></span></button>'; };
+      var optsHtml = '', lastGroup = null;
+      s.opts.forEach(function (o) { if (o.group && o.group !== lastGroup) optsHtml += '<p class="sp-sub">' + esc(o.group) + '</p>'; lastGroup = o.group || null; optsHtml += opt(o); });
+      var about = pick && pick.starter ? '<div class="sp-about"><span class="k">For</span><span class="v">' + esc(pick.for || '') + '</span><span class="k">How it moves</span><span class="v">' + esc(pick.how || '') + '</span></div>' +
+        (fn(DESK, 'phaseStrip') && pick.starter.phases ? '<div class="sp-ph">' + DESK.phaseStrip(pick.kinds && pick.kinds.length ? pick.kinds : pick.starter.phases, { weeks: isNum(pick.weeks) ? pick.weeks : undefined }) + '</div>' : '') : '';
+      var mx = LIFTS.map(function (k) { return '<span class="mx" data-lift="' + k + '">' + LIFT[k] + ' ' + (m[k] != null ? nf(m[k]) : 'not set') + '</span>'; }).join('');
+      var kv = '<span class="k"><span data-term="max">Training maxes</span></span><span class="v">' + mx + '</span>';
+      var mk = pick && !pick.disabled ? '<p class="sp-make" data-crop="make"><span class="k">Starting makes</span><b>' + esc(pick.label) + '</b>' + esc((pick.sub ? ', ' + low1(pick.sub) : '') + '. Loads come from your training maxes.' + (s.has ? ' It takes the place of ' + (cur.b0 ? cur.b0.name : 'your block') + '; every set you logged stays in your history.' : '')) + '</p>' : '';
+      var hd = '<div class="hd" id="hd" data-crop="header"><div class="hd-top"><div class="hd-id"><h1 id="ttl">' + esc(s.has ? 'Your next block' : 'Your first block') + '</h1><p class="facts"><span>' + esc(s.has ? (cur.b0 ? cur.b0.name + ' ' + (finished(cur.b0) ? 'is finished' : 'is under way') : '') : 'No program yet') + '</span></p></div></div></div>';
+      PD.innerHTML = hd + '<div class="sp"><div class="card sp-c is-first" data-crop="start"><h2>' + esc(s.has ? 'Start a new block from' : 'Start from') + '</h2><div class="sp-opts is-two" role="radiogroup" aria-label="Start from">' + optsHtml + '</div>' +
+        '<p class="sp-sub sp-imp"><button class="link" type="button" data-import>Or import one from a spreadsheet…</button></p>' + about + '<div class="sp-kv">' + kv + '</div>' + mk + '</div></div>';
+    };
+    pickDays = function () { cur.start.days = null; };
+    function soloStartNow(btn) {
+      var s = cur.start, pick = s.opts.filter(function (o) { return o.id === s.pick; })[0];
+      if (!pick || pick.disabled) { DESK.toast(pick && pick.disabled ? pick.disabled : 'Pick how it starts.'); return; }
+      var m = s.maxes || {}, j = null, name = pick.label;
+      try {
+        if (pick.id === 'repeat') { j = BL.asTemplate(cur.b0, { name: cur.b0.name }); name = cur.b0.name; }
+        else if (pick.sid) { var f = starterFit(SID, pick.sid, pick.per); j = f && f.data ? JSON.parse(JSON.stringify(f.data)) : starterJson(pick.sid); }
+        else if (pick.tid) { j = tplJson(pick.tid); }
+        else { var bb = BL.blank(Kl(SID), { days: 3, name: 'My block' }); for (var k = 1; k < 4; k++) bb.addWeek(); j = bb.toJSON(); name = 'My block'; }
+      } catch (e) { j = null; }
+      if (!j || !Array.isArray(j.weeks) || !j.weeks.length) { DESK.toast('That program cannot be read.'); return; }
+      j = JSON.parse(JSON.stringify(j)); j.id = SID; j.name = name; j.maxes = {}; j.maxFrom = {};
+      LIFTS.forEach(function (k) { j.maxes[k] = isNum(m[k]) ? m[k] : null; j.maxFrom[k] = isNum(m[k]) ? 'typed' : null; });
+      (j.weeks || []).forEach(function (w, i) { w.state = 'next'; w.sent = false; w.n = i + 1; });
+      var go = function () { var r = SOLO.replace(j, name); if (r && r.error) DESK.toast(r.error); };
+      if (!s.has) { go(); return; }
+      var anchor = btn && btn.nodeType === 1 ? btn : $('[data-primary]');
+      var el = DESK.pop.open(anchor, '<h3>' + esc('Start ' + name + ' now?') + '</h3><p class="pop-p">' + esc('It takes the place of ' + (cur.b0 ? cur.b0.name : 'your block') + '. Every set you logged stays in your history and your Progress.') + '</p><div class="acts"><button class="btn sm" type="button" data-solo-go>Start it</button><button class="btn quiet sm" type="button" data-pop-close>Keep my block</button></div>', { label: 'Start ' + name + ' now?', focus: '[data-solo-go]' });
+      el.addEventListener('click', function (e) { if (e.target.closest('[data-solo-go]')) { DESK.pop.close(); go(); } if (e.target.closest('[data-pop-close]')) DESK.pop.close(); });
+    }
+    /* the keys and ⌘K: a lifter's own */
+    setKeys = function () {
+      var both = [['⌥→ ⌥←', 'Next week, previous week'], ['⌥⇧↑ ⌥⇧↓', 'Move the line up or down'], ['⇧⌘Z', 'Redo'], ['⌥1 ⌥2 ⌥3', 'Simple, Week sheet, Block sheet']];
+      if (isSimple()) DESK.keyMap(both.concat([['Tab, ⇧Tab', 'Next field, the one before'], ['Enter', 'Save, and the same field one line down'], ['↑ ↓', 'One more or less on a number'], ['⌘D', 'Duplicate the line'], ['Right-click, ⇧F10', 'The line’s menu'], ['Esc', 'Put back what was there']]));
+      else DESK.keyMap(both.concat([['Tab, ⇧Tab', 'Next cell, previous cell'], ['Enter', 'Edit the cell; save and go down'], ['F2', 'Edit, keeping the text'], ['⌘D', 'Fill down'], ['⌘C ⌘X ⌘V', 'Copy, cut, paste'], ['⇧F10', 'The line’s menu'], ['Esc', 'Cancel the edit']]));
+    };
+    setActions = function () {
+      var acts = [];
+      if (cur && cur.b && cur.id) {
+        acts.push({ title: isSimple() ? 'Write in the Week sheet' : 'Write in Simple', run: function () { setLook(isSimple() ? 'week' : 'simple'); } });
+        acts.push({ title: 'Show the whole block', run: function () { setLook('block'); } });
+        acts.push({ title: 'Save your block as a template', run: function () { saveTemplatePop($('[data-prog-menu]')); } });
+        acts.push({ title: 'Export the block as CSV', run: function () { exportCSV(false); } });
+      }
+      acts.push({ title: 'Start a new block', run: function () { soloStart(); } });
+      acts.push({ title: 'Import a sheet', run: function () { importSheet(); } });
+      templates().forEach(function (t) { if (t.mine) acts.push({ title: 'Open ' + t.name, run: function () { openProgram(t.id); } }); });
+      DESK.actions(acts);
+    };
+    /* the solo buttons */
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-solo-use]'); if (b) { e.stopPropagation(); soloStart(b.getAttribute('data-solo-use')); return; }
+      if ((b = e.target.closest('[data-solo-rename]'))) { renameBlock(); return; }
+    }, true);
+    /* the address: your block's week, a template, a start, or the library (#lib=1, so Back from a template lands there) */
+    syncHash = function () {
+      var h = {};
+      if (cur && cur.kind === 'tpl' && cur.tpl) { h.prog = cur.tpl.id; if (!isSimple()) h.view = st.view === 'block' ? 'block' : 'week'; }
+      else if (cur && cur.kind === 'start') h.start = '1';
+      else if (cur && cur.id && cur.b) { h.id = cur.id; h.week = cur.b.weeks[cur.c] ? cur.b.weeks[cur.c].n || cur.c + 1 : cur.c + 1; if (!isSimple()) h.view = st.view === 'block' ? 'block' : 'week'; }
+      else h.lib = '1';
+      var push = st.synced === 'queue' && st.page === 'hand';
+      DESK.url.set(h, push);
+      if (push) st.pushed = true; else if (st.page === 'queue') st.pushed = false;
+      st.synced = st.page;
+    };
+    route = function () { var h = readHash(); if (h.view === 'block' || h.view === 'week') { st.view = h.view; st.mode = 'advanced'; } if (h.prog) { openProgram(h.prog); return; } if (h.lib) { openQueue(); return; } if (h.start) { soloStart(); return; } if (h.id && h.week) { openWeek(SID, Number(h.week)); return; } openFirst(); };
+  })();
   route();
 
   /* ================= the gate's states (tools/qa/states/programs.json) ================= */
@@ -4475,6 +4774,6 @@
 })();
 </script>
 <script src="../kit/glassdash/glassdash.js"></script>
-<script src="/demo-tour.js" defer></script>
+<script>/* the desk tour, never inside the lifter's own editor (?solo=1) */ if (!document.documentElement.classList.contains('solo')) document.write('<script src="/demo-tour.js" defer><\/script>');</script>
 </body>
 </html>

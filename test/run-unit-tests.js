@@ -222,6 +222,8 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   (fs.existsSync(path.join(ROOT, 'coach-program.js')) ? fs.readFileSync(path.join(ROOT, 'coach-program.js'), 'utf8') : '') + '\n;\n' +
   // THE DESK'S PROGRAM EDITOR: the week as a program, its edits, drafts, the team adapter (tests.html "desk program (desk-program.js)")
   (fs.existsSync(path.join(ROOT, 'desk-program.js')) ? fs.readFileSync(path.join(ROOT, 'desk-program.js'), 'utf8') : '') + '\n;\n' +
+  // PROGRAM BUILDER: the solo lifter's editor on a laptop, its pure round trip (tests.html "lifter program (lifter-program.js)")
+  (fs.existsSync(path.join(ROOT, 'lifter-program.js')) ? fs.readFileSync(path.join(ROOT, 'lifter-program.js'), 'utf8') : '') + '\n;\n' +
   // ALLOW NOTIFICATIONS: when to ask, what to say, what the device can do, the demo card (tests.html "allow notifications (notify.js)")
   (fs.existsSync(path.join(ROOT, 'notify.js')) ? fs.readFileSync(path.join(ROOT, 'notify.js'), 'utf8') : '') + '\n;\n' +
   // YOU AND THE FIRST RUN: Your plan's numbers and its status line (tests.html "you and the first run (coach-you.js)")

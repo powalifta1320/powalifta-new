@@ -29,6 +29,7 @@
 <link rel="stylesheet" href="challenges.css"><!-- COACH CHALLENGES: the coach's challenge at the top of Club (challenges.js) -->
 <link rel="stylesheet" href="notify.css"><!-- ALLOW NOTIFICATIONS: the card after a finished session (notify.js) -->
 <link rel="stylesheet" href="feedback.css"><!-- FEEDBACK: the idea / problem sheet (feedback.js) -->
+<link rel="stylesheet" href="lifter-program.css"><!-- PROGRAM BUILDER on a laptop: the coach desk's editor in solo mode (lifter-program.js) -->
 <!-- THE GLASS LOOK (26 Nov): the dark theme as glass, laptop and phone (lifter-glass.css; html.lg, set here before the
      first paint when the theme is dark, kept in step with the theme switch by lifter-glass.js) -->
 <script>if(document.documentElement.getAttribute('data-theme')!=='light')document.documentElement.classList.add('lg');</script>
@@ -355,6 +356,7 @@
 <script src="health.js"></script>
 <script src="qr.js"></script>
 <script src="clubs.js"></script>
+<script src="lifter-program.js"></script><!-- PROGRAM BUILDER on a laptop (self-coached only): the coach desk's Programs editor, solo, in #pane-program (LifterProgram) -->
 <script src="challenges.js"></script><!-- COACH CHALLENGES: your coach's challenge at the top of Club and its board (window.Challenges) -->
 <script src="switch-kit.js"></script><!-- SWITCH KIT hook: export everything -->
 <script src="video-review.js"></script><!-- VIDEO REVIEW hook: the coach's drawings replayed on a form check -->
@@ -8217,6 +8219,8 @@ window.exportProgramAsImage = exportProgramAsImage;
 function renderProgramTab() {
   if (user.coachId) {
     renderFullProgram();
+  } else if (window.LifterProgram && LifterProgram.mount()) {
+    // A laptop: the coach desk's Programs editor, solo (lifter-program.js). The phone and the app keep the builder below.
   } else {
     renderSelfBuilder();
   }

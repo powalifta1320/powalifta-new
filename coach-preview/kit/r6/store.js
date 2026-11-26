@@ -149,9 +149,10 @@
   /* the set keys a draft week carries into the program (declared here: the replay at load reads it through weekFromDraft,
      and a template start replayed before this was set lost the coach's block on every reload) */
   var SET_KEYS = ['rHi', 'amrap', 'pct', 'pctHi', 'rpe', 'rpeHi', 'rir', 'off', 'until', 'wHi', 'tempo', 'pause'];
+  /* 26 Nov (solo): the lifter's own editor (kit/r6/solo.js, D.solo) keeps its keys under pl:v1s:, apart from both desks. */
   /* spec C (first-time-coach.md §2.3): each desk keeps its own keys. The fresh desk (data.js D.fresh, ?fresh=1) writes under
      pl:v1f:, the showcase under pl:v1:; ?reset=1 clears only the desk it is on (neither prefix starts with the other) */
-  var PFX = D.fresh ? 'pl:v1f:' : 'pl:v1:', KEY_DONE = PFX + 'done', KEY_EDITS = PFX + 'edits', KEY_BLOCK = PFX + 'blocks:', KEY_UNDO = PFX + 'undo:';
+  var PFX = D.solo ? 'pl:v1s:' : D.fresh ? 'pl:v1f:' : 'pl:v1:', KEY_DONE = PFX + 'done', KEY_EDITS = PFX + 'edits', KEY_BLOCK = PFX + 'blocks:', KEY_UNDO = PFX + 'undo:';
   var n = K.n, TODAY = K.today, TODAY0 = K.today;
   /* block.js, when the page has it; read at call time (programs.html loads it after this file) */
   function BLK() { var b = W.BLOCK; return b && b.__block && typeof b.from === 'function' ? b : null; }
@@ -2344,6 +2345,7 @@
      day's weekday (Nina: Mon 9, Wed 11, Fri 13) */
   function dayDateOf(l, wi, name) {
     var p = l && l.program; if (!p) return null;
+    if (D.solo) return null;   /* 26 Nov (solo): a lifter's own sessions have no dates the app gave them; none are made up here */
     var w = p.weeks[wi], d = w ? w.days.filter(function (x) { return x.name === name; })[0] : null;
     if (d && d.date) return day10(d.date);
     /* LOGIC-FIX-4 (walk 2, Tomas: week 2's deadlift and week 3's squat both on Wed 11): a week with no dates of its own keeps
