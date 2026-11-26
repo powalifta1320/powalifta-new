@@ -130,9 +130,7 @@ html.gd body[data-place='meets'] .ml, html.gd body[data-place='messages'] .ml {
   bottom: var(--inset); border-bottom-left-radius: calc(var(--gd-r) - var(--inset));
 }
 html.gd .insp { top: var(--inset); right: var(--inset); bottom: var(--inset); border-radius: 0 var(--gd-r) var(--gd-r) 0; }
-/* the detail beside a list (Lifters, Teams, Meets) ends where the band's controls end: it reached 16 px further, so its
-   cards sat 8 px from the window's right edge and out of line with the crimson above them */
-html.gd body[data-place='lifters'] .ld, html.gd body[data-place='teams'] .td, html.gd body[data-place='meets'] .md { margin-right: 0; }
+/* (the detail beside a list now ends level with the band's controls in both looks: the pages' own .ld / .td / .md) */
 
 /* ================= the sidebar: a thin strip of darker glass beside the window ================= */
 html.gd .side {

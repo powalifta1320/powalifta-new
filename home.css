@@ -396,8 +396,11 @@ html.m .tl-bub img { width: 100%; aspect-ratio: 393 / 852; }
 .tap { position: absolute; left: 42.313%; top: 68.550%; width: 6.716%; height: 3.838%; border-radius: calc(8 / 13.4 * 1cqw); box-shadow: 0 0 0 2px rgba(244, 244, 246, 0.85); opacity: 0; pointer-events: none; }
 /* The sheet's own action (the crimson primary in its top bar, left out of the picture), drawn by the page so one crimson
    per screen holds: Send 4 changes to Marcus, where the sheet has it, in its type (15 px, 600, a 36 px pill). */
-.pub { position: absolute; right: 1.194%; top: 0.853%; width: 15.910%; height: calc(40 / 13.4 * 1cqw); display: inline-flex; align-items: center; justify-content: center; padding: 0 calc(16 / 13.4 * 1cqw); border-radius: 999px;
+.pub { position: absolute; right: 1.194%; top: 1.706%; width: 15.910%; height: calc(40 / 13.4 * 1cqw); display: inline-flex; align-items: center; justify-content: center; padding: 0 calc(16 / 13.4 * 1cqw); border-radius: 999px;
   color: #fff; font-size: calc(15 / 13.4 * 1cqw); font-weight: 600; white-space: nowrap; isolation: isolate; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45)); }
+/* The coach website's dark look sits its toolbar's controls 8 px inside its glass window (26 Nov): in the dark pictures the
+   Send button and Lifters' counter are 8 px lower than in the light ones (top 1.706% here, 0.853% in light; 14 px, 6 px). */
+.fw-desk img.was-pos { top: 14px; }
 .pub::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(180deg, var(--act-top), var(--act-bot)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2); }
 
 /* =====================================================================
@@ -955,6 +958,8 @@ body.home .foot { padding: 48px 0 32px; }
    loads there, and every rule is scoped to html:not(.native) besides.
    ===================================================================== */
 @media (prefers-color-scheme: light) {
+  html:not(.native) .pub { top: 0.853%; }
+  html:not(.native) .fw-desk img.was-pos { top: 6px; }
   :root:not(.native) {
     --sq: #0a86c9; --be: #6a4fe0; --dl: #a86f00; --c-gold: #8a5a00;   /* the app's light lift colours (liftColors); the desk's PR gold */
     --c-green: #0f7d47; --up: #0f7d47;

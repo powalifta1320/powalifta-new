@@ -75,7 +75,8 @@
   .lr .done-row { grid-area: r; }
 
   /* the detail */
-  .td { min-width: 0; margin-left: calc(var(--list-w) + var(--sp-6)); margin-right: calc(var(--sp-4) - var(--gutter)); padding-left: var(--sp-4); }
+  /* the detail ends where the toolbar's controls end (26 Nov polish: it reached 16 px past them) */
+  .td { min-width: 0; margin-left: calc(var(--list-w) + var(--sp-6)); margin-right: 0; padding-left: var(--sp-4); }
   .td-fade { position: fixed; z-index: var(--z-edge); top: calc(var(--inset) + var(--tb-h)); left: calc(var(--col-l) + var(--list-w) + var(--sp-6)); right: 0; height: var(--sp-5); pointer-events: none; background: linear-gradient(var(--floor), transparent); opacity: 0; }
   body.is-scrolled .td-fade { opacity: 1; }
   .tt { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-5); margin: 0 var(--sp-1) var(--sp-4); min-width: 0; }

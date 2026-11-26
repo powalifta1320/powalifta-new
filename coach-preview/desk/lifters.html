@@ -121,7 +121,8 @@
   .ll-multi .btn { padding: 0 var(--sp-3); }
 
   /* the detail */
-  .ld { min-width: 0; margin-left: calc(var(--list-w) + var(--sp-6)); margin-right: calc(var(--sp-4) - var(--gutter)); padding-left: var(--sp-4); }
+  /* the detail ends where the toolbar's controls end (26 Nov polish: it reached 16 px past them) */
+  .ld { min-width: 0; margin-left: calc(var(--list-w) + var(--sp-6)); margin-right: 0; padding-left: var(--sp-4); }
   body.no-list .ld, body.is-table .ld { margin-left: 0; padding-left: 0; margin-right: 0; }
   .ld > * + * { margin-top: var(--sp-6); }
   .pnl > * + * { margin-top: var(--sp-9); }

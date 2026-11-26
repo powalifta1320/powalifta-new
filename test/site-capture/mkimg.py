@@ -209,7 +209,9 @@ if 'desk2' in what:
     ovB = Image.open(CAP + 'desk2-ov-before.png').convert('RGB'); ovA = Image.open(CAP + 'desk2-ov-after.png').convert('RGB')
     siB = Image.open(CAP + 'desk2-since-before.png').convert('RGB'); siA = Image.open(CAP + 'desk2-since-after.png').convert('RGB')
     def only_in(a, b, boxes, what_):   # every pixel that differs lies in one of the boxes (desk px)
-        d = ImageChops.difference(a, b)
+        # A difference of 2 levels or less is not a difference: the dark look's frosted sidebar picks up the list beside
+        # it through its blur (26 Nov: at most 2 of 255 when Arjun's row lands), which no eye sees and no layer can hide.
+        d = ImageChops.difference(a, b).point(lambda v: 0 if v <= 2 else 255)
         for x, y, w, h in boxes: d.paste((0, 0, 0), (round(x * 2), round(y * 2), round((x + w) * 2), round((y + h) * 2)))
         bb = d.getbbox()
         if bb: raise SystemExit('mkimg: %s differ outside the patches, at desk px %s' % (what_, [v / 2 for v in bb]))

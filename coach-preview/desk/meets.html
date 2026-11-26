@@ -63,7 +63,8 @@
   .mr .w.tone-warn { color: var(--warn); }
 
   /* ---- the detail: 812 px at 1440, 696 at 1280, 16 px right of the list's line ---- */
-  .md { min-width: 0; margin-left: calc(var(--list-w) + var(--sp-6)); margin-right: calc(var(--sp-4) - var(--gutter)); padding-left: var(--sp-4); }
+  /* the detail ends where the toolbar's controls end (26 Nov polish: it reached 16 px past them) */
+  .md { min-width: 0; margin-left: calc(var(--list-w) + var(--sp-6)); margin-right: 0; padding-left: var(--sp-4); }
   .md > * + * { margin-top: var(--sp-6); }
   .md-fade { position: fixed; z-index: var(--z-edge); top: calc(var(--inset) + var(--tb-h)); left: calc(var(--col-l) + var(--list-w) + var(--sp-6)); right: 0; height: var(--sp-5); pointer-events: none; background: linear-gradient(var(--floor), transparent); opacity: 0; }
   body.is-scrolled .md-fade { opacity: 1; }

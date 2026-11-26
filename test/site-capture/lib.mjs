@@ -100,6 +100,8 @@ export async function kitCtx(browser, { dpr = 2, w = 1440, h = 900, theme = THEM
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: dpr, colorScheme: theme, serviceWorkers: 'block' });
   await guard(ctx);
   await ctx.addInitScript(() => { document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.textContent = '::-webkit-scrollbar{display:none} *{scrollbar-width:none}'; document.head.appendChild(s); }); });
+  // The demo's guided tour (demo-tour.js) starts by itself on a first visit: marked as seen, so it never lands in a picture.
+  await ctx.addInitScript(() => { try { localStorage.setItem('powa-demo-tour-seen-desk', '1'); } catch (e) {} });
   return ctx;
 }
 // Opens one of the new site's pages (name: overview, lifters, programs, clients; hash: its own route) and waits for its

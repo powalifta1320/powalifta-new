@@ -63,7 +63,7 @@
   var light = !!(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches), img = light ? '/site-img/home-light/' : '/site-img/home/';
   var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', light ? '#f4f4f6' : '#0b0b0c');
   document.write('<link rel="preload" href="/fonts/archivo-tw.woff2" as="font" type="font/woff2" crossorigin>' +
-    '<link rel="preload" as="image" type="image/avif" imagesrcset="' + img + 'desk3-before-960.avif 960w, ' + img + 'desk3-before-1440.avif 1440w, ' + img + 'desk3-before-1920.avif 1920w" imagesizes="(min-width: 1100px) 49vw, 92vw" media="(min-width: 760px)" fetchpriority="high">' +
+    '<link rel="preload" as="image" type="image/avif" imagesrcset="' + img + 'desk4-before-960.avif 960w, ' + img + 'desk4-before-1440.avif 1440w, ' + img + 'desk4-before-1920.avif 1920w" imagesizes="(min-width: 1100px) 49vw, 92vw" media="(min-width: 760px)" fetchpriority="high">' +
     '<link rel="preload" as="image" type="image/avif" imagesrcset="' + img + 'lifter-train-590.avif 590w, ' + img + 'lifter-train-786.avif 786w, ' + img + 'lifter-train-1179.avif 1179w" imagesizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" fetchpriority="high">' +
     '<link rel="stylesheet" href="/site.css"><link rel="stylesheet" href="/home.css">' +
     '<script defer src="/home.js"><\/script>');
@@ -129,7 +129,7 @@
       "installUrl": "https://apps.apple.com/app/powalifta/id6788506689",
       "image": "https://www.powalifta.com/og-home.jpg",
       "screenshot": [
-        "https://www.powalifta.com/site-img/home/desk3-before-1920.webp",
+        "https://www.powalifta.com/site-img/home/desk4-before-1920.webp",
         "https://www.powalifta.com/site-img/home/lifter-train-1179.webp",
         "https://www.powalifta.com/site-img/home/thread2-1179.webp"
       ],
@@ -312,14 +312,14 @@
           <div class="lt-base" aria-hidden="true"></div>
           <picture class="lt-screen" id="ltScreen">
             <source media="(max-width: 759px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
-            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk3-before-960.avif 960w, /site-img/home-light/desk3-before-1440.avif 1440w, /site-img/home-light/desk3-before-1920.avif 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
-            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk3-before-960.webp 960w, /site-img/home-light/desk3-before-1440.webp 1440w, /site-img/home-light/desk3-before-1920.webp 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
-            <source type="image/avif" srcset="/site-img/home/desk3-before-960.avif 960w, /site-img/home/desk3-before-1440.avif 1440w, /site-img/home/desk3-before-1920.avif 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
-            <img src="/site-img/home/desk3-before-1440.webp" srcset="/site-img/home/desk3-before-960.webp 960w, /site-img/home/desk3-before-1440.webp 1440w, /site-img/home/desk3-before-1920.webp 1920w" sizes="(min-width: 1100px) 49vw, 92vw" width="1440" height="900" fetchpriority="high" loading="lazy" decoding="async"
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk4-before-960.avif 960w, /site-img/home-light/desk4-before-1440.avif 1440w, /site-img/home-light/desk4-before-1920.avif 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk4-before-960.webp 960w, /site-img/home-light/desk4-before-1440.webp 1440w, /site-img/home-light/desk4-before-1920.webp 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
+            <source type="image/avif" srcset="/site-img/home/desk4-before-960.avif 960w, /site-img/home/desk4-before-1440.avif 1440w, /site-img/home/desk4-before-1920.avif 1920w" sizes="(min-width: 1100px) 49vw, 92vw">
+            <img src="/site-img/home/desk4-before-1440.webp" srcset="/site-img/home/desk4-before-960.webp 960w, /site-img/home/desk4-before-1440.webp 1440w, /site-img/home/desk4-before-1920.webp 1920w" sizes="(min-width: 1100px) 49vw, 92vw" width="1440" height="900" fetchpriority="high" loading="lazy" decoding="async"
               alt="The coach website on Sam’s laptop, the Overview: Tuesday 10 November, 11 need you. Five charts for the whole roster: training, 7 of 52 sessions this week; strength, up 2.9% on average in 4 weeks; effort, 99% felt as written; health, 2 in pain; 6 meets in the next 8 weeks. Under them Needs you, a table of lifter, why now and next step: Priya Shah, pain on today’s check-in; Sarah Kim, low back 6 of 10 on deadlift; Mei Tanaka, left knee tight on squats; Tom Boyle, 0.3 kg over; Nina Petrova, can only train Thursday and Saturday; Elena Rossi, 1.4 kg over the 57 kg class; Marcus Doyle, bench felt 9.5, not 8. Beside it, Today and Messages.">
           </picture>
           <div class="lt-live" id="ltLive" aria-hidden="true">
-            <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk3-now.webp"><img class="now" src="/site-img/home/desk3-now.webp" style="left:366.4em;top:166.4em;width:258.4em;height:216.2em" alt="" loading="lazy" decoding="async"></picture>
+            <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk4-now.webp"><img class="now" src="/site-img/home/desk4-now.webp" style="left:366.4em;top:166.4em;width:258.4em;height:216.2em" alt="" loading="lazy" decoding="async"></picture>
             <svg class="ring" style="left:366.4em;top:166.4em;width:258.4em;height:216.2em" viewBox="0 0 258.4 216.2" preserveAspectRatio="none"><rect x="1" y="1" width="256.4" height="214.2" rx="14" ry="14" pathLength="100"/></svg>
           </div>
         </div>
@@ -395,10 +395,10 @@
       <figure class="fw fw-a" id="fwA">
         <div class="fw-port">
           <picture class="fw-still">
-            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk3-win-756.avif 756w, /site-img/home-light/desk3-win-1512.avif 1512w" sizes="(min-width: 760px) 756px, 92vw">
-            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk3-win-756.webp 756w, /site-img/home-light/desk3-win-1512.webp 1512w" sizes="(min-width: 760px) 756px, 92vw">
-            <source type="image/avif" srcset="/site-img/home/desk3-win-756.avif 756w, /site-img/home/desk3-win-1512.avif 1512w" sizes="(min-width: 760px) 756px, 92vw">
-            <img src="/site-img/home/desk3-win-756.webp" srcset="/site-img/home/desk3-win-756.webp 756w, /site-img/home/desk3-win-1512.webp 1512w" sizes="(min-width: 760px) 756px, 92vw" width="756" height="576" loading="lazy" decoding="async"
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk4-win-756.avif 756w, /site-img/home-light/desk4-win-1512.avif 1512w" sizes="(min-width: 760px) 756px, 92vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk4-win-756.webp 756w, /site-img/home-light/desk4-win-1512.webp 1512w" sizes="(min-width: 760px) 756px, 92vw">
+            <source type="image/avif" srcset="/site-img/home/desk4-win-756.avif 756w, /site-img/home/desk4-win-1512.avif 1512w" sizes="(min-width: 760px) 756px, 92vw">
+            <img src="/site-img/home/desk4-win-756.webp" srcset="/site-img/home/desk4-win-756.webp 756w, /site-img/home/desk4-win-1512.webp 1512w" sizes="(min-width: 760px) 756px, 92vw" width="756" height="576" loading="lazy" decoding="async"
               alt="The coach website on Sam’s laptop, Lifters, Trained since you looked: 9. One line a lifter, what was written, then what was lifted and how it felt: Elena Rossi, Monday Bench Day, 1 × 3 at RPE 8, 62.5 kg for 3, felt 8; Kofi Mensah, Squat Day, 150 kg for 3, felt 7; Arjun Mehta, Squat Day, written 1 × 5 at RPE 8, lifted 182.5 kg for 5, felt 8; Ines Duarte, Bench Day, 75 kg for 3, felt 8.5; Leo Grant; Dev Patel. Beside the list, Elena Rossi’s page, open: total estimated max 343.5 kg.">
           </picture>
           <!-- The live window: Sam's whole screen in desk px (Lifters, Trained since you looked, with Arjun's set in), held
@@ -409,19 +409,19 @@
           <div class="fw-live" id="fwLive" aria-hidden="true">
             <div class="fw-desk" id="fwDesk">
               <picture>
-                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk3-live-1440.avif 1440w, /site-img/home-light/desk3-live-2880.avif 2880w" sizes="1440px">
-                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk3-live-1440.webp 1440w, /site-img/home-light/desk3-live-2880.webp 2880w" sizes="1440px">
-                <source type="image/avif" srcset="/site-img/home/desk3-live-1440.avif 1440w, /site-img/home/desk3-live-2880.avif 2880w" sizes="1440px">
-                <img class="fw-base" src="/site-img/home/desk3-live-1440.webp" srcset="/site-img/home/desk3-live-1440.webp 1440w, /site-img/home/desk3-live-2880.webp 2880w" sizes="1440px" width="1440" height="900" alt="" loading="lazy" decoding="async">
+                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk4-live-1440.avif 1440w, /site-img/home-light/desk4-live-2880.avif 2880w" sizes="1440px">
+                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk4-live-1440.webp 1440w, /site-img/home-light/desk4-live-2880.webp 2880w" sizes="1440px">
+                <source type="image/avif" srcset="/site-img/home/desk4-live-1440.avif 1440w, /site-img/home/desk4-live-2880.avif 2880w" sizes="1440px">
+                <img class="fw-base" src="/site-img/home/desk4-live-1440.webp" srcset="/site-img/home/desk4-live-1440.webp 1440w, /site-img/home/desk4-live-2880.webp 2880w" sizes="1440px" width="1440" height="900" alt="" loading="lazy" decoding="async">
               </picture>
-              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk3-was-list.webp"><img class="was" src="/site-img/home/desk3-was-list.webp" style="left:72px;top:56px;width:396px;height:844px" alt="" loading="lazy" decoding="async"></picture>
-              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk3-was-pos.webp"><img class="was" src="/site-img/home/desk3-was-pos.webp" style="left:142px;top:6px;width:156px;height:44px" alt="" loading="lazy" decoding="async"></picture>
+              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk4-was-list.webp"><img class="was" src="/site-img/home/desk4-was-list.webp" style="left:72px;top:56px;width:396px;height:844px" alt="" loading="lazy" decoding="async"></picture>
+              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk4-was-pos.webp"><img class="was was-pos" src="/site-img/home/desk4-was-pos.webp" style="left:142px;width:156px;height:44px" alt="" loading="lazy" decoding="async"></picture>
               <svg class="ring" id="fwRing" style="left:92px;top:294.4px;width:355px;height:63.2px" viewBox="0 0 355 63.2" preserveAspectRatio="none"><rect x="1" y="1" width="353" height="61.2" rx="14" ry="14" pathLength="100"/></svg>
               <picture class="fw-ov" id="fwOv">
-                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk3-ov-1440.avif 1440w, /site-img/home-light/desk3-ov-2880.avif 2880w" sizes="1440px">
-                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk3-ov-1440.webp 1440w, /site-img/home-light/desk3-ov-2880.webp 2880w" sizes="1440px">
-                <source type="image/avif" srcset="/site-img/home/desk3-ov-1440.avif 1440w, /site-img/home/desk3-ov-2880.avif 2880w" sizes="1440px">
-                <img class="fw-base" src="/site-img/home/desk3-ov-1440.webp" srcset="/site-img/home/desk3-ov-1440.webp 1440w, /site-img/home/desk3-ov-2880.webp 2880w" sizes="1440px" width="1440" height="900" alt="" loading="lazy" decoding="async">
+                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/desk4-ov-1440.avif 1440w, /site-img/home-light/desk4-ov-2880.avif 2880w" sizes="1440px">
+                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/desk4-ov-1440.webp 1440w, /site-img/home-light/desk4-ov-2880.webp 2880w" sizes="1440px">
+                <source type="image/avif" srcset="/site-img/home/desk4-ov-1440.avif 1440w, /site-img/home/desk4-ov-2880.avif 2880w" sizes="1440px">
+                <img class="fw-base" src="/site-img/home/desk4-ov-1440.webp" srcset="/site-img/home/desk4-ov-1440.webp 1440w, /site-img/home/desk4-ov-2880.webp 2880w" sizes="1440px" width="1440" height="900" alt="" loading="lazy" decoding="async">
               </picture>
               <!-- The order, on the real table (with motion): a ring and a number per row, in the Overview's desk px. -->
               <span class="grp" data-mk="1" style="left:106px;top:443.6px;height:72px;--w:924px;--wp:612px"></span>
@@ -458,14 +458,14 @@
       <figure class="fw fw-b">
         <div class="fw-port fw-port-list">
           <picture>
-            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/needs3-ph-330.avif 330w, /site-img/home-light/needs3-ph-660.avif 660w, /site-img/home-light/needs3-ph-912.avif 912w" sizes="92vw" width="330" height="267">
-            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/needs3-ph-330.webp 330w, /site-img/home-light/needs3-ph-660.webp 660w, /site-img/home-light/needs3-ph-912.webp 912w" sizes="92vw" width="330" height="267">
-            <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/needs3-ph-330.avif 330w, /site-img/home/needs3-ph-660.avif 660w, /site-img/home/needs3-ph-912.avif 912w" sizes="92vw" width="330" height="267">
-            <source media="(max-width: 759px)" type="image/webp" srcset="/site-img/home/needs3-ph-330.webp 330w, /site-img/home/needs3-ph-660.webp 660w, /site-img/home/needs3-ph-912.webp 912w" sizes="92vw" width="330" height="267">
-            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/needs3-560.avif 560w, /site-img/home-light/needs3-1120.avif 1120w, /site-img/home-light/needs3-1560.avif 1560w" sizes="(min-width: 1100px) min(46vw, 560px), (min-width: 760px) 560px, 92vw">
-            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/needs3-560.webp 560w, /site-img/home-light/needs3-1120.webp 1120w, /site-img/home-light/needs3-1560.webp 1560w" sizes="(min-width: 1100px) min(46vw, 560px), (min-width: 760px) 560px, 92vw">
-            <source type="image/avif" srcset="/site-img/home/needs3-560.avif 560w, /site-img/home/needs3-1120.avif 1120w, /site-img/home/needs3-1560.avif 1560w" sizes="(min-width: 1100px) min(46vw, 560px), (min-width: 760px) 560px, 92vw">
-            <img src="/site-img/home/needs3-1120.webp" srcset="/site-img/home/needs3-560.webp 560w, /site-img/home/needs3-1120.webp 1120w, /site-img/home/needs3-1560.webp 1560w" sizes="(min-width: 1100px) min(46vw, 560px), (min-width: 760px) 560px, 92vw" width="560" height="301" loading="lazy" decoding="async"
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/needs4-ph-330.avif 330w, /site-img/home-light/needs4-ph-660.avif 660w, /site-img/home-light/needs4-ph-912.avif 912w" sizes="92vw" width="330" height="267">
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/needs4-ph-330.webp 330w, /site-img/home-light/needs4-ph-660.webp 660w, /site-img/home-light/needs4-ph-912.webp 912w" sizes="92vw" width="330" height="267">
+            <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/needs4-ph-330.avif 330w, /site-img/home/needs4-ph-660.avif 660w, /site-img/home/needs4-ph-912.avif 912w" sizes="92vw" width="330" height="267">
+            <source media="(max-width: 759px)" type="image/webp" srcset="/site-img/home/needs4-ph-330.webp 330w, /site-img/home/needs4-ph-660.webp 660w, /site-img/home/needs4-ph-912.webp 912w" sizes="92vw" width="330" height="267">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/needs4-560.avif 560w, /site-img/home-light/needs4-1120.avif 1120w, /site-img/home-light/needs4-1560.avif 1560w" sizes="(min-width: 1100px) min(46vw, 560px), (min-width: 760px) 560px, 92vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/needs4-560.webp 560w, /site-img/home-light/needs4-1120.webp 1120w, /site-img/home-light/needs4-1560.webp 1560w" sizes="(min-width: 1100px) min(46vw, 560px), (min-width: 760px) 560px, 92vw">
+            <source type="image/avif" srcset="/site-img/home/needs4-560.avif 560w, /site-img/home/needs4-1120.avif 1120w, /site-img/home/needs4-1560.avif 1560w" sizes="(min-width: 1100px) min(46vw, 560px), (min-width: 760px) 560px, 92vw">
+            <img src="/site-img/home/needs4-1120.webp" srcset="/site-img/home/needs4-560.webp 560w, /site-img/home/needs4-1120.webp 1120w, /site-img/home/needs4-1560.webp 1560w" sizes="(min-width: 1100px) min(46vw, 560px), (min-width: 760px) 560px, 92vw" width="560" height="301" loading="lazy" decoding="async"
               alt="The coach website’s Overview, Needs you: 11, a table of lifter, why now and next step. Priya Shah, pain on today’s check-in, Autumn Open today: use Safe openers, ask Priya. Sarah Kim, low back 6 of 10 on deadlift, twice in 7 days: swap to block pulls at RPE 6. Mei Tanaka, left knee tight on squats, 2 days: cap squats at RPE 7. Tom Boyle, 0.3 kg over, asks if OK, Autumn Open today: reply to Tom. Nina Petrova, can only train Thursday and Saturday, double shifts: approve Thursday and Saturday. Elena Rossi, 1.4 kg over the 57 kg class, in 12 days: plan the cut.">
           </picture>
           <span class="fpin" style="--y: 106" data-n="1" aria-hidden="true"></span><span class="fpin" style="--y: 178" data-n="2" aria-hidden="true"></span><span class="fpin" style="--y: 250" data-n="3" aria-hidden="true"></span><span class="fpin" style="--y: 322" data-n="4" aria-hidden="true"></span><span class="fpin" style="--y: 394" data-n="5" aria-hidden="true"></span><span class="fpin" style="--y: 466" data-n="6" aria-hidden="true"></span>
@@ -543,14 +543,14 @@
       <div class="wk-port" id="wkPort" tabindex="0" role="region" aria-label="Marcus’s week 3 in Sam’s Programs sheet">
         <div class="wk-in" id="wkIn">
           <picture>
-            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/week3-phone-590.avif 590w, /site-img/home-light/week3-phone-786.avif 786w, /site-img/home-light/week3-phone-1179.avif 1179w" sizes="100vw" width="590" height="270">
-            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/week3-phone-590.webp 590w, /site-img/home-light/week3-phone-786.webp 786w, /site-img/home-light/week3-phone-1179.webp 1179w" sizes="100vw" width="590" height="270">
-            <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/week3-phone-590.avif 590w, /site-img/home/week3-phone-786.avif 786w, /site-img/home/week3-phone-1179.avif 1179w" sizes="100vw" width="590" height="270">
-            <source media="(max-width: 759px)" type="image/webp" srcset="/site-img/home/week3-phone-590.webp 590w, /site-img/home/week3-phone-786.webp 786w, /site-img/home/week3-phone-1179.webp 1179w" sizes="100vw" width="590" height="270">
-            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/week3-800.avif 800w, /site-img/home-light/week3-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
-            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/week3-800.webp 800w, /site-img/home-light/week3-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
-            <source type="image/avif" srcset="/site-img/home/week3-800.avif 800w, /site-img/home/week3-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
-            <img src="/site-img/home/week3-800.webp" srcset="/site-img/home/week3-800.webp 800w, /site-img/home/week3-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px" width="800" height="560" loading="lazy" decoding="async"
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/week4-phone-590.avif 590w, /site-img/home-light/week4-phone-786.avif 786w, /site-img/home-light/week4-phone-1179.avif 1179w" sizes="100vw" width="590" height="270">
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/week4-phone-590.webp 590w, /site-img/home-light/week4-phone-786.webp 786w, /site-img/home-light/week4-phone-1179.webp 1179w" sizes="100vw" width="590" height="270">
+            <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/week4-phone-590.avif 590w, /site-img/home/week4-phone-786.avif 786w, /site-img/home/week4-phone-1179.avif 1179w" sizes="100vw" width="590" height="270">
+            <source media="(max-width: 759px)" type="image/webp" srcset="/site-img/home/week4-phone-590.webp 590w, /site-img/home/week4-phone-786.webp 786w, /site-img/home/week4-phone-1179.webp 1179w" sizes="100vw" width="590" height="270">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/week4-800.avif 800w, /site-img/home-light/week4-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/week4-800.webp 800w, /site-img/home-light/week4-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
+            <source type="image/avif" srcset="/site-img/home/week4-800.avif 800w, /site-img/home/week4-1600.avif 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px">
+            <img src="/site-img/home/week4-800.webp" srcset="/site-img/home/week4-800.webp 800w, /site-img/home/week4-1600.webp 1600w" sizes="(min-width: 1100px) 880px, (min-width: 760px) 92vw, 560px" width="800" height="560" loading="lazy" decoding="async"
               alt="Sam’s Programs sheet on his laptop, Marcus Doyle, week 3, Friday 13 to Wednesday 18 November: 4 changes to send. Bench, Sunday 15 November: 155 to 145. His message to Marcus with the change: that bench looked heavier than it should; next week’s top set is 145 × 3, back-offs 120. Each line shows what week 2 lifted beside week 3: squat 212.5 × 3 at RPE 8, now 215; bench 152.5 × 3 at RPE 9.5 where 8 was written, now 145; bench back-offs 125 × 5, now 120. The action reads Send 4 changes to Marcus.">
           </picture>
           <!-- Why (what week 2 lifted on his bench, @9.5 where Sam wrote 8), then where his rule's 145 is: two rings. -->
@@ -765,14 +765,14 @@
       <figure class="cl">
         <div class="sheet-crop sheet-desk">
           <picture>
-            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/clients4-ph-251.avif 251w, /site-img/home-light/clients4-ph-502.avif 502w" sizes="251px" width="251" height="298">
-            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/clients4-ph-251.webp 251w, /site-img/home-light/clients4-ph-502.webp 502w" sizes="251px" width="251" height="298">
-            <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/clients4-ph-251.avif 251w, /site-img/home/clients4-ph-502.avif 502w" sizes="251px" width="251" height="298">
-            <source media="(max-width: 759px)" type="image/webp" srcset="/site-img/home/clients4-ph-251.webp 251w, /site-img/home/clients4-ph-502.webp 502w" sizes="251px" width="251" height="298">
-            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/clients4-992.avif 992w, /site-img/home-light/clients4-1984.avif 1984w" sizes="(min-width: 1240px) 860px, 92vw">
-            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/clients4-992.webp 992w, /site-img/home-light/clients4-1984.webp 1984w" sizes="(min-width: 1240px) 860px, 92vw">
-            <source type="image/avif" srcset="/site-img/home/clients4-992.avif 992w, /site-img/home/clients4-1984.avif 1984w" sizes="(min-width: 1240px) 860px, 92vw">
-            <img src="/site-img/home/clients4-992.webp" srcset="/site-img/home/clients4-992.webp 992w, /site-img/home/clients4-1984.webp 1984w" sizes="(min-width: 1240px) 860px, 92vw" width="992" height="325" loading="lazy" decoding="async"
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/clients5-ph-251.avif 251w, /site-img/home-light/clients5-ph-502.avif 502w" sizes="251px" width="251" height="298">
+            <source media="(max-width: 759px) and (prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/clients5-ph-251.webp 251w, /site-img/home-light/clients5-ph-502.webp 502w" sizes="251px" width="251" height="298">
+            <source media="(max-width: 759px)" type="image/avif" srcset="/site-img/home/clients5-ph-251.avif 251w, /site-img/home/clients5-ph-502.avif 502w" sizes="251px" width="251" height="298">
+            <source media="(max-width: 759px)" type="image/webp" srcset="/site-img/home/clients5-ph-251.webp 251w, /site-img/home/clients5-ph-502.webp 502w" sizes="251px" width="251" height="298">
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/clients5-992.avif 992w, /site-img/home-light/clients5-1984.avif 1984w" sizes="(min-width: 1240px) 860px, 92vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/clients5-992.webp 992w, /site-img/home-light/clients5-1984.webp 1984w" sizes="(min-width: 1240px) 860px, 92vw">
+            <source type="image/avif" srcset="/site-img/home/clients5-992.avif 992w, /site-img/home/clients5-1984.avif 1984w" sizes="(min-width: 1240px) 860px, 92vw">
+            <img src="/site-img/home/clients5-992.webp" srcset="/site-img/home/clients5-992.webp 992w, /site-img/home/clients5-1984.webp 1984w" sizes="(min-width: 1240px) 860px, 92vw" width="992" height="325" loading="lazy" decoding="async"
               alt="Clients on the coach website. To do: 9. Tomas Novak, $150, 12 days late, with Remind and Mark paid; Tom Boyle, $220, 5 days late, lifts today; Jonas Berg wants to join. November: $980 of $3,480 in, $370 late, $2,130 to come; it includes Tomas’s late October $150 and two payments from Ines.">
           </picture>
         </div>
