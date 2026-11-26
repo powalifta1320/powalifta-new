@@ -122,6 +122,7 @@
 <script src="coach-you.js"></script>
 <script src="coach-widget.js"></script>
 <script src="feedback.js"></script>
+<script src="lifter-home.js"></script>
 <script>
 /* ===========================================================
    Tiny zero-dependency test framework
@@ -11635,6 +11636,90 @@ group('feedback (feedback.js)');
     const rows = PF.youRows();
     eq(rows.map(r => r.label).join(','), 'Feedback,Report a problem');
     assert(rows.every(r => /<svg/.test(r.icon) && typeof r.onClick === 'function'), 'icons and actions');
+  });
+})();
+
+group('lifter home (lifter-home.js)');
+(() => {
+  if (typeof lhWeek !== 'function') { skip('lifter-home.js', 'not loaded'); return; }
+  const T0 = '2026-11-26';   // a Thursday
+  const S = (o) => Object.assign({ weight: 100, reps: 5, rpe: 8, completed: false, completedAt: null }, o);
+  const ex = (lift, sets, more) => Object.assign({ lift, variant: 'Competition', exerciseName: '', sets }, more);
+  const done = (iso, n, open) => { const a = []; for (let i = 0; i < n; i++) a.push(S({ completed: true, completedAt: iso + 'T18:00:00Z', actualRpe: 8 })); for (let i = 0; i < (open || 0); i++) a.push(S()); return a; };
+  const prog = () => ({ weeks: [
+    { number: 1, days: [
+      { name: 'Squat Day', exercises: [ex('squat', done('2026-11-23', 3))] },
+      { name: 'Bench Day', exercises: [ex('bench', done('2026-11-24', 2, 1))] },
+      { name: 'Deadlift Day', scheduledDate: '2026-11-25', exercises: [ex('deadlift', [S(), S()])] },
+      { name: 'Rest', exercises: [] }] },
+    { number: 2, days: [
+      { name: 'Squat Day', scheduledDate: T0, exercises: [ex('squat', [S(), S()])] },
+      { name: 'Bench Day', exercises: [ex('bench', [S(), S()])] },
+      { name: 'Deadlift Day', exercises: [ex('deadlift', [S(), S()])] }] }] });
+  const brief = (w) => w.days.map(d => d.iso.slice(8) + ':' + d.kind + (d.state ? '/' + d.state : '') + (d.ref ? '@' + d.ref.wi + '.' + d.ref.di : '') + (d.how ? '(' + d.how + ')' : '') + (d.marked ? '(marked)' : '')).join(' ');
+  test('the seven days, Monday to Sunday: logged, part logged, missed, today, a marked rest, a usual day ahead', () => {
+    const w = lhWeek({ prog: prog(), today: T0, logDates: [], restDates: ['2026-11-27'], usual: ['Sat'], next: { wi: 1, di: 0 } });
+    eq(w.mon, '2026-11-23'); eq(w.sun, '2026-11-29'); eq(w.week, 1, 'the program week of today\'s session');
+    eq(brief(w), '23:session/done@0.0(logged) 24:session/unfinished@0.1(logged) 25:session/missed@0.2(pinned) 26:session/today@1.0(pinned) 27:rest(marked) 28:session/tocome@1.1(usual) 29:rest');
+    eq(JSON.stringify(w.unplaced), '[{"wi":1,"di":2}]', 'the Deadlift Day that fits on no usual day is listed, never put on a day they do not train');
+    eq(w.days[1].done + ' of ' + w.days[1].total, '2 of 3');
+  });
+  test('usual days without an intake: a weekday trained on in 3 of the 4 weeks before (the desk\'s rule)', () => {
+    const logs = ['2026-10-31', '2026-11-07', '2026-11-14', '2026-11-21', '2026-11-13', '2026-11-20'];   // every Saturday, two Fridays
+    const w = lhWeek({ prog: prog(), today: T0, logDates: logs, restDates: [], usual: null, next: { wi: 1, di: 0 } });
+    eq(w.days[4].kind, 'rest', 'Friday: trained on only 2 of the last 4');
+    eq(w.days[5].kind + '/' + w.days[5].how, 'session/usual', 'Saturday: 4 of 4');
+  });
+  test('a date with logged sets in no session shows what was logged; a marked rest day never hides training', () => {
+    const p = prog();
+    p.weeks[0].days[0].exercises[0].sets.forEach(s => { s.completedAt = '2026-11-16T18:00:00Z'; });   // last week's
+    const w = lhWeek({ prog: p, today: T0, logDates: ['2026-11-23', '2026-11-24'], restDates: ['2026-11-24', T0], usual: [], next: { wi: 1, di: 0 } });
+    eq(w.days[0].kind + '/' + w.days[0].state, 'logged/done');
+    eq(w.days[1].kind + '/' + w.days[1].state, 'session/unfinished', 'sets logged on a day marked rest: still training');
+    eq(w.days[3].kind + (w.days[3].marked ? '/marked' : ''), 'rest/marked', 'a pinned session not started, on a day they marked rest: rest (as Train shows it)');
+  });
+  test('no program: every day is what was logged or rest, and nothing is placed', () => {
+    const w = lhWeek({ prog: null, today: T0, logDates: ['2026-11-23'], restDates: [], usual: ['Fri'] });
+    eq(w.days.map(d => d.kind).join(','), 'logged,rest,rest,rest,rest,rest,rest');
+    eq(w.week, null); eq(w.unplaced.length, 0);
+    eq(lhWeek({ today: 'nope' }), null);
+  });
+  test('the day it opens on, and the head\'s action', () => {
+    const w = lhWeek({ prog: prog(), today: T0, logDates: [], restDates: [], usual: ['Sat'], next: { wi: 1, di: 0 } });
+    eq(lhDefaultDay(w), 3, 'today');
+    eq(JSON.stringify(lhHeadAction(w, { wi: 1, di: 0 })), '{"kind":"today","idx":3}');
+    const p = prog(); p.weeks[1].days[0].exercises[0].sets.forEach(s => { s.completed = true; s.completedAt = T0; });
+    const w2 = lhWeek({ prog: p, today: T0, logDates: [T0], restDates: [], usual: ['Sat'], next: { wi: 1, di: 1 } });
+    eq(w2.days[3].state, 'done');
+    eq(JSON.stringify(lhHeadAction(w2, { wi: 1, di: 1 })), '{"kind":"day","idx":5}', 'today done: Saturday\'s session');
+    eq(JSON.stringify(lhHeadAction(w2, { wi: 1, di: 2 })), '{"kind":"next","idx":-1}', 'the next one on no day this week');
+    eq(JSON.stringify(lhHeadAction(w2, null)), '{"kind":"none","idx":-1}');
+    const p3 = prog(); delete p3.weeks[1].days[0].scheduledDate;
+    const w3 = lhWeek({ prog: p3, today: T0, logDates: [], restDates: [T0], usual: ['Thu', 'Sat'], next: { wi: 1, di: 0 } });
+    eq(w3.days[3].kind, 'rest'); eq(lhDefaultDay(w3), 5, 'a rest day today opens on the next session');
+  });
+  test('the plan in the app\'s short form: groups of like sets, the load and the RPE as written', () => {
+    const e = ex('squat', [S({ weight: 182.5, reps: 3, rpe: 8.5 }), S({ weight: 167.5, reps: 5, rpe: 8, tempo: '3-1-0' }), S({ weight: 167.5, reps: 5, rpe: 8, tempo: '3-1-0' })]);
+    eq(lhPlanText(e).join(' | '), '1 × 3 at 182.5 kg @8.5 | 2 × 5 at 167.5 kg @8');
+    eq(lhPlanText(ex('bench', [S({ weight: 100, reps: 5, rpe: 7, rpeHi: 8 })])).join(), '1 × 5 at 100 kg @7–8');
+    eq(lhPlanText(ex('bench', [S({ weight: 0, reps: 8, rpe: 8, rir: true })])).join(), '1 × 8, 2 RIR');
+    eq(lhPlanText(ex('squat', [S({ weight: 140, plannedWeight: 150, reps: 3, plannedReps: 2, rpe: 8 })])).join(), '1 × 2 at 150 kg @8', 'the plan, not the day\'s smart load or reps');
+    eq(lhPlanText(ex('cardio', [S({ weight: 20, reps: 3, rpe: null })])).join(), '1 × 20 min, 3 km');
+    eq(lhPlanText(ex('squat', [])).length, 0);
+  });
+  test('logged sets: like sets together, and how each felt against what was written', () => {
+    eq(lhFeel(S({ rpe: 8, actualRpe: 9 })), 'harder'); eq(lhFeel(S({ rpe: 8, actualRpe: 7 })), 'easier'); eq(lhFeel(S({ rpe: 8, actualRpe: 8 })), null);
+    eq(lhFeel(S({ rpe: 7, rpeHi: 8, actualRpe: 8 })), null, 'inside the range written'); eq(lhFeel(S({ rpe: 8, rir: true, actualRpe: 9 })), null, 'RIR is not compared');
+    eq(lhFeel(S({ rpe: null, actualRpe: 9 })), null);
+    const e = ex('squat', [S({ weight: 182.5, reps: 3, rpe: 8.5, completed: true, actualRpe: 9 }), S({ weight: 167.5, reps: 5, rpe: 8, completed: true, actualRpe: 8 }), S({ weight: 167.5, reps: 5, rpe: 8, completed: true, actualRpe: 8 }), S({ weight: 167.5, reps: 5 })]);
+    eq(lhLoggedGroups(e).map(g => g.text + (g.feel ? ' (' + g.feel + ')' : '')).join(' | '), '1 × 3 at 182.5 kg @9 (harder) | 2 × 5 at 167.5 kg @8');
+  });
+  test('a day\'s top set in one line: planned from its first main lift, done as lifted', () => {
+    const day = { exercises: [ex('legs', [S({ weight: 200, reps: 10 })], { exerciseName: 'Leg Press' }), ex('squat', [S({ weight: 167.5, reps: 5, rpe: 8 }), S({ weight: 182.5, reps: 3, rpe: 8.5, completed: true, actualRpe: 9 })])] };
+    eq(lhTopSet(day, false), '182.5 kg × 3 @8.5');
+    eq(lhTopSet(day, true), '182.5 kg × 3 @9');
+    eq(lhTopSet({ exercises: [ex('bench', [S({ weight: 0, reps: 8, rpe: 7 })])] }, false), '8 reps @7');
+    eq(lhTopSet({ exercises: [] }, false), '');
   });
 })();
 

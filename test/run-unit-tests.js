@@ -229,7 +229,9 @@ const appSrc = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8') + '\n;\n' +
   // HOME SCREEN WIDGETS: the coach's block for the widgets (tests.html "Home Screen widgets")
   (fs.existsSync(path.join(ROOT, 'coach-widget.js')) ? fs.readFileSync(path.join(ROOT, 'coach-widget.js'), 'utf8') : '') + '\n;\n' +
   // FEEDBACK: a problem's details, the scrub, the words, the draft (tests.html "feedback (feedback.js)")
-  (fs.existsSync(path.join(ROOT, 'feedback.js')) ? fs.readFileSync(path.join(ROOT, 'feedback.js'), 'utf8') : '');
+  (fs.existsSync(path.join(ROOT, 'feedback.js')) ? fs.readFileSync(path.join(ROOT, 'feedback.js'), 'utf8') : '') + '\n;\n' +
+  // HOME: the lifter's week on a laptop, its pure parts (tests.html "lifter home (lifter-home.js)")
+  (fs.existsSync(path.join(ROOT, 'lifter-home.js')) ? fs.readFileSync(path.join(ROOT, 'lifter-home.js'), 'utf8') : '');
 // ---- a function declared twice: the later one silently wins for the whole page ------------
 // (27 Oct 2026: a second rpeLoadPct, a percent where the first was a fraction, made every
 // RPE-only load suggestion 100× too heavy on the live site.) Top-level declarations only.

@@ -2143,6 +2143,20 @@ window.POWA_SUPPORT_KB = [
    "name on my coach's posts"
   ],
   "a": "Yes. Your coach can post a card of their lifters' results, for example on Instagram: the team's average gain this block, and this week's PRs. Each lifter shows as their first name and the first letter of their last name. To keep yours off: **You** → **Community** → **Name on your coach's posts** → Off. You still count in the team's average (the card says \"A lifter\" for you), and your PRs stay off the PR wall. Turn it back on any time; only you can change it."
+ },
+ {
+  "id": "lifter-home-week",
+  "q": "What is Home on the website?",
+  "t": [
+   "home tab",
+   "this week",
+   "my week",
+   "week at a glance",
+   "where is home",
+   "laptop dashboard"
+  ],
+  "a": "On a laptop, the website opens on **Home**: your week from Monday to Sunday. Each day shows its session, whether it's done, today, still to come or missed, and its top set. Click a day (or use the arrow keys) to see that session as a table: what's planned, what you lifted last time, and what you logged. Beside it: your coach's latest note and anything waiting on you (a check-in, questions, unread messages), your estimated total and maxes, and your bodyweight or next meet. **Open today's session** takes you to Train. A session with no date yet sits on a day you usually train, and anything that doesn't fit is listed under the week. Home only shows things: nothing changes until you act on Train or another tab. On a phone and in the app, you land on Train as before.",
+  "app": "Home is on the website on a laptop: your week from Monday to Sunday, today's session as a table, your coach's latest note and your numbers. In the app you land on Train, as always."
  }
 ];
 
