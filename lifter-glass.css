@@ -1,0 +1,234 @@
+/* lifter-glass.css: the lifter app's dark theme as glass (athlete.html, with a coach and solo; the owner, 26 Nov:
+   "redo entire athlete site", then by poll: glass like the coach desk, laptop and phone).
+
+   Every rule is under html.lg. athlete.html's head sets html.lg before the first paint when the theme is dark and
+   lifter-glass.js keeps it in step with the theme switch: dark is glass, light is the light look as it was. Nothing in
+   athlete.html's markup or scripts changes; this sheet and that class are the whole redo.
+
+   The look, the coach desk's (coach-preview/kit/glassdash): a deep gradient of the screen's own colour behind
+   everything (each destination already owns a hue: Train ember, Progress and Program sky, Club gold, Coach green, You
+   violet; it glides as the tab changes), cards as frosted tiles with a fine light rim, glass pills, the crimson as the
+   one lit action, the lifts in their colours.
+   - A laptop gets one frosted window for the page beside a glass sidebar, under a frosted top bar; Train is two
+     columns there (the set in hand on the left, the whole session on the right) and its date tools sit behind the
+     dots, as on the phone.
+   - A phone and the iPhone app (html.native) get the gradient edge to edge and the tiles on it: no window, and no
+     blur on the tiles (a tile over a smooth gradient needs none, and blur on every card costs a phone its scroll);
+     only the bars that content passes under are frosted. */
+
+/* ================= the screen's light: two shades of its hue, gliding from tab to tab ================= */
+@property --lg-a { syntax: '<color>'; inherits: true; initial-value: #ff7a32; }
+@property --lg-b { syntax: '<color>'; inherits: true; initial-value: #aa3c1e; }
+
+html.lg { background: #08080b; }
+html.lg body.powa-app {
+  --lg-a: #ff7a32; --lg-b: #aa3c1e;
+  transition: --acc 0.45s ease, --acc-2 0.45s ease, --lg-a 0.6s ease, --lg-b 0.6s ease;
+  background: #08080b;
+
+  /* what things are made of (styles.css names, new values). The --bg-* stay solid colours: they stand in wherever one
+     flat colour is needed (a field, a sticky strip, a ring round a chart point), tinted like the glass on this screen. */
+  --bg: #08080b;
+  --bg-1: color-mix(in srgb, var(--lg-a) 8%, #17171c);
+  --bg-2: color-mix(in srgb, var(--lg-a) 9%, #1f1f25);
+  --bg-3: color-mix(in srgb, var(--lg-a) 10%, #2a2a31);
+  --line: rgb(255 255 255 / .10);
+  --line-2: rgb(255 255 255 / .18);
+  /* words: each quieter step still light enough for 4.5:1 on a tile where the screen's light is brightest behind it */
+  --text: #f6f6f8; --text-2: #d6d6de; --text-3: #c0c0cb; --text-4: #b0b0bc;
+  /* an accessory's own grey (the letter on its tile), lifted the same way */
+  --lift-acc: #b0b0bc;
+  --edge: rgb(255 255 255 / .10);
+  --lit: inset 0 1px 0 rgb(255 255 255 / .24);
+  --drop: 0 20px 44px -26px rgb(0 0 0 / .85);
+
+  /* this skin's own */
+  --lg-film: linear-gradient(180deg, rgb(255 255 255 / .10) 0, rgb(255 255 255 / .055) 72px, rgb(255 255 255 / .045) 100%);
+  --lg-rim: inset 0 1px 0 rgb(255 255 255 / .26), inset 0 0 0 1px rgb(255 255 255 / .09), inset 0 -1px 0 rgb(0 0 0 / .25);
+  --lg-r: 26px;
+}
+html.lg body.powa-app[data-accent='fire']   { --lg-a: #ff7a32; --lg-b: #aa3c1e; }
+html.lg body.powa-app[data-accent='cyan']   { --lg-a: #28b0ff; --lg-b: #1854c8; }
+html.lg body.powa-app[data-accent='gold']   { --lg-a: #ffbe3c; --lg-b: #be6e14; }
+html.lg body.powa-app[data-accent='green']  { --lg-a: #2ccd7d; --lg-b: #10786e; }
+html.lg body.powa-app[data-accent='violet'] { --lg-a: #a07afa; --lg-b: #7c3cc8; }
+
+/* the room: the app's own ambient layer (a fixed layer behind the page that takes no room and no pointer), now the
+   whole window: the hue from the top left, its deeper shade low on the right, on near-black */
+html.lg:not(#_) body.powa-app .dash-shell::before {
+  inset: 0; height: auto; opacity: 1;
+  background:
+    radial-gradient(62% 58% at 8% -6%, color-mix(in srgb, var(--lg-a) 54%, transparent) 0, color-mix(in srgb, var(--lg-a) 19%, transparent) 38%, transparent 70%),
+    radial-gradient(58% 62% at 104% 104%, color-mix(in srgb, var(--lg-b) 64%, transparent) 0, color-mix(in srgb, var(--lg-b) 21%, transparent) 40%, transparent 72%),
+    radial-gradient(36% 30% at 64% 34%, color-mix(in srgb, var(--lg-a) 9%, transparent) 0, transparent 70%),
+    linear-gradient(160deg, color-mix(in srgb, var(--lg-b) 18%, #0b0b0e) 0%, #060608 100%);
+}
+
+/* ================= tiles: every card is a frosted tile ================= */
+html.lg body.powa-app :is(.ui-list, .ui-card, .ui-stats, .card, .tx-card, .tn-group:not(.today-strip)) {
+  background: var(--lg-film);
+  border-color: transparent;
+  box-shadow: var(--lg-rim), var(--drop);
+}
+/* the screen's hero: the same tile, lit in the screen's hue from its top right */
+html.lg body.powa-app .ui-hero {
+  background:
+    radial-gradient(120% 130% at 100% 0%, color-mix(in srgb, var(--acc) 26%, transparent) 0%, transparent 56%),
+    radial-gradient(110% 120% at 0% 100%, color-mix(in srgb, var(--acc-2) 14%, transparent) 0%, transparent 62%),
+    var(--lg-film);
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .30), inset 0 0 0 1px color-mix(in srgb, var(--acc) 26%, rgb(255 255 255 / .09)), inset 0 -1px 0 rgb(0 0 0 / .25), var(--drop);
+}
+
+/* ================= controls ================= */
+/* the soft buttons are glass pills (they were a flat dark fill); the crimson stays the one lit action */
+html.lg body.powa-app .ui-btn-soft {
+  background: linear-gradient(180deg, rgb(255 255 255 / .15), rgb(255 255 255 / .08));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .24), inset 0 0 0 1px rgb(255 255 255 / .06);
+  border-color: transparent;
+}
+/* the bars content passes under are frosted: the message box at the foot of a thread, the demo's own bar */
+html.lg body.powa-app .msg-composer, html.lg body.powa-app .demo-banner {
+  background: rgb(14 14 18 / .66);
+  -webkit-backdrop-filter: blur(26px) saturate(160%); backdrop-filter: blur(26px) saturate(160%);
+}
+html.lg body.powa-app .demo-banner { box-shadow: inset 0 1px 0 rgb(255 255 255 / .16), inset 0 0 0 1px rgb(255 255 255 / .08), 0 18px 40px -18px rgb(0 0 0 / .8); border-color: transparent; }
+
+/* ================= sheets and pop-ups ================= */
+/* a sheet and a pop-up are the thickest glass: the page dims behind them and the pane keeps a breath of the screen's
+   hue under a lit top edge (they were a flat grey box, and on Train's ember a brown one). Thick enough that a line of
+   small grey text reads over anything left showing. */
+html.lg body.powa-app :is(.ui-sheet-veil, .modal-backdrop) { background: rgb(4 4 7 / .56); }
+html.lg:not(#_) body.powa-app :is(.ui-sheet, .modal) {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / .08) 0, rgb(255 255 255 / .03) 96px, rgb(255 255 255 / .02) 100%),
+    color-mix(in srgb, var(--lg-a) 5%, rgb(17 17 22 / .95));
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .22), inset 0 0 0 1px rgb(255 255 255 / .09), 0 -20px 60px -24px rgb(0 0 0 / .75);
+}
+/* (a toast is already a frosted pill of its own.) In the demo it rises clear of the demo's bar: it landed on top of it */
+html.lg:not(.native) body.powa-app:has(> .demo-banner) .toast { bottom: 86px; }
+@media (min-width: 901px) {
+  /* on a laptop the page behind a sheet is frosted as well as dimmed (one blur, on the veil: a pane blurring inside a
+     blurring veil would see only the veil), and the pane lets a little more of it through */
+  html.lg:not(.native) body.powa-app :is(.ui-sheet-veil, .modal-backdrop) { -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%); }
+  html.lg:not(.native):not(#_) body.powa-app :is(.ui-sheet, .modal) {
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / .09) 0, rgb(255 255 255 / .035) 96px, rgb(255 255 255 / .025) 100%),
+      color-mix(in srgb, var(--lg-a) 6%, rgb(17 17 22 / .80));
+  }
+}
+
+/* ================= a laptop ================= */
+@media (min-width: 901px) {
+  /* the top bar: frosted, the page passing under it */
+  html.lg:not(.native) body.powa-app .nav {
+    background: rgb(8 8 11 / .60);
+    -webkit-backdrop-filter: blur(30px) saturate(150%); backdrop-filter: blur(30px) saturate(150%);
+    border-bottom-color: transparent; box-shadow: 0 1px 0 rgb(255 255 255 / .07);
+  }
+  /* its logo stands over the sidebar's items and its controls end where the page ends (the bar's contents were centred
+     in a 1240 px strip of their own, in line with nothing under them) */
+  html.lg:not(.native) body.powa-app .nav-inner { max-width: none; margin: 0; padding-left: 28px; padding-right: 40px; }
+  /* the sidebar: a strip of darker glass on the room; the place you are in is a pill of clearer glass (it was a red
+     wash with a bar down its left side) */
+  html.lg:not(.native) body.powa-app .sidebar { background: rgb(8 8 11 / .30); border-right-color: transparent; }
+  html.lg:not(.native) body.powa-app .sidebar-tab {
+    width: auto; margin: 0 12px 2px; padding: 11px 12px; border-left: 0; border-radius: 12px; box-shadow: none;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s cubic-bezier(.23, 1, .32, 1);
+  }
+  html.lg:not(.native) body.powa-app .sidebar-tab:active { transform: scale(0.98); }
+  html.lg:not(.native) body.powa-app .sidebar-tab.active {
+    background: linear-gradient(180deg, rgb(255 255 255 / .15), rgb(255 255 255 / .08));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .24), inset 0 0 0 1px rgb(255 255 255 / .06);
+  }
+  html.lg:not(.native) body.powa-app .sidebar-tab.active svg { color: var(--acc); }
+  @media (hover: hover) and (pointer: fine) { html.lg:not(.native) body.powa-app .sidebar-tab:not(.active):hover { background: rgb(255 255 255 / .06); } }
+  html.lg:not(.native) body.powa-app .sidebar-foot { border-top-color: rgb(255 255 255 / .08); }
+  /* the window: one sheet of frosted glass behind the page, from the sidebar to 8 px inside the right edge, from the
+     top bar's own edge to the foot of the screen (the page scrolls on under the bar and off the foot, so the window
+     has no edge a card could cross) */
+  html.lg:not(.native) body.powa-app .dash-main::before {
+    content: ''; position: fixed; z-index: -1; pointer-events: none;
+    left: 248px; right: 8px; top: var(--lg-top, 67px); bottom: 0;
+    border-radius: var(--lg-r) var(--lg-r) 0 0;
+    background:
+      linear-gradient(126deg, rgb(255 255 255 / .06) 0, rgb(255 255 255 / .012) 18%, rgb(255 255 255 / 0) 34%),
+      linear-gradient(180deg, rgb(255 255 255 / .06) 0, rgb(255 255 255 / .02) 120px),
+      rgb(12 12 16 / .52);
+    -webkit-backdrop-filter: blur(56px) saturate(165%); backdrop-filter: blur(56px) saturate(165%);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .30), inset 1px 0 0 rgb(255 255 255 / .10), inset -1px 0 0 rgb(255 255 255 / .10), 0 30px 70px -30px rgb(0 0 0 / .8);
+  }
+  /* the tiles on the window blur what is behind them a little: real glass on glass */
+  html.lg:not(.native) body.powa-app :is(.ui-list, .ui-card, .ui-stats, .card, .tx-card, .tn-group, .ui-hero) {
+    -webkit-backdrop-filter: blur(20px) saturate(130%); backdrop-filter: blur(20px) saturate(130%);
+  }
+}
+
+/* the room the page keeps clear at its foot (for the bars that float there) belongs to the page, not under it: under
+   it, the sidebar slid up 27 px whenever a page was scrolled to its end */
+@media (min-width: 901px) {
+  html.lg:not(.native) body.powa-app { padding-bottom: 0; }
+  html.lg:not(.native) body.powa-app .dash-main { padding-bottom: 132px; }
+}
+
+/* ---------- Train on a laptop ---------- */
+@media (min-width: 901px) {
+  /* the date, pin, export and rest tools sit behind the dots beside the day's name, as on the phone (they stood open in
+     a row of seven controls over the set) */
+  html.lg:not(.native) body.powa-app .today-head:not(.no-prog) .th-more { display: inline-flex; }
+  html.lg:not(.native) body.powa-app .session-bar { display: none; }
+  html.lg:not(.native) body.powa-app .session-bar.open { display: flex; }
+  /* the things that float over the page keep out of each other's way: the install card sits above Ask AI (it sat on it) */
+  html.lg:not(.native) body.powa-app .pwa-banner { right: 22px; bottom: 86px; }
+}
+@media (min-width: 1100px) {
+  /* Train uses the screen: the set in hand, the coach's note and today's cards on the left; the whole session on the
+     right. Two independent columns out of the page's own blocks, in their own order (it was one 880 px column, a phone
+     stretched). Only when there is a set in hand and a session to list: anything else stays one column. */
+  html.lg:not(.native) body.powa-app section[data-pane='today'] { max-width: 1380px; }
+  html.lg:not(.native) body.powa-app #todayArea:has(> .today-hero):has(> .tx-card) { column-count: 2; column-gap: 24px; }
+  html.lg:not(.native) body.powa-app #todayArea:has(> .today-hero):has(> .tx-card) > * { break-inside: avoid; }
+  html.lg:not(.native) body.powa-app #todayArea:has(> .today-hero):has(> .tx-card) > .ui-label { break-before: column; margin-top: 0; }
+}
+
+@media (min-width: 1100px) {
+  /* a new lifter's first screen: the set-up card on the left at a form's width, the other ways to start beside it (the
+     card ran the full 1120 px, its three numbers a screen away from their names) */
+  html.lg:not(.native) body.powa-app .setup-wrap {
+    display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: 24px; align-items: start;
+  }
+  html.lg:not(.native) body.powa-app .setup-wrap > .setup-card { grid-column: 1; grid-row: 1 / span 2; }
+  html.lg:not(.native) body.powa-app .setup-wrap > .ui-label { grid-column: 2; grid-row: 1; margin-top: 0; }
+  html.lg:not(.native) body.powa-app .setup-wrap > .ui-list { grid-column: 2; grid-row: 2; }
+}
+
+/* ================= a narrow window (a tablet, a laptop window pulled small): the tabs run across the top ================= */
+@media (max-width: 900px) {
+  /* no sidebar here, so no window: the tiles sit on the room, as on a phone. The top bar and the strip of tabs under it
+     are what the page passes under, so they are frosted (they were solid strips) */
+  html.lg:not(.native) body.powa-app .nav,
+  html.lg:not(.native) body.powa-app .sidebar {
+    background: rgb(8 8 11 / .62);
+    -webkit-backdrop-filter: blur(28px) saturate(150%); backdrop-filter: blur(28px) saturate(150%);
+    border-bottom-color: rgb(255 255 255 / .08);
+  }
+}
+
+/* ================= a phone and the iPhone app ================= */
+/* the tab bar: content passes under it, so it is frosted (it already blurs: the tint lets the hue through) */
+html.lg body.powa-app .bottom-tabs { background: rgb(14 14 18 / .62); box-shadow: inset 0 1px 0 rgb(255 255 255 / .16), inset 0 0 0 1px rgb(255 255 255 / .07), 0 18px 40px -18px rgb(0 0 0 / .8); border-color: transparent; }
+/* (the phone's top bar stays as it is: clear, the screen's name showing through it) */
+
+/* ================= without the glass: solid, the same places ================= */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html.lg:not(.native) body.powa-app .dash-main::before { background: var(--bg-1); }
+  html.lg body.powa-app .nav { background: #0c0c0f; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  html.lg body.powa-app :is(.ui-list, .ui-card, .ui-stats, .card, .tx-card, .tn-group, .ui-hero) { background: var(--bg-1); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html.lg:not(.native) body.powa-app .dash-main::before { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html.lg body.powa-app .nav, html.lg body.powa-app .bottom-tabs { background: #0c0c0f; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html.lg:not(#_) body.powa-app :is(.ui-sheet, .modal) { background: #131318; }
+  html.lg body.powa-app :is(.ui-sheet-veil, .modal-backdrop) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}

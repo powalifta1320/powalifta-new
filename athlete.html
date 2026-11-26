@@ -29,6 +29,10 @@
 <link rel="stylesheet" href="challenges.css"><!-- COACH CHALLENGES: the coach's challenge at the top of Club (challenges.js) -->
 <link rel="stylesheet" href="notify.css"><!-- ALLOW NOTIFICATIONS: the card after a finished session (notify.js) -->
 <link rel="stylesheet" href="feedback.css"><!-- FEEDBACK: the idea / problem sheet (feedback.js) -->
+<!-- THE GLASS LOOK (26 Nov): the dark theme as glass, laptop and phone (lifter-glass.css; html.lg, set here before the
+     first paint when the theme is dark, kept in step with the theme switch by lifter-glass.js) -->
+<script>if(document.documentElement.getAttribute('data-theme')!=='light')document.documentElement.classList.add('lg');</script>
+<link rel="stylesheet" href="lifter-glass.css">
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
 <script>/* Plausible counts a page by its path (utm_ tags kept): never its query or hash, which carry reset, sign-in and email tokens; an invite link counts as /j/ (sweep 2026-10-28 #13) */window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)};plausible('pageview',{u:location.origin+location.pathname.replace(/^\/j\/[^/]+/,'/j/')+(location.search.match(/[?&]utm_[a-z]+=[^&#]*/g)||[]).join('').replace(/^&/,'?')})</script><script defer data-domain="powalifta.com" src="https://plausible.io/js/script.manual.js"></script>
 <script defer src="error-log.js"></script>
@@ -9792,6 +9796,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
      server-side); falls back to local mock answers for demo/signed-out. -->
 <script src="support-kb.js"></script>
 <script src="ai-chat.js"></script>
+<script src="lifter-glass.js"></script>
 <script>/* the demo's guided tour (demo-tour.js): loaded only in the demo, never for an account */(function(){if(!/[?&]demo=1\b/.test(location.search))return;var s=document.createElement('script');s.src='demo-tour.js';s.defer=true;document.body.appendChild(s);})();</script>
 </body>
 </html>
