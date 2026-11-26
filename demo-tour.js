@@ -137,7 +137,7 @@
     '@media (hover:hover) and (pointer:fine){.dtour .dtour-skip:hover{color:#f4f4f6}.dtour .dtour-back:hover{background:rgb(255 255 255 / .16)}.dtour .dtour-next:hover,.dtour a.dtour-go:hover{filter:brightness(1.07)}}' +
     '.dtour button:focus-visible,.dtour a.dtour-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}' +
     /* the way back in: a quiet pill on the desk, a word in the demo bar */
-    '.dtour-pill{position:fixed;right:16px;bottom:16px;z-index:900;display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px 0 12px;border:0;border-radius:999px;' +
+    '.dtour-pill{position:fixed;right:24px;bottom:24px;z-index:900;display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px 0 12px;border:0;border-radius:999px;' +
       'background:rgb(23 23 28 / .92);color:#f4f4f6;font-family:inherit;font-size:14px;font-weight:650;cursor:pointer;' +
       'box-shadow:inset 0 1px 0 rgb(255 255 255 / .10),0 0 0 1px rgb(255 255 255 / .12),0 10px 24px -10px rgb(0 0 0 / .7);transition:transform 100ms cubic-bezier(.23,1,.32,1)}' +
     '.dtour-pill:active{transform:scale(.97)}.dtour-pill:focus-visible{outline:2px solid #fff;outline-offset:2px}' +
@@ -328,6 +328,18 @@
   function addEntry() {
     css();
     if (isDesk) {
+      // the desk: an item of the sidebar's own, above Settings (a pill floating over the page covered rows and
+      // buttons: Messages' Next). Its own drawn icon in the sidebar's stroke; on the rail its tooltip names it.
+      var set0 = document.querySelector('.side a.it[data-place-link="settings"]');
+      if (set0) {
+        if (document.querySelector('.side .dtour-it')) return;
+        var it = document.createElement('a');
+        it.className = 'it dtour-it'; it.href = TOUR.first + '?tour=1'; it.title = 'Take the tour'; it.setAttribute('data-label', 'Take the tour');
+        it.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.6"/><path d="M10.2 8.9v6.2l5-3.1z"/></svg><span class="l">Take the tour</span>';
+        it.addEventListener('click', function (e) { e.preventDefault(); replay(); });
+        set0.parentNode.insertBefore(it, set0);
+        return;
+      }
       if (document.querySelector('.dtour-pill')) return;
       var p = document.createElement('button');
       p.type = 'button'; p.className = 'dtour-pill'; p.innerHTML = ICON + '<span>Take the tour</span>';

@@ -109,12 +109,30 @@ html.gd .tb::before {
 }
 /* once rows pass under the band it frosts over, in the window's own shape: its top corners, its lit top edge */
 html.gd .tb::after {
-  top: var(--inset); left: 0; right: var(--inset); height: auto; bottom: 0; z-index: -1;
+  top: var(--inset); left: 0; right: var(--inset); height: auto; bottom: calc(var(--inset) * -1); z-index: -1;   /* 8 px deeper: the controls moved 8 px in */
   border-radius: var(--gd-r) var(--gd-r) 0 0;
   background: rgb(14 14 18 / .70);
   -webkit-backdrop-filter: blur(30px) saturate(165%); backdrop-filter: blur(30px) saturate(165%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / .30), inset 1px 0 0 rgb(255 255 255 / .10), inset -1px 0 0 rgb(255 255 255 / .10), 0 1px 0 rgb(255 255 255 / .08);
 }
+
+/* ================= everything sits inside the window's edges (impeccable polish, 26 Nov) =================
+   The desk was built for a page with no window; the window then sat on three of its edges. Seen and measured:
+   the band's controls started on the window's top edge (the edge ran through the crimson's top and 2 px over the
+   others'), the list columns ran 8 px past its bottom edge and squared through its rounded corner, and the pane
+   beside a page (Messages) covered its top, right and bottom edges. The band's controls move 8 px in with
+   `translate` (the band keeps its height and the desk keeps its own transform on the trailing group), the columns
+   stop at the bottom edge and round with the corner (the window's radius less the 8 px between them), and the pane
+   sits inside the window flush with its right side. */
+html.gd :is(.tb-lead, .tb-mid, .tb-trail) { translate: 0 var(--inset); }
+html.gd body[data-place='lifters'] .ll, html.gd body[data-place='teams'] .tml,
+html.gd body[data-place='meets'] .ml, html.gd body[data-place='messages'] .ml {
+  bottom: var(--inset); border-bottom-left-radius: calc(var(--gd-r) - var(--inset));
+}
+html.gd .insp { top: var(--inset); right: var(--inset); bottom: var(--inset); border-radius: 0 var(--gd-r) var(--gd-r) 0; }
+/* the detail beside a list (Lifters, Teams, Meets) ends where the band's controls end: it reached 16 px further, so its
+   cards sat 8 px from the window's right edge and out of line with the crimson above them */
+html.gd body[data-place='lifters'] .ld, html.gd body[data-place='teams'] .td, html.gd body[data-place='meets'] .md { margin-right: 0; }
 
 /* ================= the sidebar: a thin strip of darker glass beside the window ================= */
 html.gd .side {
