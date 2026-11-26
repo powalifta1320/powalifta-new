@@ -64,6 +64,17 @@ html.lg:not(#_) body.powa-app .dash-shell::before {
     linear-gradient(160deg, color-mix(in srgb, var(--lg-b) 18%, #0b0b0e) 0%, #060608 100%);
 }
 
+/* on a tall narrow screen the same two lights are wide and shallow: a glow across the top and one across the foot (as
+   laptop-shaped ovals they stood up the right edge as a stripe) */
+@media (max-width: 900px) {
+  html.lg:not(#_) body.powa-app .dash-shell::before {
+    background:
+      radial-gradient(135% 44% at 0% -6%, color-mix(in srgb, var(--lg-a) 50%, transparent) 0, color-mix(in srgb, var(--lg-a) 17%, transparent) 42%, transparent 74%),
+      radial-gradient(150% 38% at 100% 106%, color-mix(in srgb, var(--lg-b) 58%, transparent) 0, color-mix(in srgb, var(--lg-b) 19%, transparent) 44%, transparent 76%),
+      linear-gradient(170deg, color-mix(in srgb, var(--lg-b) 16%, #0b0b0e) 0%, #060608 100%);
+  }
+}
+
 /* ================= tiles: every card is a frosted tile ================= */
 html.lg body.powa-app :is(.ui-list, .ui-card, .ui-stats, .card, .tx-card, .tn-group:not(.today-strip)) {
   background: var(--lg-film);
@@ -219,6 +230,14 @@ html.lg:not(.native) body.powa-app:has(> .demo-banner) .toast { bottom: 86px; }
 /* the tab bar: content passes under it, so it is frosted (it already blurs: the tint lets the hue through) */
 html.lg body.powa-app .bottom-tabs { background: rgb(14 14 18 / .62); box-shadow: inset 0 1px 0 rgb(255 255 255 / .16), inset 0 0 0 1px rgb(255 255 255 / .07), 0 18px 40px -18px rgb(0 0 0 / .8); border-color: transparent; }
 /* (the phone's top bar stays as it is: clear, the screen's name showing through it) */
+/* the row of today's cards that scrolls sideways: its last card fades out into the room (it faded into a strip of the
+   old flat black laid over the page) */
+html.lg body.powa-app .today-strip-wrap.has-more::after { display: none; }
+html.lg body.powa-app .today-strip-wrap.has-more:not(.at-end) > .today-strip {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 76px), transparent calc(100% - 6px));
+  mask-image: linear-gradient(90deg, #000 calc(100% - 76px), transparent calc(100% - 6px));
+}
+@media (min-width: 701px) { html.lg:not(.native) body.powa-app .today-strip-wrap > .today-strip { -webkit-mask-image: none; mask-image: none; } }
 
 /* ================= without the glass: solid, the same places ================= */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
