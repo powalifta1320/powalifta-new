@@ -232,6 +232,22 @@ html.lg:not(.native) body.powa-app:has(> .demo-banner) .toast { bottom: 86px; }
   html.lg:not(.native) body.powa-app section[data-pane='club']:has(#clubArea > .club-hero):has(#clubArea > .club-view) #challengeArea > .chl { margin-bottom: 12px; }
 }
 
+/* ---------- Progress and You on a laptop ---------- */
+@media (min-width: 1100px) {
+  /* Progress, Overview: the total and its chart on the left, the three lifts, this week and the tools on the right, so
+     the lifts are on the first screen beside the total (they were a screen down, under a chart 1120 px wide). The
+     other views of Progress (Analysis, PRs, History) keep their own layouts. */
+  html.lg:not(.native) body.powa-app section[data-pane='progress'] { max-width: 1380px; }
+  html.lg:not(.native) body.powa-app .prog-subview:has(> .pg-hero):has(> .sc-card) { column-count: 2; column-gap: 24px; }
+  html.lg:not(.native) body.powa-app .prog-subview:has(> .pg-hero):has(> .sc-card) > * { break-inside: avoid; }
+  html.lg:not(.native) body.powa-app .prog-subview:has(> .pg-hero):has(> .sc-card) > .sc-card + .ui-label { break-before: column; margin-top: 0; }
+  /* You: who you are, your bodyweight and your training on the left; community, settings and help on the right (one
+     column of seven blocks, two screens long, each row 1120 px wide for a line of words) */
+  html.lg:not(.native) body.powa-app section[data-pane='you'] { max-width: 1380px; }
+  html.lg:not(.native) body.powa-app #youArea:has(> .you-hero) { column-count: 2; column-gap: 24px; }
+  html.lg:not(.native) body.powa-app #youArea:has(> .you-hero) > * { break-inside: avoid; }
+}
+
 /* ================= a narrow window (a tablet, a laptop window pulled small): the tabs run across the top ================= */
 @media (max-width: 900px) {
   /* no sidebar here, so no window: the tiles sit on the room, as on a phone. The top bar and the strip of tabs under it
