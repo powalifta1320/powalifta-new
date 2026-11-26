@@ -2149,14 +2149,15 @@ window.POWA_SUPPORT_KB = [
   "q": "What is Home on the website?",
   "t": [
    "home tab",
-   "this week",
-   "my week",
-   "week at a glance",
+   "home page",
    "where is home",
-   "laptop dashboard"
+   "laptop dashboard",
+   "log bodyweight on the website",
+   "message my coach from home",
+   "progress chart home"
   ],
-  "a": "On a laptop, the website opens on **Home**: your week from Monday to Sunday. Each day shows its session, whether it's done, today, still to come or missed, and its top set. Click a day (or use the arrow keys) to see that session as a table: what's planned, what you lifted last time, and what you logged. Beside it: your coach's latest note and anything waiting on you (a check-in, questions, unread messages), your estimated total and maxes, and your bodyweight or next meet. **Open today's session** takes you to Train. A session with no date yet sits on a day you usually train, and anything that doesn't fit is listed under the week. Home only shows things: nothing changes until you act on Train or another tab. On a phone and in the app, you land on Train as before.",
-  "app": "Home is on the website on a laptop: your week from Monday to Sunday, today's session as a table, your coach's latest note and your numbers. In the app you land on Train, as always."
+  "a": "On a laptop, the website opens on **Home**, made for what you do at a desk. **Progress** across the top: your estimated total, how it moved, each lift's estimated max, and one chart with a line per lift. Click a lift to see its line alone (click again for all three) and pick 8 weeks, 16 weeks or a year; **Open Progress** has the rest. **Log**: type your bodyweight and press Log (it saves like the weigh-in sheet), see your last weigh-in and 7-day average, do this week's check-in and answer your coach's questions (training alone, your goals and your meet are there instead). **Your coach**: their newest note or message, a box to write back, Messages and Send a form check. Training alone, that tile is your **program**: its weeks, the next session and Edit program. **This week**: your sessions with Done, Today, To come or Missed, Open session on today's, and Log a past session for one you lifted away from the app. On a phone and in the app, you land on Train as before.",
+  "app": "Home is on the website on a laptop: your progress chart, bodyweight and check-ins, your coach (with a reply box) and this week's sessions. In the app you land on Train, as always."
  }
 ];
 

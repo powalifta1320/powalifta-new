@@ -1,32 +1,37 @@
-/* lifter-home.js: Home, the lifter's week on a laptop (26 Nov 2026; the owner: "We need to optimize the lifter
-   dashboard completely for the website version. We cannot just give the same thing on a bigger screen.").
+/* lifter-home.js: Home, the lifter's desk on a laptop (rebuilt 26 Nov 2026; the owner on the week-first Home: "home is
+   a very big mess. I can't understand anything. I can't do anything. I can't access anything. [...] they are
+   realistically going to use it to either track their progress or log in their details or something if they want to
+   contact their coach").
 
-   A lifter at a laptop is reading and planning, not mid-set. Home answers, in this order: my week (done, today, left),
-   exactly what today's (or the next) session is, what my coach said and what waits on me, and whether I am getting
-   stronger (with my bodyweight against my class, or the meet).
+   A lifter at a desk does three things, in this order: sees how they are progressing, enters their details, talks to
+   their coach. Training stays one click away and is the smallest thing on the page. Four tiles, nothing else:
+     1. Progress (full width): the estimated total, the three lifts as buttons, one chart of the estimated max per lift
+        over time (a lift button isolates its line), a range (8 weeks / 16 weeks / 1 year, only those with data).
+     2. Log: bodyweight logged in place (the weigh-in sheet's own save, saveBodyweightEntry), this week's check-in and
+        the coach's questions, and plain links (bodyweight history, goals, the meet). Training alone, the rows are the
+        lifter's own details instead: their goals and their meet.
+     3. Coach (coached): the newest thing the coach said, a reply box (the Coach tab's own send: the same demo echo, the
+        same DB.sendMessage and push), Messages, Send a form check. Solo: Program, the block as a strip of weeks,
+        the next session and the screen's one crimson button, Edit program.
+     4. This week: the week's sessions as plain rows (weekday, name, state in a word), Open session on today's row,
+        Log a past session (Train's own picker) and the program in its foot.
+   At 1440 by 775 (the owner's window) the four tiles end above the demo bar: nothing to press sits under it.
 
    Where it shows: the website at laptop width only (html:not(.native), min-width 901 px). athlete.html carries the
    tab (#tab-home, first in the sidebar) and the pane (section[data-pane="home"]); lifter-home.css hides both on a
    phone, in the iPhone app and in a window of 900 px and under, where nothing changes. A laptop lands here unless the
    address names a tab (?tab=) or a hash. A window pulled under 901 px while Home is open moves to Train.
 
-   Read-only: Home logs nothing and writes nothing. Its buttons open the app's own screens and sheets (Train on a day,
-   Progress, Coach, the check-in, the weigh-in), which do their own saving when the lifter acts there.
+   What it writes: only through the app's own paths, which already keep the demo (window._demoMode) off the network:
+   a weigh-in (saveBodyweightEntry), a message (the thread's own demo echo / DB.sendMessage). Everything else opens the
+   app's own screens and sheets. Coach- and lifter-written text always goes in as text (el(..., text) / textContent).
 
-   Every value comes from the Store through the app's own helpers: the week from the program and the logs (lhWeek,
-   pure, below), the loads through setLoadText / setEffortText / formatWeight, the estimated maxes from Progress's own
-   _progTotalSeries and strengthSeries, the meet and class from meetWeighOf / deskNextMeet, the weigh-ins from
-   _bwSeries / bwHabit. Program JSON is coach-written: everything from it goes in as text nodes or through escHtml.
+   Every number comes from the Store through the app's own helpers: the estimated maxes from Progress's own
+   _progTotalSeries (the running best, what Progress's hero shows) and strengthSeries (the weekly best, what Progress's
+   chart draws), the weigh-ins from _bwSeries, the meet line from meetWeighOf / deskNextMeet, the week from lhWeek.
 
-   Which day a session sits on: a session belongs to the date it was logged on (the date most of its sets were
-   logged), else the date it is pinned to (day.scheduledDate, as Train pins). A date with logged sets but no session
-   of the program on it shows what was logged. A rest day the lifter marked is Rest. The sessions of this program
-   week still to do and on no date are put, in the program's order, on the days ahead the lifter usually trains: the
-   days of their intake, else a weekday they trained on in 3 of the 4 weeks before (desk-day.js habitOn, the coach
-   desk's own rule). What does not fit is listed under the week as not on a day yet; nothing else is guessed.
-
-   Pure parts (unit-tested in tests.html "lifter home (lifter-home.js)"): lhWeek, lhPlanText, lhLoggedGroups,
-   lhTopSet, lhFeel, lhHeadAction, lhDefaultDay. */
+   Pure parts (unit-tested in tests.html "lifter home (lifter-home.js)"): lhWeek, lhWeekRows, lhStateWord,
+   lhChangeWords, lhRanges, lhBase, lhNiceTicks, lhChartModel, lhBwSummary, lhBlockStrip. */
 (function () {
   'use strict';
 
@@ -36,17 +41,21 @@
   var DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   var DAY_LONG = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   var MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var MONTH_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var MAIN = ['squat', 'bench', 'deadlift'];
+  var RANGES = [8, 16, 52];
 
   function d10(v) { return String(v == null ? '' : v).slice(0, 10); }
   function isIso(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s + 'T12:00:00Z')); }
   function addDays(iso, n) { var d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
   function dow(iso) { return (new Date(iso + 'T12:00:00Z').getUTCDay() + 6) % 7; }   // Mon 0 … Sun 6
   function monday(iso) { return addDays(iso, -dow(iso)); }
-  // "Thu 26 Nov", "26 Nov", "Thursday": fixed English names, the same on every machine.
+  // "Thu 26 Nov", "26 Nov", "Thursday 26 November": fixed English names, the same on every machine.
   function dayText(iso) { var p = iso.split('-'); return DAY_SHORT[dow(iso)] + ' ' + Number(p[2]) + ' ' + MONTH[Number(p[1]) - 1]; }
   function dateText(iso) { var p = iso.split('-'); return Number(p[2]) + ' ' + MONTH[Number(p[1]) - 1]; }
+  function longDate(iso) { var p = iso.split('-'); return DAY_LONG[dow(iso)] + ' ' + Number(p[2]) + ' ' + MONTH_LONG[Number(p[1]) - 1]; }
   function weekdayLong(iso) { return DAY_LONG[dow(iso)]; }
+  function fmtNum(v) { return String(Math.round(Number(v) * 10) / 10); }
 
   function setsOf(day) {
     var out = [];
@@ -81,6 +90,8 @@
   //     days: [{ iso, idx, isToday, past, kind: 'session' | 'logged' | 'rest', ref: { wi, di } | null, more,
   //              how: 'logged' | 'pinned' | 'usual' | null, marked (a rest day they marked), state, done, total }] }
   // state: 'done' | 'skipped' | 'unfinished' (logged in part on a past day) | 'today' | 'tocome' | 'missed' | null
+  // A session belongs to the date it was logged on (most of its sets), else the date it is pinned to; the sessions of
+  // this program week still to do and on no date go, in order, onto the days ahead the lifter usually trains.
   function lhWeek(o) {
     o = o || {};
     var t = d10(o.today);
@@ -101,12 +112,10 @@
         if (iso && iso >= mon && iso <= sun) (bound[iso] = bound[iso] || []).push(r);
       });
     });
-    // The program week this calendar week is about: today's session's, else the next one's, else the latest seen here.
     var wk = null;
     if (bound[t]) wk = bound[t][0].wi;
     else if (o.next && o.next.wi != null) wk = o.next.wi;
     else Object.keys(bound).forEach(function (k) { bound[k].forEach(function (r) { if (wk == null || r.wi > wk) wk = r.wi; }); });
-    // Its sessions still to do and on no date, in the program's order, onto the days ahead they usually train.
     var usual = (o.usual || []).map(String).filter(function (x) { return DAY_SHORT.indexOf(x) >= 0; });
     var trainsOn = function (iso) { return usual.length ? usual.indexOf(DAY_SHORT[dow(iso)]) >= 0 : habitOn(function (d) { return !!logSet[d]; }, iso); };
     var toPlace = wk == null ? [] : refs.filter(function (r) { return r.wi === wk && r.st.open > 0 && r.st.done === 0 && !r.iso; });
@@ -149,105 +158,126 @@
     return { mon: mon, sun: sun, today: t, week: wk, days: days, unplaced: unplaced };
   }
 
-  // The day the session block opens on: today, or when today is a rest day the next session to come this week.
-  function lhDefaultDay(week) {
-    if (!week) return 0;
-    var ti = week.days.findIndex(function (d) { return d.isToday; });
-    if (ti < 0) return 0;
-    if (week.days[ti].kind !== 'rest') return ti;
-    var n = week.days.findIndex(function (d, i) { return i > ti && d.kind === 'session' && (d.state === 'tocome' || d.state === 'today'); });
-    return n >= 0 ? n : ti;
+  // A day's state in one word a lifter would say.
+  var STATE_WORD = { done: 'Done', skipped: 'Skipped', unfinished: 'Part done', today: 'Today', tocome: 'To come', missed: 'Missed' };
+  function lhStateWord(d) {
+    if (!d || d.kind === 'rest') return '';
+    if (d.isToday && d.state !== 'done' && d.state !== 'skipped') return 'Today';
+    return STATE_WORD[d.state] || '';
+  }
+  // This week's tile: the days with training on them (rest days left out), in order, at most `max` (6). When there are
+  // more, today's row is always kept. → [day] (lhWeek's day objects)
+  function lhWeekRows(week, max) {
+    if (!week) return [];
+    max = max || 6;
+    var rows = week.days.filter(function (d) { return d.kind !== 'rest'; });
+    if (rows.length <= max) return rows;
+    var ti = rows.findIndex(function (d) { return d.isToday; });
+    var start = ti < 0 ? 0 : Math.min(Math.max(0, ti - Math.floor(max / 2)), rows.length - max);
+    return rows.slice(start, start + max);
   }
 
-  // The head's one action: today's session while it has sets to do, else the session Train offers next (next: { wi, di }),
-  // by the day it sits on this week. → { kind: 'today' | 'day' | 'next' | 'none', idx (a day of the week, or -1) }
-  function lhHeadAction(week, next) {
-    if (!week) return { kind: 'none', idx: -1 };
-    var ti = week.days.findIndex(function (d) { return d.isToday; });
-    var td = ti >= 0 ? week.days[ti] : null;
-    if (td && td.kind === 'session' && td.state === 'today') return { kind: 'today', idx: ti };
-    if (!next) return { kind: 'none', idx: -1 };
-    var at = week.days.findIndex(function (d) { return d.kind === 'session' && d.ref && d.ref.wi === next.wi && d.ref.di === next.di && !d.past; });
-    if (at >= 0) return { kind: at === ti ? 'today' : 'day', idx: at };
-    return { kind: 'next', idx: -1 };
+  // The move of a number over a span, in words: "Up 12.5 kg in 16 weeks", "Level over 16 weeks", "Down 5 kg in a year",
+  // "Up 10 kg since 5 Oct". delta in the lifter's unit; span: { weeks } or { since: iso }. Under half a unit is level.
+  function lhChangeWords(delta, unit, span) {
+    var d = Math.round(Number(delta) * 2) / 2;
+    span = span || {};
+    var spanIn = span.since ? 'since ' + dateText(span.since) : span.weeks === 52 ? 'in a year' : 'in ' + span.weeks + ' weeks';
+    var spanOver = span.since ? 'since ' + dateText(span.since) : span.weeks === 52 ? 'over a year' : 'over ' + span.weeks + ' weeks';
+    if (!isFinite(d) || Math.abs(d) < 0.5) return 'Level ' + spanOver;
+    return (d > 0 ? 'Up ' : 'Down ') + fmtNum(Math.abs(d)) + ' ' + unit + ' ' + spanIn;
   }
-
-  // ---- words for sets ----
-  var fmtNum = function (v) { return String(Math.round(Number(v) * 100) / 100); };
-  // "@8.5", "@7–8", ", 2 RIR" (setEffortText's own words, shorter: the column is narrow). Felt RPE: actualRpe.
-  function effortShort(s, actual) {
-    if (actual) return s && s.actualRpe != null && s.actualRpe !== '' && isFinite(Number(s.actualRpe)) ? ' @' + fmtNum(s.actualRpe) : '';
-    var t = typeof setEffortText === 'function' ? setEffortText(s) : (s && s.rpe != null && s.rpe !== '' ? 'RPE ' + fmtNum(s.rpe) : '');
-    if (!t) return '';
-    return /^RPE /.test(t) ? ' @' + t.slice(4) : ', ' + t;
+  // Which ranges have data: 8 weeks once anything is logged, 16 once the first rated set is older than 8 weeks, a year
+  // once it is older than 16. firstIso: the first rated set's date. → [8, 16, 52] or a part of it
+  function lhRanges(firstIso, today) {
+    firstIso = d10(firstIso); today = d10(today);
+    if (!isIso(firstIso) || !isIso(today)) return [];
+    var out = [8];
+    if (firstIso < addDays(today, -56)) out.push(16);
+    if (firstIso < addDays(today, -112)) out.push(52);
+    return out;
   }
-  function loadOf(s, actual) {
-    if (actual) return Number(s.weight) > 0 && typeof formatWeight === 'function' ? formatWeight(s.weight) : (Number(s.weight) > 0 ? fmtNum(s.weight) + ' kg' : '');
-    return typeof setLoadText === 'function' ? setLoadText(s) : (Number(s.weight) > 0 ? fmtNum(s.weight) + ' kg' : '');
+  // The point a range is measured from: the last point on or before the cutoff, else the first point after it
+  // (since: its date). series: [{ date, … }] oldest first. → { pt, since: iso | null } | null
+  function lhBase(series, cutoff) {
+    if (!series || !series.length) return null;
+    var before = null;
+    series.forEach(function (p) { if (p.date <= cutoff) before = p; });
+    if (before) return { pt: before, since: null };
+    return { pt: series[0], since: series[0].date };
   }
-  // The plan as written: plannedWeight / plannedReps when the day moved them (a smart load, other reps).
-  function planned(s) {
-    var c = {}; for (var k in s) c[k] = s[k];
-    if (s.plannedWeight != null) c.weight = s.plannedWeight;
-    if (s.plannedReps != null && s.plannedReps !== '') c.reps = s.plannedReps;
-    return c;
+  // Round gridlines for a value range: 3 to 5 ticks on a step of 1, 2, 2.5 or 5 times a power of ten.
+  // → { lo, hi, step, ticks: [v] }
+  function lhNiceTicks(min, max) {
+    if (!isFinite(min) || !isFinite(max)) return { lo: 0, hi: 1, step: 1, ticks: [0, 1] };
+    if (max - min < 1) { min -= 2.5; max += 2.5; }
+    var span = max - min, raw = span / 4, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    var step = [1, 2, 2.5, 5, 10].map(function (m) { return m * mag; }).find(function (s) { return span / s <= 4.5; }) || 10 * mag;
+    var lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step;
+    if (hi === lo) hi = lo + step;
+    var ticks = [];
+    for (var v = lo; v <= hi + step / 1000; v += step) ticks.push(Math.round(v * 100) / 100);
+    return { lo: lo, hi: hi, step: step, ticks: ticks };
   }
-  // One exercise's plan in the app's short form, one entry per group of like sets:
-  // ["1 × 3 at 182.5 kg @8.5", "2 × 5 at 167.5 kg @8"]. Cardio reads as minutes and km.
-  function lhPlanText(ex) {
-    var ss = ((ex && ex.sets) || []).filter(Boolean).map(planned);
-    if (!ss.length) return [];
-    var cardio = ex.lift === 'cardio';
-    var groups = typeof groupSets === 'function' ? groupSets(ss) : ss.map(function (s, i) { return Object.assign({ count: 1, startIdx: i }, s); });
-    return groups.map(function (g) {
-      if (cardio) return g.count + ' × ' + fmtNum(g.weight) + ' min' + (Number(g.reps) > 0 ? ', ' + fmtNum(g.reps) + ' km' : '');
-      var load = loadOf(g, false);
-      return g.count + ' × ' + String(g.reps == null ? '' : g.reps) + (load ? ' at ' + load : '') + effortShort(g, false);
+  // The chart's geometry, pure. o: { series: { squat: [{ week: iso Monday, value }] … } (already in the lifter's unit),
+  // weeks (how many, ending this week), today, w, h, pad: { l, r, t, b } }
+  // → { start (the first Monday), n, x(i), yTicks: [{ v, y }], xTicks: [{ i, x, label }],
+  //     lines: { lift: { d, pts: [{ i, x, y, v }] } }, byWeek: [{ i, week, x, values: { lift: v } }] }
+  function lhChartModel(o) {
+    var n = o.weeks, pad = o.pad || { l: 44, r: 12, t: 8, b: 24 };
+    var start = addDays(monday(d10(o.today)), -7 * (n - 1));
+    var pw = Math.max(10, o.w - pad.l - pad.r), ph = Math.max(10, o.h - pad.t - pad.b);
+    var x = function (i) { return pad.l + (n > 1 ? pw * i / (n - 1) : pw / 2); };
+    var idxOf = function (wk) { return Math.round((Date.parse(wk + 'T12:00:00Z') - Date.parse(start + 'T12:00:00Z')) / (7 * 864e5)); };
+    var all = [];
+    var keep = {};
+    MAIN.forEach(function (l) {
+      keep[l] = ((o.series && o.series[l]) || []).map(function (p) { return { i: idxOf(d10(p.week)), v: Number(p.value) }; })
+        .filter(function (p) { return p.i >= 0 && p.i < n && isFinite(p.v) && p.v > 0; });
+      keep[l].forEach(function (p) { all.push(p.v); });
+    });
+    var nt = all.length ? lhNiceTicks(Math.min.apply(null, all), Math.max.apply(null, all)) : lhNiceTicks(0, 100);
+    var y = function (v) { return pad.t + ph * (1 - (v - nt.lo) / (nt.hi - nt.lo)); };
+    var lines = {}, byWeek = [];
+    for (var i = 0; i < n; i++) byWeek.push({ i: i, week: addDays(start, 7 * i), x: x(i), values: {} });
+    MAIN.forEach(function (l) {
+      var pts = keep[l].map(function (p) { return { i: p.i, x: x(p.i), y: y(p.v), v: p.v }; });
+      pts.forEach(function (p) { byWeek[p.i].values[l] = p.v; });
+      lines[l] = { d: pts.map(function (p, k) { return (k ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join(' '), pts: pts };
+    });
+    var every = n <= 8 ? 2 : n <= 16 ? 4 : 13;
+    var xTicks = [];
+    for (var k = (n - 1) % every; k < n; k += every) xTicks.push({ i: k, x: x(k), label: dateText(addDays(start, 7 * k)) });
+    return { start: start, n: n, x: x, yTicks: nt.ticks.map(function (v) { return { v: v, y: y(v) }; }), xTicks: xTicks, lines: lines, byWeek: byWeek };
+  }
+  // The weigh-ins in one line's worth: the last one, and the average of those in the 7 days to today.
+  // list: [{ date, weight }] oldest first. → { last, avg7 (or null), n7 } | null
+  function lhBwSummary(list, today) {
+    if (!list || !list.length) return null;
+    var last = list[list.length - 1], from = addDays(d10(today), -6);
+    var wk = list.filter(function (b) { return b.date >= from && b.date <= d10(today) && Number(b.weight) > 0; });
+    var avg = wk.length ? wk.reduce(function (a, b) { return a + Number(b.weight); }, 0) / wk.length : null;
+    return { last: last, avg7: avg, n7: wk.length };
+  }
+  // The block as a strip of weeks: done (every session with sets done or skipped), now (the week in hand), to come.
+  // → [{ n (the week's number), state: 'done' | 'now' | 'tocome' }]
+  function lhBlockStrip(prog, cur) {
+    return ((prog && prog.weeks) || []).map(function (w, wi) {
+      var sess = ((w && w.days) || []).map(dayStatus).filter(function (s) { return s.total > 0; });
+      var finished = sess.length > 0 && sess.every(function (s) { return s.open === 0; });
+      var state = wi === cur ? 'now' : (finished || (cur != null && wi < cur)) ? 'done' : 'tocome';
+      return { n: Number((w && w.number) || wi + 1), state: state };
     });
   }
-  // How a logged set felt against what was written: 'harder' (over the top of the RPE written), 'easier' (under its
-  // bottom), or null (as written, no RPE either side, or written as RIR).
-  function lhFeel(s) {
-    if (!s || s.actualRpe == null || s.actualRpe === '' || s.rpe == null || s.rpe === '' || s.rir) return null;
-    var a = Number(s.actualRpe), lo = Number(s.rpe), hi = s.rpeHi != null && Number(s.rpeHi) > lo ? Number(s.rpeHi) : lo;
-    if (!isFinite(a) || !isFinite(lo)) return null;
-    if (a > hi) return 'harder';
-    if (a < lo) return 'easier';
-    return null;
-  }
-  // The sets logged for one exercise, like sets together: [{ text: "3 × 3 at 182.5 kg @9", feel }], in order.
-  function lhLoggedGroups(ex) {
-    var out = [], cardio = ex && ex.lift === 'cardio';
-    ((ex && ex.sets) || []).forEach(function (s) {
-      if (!s || !s.completed) return;
-      var feel = cardio ? null : lhFeel(s);
-      var body = cardio ? fmtNum(s.weight) + ' min' + (Number(s.reps) > 0 ? ', ' + fmtNum(s.reps) + ' km' : '')
-        : String(s.reps == null ? '' : s.reps) + (loadOf(s, true) ? ' at ' + loadOf(s, true) : '') + effortShort(s, true);
-      var last = out[out.length - 1];
-      if (last && last.body === body && last.feel === feel) last.count++;
-      else out.push({ body: body, feel: feel, count: 1 });
-    });
-    return out.map(function (g) { return { text: g.count + ' × ' + g.body, feel: g.feel }; });
-  }
-  // A day's top set in one line, from its first main lift (the coach's order), else its first exercise:
-  // planned "182.5 kg × 3 @8.5"; done (actual: true) the heaviest set lifted, "185 kg × 3 @9".
-  function lhTopSet(day, actual) {
-    var exs = ((day && day.exercises) || []).filter(function (e) { return e && (e.sets || []).length && e.lift !== 'cardio'; });
-    var ex = exs.filter(function (e) { return MAIN.indexOf(e.lift) >= 0; })[0] || exs[0];
-    if (!ex) return '';
-    var pool = actual ? ex.sets.filter(function (s) { return s && s.completed; }) : ex.sets.filter(Boolean).map(planned);
-    if (!pool.length) return '';
-    var top = pool.reduce(function (m, s) { return Number(s.weight) > Number(m.weight) ? s : m; }, pool[0]);
-    var load = loadOf(top, actual);
-    return (load ? load + ' × ' : '') + String(top.reps == null ? '' : top.reps) + (load ? '' : ' reps') + effortShort(top, actual);
-  }
 
-  var Core = { lhWeek: lhWeek, lhDefaultDay: lhDefaultDay, lhHeadAction: lhHeadAction, lhPlanText: lhPlanText, lhFeel: lhFeel,
-    lhLoggedGroups: lhLoggedGroups, lhTopSet: lhTopSet, dayText: dayText, dateText: dateText, weekdayLong: weekdayLong, monday: monday, addDays: addDays };
+  var Core = { lhWeek: lhWeek, lhWeekRows: lhWeekRows, lhStateWord: lhStateWord, lhChangeWords: lhChangeWords, lhRanges: lhRanges,
+    lhBase: lhBase, lhNiceTicks: lhNiceTicks, lhChartModel: lhChartModel, lhBwSummary: lhBwSummary, lhBlockStrip: lhBlockStrip,
+    dayText: dayText, dateText: dateText, longDate: longDate, weekdayLong: weekdayLong, monday: monday, addDays: addDays };
   if (typeof window !== 'undefined') {
     window.LifterHomeCore = Core;
-    window.lhWeek = lhWeek; window.lhPlanText = lhPlanText; window.lhLoggedGroups = lhLoggedGroups; window.lhTopSet = lhTopSet;
-    window.lhFeel = lhFeel; window.lhHeadAction = lhHeadAction; window.lhDefaultDay = lhDefaultDay;
+    window.lhWeek = lhWeek; window.lhWeekRows = lhWeekRows; window.lhStateWord = lhStateWord; window.lhChangeWords = lhChangeWords;
+    window.lhRanges = lhRanges; window.lhBase = lhBase; window.lhNiceTicks = lhNiceTicks; window.lhChartModel = lhChartModel;
+    window.lhBwSummary = lhBwSummary; window.lhBlockStrip = lhBlockStrip;
   }
   if (typeof document === 'undefined' || typeof window === 'undefined' || !document.documentElement || !document.addEventListener) return;
 
@@ -255,9 +285,13 @@
      THE SCREEN
      ===================================================================================== */
   var LAPTOP = '(min-width: 901px)';
-  var selIdx = null;        // the day selected in the week (0 Mon … 6 Sun); null = the default
-  var selWeek = null;       // which Monday that selection belongs to
-  var lastV = -1, timer = null, msgCache = null, rendering = false;
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var lastV = -1, lastTheme = null, timer = null, msgCache = null, rendering = false;
+  var focusLift = null;   // the lift isolated on the chart, or null for all three
+  var rangeW = null;      // the chart's range in weeks (8, 16, 52); null = 16, or the longest there is
+  var draft = '';         // what is typed in the reply box, kept across redraws
+  var bwDraft = '';       // the weight typed, kept across redraws
+  var hoverI = null;      // the week read out on the chart
 
   function isLaptop() {
     var h = document.documentElement;
@@ -272,17 +306,22 @@
   function coach() { var u = me(); return u && u.coachId ? ((Store.get().coaches || []).find(function (c) { return c.id === u.coachId; }) || null) : null; }
   function firstName(n) { return String(n || '').trim().split(/\s+/)[0] || ''; }
   function dayOf(p, ref) { var w = p && p.weeks[ref.wi]; return { wk: w, day: w && w.days[ref.di] }; }
-  function txt(tag, cls, text) { return el(tag, cls ? { class: cls } : {}, text == null ? '' : String(text)); }
+  function theme() { var h = document.documentElement; return (h.getAttribute('data-theme') || '') + '|' + h.className; }
   function soft(label, onClick, extra) {
     var b = el('button', { class: 'ui-btn-soft lh-btn' + (extra ? ' ' + extra : ''), type: 'button' }, label);
     b.addEventListener('click', onClick);
     return b;
   }
-  function title(text) { return el('h3', { class: 'ui-label lh-title' }, text); }
-  function exName(ex) {
-    if (typeof exTitleOf === 'function') return exTitleOf(ex);
-    return ex.exerciseName || (typeof LIFT_LABELS !== 'undefined' && LIFT_LABELS[ex.lift]) || 'Exercise';
+  function link(label, onClick, extra) {
+    var b = el('button', { class: 'lh-link' + (extra ? ' ' + extra : ''), type: 'button' }, label);
+    b.addEventListener('click', onClick);
+    return b;
   }
+  function tile(name, cls) { return el('section', { class: 'ui-card lh-tile ' + cls, 'data-tile': name, 'aria-labelledby': 'lh-t-' + name }); }
+  function title(name, text) { return el('h3', { class: 'lh-title', id: 'lh-t-' + name }, text); }
+  function unit() { return typeof unitLabel === 'function' ? unitLabel() : 'kg'; }
+  function disp(kg) { return Number(kgToDisplay(kg)); }
+  function svgEl(tag, attrs) { var n = document.createElementNS(SVGNS, tag); for (var k in attrs) n.setAttribute(k, attrs[k]); return n; }
 
   // The session Train offers next (athlete.html: a session planned for a later day first, else the next one in the program).
   function nextRef(p, date) {
@@ -302,8 +341,8 @@
     var all = typeof rosterLogsFor === 'function' ? rosterLogsFor(u.id) : (Store.get().workoutLogs || []).filter(function (l) { return l.athleteId === u.id; });
     return all.filter(function (l) { return l.lift !== 'cardio'; });
   }
-  function buildWeek() {
-    var u = me(), p = prog(), t = today();
+  function buildWeek(p) {
+    var u = me(), t = today();
     var logs = myLogs(u);
     return lhWeek({
       prog: p, today: t,
@@ -314,10 +353,10 @@
     });
   }
 
-  // ---- opening the app's own screens (no writes: Train's day and date are what the lifter is looking at) ----
+  // ---- opening the app's own screens ----
   function openOnTrain(ref, iso) {
     var p = prog(); var x = dayOf(p, ref);
-    if (!x.day) { tab('today').click(); return; }
+    if (!x.day) { openTrain(); return; }
     var sel = document.getElementById('daySelect'), sd = document.getElementById('sessionDate');
     if (sd) sd.value = iso;
     if (sel) sel.value = _dayKey(x.wk, x.day);
@@ -325,243 +364,304 @@
     try { renderToday(); } catch (e) {}
     tab('today').click();
   }
-  function openInProgram(ref) {
-    var p = prog(), x = dayOf(p, ref), u = me();
-    if (u && u.coachId && x.wk) { try { _fpWeek = x.wk.number; _fpOpen.add(x.day.id); } catch (e) {} }
-    tab('program').click();
-  }
   function openTrain() { try { populateDaySelect(); renderToday(); } catch (e) {} tab('today').click(); }
-  function openCoach() { try { sessionStorage.setItem('powa-coach-view', 'messages'); } catch (e) {} tab('coach').click(); }
-  function openHistory() { try { sessionStorage.setItem('powa-prog-subtab', 'history'); } catch (e) {} tab('progress').click(); }
-  function openProgress() { try { sessionStorage.setItem('powa-prog-subtab', 'overview'); } catch (e) {} tab('progress').click(); }
-
-  // How a day opens: Train for a day on a date that has come (its own date) and for the session Train offers next
-  // (today's date: Train offers it); any other session ahead in the program; a day of logged sets in History.
-  function opener(week, d, next) {
-    if (!d) return null;
-    var t = week.today;
-    if (d.kind === 'logged') return { label: 'See in History', go: openHistory };
-    if (d.kind !== 'session') return null;
-    if (d.iso <= t && d.how !== 'usual') return { label: 'Open session', go: function () { openOnTrain(d.ref, d.iso); } };
-    var restToday = (Store.get().restDays || []).some(function (r) { return r.athleteId === me().id && r.date === t; });
-    var isNext = next && d.ref && d.ref.wi === next.wi && d.ref.di === next.di;
-    if (isNext && !restToday) return { label: 'Open session', go: function () { openOnTrain(d.ref, t); } };
-    return { label: 'See in program', go: function () { openInProgram(d.ref); } };
+  // Train's own session picker (its "Log another date" row is the way to log a day already trained).
+  function openLogSession() {
+    openTrain();
+    var p = prog();
+    if (p && (p.weeks || []).length && typeof openSessionPicker === 'function') setTimeout(function () { try { openSessionPicker(); } catch (e) {} }, 60);
   }
+  function openCoach(view) { try { sessionStorage.setItem('powa-coach-view', view || 'messages'); } catch (e) {} tab('coach').click(); }
+  function openProgress() { try { sessionStorage.setItem('powa-prog-subtab', 'overview'); } catch (e) {} tab('progress').click(); }
+  function openProgram() { var t = tab('program'); if (t) t.click(); }
 
   // ---- the head ----
-  function headBlock(week, p, next) {
-    var head = el('div', { class: 'dash-header lh-head' });
-    var left = el('div', { class: 'lh-head-text' });
-    left.appendChild(el('h2', {}, 'This week'));
-    var sub = [];
-    if (p && week && week.week != null && p.weeks[week.week]) sub.push((p.name ? String(p.name) + ', w' : 'W') + 'eek ' + Number(p.weeks[week.week].number || week.week + 1) + ' of ' + p.weeks.length + '.');
-    if (week) sub.push(DAY_SHORT[0] + ' ' + Number(week.mon.slice(8)) + (week.mon.slice(5, 7) === week.sun.slice(5, 7) ? '' : ' ' + MONTH[Number(week.mon.slice(5, 7)) - 1]) + ' to ' + DAY_SHORT[6] + ' ' + dateText(week.sun));
-    left.appendChild(el('p', { class: 'lh-sub' }, sub.join(' ')));
-    head.appendChild(left);
-    var acts = el('div', { class: 'lh-head-acts' });
-    var c = coach();
-    var primary = null;
-    if (!p) {
-      if (c) primary = { label: 'Message ' + firstName(c.name), go: openCoach };
-      else primary = { label: 'Set up your program', go: openTrain };
-    } else {
-      var a = lhHeadAction(week, next);
-      if (a.kind === 'today') primary = { label: 'Open today’s session', go: function () { openOnTrain(week.days[a.idx].ref, week.today); } };
-      else if (a.kind === 'day') { var dd = week.days[a.idx], o = opener(week, dd, next); primary = { label: 'Open ' + weekdayLong(dd.iso) + '’s session', go: o ? o.go : openTrain }; }
-      else if (a.kind === 'next') primary = { label: 'Open next session', go: openTrain };
-      else primary = { label: 'Open Train', go: openTrain };
-    }
-    if (p && c) acts.appendChild(soft('Message ' + firstName(c.name), openCoach, 'lh-head-msg'));
-    var b = el('button', { class: 'btn btn-primary lh-head-go', type: 'button' }, primary.label);
-    b.addEventListener('click', primary.go);
-    acts.appendChild(b);
-    head.appendChild(acts);
+  function headBlock(p, week) {
+    var head = el('div', { class: 'lh-head' });
+    head.appendChild(el('h2', { class: 'lh-h' }, 'Home'));
+    var line = [longDate(week.today)];
+    if (p && week.week != null && p.weeks[week.week]) line.push((p.name ? String(p.name) + ', w' : 'W') + 'eek ' + Number(p.weeks[week.week].number || week.week + 1) + ' of ' + p.weeks.length);
+    head.appendChild(el('p', { class: 'lh-sub' }, line.join(' · ')));
     return head;
   }
 
-  // ---- the week ----
-  var STATE_WORD = { done: 'Done', skipped: 'Skipped', unfinished: 'Not finished', today: 'Today', tocome: 'To come', missed: 'Missed' };
-  function dayName(p, d) {
-    if (d.kind === 'logged') return 'Logged';
-    if (d.kind === 'rest') return 'Rest';
-    var x = dayOf(p, d.ref);
-    return String((x.day && x.day.name) || 'Session');
-  }
-  function liftsOn(u, iso) {
-    var seen = [];
-    myLogs(u).forEach(function (l) { if (l.date === iso && seen.indexOf(l.lift) < 0) seen.push(l.lift); });
-    return seen;
-  }
-  // A day of logged sets in no session of the program, by its main lifts ("Bench", "Squat and deadlift"), else "Logged".
-  function loggedName(u, iso) {
-    var ls = liftsOn(u, iso).filter(function (l) { return MAIN.indexOf(l) >= 0; }).map(function (l) { return LIFT_LABELS[l]; });
-    if (!ls.length) return 'Logged';
-    return ls.length === 1 ? ls[0] : ls.slice(0, -1).join(', ') + ' and ' + ls[ls.length - 1].toLowerCase();
-  }
-  function loggedTop(u, iso) {
-    var ls = myLogs(u).filter(function (l) { return l.date === iso; });
-    var main = ls.filter(function (l) { return MAIN.indexOf(l.lift) >= 0; });
-    var pool = main.length ? main : ls;
-    if (!pool.length) return '';
-    var b = pool.reduce(function (m, l) { return (Number(l.e1rmComp) || 0) > (Number(m.e1rmComp) || 0) ? l : m; }, pool[0]);
-    return formatWeight(b.weight) + ' × ' + b.reps + (b.rpe != null && b.rpe !== '' ? ' @' + fmtNum(b.rpe) : '');
-  }
-  function weekBlock(week, p, selected) {
-    var u = me();
-    var card = el('div', { class: 'ui-card lh-week' });
-    var list = el('div', { class: 'lh-days', role: 'tablist', 'aria-label': 'This week, Monday to Sunday' });
-    week.days.forEach(function (d, i) {
-      var on = i === selected;
-      var b = el('button', { type: 'button', role: 'tab', id: 'lh-day-' + i, 'aria-selected': on ? 'true' : 'false', 'aria-controls': 'lh-session', tabindex: on ? '0' : '-1',
-        class: 'lh-day' + (d.isToday ? ' is-today' : '') + (on ? ' is-on' : '') + (d.past ? ' is-past' : '') + ' k-' + d.kind + (d.state ? ' s-' + d.state : ''), 'data-lh': 'day-' + i });
-      var top = el('span', { class: 'lh-day-date' });
-      top.appendChild(el('b', {}, DAY_SHORT[i]));
-      top.appendChild(document.createTextNode(' ' + Number(d.iso.slice(8))));
-      top.appendChild(el('span', { class: 'lh-mon' }, ' ' + MONTH[Number(d.iso.slice(5, 7)) - 1]));
-      b.appendChild(top);
-      var name = dayName(p, d);
-      if (d.kind === 'logged') name = loggedName(u, d.iso);
-      b.appendChild(el('span', { class: 'lh-day-name' }, name + (d.more ? ' +' + d.more : '')));
-      var word = d.kind === 'rest' ? '' :(d.isToday && d.state !== 'done' && d.state !== 'skipped' ? 'Today' : STATE_WORD[d.state] || '');
-      b.appendChild(el('span', { class: 'lh-day-state' }, word));
-      var line = '';
-      if (d.kind === 'session') { var x = dayOf(p, d.ref); line = d.done > 0 ? lhTopSet(x.day, true) : lhTopSet(x.day, false); }
-      else if (d.kind === 'logged') line = loggedTop(u, d.iso);
-      b.appendChild(el('span', { class: 'lh-day-top' }, line));
-      var cnt = d.kind === 'session' && d.done > 0 && d.done < d.total ? d.done + ' of ' + d.total + ' sets' : '';
-      b.appendChild(el('span', { class: 'lh-day-count' }, cnt));
-      b.setAttribute('aria-label', weekdayLong(d.iso) + ' ' + dateText(d.iso) + ', ' + name + (word ? ', ' + word : '') + (line ? ', ' + line : '') + (cnt ? ', ' + cnt : ''));
-      b.addEventListener('click', function () { select(i, true); });
-      b.addEventListener('keydown', function (e) {
-        var to = null;
-        if (e.key === 'ArrowRight') to = (i + 1) % 7; else if (e.key === 'ArrowLeft') to = (i + 6) % 7;
-        else if (e.key === 'Home') to = 0; else if (e.key === 'End') to = 6;
-        else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(i, true); return; }
-        if (to == null) return;
-        e.preventDefault(); select(to, true);
-      });
-      list.appendChild(b);
-    });
-    card.appendChild(list);
-    if (week.unplaced.length) {
-      var names = week.unplaced.map(function (r) { var x = dayOf(p, r); return String((x.day && x.day.name) || 'Session'); });
-      var wkN = (function () { var x0 = dayOf(p, week.unplaced[0]); return x0.wk ? Number(x0.wk.number || week.unplaced[0].wi + 1) : null; })();
-      card.appendChild(el('p', { class: 'lh-unplaced' }, 'Also in ' + (wkN ? 'week ' + wkN : 'this week') + ', with no day yet: ' + names.join(', ') + '.'));
-    }
-    return card;
-  }
-
-  // ---- the selected day's session ----
-  function lastTime(u, ex, before) {
-    if (ex.lift === 'cardio') return null;
-    var main = MAIN.indexOf(ex.lift) >= 0;
-    var ls = myLogs(u).filter(function (l) { return l.lift === ex.lift && (main ? l.variant === ex.variant : (l.exerciseName || '') === (ex.exerciseName || '')) && l.date < before; });
-    if (!ls.length) return null;
-    var last = ls.reduce(function (m, l) { return l.date > m ? l.date : m; }, ls[0].date);
-    var on = ls.filter(function (l) { return l.date === last; });
-    var b = on.reduce(function (m, l) { return (Number(l.e1rmComp) || Number(l.weight) || 0) > (Number(m.e1rmComp) || Number(m.weight) || 0) ? l : m; }, on[0]);
-    return { set: (Number(b.weight) > 0 ? formatWeight(b.weight) + ' × ' : '') + b.reps + (b.rpe != null && b.rpe !== '' ? ' @' + fmtNum(b.rpe) : ''), date: dayText(last) };
-  }
-  function liftDot(lift) { return MAIN.indexOf(lift) >= 0 ? el('span', { class: 'lift-dot lift-' + lift, 'aria-hidden': 'true' }) : el('span', { class: 'lh-dot-gap', 'aria-hidden': 'true' }); }
-  function lines(cell, arr, joiner) {
-    arr.forEach(function (t, i) {
-      var s = el('span', { class: 'lh-line' });
-      if (i && joiner) s.appendChild(el('span', { class: 'lh-sr' }, joiner));
-      if (typeof t === 'string') s.appendChild(document.createTextNode(t)); else s.appendChild(t);
-      cell.appendChild(s);
-    });
-  }
-  function sessionBlock(week, p, d, next) {
-    var u = me();
-    var card = el('div', { class: 'ui-card lh-session', id: 'lh-session', role: 'tabpanel', 'aria-labelledby': 'lh-day-' + d.idx });
-    var head = el('div', { class: 'lh-sess-head' });
-    var ht = el('div', { class: 'lh-sess-title' });
-    var name = d.kind === 'logged' ? loggedName(u, d.iso) : dayName(p, d);
-    ht.appendChild(el('h3', { class: 'lh-sess-name' }, name));
-    var meta = [dayText(d.iso)];
-    if (d.kind === 'logged') meta.push('Done', 'Not part of your program');
-    if (d.kind === 'session') {
-      var word = d.isToday && d.state !== 'done' && d.state !== 'skipped' ? 'Today' : STATE_WORD[d.state];
-      if (word) meta.push(word);
-      if (d.done > 0 && d.done < d.total) meta.push(d.done + ' of ' + d.total + ' sets');
-      if (d.how === 'usual') meta.push('On no date yet: your usual ' + weekdayLong(d.iso));
-      var x0 = dayOf(p, d.ref); if (x0.wk) meta.push('Week ' + Number(x0.wk.number || d.ref.wi + 1));
-    }
-    ht.appendChild(el('p', { class: 'lh-sess-meta' }, meta.join(' · ')));
-    head.appendChild(ht);
-    var o = opener(week, d, next);
-    if (o) head.appendChild(soft(o.label, o.go));
-    card.appendChild(head);
-    if (d.kind === 'rest') {
-      card.appendChild(el('p', { class: 'lh-rest' }, d.marked ? 'You marked it a rest day.' : d.past ? 'No training on this day.' : 'Nothing planned for this day.'));
+  /* ---------- 1. Progress ---------- */
+  function progressTile(u) {
+    var card = tile('progress', 'lh-prog');
+    var logs = (Store.get().workoutLogs || []).filter(function (l) { return l.athleteId === u.id && l.lift !== 'cardio'; });
+    var rated = logs.filter(function (l) { return MAIN.indexOf(l.lift) >= 0 && Number(l.e1rmComp) > 0; });
+    var t = today(), un = unit();
+    if (!rated.length || typeof _progTotalSeries !== 'function' || typeof strengthSeries !== 'function') {
+      card.classList.add('is-empty');
+      card.appendChild(title('progress', 'Progress'));
+      card.appendChild(el('p', { class: 'lh-quiet' }, 'Your estimated total, and a line for squat, bench and deadlift, show here once you log a set of one of them with an RPE.'));
+      card.appendChild(el('div', { class: 'lh-foot' }, soft('Go to Train', openTrain)));
       return card;
     }
-    var tbl = el('table', { class: 'lh-table' });
-    tbl.appendChild(el('caption', { class: 'lh-sr' }, name + ', ' + dayText(d.iso)));
-    var thead = el('thead'), hr = el('tr');
-    var loose = d.kind === 'logged';
-    if (loose) tbl.className += ' lh-table-loose';
-    ['Exercise', 'Planned', 'Last time', 'Logged'].forEach(function (h, i) { if (loose && i === 1) return; hr.appendChild(el('th', { scope: 'col', class: 'lh-c' + i }, h)); });
-    thead.appendChild(hr); tbl.appendChild(thead);
-    var tb = el('tbody');
-    if (d.kind === 'logged') {
-      // A day of logged sets that sits in no session of the program: each exercise as it was logged.
-      var groups = [], byKey = {};
-      myLogs(u).filter(function (l) { return l.date === d.iso; }).forEach(function (l) {
-        var k = l.lift + '|' + (l.variant || '') + '|' + (l.exerciseName || '');
-        if (!byKey[k]) { byKey[k] = { lift: l.lift, variant: l.variant, exerciseName: l.exerciseName, sets: [] }; groups.push(byKey[k]); }
-        byKey[k].sets.push({ weight: l.weight, reps: l.reps, actualRpe: l.rpe, completed: true });
+    var first = rated.reduce(function (m, l) { return l.date < m ? l.date : m; }, rated[0].date);
+    var ranges = lhRanges(first, t);
+    if (rangeW == null || ranges.indexOf(rangeW) < 0) rangeW = ranges.indexOf(16) >= 0 ? 16 : ranges[ranges.length - 1];
+    var series = _progTotalSeries(rated);
+    var lastPt = series[series.length - 1];
+    var base = lhBase(series, addDays(t, -7 * rangeW));
+    var span = base && base.since ? { since: base.since } : { weeks: rangeW };
+
+    // the left: the total, its move, the three lifts as buttons
+    var sum = el('div', { class: 'lh-prog-sum' });
+    sum.appendChild(title('progress', 'Progress'));   // the tile's name leads it, as on the other three
+    var tv = el('p', { class: 'lh-total', 'aria-describedby': 'lh-total-k' });
+    tv.appendChild(document.createTextNode(String(Math.round(disp(lastPt.total)))));
+    tv.appendChild(el('small', {}, un));
+    tv.appendChild(el('span', { class: 'lh-total-k', id: 'lh-total-k' }, 'Estimated total'));
+    sum.appendChild(tv);
+    sum.appendChild(el('p', { class: 'lh-chg' }, base ? lhChangeWords(disp(lastPt.total) - disp(base.pt.total), un, span) : ''));
+    var lifts = el('div', { class: 'lh-lifts', role: 'group', 'aria-label': 'Show one lift on the chart' });
+    var lc = typeof liftColors === 'function' ? liftColors() : {};   // the chart's own colours (the light theme's are darker)
+    MAIN.forEach(function (lift) {
+      var now = lastPt[lift] || 0;
+      var on = focusLift === lift;
+      var b = el('button', { type: 'button', class: 'lh-lift lift-' + lift + (on ? ' is-on' : '') + (focusLift && !on ? ' is-dim' : ''), 'aria-pressed': on ? 'true' : 'false', 'data-lift': lift });
+      b.appendChild(el('span', { class: 'lift-dot lift-' + lift, 'aria-hidden': 'true', style: lc[lift] ? 'background:' + lc[lift] : '' }));
+      b.appendChild(el('span', { class: 'lh-lift-n' }, LIFT_LABELS[lift]));
+      var v = el('span', { class: 'lh-lift-v' });
+      if (now) { v.appendChild(document.createTextNode(String(Math.round(disp(now))))); v.appendChild(el('small', {}, ' ' + un)); }
+      else v.appendChild(el('small', {}, 'Not logged'));
+      b.appendChild(v);
+      var d = now && base && base.pt[lift] ? Math.round((disp(now) - disp(base.pt[lift])) * 2) / 2 : null;
+      var dTxt = d == null ? '' : Math.abs(d) < 0.5 ? 'Level' : (d > 0 ? '+' : '−') + fmtNum(Math.abs(d));
+      b.appendChild(el('span', { class: 'lh-lift-d' + (d > 0 ? ' is-up' : '') }, dTxt));
+      b.setAttribute('aria-label', LIFT_LABELS[lift] + ', estimated max ' + (now ? Math.round(disp(now)) + ' ' + un : 'not logged') +
+        (d == null ? '' : ', ' + lhChangeWords(d, un, span).toLowerCase()) + (on ? '. Shown alone on the chart' : ''));
+      b.addEventListener('click', function () { focusLift = focusLift === lift ? null : lift; render(); var nb = document.querySelector('#homeArea .lh-lift[data-lift="' + lift + '"]'); if (nb) nb.focus(); });
+      lifts.appendChild(b);
+    });
+    sum.appendChild(lifts);
+    card.appendChild(sum);
+
+    // the right: the readout, the range and Open Progress on one line, the chart under them
+    var side = el('div', { class: 'lh-prog-chart' });
+    var top = el('div', { class: 'lh-prog-top' });
+    var read = el('p', { class: 'lh-readout', id: 'lh-readout', 'aria-live': 'polite' });
+    top.appendChild(read);
+    var acts = el('div', { class: 'lh-prog-acts' });
+    if (ranges.length > 1) {
+      var seg = el('div', { class: 'lh-range', role: 'group', 'aria-label': 'Chart range' });
+      ranges.forEach(function (r) {
+        var on = r === rangeW;
+        var rb = el('button', { type: 'button', class: on ? 'is-on' : '', 'aria-pressed': on ? 'true' : 'false', 'data-range': r }, r === 52 ? '1 year' : r + ' weeks');
+        rb.addEventListener('click', function () { if (rangeW === r) return; rangeW = r; hoverI = null; render(); var nb = document.querySelector('#homeArea .lh-range [data-range="' + r + '"]'); if (nb) nb.focus(); });
+        seg.appendChild(rb);
       });
-      groups.forEach(function (g) { tb.appendChild(row(u, g, d.iso, { planned: false })); });
-    } else {
-      var x = dayOf(p, d.ref);
-      ((x.day && x.day.exercises) || []).forEach(function (ex) { tb.appendChild(row(u, ex, d.iso, { planned: true })); });
+      acts.appendChild(seg);
     }
-    tbl.appendChild(tb);
-    card.appendChild(el('div', { class: 'lh-table-wrap' }, tbl));
+    acts.appendChild(soft('Open Progress', openProgress));
+    top.appendChild(acts);
+    side.appendChild(top);
+    var host = el('div', { class: 'lh-chart' });
+    side.appendChild(host);
+    card.appendChild(side);
+    var ser = {};
+    MAIN.forEach(function (l) { ser[l] = strengthSeries(rated, l, { today: t, weeks: rangeW }).map(function (p) { return { week: p.week, value: disp(p.value) }; }); });
+    card._drawChart = function () { drawChart(host, read, ser, t, un); };
     return card;
   }
-  function row(u, ex, iso, o) {
-    var tr = el('tr');
-    var c0 = el('td', { class: 'lh-c0' });
-    var nm = el('div', { class: 'lh-ex' });
-    nm.appendChild(liftDot(ex.lift));
-    nm.appendChild(el('span', { class: 'lh-ex-name' }, exName(ex)));
-    c0.appendChild(nm);
-    if (ex.note) c0.appendChild(el('div', { class: 'lh-cue' }, String(ex.note)));
-    tr.appendChild(c0);
-    var c1 = el('td', { class: 'lh-c1' });
-    if (o.planned) { var pl = lhPlanText(ex); if (pl.length) lines(c1, pl, ', then '); else c1.appendChild(el('span', { class: 'lh-none' }, '–')); tr.appendChild(c1); }
-    var c2 = el('td', { class: 'lh-c2' });
-    var lt = lastTime(u, ex, iso);
-    if (lt) { lines(c2, [lt.set, el('span', { class: 'lh-when' }, lt.date)]); }
-    else c2.appendChild(el('span', { class: 'lh-none', 'aria-label': 'Nothing logged before' }, '–'));
-    tr.appendChild(c2);
-    var c3 = el('td', { class: 'lh-c3' });
-    var lg = lhLoggedGroups(ex);
-    var total = (ex.sets || []).filter(Boolean).length;
-    if (lg.length) {
-      var done = (ex.sets || []).filter(function (s) { return s && s.completed; }).length;
-      if (o.planned && done < total) c3.appendChild(el('span', { class: 'lh-line lh-of' }, done + ' of ' + total));
-      lines(c3, lg.map(function (g) {
-        var s = el('span', {}, g.text);
-        if (g.feel) s.appendChild(el('span', { class: 'lh-feel' }, g.feel === 'harder' ? ' harder' : ' easier'));
-        return s;
-      }), ', ');
-    } else c3.appendChild(el('span', { class: 'lh-of' }, '0 of ' + total));
-    tr.appendChild(c3);
-    return tr;
+
+  // The chart: three lines in the lift colours, week ticks, the lifter's unit, a readout that follows the pointer or the
+  // arrow keys. Drawn once the tile is on the page (it measures its width).
+  function drawChart(host, read, ser, t, un) {
+    var w = Math.max(240, Math.round(host.clientWidth || 600)), h = Math.max(120, Math.round(host.clientHeight || 170));
+    var m = lhChartModel({ series: ser, weeks: rangeW, today: t, w: w, h: h, pad: { l: 40, r: 10, t: 10, b: 24 } });
+    var lc = typeof liftColors === 'function' ? liftColors() : {};
+    var label = function (bw) {
+      var parts = MAIN.filter(function (l) { return bw.values[l] != null; }).map(function (l) { return LIFT_LABELS[l] + ' ' + Math.round(bw.values[l]); });
+      return 'Week of ' + dateText(bw.week) + ': ' + (parts.length ? parts.join(', ') + ' ' + un : 'nothing rated');
+    };
+    var withData = m.byWeek.filter(function (bw) { return Object.keys(bw.values).length; });
+    var lastI = withData.length ? withData[withData.length - 1].i : m.n - 1;
+    var summary = 'Estimated max per lift over the last ' + (rangeW === 52 ? 'year' : rangeW + ' weeks') + '. ' + MAIN.map(function (l) {
+      var pts = m.lines[l].pts;
+      return pts.length ? LIFT_LABELS[l] + ' from ' + Math.round(pts[0].v) + ' to ' + Math.round(pts[pts.length - 1].v) + ' ' + un : LIFT_LABELS[l] + ' not logged in this range';
+    }).join('. ') + '.';
+    var svg = svgEl('svg', { class: 'lh-svg', viewBox: '0 0 ' + w + ' ' + h, width: w, height: h, role: 'img', tabindex: '0', 'aria-label': summary + ' Use the arrow keys to read each week.' });
+    m.yTicks.forEach(function (tk) {
+      svg.appendChild(svgEl('line', { class: 'lh-grid', x1: 40, x2: w - 10, y1: tk.y.toFixed(1), y2: tk.y.toFixed(1) }));
+      var tx = svgEl('text', { class: 'lh-ax', x: 32, y: (tk.y + 4).toFixed(1), 'text-anchor': 'end' }); tx.textContent = String(tk.v); svg.appendChild(tx);
+    });
+    m.xTicks.forEach(function (tk) {
+      var tx = svgEl('text', { class: 'lh-ax', x: tk.x.toFixed(1), y: h - 6, 'text-anchor': tk.i === 0 ? 'start' : tk.i === m.n - 1 ? 'end' : 'middle' });
+      tx.textContent = tk.label; svg.appendChild(tx);
+    });
+    var guide = svgEl('line', { class: 'lh-guide', x1: 0, x2: 0, y1: 10, y2: h - 24, visibility: 'hidden' });
+    svg.appendChild(guide);
+    var order = MAIN.filter(function (l) { return l !== focusLift; }).concat(focusLift ? [focusLift] : []);
+    var marks = {};
+    order.forEach(function (l) {
+      var g = svgEl('g', { class: 'lh-ln lh-ln-' + l + (focusLift && focusLift !== l ? ' is-dim' : ''), style: 'color:' + (lc[l] || 'currentColor') });
+      var L = m.lines[l];
+      if (L.pts.length > 1) g.appendChild(svgEl('path', { d: L.d, fill: 'none', stroke: 'currentColor', 'stroke-width': 2.25, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+      if (L.pts.length) { var lp = L.pts[L.pts.length - 1]; g.appendChild(svgEl('circle', { cx: lp.x.toFixed(1), cy: lp.y.toFixed(1), r: 3.5, fill: 'currentColor' })); }
+      marks[l] = svgEl('circle', { class: 'lh-mark', r: 4.5, cx: 0, cy: 0, fill: 'currentColor', visibility: 'hidden' });
+      g.appendChild(marks[l]);
+      svg.appendChild(g);
+    });
+    var yOf = function (l, v) { var lo = m.yTicks[0], hi = m.yTicks[m.yTicks.length - 1]; return lo.y + (hi.y - lo.y) * (v - lo.v) / (hi.v - lo.v); };
+    var show = function (i, announce) {
+      hoverI = i;
+      var bw = m.byWeek[i];
+      read.textContent = label(bw);
+      if (!announce) read.setAttribute('aria-live', 'off'); else read.setAttribute('aria-live', 'polite');
+      guide.setAttribute('x1', bw.x.toFixed(1)); guide.setAttribute('x2', bw.x.toFixed(1)); guide.setAttribute('visibility', 'visible');
+      MAIN.forEach(function (l) {
+        var v = bw.values[l];
+        if (v == null) { marks[l].setAttribute('visibility', 'hidden'); return; }
+        marks[l].setAttribute('cx', bw.x.toFixed(1)); marks[l].setAttribute('cy', yOf(l, v).toFixed(1)); marks[l].setAttribute('visibility', 'visible');
+      });
+    };
+    var rest = function () { hoverI = null; read.setAttribute('aria-live', 'off'); read.textContent = label(m.byWeek[lastI]); guide.setAttribute('visibility', 'hidden'); MAIN.forEach(function (l) { marks[l].setAttribute('visibility', 'hidden'); }); };
+    var near = function (clientX) {
+      var r = svg.getBoundingClientRect(), px = (clientX - r.left) * (w / r.width);
+      var best = 0; m.byWeek.forEach(function (bw) { if (Math.abs(bw.x - px) < Math.abs(m.byWeek[best].x - px)) best = bw.i; });
+      return best;
+    };
+    svg.addEventListener('pointermove', function (e) { show(near(e.clientX), false); });
+    svg.addEventListener('pointerleave', function () { if (document.activeElement !== svg) rest(); });
+    svg.addEventListener('focus', function () { show(hoverI == null ? lastI : hoverI, true); });
+    svg.addEventListener('blur', rest);
+    svg.addEventListener('keydown', function (e) {
+      var i = hoverI == null ? lastI : hoverI, to = null;
+      if (e.key === 'ArrowLeft') to = Math.max(0, i - 1); else if (e.key === 'ArrowRight') to = Math.min(m.n - 1, i + 1);
+      else if (e.key === 'Home') to = 0; else if (e.key === 'End') to = m.n - 1;
+      if (to == null) return;
+      e.preventDefault(); show(to, true);
+    });
+    host.innerHTML = '';
+    host.appendChild(svg);
+    if (hoverI != null && hoverI < m.n) show(hoverI, false); else rest();
   }
 
-  // ---- the panels ----
-  // The coach's newest words to this lifter: a session note or a message, whichever came last. → { text, at, voice }
+  /* ---------- 2. Log ---------- */
+  function goalLine(u, lastKg) {
+    var g = (Store.get().goals || []).find(function (x) { return x.athleteId === u.id; });
+    if (!g || !(Number(g.bodyweight) > 0) || !(lastKg > 0)) return '';
+    var off = Math.round((disp(lastKg) - disp(g.bodyweight)) * 10) / 10, gv = fmtNum(disp(g.bodyweight)) + ' ' + unit();
+    if (Math.abs(off) < 0.1) return 'At your ' + gv + ' goal';
+    return fmtNum(Math.abs(off)) + ' ' + unit() + (off > 0 ? ' over' : ' under') + ' your ' + gv + ' goal';
+  }
+  // the lifter's targets in one line ("Squat 220 · Bench 150 · Deadlift 270 kg"), the total when no lift has one; '' when none
+  function goalsText(u) {
+    var g = (Store.get().goals || []).find(function (x) { return x.athleteId === u.id; });
+    if (!g) return '';
+    var parts = [];
+    MAIN.forEach(function (l) { if (Number(g[l]) > 0) parts.push(LIFT_LABELS[l] + ' ' + Math.round(disp(g[l]))); });
+    if (!parts.length && Number(g.total) > 0) parts.push('Total ' + Math.round(disp(g.total)));
+    return parts.length ? parts.join(' · ') + ' ' + unit() : '';
+  }
+  function nextMeet(u, t) {
+    var nm = typeof deskNextMeet === 'function' ? deskNextMeet(u.id, t) : null;
+    if (nm && nm.meet) return { name: String(nm.meet.name || 'Your meet'), days: nm.days };
+    var md = null; try { md = localStorage.getItem('powa-meet-date'); } catch (e) {}
+    var dd = md && typeof daysUntil === 'function' ? daysUntil(md) : null;
+    return dd != null && dd >= 0 ? { name: 'Your meet', days: dd } : null;
+  }
+  function row(label, sub, btn, cls) {
+    var r = el('div', { class: 'lh-row' + (cls ? ' ' + cls : '') });
+    var tx = el('div', { class: 'lh-row-t' });
+    tx.appendChild(el('span', { class: 'lh-row-name' }, label));
+    if (sub) tx.appendChild(el('span', { class: 'lh-row-sub' + (sub.cls ? ' ' + sub.cls : '') }, sub.text));
+    r.appendChild(tx);
+    if (btn) r.appendChild(btn);
+    return r;
+  }
+  function logTile(u, c) {
+    var card = tile('log', 'lh-log');
+    card.appendChild(title('log', 'Log'));
+    var t = today(), un = unit();
+    var list = typeof _bwSeries === 'function' ? _bwSeries() : [];
+    var bs = lhBwSummary(list, t);
+
+    // bodyweight, logged in place through the weigh-in sheet's own save (saveBodyweightEntry)
+    var form = el('form', { class: 'lh-bw', novalidate: '' });
+    var lab = el('div', { class: 'lh-row-t' });
+    lab.appendChild(el('label', { class: 'lh-row-name', for: 'lh-bw-in' }, 'Bodyweight'));
+    // the weight class (the meet's, or the cut's) or the bodyweight goal, when there is one
+    var aim = '';
+    if (bs) {
+      var ml = null; try { if (typeof applyLocalCut === 'function') applyLocalCut(); ml = meetWeighOf(u.id, t, getUnit() === 'lbs' ? 'lbs' : 'kg'); } catch (e) {}
+      // the meet's line reads "Meet in 63 days · 0.1 kg over 83 · on pace": the meet has its own link in the foot
+      aim = ml && ml.parts && ml.parts.length > 1 && /^meet/i.test(String(ml.parts[0])) ? String(ml.parts[1])
+        : ml && ml.text ? String(ml.text) : goalLine(u, bs.last.weight);
+    }
+    if (aim) lab.appendChild(el('span', { class: 'lh-row-sub', id: 'lh-bw-aim' }, aim.charAt(0).toUpperCase() + aim.slice(1)));
+    form.appendChild(lab);
+    var box = el('span', { class: 'lh-bw-box' });
+    var inp = el('input', { id: 'lh-bw-in', type: 'number', inputmode: 'decimal', step: '0.1', min: '20', max: '450', autocomplete: 'off',
+      placeholder: bs ? fmtNum(Number(kgToDisplay(bs.last.weight, 1))) : '', 'aria-describedby': 'lh-bw-line' });
+    inp.value = bwDraft;
+    inp.addEventListener('input', function () { bwDraft = inp.value; });
+    box.appendChild(inp);
+    box.appendChild(el('span', { class: 'lh-bw-u', 'aria-hidden': 'true' }, un));
+    form.appendChild(box);
+    var go = el('button', { class: 'ui-btn-soft lh-btn', type: 'submit' }, 'Log');
+    form.appendChild(go);
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var v = Number(String(inp.value).replace(',', '.'));
+      if (!(v > 0)) { toast('Enter your weight'); inp.focus(); return; }
+      go.disabled = true;
+      Promise.resolve(saveBodyweightEntry(t, displayToKg(v))).then(function (ok) {
+        go.disabled = false;
+        if (!ok) return;
+        bwDraft = '';
+        toast('Weigh-in saved · ' + v.toFixed(1) + ' ' + un);
+        render();
+        var n = document.getElementById('lh-bw-in'); if (n) n.focus();
+      }, function () { go.disabled = false; });
+    });
+    card.appendChild(form);
+    var line = [];
+    if (bs) {
+      line.push((bs.last.date === t ? 'Today ' : 'Last ') + fmtNum(Number(kgToDisplay(bs.last.weight, 1))) + ' ' + un + (bs.last.date === t ? '' : ', ' + dayText(bs.last.date)));
+      if (bs.avg7 != null && bs.n7 > 1) line.push('7-day average ' + fmtNum(Number(kgToDisplay(bs.avg7, 1))) + ' ' + un);
+    }
+    card.appendChild(el('p', { class: 'lh-bw-line', id: 'lh-bw-line' }, line.length ? line.join(' · ') : 'No weigh-ins yet. One a morning makes a trend.'));
+
+    var rows = el('div', { class: 'lh-rows' });
+    if (c) {
+      var wkStart = typeof mondayOf === 'function' ? mondayOf(t) : monday(t);
+      var did = (Store.get().checkins || []).some(function (x) { return x.athleteId === u.id && x.weekStart === wkStart; });
+      rows.appendChild(row('This week’s check-in', { text: did ? 'Done' : 'Due', cls: did ? 'is-ok' : 'is-due' },
+        soft(did ? 'See it' : 'Check in', function () { openCheckinModal(wkStart); })));
+      var due = typeof dueCheckinQuestions === 'function' ? dueCheckinQuestions(Store.get().checkinQuestions, Store.get().checkinAnswers, u.id) : [];
+      if (due && due.length) rows.appendChild(row(firstName(c.name) + ' asks ' + due.length + (due.length === 1 ? ' question' : ' questions'), null, soft('Answer', function () { openCustomCheckinSheet(); })));
+    }
+    var mt = nextMeet(u, t);
+    var mtWhen = mt ? (mt.days === 0 ? 'today' : mt.days + (mt.days === 1 ? ' day' : ' days')) : '';
+    if (!c) {
+      // training alone: no check-in goes anywhere, so the tile's rows are the lifter's own details (targets, the meet)
+      var gt = goalsText(u);
+      rows.appendChild(row('Goals', { text: gt || 'None set' }, soft(gt ? 'Edit' : 'Set goals', function () { openGoalsModal(); })));
+      rows.appendChild(row(mt ? mt.name : 'Meet', { text: mt ? (mt.days === 0 ? 'Today' : 'In ' + mtWhen) : 'None set' }, soft(mt ? 'Open' : 'Add a meet', function () { openMeetSheet(); })));
+    }
+    card.appendChild(rows);
+
+    var foot = el('div', { class: 'lh-foot lh-links' });
+    foot.appendChild(link('Bodyweight history', function () { tab('bodyweight').click(); }));
+    if (c) {
+      foot.appendChild(link('Goals', function () { openGoalsModal(); }));
+      if (mt) foot.appendChild(link(mt.name + ' · ' + mtWhen, function () { openMeetSheet(); }));
+    }
+    card.appendChild(foot);
+    return card;
+  }
+
+  /* ---------- 3. Coach (or Program, training alone) ---------- */
+  // The coach's newest words to this lifter: a session note or a message, whichever came last. → { text, at, voice, kind }
   function latestFromCoach(u, c) {
     var best = null;
     (Store.get().sessionNotes || []).forEach(function (n) {
       if (n.athleteId !== u.id || !n.coachComment) return;
       var at = String(n.coachCommentAt || n.date || '');
-      if (!best || at > best.at) best = { text: String(n.coachComment), at: at, voice: null };
+      if (!best || at > best.at) best = { text: String(n.coachComment), at: at, voice: null, kind: 'Session note' };
     });
     var msgs = window._demoMode ? (Store.get().messages || []) : (msgCache && msgCache.list) || [];
     msgs.forEach(function (m) {
@@ -569,14 +669,14 @@
       var at = String(m.createdAt || '');
       if (best && at <= best.at) return;
       var voice = m.meta && m.meta.type === 'voice' && window.PowaVoice && PowaVoice.cleanMeta(m.meta) ? m : null;
-      if (voice) best = { text: '', at: at, voice: voice };
-      else if (m.body && !(m.meta && m.meta.type)) best = { text: String(m.body), at: at, voice: null };
+      if (voice) best = { text: '', at: at, voice: voice, kind: 'Voice note' };
+      else if (m.body && !(m.meta && m.meta.type)) best = { text: String(m.body), at: at, voice: null, kind: 'Message' };
     });
     return best;
   }
   function unreadFromCoach(u, c) {
     var msgs = window._demoMode ? (Store.get().messages || []) : (msgCache && msgCache.list) || null;
-    if (!msgs) return null;
+    if (!msgs) return 0;
     return msgs.filter(function (m) { return m.athleteId === u.id && m.senderId === c.id && !m.readAt; }).length;
   }
   // A real account's thread is read once a few minutes (a read, never a write), then Home draws again.
@@ -587,194 +687,174 @@
     DB.listMessages(c.id, u.id).then(function (list) { msgCache = { at: Date.now(), busy: false, list: list || [] }; if (shown()) render(); })
       .catch(function () { msgCache = { at: Date.now(), busy: false, list: msgCache ? msgCache.list : null }; });
   }
-  function waitRow(textNode, btnLabel, go) {
-    var r = el('div', { class: 'lh-wait' });
-    r.appendChild(typeof textNode === 'string' ? el('span', { class: 'lh-wait-text' }, textNode) : textNode);
-    r.appendChild(soft(btnLabel, go, 'lh-btn-sm'));
-    return r;
-  }
-  function coachPanel(u, c) {
-    var first = firstName(c.name) || 'your coach';
-    var card = el('div', { class: 'ui-card lh-panel lh-coach' });
-    card.appendChild(title('From ' + first));
-    loadMessages(u, c);
-    var l = latestFromCoach(u, c);
-    if (l) {
-      var when = el('p', { class: 'lh-when' }, (l.voice ? 'Voice note, ' : '') + (isIso(d10(l.at)) ? dayText(d10(l.at)) : ''));
-      if (l.text) card.appendChild(el('p', { class: 'lh-note' }, l.text));
-      if (l.voice) card.appendChild(el('div', { class: 'lh-voice' }, PowaVoice.player(l.voice.meta, { messageId: l.voice.id, compact: true })));
-      card.appendChild(when);
-    } else card.appendChild(el('p', { class: 'lh-quiet' }, 'Nothing from ' + first + ' yet.'));
-    // Their newest voice note, when it is not the newest thing and still unheard (Train's own rule: coachVoiceRow).
-    if (l && !l.voice && typeof latestCoachVoice === 'function') {
-      var v = null; try { v = latestCoachVoice(); } catch (e) {}
-      if (v && window.PowaVoice && PowaVoice.cleanMeta(v.meta) && !PowaVoice.heard(v.id) && Date.now() - Date.parse(v.createdAt || 0) <= 48 * 3600000) {
-        var vb = el('div', { class: 'lh-voice' });
-        vb.appendChild(el('p', { class: 'lh-when' }, 'Voice note, ' + dayText(d10(v.createdAt))));
-        vb.appendChild(PowaVoice.player(v.meta, { messageId: v.id, compact: true }));
-        card.appendChild(vb);
+  // The Coach tab's own send (app.js renderMessageThread doSend, which is not callable from outside its thread): the
+  // demo keeps the message in the page's Store exactly as the thread does; a real account sends it with
+  // DB.sendMessage and the same push to the coach. A thread whose link has ended takes no writes (msgThreadLive).
+  function sendToCoach(u, c, body) {
+    if (window._demoMode) {
+      var msg = { id: 'demo-msg-' + Date.now(), coachId: c.id, athleteId: u.id, senderId: u.id, body: body, createdAt: new Date().toISOString(), readAt: null };
+      var s = Store.get(); (s.messages || (s.messages = [])).push(msg);
+      return Promise.resolve(msg);
+    }
+    return DB.sendMessage({ coachId: c.id, athleteId: u.id, senderId: u.id, body: body }).then(function (msg) {
+      if (typeof DB.sendPush === 'function') {
+        var from = ''; try { var cu = getCurrentUser(); from = firstName(cu && cu.name); } catch (e) {}
+        DB.sendPush({ toUserId: c.id, title: from ? 'New message from ' + from : 'New message', body: body.slice(0, 140), url: '/coach.html', tag: 'powa-msg-' + c.id, category: 'messages' }).catch(function () {});
       }
-    }
-    var waits = [];
-    var t = today();
-    var wkStart = typeof mondayOf === 'function' ? mondayOf(t) : monday(t);
-    if (!(Store.get().checkins || []).some(function (x) { return x.athleteId === u.id && x.weekStart === wkStart; }))
-      waits.push(waitRow('This week’s check-in', 'Check in', function () { openCheckinModal(wkStart); }));
-    var due = typeof dueCheckinQuestions === 'function' ? dueCheckinQuestions(Store.get().checkinQuestions, Store.get().checkinAnswers, u.id) : [];
-    if (due && due.length) waits.push(waitRow(first + ' asks ' + due.length + (due.length === 1 ? ' question' : ' questions'), 'Answer', function () { openCustomCheckinSheet(); }));
-    var un = unreadFromCoach(u, c);
-    if (un) waits.push(waitRow(un + (un === 1 ? ' unread message' : ' unread messages'), 'Read', openCoach));
-    var w = el('div', { class: 'lh-waits' });
-    w.appendChild(el('h4', { class: 'lh-sub-title' }, 'Waiting on you'));
-    if (waits.length) waits.forEach(function (r) { w.appendChild(r); });
-    else w.appendChild(el('p', { class: 'lh-quiet' }, 'Nothing is waiting on you.'));
-    card.appendChild(w);
-    return card;
-  }
-  function blockPanel(p, week) {
-    var card = el('div', { class: 'ui-card lh-panel lh-block' });
-    card.appendChild(title('Your block'));
-    card.appendChild(el('p', { class: 'lh-big-name' }, String(p.name || 'Your program')));
-    var planned = 0, done = 0;
-    p.weeks.forEach(function (w) { (w.days || []).forEach(function (d) { var st = dayStatus(d); if (!st.total) return; planned++; if (st.open === 0 && st.done > 0) done++; }); });
-    var stats = el('dl', { class: 'lh-facts' });
-    var fact = function (k, v) { stats.appendChild(el('dt', {}, k)); stats.appendChild(el('dd', {}, v)); };
-    if (week.week != null && p.weeks[week.week]) fact('Week', Number(p.weeks[week.week].number || week.week + 1) + ' of ' + p.weeks.length);
-    fact('Sessions done', done + ' of ' + planned);
-    card.appendChild(stats);
-    card.appendChild(el('div', { class: 'lh-panel-foot' }, soft('Open program', function () { tab('program').click(); })));
-    return card;
-  }
-  function strengthPanel(u) {
-    var logs = (Store.get().workoutLogs || []).filter(function (l) { return l.athleteId === u.id && l.lift !== 'cardio'; });
-    var card = el('div', { class: 'ui-card lh-panel lh-strength' });
-    card.appendChild(title('Strength'));
-    var un = unitLabel();
-    if (!logs.length || typeof _progTotalSeries !== 'function') {
-      card.appendChild(el('p', { class: 'lh-quiet' }, 'Log a set of squat, bench or deadlift and your estimated max shows here.'));
-      card.appendChild(el('div', { class: 'lh-panel-foot' }, soft('Open Progress', openProgress)));
-      return card;
-    }
-    // Progress's own numbers (athlete.html renderProgOverview): the running best per lift, and its move since 4 weeks ago.
-    var series = _progTotalSeries(logs);
-    var lastPt = series[series.length - 1] || { total: 0, squat: 0, bench: 0, deadlift: 0 };
-    var cutoff = _addDaysISO(today(), -28);
-    var prevPt = series.slice().reverse().find(function (pt) { return pt.date <= cutoff; }) || null;
-    var signed = function (kg) { var d = Math.round(kgToDisplay(kg)); return d ? (d > 0 ? '+' : '−') + Math.abs(d) + ' ' + un : 'Level'; };
-    var tot = el('div', { class: 'lh-total' });
-    tot.appendChild(el('span', { class: 'lh-total-k' }, 'Estimated total'));
-    tot.appendChild(el('b', { class: 'lh-total-v', html: escHtml(String(Math.round(kgToDisplay(lastPt.total)))) + '<small>' + escHtml(un) + '</small>' }));
-    if (prevPt && prevPt.total > 0) tot.appendChild(el('span', { class: 'lh-total-d' }, signed(lastPt.total - prevPt.total) + ' in 4 weeks'));
-    card.appendChild(tot);
-    var t = el('table', { class: 'lh-lifts' });
-    t.appendChild(el('caption', { class: 'lh-sr' }, 'Estimated max per lift, its change in 4 weeks, and its last 16 weeks'));
-    var th = el('thead'), tr0 = el('tr');
-    [['Lift', 'lh-l0'], ['16 weeks', 'lh-l1'], ['Estimated max', 'lh-l2'], ['In 4 weeks', 'lh-l3']].forEach(function (h) { tr0.appendChild(el('th', { scope: 'col', class: h[1] }, h[0])); });
-    th.appendChild(tr0); t.appendChild(th);
-    var tb = el('tbody');
-    MAIN.forEach(function (lift) {
-      var tr = el('tr');
-      var c0 = el('th', { scope: 'row', class: 'lh-l0' });
-      c0.appendChild(el('span', { class: 'lift-dot lift-' + lift, 'aria-hidden': 'true' }));
-      c0.appendChild(document.createTextNode(LIFT_LABELS[lift]));
-      tr.appendChild(c0);
-      var pts = typeof strengthSeries === 'function' ? strengthSeries(logs, lift) : [];
-      tr.appendChild(el('td', { class: 'lh-l1' }, el('span', { class: 'lh-spark lift-' + lift, html: uiSparkline(pts.map(function (x) { return kgToDisplay(x.value); })) })));
-      var now = lastPt[lift] || 0;
-      tr.appendChild(el('td', { class: 'lh-l2' }, now ? Math.round(kgToDisplay(now)) + ' ' + un : 'Not logged'));
-      var before = prevPt ? prevPt[lift] : 0;
-      tr.appendChild(el('td', { class: 'lh-l3' }, now && before ? signed(now - before) : '–'));
-      tb.appendChild(tr);
+      if (msgCache && msgCache.list && msg) msgCache.list.push(msg);
+      return msg;
     });
-    t.appendChild(tb);
-    card.appendChild(t);
-    card.appendChild(el('div', { class: 'lh-panel-foot' }, soft('Open Progress', openProgress)));
+  }
+  function coachTile(u, c) {
+    var first = firstName(c.name) || 'your coach';
+    var card = tile('coach', 'lh-coach');
+    loadMessages(u, c);
+    var head = el('div', { class: 'lh-coach-head' });
+    var who = el('div', { class: 'lh-who' });
+    var k = el('span', { class: 'lh-k' }, 'Your coach');
+    var un = unreadFromCoach(u, c);
+    if (un) { k.appendChild(document.createTextNode(' · ')); k.appendChild(el('b', { class: 'lh-unread' }, un + ' unread')); }
+    who.appendChild(k);
+    who.appendChild(title('coach', first));
+    head.appendChild(who);
+    head.appendChild(soft('Messages', function () { openCoach('messages'); }));   // one word: beside "Your coach · 2 unread" in the narrowest column
+    card.appendChild(head);
+
+    var l = latestFromCoach(u, c);
+    var said = el('div', { class: 'lh-said' });
+    if (l) {
+      if (l.text) said.appendChild(el('p', { class: 'lh-note' }, l.text));
+      if (l.voice) said.appendChild(el('div', { class: 'lh-voice' }, PowaVoice.player(l.voice.meta, { messageId: l.voice.id, compact: true })));
+      said.appendChild(el('p', { class: 'lh-when' }, l.kind + (isIso(d10(l.at)) ? ', ' + dayText(d10(l.at)) : '')));
+    } else said.appendChild(el('p', { class: 'lh-quiet' }, 'Nothing from ' + first + ' yet. Say hello below.'));
+    card.appendChild(said);
+
+    var live = typeof msgThreadLive === 'function' ? msgThreadLive(c.id, u.id) : true;
+    if (live) {
+      var form = el('form', { class: 'lh-compose', novalidate: '' });
+      var ta = el('textarea', { id: 'lh-reply', class: 'lh-reply', rows: '2', maxlength: '2000', placeholder: 'Write to ' + first, 'aria-label': 'Message ' + first });
+      ta.value = draft;
+      var send = el('button', { class: 'btn btn-primary lh-send' + (draft.trim() ? '' : ' is-empty'), type: 'submit', 'aria-disabled': draft.trim() ? 'false' : 'true' }, 'Send');
+      var sync = function () { draft = ta.value; var has = !!ta.value.trim(); send.classList.toggle('is-empty', !has); send.setAttribute('aria-disabled', has ? 'false' : 'true'); };
+      ta.addEventListener('input', sync);
+      ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { cancelable: true })); } });
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var body = ta.value.trim();
+        if (!body || send.disabled) return;
+        send.disabled = true; ta.disabled = true;
+        sendToCoach(u, c, body).then(function () {
+          draft = '';
+          toastAction('Sent to ' + first, 'Open chat', function () { openCoach('messages'); });
+          render();
+          var n = document.getElementById('lh-reply'); if (n) n.focus();
+        }, function (err) {
+          send.disabled = false; ta.disabled = false;
+          if (typeof msgLinkRefused === 'function' && msgLinkRefused(err)) { toast('Not sent: ' + msgClosedText(false, first), 6000); return; }
+          console.error('sendMessage', err);
+          toast('Could not send. Check your connection and try again.');
+        });
+      });
+      form.appendChild(ta);
+      form.appendChild(send);
+      card.appendChild(form);
+    } else card.appendChild(el('p', { class: 'lh-quiet' }, typeof msgClosedText === 'function' ? msgClosedText(false, first) : ''));
+    var foot = el('div', { class: 'lh-foot lh-links' });
+    foot.appendChild(link('Send a form check', function () { openCoach('forms'); }));
+    card.appendChild(foot);
     return card;
   }
-  function meetOrWeightPanel(u) {
-    var t = today();
-    var nm = typeof deskNextMeet === 'function' ? deskNextMeet(u.id, t) : null;
-    var md = null; try { md = localStorage.getItem('powa-meet-date'); } catch (e) {}
-    var mdDays = md && typeof daysUntil === 'function' ? daysUntil(md) : null;
-    var list = typeof _bwSeries === 'function' ? _bwSeries() : [];
-    var last = list[list.length - 1];
-    var unit = getUnit() === 'lbs' ? 'lbs' : 'kg';
-    var ml = null; try { if (typeof applyLocalCut === 'function') applyLocalCut(); ml = meetWeighOf(u.id, t, unit); } catch (e) {}
-    var card = el('div', { class: 'ui-card lh-panel' });
-    if (nm || (mdDays != null && mdDays >= 0)) {
-      card.classList.add('lh-meet');
-      var days = nm ? nm.days : mdDays, iso = nm ? d10(nm.meet.date) : d10(md);
-      card.appendChild(title('Next meet'));
-      card.appendChild(el('p', { class: 'lh-big-name' }, nm && nm.meet.name ? String(nm.meet.name) : 'Your meet'));
-      var facts = el('dl', { class: 'lh-facts' });
-      var fact = function (k, v) { facts.appendChild(el('dt', {}, k)); facts.appendChild(el('dd', {}, v)); };
-      fact('Date', dayText(iso));
-      fact('How far', days === 0 ? 'Meet day' : days + (days === 1 ? ' day out' : ' days out'));
-      if (last) {
-        var vs = nm ? deskBodyweightVsClass(u.id, nm.meet) : null;
-        var cls = ml && ml.src === 'meet' ? ml.parts.slice(1).join(', ') : vs ? (vs.over > 0 ? kgToDisplay(vs.over, 1) + ' ' + unitLabel() + ' over ' + vs.cls : vs.over < 0 ? kgToDisplay(-vs.over, 1) + ' ' + unitLabel() + ' under ' + vs.cls : 'At ' + vs.cls) : null;
-        fact('Bodyweight', formatWeight(last.weight) + (cls ? ', ' + cls : ''));
-      }
-      card.appendChild(facts);
-      if (typeof meetPhaseHint === 'function') card.appendChild(el('p', { class: 'lh-quiet' }, meetPhaseHint(days)));
-      card.appendChild(el('div', { class: 'lh-panel-foot' }, soft('Open meet day', function () { openMeetSheet(); })));
+  function programTile(p, week, next) {
+    var card = tile('program', 'lh-plan');
+    if (!p) {
+      card.appendChild(title('program', 'Program'));
+      card.appendChild(el('p', { class: 'lh-quiet' }, 'No program yet. Set one up from your best lifts and the days you train, or write your own.'));
+      var a = el('div', { class: 'lh-plan-acts' });
+      var go = el('button', { class: 'btn btn-primary lh-cta', type: 'button' }, 'Set up your program');
+      go.addEventListener('click', openTrain);
+      a.appendChild(go);
+      a.appendChild(link('Find a coach', function () { tab('coach').click(); }));
+      card.appendChild(a);
       return card;
     }
-    card.classList.add('lh-bw');
-    card.appendChild(title('Bodyweight'));
-    if (!last) {
-      card.appendChild(el('p', { class: 'lh-quiet' }, 'No weigh-ins yet. One a morning makes a trend.'));
-    } else {
-      var top = el('div', { class: 'lh-total' });
-      top.appendChild(el('span', { class: 'lh-total-k' }, last.date === t ? 'Today' : 'Last weigh-in, ' + dayText(last.date)));
-      top.appendChild(el('b', { class: 'lh-total-v', html: escHtml(String(kgToDisplay(last.weight, 1))) + '<small>' + escHtml(unitLabel()) + '</small>' }));
-      var habit = typeof bwHabit === 'function' ? bwHabit(list, t) : null;
-      if (habit && habit.delta != null) top.appendChild(el('span', { class: 'lh-total-d' }, Math.abs(habit.delta) < 0.05 ? 'This week level with last' : 'This week ' + (habit.delta > 0 ? '+' : '−') + Math.abs(kgToDisplay(habit.delta)).toFixed(1) + ' ' + unitLabel() + ' on last'));
-      card.appendChild(top);
-      var tr = typeof bwCutBulkStats === 'function' ? bwCutBulkStats(list.map(function (b) { return { date: b.date, weight: b.weight }; }), null, 'maintain').trend : [];
-      var sp = uiSparkline((tr || []).slice(-21).map(function (x) { return kgToDisplay(x.weight); }));
-      if (sp) card.appendChild(el('div', { class: 'lh-spark lh-spark-wide', html: sp }));
-      if (ml) card.appendChild(el('p', { class: 'lh-quiet' }, ml.text));
-      else { var cut = typeof athleteCut === 'function' ? athleteCut(u.id) : null; if (cut && cut.line) { var cl = cut.line.split(' · ').slice(1).join(' · '); if (cl) card.appendChild(el('p', { class: 'lh-quiet' }, cl.charAt(0).toUpperCase() + cl.slice(1))); } }
-    }
-    card.appendChild(el('div', { class: 'lh-panel-foot' }, soft('Weigh in', function () { openWeighInSheet(function () { render(); }); })));
+    var who = el('div', { class: 'lh-who' });
+    who.appendChild(el('span', { class: 'lh-k' }, 'Your program'));
+    who.appendChild(title('program', String(p.name || 'Program')));
+    card.appendChild(who);
+    var cur = week.week;
+    if (cur != null && p.weeks[cur]) card.appendChild(el('p', { class: 'lh-plan-wk' }, 'Week ' + Number(p.weeks[cur].number || cur + 1) + ' of ' + p.weeks.length));
+    var strip = lhBlockStrip(p, cur);
+    var s = el('ol', { class: 'lh-strip', 'aria-label': 'The block, week by week' });
+    strip.forEach(function (x) {
+      s.appendChild(el('li', { class: 'is-' + x.state, title: 'Week ' + x.n }, el('span', { class: 'lh-sr' }, 'Week ' + x.n + ': ' + (x.state === 'done' ? 'done' : x.state === 'now' ? 'this week' : 'to come'))));
+    });
+    card.appendChild(s);
+    if (next) {
+      var x0 = dayOf(p, next);
+      var on = week.days.find(function (d) { return d.ref && d.ref.wi === next.wi && d.ref.di === next.di && !d.past; });
+      card.appendChild(el('p', { class: 'lh-plan-next' }, 'Next: ' + String((x0.day && x0.day.name) || 'Session') + (on ? ', ' + (on.isToday ? 'today' : weekdayLong(on.iso)) : '')));
+    } else card.appendChild(el('p', { class: 'lh-plan-next' }, 'Every session in this block is done.'));
+    var acts = el('div', { class: 'lh-plan-acts' });
+    var edit = el('button', { class: 'btn btn-primary lh-cta', type: 'button' }, 'Edit program');
+    edit.addEventListener('click', openProgram);
+    acts.appendChild(edit);
+    acts.appendChild(link('Find a coach', function () { tab('coach').click(); }));
+    card.appendChild(acts);
     return card;
   }
 
-  // ---- a lifter with no program yet: Train's own ways in, linked ----
-  function startBlock(u, c) {
-    var card = el('div', { class: 'ui-card lh-start' });
-    if (c) {
-      card.appendChild(el('h3', { class: 'lh-sess-name' }, firstName(c.name) + ' is writing your program'));
-      card.appendChild(el('p', { class: 'lh-quiet' }, 'Your week shows up here the moment it is ready.'));
-      return card;
-    }
-    card.appendChild(el('h3', { class: 'lh-sess-name' }, 'No program yet'));
-    card.appendChild(el('p', { class: 'lh-quiet' }, 'Your week shows up here once you have one. Start one of these ways.'));
-    var inShell = document.documentElement.classList.contains('native');
-    var links = el('div', { class: 'lh-links' });
-    [['Set up your program', 'Your best lifts and days a week, or start from zero', 'today'],
-      ['Write my own program', 'Your weeks, days and sets', 'program'],
-      ['Find a coach', 'Get programmed by a real coach', 'coach'],
-      inShell ? null : ['Get a ready-made plan', 'Programs from coaches on the marketplace', 'marketplace']].filter(Boolean).forEach(function (x) {
-      var b = el('button', { type: 'button', class: 'lh-link' });
-      b.appendChild(el('span', { class: 'lh-link-t' }, x[0]));
-      b.appendChild(el('span', { class: 'lh-link-s' }, x[1]));
-      b.addEventListener('click', x[2] === 'today' ? openTrain : function () { tab(x[2]).click(); });
-      links.appendChild(b);
+  /* ---------- 4. This week ---------- */
+  function loggedName(u, iso) {
+    var seen = [];
+    myLogs(u).forEach(function (l) { if (l.date === iso && MAIN.indexOf(l.lift) >= 0 && seen.indexOf(l.lift) < 0) seen.push(l.lift); });
+    var ls = seen.map(function (l) { return LIFT_LABELS[l]; });
+    if (!ls.length) return 'Logged';
+    return ls.length === 1 ? ls[0] : ls.slice(0, -1).join(', ') + ' and ' + ls[ls.length - 1].toLowerCase();
+  }
+  function weekTile(u, p, week, coached) {
+    var card = tile('week', 'lh-wk');
+    var wkHead = el('div', { class: 'lh-wk-head' });
+    wkHead.appendChild(title('week', 'This week'));
+    if (week.unplaced.length) wkHead.appendChild(el('span', { class: 'lh-wk-more' }, week.unplaced.length + ' more with no day yet'));
+    card.appendChild(wkHead);
+    var rows = lhWeekRows(week, 6);
+    var list = el('ul', { class: 'lh-days' });
+    if (!rows.length) list.appendChild(el('li', { class: 'lh-quiet lh-none' }, p ? 'No sessions on a day this week yet.' : 'Nothing logged this week yet.'));
+    rows.forEach(function (d) {
+      var li = el('li', { class: 'lh-day' + (d.isToday ? ' is-today' : '') + (d.state ? ' s-' + d.state : '') });
+      li.appendChild(el('span', { class: 'lh-day-d' }, DAY_SHORT[d.idx]));
+      var name = d.kind === 'logged' ? loggedName(u, d.iso) : String(((dayOf(p, d.ref).day || {}).name) || 'Session');
+      li.appendChild(el('span', { class: 'lh-day-n' }, name + (d.more ? ' +' + d.more : '')));
+      var word = lhStateWord(d);
+      li.appendChild(el('span', { class: 'lh-day-s' + (d.isToday ? ' is-today' : '') }, word));
+      if (d.isToday) {
+        var go = d.kind === 'session' ? function () { openOnTrain(d.ref, week.today); } : openTrain;
+        li.appendChild(soft('Open session', go, 'lh-btn-sm'));
+      }
+      list.appendChild(li);
     });
-    card.appendChild(links);
+    card.appendChild(list);
+    var foot = el('div', { class: 'lh-foot lh-links' });
+    foot.appendChild(link('Log a past session', openLogSession));   // a session lifted away from the app: Train's own picker
+    foot.appendChild(link(coached ? 'Full program' : 'Program builder', openProgram));
+    card.appendChild(foot);
     return card;
   }
 
   // ---- drawing ----
-  function select(i, focus) {
-    selIdx = i;
-    render();
-    if (focus) { var b = document.getElementById('lh-day-' + i); if (b) b.focus(); }
-    var live = document.getElementById('lh-live');
-    var d = document.getElementById('lh-day-' + i);
-    if (live && d) live.textContent = 'Showing ' + d.getAttribute('aria-label');
+  // The coach's note in at most four lines (its box is four lines tall): a longer one is cut at a word, with an
+  // ellipsis, and keeps its whole text as the tooltip; Messages shows it in full.
+  function fitNote(p) {
+    var full = p.textContent;
+    if (p.scrollHeight <= p.clientHeight + 1) return;
+    var words = full.split(/\s+/), lo = 1, hi = words.length;
+    while (lo < hi) {
+      var mid = Math.ceil((lo + hi) / 2);
+      p.textContent = words.slice(0, mid).join(' ') + '…';
+      if (p.scrollHeight <= p.clientHeight + 1) lo = mid; else hi = mid - 1;
+    }
+    p.textContent = words.slice(0, lo).join(' ').replace(/[\s,.;:–-]+$/, '') + '…';
+    p.title = full;
   }
   function render() {
     var area = document.getElementById('homeArea');
@@ -783,43 +863,45 @@
     if (!u) return;
     rendering = true;
     try {
-      var keep = document.activeElement && area.contains(document.activeElement) ? document.activeElement.getAttribute('data-lh') : null;
+      var keepId = document.activeElement && area.contains(document.activeElement) ? document.activeElement.id : null;
       var p = prog();
       if (p && !(p.weeks || []).length) p = null;
-      var week = buildWeek();
+      var week = buildWeek(p);
       var next = nextRef(p, week.today);
-      if (selWeek !== week.mon) { selWeek = week.mon; selIdx = null; }
-      var selected = selIdx == null ? lhDefaultDay(week) : selIdx;
       var c = coach();
       area.innerHTML = '';
-      area.appendChild(headBlock(week, p, next));
-      var grid = el('div', { class: 'lh-grid' });
-      var main = el('div', { class: 'lh-main' }), side = el('div', { class: 'lh-side' });
-      if (p) {
-        area.appendChild(weekBlock(week, p, selected));
-        main.appendChild(sessionBlock(week, p, week.days[selected], next));
-      } else main.appendChild(startBlock(u, c));
-      if (c) side.appendChild(coachPanel(u, c)); else if (p) side.appendChild(blockPanel(p, week));
-      // Strength sits under the session, in the wide column (26 Nov: beside the coach it left half a screen empty
-      // under a three-exercise session); with no program yet it stays beside the ways to start
-      (p ? main : side).appendChild(strengthPanel(u));
-      side.appendChild(meetOrWeightPanel(u));
-      grid.appendChild(main); grid.appendChild(side);
+      area.appendChild(headBlock(p, week));
+      var grid = el('div', { class: 'lh-grid' + (c ? ' is-coached' : ' is-solo') });
+      var prog1 = progressTile(u);
+      grid.appendChild(prog1);
+      grid.appendChild(logTile(u, c));
+      grid.appendChild(c ? coachTile(u, c) : programTile(p, week, next));
+      grid.appendChild(weekTile(u, p, week, !!c));
       area.appendChild(grid);
-      area.appendChild(el('div', { class: 'lh-sr', id: 'lh-live', 'aria-live': 'polite' }));
-      if (keep) { var f = area.querySelector('[data-lh="' + keep + '"]'); if (f) f.focus(); }
+      if (prog1._drawChart) prog1._drawChart();
+      area.querySelectorAll('.lh-note').forEach(fitNote);
+      if (keepId) { var f = document.getElementById(keepId); if (f) f.focus(); }
       lastV = Store._v;
+      lastTheme = theme();
     } finally { rendering = false; }
   }
-  // Drawn when shown, and again whenever the Store moves while it is shown (nothing tells a pane it changed: the
-  // other panes draw on their tab's click and after their own writes).
+  // Drawn when shown, and again whenever the Store moves or the theme changes while it is shown (nothing tells a pane
+  // it changed: the other panes draw on their tab's click and after their own writes). Never while the lifter is
+  // typing in a Home field (their draft is kept either way).
+  function busyTyping() { var a = document.activeElement; return !!(a && a.closest && a.closest('#homeArea') && /^(INPUT|TEXTAREA)$/.test(a.tagName)); }
   function watch() {
     if (timer) return;
     timer = setInterval(function () {
       if (!shown()) { clearInterval(timer); timer = null; return; }
-      if (Store._v !== lastV) render();
+      if ((Store._v !== lastV || theme() !== lastTheme) && !busyTyping()) render();
     }, 1000);
   }
+  var resizeT = null;
+  window.addEventListener('resize', function () {
+    if (!shown()) return;
+    clearTimeout(resizeT);
+    resizeT = setTimeout(function () { if (shown() && isLaptop() && !busyTyping()) render(); }, 150);
+  });
   function show() {
     if (!isLaptop()) { var t = tab('today'); if (t) t.click(); return; }
     render();
@@ -830,7 +912,7 @@
   function boot() {
     var t = tab('home');
     if (!t) return;
-    t.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/><path d="M7.5 14h2M11 14h2M14.5 14h2"/></svg><span>Home</span>';
+    t.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h12V10"/><path d="M10 19.5V15h4v4.5"/></svg><span>Home</span>';
     if (document.documentElement.classList.contains('native')) return;
     var asked = /[?&]tab=/.test(location.search) || (location.hash && location.hash !== '#');
     if (!asked && isLaptop()) t.click();

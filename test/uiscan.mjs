@@ -50,14 +50,17 @@ const OB_GOOGLE = "window.Capacitor = { isPluginAvailable: (n) => n === 'PowaWeb
 const OB_SIGNUP_STEP3 = "setTimeout(() => { const st = document.querySelector('.ob-sheet .ob-track .ob-step:nth-child(2)'); const i = st.querySelector('input[aria-label=\"Full name\"]'); i.value = 'Jane Doe'; i.dispatchEvent(new Event('input', { bubbles: true })); st.querySelector('.nw-btn-primary').click(); }, 600); true";
 const CP_DAYS = (n) => "Store.update(s => { const w = s.programs.find(p => p.athleteId === 'demo-a1').weeks[0]; ['Upper Day', 'Lower Day', 'Arms'].slice(0, " + n + ").forEach((nm, k) => { const d = newDay(nm), e = newExercise('push', '', 'Overhead Press'); for (let i = 0; i < 3; i++) e.sets.push(newSet(60, 8, 7)); d.exercises.push(e); w.days.splice(3 + k, 0, d); }); });";
 const screens = [];
-// HOME (lifter-home.js): the lifter's week, on a laptop only (the website at 1440 and 1100 wide; a day ahead and a rest day
-// selected; no program yet). The iPhone layout screens above never have it.
+// HOME (lifter-home.js): progress, log, coach and the week, on a laptop only (the website at 1440, 1280, 1100 and 901 wide;
+// one lift isolated on the chart; training alone; no program yet; nothing rated yet). The iPhone layout screens above never have it.
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
-  { name: 'a-home-web' + suf, page: A, mode: 'web', w: 1440, h: 900, theme },
-  { name: 'a-home-web-1100' + suf, page: A, mode: 'web', w: 1100, h: 800, theme, eval: "document.getElementById('lh-day-5').click()" },
-  { name: 'a-home-web-rest' + suf, page: A, mode: 'web', w: 1440, h: 900, theme, eval: "document.getElementById('lh-day-4').click()" },
-  { name: 'a-home-web-solo' + suf, page: SO, mode: 'web', w: 1440, h: 900, theme },
-  { name: 'a-home-web-noprog' + suf, page: SO, mode: 'web', w: 1440, h: 900, theme, eval: "Store.update((s) => { s.programs = []; }); LifterHome.render(); true" });
+  { name: 'a-home-web' + suf, page: A, mode: 'web', w: 1440, h: 775, theme },
+  { name: 'a-home-web-1280' + suf, page: A, mode: 'web', w: 1280, h: 650, theme },
+  { name: 'a-home-web-1100' + suf, page: A, mode: 'web', w: 1100, h: 700, theme },
+  { name: 'a-home-web-901' + suf, page: A, mode: 'web', w: 901, h: 700, theme },
+  { name: 'a-home-web-squat' + suf, page: A, mode: 'web', w: 1440, h: 775, theme, eval: "document.querySelector('#homeArea .lh-lift[data-lift=\"squat\"]').click(); true" },
+  { name: 'a-home-web-solo' + suf, page: SO, mode: 'web', w: 1440, h: 775, theme },
+  { name: 'a-home-web-noprog' + suf, page: SO, mode: 'web', w: 1440, h: 775, theme, eval: "Store.update((s) => { s.programs = []; }); LifterHome.render(); true" },
+  { name: 'a-home-web-empty' + suf, page: SO, mode: 'web', w: 1440, h: 775, theme, eval: "Store.update((s) => { s.workoutLogs = []; s.bodyweight = []; }); LifterHome.render(); true" });
 // The demo's guided tour as a first visitor meets it (it opens about a second after load).
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'a-demo-tour' + suf, page: 'athlete.html?demo=1', theme, tour: true, eval: "new Promise(r => setTimeout(() => r(true), 1600))" },

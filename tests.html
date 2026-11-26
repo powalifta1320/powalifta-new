@@ -11684,42 +11684,61 @@ group('lifter home (lifter-home.js)');
     eq(w.week, null); eq(w.unplaced.length, 0);
     eq(lhWeek({ today: 'nope' }), null);
   });
-  test('the day it opens on, and the head\'s action', () => {
-    const w = lhWeek({ prog: prog(), today: T0, logDates: [], restDates: [], usual: ['Sat'], next: { wi: 1, di: 0 } });
-    eq(lhDefaultDay(w), 3, 'today');
-    eq(JSON.stringify(lhHeadAction(w, { wi: 1, di: 0 })), '{"kind":"today","idx":3}');
+  test('this week\'s rows: training days only, in order, a word for each, at most six with today kept', () => {
+    const w = lhWeek({ prog: prog(), today: T0, logDates: [], restDates: ['2026-11-27'], usual: ['Sat'], next: { wi: 1, di: 0 } });
+    const rows = lhWeekRows(w);
+    eq(rows.map(d => d.iso.slice(8) + ':' + lhStateWord(d)).join(' '), '23:Done 24:Part done 25:Missed 26:Today 28:To come');
+    eq(lhStateWord(w.days[4]), '', 'a rest day has no word');
     const p = prog(); p.weeks[1].days[0].exercises[0].sets.forEach(s => { s.completed = true; s.completedAt = T0; });
     const w2 = lhWeek({ prog: p, today: T0, logDates: [T0], restDates: [], usual: ['Sat'], next: { wi: 1, di: 1 } });
-    eq(w2.days[3].state, 'done');
-    eq(JSON.stringify(lhHeadAction(w2, { wi: 1, di: 1 })), '{"kind":"day","idx":5}', 'today done: Saturday\'s session');
-    eq(JSON.stringify(lhHeadAction(w2, { wi: 1, di: 2 })), '{"kind":"next","idx":-1}', 'the next one on no day this week');
-    eq(JSON.stringify(lhHeadAction(w2, null)), '{"kind":"none","idx":-1}');
-    const p3 = prog(); delete p3.weeks[1].days[0].scheduledDate;
-    const w3 = lhWeek({ prog: p3, today: T0, logDates: [], restDates: [T0], usual: ['Thu', 'Sat'], next: { wi: 1, di: 0 } });
-    eq(w3.days[3].kind, 'rest'); eq(lhDefaultDay(w3), 5, 'a rest day today opens on the next session');
+    eq(lhStateWord(w2.days[3]), 'Done', 'today, done: Done');
+    const full = { days: [0, 1, 2, 3, 4, 5, 6].map(i => ({ iso: '2026-11-' + (23 + i), idx: i, isToday: i === 6, kind: 'logged', state: 'done' })) };
+    eq(lhWeekRows(full, 6).map(d => d.idx).join(), '1,2,3,4,5,6', 'seven training days: six, today kept');
+    eq(lhWeekRows(null).length, 0);
   });
-  test('the plan in the app\'s short form: groups of like sets, the load and the RPE as written', () => {
-    const e = ex('squat', [S({ weight: 182.5, reps: 3, rpe: 8.5 }), S({ weight: 167.5, reps: 5, rpe: 8, tempo: '3-1-0' }), S({ weight: 167.5, reps: 5, rpe: 8, tempo: '3-1-0' })]);
-    eq(lhPlanText(e).join(' | '), '1 × 3 at 182.5 kg @8.5 | 2 × 5 at 167.5 kg @8');
-    eq(lhPlanText(ex('bench', [S({ weight: 100, reps: 5, rpe: 7, rpeHi: 8 })])).join(), '1 × 5 at 100 kg @7–8');
-    eq(lhPlanText(ex('bench', [S({ weight: 0, reps: 8, rpe: 8, rir: true })])).join(), '1 × 8, 2 RIR');
-    eq(lhPlanText(ex('squat', [S({ weight: 140, plannedWeight: 150, reps: 3, plannedReps: 2, rpe: 8 })])).join(), '1 × 2 at 150 kg @8', 'the plan, not the day\'s smart load or reps');
-    eq(lhPlanText(ex('cardio', [S({ weight: 20, reps: 3, rpe: null })])).join(), '1 × 20 min, 3 km');
-    eq(lhPlanText(ex('squat', [])).length, 0);
+  test('a move in words: up, down, level, a year, since a date', () => {
+    eq(lhChangeWords(12.4, 'kg', { weeks: 16 }), 'Up 12.5 kg in 16 weeks');
+    eq(lhChangeWords(-5, 'kg', { weeks: 8 }), 'Down 5 kg in 8 weeks');
+    eq(lhChangeWords(0.2, 'kg', { weeks: 16 }), 'Level over 16 weeks', 'under half a unit is level');
+    eq(lhChangeWords(30, 'lbs', { weeks: 52 }), 'Up 30 lbs in a year');
+    eq(lhChangeWords(0, 'kg', { weeks: 52 }), 'Level over a year');
+    eq(lhChangeWords(10, 'kg', { since: '2026-10-05' }), 'Up 10 kg since 5 Oct');
   });
-  test('logged sets: like sets together, and how each felt against what was written', () => {
-    eq(lhFeel(S({ rpe: 8, actualRpe: 9 })), 'harder'); eq(lhFeel(S({ rpe: 8, actualRpe: 7 })), 'easier'); eq(lhFeel(S({ rpe: 8, actualRpe: 8 })), null);
-    eq(lhFeel(S({ rpe: 7, rpeHi: 8, actualRpe: 8 })), null, 'inside the range written'); eq(lhFeel(S({ rpe: 8, rir: true, actualRpe: 9 })), null, 'RIR is not compared');
-    eq(lhFeel(S({ rpe: null, actualRpe: 9 })), null);
-    const e = ex('squat', [S({ weight: 182.5, reps: 3, rpe: 8.5, completed: true, actualRpe: 9 }), S({ weight: 167.5, reps: 5, rpe: 8, completed: true, actualRpe: 8 }), S({ weight: 167.5, reps: 5, rpe: 8, completed: true, actualRpe: 8 }), S({ weight: 167.5, reps: 5 })]);
-    eq(lhLoggedGroups(e).map(g => g.text + (g.feel ? ' (' + g.feel + ')' : '')).join(' | '), '1 × 3 at 182.5 kg @9 (harder) | 2 × 5 at 167.5 kg @8');
+  test('the chart\'s ranges: only those with data; the point a range is measured from', () => {
+    eq(lhRanges('2026-11-20', T0).join(), '8');
+    eq(lhRanges('2026-09-01', T0).join(), '8,16', 'older than 8 weeks');
+    eq(lhRanges('2026-01-10', T0).join(), '8,16,52', 'older than 16 weeks');
+    eq(lhRanges(null, T0).length, 0);
+    const s = [{ date: '2026-08-01', total: 500 }, { date: '2026-08-20', total: 510 }, { date: '2026-10-01', total: 530 }];
+    eq(JSON.stringify(lhBase(s, '2026-08-10')), '{"pt":{"date":"2026-08-01","total":500},"since":null}', 'the last point on or before the cutoff');
+    eq(lhBase(s, '2026-07-01').since, '2026-08-01', 'no point before it: the first point, and its date');
+    eq(lhBase([], T0), null);
   });
-  test('a day\'s top set in one line: planned from its first main lift, done as lifted', () => {
-    const day = { exercises: [ex('legs', [S({ weight: 200, reps: 10 })], { exerciseName: 'Leg Press' }), ex('squat', [S({ weight: 167.5, reps: 5, rpe: 8 }), S({ weight: 182.5, reps: 3, rpe: 8.5, completed: true, actualRpe: 9 })])] };
-    eq(lhTopSet(day, false), '182.5 kg × 3 @8.5');
-    eq(lhTopSet(day, true), '182.5 kg × 3 @9');
-    eq(lhTopSet({ exercises: [ex('bench', [S({ weight: 0, reps: 8, rpe: 7 })])] }, false), '8 reps @7');
-    eq(lhTopSet({ exercises: [] }, false), '');
+  test('the chart: round gridlines, the weeks on x, a line per lift, the values per week', () => {
+    eq(lhNiceTicks(117, 252).ticks.join(), '100,150,200,250,300');
+    const nt = lhNiceTicks(80, 82); eq(nt.lo <= 80 && nt.hi >= 82 && nt.ticks.length >= 3 && nt.ticks.length <= 6, true, 'a small range still gets 3 to 6 round ticks: ' + nt.ticks.join());
+    const m = lhChartModel({ series: { squat: [{ week: '2026-11-09', value: 200 }, { week: '2026-11-23', value: 205 }], bench: [{ week: '2026-11-16', value: 130 }], deadlift: [{ week: '2026-09-01', value: 240 }] },
+      weeks: 4, today: T0, w: 400, h: 200, pad: { l: 40, r: 10, t: 10, b: 20 } });
+    eq(m.start, '2026-11-02', 'four weeks ending this one');
+    eq(m.byWeek.map(b => b.week).join(), '2026-11-02,2026-11-09,2026-11-16,2026-11-23');
+    eq(m.lines.squat.pts.map(p => p.i).join(), '1,3');
+    eq(m.lines.deadlift.pts.length, 0, 'a point before the range is left out');
+    eq(m.x(0), 40); eq(m.x(3), 390);
+    eq(JSON.stringify(m.byWeek[3].values), '{"squat":205}');
+    eq(m.yTicks[0].y > m.yTicks[m.yTicks.length - 1].y, true, 'the lowest value at the bottom');
+    eq(/^M40\.0 \d/.test(lhChartModel({ series: { squat: [{ week: '2026-11-02', value: 1 }, { week: '2026-11-09', value: 2 }] }, weeks: 4, today: T0, w: 400, h: 200, pad: { l: 40, r: 10, t: 10, b: 20 } }).lines.squat.d), true);
+  });
+  test('weigh-ins in a line: the last one, the 7-day average; the block as a strip of weeks', () => {
+    const bw = [{ date: '2026-11-18', weight: 84 }, { date: '2026-11-20', weight: 83 }, { date: '2026-11-24', weight: 82.5 }, { date: T0, weight: 82.9 }];
+    const s = lhBwSummary(bw, T0);
+    eq(s.last.date, T0); eq(s.n7, 3, 'the 20th to today'); eq(Math.round(s.avg7 * 100) / 100, 82.8);
+    eq(lhBwSummary([], T0), null);
+    eq(lhBwSummary([{ date: '2026-10-01', weight: 80 }], T0).avg7, null, 'none this week');
+    const p = prog();
+    p.weeks[0].days.forEach(d => (d.exercises || []).forEach(e => e.sets.forEach(x => { x.completed = true; x.completedAt = '2026-11-20'; })));
+    eq(lhBlockStrip(p, 1).map(w => w.n + ':' + w.state).join(), '1:done,2:now');
+    eq(lhBlockStrip(prog(), 0).map(w => w.state).join(), 'now,tocome');
+    eq(lhBlockStrip(null, 0).length, 0);
   });
 })();
 

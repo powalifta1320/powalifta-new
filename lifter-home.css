@@ -1,8 +1,9 @@
-/* lifter-home.css: Home, the lifter's week on a laptop (lifter-home.js). Layout and tables only: the surfaces are the
-   app's own (.ui-card, .ui-label, .ui-btn-soft, .btn-primary, .lift-dot), so the light theme and the glass skin
-   (lifter-glass.css, html.lg) dress it as they dress every other screen. Colours are tokens; the crimson is the head's
-   one action. Nothing here applies on a phone, in the iPhone app or in a window of 900 px and under: the tab and the
-   pane are not shown there at all. */
+/* lifter-home.css: Home, the lifter's desk on a laptop (lifter-home.js). Four tiles: Progress across the top, then Log,
+   Coach (Program when training alone) and This week. The surfaces are the app's own (.ui-card, .ui-btn-soft,
+   .btn-primary, .lift-dot), so the light theme and the glass skin (lifter-glass.css, html.lg) dress Home as they dress
+   every other screen. Colours are tokens; the lift colours come from the app (liftColors() on the chart, .lift-dot on the
+   buttons); the crimson is the one action (Send, or Edit program). Nothing here applies on a phone, in the iPhone app or
+   in a window of 900 px and under: the tab and the pane are not shown there at all. */
 
 /* ---------- where it exists ---------- */
 #tab-home { display: none; }
@@ -10,168 +11,184 @@ html.native #pane-home { display: none !important; }
 @media (max-width: 900px) { #pane-home { display: none !important; } }
 @media (min-width: 901px) { html:not(.native) body.powa-app #tab-home { display: flex; } }
 
-/* ---------- the page ---------- */
 @media (min-width: 901px) {
-  #homeArea { --lh-gap: 24px; display: flex; flex-direction: column; gap: var(--lh-gap); }
+  /* room at the foot: the demo bar and the Ask AI button never sit over a tile */
+  #homeArea { --lh-gap: 16px; display: flex; flex-direction: column; gap: 16px; padding-bottom: 88px; font-size: 15px; }
   #homeArea .lh-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
-  /* the head: the title and the week's line on the left, the one crimson action (and the quiet one) on the right */
-  #homeArea .lh-head { margin: 0; align-items: flex-end; flex-wrap: nowrap; gap: 24px; }
-  #homeArea .lh-head-text { min-width: 0; }
-  #homeArea .lh-sub { margin: 8px 0 0; font-size: 15px; line-height: 1.4; color: var(--text-2); }
-  #homeArea .lh-head-acts { display: flex; align-items: center; gap: 10px; flex: none; }
-  #homeArea .lh-head-go { min-height: 44px; padding: 0 22px; border-radius: 999px; white-space: nowrap; font-weight: 700; }
-  #homeArea .lh-head-acts .lh-head-msg { min-height: 44px; padding: 0 18px; white-space: nowrap; }
+  /* ---------- the head: one headline and one plain line ---------- */
+  #homeArea .lh-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 16px; margin: 0; }
+  #homeArea .lh-h { margin: 0; font-family: var(--font-display); font-stretch: var(--display-stretch, 125%); font-size: 28px; font-weight: 800; line-height: 1.1; letter-spacing: -0.01em; color: var(--text); }
+  #homeArea .lh-sub { margin: 0; font-size: 15px; line-height: 1.4; color: var(--text-2); }
 
-  /* ---------- the week: seven equal columns ---------- */
-  #homeArea .lh-week { padding: 8px; }
-  #homeArea .lh-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; min-height: 132px; }
-  #homeArea .lh-day {
-    display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; min-height: 132px;
-    padding: 12px 12px 12px; border: 0; border-radius: 14px; background: none; color: var(--text);
-    font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
-    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  /* ---------- the tiles ---------- */
+  #homeArea .lh-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--lh-gap); align-items: stretch; }
+  #homeArea .lh-tile { display: flex; flex-direction: column; min-width: 0; margin: 0; padding: 20px 24px; }
+  #homeArea .ui-card + .ui-card { margin-top: 0; }
+  #homeArea .lh-title { margin: 0; font-family: var(--font-body); font-size: 20px; font-weight: 750; line-height: 1.3; letter-spacing: -0.01em; color: var(--text); overflow-wrap: anywhere; }
+  #homeArea .lh-k { display: block; font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--text-2); }
+  #homeArea .lh-quiet { margin: 8px 0 0; font-size: 15px; line-height: 1.45; color: var(--text-2); }
+  #homeArea .lh-foot { margin-top: auto; padding-top: 6px; }
+  #homeArea .lh-btn { flex: none; min-height: 40px; padding: 0 16px; font-size: 14px; font-weight: 650; white-space: nowrap; }
+  #homeArea .lh-btn-sm { min-height: 36px; padding: 0 14px; }
+  #homeArea :is(button, input, textarea, svg):focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+  /* plain links in a foot row */
+  #homeArea .lh-links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 20px; }
+  #homeArea .lh-link { min-height: 28px; padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-size: 14px; font-weight: 650; text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 4px; cursor: pointer; }
+  @media (hover: hover) and (pointer: fine) { #homeArea .lh-link:hover { text-decoration-color: currentColor; } }
+  #homeArea .lh-links .lh-quiet { margin: 0; font-size: 14px; }
+
+  /* ---------- 1. Progress: the total and the lifts on the left, the chart on the right ---------- */
+  #homeArea .lh-prog { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(250px, 300px) minmax(0, 1fr); gap: 32px; }
+  #homeArea .lh-prog.is-empty { display: flex; gap: 0; }
+  #homeArea .lh-prog.is-empty .lh-foot { margin-top: 16px; padding: 0; }
+  #homeArea .lh-prog-sum { display: flex; flex-direction: column; min-width: 0; }
+  #homeArea .lh-total { margin: 4px 0 0; font-family: var(--font-num, inherit); font-stretch: var(--num-stretch, 100%); font-size: 42px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+  #homeArea .lh-total small { margin-left: 6px; font-family: var(--font-body); font-stretch: 100%; font-size: 15px; font-weight: 700; letter-spacing: 0; color: var(--text-2); }
+  #homeArea .lh-total .lh-total-k { margin-left: 12px; font-family: var(--font-body); font-stretch: 100%; font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--text-2); white-space: nowrap; }
+  #homeArea .lh-chg { min-height: 21px; margin: 2px 0 0; font-size: 15px; font-weight: 600; line-height: 1.4; color: var(--text-2); }
+  #homeArea .lh-lifts { display: flex; flex-direction: column; margin-top: 8px; }
+  #homeArea .lh-lift {
+    display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 56px; align-items: center; gap: 12px;
+    min-height: 38px; margin: 0 -10px; padding: 0 10px; border: 0; border-radius: 10px; background: none;
+    color: var(--text); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.15s ease;
   }
-  #homeArea .lh-day > span { overflow-wrap: anywhere; }
-  #homeArea .lh-day-date { font-size: 13px; line-height: 1.3; color: var(--text-3); font-variant-numeric: tabular-nums; }
-  #homeArea .lh-day-date b { font-weight: 700; color: var(--text-2); }
-  #homeArea .lh-day-name { margin-top: 6px; font-size: 15px; font-weight: 700; line-height: 1.25; color: var(--text); }
-  #homeArea .lh-day.k-rest .lh-day-name { font-weight: 600; color: var(--text-3); }
-  #homeArea .lh-day-state { min-height: 18px; font-size: 13px; font-weight: 650; line-height: 1.35; color: var(--text-2); }
-  #homeArea .lh-day-state:empty { min-height: 0; }
-  /* the state's word wears a small dot when it is news: done green, missed or not finished amber (today has its band) */
-  #homeArea .lh-day.s-done .lh-day-state::before,
-  #homeArea .lh-day.s-missed .lh-day-state::before,
-  #homeArea .lh-day.s-unfinished .lh-day-state::before {
+  #homeArea .lh-lift + .lh-lift { box-shadow: inset 0 1px 0 var(--line); }
+  #homeArea .lh-lift .lift-dot { width: 10px; height: 10px; transition: opacity 0.15s ease; }
+  #homeArea .lh-lift-n { font-size: 15px; font-weight: 650; }
+  #homeArea .lh-lift-v { font-family: var(--font-num, inherit); font-stretch: var(--num-stretch, 100%); font-size: 20px; font-weight: 750; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #homeArea .lh-lift-v small { font-family: var(--font-body); font-stretch: 100%; font-size: 13px; font-weight: 650; color: var(--text-2); }
+  #homeArea .lh-lift-d { font-size: 14px; font-weight: 650; text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums; }
+  #homeArea .lh-lift-d.is-up { color: var(--ok); }
+  [data-theme="light"] #homeArea .lh-lift-d.is-up { color: #157a43; }   /* the light theme's darker green: 5:1 on white */
+  #homeArea .lh-lift.is-on { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: inset 0 0 0 1px var(--line-2); }
+  #homeArea .lh-lift.is-on + .lh-lift, #homeArea .lh-lift:has(+ .lh-lift.is-on) { box-shadow: none; }
+  #homeArea .lh-lift.is-dim .lift-dot { opacity: 0.35; }
+  @media (hover: hover) and (pointer: fine) { #homeArea .lh-lift:not(.is-on):hover { background: color-mix(in srgb, var(--text) 5%, transparent); } }
+
+  #homeArea .lh-prog-chart { display: flex; flex-direction: column; min-width: 0; }
+  #homeArea .lh-prog-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
+  #homeArea .lh-prog-acts { display: flex; align-items: center; gap: 12px; }
+  #homeArea .lh-range { display: inline-flex; padding: 3px; border-radius: 999px; background: color-mix(in srgb, var(--text) 7%, transparent); }
+  #homeArea .lh-range button { min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: none; color: var(--text-2); font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+  #homeArea .lh-range button.is-on { background: var(--bg-1, #fff); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); }
+  #homeArea .lh-readout { flex: 1; min-width: 0; min-height: 20px; margin: 0; font-size: 14px; line-height: 1.4; color: var(--text-2); font-variant-numeric: tabular-nums; }
+  #homeArea .lh-chart { position: relative; flex: 1; min-height: 140px; height: 150px; margin-top: 6px; }
+  #homeArea .lh-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  #homeArea .lh-grid line.lh-grid, #homeArea .lh-svg .lh-grid { stroke: var(--line); stroke-width: 1; }
+  #homeArea .lh-svg .lh-ax { fill: var(--text-2); font-family: var(--font-body); font-size: 13px; font-variant-numeric: tabular-nums; }
+  #homeArea .lh-svg .lh-guide { stroke: var(--line-2); stroke-width: 1; }
+  #homeArea .lh-svg .lh-ln { transition: opacity 0.15s ease; }
+  #homeArea .lh-svg .lh-ln.is-dim { opacity: 0.2; }
+  #homeArea .lh-svg .lh-mark { stroke: var(--bg-1, #111); stroke-width: 2; }
+
+  /* ---------- rows inside a tile: a name (and a word under it) and its button, hairlines between ---------- */
+  #homeArea .lh-rows { display: flex; flex-direction: column; margin-top: 6px; }
+  #homeArea .lh-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; border-top: 1px solid var(--line); }
+  #homeArea .lh-row-t { display: flex; flex-direction: column; min-width: 0; }
+  #homeArea .lh-row-name { font-size: 15px; font-weight: 650; line-height: 1.35; color: var(--text); }
+  #homeArea .lh-row-sub { font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--text-2); }
+  #homeArea .lh-row-sub.is-due::before, #homeArea .lh-row-sub.is-ok::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; vertical-align: 1px; background: var(--warn); }
+  #homeArea .lh-row-sub.is-ok::before { background: var(--ok); }
+
+  /* ---------- 2. Log ---------- */
+  #homeArea .lh-bw { display: flex; align-items: center; gap: 12px; min-height: 44px; margin-top: 8px; }
+  #homeArea .lh-bw > .lh-row-t { flex: 1; }
+  #homeArea .lh-bw label { margin: 0; padding: 0; text-transform: none; letter-spacing: 0; font-size: 15px; font-weight: 650; color: var(--text); }
+  #homeArea .lh-bw-box { position: relative; display: flex; align-items: center; }
+  #homeArea .lh-bw-box input {
+    width: 104px; height: 42px; margin: 0; padding: 0 40px 0 12px; border: 1px solid var(--line-2); border-radius: 10px;
+    background: color-mix(in srgb, var(--text) 4%, transparent); color: var(--text); font-family: var(--font-num, inherit); font-size: 17px; font-weight: 700;
+    font-variant-numeric: tabular-nums; text-align: right; -moz-appearance: textfield; appearance: textfield; box-shadow: none;
+  }
+  #homeArea .lh-bw-box input::-webkit-outer-spin-button, #homeArea .lh-bw-box input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  #homeArea .lh-bw-box input::placeholder { color: var(--text-3); font-weight: 600; }
+  #homeArea .lh-bw-u { position: absolute; right: 12px; font-size: 14px; font-weight: 650; color: var(--text-2); pointer-events: none; }
+  #homeArea .lh-bw-line { margin: 6px 0 0; font-size: 14px; line-height: 1.45; color: var(--text-2); font-variant-numeric: tabular-nums; }
+
+  /* ---------- 3. Coach ---------- */
+  #homeArea .lh-coach-head { display: flex; align-items: center; gap: 12px; }
+  #homeArea .lh-coach-head .lh-who { flex: 1; min-width: 0; }
+  #homeArea .lh-unread { font-weight: 750; color: var(--text); white-space: nowrap; }
+  #homeArea .lh-said { margin-top: 8px; }
+  /* up to four lines: lifter-home.js fitNote cuts a longer note at a word and ends it with an ellipsis */
+  #homeArea .lh-note { margin: 0; max-height: 6em; overflow: hidden; font-size: 15px; line-height: 1.5; color: var(--text); white-space: pre-line; overflow-wrap: anywhere; }
+  #homeArea .lh-when { margin: 4px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-2); }
+  #homeArea .lh-voice { margin-top: 8px; }
+  #homeArea .lh-voice-row { display: flex; align-items: center; gap: 12px; }
+  #homeArea .lh-voice-row > :first-child { flex: 1; min-width: 0; }
+  #homeArea .lh-voice-row .lh-when { flex: none; margin: 0; }
+  #homeArea .lh-compose { display: flex; align-items: flex-end; gap: 10px; margin-top: 10px; }
+  #homeArea .lh-coach .lh-foot { padding-top: 8px; }
+  #homeArea .lh-reply {
+    flex: 1; min-width: 0; height: 48px; min-height: 44px; max-height: 140px; margin: 0; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 12px;
+    background: color-mix(in srgb, var(--text) 4%, transparent); color: var(--text); font: inherit; font-size: 15px; line-height: 1.45; resize: vertical; box-shadow: none;
+  }
+  #homeArea .lh-reply::placeholder { color: var(--text-3); }
+  #homeArea .lh-send { flex: none; min-height: 42px; padding: 0 20px; border-radius: 999px; font-size: 15px; font-weight: 700; }
+  /* quiet while the box is empty, as the thread's own send arrow is */
+  body.powa-app #homeArea .lh-send.is-empty { background: #3a3a3c; box-shadow: none; color: rgba(255, 255, 255, 0.6); cursor: default; }
+  [data-theme="light"] body.powa-app #homeArea .lh-send.is-empty { background: rgba(15, 15, 25, 0.08); color: rgba(15, 15, 25, 0.5); }
+
+  /* ---------- 3. Program, training alone ---------- */
+  #homeArea .lh-plan-wk { margin: 8px 0 0; font-size: 15px; font-weight: 650; color: var(--text); }
+  #homeArea .lh-strip { display: flex; gap: 4px; margin: 10px 0 0; padding: 0; list-style: none; }
+  #homeArea .lh-strip li { flex: 1; height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--text) 12%, transparent); }
+  #homeArea .lh-strip li.is-done { background: var(--text-2); }
+  #homeArea .lh-strip li.is-now { background: var(--text); box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 25%, transparent); }
+  #homeArea .lh-plan-next { margin: 12px 0 0; font-size: 15px; line-height: 1.45; color: var(--text-2); }
+  /* the screen's one crimson sits right under the block, never at the tile's foot (where the demo bar would cover it) */
+  #homeArea .lh-plan-acts { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; margin-top: 16px; }
+  #homeArea .lh-cta { min-height: 44px; padding: 0 22px; border-radius: 999px; font-size: 15px; font-weight: 700; white-space: nowrap; }
+
+  /* ---------- 4. This week ---------- */
+  #homeArea .lh-wk-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  #homeArea .lh-wk-more { font-size: 13px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+  #homeArea .lh-days { display: flex; flex-direction: column; margin: 6px 0 0; padding: 0; list-style: none; }
+  #homeArea .lh-day { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; min-height: 40px; border-top: 1px solid var(--line); }
+  #homeArea .lh-day:first-child { border-top: 0; }
+  #homeArea .lh-day:has(.lh-btn) { grid-template-columns: 40px minmax(0, 1fr) auto auto; min-height: 48px; }
+  #homeArea .lh-day-d { font-size: 14px; font-weight: 650; color: var(--text-2); }
+  #homeArea .lh-day-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 650; color: var(--text); }
+  #homeArea .lh-day-s { font-size: 14px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+  #homeArea .lh-day.is-today .lh-day-d, #homeArea .lh-day.is-today .lh-day-s { color: var(--text); }
+  #homeArea .lh-day.s-done .lh-day-s::before, #homeArea .lh-day.s-missed .lh-day-s::before, #homeArea .lh-day.s-unfinished .lh-day-s::before {
     content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; vertical-align: 1px; background: var(--ok);
   }
-  #homeArea .lh-day.s-missed .lh-day-state::before, #homeArea .lh-day.s-unfinished .lh-day-state::before { background: var(--warn); }
-  #homeArea .lh-day.is-today .lh-day-state { color: var(--text); }
-  #homeArea .lh-day-top { font-size: 13px; line-height: 1.35; color: var(--text-2); font-variant-numeric: tabular-nums; }
-  #homeArea .lh-day-count { font-size: 12px; line-height: 1.35; color: var(--text-3); font-variant-numeric: tabular-nums; }
-  #homeArea .lh-day-top:empty, #homeArea .lh-day-count:empty { display: none; }
-  /* today: a soft neutral band and the word (it was a tint of the screen's red: red is the logo and the one action);
-     the selected day: a little more lit, with a fine rim */
-  #homeArea .lh-day.is-today { background: color-mix(in srgb, var(--text) 6%, transparent); }
-  #homeArea .lh-day.is-on { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: inset 0 0 0 1px var(--line-2); }
-  #homeArea .lh-day.is-today.is-on { background: color-mix(in srgb, var(--text) 11%, transparent); }
-  @media (hover: hover) and (pointer: fine) { #homeArea .lh-day:not(.is-on):hover { background: color-mix(in srgb, var(--text) 5%, transparent); } }
-  #homeArea .lh-day.is-today:not(.is-on):hover { background: color-mix(in srgb, var(--text) 9%, transparent); }
-  #homeArea .lh-day:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
-  #homeArea .lh-unplaced { margin: 8px 12px 6px; font-size: 13px; line-height: 1.4; color: var(--text-2); }
-
-  /* ---------- under the week: the day's session, and the panels beside it ---------- */
-  #homeArea .lh-grid { display: grid; grid-template-columns: minmax(0, 62fr) minmax(0, 38fr); gap: var(--lh-gap); align-items: start; }
-  #homeArea .lh-main, #homeArea .lh-side { display: flex; flex-direction: column; gap: var(--lh-gap); min-width: 0; }
-  #homeArea .ui-card + .ui-card { margin-top: 0; }
-  #homeArea .lh-main > .ui-card, #homeArea .lh-side > .ui-card { padding: 20px; }
-
-  #homeArea .lh-sess-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-  #homeArea .lh-sess-title { min-width: 0; }
-  #homeArea .lh-sess-name { margin: 0; font-family: var(--font-body); font-size: 20px; font-weight: 750; line-height: 1.25; letter-spacing: -0.015em; color: var(--text); }
-  #homeArea .lh-sess-meta { margin: 4px 0 0; font-size: 14px; line-height: 1.4; color: var(--text-2); }
-  #homeArea .lh-rest { margin: 16px 0 0; font-size: 15px; color: var(--text-2); }
-  #homeArea .lh-btn { flex: none; min-height: 40px; padding: 0 16px; font-size: 14px; white-space: nowrap; }
-  #homeArea .lh-btn-sm { min-height: 36px; padding: 0 14px; font-size: 14px; }
-
-  /* the session's table: hairlines, tabular numbers, heads over their columns */
-  #homeArea .lh-table-wrap { margin-top: 16px; }
-  #homeArea .lh-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 14px; line-height: 1.4; font-variant-numeric: tabular-nums; }
-  #homeArea .lh-table th, #homeArea .lh-table td { padding: 12px 12px 12px 0; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
-  #homeArea .lh-table th:last-child, #homeArea .lh-table td:last-child { padding-right: 0; }
-  #homeArea :is(.lh-table, .lh-lifts) :is(th, td) { background: none; text-transform: none; letter-spacing: 0; font-size: 14px; }
-  #homeArea :is(.lh-table, .lh-lifts) tbody tr:hover td { background: none; }
-  #homeArea .lh-table thead th { padding-top: 0; padding-bottom: 10px; font-size: 13px; font-weight: 700; color: var(--text-3); }
-  #homeArea .lh-table tbody tr:last-child td { border-bottom: 0; padding-bottom: 0; }
-  #homeArea .lh-table .lh-c0 { width: 28%; }
-  #homeArea .lh-table .lh-c1 { width: 30%; }
-  #homeArea .lh-table .lh-c2 { width: 20%; }
-  #homeArea .lh-table .lh-c3 { width: 22%; }
-  #homeArea .lh-table-loose .lh-c0 { width: 34%; }
-  #homeArea .lh-table-loose .lh-c2 { width: 28%; }
-  #homeArea .lh-table-loose .lh-c3 { width: 38%; }
-  #homeArea .lh-ex { display: flex; align-items: baseline; gap: 10px; }
-  #homeArea .lh-ex .lift-dot, #homeArea .lh-dot-gap { width: 9px; height: 9px; flex: none; transform: translateY(-1px); }
-  #homeArea .lh-ex-name { font-size: 15px; font-weight: 650; color: var(--text); }
-  #homeArea .lh-cue { margin: 4px 0 0 19px; font-size: 13px; color: var(--text-3); }
-  #homeArea .lh-line { display: block; color: var(--text); }
-  #homeArea .lh-when { display: block; font-size: 13px; color: var(--text-3); }
-  #homeArea .lh-of, #homeArea .lh-none { color: var(--text-3); }
-  #homeArea .lh-feel { font-size: 12px; font-weight: 650; color: var(--text-3); }
-
-  /* ---------- the panels ---------- */
-  #homeArea .lh-panel .lh-title { margin: 0 0 12px; font-size: 18px; }
-  #homeArea .lh-note { margin: 0; font-size: 15px; line-height: 1.5; color: var(--text); white-space: pre-line; overflow-wrap: anywhere; }
-  #homeArea .lh-panel > .lh-when { margin: 6px 0 0; }
-  #homeArea .lh-voice { margin-top: 12px; }
-  #homeArea .lh-voice .lh-when { margin: 0 0 6px; }
-  #homeArea .lh-quiet { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: var(--text-2); }
-  #homeArea .lh-waits { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
-  #homeArea .lh-sub-title { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: var(--text-2); }
-  #homeArea .lh-waits .lh-quiet { margin-top: 4px; }
-  #homeArea .lh-wait { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; border-bottom: 1px solid var(--line); }
-  #homeArea .lh-wait:last-child { border-bottom: 0; }
-  #homeArea .lh-wait-text { min-width: 0; font-size: 15px; color: var(--text); }
-  #homeArea .lh-panel-foot { margin-top: 16px; }
-  #homeArea .lh-big-name { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.3; color: var(--text); overflow-wrap: anywhere; }
-  #homeArea .lh-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; margin: 12px 0 0; font-size: 14px; line-height: 1.4; }
-  #homeArea .lh-facts dt { color: var(--text-3); }
-  #homeArea .lh-facts dd { margin: 0; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
-
-  /* a big number with its name and its move */
-  #homeArea .lh-total { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 12px; }
-  #homeArea .lh-total-k { grid-column: 1; font-size: 13px; color: var(--text-3); }
-  #homeArea .lh-total-v { grid-column: 1; font-family: var(--font-num, inherit); font-stretch: var(--num-stretch, 100%); font-size: 30px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
-  #homeArea .lh-total-v small { margin-left: 4px; font-family: var(--font-body); font-stretch: 100%; font-size: 13px; font-weight: 700; color: var(--text-3); }
-  #homeArea .lh-total-d { grid-column: 2; grid-row: 2; font-size: 14px; font-weight: 650; color: var(--text-2); font-variant-numeric: tabular-nums; }
-
-  /* the three lifts: name, the last 16 weeks, the estimated max and its move, numbers right-aligned */
-  #homeArea .lh-lifts { width: 100%; margin-top: 14px; border-collapse: collapse; table-layout: fixed; font-size: 14px; font-variant-numeric: tabular-nums; }
-  #homeArea .lh-lifts th, #homeArea .lh-lifts td { padding: 10px 0; border-top: 1px solid var(--line); border-bottom: 0; vertical-align: middle; text-align: left; }
-  #homeArea .lh-lifts thead th { padding: 0 0 8px; border-top: 0; font-size: 13px; font-weight: 700; color: var(--text-3); }
-  #homeArea .lh-lifts .lh-l0 { width: 22%; font-weight: 650; color: var(--text); }
-  #homeArea .lh-lifts tbody .lh-l0 { white-space: nowrap; }
-  #homeArea .lh-lifts tbody .lh-l0 .lift-dot { display: inline-block; width: 9px; height: 9px; margin-right: 10px; vertical-align: 0; }
-  #homeArea .lh-lifts .lh-l1 { width: 22%; padding-right: 12px; }
-  #homeArea .lh-lifts .lh-l2 { width: 30%; text-align: right; padding-right: 12px; }
-  #homeArea .lh-lifts .lh-l3 { width: 26%; text-align: right; color: var(--text-2); }
-  #homeArea .lh-lifts thead th { vertical-align: bottom; }
-  #homeArea .lh-lifts tbody .lh-l2 { font-weight: 700; color: var(--text); white-space: nowrap; }
-  #homeArea .lh-spark { display: block; color: var(--lc, var(--text-3)); }
-  #homeArea .lh-spark .ui-spark { height: 26px; margin: 0; }
-  #homeArea .lh-spark-wide { margin-top: 12px; color: var(--text-3); }
-  #homeArea .lh-spark-wide .ui-spark { height: 40px; }
-
-  /* no program yet: Train's own ways in, as plain links */
-  #homeArea .lh-start .lh-quiet { margin-top: 6px; }
-  #homeArea .lh-links { margin-top: 12px; }
-  #homeArea .lh-link { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 14px 0; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-  #homeArea .lh-link:last-child { border-bottom: 0; padding-bottom: 0; }
-  #homeArea .lh-link-t { font-size: 15px; font-weight: 650; }
-  #homeArea .lh-link-s { font-size: 13px; color: var(--text-3); }
-  @media (hover: hover) and (pointer: fine) { #homeArea .lh-link:hover .lh-link-t { text-decoration: underline; text-underline-offset: 3px; } }
+  #homeArea .lh-day.s-missed .lh-day-s::before, #homeArea .lh-day.s-unfinished .lh-day-s::before { background: var(--warn); }
+  #homeArea .lh-none { padding: 8px 0; }
 }
 
-/* one column under 1100 px: the session first, the panels under it */
-@media (min-width: 901px) and (max-width: 1099px) {
-  #homeArea .lh-grid { display: flex; flex-direction: column; align-items: stretch; }
-  #homeArea .lh-main, #homeArea .lh-side { display: contents; }
-  #homeArea .lh-session, #homeArea .lh-start { order: 1; }
-  #homeArea .lh-coach, #homeArea .lh-block { order: 2; }
-  #homeArea .lh-strength { order: 3; }
-  #homeArea .lh-grid > * > .lh-panel:not(.lh-coach):not(.lh-block):not(.lh-strength) { order: 4; }
-  #homeArea .lh-head { flex-wrap: wrap; align-items: flex-start; }
-  #homeArea .lh-day { padding: 10px 8px; }
-  #homeArea .lh-mon { display: none; }   /* the head's line says the month */
+/* under 1360 px the chart's readout takes its own line under the range and Open Progress (beside them it broke into a
+   narrow column of words) */
+@media (min-width: 901px) and (max-width: 1359px) {
+  #homeArea .lh-prog-top { flex-wrap: wrap; row-gap: 6px; }
+  #homeArea .lh-prog-acts { margin-left: auto; }
+  #homeArea .lh-readout { order: 2; flex: 1 1 100%; }
+}
+
+/* three narrow columns (1180 to 1359 px): today's Open session sits under its name, so the name keeps its room */
+@media (min-width: 1180px) and (max-width: 1359px) {
+  #homeArea .lh-day:has(.lh-btn) { grid-template-columns: 40px minmax(0, 1fr) auto; padding: 6px 0 10px; }
+  #homeArea .lh-day:has(.lh-btn) .lh-btn { grid-column: 2 / -1; justify-self: start; }
+  #homeArea .lh-bw-box input { width: 92px; }
+  #homeArea .lh-prog { gap: 24px; }
+}
+
+/* two columns in a narrower window: Progress, then Log and Coach side by side, then This week across */
+@media (min-width: 901px) and (max-width: 1179px) {
+  #homeArea .lh-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #homeArea .lh-wk { grid-column: 1 / -1; }
+  #homeArea .lh-prog { grid-template-columns: minmax(230px, 270px) minmax(0, 1fr); gap: 24px; }
+}
+/* one column under 1000 px, in the same order */
+@media (min-width: 901px) and (max-width: 999px) {
+  #homeArea .lh-grid { grid-template-columns: minmax(0, 1fr); }
+  #homeArea .lh-prog { grid-template-columns: minmax(0, 1fr); gap: 20px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #homeArea .lh-day { transition: none; }
-}
-
-/* two columns in a narrow window (1100 to 1279 px): the panels are under 300 px wide, so the sparkline gives the
-   estimated max the room its head needs */
-@media (min-width: 1100px) and (max-width: 1279px) {
-  #homeArea .lh-lifts .lh-l1 { width: 18%; }
-  #homeArea .lh-lifts .lh-l2 { width: 34%; }
+  #homeArea .lh-lift, #homeArea .lh-lift .lift-dot, #homeArea .lh-svg .lh-ln { transition: none; }
 }
