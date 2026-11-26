@@ -1,0 +1,210 @@
+/* glassdash.css: the coach desk's dark theme as glass (the owner, 26 Nov: "only change aesthetics", "not a fucking
+   gray background ... a different gradient ... for every page", then "arent we keeping the new aesthetic").
+
+   Every rule is under html.gd. Each desk page's head sets html.gd before the first paint when its theme is dark, and
+   glassdash.js keeps it in step with the theme switch: dark is glass, light is the desk's light look as it was. This
+   file moves nothing: there is no display, grid, flex, width, height, margin, padding, font-size or order rule for a
+   page's blocks here, and every block sits where the desk puts it (checked box by box against the desk without it).
+   Only what things are made of changes. The layers it adds are paint: fixed, behind or over the page, taking no room
+   and no pointer.
+
+   The look: one large frosted window over a deep gradient of the page's own colour (each place already has a hue:
+   Overview orange, Lifters sky, Programs blue, Teams teal, Meets gold, Messages green, Clients violet). One hue a
+   page, light from the top left, its deeper shade low on the right, on near-black. Cards are lighter frosted tiles
+   with a fine light rim; buttons are glass pills; the crimson is the one lit pill; the lifts keep their colours. */
+
+/* ================= the page's light: two shades of its place's hue (rgb channels) ================= */
+html.gd { --gd-a: 110 140 255; --gd-b: 84 60 210; }
+html.gd:has(body[data-place='overview']), html.gd:has(body[data-place='roster']) { --gd-a: 255 140 56; --gd-b: 176 70 28; }
+html.gd:has(body[data-place='lifters'])  { --gd-a: 40 176 255;  --gd-b: 24 84 200; }
+html.gd:has(body[data-place='programs']) { --gd-a: 110 140 255; --gd-b: 84 60 210; }
+html.gd:has(body[data-place='teams'])    { --gd-a: 36 200 190;  --gd-b: 18 110 150; }
+html.gd:has(body[data-place='meets'])    { --gd-a: 255 190 60;  --gd-b: 190 110 20; }
+html.gd:has(body[data-place='messages']) { --gd-a: 44 205 125;  --gd-b: 16 120 110; }
+html.gd:has(body[data-place='clients'])  { --gd-a: 156 118 250; --gd-b: 124 60 200; }   /* a deeper violet: the light one put a link at the top left under 4.5:1 */
+html.gd:has(body[data-place='settings']) { --gd-a: 120 150 200; --gd-b: 64 84 150; }
+
+/* ================= what things are made of (tokens.css names, new values) ================= */
+html.gd {
+  color-scheme: dark;
+  /* the solids that stand in where one flat colour is needed (a sticky cell, the ring round a chart point or a stacked
+     face, a fade): the glass's own colour on this page, so they sit in it without a seam */
+  --floor: color-mix(in srgb, rgb(var(--gd-a)) 9%, #131317);
+  --side: color-mix(in srgb, rgb(var(--gd-a)) 6%, #0e0e11);
+  --card: color-mix(in srgb, rgb(var(--gd-a)) 11%, #1b1b20);
+  --card-2: color-mix(in srgb, rgb(var(--gd-a)) 12%, #232329);
+  --card-3: color-mix(in srgb, rgb(var(--gd-a)) 13%, #2c2c33);
+  --pop: color-mix(in srgb, rgb(var(--gd-a)) 8%, #1e1e23);
+  --card-edge: rgb(255 255 255 / .10);
+  --card-lit: inset 0 1px 0 rgb(255 255 255 / .22);
+  --fill: rgb(255 255 255 / .08); --fill-2: rgb(255 255 255 / .12); --fill-3: rgb(255 255 255 / .17);
+  --hover: rgb(255 255 255 / .055);
+  --line: rgb(255 255 255 / .10); --line-2: rgb(255 255 255 / .18);
+
+  /* words: each quieter step still light enough for 4.5:1 where the page's light is brightest behind the glass */
+  --ink: #f6f6f8; --ink-2: #d8d8e0; --ink-3: #bfbfca; --ink-4: #b6b6c2; --ink-quiet: #bfbfca;
+  --pain: #ff8a95; --warn: #ffb06a;
+
+  --scrim: rgb(4 4 8 / .5);
+  --thumb: #4a4a55;
+  --btn-2: rgb(255 255 255 / .13);
+  --btn-2-hover: rgb(255 255 255 / .19);
+  --btn-2-edge: inset 0 1px 0 rgb(255 255 255 / .24), inset 0 0 0 1px rgb(255 255 255 / .07);
+
+  /* the crimson: the one lit pill. Light on its top half, a darker lip under it, a soft drop (never a glow) */
+  --crimson: linear-gradient(180deg, rgb(255 255 255 / .16) 0, rgb(255 255 255 / .03) 44%, rgb(255 255 255 / 0) 50%), linear-gradient(180deg, #d92434, #c41a2c);
+  --crimson-lit: inset 0 1px 0 rgb(255 255 255 / .34), inset 0 -1px 0 rgb(70 0 10 / .45), 0 1px 1px rgb(0 0 0 / .45), 0 10px 20px -10px rgb(0 0 0 / .8);
+
+  --shadow-card: 0 20px 44px -24px rgb(0 0 0 / .8), 0 0 0 1px var(--card-edge);
+  --shadow-pop: 0 18px 36px -16px rgb(0 0 0 / .8), 0 0 0 1px rgb(255 255 255 / .13);
+
+  /* the room: the page's hue from the top left, its deeper shade low on the right, a breath of it mid-window, all on
+     near-black tinted the same way. Large, soft, and dark enough that the words on the glass keep their contrast. */
+  --gd-room:
+    radial-gradient(62% 58% at 8% -6%, rgb(var(--gd-a) / .56) 0, rgb(var(--gd-a) / .20) 38%, rgb(var(--gd-a) / 0) 70%),
+    radial-gradient(58% 62% at 104% 104%, rgb(var(--gd-b) / .66) 0, rgb(var(--gd-b) / .22) 40%, rgb(var(--gd-b) / 0) 72%),
+    radial-gradient(36% 30% at 64% 34%, rgb(var(--gd-a) / .10) 0, rgb(var(--gd-a) / 0) 70%),
+    linear-gradient(160deg, color-mix(in srgb, rgb(var(--gd-b)) 20%, #0b0b0e) 0%, #060608 100%);
+  --gd-r: 26px;   /* the window's corner */
+}
+/* a place lights its desk page from above in its hue: here the room is that light. Its hue stays on its words. */
+html.gd body[data-place], html.gd body { --page-light: none; --a-sheen: 0; --a-rim: 0; }
+
+/* ================= the room, and the window in it ================= */
+html.gd { background: var(--gd-room); background-attachment: fixed; background-color: #08080b; }
+html.gd body { background: none; }
+/* the window: one sheet of frosted glass behind the page, from the sidebar to 8 px inside the screen's edges. The kit's
+   own light layer (body::before, a fixed layer that takes no room and no pointer) is what carries it. */
+html.gd body::before {
+  inset: var(--inset) var(--inset) var(--inset) var(--sidebar-w); z-index: -1; mix-blend-mode: normal;
+  border-radius: var(--gd-r);
+  background:
+    linear-gradient(126deg, rgb(255 255 255 / .06) 0, rgb(255 255 255 / .012) 18%, rgb(255 255 255 / 0) 34%),
+    linear-gradient(180deg, rgb(255 255 255 / .06) 0, rgb(255 255 255 / .02) 120px),
+    rgb(12 12 16 / .52);
+  -webkit-backdrop-filter: blur(56px) saturate(165%); backdrop-filter: blur(56px) saturate(165%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .30), inset 0 0 0 1px rgb(255 255 255 / .10), inset 0 -1px 0 rgb(0 0 0 / .4),
+    0 30px 70px -30px rgb(0 0 0 / .8);
+}
+/* the room again in the 8 px under the window, so a page being scrolled never shows outside the glass */
+html.gd body::after {
+  content: ''; position: fixed; left: var(--sidebar-w); right: 0; bottom: 0; height: var(--inset); z-index: 40; pointer-events: none;
+  background: var(--gd-room); background-attachment: fixed; background-color: #08080b;
+}
+
+/* ================= the band of buttons: the window's top ================= */
+html.gd .tb { background: none; }
+/* the room in the 8 px above the window (the same reason as under it) */
+html.gd .tb::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: var(--inset); pointer-events: none;
+  background: var(--gd-room); background-attachment: fixed; background-color: #08080b;
+}
+/* once rows pass under the band it frosts over, in the window's own shape: its top corners, its lit top edge */
+html.gd .tb::after {
+  top: var(--inset); left: 0; right: var(--inset); height: auto; bottom: 0; z-index: -1;
+  border-radius: var(--gd-r) var(--gd-r) 0 0;
+  background: rgb(14 14 18 / .70);
+  -webkit-backdrop-filter: blur(30px) saturate(165%); backdrop-filter: blur(30px) saturate(165%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .30), inset 1px 0 0 rgb(255 255 255 / .10), inset -1px 0 0 rgb(255 255 255 / .10), 0 1px 0 rgb(255 255 255 / .08);
+}
+
+/* ================= the sidebar: a thin strip of darker glass beside the window ================= */
+html.gd .side {
+  background: rgb(8 8 11 / .46);
+  -webkit-backdrop-filter: blur(30px) saturate(165%); backdrop-filter: blur(30px) saturate(165%);
+}
+html.gd .side::after { background: rgb(255 255 255 / .08); }
+/* open over the page, its words must never sit on the page's words: a heavier sheet */
+html.gd .side.is-open, html.gd.side-pinned .side { background: rgb(12 12 16 / .86); }
+
+/* ================= the cards: lighter frosted tiles on the window ================= */
+html.gd .card,
+html.gd .card:has(> .ch, > * > .ch), html.gd .card.hero, html.gd .card[data-hero] {
+  background: linear-gradient(180deg, rgb(255 255 255 / .10) 0, rgb(255 255 255 / .055) 72px, rgb(255 255 255 / .045) 100%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%); backdrop-filter: blur(20px) saturate(130%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .26), inset 0 0 0 1px rgb(255 255 255 / .09), inset 0 -1px 0 rgb(0 0 0 / .25),
+    0 20px 44px -26px rgb(0 0 0 / .85);
+}
+
+/* ================= the list column (Lifters, Teams, Meets, Messages): a lighter strip of the same glass ================= */
+/* on the desk it is the floor's solid; on glass that read as a dark slab cut into the window */
+html.gd body[data-place='lifters'] .ll, html.gd body[data-place='teams'] .tml,
+html.gd body[data-place='meets'] .ml, html.gd body[data-place='messages'] .ml {
+  background: linear-gradient(180deg, rgb(255 255 255 / .055) 0, rgb(255 255 255 / .03) 160px, rgb(255 255 255 / .025) 100%);
+  border-right-color: rgb(255 255 255 / .09);
+}
+/* the edge under the band, where the detail scrolls away: the band's own glass fading out, not the floor's solid */
+html.gd :is(.md-fade, .td-fade) { background: linear-gradient(rgb(14 14 18 / .6), rgb(14 14 18 / 0)); }
+
+/* ================= Programs: each program's card is a frosted tile like every other card ================= */
+html.gd .pc {
+  background: linear-gradient(180deg, rgb(255 255 255 / .10) 0, rgb(255 255 255 / .055) 72px, rgb(255 255 255 / .045) 100%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%); backdrop-filter: blur(20px) saturate(130%);
+}
+@media (hover: hover) and (pointer: fine) {
+  html.gd .pc:hover { background: linear-gradient(180deg, rgb(255 255 255 / .14) 0, rgb(255 255 255 / .08) 72px, rgb(255 255 255 / .065) 100%); }
+}
+
+/* ================= heads that stay put while rows scroll under them: the card's glass, thick enough to hide the rows ================= */
+html.gd :is(.tv thead th, .grid thead th, .grid th.corner, .grid td.ex, .grid th.ex, .pg-frame .wk.is-rows > .wb) {
+  background: color-mix(in srgb, rgb(var(--gd-a)) 7%, #1d1d23);
+}
+
+/* ================= the pane that opens beside a page: thick glass, the page's light still behind it ================= */
+html.gd .insp {
+  background: linear-gradient(180deg, rgb(255 255 255 / .07) 0, rgb(255 255 255 / .03) 140px), rgb(16 16 20 / .78);
+  -webkit-backdrop-filter: blur(40px) saturate(160%); backdrop-filter: blur(40px) saturate(160%);
+  box-shadow: inset 1px 0 0 rgb(255 255 255 / .14), var(--shadow-pane);
+}
+
+/* ================= the floating layers stay solid (the page's tinted solid, the light on their top edge) ================= */
+html.gd .pop, html.gd .toast, html.gd dialog.sheet { box-shadow: inset 0 1px 0 rgb(255 255 255 / .14), var(--shadow-pop); }
+
+/* ================= buttons: glass pills; the crimson is the only lit one ================= */
+html.gd .btn:not([data-primary]):not(.quiet):not(.icon):not(:disabled):not([aria-disabled='true']) {
+  background: linear-gradient(180deg, rgb(255 255 255 / .17), rgb(255 255 255 / .08));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .28), inset 0 0 0 1px rgb(255 255 255 / .07), 0 1px 2px rgb(0 0 0 / .4), 0 6px 14px -8px rgb(0 0 0 / .7);
+}
+@media (hover: hover) and (pointer: fine) {
+  html.gd .btn:not([data-primary]):not(.quiet):not(.icon):not(:disabled):not([aria-disabled='true']):hover { background: linear-gradient(180deg, rgb(255 255 255 / .23), rgb(255 255 255 / .12)); }
+}
+html.gd .btn[data-primary]:not(:disabled):not([aria-disabled='true']) { text-shadow: 0 -1px 0 rgb(90 0 12 / .35); }
+
+/* ================= marks on the glass: each catches the light on its top, the empty ones are clear glass ================= */
+html.gd .hbars .t { background: rgb(255 255 255 / .09); }
+html.gd .hbars .t i { box-shadow: inset 0 1px 0 rgb(255 255 255 / .45); }
+html.gd .waffle i:not(.none) { background: radial-gradient(circle at 38% 30%, rgb(255 255 255 / .5), rgb(255 255 255 / 0) 52%), var(--tone, var(--ink-3)); }
+html.gd .waffle i.none { border-color: rgb(255 255 255 / .34); }
+html.gd .tl .ax { background: rgb(255 255 255 / .16); }
+html.gd .tl .m { background: radial-gradient(circle at 40% 28%, rgb(255 255 255 / .55), rgb(255 255 255 / 0) 55%), var(--gold-edge); }
+html.gd .fg-sev .m i { background: rgb(255 255 255 / .12); }
+html.gd .fg-sev .m i.on { background: linear-gradient(180deg, color-mix(in srgb, var(--pain) 62%, #fff), var(--pain) 50%); }
+html.gd .fg-trk::before { background: rgb(255 255 255 / .2); }
+/* a done day in a lift's colour (Teams): its letter a lighter shade of the lift, so it keeps 4.5:1 on its tile */
+html.gd .dm.done.lc-squat, html.gd .dm.done.lc-squat * { color: #b4eaff; }
+html.gd .dm.done.lc-bench, html.gd .dm.done.lc-bench * { color: #ddd2ff; }
+html.gd .dm.done.lc-deadlift, html.gd .dm.done.lc-deadlift * { color: #ffe4a6; }
+
+/* ================= without the glass: solid, the same places ================= */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html.gd body::before { background: var(--floor); }
+  html.gd .card, html.gd .card:has(> .ch, > * > .ch) { background: var(--card); }
+  html.gd .side, html.gd .side.is-open { background: var(--side); }
+  html.gd .tb::after { background: var(--floor); }
+  html.gd .insp { background: var(--card); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  html.gd body::before { background: var(--floor); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html.gd .card, html.gd .card:has(> .ch, > * > .ch) { background: var(--card); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html.gd .side, html.gd .side.is-open { background: var(--side); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html.gd .tb::after { background: var(--floor); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html.gd .insp { background: var(--card); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  html.gd { --line: rgb(255 255 255 / .26); --line-2: rgb(255 255 255 / .4); }
+  html.gd body::before { background: #0c0c0f; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .36); }
+  html.gd .card, html.gd .card:has(> .ch, > * > .ch) { background: #15151a; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .36); }
+  html.gd .side, html.gd .side.is-open { background: #0a0a0d; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html.gd .tb::after { background: #0c0c0f; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html.gd .insp { background: #15151a; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
