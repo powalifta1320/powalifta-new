@@ -1405,5 +1405,6 @@
   PL.on('change', function () { if (pend) return; pend = requestAnimationFrame(function () { pend = 0; if (!S.id) { snapshot(); readHash(); return; } renderList(); renderMessages(true); renderFacts(true); renderSug(); if (document.activeElement && document.activeElement.id === 'cmp-t') paintSend(); else if (!S.editKey) renderComposer(); }); });
 })();
 </script>
+<script src="/demo-tour.js" defer></script>
 </body>
 </html>

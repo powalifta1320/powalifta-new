@@ -9792,5 +9792,6 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
      server-side); falls back to local mock answers for demo/signed-out. -->
 <script src="support-kb.js"></script>
 <script src="ai-chat.js"></script>
+<script>/* the demo's guided tour (demo-tour.js): loaded only in the demo, never for an account */(function(){if(!/[?&]demo=1\b/.test(location.search))return;var s=document.createElement('script');s.src='demo-tour.js';s.defer=true;document.body.appendChild(s);})();</script>
 </body>
 </html>
