@@ -50,6 +50,10 @@ const OB_GOOGLE = "window.Capacitor = { isPluginAvailable: (n) => n === 'PowaWeb
 const OB_SIGNUP_STEP3 = "setTimeout(() => { const st = document.querySelector('.ob-sheet .ob-track .ob-step:nth-child(2)'); const i = st.querySelector('input[aria-label=\"Full name\"]'); i.value = 'Jane Doe'; i.dispatchEvent(new Event('input', { bubbles: true })); st.querySelector('.nw-btn-primary').click(); }, 600); true";
 const CP_DAYS = (n) => "Store.update(s => { const w = s.programs.find(p => p.athleteId === 'demo-a1').weeks[0]; ['Upper Day', 'Lower Day', 'Arms'].slice(0, " + n + ").forEach((nm, k) => { const d = newDay(nm), e = newExercise('push', '', 'Overhead Press'); for (let i = 0; i < 3; i++) e.sets.push(newSet(60, 8, 7)); d.exercises.push(e); w.days.splice(3 + k, 0, d); }); });";
 const screens = [];
+// The demo's guided tour as a first visitor meets it (it opens about a second after load).
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
+  { name: 'a-demo-tour' + suf, page: 'athlete.html?demo=1', theme, tour: true, eval: "new Promise(r => setTimeout(() => r(true), 1600))" },
+  { name: 'c-demo-tour' + suf, page: 'coach.html?demo=1', theme, tour: true, eval: "new Promise(r => setTimeout(() => r(true), 1600))" });
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
   for (const t of ['today', 'progress', 'club', 'coach', 'you', 'bodyweight', 'library', 'career']) screens.push({ name: 'a-' + t + suf, page: A, theme, eval: t === 'today' ? null : tab(t) });
   // You › Career with every fold open (the years' blocks, every PR), and the coach's read-only sheet.
@@ -600,7 +604,7 @@ for (const s of run) {
       /^(athlete|coach)\.html/.test(s.page) ? {} : { colorScheme: s.theme || 'dark' }));
   await ctx.route(LIVE_URL, (route) => { liveRefused++; return route.abort('blockedbyclient'); });
   await ctx.routeWebSocket(LIVE_URL, (ws) => { liveRefused++; ws.close(); });
-  await ctx.addInitScript(([theme, native, deskTheme]) => {
+  await ctx.addInitScript(([theme, native, deskTheme, tour]) => {
     if (native) {
       const add = () => { if (!document.documentElement) return false; document.documentElement.classList.add('native', 'native-ios'); return true; };
       if (!add()) { const mo = new MutationObserver(() => { if (add()) mo.disconnect(); }); mo.observe(document, { childList: true }); }
@@ -609,13 +613,16 @@ for (const s of run) {
       localStorage.setItem('powa-consent', 'essential'); localStorage.setItem('powa-theme', theme);
       if (deskTheme) localStorage.setItem('powa-desk-theme', theme);
       ['athlete', 'coach'].forEach((k) => localStorage.setItem('powa-tour-' + k + '-done', '1'));
+      // The demo's guided tour (demo-tour.js, 26 Nov) opens by itself on a first visit and sits over the screen:
+      // marked as seen here, so each screen is scanned as itself. The tour's own screens set tour: true.
+      if (!tour) ['desk', 'lifter', 'solo', 'coach'].forEach((k) => localStorage.setItem('powa-demo-tour-seen-' + k, '1'));
     } catch (e) {}
     document.addEventListener('DOMContentLoaded', () => {
       const st = document.createElement('style');
       st.textContent = '.demo-banner,.demo-pill,[class*="demo-banner"]{display:none!important}*,*::before,*::after{transition:none!important;animation-duration:0s!important;animation-delay:0s!important}';
       document.head.appendChild(st);
     });
-  }, [s.theme || 'dark', app, !!s.deskTheme]);
+  }, [s.theme || 'dark', app, !!s.deskTheme, !!s.tour]);
   const page = await ctx.newPage();
   const errs = [];
   page.on('pageerror', (e) => errs.push(e.message));
