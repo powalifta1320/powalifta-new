@@ -67,8 +67,12 @@ html.lg:not(#_) body.powa-app .dash-shell::before {
 /* on a tall narrow screen the same two lights are wide and shallow: a glow across the top and one across the foot (as
    laptop-shaped ovals they stood up the right edge as a stripe) */
 @media (max-width: 900px) {
+  /* in a phone's browser the status bar is a band of the page's own near-black (the theme colour): the room rises out
+     of it over 64 px instead of meeting it in a hard line. Not in the iPhone app, where the room runs to the top. */
+  html.lg:not(.native) body.powa-app, html.lg.web-demo body.powa-app { --lg-veil: linear-gradient(180deg, #0b0b0c 0, rgb(11 11 12 / 0) 64px); }
   html.lg:not(#_) body.powa-app .dash-shell::before {
     background:
+      var(--lg-veil, linear-gradient(transparent, transparent)),
       radial-gradient(135% 44% at 0% -6%, color-mix(in srgb, var(--lg-a) 50%, transparent) 0, color-mix(in srgb, var(--lg-a) 17%, transparent) 42%, transparent 74%),
       radial-gradient(150% 38% at 100% 106%, color-mix(in srgb, var(--lg-b) 58%, transparent) 0, color-mix(in srgb, var(--lg-b) 19%, transparent) 44%, transparent 76%),
       linear-gradient(170deg, color-mix(in srgb, var(--lg-b) 16%, #0b0b0e) 0%, #060608 100%);
