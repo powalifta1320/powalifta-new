@@ -365,6 +365,78 @@
     .clk { gap: var(--sp-6); }
   }
   @media (prefers-reduced-motion: reduce) { button.ac, .ag .cell input, .ag .cell .pm, .rw, .rw::before, .cal-l { transition: none; } button.ac:active, .cal-l:active { transform: none; } }
+
+  /* 26 Nov (the owner: "same for meet page", "awkward spacings and misalignments"): one page rhythm, as on Teams. The
+     title, the glance strip, then each section a titled block with the same 40 px above it, every section's body in the
+     page's card (one level, rows on hairlines inside it). */
+  .md > .gl-w { margin-top: var(--sp-5); }
+  .md > .gl-w + .ov { margin-top: var(--sp-8); }
+  .md > .ov { scroll-margin-top: calc(var(--inset) + var(--tb-h) + var(--sp-4)); }
+  .ov .rwc { margin-top: var(--sp-3); padding: var(--sp-1); }
+  /* inside the card the rows give the lifter's name the room the card's edge took (26 Nov: "Callum …" at 1440) */
+  .ov .rwc .rw, .ov .rwc .rw-h { column-gap: var(--sp-4); }
+  @media (max-width: 1180px) { .ov .rwc .rw .cap { -webkit-line-clamp: 3; line-clamp: 3; } .ov .rwc { padding: var(--sp-1) 0; } .ov .rwc .rw, .ov .rwc .rw-h { column-gap: var(--sp-3); padding-left: var(--sp-2); padding-right: var(--sp-2); } .ov .rwc .rw::before { left: var(--sp-2); right: var(--sp-2); } }
+  @media (min-width: 1181px) { .ov .rwc .rws[data-kind='day'] { --c2: 156px; --c3: 148px; --c4: 128px; } .ov .rwc .rws[data-kind='prep'] { --c3: 150px; --c4: 160px; } }
+  .ov .rwc .rws { margin: 0; }
+  .ov .calc { margin-top: var(--sp-3); padding: var(--sp-4) var(--sp-5) var(--sp-3); }
+  .ov .calc .cal { margin-top: 0; }
+  .ov h2:focus { outline: 0; }
+  .ov h2:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; border-radius: var(--r-mark); }
+  .rw .act .btn, .cal-l { scroll-margin: calc(var(--inset) + var(--tb-h) + var(--sp-8)) 0 var(--sp-8); }
+  /* a name and its tag are never cut (26 Nov: "Priya S…" and "P…" at 1440): the tag drops under the name when the two
+     do not fit on one line */
+  .rw .wh-n { flex-wrap: wrap; row-gap: 2px; }
+  .rw .wh-n .tg { flex: none; max-width: none; }
+
+  /* the glance strip (Overview's tiles, .charts / .ch): a tile a job, one number in words, one picture 64 px tall and one
+     line, the whole tile a button to the part of the page it sums up. Hairlines between tiles; two rows of two when the
+     detail is narrower than four tiles need. */
+  .gl-w { container: glw / inline-size; }
+  .gl { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); grid-template-rows: repeat(4, auto); padding: var(--sp-2); }
+  /* each tile is a subgrid of the strip's four rows: the names, the numbers, the pictures and the lines sit on one line
+     across the tiles, whichever tile's number wraps */
+  .gl > .ch { display: grid; grid-template-rows: subgrid; grid-row: span 4; align-content: start; min-width: 0; }
+  .gl > .ch > .plot { align-self: start; }
+  .gl .ch-f { min-width: 0; }
+  @container glw (max-width: 799px) {
+    .gl { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(8, auto); }
+    .gl > .ch:nth-child(3)::before { display: none; }
+    .gl > .ch:nth-child(n+3)::after { content: ''; position: absolute; top: 0; left: var(--sp-4); right: var(--sp-4); height: 1px; background: var(--line); transition: opacity var(--dur-fast) var(--ease-out); }
+    .gl[style*='--n:3'] > .ch:nth-child(3) { grid-column: 1 / -1; }
+    @media (hover: hover) and (pointer: fine) { .gl > .ch:nth-child(n+3):hover::after { opacity: 0; } }
+  }
+  /* a detail narrower than two tiles (the sidebar kept open on a small window): one tile a row */
+  @container glw (max-width: 420px) {
+    .gl { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(16, auto); }
+    .gl > .ch:nth-child(n)::before { display: none; }
+    .gl > .ch:nth-child(n+2)::after { content: ''; position: absolute; top: 0; left: var(--sp-4); right: var(--sp-4); height: 1px; background: var(--line); }
+    .gl[style*='--n:3'] > .ch:nth-child(3) { grid-column: auto; }
+  }
+  /* Today: three counts, the meet-today table's columns */
+  .gc { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; width: 100%; height: 100%; }
+  .gc-c { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-width: 0; padding: 0 2px; border-radius: 8px; background: var(--fill); font-variant-numeric: tabular-nums; }
+  .gc-c > span { color: var(--ink); font: 750 15px/1 var(--font); white-space: nowrap; }
+  .gc-c > span i { color: var(--ink-3); font-style: normal; font-weight: 500; font-size: 11px; }
+  .gc-c b { max-width: 100%; color: var(--ink-3); font: 600 11px/1.1 var(--font); text-align: center; }
+  .gc-c[data-st='wait'] { background: var(--warn-tint); } .gc-c[data-st='wait'] > span { color: var(--warn); }
+  /* Over their class: a line a lifter, heaviest first */
+  .go3 { display: flex; flex-direction: column; justify-content: center; width: 100%; height: 100%; }
+  .go3-r { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; column-gap: var(--sp-2); min-width: 0; padding: 2px 0; border-top: 1px solid var(--line); }
+  .go3-r:first-child { border-top: 0; }
+  .go3-r b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 600 13px/1.2 var(--font); }
+  .go3-r .kg { color: var(--warn); font: 700 13px/1.2 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .go3-r .wn { color: var(--ink-2); font: 500 12px/1.2 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .go3-r.more { grid-template-columns: minmax(0, 1fr); } .go3-r.more b { color: var(--ink-2); font-weight: 500; }
+  .g-ok { display: flex; align-items: center; gap: var(--sp-2); height: 100%; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .g-ok .done-tick svg { width: 20px; height: 20px; }
+  /* Getting ready: three counts of lifters, in words (Overview's Effort tile) */
+  .er { display: flex; flex-direction: column; justify-content: center; gap: 0; width: 100%; height: 100%; }
+  .er-c { display: flex; align-items: baseline; gap: 10px; min-width: 0; padding: 2px 0; border-top: 1px solid var(--line); }
+  .er-c:first-child { border-top: 0; padding-top: 0; }
+  .er-c b { min-width: 22px; font: 800 17px/1 var(--font); font-variant-numeric: tabular-nums; color: var(--ink); }
+  .er-c span { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); font: 500 13px/1.2 var(--font); white-space: nowrap; }
+  .er-c b small { color: var(--ink-3); font: 500 11px/1 var(--font); margin-left: 2px; }
+  .ga { display: flex; align-items: center; gap: var(--sp-2); height: 100%; min-width: 0; overflow: hidden; }
 </style>
 <script>/* the dark theme is glass (kit/glassdash), its colour softer if the coach chose it in Settings: set before the first paint */(function(){var h=document.documentElement;if(h.getAttribute('data-theme')!=='light')h.classList.add('gd');try{if(localStorage.getItem('powa-r6-glass-color')==='low')h.classList.add('gd-low');}catch(e){}})();</script>
 <link rel="stylesheet" href="../kit/glassdash/glassdash.css">
@@ -621,11 +693,11 @@
   function meetDayHtml(tm) {
     var g = meetGet(tm.id), b = boardOf(tm.id), st = b && b.stages ? b.stages : [], sq = st.filter(function (s) { return s.id === 'squat'; })[0], w8 = st.filter(function (s) { return s.id === 'weigh'; })[0];
     var wi = g && g.lifters && g.lifters[0] && g.lifters[0].weighIn === '24h' ? '24-hour weigh-in' : '2-hour weigh-in';
-    var h = '<div class="ov" data-crop="today"><div class="mday-h"><div class="mday-t"><div class="t"><h2>' + esc(tm.name) + '</h2><span class="tg" data-tone="gold">Meet today</span></div><p class="sub">' + esc((tm.fed ? tm.fed + ', ' : '') + wi) + '</p></div>';
+    var h = '<div class="ov" data-crop="today"><div class="mday-h"><div class="mday-t"><div class="t"><h2 id="md-h">' + esc(tm.name) + '</h2><span class="tg" data-tone="gold">Meet today</span></div><p class="sub">' + esc((tm.fed ? tm.fed + ', ' : '') + wi) + '</p></div>';
     if (b && w8 && sq) h += '<dl class="clk">' + (b.clock && b.clock.now ? '<div class="is-now"><dt>Now</dt><dd>' + esc(b.clock.now) + '</dd></div>' : '') + '<div><dt>Scale opens</dt><dd>' + esc(w8.at) + '</dd></div><div><dt>Scale closes</dt><dd>' + esc(w8.until || b.clock.weighCloses) + '</dd></div><div><dt>Squats start</dt><dd>' + esc(sq.at) + '</dd></div></dl>';
-    h += '</div><div class="rws" data-kind="day"><div class="rw-h" aria-hidden="true"><span>Lifter</span><span>Openers</span><span>Bodyweight</span><span class="mk-h"><span>Weighed</span><span>Handed in</span></span><span class="a-h">Waiting on you</span></div>';
+    h += '</div><div class="card rwc"><div class="rws" data-kind="day"><div class="rw-h" aria-hidden="true"><span>Lifter</span><span>Openers</span><span>Bodyweight</span><span class="mk-h"><span>Weighed</span><span>Handed in</span></span><span class="a-h">Waiting on you</span></div>';
     h += ((g && g.lifters) || []).map(function (x) { return todayRow(tm, x, b ? b.lifters.filter(function (y) { return y.id === x.id; })[0] : null); }).join('');
-    return h + '</div></div>';
+    return h + '</div></div></div>';
   }
 
   /* --- the next 8 weeks, to scale. A label sits over its mark, or under it when the one before is in the way; each opens its meet --- */
@@ -635,7 +707,7 @@
   }
   function calendarHtml() {
     var all = meets().filter(function (m) { return m.days >= 0 && m.days <= 56; }), later = meets().filter(function (m) { return m.days > 56; }).length;
-    var det = $('#detail'), W = Math.max(360, (det ? det.clientWidth : 900) - 16), IN = 10, X = function (d) { return IN + d / 56 * (W - IN * 2); }, LH = 45, GAP = 14;
+    var det = $('#detail'), W = Math.max(360, (det ? det.clientWidth : 900) - 16 - 40), IN = 10, X = function (d) { return IN + d / 56 * (W - IN * 2); }, LH = 45, GAP = 14;
     var placed = [], maxUp = 0, maxDn = -1;
     var labs = all.map(function (m) {
       var ids = m.lifterIds || [], l2 = (m.days === 0 ? 'Today' : K.dm(m.date)) + ', ' + (ids.length === 1 ? first(ids[0]) : ids.length + ' lifters');
@@ -647,8 +719,8 @@
       return { m: m, l: l, w: w, up: up, depth: depth, l2: l2, x: x, n: ids.length };
     });
     var axisY = (maxUp + 1) * (LH + 2) + 14, tdY = axisY + 12, H = tdY + 18 + (maxDn + 1) * (LH + 2);
-    var h = '<div class="ov" data-crop="calendar"><h2 class="sec-t">Next 8 weeks' + (later ? '<span class="sub">' + later + ' more after ' + esc(K.dm(K.add(K.today, 56))) + '</span>' : '') + '</h2>';
-    h += '<div class="cal" style="height:' + H + 'px" role="group" aria-label="Meets in the next 8 weeks">';
+    var h = '<div class="ov" data-crop="calendar"><h2 class="sec-t" id="cal-h">Next 8 weeks' + (later ? '<span class="sub">' + later + ' more after ' + esc(K.dm(K.add(K.today, 56))) + '</span>' : '') + '</h2>';
+    h += '<div class="card calc"><div class="cal" style="height:' + H + 'px" role="group" aria-label="Meets in the next 8 weeks">';
     h += '<span class="cal-ax" style="left:' + IN + 'px;right:' + IN + 'px;top:' + axisY + 'px" aria-hidden="true"></span>';
     for (var wk = 0; wk <= 8; wk++) {
       var tx = X(wk * 7).toFixed(1);
@@ -659,7 +731,7 @@
       h += '<span class="cal-mk" style="left:' + q.x.toFixed(1) + 'px;top:' + axisY + 'px" aria-hidden="true">' + q.n + '</span>';
       h += '<button class="cal-l" type="button" data-meet="' + esc(q.m.id) + '" style="left:' + q.l.toFixed(1) + 'px;top:' + top + 'px;max-width:' + q.w + 'px" title="' + esc(q.m.name + ', ' + (q.m.days === 0 ? 'today' : day(q.m.date)) + ': ' + names(q.m.lifterIds || [])) + '"><b>' + esc(q.m.name) + '</b><span>' + esc(q.l2) + '</span></button>';
     });
-    return h + '</div></div>';
+    return h + '</div></div></div>';
   }
 
   /* --- getting ready: what is still undone for each lifter, and the first of it as the row's button --- */
@@ -677,6 +749,12 @@
     if (j.run === 'attempts') return { on: 'att', label: pl.sent === 'stale' ? lab : 'Check ' + f + '’s attempts', attr: ' data-prep="' + esc(id) + '"' };
     return { on: peakJob(pl) ? 'peak' : '', label: lab.replace(/^Write (his|her|their) peak$/, 'Write ' + f + '’s peak'), attr: ' data-job="' + esc(id) + '"' };
   }
+  /* the three marks of a Getting ready row: Peak (written, and not the job still to do), Attempts (sent), Ready (the
+     checklist done) */
+  function prepMarks(pl) {
+    var pk = (pl.timeline || []).filter(function (t) { return t.id === 'peak'; })[0], rd = pl.ready || {};
+    return { peakOn: !!(pk && pk.written) && !peakJob(pl), sent: pl.sent === 'yes', rd: rd, rdOn: rd.of > 0 && rd.done >= rd.of };
+  }
   function peakJob(pl) { return !!(pl.job && !pl.job.next && /run-in|peak$|between|first block/i.test(pl.job.label)); }
   function prepRow(r) {
     var id = r.id, m = r.m, x = r.x || {}, pl = isNext(id, m.id) ? planOf(id) : null, href = '#id=' + encodeURIComponent(m.id) + '&lifter=' + encodeURIComponent(id), f = first(id);
@@ -688,7 +766,7 @@
     else if (bw.over > 0 && bw.perWeek > 0) cap = n(bw.perWeek) + ' kg a week to lose';
     else cap = n(bw.now) + ' kg, ' + c + ' class';
     h += figCol(figBw(bw.now == null ? null : bw.over), cap, bw.sentence || '');
-    var pk = (pl.timeline || []).filter(function (t) { return t.id === 'peak'; })[0], peakOn = !!(pk && pk.written) && !peakJob(pl), sent = pl.sent === 'yes', rd = pl.ready || {}, rdOn = rd.of > 0 && rd.done >= rd.of;
+    var mk = prepMarks(pl), peakOn = mk.peakOn, sent = mk.sent, rd = mk.rd, rdOn = mk.rdOn;
     var todo = (pl.ticks || []).filter(function (t) { return !t.on; }).map(function (t) { return t.label.replace(/:\s*.+$/, '') + ' ' + t.more; });
     h += marks([
       [peakOn, 'Peak ' + (peakOn ? 'written' : 'not written'), { next: nx && nx.on === 'peak' }],
@@ -698,6 +776,115 @@
     h += '<span class="act">' + (nx ? '<button class="btn sm" type="button"' + nx.attr + '>' + esc(nx.label) + '</button>' : '<span class="idle">Nothing to do yet</span>') + '</span></div>';
     return h;
   }
+  /* ---- the glance strip (26 Nov): a tile a job, in the coach's order (the meet today, over their class, getting ready,
+     the next 8 weeks). Every number is one the page below already shows, from the same store calls ---- */
+  function tileHtml(key, title, per, val, unit, plot, foot, aria, words) {
+    return '<button type="button" class="ch" data-glance="' + key + '" aria-label="' + esc(aria) + '"><span class="ch-h"><b>' + esc(title) + '</b>' + (per ? '<span>' + esc(per) + '</span>' : '') + '</span>' +
+      '<span class="ch-v' + (words ? ' words' : '') + '">' + val + (unit ? '<span class="unit">' + esc(unit) + '</span>' : '') + '</span><span class="plot">' + plot + '</span><span class="ch-f">' + foot + '</span></button>';
+  }
+  /* waiting on you, as the meet-today row decides it (todayRow): an open question to answer, else an open pain item */
+  function waitsOnYou(x) {
+    var ask = itemOf('meet-today-' + x.id), pain = itemOf('pain-' + x.id);
+    if (ask && ask.acts.some(function (a) { return a.id === 'msg'; })) return !ask.done;
+    if (pain) return !pain.done;
+    return false;
+  }
+  /* how far over the class, as the rows show it: the scale once it is in, else the last weigh-in (meet today); the plan's
+     bodyweight for everyone getting ready. Null where a row shows no bodyweight */
+  function overOf(tm, rows) {
+    var out = [];
+    if (tm) {
+      var g = meetGet(tm.id), b = boardOf(tm.id);
+      ((g && g.lifters) || []).forEach(function (x) {
+        var bx = b ? b.lifters.filter(function (y) { return y.id === x.id; })[0] : null, c = clsOf(x);
+        if (bx && bx.weigh === 'made') return;
+        var sc = bx && bx.scale != null && bx.weigh !== 'not' ? bx.scale : null, ov = sc != null ? Math.round((sc - parseFloat(c)) * 10) / 10 : x.over;
+        if (ov != null && ov > 0) out.push({ id: x.id, kg: ov, days: 0, m: tm, today: true });
+      });
+    }
+    rows.forEach(function (r) {
+      var pl = isNext(r.id, r.m.id) ? planOf(r.id) : null, bw = pl && pl.bw;
+      if (bw && bw.now != null && bw.over > 0) out.push({ id: r.id, kg: bw.over, days: r.m.days, m: r.m });
+    });
+    return out;
+  }
+  function shortOut(days) { if (days === 0) return 'Today'; var t = outOf(days).text, x = /(\d+)\s*(day|week)/.exec(t || ''); return x ? x[1] + ' ' + x[2] + (x[1] === '1' ? '' : 's') : t; }
+  function glanceHtml(tm, rows) {
+    var tiles = [], c = counts();
+    /* 1. Today (a meet today; tomorrow's lifters when the meet is tomorrow) */
+    if (tm) {
+      var g = meetGet(tm.id), b = boardOf(tm.id), ls = (g && g.lifters) || [], nL = ls.length;
+      var bxOf = function (x) { return b ? b.lifters.filter(function (y) { return y.id === x.id; })[0] : null; };
+      var weighed = ls.filter(function (x) { var bx = bxOf(x); return bx && bx.weigh === 'made'; }).length, handed = ls.filter(function (x) { var bx = bxOf(x); return !!(bx && bx.handedIn); }).length, wait = ls.filter(waitsOnYou).length;
+      var st0 = b && b.stages ? b.stages : [], w8 = st0.filter(function (s0) { return s0.id === 'weigh'; })[0], sq = st0.filter(function (s0) { return s0.id === 'squat'; })[0], now = b && b.clock ? b.clock.now : '';
+      var clock = [w8 ? ['Scale opens', w8.at] : null, w8 ? ['Scale closes', w8.until || (b.clock && b.clock.weighCloses)] : null, sq ? ['Squats start', sq.at] : null].filter(function (q) { return q && q[1]; });
+      var nx = clock.filter(function (q) { return !now || q[1] > now; })[0], step = nx ? nx[0] + ' ' + nx[1] : sq ? 'Squats started ' + sq.at : '';
+      var cell = function (k, v, of, label) { return '<span class="gc-c"' + (k ? ' data-st="' + k + '"' : '') + '><span>' + v + (of != null ? '<i>/' + of + '</i>' : '') + '</span><b>' + esc(label) + '</b></span>'; };
+      tiles.push(tileHtml('today', 'Today', tm.name, esc(String(nL)), nL === 1 ? 'lifts today' : 'lift today',
+        '<span class="gc" aria-hidden="true">' + cell('', weighed, nL, 'weighed') + cell('', handed, nL, 'handed in') + cell(wait ? 'wait' : '', wait, null, 'waiting on you') + '</span>',
+        esc(step || tm.name), 'Today, ' + tm.name + ': ' + nL + ' lifting. Weighed in ' + weighed + ' of ' + nL + ', openers handed in ' + handed + ' of ' + nL + ', ' + wait + ' waiting on you. ' + (step ? step + '. ' : '') + 'Go to the meet today.'));
+    } else {
+      var tmr = meets().filter(function (m) { return m.days === 1; })[0];
+      if (tmr) {
+        var ids = tmr.lifterIds || [];
+        tiles.push(tileHtml('tomorrow', 'Tomorrow', tmr.name, esc(String(ids.length)), ids.length === 1 ? 'lifts tomorrow' : 'lift tomorrow',
+          '<span class="ga" aria-hidden="true">' + ids.slice(0, 5).map(function (id) { return DESK.photo(L(id), 32); }).join('') + '</span>', esc(names(ids)),
+          'Tomorrow, ' + tmr.name + ': ' + ids.length + ' lifting, ' + names(ids) + '. Go to their rows in Getting ready.'));
+      }
+    }
+    /* 2. Over their class, across every meet shown: the nearest scale first (0.3 kg with the scale opening this morning
+       comes before 1.4 kg with twelve days to go), the heavier first on a tie; the line under says who has most to lose */
+    var ov = overOf(tm, rows).sort(function (a, b2) { return a.days - b2.days || b2.kg - a.kg; });
+    if (ov.length) {
+      var near = ov[0], nf = first(near.id), heavy = ov.slice().sort(function (a, b2) { return b2.kg - a.kg || a.days - b2.days; })[0];
+      var nearW = heavy.id !== near.id ? 'Most to lose: ' + first(heavy.id) + ', ' + n(heavy.kg) + ' kg in ' + shortOut(heavy.days).toLowerCase()
+        : near.today ? nf + ' weighs in today, ' + n(near.kg) + ' kg over' : nf + '’s meet is ' + outOf(near.days).text + ', ' + n(near.kg) + ' kg over';
+      var lines = (ov.length > 3 ? ov.slice(0, 2) : ov).map(function (q) { return '<span class="go3-r"><b>' + esc(first(q.id)) + '</b><span class="kg">+' + esc(n(q.kg)) + ' kg</span><span class="wn">' + esc(shortOut(q.days)) + '</span></span>'; }).join('') +
+        (ov.length > 3 ? '<span class="go3-r more"><b>' + esc('plus ' + K.list(ov.slice(2).map(function (q) { return first(q.id); }), 3)) + '</b></span>' : '');
+      var ovSaid = ov.map(function (q) { return first(q.id) + ' ' + n(q.kg) + ' kg over, ' + (q.today ? 'today' : outOf(q.days).text); }).join('. ');
+      tiles.push(tileHtml('over', 'Over their class', 'All meets', esc(String(ov.length)), ov.length === 1 ? 'lifter over' : 'lifters over', '<span class="go3" aria-hidden="true">' + lines + '</span>', esc(nearW),
+        'Over their class: ' + ov.length + (ov.length === 1 ? ' lifter. ' : ' lifters. ') + ovSaid + '. Go to ' + first(ov[0].id) + '’s row.'));
+    } else {
+      tiles.push(tileHtml('over', 'Over their class', 'All meets', 'Nobody', '', '<span class="g-ok"><span class="done-tick" aria-hidden="true">' + CHECK + '</span>On weight</span>',
+        'Everyone is on weight for their class', 'Over their class: nobody, everyone is on weight. Go to Getting ready.', true));
+    }
+    /* 3. Getting ready: the table's three marks, counted */
+    var pr = rows.map(function (r) { var pl = isNext(r.id, r.m.id) ? planOf(r.id) : null; return pl ? { r: r, pl: pl, mk: prepMarks(pl) } : null; }).filter(Boolean);
+    if (pr.length) {
+      var k = pr.length, pk = pr.filter(function (q) { return q.mk.peakOn; }).length, se = pr.filter(function (q) { return q.mk.sent; }).length, rd = pr.filter(function (q) { return q.mk.rdOn; }).length;
+      var firstStep = null; pr.some(function (q) { var s1 = stepNext(q.r.id, q.pl); if (s1) firstStep = s1.label.replace(/…$/, ''); return !!s1; });
+      var er = function (key, v, label) { return '<span class="er-c" data-k="' + key + '"><b>' + v + '<small>/' + k + '</small></b><span>' + esc(label) + '</span></span>'; };
+      tiles.push(tileHtml('ready', 'Getting ready', k + ' lifters', esc(se + ' of ' + k), 'attempts sent',
+        '<span class="er" aria-hidden="true">' + er('p', pk, 'peak written') + er('a', se, 'attempts sent') + er('r', rd, 'checklist done') + '</span>',
+        firstStep ? 'Next up: ' + esc(firstStep) : 'Nothing to do yet',
+        'Getting ready, ' + k + ' lifters: attempts sent to ' + se + ' of ' + k + ', peak written for ' + pk + ', checklist done for ' + rd + '. ' + (firstStep ? 'Next up: ' + firstStep + '. ' : '') + 'Go to Getting ready.'));
+    }
+    /* 4. The next 8 weeks: Overview's Meets tile */
+    var cm = fn(PL.roster, 'charts') ? (dat(PL.roster.charts()) || {}).meets : null, soon = meets().filter(function (m) { return m.days > 0; })[0];
+    if (cm) {
+      var bunches = []; cm.list.forEach(function (mm) { var bb = bunches[bunches.length - 1]; if (bb && mm.days - bb.days <= 4) bb.list.push(mm); else bunches.push({ days: mm.days, list: [mm] }); });
+      var mks = bunches.map(function (bb) { var ids = [].concat.apply([], bb.list.map(function (x) { return x.ids; })); return { x: bb.days / cm.span, n: ids.length, now: bb.days === 0, tip: bb.list.map(function (x) { return x.name + ', ' + outOf(x.days).text + ': ' + names(x.ids); }).join('. ') }; });
+      var ticks = []; for (var i = 1; i < 8; i++) ticks.push(i * 7 / cm.span);
+      var nextW = soon ? 'Next: ' + soon.name + ', ' + day(soon.date) : 'No meet after today';
+      tiles.push(tileHtml('cal', 'Meets', '8 weeks', esc(String(c.meetsSoon || 0)), 'meets, ' + (c.meetLifters || 0) + ' lifters', CH.timeline(mks, { ticks: ticks, left: 'Today', right: K.dm(K.add(K.today, cm.span)) }), esc(nextW),
+        'Meets in the next 8 weeks: ' + (c.meetsSoon || 0) + ' meets, ' + (c.meetLifters || 0) + ' lifters. ' + nextW + '. Go to the next 8 weeks.'));
+    }
+    return '<div class="gl-w"><div class="card gl" data-crop="glance" style="--n:' + tiles.length + '" role="group" aria-label="Meets at a glance">' + tiles.join('') + '</div></div>';
+  }
+  var calm = function () { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); };
+  /* a tile's click: smooth unless the coach asked for less motion; focus lands where the coach acts, else on the title */
+  function glanceGo(key) {
+    var beh = calm() ? 'auto' : 'smooth', tm = todayMeet(), rows = [], to = null;
+    var land = function (el) { el.focus({ preventScroll: true }); el.scrollIntoView({ block: 'center', behavior: beh }); };
+    var head = function (id) { var h = document.getElementById(id); if (!h) return; var sec = h.closest('.ov') || h; h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); sec.scrollIntoView({ block: 'start', behavior: beh }); };
+    var rowBtn = function (id) { return $('#detail [data-crop=everyone] .rw[data-row="' + id + '"] .act .btn') || $('#detail [data-crop=everyone] .rw[data-row="' + id + '"] a.who') || $('#detail .trow[data-today="' + id + '"] .act .btn') || $('#detail .trow[data-today="' + id + '"] a.who'); };
+    if (key === 'today') return head('md-h');
+    meets().filter(function (m) { return m.days > 0; }).forEach(function (m) { (m.lifterIds || []).forEach(function (id) { if (!rows.some(function (r) { return r.id === id; }) && !(tm && (tm.lifterIds || []).indexOf(id) >= 0)) rows.push({ id: id, m: m }); }); });
+    if (key === 'tomorrow') { var tmr = meets().filter(function (m) { return m.days === 1; })[0]; to = tmr && tmr.lifterIds && tmr.lifterIds.length ? rowBtn(tmr.lifterIds[0]) : null; return to ? land(to) : head('gr-h'); }
+    if (key === 'over') { var ov = overOf(tm, rows).sort(function (a, b) { return a.days - b.days || b.kg - a.kg; }); to = ov.length ? rowBtn(ov[0].id) : null; return to ? land(to) : head('gr-h'); }
+    if (key === 'ready') { to = $('#detail [data-crop=everyone] .rw .act .btn'); return to ? land(to) : head('gr-h'); }
+    if (key === 'cal') { var nx = meets().filter(function (m) { return m.days > 0 && m.days <= 56; })[0]; to = nx ? $('#detail .cal-l[data-meet="' + nx.id + '"]') : null; return to ? land(to) : head('cal-h'); }
+  }
   function overviewHtml() {
     var c = counts(), tm = todayMeet(), h = '';
     /* first-time-coach §6: nothing booked is one line, and the crimson is the way to start */
@@ -706,12 +893,13 @@
     var rows = [];
     meets().filter(function (m) { return m.days > 0; }).forEach(function (m) { var g = meetGet(m.id); (m.lifterIds || []).forEach(function (id) { if (!rows.some(function (r) { return r.id === id; }) && !(tm && (tm.lifterIds || []).indexOf(id) >= 0)) rows.push({ id: id, m: m, x: g && g.lifters ? g.lifters.filter(function (y) { return y.id === id; })[0] : null }); }); });
     h += '<div class="hd"><div><h1 class="pt" tabindex="-1">Meets</h1><p class="facts">' + esc(K.wd(K.today) + ' ' + K.dm(K.today)) + ', <span data-count="meetsSoon">' + (c.meetsSoon || 0) + '</span> meets and <span data-count="meetLifters">' + (c.meetLifters || 0) + '</span> lifters in the next 8 weeks</p></div></div>';
+    h += glanceHtml(tm, rows);
     if (tm) h += meetDayHtml(tm);
     h += calendarHtml();
     if (rows.length) {
-      h += '<div class="ov" data-crop="everyone"><h2 class="sec-t">Getting ready <span class="n">' + rows.length + ' lifters</span></h2>';
-      h += '<div class="rws" data-kind="prep"><div class="rw-h" aria-hidden="true"><span>Lifter</span><span>Meet in</span><span>Bodyweight</span><span class="mk-h"><span data-term="peak">Peak</span><span>Attempts</span><span>Ready</span></span><span class="a-h">Next step</span></div>';
-      h += rows.map(prepRow).join('') + '</div></div>';
+      h += '<div class="ov" data-crop="everyone"><h2 class="sec-t" id="gr-h">Getting ready <span class="n">' + rows.length + ' lifters</span></h2>';
+      h += '<div class="card rwc"><div class="rws" data-kind="prep"><div class="rw-h" aria-hidden="true"><span>Lifter</span><span>Meet in</span><span>Bodyweight</span><span class="mk-h"><span data-term="peak">Peak</span><span>Attempts</span><span>Ready</span></span><span class="a-h">Next step</span></div>';
+      h += rows.map(prepRow).join('') + '</div></div></div>';
     }
     return h;
   }
@@ -1439,6 +1627,7 @@
       if ((b = t.closest('[data-cut-cancel]'))) { closeCut(true); return; }
       return;
     }
+    if ((b = t.closest('#detail [data-glance]'))) { glanceGo(b.getAttribute('data-glance')); return; }
     if ((b = t.closest('[data-practice-end]'))) { endPractice(); return; }
     if ((b = t.closest('[data-practice]'))) { startPractice(b.getAttribute('data-practice')); return; }
     /* the practice board writes nothing: its own moves run, every other control on it stays still */

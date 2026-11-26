@@ -98,7 +98,9 @@
   @media (hover: hover) and (pointer: fine) { .lr:hover:not([aria-selected='true']) { background: var(--hover); } }
   .lr .nm { grid-area: n; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 700 var(--fs-body)/var(--lh-tight) var(--font); letter-spacing: -0.005em; }
   .lr .nv { grid-area: v; color: var(--ink-2); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .lr .rs { grid-area: r; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
+  /* display: block (26 Nov): the reason's kind is also a class this page styles elsewhere (.msg, a message, is a flex row),
+     and text-overflow does nothing in a flex box: Kofi's "Asks to move Friday to Saturday" was cut off mid-word, no ellipsis */
+  .lr .rs { display: block; grid-area: r; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
   .lr .rs.pain { color: var(--pain); font-weight: 500; }
   /* the reason wears its kind's colour, one word-colour a row: a meet gold, bodyweight blue, a warning amber, their words green */
   .lr .rs.meet { color: var(--gold); font-weight: 500; }
