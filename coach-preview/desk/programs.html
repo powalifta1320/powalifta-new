@@ -406,6 +406,14 @@
   .sv-in { height: 32px; font-size: var(--fs-sub); }
   .sv-in.sv-note { font-size: var(--fs-label); }
   .sv-last { color: var(--ink-2); }
+  /* 26 Nov: at this page's 15 px the "RPE or %" field (78 px) cut a load and an RPE written together: Priya's paused squat
+     showed "62.5% (" of "62.5% @5.5", which needs 117 px with its padding. The effort column is 120 px; Load gives 16
+     (its longest, a worked-out "152.5" in bold before its kg, needs 93), sets and reps take the kit's narrower 52 and 64,
+     and Last week and the note give 4 and 12 px of their least widths, so the grid's least width stays where it was
+     (930 px, what a 1100 px window gives it). The heads share these columns, so they stay over their fields. */
+  .wk .sv { --sv-cols: 18px minmax(170px, 240px) 52px 12px 64px 120px 96px minmax(146px, 0.8fr) minmax(148px, 2fr) 32px; }
+  .wk .sv.is-mid { --sv-cols: 18px minmax(125px, 1.2fr) 52px 12px 64px 120px 96px minmax(115px, 1fr) minmax(100px, 1fr) 32px; }
+  .wk .sv.is-tight { --sv-cols: 18px minmax(130px, 1.2fr) 52px 12px 64px 120px 96px minmax(120px, 1.3fr) 32px; }
   /* the week's shape at the grid's foot: the label, then each lift as its name in its colour and its number */
   .wg-shape-t .ws-g { display: inline-flex; align-items: baseline; gap: var(--sp-3); margin-right: var(--sp-5); }
   .wg-shape-t .wg-sl { color: var(--ink-3); }

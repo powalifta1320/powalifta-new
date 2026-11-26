@@ -57,11 +57,20 @@
 
   /* a thread row, one shape for all (owner 16 Nov): the name and when on line 1; one line of their words and the one
      status on line 2, the status always in the right-hand slot under the time. The row in hand as Lifters' row in hand. */
+  /* 26 Nov (tidy): two lines that each size on their own (a flex row broken by ::after), so the preview always stops 12 px
+     before its own tag; as one grid the tag's column took the time's width and the gap ran 12 to 23 px from row to row */
   .mr {
-    position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'n w' 't s'; align-items: baseline; align-content: center;
-    column-gap: var(--sp-3); row-gap: 2px; min-height: 52px; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-row); cursor: pointer; outline: 0; user-select: none;
+    position: relative; display: flex; flex-wrap: wrap; align-items: baseline; align-content: center;
+    column-gap: var(--sp-3); row-gap: 0; min-height: 52px; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-row); cursor: pointer; outline: 0; user-select: none;
     transition: background-color var(--dur-fast) var(--ease-out);
   }
+  .mr::after { content: ''; order: 3; flex: 0 0 100%; height: 0; }
+  .mr .nm { order: 1; flex: 1 1 0; }
+  .mr .wh { order: 2; flex: none; }
+  .mr .ln { order: 4; flex: 1 1 0; margin-top: 2px; }
+  .mr .st { order: 5; flex: none; margin-top: 2px; }
+  .mr .st:empty { display: none; }
+  .mr .ln:empty::before { content: '\200b'; }
   .mr + .mr::before { content: ''; position: absolute; top: 0; left: var(--sp-3); right: var(--sp-3); height: 1px; background: var(--line); }
   .mr[aria-current='true'] { background: var(--place-sel); }
   .mr[aria-current='true']::before, .mr[aria-current='true'] + .mr::before { opacity: 0; }
@@ -74,7 +83,7 @@
   .mr .ln { grid-area: t; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); }
   .mr .st { grid-area: s; justify-self: end; color: var(--ink-2); font: 600 var(--fs-label)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
   /* an empty slot still holds its line, so a row with no time or no status is as tall as the rest */
-  .mr .wh:empty::before, .mr .st:empty::before { content: '\200b'; }
+  .mr .wh:empty::before { content: '\200b'; }
   .mr .st.pain { color: var(--pain); }
   .mr .st.dl { color: var(--warn); }
   .mr .st.new { color: var(--words); }
@@ -92,12 +101,23 @@
     position: fixed; top: var(--edge-h); bottom: var(--sp-4); left: calc(var(--col-l) + var(--list-w) + var(--mgap) * 2); right: calc(var(--inspector-w) + var(--mgap));
     display: flex; flex-direction: column; min-width: 0; overflow: clip;
   }
-  .th-h { flex: none; padding: var(--sp-5) var(--sp-6) var(--sp-3); border-bottom: 1px solid var(--line); }
+  /* 26 Nov (tidy): 16 px on both sides of each of the card's two hairlines (head | words | composer); the card keeps its
+     24 px sides and its 20 px top (the name on the list head's line) */
+  .th-h { flex: none; padding: var(--sp-5) var(--sp-6) var(--sp-4); border-bottom: 1px solid var(--line); }
+  /* in the glass the facts pane sits 8 px in from the screen's right (the window's edge): the card keeps the same gap to it
+     as to the list */
+  html.gd body[data-place='messages'] .th { right: calc(var(--inspector-w) + var(--inset) + var(--mgap)); }
   .th-h h1 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 var(--fs-title)/var(--lh-title) var(--font); letter-spacing: var(--ls-title); }
   .th-h .facts { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
-  .th-h .links { display: flex; gap: var(--sp-5); margin-top: var(--sp-1); }
+  /* the head's three moves are one family (26 Nov: two underlined words beside a pill): quiet small buttons, 8 px apart */
+  .th-h .links { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+  .th-h .links > [data-contact-slot]:empty { display: none; }
+  /* a narrow thread (1100 wide, about 350 px): the contact button keeps its icon and says its words in its label and title,
+     so the three moves stay on one line and the words below keep their room */
+  .th { container: thread / inline-size; }
+  @container thread (max-width: 400px) { .th-h .ct-b > span { display: none; } .th-h .ct-b:not(.icon) { padding: 0 var(--sp-2); } }
   .th-m {
-    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: var(--sp-4) var(--sp-6) var(--sp-5);
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: var(--sp-4) var(--sp-6);
     -webkit-mask-image: linear-gradient(transparent, var(--ink) var(--sp-4), var(--ink) calc(100% - var(--sp-4)), transparent);
     mask-image: linear-gradient(transparent, var(--ink) var(--sp-4), var(--ink) calc(100% - var(--sp-4)), transparent);
   }
@@ -106,6 +126,8 @@
   .th-m { display: flex; flex-direction: column; }
   .th-m > * { flex: none; }
   .th-m > :first-child, .th-m > .dv:first-child { margin-top: auto; }
+  /* nothing written yet: the line sits in the middle of the empty pane, not low on it (26 Nov) */
+  .th-m > .th-empty:only-child { margin: auto 0; }
   .th-empty { margin: var(--sp-6) 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-align: center; }
   .dv { display: flex; align-items: center; justify-content: center; gap: var(--sp-3); margin: var(--sp-4) 0 0; color: var(--ink-3); font: 600 var(--fs-cap)/var(--lh-cap) var(--font); }
   .dv.new { color: var(--words); }
@@ -140,9 +162,10 @@
   .ed .row { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-2); }
 
   /* ---------- the composer: the card's foot, one hairline above, no box of its own ---------- */
-  .cmp { flex: none; padding: var(--sp-3) var(--sp-6) var(--sp-4); border-top: 1px solid var(--line); }
+  .cmp { flex: none; padding: var(--sp-4) var(--sp-6); border-top: 1px solid var(--line); }
+  /* its words start where a message's words do (16 px in), 26 Nov */
   .cmp-t {
-    display: block; width: 100%; min-height: 48px; max-height: calc(var(--lh-sub) * var(--fs-sub) * 12 + var(--sp-4)); margin: 0; padding: var(--sp-3);
+    display: block; width: 100%; min-height: 48px; max-height: calc(var(--lh-sub) * var(--fs-sub) * 12 + var(--sp-4)); margin: 0; padding: var(--sp-3) var(--sp-4);
     border: 0; border-radius: var(--r-field); outline: 0; background: var(--fill); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink); font: 400 var(--fs-sub)/var(--lh-sub) var(--font);   /* a field you can see (20 Nov): on the bare card the desk's own draft read as a message already sent */
     resize: none; field-sizing: content; overflow-y: auto;
   }
@@ -164,7 +187,8 @@
   .att b { color: var(--ink); font-weight: 600; }
   .cmp-f { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
   .cmp-f .grow { flex: 1; min-width: 0; }
-  .cmp-f .btn.quiet { padding: 0 var(--sp-3); }
+  /* the quiet moves stand as tall as Send beside them (26 Nov: 32 beside 36 on one line) */
+  .cmp-f .btn.quiet { --h: var(--ctl-h); padding: 0 var(--sp-3); }
   /* the first quiet move's words start on the draft's edge, as the ticks above it do */
   .cmp-f > .btn.quiet:first-child { margin-left: 0; }   /* 24 Nov (polish): its pill lines up with the box above (it hung 12 px out) */
   .cmp-f [data-primary] { max-width: 100%; }
@@ -172,7 +196,11 @@
   /* a narrow thread (1280 with the sidebar pinned, about 360 px): the quiet moves say less so Send keeps its place */
   .cmp { container-type: inline-size; }
   .cmp-f .xs { display: none; }
-  @container (max-width: 480px) { .cmp-f .xl { display: none; } .cmp-f .xs { display: inline; } .cmp-f [data-primary] { min-width: 0; } .sg-f kbd { display: none; } }
+  @container (max-width: 480px) { .cmp-f .xl { display: none; } .cmp-f .xs { display: inline; } .cmp-f [data-primary] { flex: 0 1 auto; min-width: 0; }
+    /* 26 Nov: at 1100 the row was 9 px wider than the box (Send ran past its edge): the spacer's gap goes, the moves keep
+       8 px sides (the kit's move padding) and Send 12, so "Send to Tomas" fits whole; only a narrower card shortens it */
+    .cmp-f > .grow { display: none; } .cmp-f [data-primary] { margin-left: auto; padding: 0 var(--sp-3); } .cmp-f .btn.quiet { padding: 0 var(--sp-2); } }
+  @container (max-width: 480px) { .sg-f kbd { display: none; } }
   .cmp-r { display: flex; margin-top: var(--sp-2); }
   .cmp-r .tick { margin: 0; }
 
@@ -215,7 +243,17 @@
   /* its first line sits on the thread's name and the list's head (one top line across the three columns), not up in the
      empty toolbar band */
   body[data-place='messages'] .insp-h { padding-top: calc(var(--edge-h) + var(--sp-5)); }
-  .fq { min-width: 0; padding-bottom: var(--sp-2); }
+  /* in the glass (26 Nov) the pane sat from the window's top edge, over the empty band, its first line 8 px under the
+     thread's name: it now starts under the band as the list column and the thread card do, so its first line is 20 px
+     under the same top line */
+  html.gd body[data-place='messages'] .insp { top: var(--edge-h); border-top-right-radius: 0; }
+  html.gd body[data-place='messages'] .insp-h { padding-top: var(--sp-5); }
+  .fq { min-width: 0; padding-bottom: 0; }
+  /* the pane's sections in one rhythm (26 Nov: 32, 24 and 24 px apart, one hairline among them): each section 16 px under
+     a hairline that sits 16 px under the one before, on the pane's 20 px inset. A row led by a 36 px move (the meet's line,
+     the More fold) takes back the move's own 8 px so its words keep the same 16 px */
+  .insp-b > .ig { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+  .insp-b > .ig:first-child { margin-top: 0; }
   .fq h2 { margin: 0; font: 600 var(--fs-head)/var(--lh-head) var(--font); letter-spacing: var(--ls-head); text-wrap: balance; }
   .fq .q { margin: var(--sp-2) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); text-wrap: pretty; }
   .fq .q time { color: var(--ink-3); font-size: var(--fs-label); white-space: nowrap; }
@@ -228,7 +266,6 @@
   .ans > .mv .ck svg { width: 14px; height: 14px; }
   .ans > .mv[aria-pressed='true'] .ck { color: var(--ink); }
   .ans > .mv .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .insp .ig:first-child { margin-top: var(--sp-2); }
   /* the numbers in one row: each e1RM in its lift's colour, then the total */
   .nums { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: var(--sp-3); }
   .nums > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -239,10 +276,9 @@
   .meet1 { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-width: 0; }
   .meet1 > span { min-width: 0; color: var(--ink-2); font: 500 var(--fs-label)/var(--lh-label) var(--font); text-wrap: pretty; }
   .meet1 > span b { color: var(--ink); font-weight: 600; }
-  .meet1 > .mv { flex: none; margin-right: calc(var(--sp-2) * -1); }
+  .meet1 > .mv { flex: none; margin: calc(var(--sp-2) * -1) calc(var(--sp-2) * -1) calc(var(--sp-2) * -1) 0; }
   /* everything else behind one fold, worded as the list's Answered fold (Show / Hide) */
-  .more { padding-top: var(--sp-2); border-top: 1px solid var(--line); }
-  .more > .mv.more-t { display: flex; width: calc(100% + var(--sp-4)); margin: 0 calc(var(--sp-2) * -1); }
+  .more > .mv.more-t { display: flex; width: calc(100% + var(--sp-4)); margin: calc(var(--sp-2) * -1); }
   .more-t .grow { flex: 1; }
   .more-t .w { color: var(--ink-3); font: 500 var(--fs-label)/var(--lh-label) var(--font); }
   .more-b > .ig:first-child { margin-top: var(--sp-3); }
@@ -654,7 +690,7 @@
     else facts.push('No program yet');
     if (lx.meet && lx.meet.days != null && lx.meet.days <= 14) facts.push(lx.meet.name + ' ' + outT(lx.meet.days));
     $('#th-h').innerHTML = '<h1 id="th-name" title="' + esc(l.name) + '" data-ellipsis>' + esc(l.name) + '</h1><p class="facts">' + esc(facts.join(' · ')) + '</p>' +
-      '<div class="links"><button class="link" type="button" data-openpage>Open page</button><button class="link" type="button" data-openprog>Open program</button><span data-contact-slot data-lifter-id="' + esc(id) + '"></span></div>';
+      '<div class="links"><button class="btn quiet sm" type="button" data-openpage>Open page</button><button class="btn quiet sm" type="button" data-openprog>Open program</button><span data-contact-slot data-lifter-id="' + esc(id) + '"></span></div>';
     /* quick contact (email, Instagram, iMessage, WhatsApp) is DESK.contact's, built elsewhere: the slot is filled when it exists */
     var slot = $('#th-h [data-contact-slot]');
     if (slot && window.DESK && DESK.contact && typeof DESK.contact.button === 'function') { try { DESK.contact.button(slot, id); } catch (e) { /* the slot stays empty */ } }

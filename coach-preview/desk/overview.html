@@ -213,9 +213,11 @@
   .dr-d[data-today] { box-shadow: inset 0 0 0 1.5px var(--ink); } .dr-d[data-today] b { color: var(--ink); }
   /* the three rows fit the plot's 64 px (26 Nov polish: at 80 px they ran 4 px into the line under them, where every
      other chart keeps 12) */
-  .er { display: flex; flex-direction: column; gap: 0; width: 100%; }
-  .er-c { display: flex; align-items: baseline; gap: 10px; min-width: 0; padding: 2px 0; border-top: 1px solid var(--line); }
-  .er-c:first-child { border-top: 0; padding-top: 0; }
+  /* 26 Nov: the three rows are three equal thirds of the 64 px, each count and word centred in its third (they were 68 px,
+     2 px past the picture, so the line under Effort sat 9 px under its words where every other tile keeps 12) */
+  .er { display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); width: 100%; height: 100%; }
+  .er-c { display: flex; flex-wrap: wrap; align-items: baseline; align-content: center; gap: 0 10px; min-width: 0; padding: 0; border-top: 1px solid var(--line); }
+  .er-c:first-child { border-top: 0; }
   .er-c b { min-width: 22px; font: 800 17px/1 var(--font); font-variant-numeric: tabular-nums; color: var(--ink); }
   .er-c span { color: var(--ink-2); font: 500 13px/1.2 var(--font); white-space: nowrap; }
   .er-c[data-k='h'] b { color: var(--warn); } .er-c[data-k='a'] b { color: var(--up-ink); }
