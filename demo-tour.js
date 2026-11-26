@@ -70,7 +70,7 @@
           body: 'The weight, reps and RPE the coach wrote. Lift, tap Log set, and say how it actually felt.' },
         { go: click('tab-today'), target: '.tx-card', title: 'Every set, as it felt',
           body: 'Tap the RPE to change it to what you really hit. Tap any weight to see the plates to load.' },
-        { go: click('tab-progress'), target: '.pg-hero', title: 'Watch your max climb',
+        { go: click('tab-progress'), target: ['.pg-hero', '#progressArea .pg-ov .pg-head', '#progressArea .pg-ov'], title: 'Watch your max climb',
           body: 'Every set you log updates your estimated max for squat, bench and deadlift, with your PRs and how far you have come.' },
         { go: click('tab-coach'), target: ['.bottom-tab[data-src="coach"]', '#tab-coach'], soft: true, title: 'Your coach, in one place',
           body: 'Their notes on your sessions, your messages and form-check videos, right beside your training.' },
