@@ -218,6 +218,20 @@ html.lg:not(.native) body.powa-app:has(> .demo-banner) .toast { bottom: 86px; }
   html.lg:not(.native) body.powa-app .setup-wrap > .ui-list { grid-column: 2; grid-row: 2; }
 }
 
+/* ---------- Club on a laptop ---------- */
+@media (min-width: 1100px) {
+  /* Club uses the screen too: the club itself on the left (the coach's challenge, the club's card, your training
+     partner), its feed or its board on the right, each at a reading width (it was one 1120 px column: a post and the
+     "Share a lift" bar ran the width of the window). Only for a lifter who is in a club: finding or starting one stays
+     one column. */
+  html.lg:not(.native) body.powa-app section[data-pane='club']:has(#clubArea > .club-hero):has(#clubArea > .club-view) { max-width: 1380px; column-count: 2; column-gap: 24px; }
+  html.lg:not(.native) body.powa-app section[data-pane='club']:has(#clubArea > .club-hero):has(#clubArea > .club-view) > .dash-header { column-span: all; }
+  html.lg:not(.native) body.powa-app section[data-pane='club']:has(#clubArea > .club-hero):has(#clubArea > .club-view) :is(#challengeArea, #clubArea > *, .club-view > *, .club-feed > *, .club-board > *) { break-inside: avoid; }
+  html.lg:not(.native) body.powa-app section[data-pane='club']:has(#clubArea > .club-hero):has(#clubArea > .club-view) #clubArea > .club-view-seg { break-before: column; margin-top: 0; }
+  /* the left stack keeps one gap (the challenge stood 28 px off the club's card, the cards under it 12) */
+  html.lg:not(.native) body.powa-app section[data-pane='club']:has(#clubArea > .club-hero):has(#clubArea > .club-view) #challengeArea > .chl { margin-bottom: 12px; }
+}
+
 /* ================= a narrow window (a tablet, a laptop window pulled small): the tabs run across the top ================= */
 @media (max-width: 900px) {
   /* no sidebar here, so no window: the tiles sit on the room, as on a phone. The top bar and the strip of tabs under it
