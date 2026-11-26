@@ -99,9 +99,97 @@
   .th > div:first-child { min-width: 0; }
   .th .t-h1 { margin: 0; font: 700 var(--fs-large)/var(--lh-large) var(--font); letter-spacing: var(--ls-large); text-wrap: balance; outline: 0; }
   .th .t-sub { margin: var(--sp-1) 0 0; color: var(--ink-2); font: 400 var(--fs-sub)/var(--lh-sub) var(--font); font-variant-numeric: tabular-nums; }
-  .th-m { flex: none; align-items: flex-end; text-align: right; padding-bottom: 2px; }
-  .th-m .fg b { font-size: var(--fs-title); }
-  .th-m .fg b small { margin-left: var(--sp-1); color: var(--ink-2); font-size: var(--fs-label); }
+
+  /* 26 Nov (the owner: "team page is still slightly plain"): one page rhythm. The title, the glance strip under it, then
+     each section a titled block with the same 40 px above it, every section's body in the page's card (one level). */
+  .tv > .gl-w { margin-top: var(--sp-5); }
+  .tv > .sec { margin-top: var(--sp-8); }
+  .tv > .sec, .tv > .sec .sec-h h2 { scroll-margin-top: calc(var(--inset) + var(--tb-h) + var(--sp-4)); }
+  .tv > .sec .sec-h h2:focus { outline: 0; }
+  .tv > .sec .sec-h h2:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; border-radius: var(--r-mark); }
+  .wr .act .btn { scroll-margin: calc(var(--inset) + var(--tb-h) + var(--sp-8)) 0 var(--sp-8); }
+  .sgc { padding: var(--sp-1) var(--sp-5) var(--sp-2); }
+  .sgc .sg { margin: 0; }
+  .sgc .sc { border-top: 0; }
+  .wkb { padding: var(--sp-2) var(--sp-5) var(--sp-5); }
+  .wkb .wk-tabs { margin-left: calc(var(--sp-1) * -1); margin-right: calc(var(--sp-1) * -1); }
+  .wkb .wx { margin-left: 0; margin-right: 0; }
+  @media (max-width: 1280px) { .sgc { padding-left: var(--sp-4); padding-right: var(--sp-4); } .wkb { padding-left: var(--sp-4); padding-right: var(--sp-4); } }
+  @media (max-width: 1180px) {
+    .sgc .sc:nth-child(n+4) { border-top: 1px solid var(--line); }
+    .sgc { padding-left: var(--sp-3); padding-right: var(--sp-3); }
+    .wkb { padding-left: var(--sp-2); padding-right: var(--sp-2); }
+    .wkb .days { gap: var(--sp-2); }
+  }
+  /* in the card a name or a line that does not fit wraps onto a second line, never cut */
+  .wkb .ln-n { height: auto; min-height: 40px; }
+  .wkb .ln-n span { white-space: normal; text-wrap: pretty; }
+  .sgc .sc-c { white-space: normal; text-wrap: pretty; }
+
+  /* the glance strip (Overview's tiles, .charts / .ch): four tiles, each one number in words, one picture 64 px tall and
+     one line, the whole tile a button to the part of the page it sums up. Hairlines between tiles, never boxes. Two rows
+     of two when the detail is narrower than four tiles need (the sidebar kept open, a small laptop). */
+  .gl-w { container: glw / inline-size; }
+  .gl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(4, auto); padding: var(--sp-2); }
+  /* each tile is a subgrid of the strip's four rows: the names, the numbers, the pictures and the lines sit on one line
+     across the tiles, whichever tile's number wraps */
+  .gl > .ch { display: grid; grid-template-rows: subgrid; grid-row: span 4; align-content: start; min-width: 0; }
+  .gl > .ch > .plot { align-self: start; }
+  .gl .ch-f { min-width: 0; }
+  @container glw (max-width: 799px) {
+    .gl { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(8, auto); }
+    .gl > .ch:nth-child(3)::before { display: none; }
+    .gl > .ch:nth-child(n+3)::after { content: ''; position: absolute; top: 0; left: var(--sp-4); right: var(--sp-4); height: 1px; background: var(--line); transition: opacity var(--dur-fast) var(--ease-out); }
+    @media (hover: hover) and (pointer: fine) { .gl > .ch:nth-child(n+3):hover::after { opacity: 0; } }
+  }
+  /* a detail narrower than two tiles (the sidebar kept open on a small window): one tile a row */
+  @container glw (max-width: 420px) {
+    .gl { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(16, auto); }
+    .gl > .ch:nth-child(n)::before { display: none; }
+    .gl > .ch:nth-child(n+2)::after { content: ''; position: absolute; top: 0; left: var(--sp-4); right: var(--sp-4); height: 1px; background: var(--line); }
+    .gl[style*='--n:3'] > .ch:nth-child(3) { grid-column: auto; }
+  }
+  /* Needs you: the lifters' faces as the rows draw them (no rings), in the rows' order */
+  .ga { display: flex; align-items: center; gap: var(--sp-2); height: 100%; min-width: 0; overflow: hidden; }
+  .ga .more-n { display: inline-grid; place-items: center; flex: none; min-width: 32px; height: 32px; padding: 0 var(--sp-2); border-radius: var(--r-pill); background: var(--fill); color: var(--ink-2); font: 600 var(--fs-cap)/1 var(--font); font-variant-numeric: tabular-nums; }
+  .ga-ok { display: flex; align-items: center; gap: var(--sp-2); height: 100%; color: var(--ink); font: 600 var(--fs-sub)/var(--lh-tight) var(--font); }
+  .ga-ok .done-tick svg { width: 20px; height: 20px; }
+  /* Sessions: a cell a day, done of planned (Overview's Training tile) */
+  .dr { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; width: 100%; height: 100%; }
+  .dr-d { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; padding: 6px 0 7px; border-radius: 8px; background: var(--fill); font-variant-numeric: tabular-nums; }
+  .dr-d b { color: var(--ink-3); font: 600 11px/1 var(--font); }
+  .dr-d > span { color: var(--ink); font: 750 15px/1 var(--font); white-space: nowrap; }
+  .dr-d > span i { color: var(--ink-3); font-style: normal; font-weight: 500; font-size: 11px; }
+  .dr-d[data-st='full'] { background: var(--up-tint); } .dr-d[data-st='full'] > span { color: var(--up-ink); }
+  .dr-d[data-st='short'] > span { color: var(--warn); }
+  .dr-d[data-st='future'] { background: none; box-shadow: inset 0 0 0 1px var(--line); } .dr-d[data-st='future'] > span { color: var(--ink-3); font-weight: 600; }
+  .dr-d[data-today] { box-shadow: inset 0 0 0 1.5px var(--ink); } .dr-d[data-today] b { color: var(--ink); }
+  @container glw (max-width: 940px) and (min-width: 800px) { .dr { gap: 3px; } .dr-d > span { font-size: 13px; } .dr-d > span i { font-size: 10px; } }
+  /* Strength: a bar a lifter from a centre line, up in the gain colour, down in warn */
+  .gb { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; height: 100%; background: linear-gradient(var(--line-2), var(--line-2)) left 50% / 100% 1px no-repeat; }
+  .gb > span { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); justify-items: center; min-width: 0; }
+  .gb i { width: 100%; max-width: 18px; border-radius: 3px; }
+  .gb .u { grid-row: 1; align-self: end; background: var(--up); }
+  .gb .d { grid-row: 2; align-self: start; background: var(--warn); }
+  .gb .z { grid-row: 1; align-self: end; height: 2px; background: var(--ink-3); }
+  /* Next to send: the block's weeks as steps, then the meet */
+  .gw { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)) minmax(0, 1.5fr); gap: 4px; width: 100%; height: 100%; }
+  .gw-c { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; border-radius: 8px; background: var(--fill); font-variant-numeric: tabular-nums; }
+  .gw-c > span { color: var(--ink); font: 750 15px/1 var(--font); white-space: nowrap; }
+  .gw-c b { color: var(--ink-3); font: 600 11px/1 var(--font); white-space: nowrap; }
+  .gw-c[data-st='past'] > span { color: var(--ink-2); }
+  .gw-c[data-st='now'] { box-shadow: inset 0 0 0 1.5px var(--ink); } .gw-c[data-st='now'] b { color: var(--ink); }
+  .gw-c[data-st='send'] { background: var(--place-sel); box-shadow: inset 0 0 0 1px var(--place-ink); } .gw-c[data-st='send'] > span, .gw-c[data-st='send'] b { color: var(--place-ink); }
+  .gw-c[data-st='later'] { background: none; box-shadow: inset 0 0 0 1px var(--line); } .gw-c[data-st='later'] > span { color: var(--ink-2); font-weight: 600; }
+  .gw-c.meet { background: none; box-shadow: inset 0 0 0 1px var(--line-2); }
+  /* This week: today's column, a soft band down the table (the right end of the row's columns are fixed widths, so the
+     band is placed from the right: ⋯, the move, the count, then the days after today) */
+  .wkc[style*='--tdi'] .wr { isolation: isolate; }
+  .wkc[style*='--tdi'] .wr::after { content: ''; position: absolute; z-index: -1; top: 0; bottom: 0; width: calc(var(--day) + 6px); background: var(--fill);
+    right: calc(var(--sp-5) + var(--ctl-s) + var(--sp-4) * 3 + var(--act-w) + var(--cnt-w) + (6 - var(--tdi)) * (var(--day) + var(--day-gap)) - 3px); }
+  .wkc[style*='--tdi'] .wr.hd::after { border-radius: var(--r-field) var(--r-field) 0 0; }
+  @media (max-width: 1280px) { .wkc[style*='--tdi'] .wr::after { right: calc(var(--sp-4) + var(--ctl-s) + var(--sp-3) * 3 + var(--act-w) + var(--cnt-w) + (6 - var(--tdi)) * (var(--day) + var(--day-gap)) - 3px); } }
+  @media (max-width: 1180px) { .wkc[style*='--tdi'] .wr::after { right: calc(var(--sp-4) + var(--ctl-s) + var(--sp-3) * 2 + var(--act-w) + (6 - var(--tdi)) * (var(--day) + var(--day-gap)) - 3px); } }
 
   /* This week: one row a lifter. The face, the name with the one thing to know under it, the seven days (a day's mark
      is lit in its lift's colour once it is lifted, outlined while it is to come, struck when it was missed), how many
@@ -562,11 +650,97 @@
     return esc(prog || T.program || '') + ', week ' + T.week.now + ' of ' + T.week.of + '. ' + esc(day3(T.startsOn).replace(/ \w+$/, '') + ' to ' + day3(end));
   }
   var cap1 = function (t) { t = String(t || ''); return t.charAt(0).toUpperCase() + t.slice(1); };
-  /* the team's next meet, beside the title: the store's countdown as the number, the meet and who lifts under it */
-  function meetHtml(T) {
-    var mt = T.facts && T.facts.meet; if (!mt) return '';
-    var t = outT(mt.days).replace(/^in /, ''), q = /^(\d+) (.+)$/.exec(t), who = K.list(mt.ids.map(first), 3);
-    return '<div class="fg-col th-m" data-crop="meet" title="' + esc(mt.name + ', ' + outT(mt.days) + ': ' + who) + '"><span class="fg"><b>' + (q ? esc(q[1]) + '<small>' + esc(q[2]) + '</small>' : esc(cap1(t))) + '</b></span><span class="fg-cap">' + esc(mt.name + ', ' + who) + '</span></div>';
+  /* ---- the glance strip (26 Nov): four tiles in the coach's order, each a number from the store or from what this page
+     already draws, a picture, one line, and a click to the part of the page it sums up ---- */
+  var minusW = function (v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + n(Math.abs(v)); };
+  function tileHtml(key, title, per, val, unit, plot, foot, aria, words) {
+    return '<button type="button" class="ch" data-glance="' + key + '" aria-label="' + esc(aria) + '"><span class="ch-h"><b>' + esc(title) + '</b>' + (per ? '<span>' + esc(per) + '</span>' : '') + '</span>' +
+      '<span class="ch-v' + (words ? ' words' : '') + '">' + val + (unit ? '<span class="unit">' + esc(unit) + '</span>' : '') + '</span><span class="plot">' + plot + '</span><span class="ch-f">' + foot + '</span></button>';
+  }
+  /* the lifters a tile names, in plain words */
+  var who = function (ms) { return K.list(ms.map(function (m) { return m.first; }), 4); };
+  /* the rows of This week that carry the coach's move (an open item: its tag and its button), in the table's order */
+  function needRows(T) { return gridRows(T).filter(function (r) { return !r.head && r.x && !r.x.done; }); }
+  /* the team's week a day at a time, from the sessions This week draws (sessionsNow); a session with no date is counted
+     apart, by lifter, so the cells and the table's foot line add up */
+  function weekDays(T) {
+    var mon = teamMonday(T), days = [0, 1, 2, 3, 4, 5, 6].map(function (i) { var iso = K.add(mon, i); return { iso: iso, planned: 0, done: 0, today: iso === K.today, future: K.daysTo(iso) > 0 }; }), loose = [];
+    T.members.forEach(function (m) {
+      if (!m.week) return;
+      var ses = sessionsNow(T, m) || [], drawn = 0;
+      ses.forEach(function (s) { if (!s.date) return; var i = K.daysTo(String(s.date).slice(0, 10)) - K.daysTo(mon); if (i < 0 || i > 6) return; drawn++; days[i].planned++; if (s.state === 'done') days[i].done++; });
+      if (m.week.of > drawn) loose.push({ m: m, k: m.week.of - drawn });
+    });
+    return { days: days, loose: loose };
+  }
+  function glanceHtml(T) {
+    var f = T.facts || {}, s = f.sessions || { done: 0, of: 0, lastDone: 0, lastOf: 0 }, tiles = [];
+    /* 1. Needs you */
+    var need = needRows(T).map(function (r) { return r.m; });
+    if (need.length) {
+      var shown = need.length > 5 ? need.slice(0, 4) : need;
+      tiles.push(tileHtml('need', 'Needs you', 'Today', esc(String(need.length)), need.length === 1 ? 'needs you' : 'need you',
+        '<span class="ga" aria-hidden="true">' + shown.map(function (m) { return DESK.photo(m, 32); }).join('') + (need.length > shown.length ? '<span class="more-n">+' + (need.length - shown.length) + '</span>' : '') + '</span>',
+        esc(who(need)), 'Needs you: ' + need.length + (need.length === 1 ? ' lifter, ' : ' lifters, ') + who(need) + '. Go to ' + need[0].first + '’s row in This week.'));
+    } else {
+      tiles.push(tileHtml('need', 'Needs you', 'Today', 'Nobody', 'needs you', '<span class="ga-ok"><span class="done-tick" aria-hidden="true">' + CHECK + '</span>All caught up</span>',
+        'Nothing open on this team', 'Needs you: nobody on this team. Go to This week.', true));
+    }
+    /* 2. Sessions this week: the table's foot line, a cell a day */
+    var wd = weekDays(T), dayRow = '<span class="dr" aria-hidden="true">' + wd.days.map(function (d) {
+      var st0 = d.future ? 'future' : d.planned && d.done >= d.planned ? 'full' : d.done < d.planned ? 'short' : 'none';
+      return '<span class="dr-d" data-st="' + st0 + '"' + (d.today ? ' data-today' : '') + '><b>' + esc(K.wd(d.iso).charAt(0)) + '</b><span>' + (d.future ? (d.planned || '–') : d.planned ? d.done + '<i>/' + d.planned + '</i>' : '–') + '</span></span>';
+    }).join('') + '</span>';
+    var loose = wd.loose.length === 1 ? wd.loose[0].m.first + '’s ' + wd.loose[0].k + ' have no day set' : wd.loose.length ? wd.loose.reduce(function (a, q) { return a + q.k; }, 0) + ' have no day set: ' + who(wd.loose.map(function (q) { return q.m; })) : '';
+    var lastW = s.lastDone + ' of ' + s.lastOf + ' last week';
+    var daysSaid = wd.days.map(function (d) { return K.wd(d.iso) + (d.today ? ', today' : '') + ': ' + (d.planned ? (d.future ? d.planned + ' to come' : d.done + ' of ' + d.planned + ' done') : 'none'); }).join('. ');
+    tiles.push(tileHtml('ses', 'Sessions', 'Mon to Sun', esc(String(s.done)), 'of ' + s.of + ' done',
+      dayRow, esc(lastW) + (loose ? '. ' + esc(loose) : ''), 'Sessions this week: ' + s.done + ' of ' + s.of + ' done, ' + lastW + '. ' + daysSaid + (loose ? '. ' + loose : '') + '. Go to This week.'));
+    /* 3. Strength: the team's average change over the window the Strength section states, a bar a lifter in its order */
+    var avg = f.strength ? f.strength.avg : null, flatIds = (f.strength && f.strength.flat) || [];
+    var bars = T.members.filter(function (m) { return m.change != null && e1Of(m.id, st.lift); });
+    var mx = Math.max.apply(null, bars.map(function (m) { return Math.abs(m.change); }).concat([0.0001]));
+    var plotS = '<span class="gb" aria-hidden="true">' + bars.map(function (m) {
+      var v = m.change, h = Math.max(6, Math.abs(v) / mx * 100).toFixed(1) + '%';
+      return '<span title="' + esc(m.first + ': ' + minusW(v) + ' kg in 4 weeks') + '">' + (Math.abs(v) < 0.05 ? '<i class="z"></i>' : '<i class="' + (v > 0 ? 'u' : 'd') + '" style="height:' + h + '"></i>') + '</span>';
+    }).join('') + '</span>';
+    var low = bars.filter(function (m) { return flatIds.indexOf(m.id) >= 0 || m.change < 0; });
+    var lowW = low.length ? 'Flat or down: ' + who(low) : 'Nobody flat or down';
+    var barsSaid = bars.map(function (m) { return m.first + ' ' + minusW(m.change) + ' kg'; }).join(', ');
+    tiles.push(avg == null ? tileHtml('str', 'Strength', '4 weeks', 'Not yet', '', plotS, 'Not enough lifting to compare', 'Strength over 4 weeks: not enough lifting to compare yet. Go to Strength.', true)
+      : tileHtml('str', 'Strength', '4 weeks', esc(minusW(avg)), 'kg on average', plotS, esc(lowW),
+        'Strength over 4 weeks: totals ' + (avg < 0 ? 'down ' : 'up ') + n(Math.abs(avg)) + ' kg on average. ' + barsSaid + '. ' + lowW + '. Go to Strength.'));
+    /* 4. Next to send: the week the crimson sends, the block as steps, the meet at its end */
+    var w = T.week.next ? weekOf(T, T.week.next) : null, mt = f.meet, mrow = mt ? (dat(PL.meets.list()) || []).filter(function (x) { return x.id === mt.id; })[0] : null;
+    var out = mt ? outT(mt.days) : '', q = /^(?:in )?(\d+) (weeks?|days?)/.exec(out);
+    var steps = T.week.weeks.map(function (tw) {
+      var st1 = tw.n < T.week.now ? 'past' : tw.now ? 'now' : w && tw.n === w.n ? 'send' : 'later';
+      var wd1 = st1 === 'past' ? 'Lifted' : st1 === 'now' ? 'Now' : st1 === 'send' ? 'Send' : tw.sent ? 'Sent' : 'Later';
+      return { n: tw.n, st: st1, w: wd1 };
+    });
+    var plotW = '<span class="gw" style="--n:' + steps.length + '" aria-hidden="true">' + steps.map(function (x) { return '<span class="gw-c" data-st="' + x.st + '"><span>' + x.n + '</span><b>' + esc(x.w) + '</b></span>'; }).join('') +
+      (mt ? '<span class="gw-c meet"><span>' + (q ? esc(q[1]) : esc(cap1(out))) + '</span><b>' + (q ? esc((/^w/.test(q[2]) ? 'wk' : 'day') + (q[1] === '1' ? '' : 's') + (/out$/.test(out) ? ' out' : '')) : 'Meet') + '</b></span>' : '') + '</span>';
+    var meetW = mt ? mt.name + (mrow ? ', ' + day3(mrow.date) : '') + ': ' + K.list(mt.ids.map(first), 3) : 'No meet booked for this team';
+    var stepsSaid = steps.map(function (x) { return 'Week ' + x.n + ' ' + x.w.toLowerCase(); }).join(', ');
+    var dates = w ? Number(String(w.from).slice(8, 10)) + ' to ' + K.dm(K.add(w.from, 6)) : '';
+    tiles.push(w ? tileHtml('send', 'Next to send', dates, 'Week ' + w.n, 'to send', plotW, esc(meetW),
+      'Next to send: week ' + w.n + ', ' + dates + '. ' + stepsSaid + '. ' + (mt ? mt.name + ' ' + out + (mrow ? ', ' + day3(mrow.date) : '') + ': ' + K.list(mt.ids.map(first), 3) : 'No meet booked') + '. Go to week ' + w.n + ' as written.', true)
+      : tileHtml('send', 'Next to send', '', 'All sent', '', plotW, esc(meetW), 'Next to send: every week of the block is sent. ' + stepsSaid + '. ' + meetW + '. Go to the week as written.', true));
+    return '<div class="gl-w"><div class="card gl" data-crop="glance" role="group" aria-label="' + esc(T.name + ' at a glance') + '">' + tiles.join('') + '</div></div>';
+  }
+  /* a tile's click: smooth unless the coach asked for less motion; focus lands where the coach acts */
+  var calm = function () { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); };
+  function glanceGo(key) {
+    var T = team(); if (!T) return;
+    var beh = calm() ? 'auto' : 'smooth', to = null, sec = null;
+    if (key === 'need') { var r = needRows(T)[0]; to = r ? $('[data-crop=grid] [data-row="' + r.m.id + '"] .act .btn') : null; if (to) { to.focus({ preventScroll: true }); to.scrollIntoView({ block: 'center', behavior: beh }); return; } }
+    if (key === 'send' && T.week.next && st.week[T.id] !== T.week.next) selectWeek(T.week.next, false);
+    var hid = key === 'str' ? 's-h' : key === 'send' ? 'wk-h' : 'g-h';
+    to = document.getElementById(hid); sec = to && to.closest('.sec');
+    if (!to) return;
+    to.setAttribute('tabindex', '-1');
+    to.focus({ preventScroll: true });
+    (sec || to).scrollIntoView({ block: 'start', behavior: beh });
   }
   /* the rows of the grid in their groups, in the store's order inside each */
   function gridRows(T) {
@@ -641,12 +815,12 @@
       '<button class="btn icon quiet sm more" type="button" data-more aria-haspopup="menu" aria-label="' + esc('More for ' + m.first) + '" title="More">' + MORE + '</button></div>';
   }
   function gridHtml(T) {
-    var s = T.facts.sessions, mon = teamMonday(T);
+    var s = T.facts.sessions, mon = teamMonday(T), tdi = K.daysTo(K.today) - K.daysTo(mon);
     var head = '<div class="wr hd" aria-hidden="true"><span class="hd-l">Lifter</span><span class="wd">' + [0, 1, 2, 3, 4, 5, 6].map(function (i) { var iso = K.add(mon, i); return '<i' + (iso === K.today ? ' class="is-today" title="Today"' : '') + '>' + K.wd(iso).charAt(0) + '</i>'; }).join('') + '</span><span class="cnt">Done</span><span></span><span></span></div>';
     var rows = gridRows(T).filter(function (r) { return !r.head; }).map(function (r) { return weekRow(T, r); }).join('');
     var dates = Number(String(mon).slice(8, 10)) + ' to ' + K.dm(K.add(mon, 6));
     return '<div class="sec" aria-labelledby="g-h"><div class="sec-h"><h2 id="g-h">This week</h2><span class="sub">' + esc(dates) + '</span></div>' +
-      '<div class="card wkc" data-crop="grid" role="table" aria-label="' + esc('This week, lifter by day') + '">' + head + rows +
+      '<div class="card wkc" data-crop="grid"' + (tdi >= 0 && tdi <= 6 ? ' style="--tdi:' + tdi + '"' : '') + ' role="table" aria-label="' + esc('This week, lifter by day') + '">' + head + rows +
       '<div class="wkc-f"><span class="lg"><i class="dm done" aria-hidden="true"></i>Done</span><span class="lg"><i class="dm come" aria-hidden="true"></i>To come</span><span class="lg opt"><i class="dm miss" aria-hidden="true"></i>Missed</span>' +
       '<span class="sum" data-fact="sessions"><b>' + s.done + ' of ' + s.of + '</b> sessions done, ' + s.lastDone + ' of ' + s.lastOf + ' last week</span></div></div></div>';
   }
@@ -681,7 +855,7 @@
     var avg = f.strength ? f.strength.avg : null, sub = avg == null ? 'e1RM over 4 weeks' : 'Totals ' + (avg < 0 ? 'down ' : 'up ') + n(Math.abs(avg)) + ' kg on average in 4 weeks';
     return '<div class="sec" data-crop="strength" aria-labelledby="s-h"><div class="sec-h"><h2 id="s-h">Strength</h2><span class="sub">' + esc(sub) + '</span><span class="grow"></span>' +
       '<div class="seg" data-lift-pick role="group" aria-label="Lift">' + LIFTS.map(function (q) { return '<button type="button" data-lift="' + q + '" aria-pressed="' + (k === q) + '">' + LIFT[q] + '</button>'; }).join('') + '</div></div>' +
-      (body ? '<div class="sg">' + body + '</div>' : '<p class="sg-none">No lifting to draw yet.</p>') + '</div>';
+      '<div class="card sgc">' + (body ? '<div class="sg">' + body + '</div>' : '<p class="sg-none">No lifting to draw yet.</p>') + '</div></div>';
   }
   /* the week as written (§4.1 item 4): tabs, then the days as three columns of lines; cells edit in place (§4.4) */
   function weekWord(T, w) {
@@ -715,8 +889,8 @@
       }).join('') + (ed ? '<p class="day-add"><button class="add-row" type="button" data-add-line="' + w.n + '.' + di + '">Add an exercise</button></p>' : '') + '</div>';
     }).join('') + '</div>' : '<p class="wk-say">Not written yet. Write it in Programs.</p>';
     var dates = Number(String(w.from).slice(8, 10)) + ' to ' + K.dm(K.add(w.from, 6));
-    return '<div class="sec wk" data-crop="week" aria-labelledby="wk-h"><div class="sec-h"><h2 id="wk-h">Week ' + w.n + ' as written</h2><span class="sub">' + esc(dates) + '</span></div>' + tabs +
-      (w.days.length ? whoHtml(T, w) : '') + '<p class="wk-say" id="wk-say" aria-live="polite">' + (w.days.length ? UNIT : '') + '</p>' + days + '</div>';
+    return '<div class="sec wk" data-crop="week" aria-labelledby="wk-h"><div class="sec-h"><h2 id="wk-h">Week ' + w.n + ' as written</h2><span class="sub">' + esc(dates) + '</span></div><div class="card wkb">' + tabs +
+      (w.days.length ? whoHtml(T, w) : '') + '<p class="wk-say" id="wk-say" aria-live="polite">' + (w.days.length ? UNIT : '') + '</p>' + days + '</div></div>';
   }
   /* who the shown week is for: the lifters who get it as written in one line, then a row for each lifter who differs
      (an own line, a fix's change, a hold, a week missed, no program yet), with the move where there is one */
@@ -740,7 +914,7 @@
     return '<div class="wx" data-crop="who" role="group" aria-label="' + esc('Who week ' + k + ' is for') + '">' + lead + rows + out + '</div>';
   }
   function teamHtml(T) {
-    return '<div class="th"><div><h1 class="t-h1 pt" tabindex="-1">' + esc(T.name) + '</h1><p class="t-sub">' + factsLine(T) + '</p></div>' + meetHtml(T) + '</div>' + gridHtml(T) + strengthHtml(T) + weekHtml(T);
+    return '<div class="tv"><div class="th"><div><h1 class="t-h1 pt" tabindex="-1">' + esc(T.name) + '</h1><p class="t-sub">' + factsLine(T) + '</p></div></div>' + glanceHtml(T) + gridHtml(T) + strengthHtml(T) + weekHtml(T) + '</div>';
   }
 
   /* ---------------- one lifter of the team ---------------- */
@@ -1236,6 +1410,7 @@
   /* ---------------- wiring ---------------- */
   document.addEventListener('click', function (e) {
     var t = e.target, b;
+    if ((b = t.closest('[data-glance]'))) { glanceGo(b.getAttribute('data-glance')); return; }
     if ((b = t.closest('[data-scope-go]'))) { settleAsk(true); return; }
     if ((b = t.closest('[data-scope-no]'))) { settleAsk(false); return; }
     if ((b = t.closest('[data-pop-close]'))) { DESK.pop.close(); return; }
