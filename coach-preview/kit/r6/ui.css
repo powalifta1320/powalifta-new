@@ -152,9 +152,11 @@ body::before {
 .side .it[data-place-link='settings'] { --it-ink: var(--pl-settings-ink); --it-rgb: var(--pl-settings-rgb); }
 .side .it[aria-current='page'] { color: var(--ink); font-weight: 650; }
 .side .it[aria-current='page']::before { background: rgb(var(--it-rgb, var(--place-rgb)) / var(--a-pill)); }
-/* on the rail, what waits in Messages shows as a small count on the icon; open, the row's own count takes over */
+/* on the rail, what waits in Messages shows as a small count on the icon; open, the row's own count takes over.
+   26 Nov: it sat on the bubble's top right (6 x 9 px of a 20 px icon under it), so the icon read as a bare circle; now
+   it only touches the icon's corner (3 x 4 px, where the round bubble has no stroke) */
 .side .it .pip {
-  position: absolute; left: calc(var(--it-pad) + var(--icon) - 6px); top: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r-pill);
+  position: absolute; left: calc(var(--it-pad) + var(--icon) - 3px); top: calc(50% - var(--icon) / 2 - 12px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r-pill);
   display: grid; place-items: center; background: var(--ink); color: var(--side); font: 700 11px/1 var(--font); font-variant-numeric: tabular-nums;
   transition: opacity var(--dur-fast) var(--ease-out);
 }

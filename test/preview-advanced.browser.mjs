@@ -88,6 +88,39 @@ const added = await p.evaluate(() => { const g = BLOCK.from(PL.programs.get('dem
 ok('an exercise is added in the Block grid through the picker, and its cell opens to type', added.n === rowsBefore + 1 && added.has && (await view()).ed && /view=block/.test((await view()).hash), JSON.stringify(added) + ' ' + JSON.stringify(await view()));
 await p.keyboard.type('3x8'); await p.keyboard.press('Enter'); await p.waitForTimeout(300);
 
+// 26 Nov (the owner: "simple doesnt work under some demo lifters"): a lifter with a change to check (Sarah) opens on the
+// sheet, and Simple was a disabled segment that looked live: a click said nothing. Simple now opens her week as written
+// and the change stays waiting at the top. Only a change the coach has edited keeps Simple off, and then a click or ⌥1
+// says why at the button; once the change is answered Simple opens; a lifter without one (Priya) opens Simple at once
+const CHG = BASE + '/coach-preview/desk/programs.html?theme=dark&reset=1#id=demo-a2';
+await p.goto(CHG, { waitUntil: 'load' }); await p.waitForTimeout(900);
+const sLive = await p.evaluate(() => { const s = document.querySelector('.tb [data-look="simple"]'); return { aria: s.getAttribute('aria-disabled'), native: s.disabled, ink: getComputedStyle(s).color, ink2: getComputedStyle(document.querySelector('.tb [data-look][aria-pressed="false"]:not([data-look="simple"])')).color, hash: location.hash }; });
+ok('a change to check opens on the sheet with Simple live', sLive.aria == null && !sLive.native && sLive.ink === sLive.ink2 && /row=change/.test(sLive.hash), JSON.stringify(sLive));
+await p.locator('.tb [data-look="simple"]').click(); await p.waitForTimeout(600);
+const sOpen = await p.evaluate(() => ({ hash: location.hash, rows: document.querySelectorAll('.sv[data-simple] .sv-row').length, who: document.querySelector('#ttl') && document.querySelector('#ttl').textContent, act: [...document.querySelectorAll('.hd button')].some(b => /Skip deadlifts this week/.test(b.textContent)) }));
+ok('Simple opens her week as written, the change still offered at the top', sOpen.rows > 0 && sOpen.who === 'Sarah Kim' && !/row=change/.test(sOpen.hash) && sOpen.act, JSON.stringify(sOpen));
+// the next view of the same lifter comes fresh (the page keeps no state over a reload with reset=1)
+await p.goto(BASE + '/coach-preview/desk/programs.html?theme=dark&reset=1', { waitUntil: 'load' }); await p.waitForTimeout(300);
+await p.goto(CHG, { waitUntil: 'load' }); await p.reload({ waitUntil: 'load' }); await p.waitForTimeout(900);
+await p.locator('#chg-msg').click(); await p.keyboard.type(' ok'); await p.waitForTimeout(250);
+const sOff = await p.evaluate(() => { const s = document.querySelector('.tb [data-look="simple"]'); return { aria: s.getAttribute('aria-disabled'), native: s.disabled, ink: getComputedStyle(s).color, ink2: getComputedStyle(document.querySelector('.tb [data-look][aria-pressed="false"]:not([data-look="simple"])')).color }; });
+ok('an edited change: Simple looks off (ink, not a live segment) and still takes the click', sOff.aria === 'true' && !sOff.native && sOff.ink !== sOff.ink2, JSON.stringify(sOff));
+await p.locator('.tb [data-look="simple"]').click({ force: true }); await p.waitForTimeout(300);
+const why = await p.locator('.pop:popover-open').innerText().catch(() => '');
+ok('a click on Simple says why, where it was clicked', /Simple opens after this change/.test(why) && /You have edited Sarah’s change on the sheet/.test(why) && await p.locator('#wg .wg-line, #wg .sx-c').count() > 0 && await p.locator('.sv').count() === 0, why.replace(/\s+/g, ' '));
+await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+await p.locator('#wg').click({ position: { x: 400, y: 120 } }).catch(() => {}); await p.waitForTimeout(150);
+await p.keyboard.press('Alt+Digit1'); await p.waitForTimeout(300);
+ok('⌥1 says the same instead of doing nothing', /Simple opens after this change/.test(await p.locator('.pop:popover-open').innerText().catch(() => '')));
+await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+await p.locator('[data-hd-more]').click(); await p.waitForTimeout(250);
+await p.locator('[role=menu] >> text=Keep as written').click(); await p.waitForTimeout(700);
+const afterKeep = await p.evaluate(() => ({ off: document.querySelector('.tb [data-look="simple"]') && document.querySelector('.tb [data-look="simple"]').getAttribute('aria-disabled'), who: document.querySelector('#ttl') && document.querySelector('#ttl').textContent }));
+await p.locator('.tb [data-look="simple"]').click(); await p.waitForTimeout(400);
+ok('answered (Keep as written), Simple opens for Sarah', afterKeep.who === 'Sarah Kim' && afterKeep.off == null && await p.locator('.sv[data-simple] .sv-row').count() > 0, JSON.stringify(afterKeep));
+await p.goto(BASE + '/coach-preview/desk/programs.html?theme=dark&reset=1#id=demo-d2', { waitUntil: 'load' }); await p.waitForTimeout(900);
+ok('a lifter with no change to check opens Simple with every line', await p.locator('.sv[data-simple] .sv-row').count() > 0);
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed'); console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'no script errors');
 await b.close();
 process.exit(fail || errs.length ? 1 : 0);

@@ -623,6 +623,10 @@
   @media (prefers-reduced-motion: reduce) { .pc, .lib-fold { transition: none; } .pc:active { transform: none; } }
   /* one switch, three views (Simple · Week sheet · Block sheet) */
   .pg-views > button svg { width: 15px; height: 15px; }
+  /* Simple while a change is checked: off is said in ink and cursor (it looked exactly like the live segments and a click
+     did nothing); a click still lands and says why (simpleWhy) */
+  .seg.pg-views > button[aria-disabled='true'], .seg.pg-views > button[aria-disabled='true']:hover { color: var(--ink-4); cursor: default; }
+  .seg.pg-views > button[aria-disabled='true']:active { transform: none; }
   /* the header's program line: its name in ink, the facts, and its "…" right after them */
   .hd .facts.hd-prog { display: flex; align-items: center; flex-wrap: nowrap; min-width: 0; }
   .hd .facts.hd-prog > span { flex: none; }
@@ -1282,7 +1286,7 @@
     var simple = isSimple(), canSimple = simpleOK(), look = simple ? 'simple' : st.view === 'block' ? 'block' : 'week';
     var views = cur && cur.b && (lifterBlock || cur.kind === 'tpl');
     mid.innerHTML = (views ? '<div class="seg pg-views" role="group" aria-label="View">' +
-      '<button type="button" data-look="simple" data-mode="simple" aria-pressed="' + (look === 'simple') + '"' + (canSimple ? ' title="One day at a time, big and readable (⌥1)"' : ' disabled title="A change is checked on a sheet"') + '>' + MODE_IC.simple + '<span>Simple</span></button>' +
+      '<button type="button" data-look="simple" data-mode="simple" aria-pressed="' + (look === 'simple') + '"' + (canSimple ? ' title="One day at a time, big and readable (⌥1)"' : simpleViaWeek() ? ' title="The week as written, one day at a time (⌥1). The change stays waiting."' : ' aria-disabled="true" title="' + esc(simpleOffWords().say) + '"') + '>' + MODE_IC.simple + '<span>Simple</span></button>' +
       '<button type="button" data-look="week" data-mode="advanced" data-view="week" aria-pressed="' + (look === 'week') + '" title="This week as a spreadsheet (⌥2)">' + MODE_IC.adv + '<span>Week sheet</span></button>' +
       '<button type="button" data-look="block" data-view="block" aria-pressed="' + (look === 'block') + '" title="Every week side by side (⌥3)">' + MODE_IC.block + '<span>Block sheet</span></button></div>' : '') +
       (folded ? '<h1 class="tb-h1" id="ttl-tb"><button type="button" data-unfold title="Back to the top of ' + esc(cur.l.name) + '"><span data-ellipsis title="' + esc(cur.l.name) + '">' + esc(cur.l.name) + '</span></button></h1>' : '');
@@ -2110,6 +2114,31 @@
      change being checked (cur.kind 'change') stays on the sheet, which marks the cells it touches. ---------------- */
   function simpleOK() { return !!(cur && cur.b && ((cur.id && (cur.kind === 'week' || cur.kind === 'recovery')) || cur.kind === 'tpl') && W.SIMPLE && fn(W.SIMPLE, 'grid')); }
   function isSimple() { return st.mode === 'simple' && simpleOK(); }
+  /* 26 Nov (the owner: "simple doesnt work under some demo lifters"): a lifter with a change to check (Sarah, Nina,
+     Marcus, Kofi in the demo) opens on the sheet and Simple was a disabled segment that looked live, so a click (or ⌥1)
+     did nothing and said nothing. Now Simple works there too: it opens the lifter's week as written, one day at a time
+     (simpleFromChange), and the change stays waiting in the list and at the top of the page, one click away. Only a
+     change the coach has already edited (a load, the message, the reminder) keeps Simple off, so no edit is dropped:
+     the segment then looks off and a click says why, where it was clicked */
+  function changeTouched() { return !!(cur && cur.kind === 'change' && (cur.dirty || cur.saves || cur.remind || (cur.msg && cur.msg.edited) || Object.keys(cur.edits || {}).length)); }
+  function simpleViaWeek() { return !!(cur && cur.kind === 'change' && cur.id && cur.b && !changeTouched() && W.SIMPLE && fn(W.SIMPLE, 'grid')); }
+  function simpleFromChange() {
+    var id = cur.id, n = (cur.b.weeks[cur.c] || {}).n || cur.c + 1, first = cur.l && cur.l.first;
+    st.mode = 'simple'; ls.set('powa-r6-prog-mode', 'simple');
+    openWeek(id, n);
+    fadeIn($('#wg'));
+    DESK.toast((first ? first + '’s week' : 'The week') + ' as written. The change waits at the top.');
+  }
+  function simpleOffWords() {
+    var first = cur && cur.l && cur.l.first;
+    if (cur && cur.kind === 'change') return { title: 'Simple opens after this change', say: 'You have edited ' + (first ? first + '’s change' : 'this change') + ' on the sheet, which marks each cell it touches. Send it, or answer it at the top of the page, and Simple opens again.' };
+    return { title: 'Simple is not open here', say: 'This one is written on the sheet.' };
+  }
+  function simpleWhy(btn) {
+    var anchor = btn && btn.nodeType === 1 ? btn : $('.tb [data-look="simple"]'), w = simpleOffWords();
+    if (!anchor) { DESK.toast(w.say); return; }
+    DESK.pop.open(anchor, '<h3>' + esc(w.title) + '</h3><p class="pop-p">' + esc(w.say) + '</p>', { label: w.title });
+  }
   function setMode(m) {
     m = m === 'advanced' ? 'advanced' : 'simple';
     if (st.mode === m) return;
@@ -4162,7 +4191,7 @@
   /* one switch, three views: Simple, the Week sheet, the Block sheet; one paint, one fade */
   function setLook(v) {
     var m = v === 'simple' ? 'simple' : 'advanced', vw = v === 'block' ? 'block' : 'week';
-    if (m === 'simple' && !simpleOK()) return;
+    if (m === 'simple' && !simpleOK()) { if (simpleViaWeek()) simpleFromChange(); else if (cur && cur.b) simpleWhy(); return; }
     if (st.mode === m && (m === 'simple' || st.view === vw)) return;
     if (cur && cur.grid && cur.grid.flush) cur.grid.flush();
     st.mode = m; ls.set('powa-r6-prog-mode', m);
@@ -4201,7 +4230,7 @@
     if ((b = t.closest('[data-import]'))) { importSheet(); return; }
     /* 22 Nov: only the toolbar's own buttons switch the view. It was any [data-mode], and the Week grid's root carries
        data-mode="week", so every click on a cell in Advanced read as "Simple" and threw the coach out of the sheet */
-    if ((b = t.closest('.tb button[data-look]'))) { setLook(b.getAttribute('data-look')); return; }
+    if ((b = t.closest('.tb button[data-look]'))) { if (b.getAttribute('aria-disabled') === 'true') { if (!DESK.pop.justClosed(b)) simpleWhy(b); return; } setLook(b.getAttribute('data-look')); return; }
     if ((b = t.closest('[data-prog-menu]'))) { if (DESK.pop.justClosed(b)) return; if (cur && cur.kind === 'tpl') programMenu(b); else progMenu(b); return; }
     if ((b = t.closest('[data-prog-name]'))) { renameInPlace(); return; }
     if ((b = t.closest('[data-card-menu]'))) { e.stopPropagation(); if (DESK.pop.justClosed(b)) return; cardMenu(b.getAttribute('data-card-menu'), b); return; }
@@ -4239,7 +4268,7 @@
     if ((b = t.closest('[data-hd-act]'))) { var a = cur && cur.wl && cur.wl.acts[+b.getAttribute('data-hd-act')]; if (a) a.run(); return; }
     if ((b = t.closest('[data-cmp-send]'))) { composerSend(); return; }
     if ((b = t.closest('[data-cmp-cancel]'))) { var wasHold = cur && cur.applied; closeComposer(); if (wasHold) reopen(); return; }
-    if ((b = t.closest('[data-remind]'))) { cur.remind = !cur.remind; b.setAttribute('aria-checked', String(cur.remind)); return; }
+    if ((b = t.closest('[data-remind]'))) { cur.remind = !cur.remind; b.setAttribute('aria-checked', String(cur.remind)); paintToolbar(); return; }
     if ((b = t.closest('[data-start-opt]')) && !b.closest('[data-layer]')) {
       var oid = b.getAttribute('data-start-opt');
       if (cur.kind === 'start') {
@@ -4291,7 +4320,7 @@
   document.addEventListener('input', function (e) {
     var t = e.target;
     if (t.id === 'ql-q') { st.q = t.value.trim(); paintQueue(); return; }
-    if (t.id === 'chg-msg' && cur && cur.kind === 'change') { cur.msg.text = t.value; cur.msg.edited = true; redraftMsg(); return; }
+    if (t.id === 'chg-msg' && cur && cur.kind === 'change') { var first = !cur.msg.edited; cur.msg.text = t.value; cur.msg.edited = true; redraftMsg(); if (first) paintToolbar(); /* Simple goes off: the change now holds the coach's own words */ return; }
     if (t.id === 'wk-note' && cur) { cur.note = t.value; return; }
     if (t.matches && t.matches('[data-max-in]')) { var note = $('#mx-note'), v = parseFloat(String(t.value).replace(',', '.')); if (note) note.textContent = maxNote(t.getAttribute('data-max-in'), isNum(v) ? v : null); t.classList.remove('is-error'); }
   });
