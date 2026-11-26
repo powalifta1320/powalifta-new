@@ -216,7 +216,7 @@
   .er-c span { color: var(--ink-2); font: 500 13px/1.2 var(--font); white-space: nowrap; }
   .er-c[data-k='h'] b { color: var(--warn); } .er-c[data-k='a'] b { color: var(--up-ink); }
 </style>
-<script>/* the dark theme is glass (kit/glassdash): set before the first paint */if(document.documentElement.getAttribute('data-theme')!=='light')document.documentElement.classList.add('gd');</script>
+<script>/* the dark theme is glass (kit/glassdash), its colour softer if the coach chose it in Settings: set before the first paint */(function(){var h=document.documentElement;if(h.getAttribute('data-theme')!=='light')h.classList.add('gd');try{if(localStorage.getItem('powa-r6-glass-color')==='low')h.classList.add('gd-low');}catch(e){}})();</script>
 <link rel="stylesheet" href="../kit/glassdash/glassdash.css">
 </head>
 <body data-place="overview">

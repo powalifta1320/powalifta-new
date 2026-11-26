@@ -159,7 +159,7 @@
 
   @media (prefers-reduced-motion: reduce) { .sw, .sw i { transition: background-color 120ms linear; } .sw:active { transform: none; } }
 </style>
-<script>/* the dark theme is glass (kit/glassdash): set before the first paint */if(document.documentElement.getAttribute('data-theme')!=='light')document.documentElement.classList.add('gd');</script>
+<script>/* the dark theme is glass (kit/glassdash), its colour softer if the coach chose it in Settings: set before the first paint */(function(){var h=document.documentElement;if(h.getAttribute('data-theme')!=='light')h.classList.add('gd');try{if(localStorage.getItem('powa-r6-glass-color')==='low')h.classList.add('gd-low');}catch(e){}})();</script>
 <link rel="stylesheet" href="../kit/glassdash/glassdash.css">
 </head>
 <body data-place="settings">
@@ -621,8 +621,16 @@
     return '<div class="card sx-c">' + r + '</div>';
   };
   var themeNow = function () { var t = null; try { t = localStorage.getItem('powa-r6-theme'); } catch (e) { t = null; } return t === 'auto' || t === 'light' || t === 'dark' ? t : DESK.theme.get(); };
+  /* the colour behind the glass (kit/glassdash, the dark look): full, or toned down (the owner, 26 Nov: "a color
+     toggle in settings which just lowers it"). This device only, like the look itself; every desk page's head reads it. */
+  var softNow = function () { try { return localStorage.getItem('powa-r6-glass-color') === 'low'; } catch (e) { return false; } };
+  function setSoft(on) {
+    try { if (on) localStorage.setItem('powa-r6-glass-color', 'low'); else localStorage.removeItem('powa-r6-glass-color'); } catch (e) { /* private window: this visit only */ }
+    document.documentElement.classList.toggle('gd-low', on);
+  }
   BODY.appearance = function () {
-    return '<div class="card sx-c">' + row('<span id="ap-l">Look</span>', 'Automatic follows your Mac.', seg('theme', [['dark', 'Dark'], ['light', 'Light'], ['auto', 'Automatic']], themeNow(), 'Look')) + '</div>';
+    return '<div class="card sx-c">' + row('<span id="ap-l">Look</span>', 'Automatic follows your Mac.', seg('theme', [['dark', 'Dark'], ['light', 'Light'], ['auto', 'Automatic']], themeNow(), 'Look')) +
+      row('<span id="ap-c">Softer colour</span>', 'Tones down the colour behind the dark look.', sw('glass-soft', softNow(), null, { by: 'ap-c' }), { cls: 'swr' }) + '</div>';
   };
   var mq = window.matchMedia ? matchMedia('(prefers-color-scheme: light)') : null;
   function setTheme(t) {
@@ -679,6 +687,7 @@
       var k = b.getAttribute('data-k'), on = b.getAttribute('aria-checked') !== 'true', s = settings(); if (!s) return;
       b.setAttribute('aria-checked', String(on));
       if (k === 'help-terms') { DESK.terms.set(on); DESK.toast(on ? 'Explain coaching words: on.' : 'Explain coaching words: off.'); return; }
+      if (k === 'glass-soft') { setSoft(on); DESK.toast(on ? 'Softer colour: on.' : 'Softer colour: off.'); return; }
       if (k === 'rb-on') { save({ remindBefore: { on: on } }); return; }
       if (k === 'ra-on') save({ reminders: { auto: { on: on } } });
       else if (k === 'ra-skip') save({ reminders: { auto: { skipMeetDay: on } } });
