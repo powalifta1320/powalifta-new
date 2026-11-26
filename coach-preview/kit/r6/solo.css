@@ -1,0 +1,28 @@
+/* kit/r6/solo.css: the desk's Programs editor as the self-coached lifter's own (programs.html?solo=1, inside
+   athlete.html's Program pane; kit/r6/solo.js). Every rule is under html.solo, which only that address sets: the coach
+   desk is untouched. What it does: the coach's rail and its room go (the lifter's own sidebar is outside the frame);
+   the page has no background of its own, so the lifter's surface shows through (dark glass or light, the app's
+   theme); the coach's things the solo page never draws stay hidden even if a path reaches them. */
+html.solo { --sidebar-w: 0px; --rail-w: 0px; --gutter: 20px; background: transparent !important; }
+html.solo.side-pinned { --sidebar-w: 0px; }
+html.solo body { background: transparent !important; }
+html.solo .side, html.solo .side-scrim, html.solo [data-crop="sidebar"] { display: none !important; }
+/* the glass room and its window are the lifter page's own: here they would be a second window inside the first */
+html.solo.gd, html.solo.gd body { background: transparent !important; }
+html.solo.gd body::before, html.solo.gd body::after, html.solo.gd .tb::before { display: none !important; }
+html.solo.gd .tb::after { left: 0; right: 0; border-radius: 16px 16px 0 0; }
+html.solo .page { padding-left: var(--gutter); padding-right: var(--gutter); }
+html.solo .tb { left: 0; }
+/* the light theme: the app's light surface shows; the band and cards keep the desk's light paint */
+html.solo[data-theme='light'] .tb { background: transparent; }
+/* what is the coach's alone: never shown to a lifter */
+html.solo [data-preview], html.solo .pg-step, html.solo [data-add-lifter], html.solo .hd-words, html.solo #cmp, html.solo .hd-limits,
+html.solo [data-lib-filter], html.solo .lib-f, html.solo [data-card-assign], html.solo .desk-tour-pill, html.solo [data-tour-pill],
+html.solo .side-ask, html.solo [data-ask-ai] { display: none !important; }
+/* the library with nothing in its band (no crimson: the block is under way): the band goes and the page starts at the top */
+html.solo body.pg-queue:not(:has(.tb [data-primary])) .tb { display: none; }
+html.solo body.pg-queue:not(:has(.tb [data-primary])) .page { padding-top: var(--sp-5); }
+/* the desk's own light from above (its place's hue) is the coach desk's; the lifter's page has its own */
+html.solo body::before { display: none !important; }
+/* a card's one move sits level with its "…" */
+html.solo .pc-f .pc-act { min-height: 36px; }

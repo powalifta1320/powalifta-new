@@ -1,0 +1,14 @@
+/* lifter-program.css: the self-coached lifter's Program on a laptop is the coach desk's editor in solo mode
+   (lifter-program.js puts coach-preview/desk/programs.html?solo=1 in #pane-program). Only the frame's place is here: the
+   editor draws itself (coach-preview/kit/r6/solo.css). One window, no frame inside a frame: the pane gives the editor
+   its whole width and the height left under the top bar, the page itself does not scroll while it shows (the editor's
+   own panes do), and the frame has no border, no background and no corner of its own: the app's surface shows through.
+   Never on a phone or in the app (lifter-program.js never mounts there; these rules are laptop-only besides). */
+@media (min-width: 901px) {
+  html:not(.native) #pane-program.lp-on > .dash-header { display: none; }
+  html:not(.native) #pane-program.lp-on { padding: 0; margin: 0; }
+  html:not(.native) #pane-program .lp-frame { display: block; width: 100%; height: 640px; border: 0; margin: 0; padding: 0; background: transparent; border-radius: 0; }
+  /* the page under the editor stays put: the editor scrolls inside itself */
+  html:not(.native) .dash-main:has(#pane-program.lp-on:not(.hidden)) { overflow: hidden; padding-top: 12px; padding-bottom: 0; padding-right: 12px; padding-left: 12px; }
+  html:not(.native) .dash-main:has(#pane-program.lp-on:not(.hidden)) > * { max-width: none; }
+}

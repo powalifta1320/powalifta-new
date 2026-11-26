@@ -118,6 +118,7 @@
 <script src="coach-app.js"></script>
 <script src="coach-program.js"></script>
 <script src="desk-program.js"></script>
+<script src="lifter-program.js"></script><!-- PROGRAM BUILDER: the solo lifter's editor, its pure round trip (tests "lifter program") -->
 <script src="notify.js"></script>
 <script src="coach-you.js"></script>
 <script src="coach-widget.js"></script>
@@ -11506,6 +11507,148 @@ test('deskSettingsLines: each section\'s state in one line, its purpose when the
    The Feedback box (feedback.js, 3 Nov 2026): a problem's technical details, what never rides along, the
    words as sent, the draft kept on this device, the rows in You.
    =========================================================== */
+group('lifter program (lifter-program.js)');
+(() => {
+  const LP = window.LifterProgram;
+  if (!LP || typeof LP.applyBlock !== 'function') { skip('lifter-program.js', 'not loaded'); return; }
+  // The self-coached lifter's Program on a laptop is the coach desk's editor; what it writes back goes through these pure
+  // parts. The block JSON here is built the way the desk's engine reads a program (rows keyed day|title|n|line, a cell
+  // per week); test/lifter-program.test.mjs runs the same round trip against the engine itself (coach-preview block.js).
+  let n = 0; const id = () => 'i' + (++n);
+  const S = (o) => Object.assign({ id: id(), weight: 100, reps: 5, rpe: 8, completed: false }, o);
+  const Lg = (o) => S(Object.assign({ completed: true, completedAt: '2026-11-02', actualRpe: 8.5 }, o));
+  const prog = () => ({ id: 'p1', athleteId: 'me', coachId: 'me', name: 'Block', weeks: [
+    { id: 'w1', number: 1, days: [
+      { id: 'd1', name: 'Squat Day', exercises: [{ id: 'e1', lift: 'squat', variant: 'Competition', exerciseName: '', note: '', sets: [Lg({ weight: 180, reps: 3, cx: { Belt: 'on' } }), Lg({ weight: 160, skipped: true, completed: false, completedAt: null })] }] },
+      { id: 'd2', name: 'Rest', exercises: [] }] },
+    { id: 'w2', number: 2, days: [
+      { id: 'd3', name: 'Squat Day', scheduledDate: '2026-12-01', exercises: [
+        { id: 'e2', lift: 'squat', variant: 'Competition', exerciseName: '', note: 'Tight.', sets: [S({ weight: 60, extra: true }), S({ weight: 182.5, reps: 3, cx: { Belt: 'on' } }), S({ weight: 162.5, tempo: '3-1-0', acc: 'chains', accKg: 20 }), S({ weight: 162.5, tempo: '3-1-0', acc: 'chains', accKg: 20 })] },
+        { id: 'e3', lift: 'legs', variant: '', exerciseName: 'Leg Press', note: '', sets: [S({ weight: 120, reps: 10 })] }] },
+      { id: 'd4', name: 'Rest', exercises: [] }] }] });
+  /* the engine's reading of the kit's program: one row per line, a cell per week */
+  const blockOf = (kp) => {
+    const rows = {}, order = [], days = [];
+    kp.weeks.forEach((w, c) => w.days.forEach((d) => {
+      if (days.indexOf(d.name) < 0) days.push(d.name);
+      const seen = {};
+      d.exercises.forEach((e) => {
+        const occ = seen[e.title] = (seen[e.title] || 0) + 1, gs = []; let last = null;
+        e.sets.forEach((s) => { if (s.extra) return; const q = [s.w, s.r, s.rpe, s.pct].join('|'); if (last && last.q === q) last.n++; else { last = { q, n: 1, s }; gs.push(last); } });
+        gs.forEach((g, li) => {
+          const key = d.name + '|' + e.title + '|' + occ + '|' + li;
+          if (!rows[key]) { rows[key] = { key, day: d.name, line: li, name: e.title, title: e.title, lift: e.lift === 'squat' ? 'squat' : null, cat: e.lift, variant: e.lift === 'squat' ? e.variant : '', note: e.note, tempo: g.s.tempo || '', pause: 0, cells: {} }; order.push(key); }
+          const cell = { n: g.n, r: g.s.r }; if (g.s.rpe != null) cell.rpe = g.s.rpe; if (g.s.w) cell.w = g.s.w;
+          rows[key].cells['w' + (c + 1)] = cell;
+        });
+      });
+    }));
+    return { v: 2, name: kp.name, days: days.map((nm) => ({ name: nm, wd: null })), weeks: kp.weeks.map((w, c) => ({ uid: 'w' + (c + 1), n: c + 1 })), rows: order.map((k) => rows[k]) };
+  };
+  const setup = () => { const p = prog(), te = LP.toEditor(p, { today: '2026-11-26' }), base = blockOf(te.program); return { p, te, base, next: JSON.parse(JSON.stringify(base)) }; };
+  const go = (x, o) => LP.applyBlock(x.p, x.te.map, x.base, x.next, Object.assign({ id: () => 'new' + (++n) }, o || {}));
+  const logged = (p) => { const o = []; p.weeks.forEach((w) => w.days.forEach((d) => d.exercises.forEach((e) => e.sets.forEach((s) => { if (LP.isLogged(s)) o.push(s); })))); return o; };
+  test('the app program in the editor\'s shape: names, logged sets, the week under way, rest days left out', () => {
+    const p = prog(), te = LP.toEditor(p, { today: '2026-11-26' });
+    eq(te.map.weekIdx, 1, 'week 2 is the week under way');
+    eq(te.program.weeks.length, 2); eq(te.program.weeks[0].days.length, 1, 'the Rest day is left out');
+    eq(JSON.stringify(te.map.weeks[0].names), '["Squat Day",null]');
+    const s0 = te.program.weeks[0].days[0].exercises[0].sets;
+    eq(te.program.weeks[0].days[0].exercises[0].title, 'Squat');
+    eq(s0[0].done + '/' + s0[0].felt + '/' + s0[0].on, '1/8.5/2026-11-02'); eq(s0[1].skipped, true, 'a skipped set reads skipped');
+    eq(te.program.weeks[0].days[0].done, 2, 'a day with a logged or skipped set is under way');
+    eq(te.program.weeks[1].days[0].exercises[0].sets[0].extra, true, 'the warm-up is marked, the engine leaves it out of the lines');
+    eq(te.program.weeks[1].days[0].date, null, 'no date is made up for a session');
+    eq(te.program.startsOn, '2026-11-19', 'the week under way starts today, the week before it 7 days earlier');
+    eq(LP.weekIdx({ weeks: [] }), 0); eq(LP.groupsOf(p.weeks[1].days[0].exercises[0]).map((g) => g.join('')).join(','), '1,23', 'the warm-up in no line; two sets written the same are one');
+  });
+  test('an untouched block gives back the same program object', () => {
+    const x = setup(), before = JSON.stringify(x.p), r = go(x);
+    assert(r.program === x.p && r.changed === false, 'same object');
+    eq(JSON.stringify(x.p), before, 'nothing changed in place');
+  });
+  test('a load on a week to come: only that set; its id, Belt and RPE stay; the rest are the same objects', () => {
+    const x = setup(); x.next.rows[0].cells.w2.w = 185; const r = go(x);
+    const e = r.program.weeks[1].days[0].exercises[0];
+    eq(e.sets.map((s) => s.weight).join(','), '60,185,162.5,162.5');
+    eq(e.sets[1].id, x.p.weeks[1].days[0].exercises[0].sets[1].id); eq(JSON.stringify(e.sets[1].cx), '{"Belt":"on"}');
+    assert(e.sets[0] === x.p.weeks[1].days[0].exercises[0].sets[0] && e.sets[2] === x.p.weeks[1].days[0].exercises[0].sets[2], 'the warm-up and back-offs are the same objects');
+    assert(r.program.weeks[0] === x.p.weeks[0], 'the lifted week is the same object');
+    eq(r.program.weeks[1].days[0].scheduledDate, '2026-12-01', 'the day keeps its pin');
+    assert(r.program.weeks[1].days[0].exercises[1] === x.p.weeks[1].days[0].exercises[1], 'the leg press is the same object');
+  });
+  test('reps, RPE and a set more on the back-offs: their tempo and chains kept, the new set not logged', () => {
+    const x = setup(); Object.assign(x.next.rows[1].cells.w2, { n: 3, r: 6, rpe: 8.5 }); const r = go(x);
+    const ss = r.program.weeks[1].days[0].exercises[0].sets;
+    eq(ss.length, 5); eq(ss.slice(2).map((s) => s.reps + '@' + s.rpe).join(' '), '6@8.5 6@8.5 6@8.5');
+    assert(ss.slice(2).every((s) => s.tempo === '3-1-0' && s.acc === 'chains' && s.accKg === 20 && s.completed === false), 'set fields kept');
+    assert(ss[4].id && ss[4].id !== ss[3].id, 'the new set has an id of its own');
+  });
+  test('a line written by RPE with no kilos takes the engine\'s load when its load moves', () => {
+    const x = setup(); delete x.next.rows[0].cells.w2.w; x.next.rows[0].cells.w2.rpe = 9;
+    const r = go(x, { loads0: {}, loads: { 'Squat Day|Squat|1|0|w2': 187.5 } });
+    eq(r.program.weeks[1].days[0].exercises[0].sets[1].weight, 187.5);
+  });
+  test('a changed exercise, an added line, a renamed day', () => {
+    const x = setup(); Object.assign(x.next.rows[2], { name: 'Hack squat', title: 'Hack squat', cat: 'legs' });
+    x.next.rows.push({ key: 'Squat Day|Lunge|n9|0', day: 'Squat Day', line: 0, name: 'Walking lunge', title: 'Walking lunge', lift: null, cat: 'legs', variant: '', note: '', cells: { w2: { n: 3, r: 10, rpe: 8 } } });
+    x.next.days[0].name = 'Legs Day'; x.next.rows.forEach((r) => { r.day = 'Legs Day'; });
+    const r = go(x), d = r.program.weeks[1].days[0];
+    eq(d.name, 'Legs Day'); eq(d.id, 'd3'); eq(d.scheduledDate, '2026-12-01');
+    eq(d.exercises.map((e) => e.exerciseName || e.variant).join(','), 'Competition,Hack squat,Walking lunge');
+    eq(d.exercises[1].id, 'e3', 'the changed exercise keeps its id'); eq(d.exercises[1].sets[0].weight, 120, 'and its sets');
+    eq(d.exercises[2].sets.length, 3); assert(d.exercises[2].sets.every((s) => s.reps === 10 && s.rpe === 8 && !s.completed), 'the new line');
+    eq(r.program.weeks[0].days[0].name, 'Squat Day', 'the lifted week keeps its name');
+  });
+  test('a week added and a week removed; a lifted week can never go', () => {
+    let x = setup(); x.next.weeks.push({ uid: 'w9', n: 3 }); x.next.rows.forEach((r) => { if (r.cells.w2) r.cells.w9 = JSON.parse(JSON.stringify(r.cells.w2)); });
+    let r = go(x);
+    eq(r.program.weeks.length, 3); eq(r.program.weeks[2].number, 3);
+    eq(r.program.weeks[2].days.map((d) => d.name).join(','), 'Squat Day,Rest', 'its days, and the rest day of the week before');
+    assert(r.program.weeks[2].days[0].exercises[0].sets.every((s) => !s.completed && s.id), 'new sets, not logged');
+    x = setup(); x.next.weeks.pop(); x.next.rows.forEach((row) => { delete row.cells.w2; });
+    r = go(x); eq(r.program.weeks.length, 1); assert(r.program.weeks[0] === x.p.weeks[0], 'week 1 the same object');
+    x = setup(); x.next.weeks.shift(); x.next.rows.forEach((row) => { delete row.cells.w1; });
+    r = go(x); assert(!!r.error && r.program === x.p, 'refused: ' + r.error);
+  });
+  test('logged sets are never touched, whatever the block says about them', () => {
+    const x = setup(), L0 = logged(x.p);
+    x.next.rows[0].cells.w1 = { n: 5, r: 9, rpe: 6, w: 40 };
+    x.next.rows[0].cells.w2.w = 190; x.next.weeks.push({ uid: 'w9', n: 3 });
+    const r = go(x), L1 = logged(r.program);
+    eq(L1.length, L0.length); assert(L1.every((s, i) => s === L0[i]), 'the same set objects, in order');
+    assert(r.program.weeks[0] === x.p.weeks[0], 'the lifted week as it was');
+  });
+  test('a pin Train added is carried onto the program the editor writes against; anything else is not', () => {
+    const p0 = prog(), w = p0, now = JSON.parse(JSON.stringify(p0)); now.weeks[1].days[0].scheduledDate = '2026-12-03';
+    const c = LP.carryPins(p0, w, now);
+    eq(c.weeks[1].days[0].scheduledDate, '2026-12-03'); assert(c.weeks[0] === p0.weeks[0] && c.weeks[1].days[0].exercises === p0.weeks[1].days[0].exercises, 'everything else shared');
+    now.weeks[1].days[0].exercises[0].sets[1].completed = true;
+    eq(LP.carryPins(p0, w, now), null, 'a set logged since: the editor opens again');
+  });
+  test('a new block as a program: the same id, every line\'s sets, loads from the engine', () => {
+    const blk = { name: 'Next', days: [{ name: 'Day 1' }], weeks: [{ uid: 'a' }, { uid: 'b' }], rows: [
+      { key: 'Day 1|Squat|n1|0', day: 'Day 1', line: 0, name: 'Squat', lift: 'squat', variant: 'Competition', note: '', cells: { a: { n: 2, r: 5, rpe: 8 }, b: { n: 2, r: 4, rpe: 8.5 } } },
+      { key: 'Day 1|Row|n2|0', day: 'Day 1', line: 0, name: 'Dumbbell row', lift: null, cat: 'pull', variant: '', note: '', cells: { a: { n: 3, r: 10 } } }] };
+    const p = LP.blockToProgram(blk, { loads: { 'Day 1|Squat|n1|0|a': 150 }, id: () => 'x' + (++n), name: 'Next', athleteId: 'me', programId: 'p1' });
+    eq(p.id, 'p1'); eq(p.coachId, 'me'); eq(p.weeks.length, 2);
+    eq(p.weeks[0].days[0].exercises.map((e) => e.lift + ':' + (e.exerciseName || e.variant)).join(','), 'squat:Competition,pull:Dumbbell row');
+    eq(p.weeks[0].days[0].exercises[0].sets.map((s) => s.weight + 'x' + s.reps).join(' '), '150x5 150x5');
+    eq(p.weeks[1].days[0].exercises.length, 1, 'week 2 has only the squat');
+  });
+  test('an lb lifter: the editor works in pounds, the app keeps kilos, an untouched set keeps its kilos exactly', () => {
+    const p = prog(); p.weeks[1].days[0].exercises[0].sets[1].weight = 102.0582; p.weeks[1].days[0].exercises[0].sets[2].weight = 92.9864; p.weeks[1].days[0].exercises[0].sets[3].weight = 92.9864;
+    const te = LP.toEditor(p, { today: '2026-11-26', lb: true });
+    const ks = te.program.weeks[1].days[0].exercises[0].sets;
+    eq(ks[1].w, 225, '102.0582 kg reads 225 lb'); eq(ks[2].w, 205);
+    const base = blockOf(te.program), next = JSON.parse(JSON.stringify(base));
+    next.rows[0].cells.w2.w = 230;
+    const r = LP.applyBlock(p, te.map, base, next, { lb: true, id: () => 'n' + (++n) }), ss = r.program.weeks[1].days[0].exercises[0].sets;
+    eq(ss[1].weight, 104.3262, '230 lb written as kilos'); eq(ss[2].weight, 92.9864, 'the back-off untouched, its kilos exact');
+    assert(LP.applyBlock(p, te.map, base, JSON.parse(JSON.stringify(base)), { lb: true }).program === p, 'untouched in pounds: the same object');
+  });
+})();
+
 group('feedback (feedback.js)');
 (() => {
   const PF = typeof PowaFeedback !== 'undefined' ? PowaFeedback : (window.PowaFeedback || null);

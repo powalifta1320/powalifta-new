@@ -3162,6 +3162,16 @@ const DB = {
     const { error } = await sb.from('program_templates').delete().in('id', [id]);
     if (error) throw error;
   },
+  // A template renamed or rewritten in place (the self-coached lifter's own, lifter-program.js): name and payload only.
+  // RLS tpl_coach_all lets the owner (coach_id = auth.uid()) write their own; nobody else's.
+  async updateTemplate(id, patch) {
+    const row = {};
+    if (patch && typeof patch.name === 'string') row.name = patch.name;
+    if (patch && patch.payload !== undefined) row.payload = patch.payload;
+    if (!id || !Object.keys(row).length) return;
+    const { error } = await sb.from('program_templates').update(row).in('id', [id]);
+    if (error) throw error;
+  },
 
   // ---------- WORKOUT LOGS ----------
   // Every set, paged (_readAll): the lifter's own oldest first and as logged within a day, the

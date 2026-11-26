@@ -212,6 +212,20 @@ for (const [w, h, suf] of [[1440, 900, ''], [390, 844, '-m']]) {
   }
 }
 screens.push({ name: 'w-index-l', page: 'index.html', mode: 'web', theme: 'light' }, { name: 'w-index-m-l', page: 'index.html', mode: 'web', w: 390, h: 844, theme: 'light' });
+// PROGRAM BUILDER on a laptop (lifter-program.js): the self-coached lifter's Program is the coach desk's editor in solo mode,
+// in a frame (coach-preview/desk/programs.html?solo=1). frame: true scans the editor's own page too. SOLO_FR waits for the
+// editor, then runs its moves inside it: the three views, the library, a new block's start, and a lifter with no program.
+const SOLO_FR = (js) => "(async () => { let f = null; for (let i = 0; i < 60; i++) { f = document.querySelector('.lp-frame'); if (f && f.contentWindow && f.contentWindow.SOLO && f.contentDocument.querySelector('#pd')) break; await new Promise(r => setTimeout(r, 100)); } const w = f.contentWindow, d = w.document; " + js + "; await new Promise(r => setTimeout(r, 700)); return true; })()";
+for (const [theme, suf] of [['dark', ''], ['light', '-l']]) {
+  for (const [w, h, sz] of [[1440, 900, ''], [1280, 720, '-1280']]) screens.push(
+    { name: 'a-program-web-solo' + sz + suf, page: SO + '&tab=program', mode: 'web', w, h, theme, frame: true },
+    { name: 'a-program-web-solo-week' + sz + suf, page: SO + '&tab=program', mode: 'web', w, h, theme, frame: true, eval: SOLO_FR("d.querySelector('.tb [data-look=\"week\"]').click()") },
+    { name: 'a-program-web-solo-block' + sz + suf, page: SO + '&tab=program', mode: 'web', w, h, theme, frame: true, eval: SOLO_FR("d.querySelector('.tb [data-look=\"block\"]').click()") });
+  screens.push(
+    { name: 'a-program-web-solo-lib' + suf, page: SO + '&tab=program', mode: 'web', w: 1440, h: 900, theme, frame: true, eval: SOLO_FR("d.querySelector('[data-to-queue]').click()") },
+    { name: 'a-program-web-solo-start' + suf, page: SO + '&tab=program', mode: 'web', w: 1440, h: 900, theme, frame: true, eval: SOLO_FR("d.querySelector('[data-to-queue]').click(); await new Promise(r => setTimeout(r, 400)); d.querySelector('[data-solo-use]').click()") },
+    { name: 'a-program-web-solo-noprog' + suf, page: SO + '&tab=program', mode: 'web', w: 1440, h: 900, theme, frame: true, eval: "Store.update((s) => { s.programs = []; }); document.getElementById('tab-today').click(); document.getElementById('tab-program').click(); " + SOLO_FR('void 0') });
+}
 // Every other public page (29 Oct: pages.css carries the homepage's look to them), and every public page in the light
 // theme too (the website follows the visitor's setting, the homepage too since 3 Nov: the screens set it, below). Offline, the shop is empty, a coach's profile says the coach
 // isn't found, email preferences say the link isn't valid; the leaderboard's demo board is local.
@@ -426,7 +440,7 @@ const EXE = process.env.CHROME_PATH || undefined;
 const browser = await chromium.launch(Object.assign(EXE ? { executablePath: EXE } : {},
   { args: ['--host-resolver-rules=' + LIVE_HOSTS.map((h) => `MAP ${h} ~NOTFOUND, MAP *.${h} ~NOTFOUND`).join(', ')] }));
 
-function scan([isApp, t44]) {
+function scan([isApp, t44, under]) {   // under: the colour behind a page scanned in a frame (its own page is transparent)
   const vw = innerWidth;
   const out = [];
   const lab = (e) => {
@@ -586,7 +600,7 @@ function scan([isApp, t44]) {
   // 7. text that can't be read: contrast against the first solid background behind it
   const parse = (c) => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(/[ ,\/]+/).filter(Boolean).map(Number); return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }; };
   const lum = (c) => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); };
-  const bgOf = (e) => { for (let n = e; n && n.nodeType === 1; n = n.parentElement) { const s = cs(n); if (s.backgroundImage && s.backgroundImage !== 'none') return null; const c = parse(s.backgroundColor); if (c && c.a > 0.9) return c; } return parse(getComputedStyle(document.body).backgroundColor); };
+  const bgOf = (e) => { for (let n = e; n && n.nodeType === 1; n = n.parentElement) { const s = cs(n); if (s.backgroundImage && s.backgroundImage !== 'none') return null; const c = parse(s.backgroundColor); if (c && c.a > 0.9) return c; } const bb = parse(getComputedStyle(document.body).backgroundColor); return bb && bb.a > 0.9 ? bb : (under || bb); };
   const lowSeen = new Set();
   texts.forEach(t => {
     if (lowSeen.has(t.p)) return; lowSeen.add(t.p);
@@ -645,6 +659,8 @@ for (const s of run) {
     await page.evaluate(async () => { const m = document.querySelector('.dash-main'); const sc = document.scrollingElement; for (let y = 0; y < 9000; y += 500) { sc.scrollTo(0, y); if (m) m.scrollTo(0, y); await new Promise(r => setTimeout(r, 40)); } sc.scrollTo(0, 0); if (m) m.scrollTo(0, 0); });
     await page.waitForTimeout(500);
     const issues = await page.evaluate(scan, [app, s.t44 || null]);
+    /* a screen with the lifter's program editor in a frame: the frame's own page is scanned too (its findings marked) */
+    if (s.frame) { const fr = page.frames().find((f) => /programs\.html/.test(f.url())); if (!fr) issues.push({ type: 'failed', detail: 'the program editor frame is not there' }); else { const under = await page.evaluate(() => { const pr = (v) => { const m = /rgba?\(([^)]+)\)/.exec(v || ''); if (!m) return null; const a = m[1].split(',').map(Number); return { r: a[0], g: a[1], b: a[2], a: a.length > 3 ? a[3] : 1 }; }; for (let n = document.querySelector('.lp-frame'); n && n.nodeType === 1; n = n.parentElement) { const c = pr(getComputedStyle(n).backgroundColor); if (c && c.a > 0.9) return c; } return pr(getComputedStyle(document.body).backgroundColor); }); (await fr.evaluate(scan, [false, null, under])).forEach((x) => { x.el = 'frame: ' + x.el; issues.push(x); }); } }
     if (errs.length) issues.push({ type: 'page-error', detail: errs.join(' | ').slice(0, 300) });
     all[s.name] = issues;
     total += issues.length;

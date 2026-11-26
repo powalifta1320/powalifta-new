@@ -59,6 +59,25 @@ window.POWA_SUPPORT_KB = [
   "app": "Yes. Sign up as a lifter on your own (the coach code is optional) and log sets as you train; estimated maxes, goals and bodyweight tracking all work without a coach, and the fourth tab becomes Program builder so you can write your own program. To find a coach later, go to You → Find a coach, where you can type a code and tap Join or tap Request to join on any listed coach."
  },
  {
+  "id": "solo-program-builder-laptop",
+  "q": "How do I write my own program on a laptop? Can I save templates?",
+  "t": [
+   "build my own program",
+   "program builder",
+   "my own program",
+   "my own templates",
+   "save as template",
+   "simple and advanced",
+   "block sheet",
+   "week sheet",
+   "start a new block",
+   "edit my program on a computer",
+   "write my program"
+  ],
+  "a": "On a laptop (a wide window), Program builder is the full editor. Write your block in **Simple** (one day at a time, big fields) or in a spreadsheet: **Week sheet** for one week, **Block sheet** for every week side by side. Click an exercise's name to change it, type a line like squat 3x5 @8 to add one, and use a week's ⋯ to copy it, duplicate it, insert or add a week, or make it a deload. **Make week N from this** writes the next week from this one with the step you pick. Every change saves as you make it (⌘Z undoes it) and Train shows it straight away. Weeks you have lifted, and a day you have started, stay as you lifted them. Your block's ⋯ has **Save as a template**; **Library** (top left) shows your block, your templates and the starter programs, and **Start a block from this** on any of them starts your next block (your logged sets stay in your history and Progress). On a phone, and in a narrow window, Program builder is the phone builder.",
+  "app": "In the app, Program builder is the phone builder: tap a week, then an exercise to change its sets, reps, load and RPE, and ⋯ for weeks and days. On a laptop at powalifta.com, Program builder is the full editor: Simple or a spreadsheet (one week or the whole block), your own templates, a Library of starter programs, and Start your next block."
+ },
+ {
   "id": "join-coach-invite-code",
   "q": "How do I connect with my coach using an invite code?",
   "t": [
