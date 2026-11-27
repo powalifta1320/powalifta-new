@@ -564,9 +564,56 @@
     var p = S.prog; if (!p) return;
     try { var m = JSON.parse(json) || {}, kg = {}; Object.keys(m).forEach(function (k) { if (num(m[k])) kg[k] = toKg(m[k], !!S.lb); }); W.localStorage.setItem(maxesKey(p.id), JSON.stringify(kg)); } catch (e) { /* storage refused: the maxes stay for this visit */ }
   }
+  /* A template's write to the account (a real account only: the demo keeps templates for the visit).
+     Review, 27 Nov: a save that failed (offline, an expired session) was only written to the console, so the template
+     stayed on screen until a reload and was then gone with no word. Now the lifter is told, the write is kept
+     (S.tplPend: id -> 'save' | 'delete') and tried again when the connection is back, on the next template change and
+     when the builder next opens; when it lands they are told that too. S.tplNew holds the templates made in this visit
+     whose first save has not landed: those are inserted, the rest updated. One template's writes run one after another
+     (S.tplQ), so a change never overtakes the insert it depends on. A write reads the template as it is in the Store
+     when it runs, so a retry always sends the latest. */
+  function tplLive() { return !W._demoMode && !!W.DB && typeof W.DB.addTemplate === 'function'; }
+  function tplSay(msg) { try { if (typeof W.toast === 'function') W.toast(msg, 6000); else if (typeof toast === 'function') toast(msg, 6000); } catch (e) { /* no toast on this page */ } }   // eslint-disable-line no-undef
+  function tplWrite(id, kind) {
+    if (!tplLive() || !id) return null;
+    S.tplQ = S.tplQ || {}; S.tplPend = S.tplPend || {}; S.tplNew = S.tplNew || {}; S.tplWait = S.tplWait || {};
+    /* the same write is already waiting its turn: it reads the template when it runs, so it will send this change too */
+    if (S.tplWait[id] === kind) return S.tplQ[id];
+    S.tplWait[id] = kind;
+    var run = function () {
+      if (S.tplWait[id] === kind) delete S.tplWait[id];
+      var t = ((store().programTemplates) || []).filter(function (y) { return y && y.id === id; })[0] || null;
+      var job = null, added = false;
+      if (kind === 'delete') { if (!S.tplNew[id]) job = W.DB.deleteTemplate(id); }                       /* never reached the account: nothing to remove there */
+      else if (t && S.tplNew[id]) { job = W.DB.addTemplate(t); added = true; }
+      else if (t && typeof W.DB.updateTemplate === 'function') job = W.DB.updateTemplate(id, { name: t.name, payload: t.payload });
+      /* (a save whose template has gone since: nothing to send, its delete follows in the queue) */
+      var sent = job != null;
+      return Promise.resolve(job).then(function () {
+        var was = !!S.tplPend[id];
+        if (added || kind === 'delete') delete S.tplNew[id];
+        if (kind === 'delete' || S.tplPend[id] === kind) delete S.tplPend[id];
+        /* the lifter was told it failed: told when it lands (only when something was really sent) */
+        if (was && sent && !Object.keys(S.tplPend).length) { S.tplToldAt = 0; tplSay(kind === 'delete' ? 'Template removed from your account.' : 'Template saved to your account.'); }
+      }, function (e) {
+        try { console.error('template ' + kind, e); } catch (e2) { /* none */ }
+        S.tplPend[id] = kind;
+        /* said once for a burst (several templates fail together when the connection drops) */
+        var now = Date.now();
+        if (!S.tplToldAt || now - S.tplToldAt > 30000) {
+          S.tplToldAt = now;
+          tplSay(kind === 'delete' ? 'Could not remove the template from your account. Keep this page open: it will try again when you are back online.' : 'Could not save the template to your account. Keep this page open: it will try again when you are back online.');
+        }
+      });
+    };
+    S.tplQ[id] = (S.tplQ[id] || Promise.resolve()).then(run, run);
+    return S.tplQ[id];
+  }
+  function tplRetry() { var p = S.tplPend || {}; Object.keys(p).forEach(function (id) { tplWrite(id, p[id]); }); }
   /* the editor's templates (own ones: { kitId, name, block }) against the app's: added, renamed, changed, removed */
   function templates(json) {
     var u = curUser(); if (!u) return;
+    tplRetry();   /* writes that failed earlier go first; this call's own follow them in each template's queue */
     var list; try { list = JSON.parse(json) || []; } catch (e) { return; }
     var mine = myTemplates(u), byApp = {}; mine.forEach(function (t) { byApp[t.id] = t; });
     var seen = {};
@@ -576,20 +623,20 @@
         var nt = { id: newId(), coachId: u.id, name: x.name, createdAt: Date.now(), payload: { solo: 1, unit: unitNow(), block: x.block } };
         S.kit2app[x.kitId] = nt.id; seen[nt.id] = 1; S.given = S.given || {}; S.given[nt.id] = 1;   /* the editor's own: its to drop */
         W.Store.update(function (s) { s.programTemplates = s.programTemplates || []; s.programTemplates.push(nt); });
-        if (!W._demoMode && W.DB && typeof W.DB.addTemplate === 'function') W.DB.addTemplate(nt).catch(function (e) { try { console.error('template save', e); } catch (e2) { /* none */ } });
+        if (tplLive()) { S.tplNew = S.tplNew || {}; S.tplNew[nt.id] = 1; tplWrite(nt.id, 'save'); }
         return;
       }
       seen[t.id] = 1; S.kit2app[x.kitId] = t.id;
       var nameCh = t.name !== x.name, blockCh = JSON.stringify(t.payload.block) !== JSON.stringify(x.block);
       if (!nameCh && !blockCh) return;
       W.Store.update(function (s) { (s.programTemplates || []).forEach(function (y) { if (y.id === t.id) { y.name = x.name; y.payload = { solo: 1, unit: unitNow(), block: x.block }; } }); });
-      if (!W._demoMode && W.DB && typeof W.DB.updateTemplate === 'function') W.DB.updateTemplate(t.id, { name: x.name, payload: { solo: 1, unit: unitNow(), block: x.block } }).catch(function (e) { try { console.error('template update', e); } catch (e2) { /* none */ } });
+      tplWrite(t.id, 'save');
     });
     mine.forEach(function (t) {
       /* only a template the editor was given and no longer has is gone (one saved elsewhere since is not the editor's to drop) */
       if (seen[t.id] || !(S.given && S.given[t.id])) return;
       W.Store.update(function (s) { s.programTemplates = (s.programTemplates || []).filter(function (y) { return y.id !== t.id; }); });
-      if (!W._demoMode && W.DB && typeof W.DB.deleteTemplate === 'function') W.DB.deleteTemplate(t.id).catch(function (e) { try { console.error('template delete', e); } catch (e2) { /* none */ } });
+      tplWrite(t.id, 'delete');
     });
   }
 
@@ -608,6 +655,7 @@
   function mount() {
     var u = curUser(); if (!u || u.coachId || !hasApp() || !fits()) { if (S.frame) unmount(); return false; }
     var p = pane(), fp = doc().getElementById('fullProgram'); if (!p || !fp) return false;
+    tplRetry();   /* a template write that failed earlier is tried again each time the builder opens */
     var mp = myProgram(u), now = fingerprint(mp);
     /* only a pin changed since (Train opened a session on another day): carried onto the editor's program, frame kept */
     if (S.frame && S.frame.isConnected && S.mountedFor === u.id && now !== S.fp && S.prog && S.last) { var cp = null; try { cp = carryPins(S.prog, JSON.parse(S.last), mp); } catch (e) { cp = null; } if (cp) { S.prog = cp; S.last = now; S.fp = now; } }
@@ -669,6 +717,8 @@
     }, true);
     /* the theme switch: the editor follows (its own html data-theme) */
     W.addEventListener('storage', function (e) { if (e && e.key === 'powa-theme') pushTheme(); });
+    /* the connection is back: a template write that failed goes again */
+    W.addEventListener('online', function () { tplRetry(); });
   }
   function pushTheme() { var f = S.frame; if (!f || !f.contentWindow) return; f.style.colorScheme = themeNow(); try { if (f.contentWindow.SOLO && typeof f.contentWindow.SOLO.theme === 'function') f.contentWindow.SOLO.theme(themeNow()); } catch (e) { /* not ready */ } }
   if (typeof MutationObserver !== 'undefined' && doc() && doc().documentElement) {
