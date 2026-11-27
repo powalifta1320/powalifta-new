@@ -1,5 +1,5 @@
 // -> lifter-pr.png, lifter-pr-base.png, lifter-progress.png, lifter-progress-base.png, lifter-geo.json:
-//    site-img/home/lifter-pr-*, lifter-pr-base-*, lifter-progress-*, lifter-progress-base-* (mkimg.py lifter).
+//    site-img/home/lifter-pr2-*, lifter-pr2-base-*, lifter-prog2-*, lifter-prog2-base-*, lifter-line2 (mkimg.py lifter).
 // The homepage's chapter for lifters: Arjun's phone (the real lifter app in the iPhone app layout, dark (THEME=light for a light version), 393 x 852 at 3x)
 // carrying his own numbers, the ones Sam's desk shows (the coach demo's Arjun, demo-a1: squat 223, bench 150, deadlift
 // 278 before today, the 74 kg class). He logs his top set as Sam wrote it (182.5 kg x 5 at RPE 8): the PR moment (228 kg,
