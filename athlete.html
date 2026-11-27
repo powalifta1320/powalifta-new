@@ -868,7 +868,10 @@ function maybeStartAthleteTour() {
     {
       selector: '#tab-today',
       title: 'You\'re ready to lift.',
-      body: 'Two tips: tap any weight on a set to see the plate breakdown, and your weekly check-in pops up every Monday. Hit "Replay tour" in settings if you want this walkthrough again.',
+      // The tour's own button, by the name it has where the lifter is: "Take the tour" at the foot of the laptop's sidebar
+      // (lifter-side.js); a phone and the app keep their line as it was.
+      body: 'Two tips: tap any weight on a set to see the plate breakdown, and your weekly check-in pops up every Monday. '
+        + (window.LifterSide && LifterSide.isLaptop() ? 'Want this walkthrough again? Take the tour is at the foot of the sidebar.' : 'Hit "Replay tour" in settings if you want this walkthrough again.'),
       before: () => { const t = document.getElementById('tab-today'); if (t) t.click(); }
     }
   ]);

@@ -166,6 +166,13 @@ html.native #pane-settings { display: none !important; }
   html:not(.native):not(#_) body.powa-app .sidebar :is(.ls-goto-h, .sidebar-tab[data-parent]) { visibility: hidden; transition: visibility 0s linear var(--ls-fade-out), color .15s ease; }
   html:not(.native):not(#_) body.powa-app .sidebar.is-open :is(.ls-goto-h, .sidebar-tab[data-parent]),
   html.ls-pinned:not(.native):not(#_) body.powa-app .sidebar :is(.ls-goto-h, .sidebar-tab[data-parent]) { visibility: visible; transition-delay: 0s; }
+  /* ...and takes no room on the rail (the coordinator's check, 27 Nov): hidden, the six rows still kept their height, so
+     in a short window (a 768 px laptop with a bookmarks bar) the foot sat low and Settings was cut off the rail, with
+     230 px of empty rail above it. Folded they are 0 tall; open or pinned they have their height at once (no height is
+     animated: the foot is pinned to the bottom, so nothing above or below them moves when there is room). */
+  html:not(.ls-pinned):not(.native):not(#_) body.powa-app .sidebar:not(.is-open) :is(.ls-goto-h, .sidebar-tab[data-parent]) {
+    min-height: 0; height: 0; margin-top: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; overflow: hidden;
+  }
 
   /* ---------- 3. the foot: the tour, then Settings; alerts (a real account that can have them) under it ---------- */
   html:not(.native):not(#_) body.powa-app .sidebar .ls-foot { display: flex; flex-direction: column; margin-top: auto; padding-top: 16px; }
@@ -179,6 +186,16 @@ html.native #pane-settings { display: none !important; }
     html:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab, .ls-it) { min-height: 36px; }
     html:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab[data-parent] { min-height: 32px; }
     html:not(.native):not(#_) body.powa-app .sidebar .ls-goto-h { margin-top: 12px; }
+  }
+  /* a very short window (about 625 px: a 768 px laptop with a bookmarks bar): the open sidebar's rows tighten once more,
+     so Go to and the foot are all there without scrolling */
+  @media (max-height: 660px) {
+    html:not(.native):not(#_) body.powa-app .sidebar { padding-top: 10px; padding-bottom: 10px; }
+    html:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab, .ls-it) { min-height: 32px; }
+    html:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab[data-parent] { min-height: 28px; }
+    html:not(.native):not(#_) body.powa-app .sidebar .ls-goto-h { margin-top: 10px; }
+    html:not(.native):not(#_) body.powa-app .sidebar .ls-foot { padding-top: 8px; }
+    html:not(.native):not(#_) body.powa-app .sidebar .ls-top { margin-bottom: 4px; }
   }
 
   /* ---------- Settings, a place of its own here ---------- */

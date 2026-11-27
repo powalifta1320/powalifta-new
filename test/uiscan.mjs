@@ -68,6 +68,9 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'a-side-pinned' + suf, page: A, mode: 'web', w: 1440, h: 775, theme, eval: "LifterSide.pin(true); true" },
   { name: 'a-side-pinned-1024' + suf, page: A, mode: 'web', w: 1024, h: 700, theme, eval: "LifterSide.pin(true); true" },
   { name: 'a-side-sub' + suf, page: A, mode: 'web', w: 1280, h: 720, theme, eval: tab('career') },
+  // a short window (a 768 px laptop with a bookmarks bar): Settings stays whole on the rail, and the open sidebar fits
+  { name: 'a-side-short' + suf, page: A, mode: 'web', w: 1366, h: 625, theme, eval: "true" },
+  { name: 'a-side-short-open' + suf, page: SO, mode: 'web', w: 1366, h: 625, theme, eval: "LifterSide.open(); true" },
   { name: 'a-settings-web' + suf, page: A, mode: 'web', w: 1440, h: 775, theme, eval: tab('settings') },
   { name: 'a-settings-web-1024' + suf, page: SO, mode: 'web', w: 1024, h: 700, theme, eval: tab('settings') },
   { name: 'a-settings-web-pinned' + suf, page: A, mode: 'web', w: 1280, h: 720, theme, eval: "LifterSide.pin(true); " + tab('settings') },

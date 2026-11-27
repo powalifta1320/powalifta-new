@@ -110,13 +110,16 @@
     window.addEventListener('keydown', function (e) { if (e.key === 'Tab') byTab = true; }, true);
     window.addEventListener('pointerdown', function () { byTab = false; }, true);
     var keyFocusIn = function () { var a = document.activeElement; try { return !!(byTab && a && s.contains(a) && a.matches(':focus-visible')); } catch (x) { return false; } };
+    // a touch screen: a tap opened it (nothing hovers there), so only a tap outside, a picked row or Esc folds it
+    var touchHeld = false, swallow = 0;
     var set = function (on) {
       clearTimeout(T); T = 0;
       on = !!on && isLaptop();
+      if (!on) touchHeld = false;
       if (s.classList.contains('is-open') === on) return;
       s.classList.toggle('is-open', on);
     };
-    var settle = function () { if (!over && !keyFocusIn() && !holdTour) set(false); };
+    var settle = function () { if (!over && !keyFocusIn() && !holdTour && !touchHeld) set(false); };
     api.open = function () { quiet = false; set(true); };
     api.close = function () { set(false); };
     api.settle = settle;
@@ -148,18 +151,31 @@
       var t = e.target; try { if (t && t.matches(':focus-visible')) set(true); } catch (x) { /* no :focus-visible: the pointer decides */ }
     });
     s.addEventListener('focusout', function () { setTimeout(function () { if (!s.contains(document.activeElement)) { quiet = false; settle(); } }, 0); });
+    // The tap that opened it must not also press a row (the coordinator's check, 27 Nov): the Go to rows appear under the
+    // finger between touch-down and the click, so a tap on the rail's empty space opened the sidebar AND went to Full
+    // program, Bodyweight or Career. The click of that same tap is dropped here, before any row hears it.
     s.addEventListener('click', function (e) {
-      if (e.target.closest('#lsPin')) { setPinned(!html.classList.contains('ls-pinned')); return; }
+      if (swallow && Date.now() - swallow < 700) { swallow = 0; e.preventDefault(); e.stopPropagation(); }
+      else swallow = 0;
+    }, true);
+    s.addEventListener('click', function (e) {
+      if (e.target.closest('#lsPin')) { touchHeld = false; setPinned(!html.classList.contains('ls-pinned')); return; }
       if (e.target.closest('#lsTour')) {
         // the tour lights places on the page: fold first (a click is not a key focus, so nothing holds it)
         over = false; set(false);
         if (window.replayAthleteTour) window.replayAthleteTour();
+        return;
       }
+      // opened by a tap: picking a place folds it again (there is no pointer to leave it)
+      if (touchHeld && e.target.closest('.sidebar-tab')) set(false);
     });
     // touch: the rail's free space (not a row) opens it; a tap anywhere outside folds it
     s.addEventListener('pointerdown', function (e) {
       if (!isTouch(e) || !isLaptop() || html.classList.contains('ls-pinned') || e.target.closest('button, a[href]')) return;
-      set(!s.classList.contains('is-open'));
+      var on = !s.classList.contains('is-open');
+      if (on) swallow = Date.now();
+      set(on);
+      touchHeld = on;   // (after set: a fold clears it there) held open until a tap outside, a picked row or Esc
     });
     document.addEventListener('pointerdown', function (e) { if (isTouch(e) && s.classList.contains('is-open') && !s.contains(e.target)) set(false); }, true);
     // Esc folds it before anything else hears it (it is the topmost thing over the page), unless a sheet, a pop-up or a
@@ -251,6 +267,17 @@
     }
     // another tab of the same dashboard pinned or folded it: follow
     window.addEventListener('storage', function (e) { if (e.key === KEY) { html.classList.toggle('ls-pinned', isPinned()); paintPin(); try { window.dispatchEvent(new Event('resize')); } catch (x) { /* none */ } } });
+    // A Settings row that reloads the page (Units does: every number is drawn again) brings the lifter back to Settings,
+    // not to Home: the page says it was on Settings as it leaves, and the next start (within 15 s, a laptop) opens it.
+    var BACK = 'powa-ls-back';
+    try {
+      var was = Number(sessionStorage.getItem(BACK)) || 0;
+      sessionStorage.removeItem(BACK);
+      if (t && was && Date.now() - was < 15000 && isLaptop() && !/[?&]tab=/.test(location.search)) t.click();
+    } catch (e) { /* no session storage: it lands on Home as before */ }
+    window.addEventListener('pagehide', function () {
+      try { var a = document.querySelector('.sidebar-tab.active'); if (a && a.dataset.tab === 'settings' && isLaptop()) sessionStorage.setItem(BACK, String(Date.now())); } catch (e) { /* none */ }
+    });
   }
 
   window.LifterSide = {
