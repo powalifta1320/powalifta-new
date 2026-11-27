@@ -32,6 +32,8 @@ export async function phoneCtx(browser, { theme = 'dark', dpr = 3, w = 393, h = 
     localStorage.setItem('powa-consent', 'essential'); localStorage.setItem('powa-tour-athlete-done', '1'); localStorage.setItem('powa-tour-coach-done', '1');
     localStorage.setItem('powa-install-dismissed', String(Date.now())); localStorage.setItem('powa-intake-snooze', String(Date.now()));
     localStorage.setItem('powa-theme', t); localStorage.setItem('powa-push-off', '1'); localStorage.setItem('powa-notify-snooze', String(Date.now())); localStorage.setItem('powa-notify-snoozes', '2');
+    // The demo's guided tour (demo-tour.js, 26 Nov) starts by itself on a first lifter demo visit: marked as seen, so it never lands in a picture.
+    localStorage.setItem('powa-demo-tour-seen-lifter', '1');
   } catch (e) {} }, theme);
   await ctx.addInitScript(() => { window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {}, isPluginAvailable: () => false }; });
   await ctx.addInitScript(() => { document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.textContent = '.demo-banner,.pn-host{display:none!important}'; document.head.appendChild(s); }); });

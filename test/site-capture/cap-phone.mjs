@@ -1,4 +1,4 @@
-// -> phone-train.png, phone-logged.png: site-img/home/lifter-train-*, lifter-logged-* (mkimg.py phone).
+// -> phone-train.png, phone-logged.png: site-img/home/lifter-train2-*, lifter-logged2-* (mkimg.py phone).
 // Arjun's phone (the real lifter app in the iPhone app layout, dark (THEME=light for a light version), 393x852 at 3x): Train with his top set
 // (182.5 kg x 5, the coach wrote @8, he picks 8), then the same screen once Log set is pressed and the PR sheet is done.
 import { writeFileSync } from 'node:fs';

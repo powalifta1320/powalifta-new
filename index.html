@@ -64,7 +64,7 @@
   var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', light ? '#f4f4f6' : '#0b0b0c');
   document.write('<link rel="preload" href="/fonts/archivo-tw.woff2" as="font" type="font/woff2" crossorigin>' +
     '<link rel="preload" as="image" type="image/avif" imagesrcset="' + img + 'desk5-before-960.avif 960w, ' + img + 'desk5-before-1440.avif 1440w, ' + img + 'desk5-before-1920.avif 1920w" imagesizes="(min-width: 1100px) 49vw, 92vw" media="(min-width: 760px)" fetchpriority="high">' +
-    '<link rel="preload" as="image" type="image/avif" imagesrcset="' + img + 'lifter-train-590.avif 590w, ' + img + 'lifter-train-786.avif 786w, ' + img + 'lifter-train-1179.avif 1179w" imagesizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" fetchpriority="high">' +
+    '<link rel="preload" as="image" type="image/avif" imagesrcset="' + img + 'lifter-train2-590.avif 590w, ' + img + 'lifter-train2-786.avif 786w, ' + img + 'lifter-train2-1179.avif 1179w" imagesizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" fetchpriority="high">' +
     '<link rel="stylesheet" href="/site.css"><link rel="stylesheet" href="/home.css">' +
     '<script defer src="/home.js"><\/script>');
   h.classList.add('js');
@@ -130,7 +130,7 @@
       "image": "https://www.powalifta.com/og-home.jpg",
       "screenshot": [
         "https://www.powalifta.com/site-img/home/desk5-before-1920.webp",
-        "https://www.powalifta.com/site-img/home/lifter-train-1179.webp",
+        "https://www.powalifta.com/site-img/home/lifter-train2-1179.webp",
         "https://www.powalifta.com/site-img/home/thread2-1179.webp"
       ],
       "description": "The powerlifting app for coaches and their lifters. Lifters log every set and how hard it felt, and the app works out their max (e1RM). Coaches see every set as it’s logged, know who needs them today, write next week from this week and run meet day.",
@@ -332,14 +332,14 @@
       <div class="ph-body" id="phBody">
         <div class="ph-scr">
           <picture>
-            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/lifter-train-590.avif 590w, /site-img/home-light/lifter-train-786.avif 786w, /site-img/home-light/lifter-train-1179.avif 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw">
-            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-train-590.webp 590w, /site-img/home-light/lifter-train-786.webp 786w, /site-img/home-light/lifter-train-1179.webp 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw">
-            <source type="image/avif" srcset="/site-img/home/lifter-train-590.avif 590w, /site-img/home/lifter-train-786.avif 786w, /site-img/home/lifter-train-1179.avif 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw">
-            <img class="ph-img" src="/site-img/home/lifter-train-786.webp" srcset="/site-img/home/lifter-train-590.webp 590w, /site-img/home/lifter-train-786.webp 786w, /site-img/home/lifter-train-1179.webp 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" width="393" height="852" fetchpriority="high" loading="lazy" decoding="async"
+            <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/lifter-train2-590.avif 590w, /site-img/home-light/lifter-train2-786.avif 786w, /site-img/home-light/lifter-train2-1179.avif 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw">
+            <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-train2-590.webp 590w, /site-img/home-light/lifter-train2-786.webp 786w, /site-img/home-light/lifter-train2-1179.webp 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw">
+            <source type="image/avif" srcset="/site-img/home/lifter-train2-590.avif 590w, /site-img/home/lifter-train2-786.avif 786w, /site-img/home/lifter-train2-1179.avif 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw">
+            <img class="ph-img" src="/site-img/home/lifter-train2-786.webp" srcset="/site-img/home/lifter-train2-590.webp 590w, /site-img/home/lifter-train2-786.webp 786w, /site-img/home/lifter-train2-1179.webp 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" width="393" height="852" fetchpriority="high" loading="lazy" decoding="async"
               alt="The lifter app on Arjun’s phone, Train: Squat Day, Wednesday 28 October, week 3. Competition squat, set 1 of 3: 182.5 kg for 5, belt on, RPE 8 picked on the scale (two reps left in the tank), and the Log set button. Below it, his coach Sam’s note: top set today is 182.5 for 5 at 8.">
           </picture>
           <!-- A moment later: set 2 up and the rest timer docked (while motion plays the story, or once Log set is tapped). -->
-          <img class="ph-next" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-srcset="/site-img/home/lifter-logged-590.avif 590w, /site-img/home/lifter-logged-786.avif 786w, /site-img/home/lifter-logged-1179.avif 1179w" data-fallback="/site-img/home/lifter-logged-590.webp 590w, /site-img/home/lifter-logged-786.webp 786w, /site-img/home/lifter-logged-1179.webp 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" width="393" height="852" alt="" decoding="async">
+          <img class="ph-next" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-srcset="/site-img/home/lifter-logged2-590.avif 590w, /site-img/home/lifter-logged2-786.avif 786w, /site-img/home/lifter-logged2-1179.avif 1179w" data-fallback="/site-img/home/lifter-logged2-590.webp 590w, /site-img/home/lifter-logged2-786.webp 786w, /site-img/home/lifter-logged2-1179.webp 1179w" sizes="(min-width: 1100px) 393px, (min-width: 760px) 340px, 78vw" width="393" height="852" alt="" decoding="async">
           <span class="sb" aria-hidden="true"><b data-t="9:41"></b><i class="sb-isl"></i><i class="sb-bat"></i></span>
           <span class="log" id="logBtn" aria-hidden="true"><span class="log-in"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Log set</span></span>
           <!-- The set card's three parts, in the screen's points: the load and reps, how hard it felt, Log set. -->
@@ -691,21 +691,21 @@
           <div class="ph">
             <div class="ph-scr">
               <picture class="lf-still">
-                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/lifter-prog-640.avif 640w, /site-img/home-light/lifter-prog-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
-                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-prog-640.webp 640w, /site-img/home-light/lifter-prog-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
-                <source type="image/avif" srcset="/site-img/home/lifter-prog-640.avif 640w, /site-img/home/lifter-prog-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
-                <img src="/site-img/home/lifter-prog-640.webp" srcset="/site-img/home/lifter-prog-640.webp 640w, /site-img/home/lifter-prog-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw" width="393" height="740" loading="lazy" decoding="async"
+                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/lifter-prog2-640.avif 640w, /site-img/home-light/lifter-prog2-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-prog2-640.webp 640w, /site-img/home-light/lifter-prog2-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <source type="image/avif" srcset="/site-img/home/lifter-prog2-640.avif 640w, /site-img/home/lifter-prog2-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <img src="/site-img/home/lifter-prog2-640.webp" srcset="/site-img/home/lifter-prog2-640.webp 640w, /site-img/home/lifter-prog2-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw" width="393" height="740" loading="lazy" decoding="async"
                   alt="Arjun’s Progress a moment later: e1RM total 656 kg, up 21 kg in 4 weeks; 580 kg in best singles, 416.8 DOTS; stronger than 88% of 74 kg raw men. His strength chart climbs from July 13 to 656 kg.">
               </picture>
               <!-- With motion: the same screen without the line, which draws up to his new total on top (it says what the still says). -->
               <picture class="lf-base">
-                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/lifter-prog-base-640.avif 640w, /site-img/home-light/lifter-prog-base-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
-                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-prog-base-640.webp 640w, /site-img/home-light/lifter-prog-base-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
-                <source type="image/avif" srcset="/site-img/home/lifter-prog-base-640.avif 640w, /site-img/home/lifter-prog-base-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
-                <img src="/site-img/home/lifter-prog-base-640.webp" srcset="/site-img/home/lifter-prog-base-640.webp 640w, /site-img/home/lifter-prog-base-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw" width="393" height="740" loading="lazy" decoding="async"
+                <source media="(prefers-color-scheme: light)" type="image/avif" srcset="/site-img/home-light/lifter-prog2-base-640.avif 640w, /site-img/home-light/lifter-prog2-base-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-prog2-base-640.webp 640w, /site-img/home-light/lifter-prog2-base-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <source type="image/avif" srcset="/site-img/home/lifter-prog2-base-640.avif 640w, /site-img/home/lifter-prog2-base-960.avif 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw">
+                <img src="/site-img/home/lifter-prog2-base-640.webp" srcset="/site-img/home/lifter-prog2-base-640.webp 640w, /site-img/home/lifter-prog2-base-960.webp 960w" sizes="(min-width: 1100px) 300px, (min-width: 760px) 36vw, 64vw" width="393" height="740" loading="lazy" decoding="async"
                   alt="Arjun’s Progress a moment later: e1RM total 656 kg, up 21 kg in 4 weeks; 580 kg in best singles, 416.8 DOTS; stronger than 88% of 74 kg raw men. His strength chart climbs from July 13 to 656 kg.">
               </picture>
-              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-line.webp"><img class="lf-l lf-line" style="--x: 27.3; --y: 520.7; --w: 339; --h: 161.8" src="/site-img/home/lifter-line.webp" width="1017" height="485" alt="" loading="lazy" decoding="async"></picture>
+              <picture class="layer"><source media="(prefers-color-scheme: light)" type="image/webp" srcset="/site-img/home-light/lifter-line2.webp"><img class="lf-l lf-line" style="--x: 27; --y: 521; --w: 339; --h: 161.8" src="/site-img/home/lifter-line2.webp" width="1017" height="485" alt="" loading="lazy" decoding="async"></picture>
               <span class="sb" aria-hidden="true"><b data-t="10:43"></b><i class="sb-isl"></i><i class="sb-bat"></i></span>
             </div>
             <i class="ph-btn ph-btn-a" aria-hidden="true"></i><i class="ph-btn ph-btn-b" aria-hidden="true"></i><i class="ph-btn ph-btn-c" aria-hidden="true"></i><i class="ph-btn ph-btn-p" aria-hidden="true"></i>

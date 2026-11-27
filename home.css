@@ -543,7 +543,7 @@ html.m .lf-still { display: none; }
 html.m .lf-base { display: block; }
 html.m .lf-l { display: block; position: absolute; z-index: 2; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); pointer-events: none; }
 /* The number and the jump in the app's own type (styles.css .prm-num, .prm-delta). */
-.lf-n { font-family: var(--font-num); font-size: calc(88 * var(--u)); font-weight: 800; font-stretch: 104%; line-height: 1; letter-spacing: -0.04em; color: #f4f4f6; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lf-n { font-family: var(--font-num); font-size: calc(88 * var(--u)); font-weight: 800; font-stretch: 104%; line-height: 1; letter-spacing: -0.04em; color: #f6f6f8; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lf-d { padding: 0.3333em 0.8em; border-radius: 999px; background: rgba(52, 217, 130, 0.14); color: #34d982; font-family: var(--font-body); font-size: calc(15 * var(--u)); font-weight: 750; line-height: 1.6; letter-spacing: -0.005em; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lf-line { width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u)); max-width: none; }
 

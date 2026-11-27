@@ -62,8 +62,9 @@ if 'desk' in what:
 
 # --- Arjun's phone (cap-phone.mjs, iPhone app layout, 3x): Train with his top set, and a moment after Log set.
 if 'phone' in what:
-    save(Image.open(CAP + 'phone-train.png'), 'lifter-train', [590, 786, 1179])
-    save(Image.open(CAP + 'phone-logged.png'), 'lifter-logged', [590, 786, 1179])
+    # *2: new names with the glass look (27 Nov), so a cached flat-black Train never meets the glass moment after it.
+    save(Image.open(CAP + 'phone-train.png'), 'lifter-train2', [590, 786, 1179])
+    save(Image.open(CAP + 'phone-logged.png'), 'lifter-logged2', [590, 786, 1179])
 
 # --- Arjun's thread (cap-thread.mjs, 3x): the screen after the reply, taken without its receipt, with the reply painted
 # out, then the reply, "Seen" and the earlier "Sent" as their own layers. "Sent" is shown where "Seen" is (home.css .tl-sent), so
@@ -110,11 +111,13 @@ if 'import' in what:
 # number and the jump (mkimg prints them in the screen's points, out of 393 x 852).
 if 'lifter' in what:
     k, H = 3, 740
-    for src, nm in (('lifter-pr', 'lifter-pr'), ('lifter-pr-base', 'lifter-pr-base'), ('lifter-progress', 'lifter-prog'), ('lifter-progress-base', 'lifter-prog-base')):
+    # The names index.html uses: lifter-pr2 (no plate, 23 Nov); lifter-prog2 and lifter-line2 (the glass look, 27 Nov: the
+    # line is cut with the glass behind it and 0.3 pt from where it was, so a cached old line never lands on a new base).
+    for src, nm in (('lifter-pr', 'lifter-pr2'), ('lifter-pr-base', 'lifter-pr2-base'), ('lifter-progress', 'lifter-prog2'), ('lifter-progress-base', 'lifter-prog2-base')):
         save(Image.open(CAP + src + '.png').crop((0, 0, 393 * k, H * k)), nm, [640, 960])
     g = json.load(open(CAP + 'lifter-geo.json'))
     x, y, w, h = g['prog']['plot']
-    one(Image.open(CAP + 'lifter-progress.png').crop((round(x * k), round(y * k), round((x + w) * k), round((y + h) * k))), 'lifter-line', q=90)
+    one(Image.open(CAP + 'lifter-progress.png').crop((round(x * k), round(y * k), round((x + w) * k), round((y + h) * k))), 'lifter-line2', q=90)
     print('   index.html .lf-line: --x %g; --y %g; --w %g; --h %g' % (x, y, w, h))
     for key in ('plate', 'unit', 'tag', 'sub', 'set', 'acts', 'done'):
         print('   PR %-6s' % key, g['pr'][key])
