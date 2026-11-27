@@ -239,8 +239,12 @@
     if (!(e.target && e.target.closest && e.target.closest('.dtour'))) { e.stopPropagation(); }
   }
 
+  // which element a step lights, for the page (the lifter's laptop sidebar opens for a step that lights one of its rows:
+  // lifter-side.js); null when the tour closes
+  function tell(el) { try { document.dispatchEvent(new CustomEvent('demotour:step', { detail: { el: el || null } })); } catch (e) {} }
   function paint(step, el) {
     var last = idx === steps.length - 1;
+    tell(el);
     card.innerHTML =
       '<p class="dtour-n">' + (idx + 1) + ' of ' + steps.length + '</p>' +
       '<h2 class="dtour-t" id="dtour-t">' + esc(step.title) + '</h2>' +
@@ -313,6 +317,7 @@
     set('s', AT, null);
     if (root) root.remove();
     root = hole = card = null;
+    tell(null);
     window.removeEventListener('keydown', keys, true);
     if (onMove) { window.removeEventListener('resize', onMove); window.removeEventListener('scroll', onMove, true); onMove = null; }
     if (opener && opener.focus && document.contains(opener)) { try { opener.focus({ preventScroll: true }); } catch (e) {} }

@@ -2177,6 +2177,23 @@ window.POWA_SUPPORT_KB = [
   ],
   "a": "On a laptop, the website opens on **Home**, made for what you do at a desk. **Progress** across the top: your estimated total, how it moved, each lift's estimated max, and one chart with a line per lift. Click a lift to see its line alone (click again for all three) and pick 8 weeks, 16 weeks or a year; **Open Progress** has the rest. **Log**: type your bodyweight and press Log (it saves like the weigh-in sheet), see your last weigh-in and 7-day average, do this week's check-in and answer your coach's questions (training alone, your goals and your meet are there instead). **Your coach**: their newest note or message, a box to write back, Messages and Send a form check. Training alone, that tile is your **program**: its weeks, the next session and Edit program. **This week**: your sessions with Done, Today, To come or Missed, Open session on today's, and Log a past session for one you lifted away from the app. On a phone and in the app, you land on Train as before.",
   "app": "Home is on the website on a laptop: your progress chart, bodyweight and check-ins, your coach (with a reply box) and this week's sessions. In the app you land on Train, as always."
+ },
+ {
+  "id": "lifter-web-sidebar",
+  "q": "Where are Settings on the website, and how do I keep the sidebar open?",
+  "t": [
+   "settings on the website",
+   "where are settings on laptop",
+   "sidebar",
+   "keep the sidebar open",
+   "fold the sidebar",
+   "pin the sidebar",
+   "sidebar keeps closing",
+   "log out on the website",
+   "take the tour"
+  ],
+  "a": "On a laptop, the website's sidebar is a narrow strip of icons on the left. Rest the pointer on it (or press Tab into it) and it opens over the page with every name; move the pointer away, or press Esc, and it folds again. To keep it open, click **Keep the sidebar open** at its top, or press ⌘\\ (Ctrl+\\ on Windows): the page makes room for it, and it stays that way next time. **Fold the sidebar** (or ⌘\\ again) puts it back. Open, it also lists **Go to**: Full program, Bodyweight, Career, My library and Browse programs. **Settings** is at its foot, under **Take the tour**: your profile, notifications, security, units, plates, share cards and your data, Help, and Log out. On a phone and in the app they stay at the end of **You**.",
+  "app": "In the app, Settings, Help and Log out are at the end of You. On the website on a laptop they have their own place, Settings, at the foot of the sidebar, which you can keep open with Keep the sidebar open (⌘\\)."
  }
 ];
 

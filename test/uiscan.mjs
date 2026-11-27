@@ -60,7 +60,18 @@ for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'a-home-web-squat' + suf, page: A, mode: 'web', w: 1440, h: 775, theme, eval: "document.querySelector('#homeArea .lh-lift[data-lift=\"squat\"]').click(); true" },
   { name: 'a-home-web-solo' + suf, page: SO, mode: 'web', w: 1440, h: 775, theme },
   { name: 'a-home-web-noprog' + suf, page: SO, mode: 'web', w: 1440, h: 775, theme, eval: "Store.update((s) => { s.programs = []; }); LifterHome.render(); true" },
-  { name: 'a-home-web-empty' + suf, page: SO, mode: 'web', w: 1440, h: 775, theme, eval: "Store.update((s) => { s.workoutLogs = []; s.bodyweight = []; }); LifterHome.render(); true" });
+  { name: 'a-home-web-empty' + suf, page: SO, mode: 'web', w: 1440, h: 775, theme, eval: "Store.update((s) => { s.workoutLogs = []; s.bodyweight = []; }); LifterHome.render(); true" },
+  // THE SIDEBAR on a laptop (lifter-side.js, 27 Nov): folded to the rail (the screens above), opened over the page (as
+  // under the pointer), pinned open (the page makes room), on a sub-screen (its parent's icon lit), and Settings.
+  { name: 'a-side-open' + suf, page: A, mode: 'web', w: 1440, h: 775, theme, eval: "LifterSide.open(); true" },
+  { name: 'a-side-open-1024' + suf, page: SO, mode: 'web', w: 1024, h: 700, theme, eval: "LifterSide.open(); true" },
+  { name: 'a-side-pinned' + suf, page: A, mode: 'web', w: 1440, h: 775, theme, eval: "LifterSide.pin(true); true" },
+  { name: 'a-side-pinned-1024' + suf, page: A, mode: 'web', w: 1024, h: 700, theme, eval: "LifterSide.pin(true); true" },
+  { name: 'a-side-sub' + suf, page: A, mode: 'web', w: 1280, h: 720, theme, eval: tab('career') },
+  { name: 'a-settings-web' + suf, page: A, mode: 'web', w: 1440, h: 775, theme, eval: tab('settings') },
+  { name: 'a-settings-web-1024' + suf, page: SO, mode: 'web', w: 1024, h: 700, theme, eval: tab('settings') },
+  { name: 'a-settings-web-pinned' + suf, page: A, mode: 'web', w: 1280, h: 720, theme, eval: "LifterSide.pin(true); " + tab('settings') },
+  { name: 'a-you-web' + suf, page: A, mode: 'web', w: 1440, h: 775, theme, eval: tab('you') });
 // The demo's guided tour as a first visitor meets it (it opens about a second after load).
 for (const [theme, suf] of [['dark', ''], ['light', '-l']]) screens.push(
   { name: 'a-demo-tour' + suf, page: 'athlete.html?demo=1', theme, tour: true, eval: "new Promise(r => setTimeout(() => r(true), 1600))" },

@@ -1,0 +1,203 @@
+/* lifter-side.css: the lifter's sidebar on a laptop, folded to a rail like the coach desk's (lifter-side.js; ported from
+   coach-preview/kit/r6/ui.css .side and tokens.css, with the glass skin of coach-preview/kit/glassdash).
+
+   Every rule that draws something is under the laptop width and html:not(.native) body.powa-app: on a phone, in a window
+   of 900 px and under and in the iPhone app nothing here applies. The only rules outside it keep the laptop's Settings
+   place out of sight everywhere else (as lifter-home.css does for Home).
+
+   - Folded: a 68 px rail of icons (--ls-rail); the page starts right after it. The sidebar itself is always 248 px wide
+     and clipped to the rail (clip-path), so opening never moves the page: it slides over it.
+   - Open (.is-open, lifter-side.js) it floats over the page on a heavier sheet (its words never sit on the page's);
+     pinned (html.ls-pinned) it is part of the layout (--ls-w) and casts nothing.
+   - A place's pill is one layer (::before) that is a tile round the icon on the rail and the whole row when open.
+   - The words come in just behind the opening edge and go at once on the fold; the Go to rows and their heading leave
+     the tab order while folded (visibility waits out the fade).
+   :not(#_) lifts these rules over styles.css and lifter-glass.css's sidebar rules without !important. */
+
+/* ---------- where it exists ---------- */
+#tab-settings { display: none; }
+html.native #pane-settings { display: none !important; }
+@media (max-width: 900px) { #pane-settings { display: none !important; } }
+
+@media (min-width: 901px) {
+  html:not(.native):not(#_) body.powa-app {
+    --ls-rail: 68px; --ls-open: 248px; --ls-w: var(--ls-rail);
+    --ls-pad: 10px; --ls-icon: 20px; --ls-gap: 12px;
+    --ls-it-pad: calc((var(--ls-rail) - var(--ls-pad) * 2 - var(--ls-icon)) / 2);
+    --ls-tile: calc(var(--ls-rail) - var(--ls-pad) * 2);
+    --ls-r: 12px;
+    --ls-ease: cubic-bezier(.32, .72, 0, 1);       /* the drawer curve */
+    --ls-in: 260ms; --ls-out: 160ms;               /* open, fold */
+    --ls-fade-in: 180ms; --ls-fade-out: 110ms;     /* the words */
+    /* light (the dark glass below has its own) */
+    --ls-bg: var(--bg-1);
+    --ls-bg-open: var(--bg-1);
+    --ls-edge: var(--line);
+    --ls-fill: rgb(11 11 13 / .04);
+    --ls-pill: rgb(11 11 13 / .09);
+    --ls-pill-rim: none;
+    --ls-cur-ink: var(--text);
+    --ls-shadow: 24px 0 48px -30px rgb(20 20 40 / .28);
+  }
+  html.lg:not(.native):not(#_) body.powa-app {
+    --ls-bg: rgb(8 8 11 / .30);
+    --ls-bg-open: rgb(12 12 16 / .86);
+    --ls-edge: rgb(255 255 255 / .08);
+    --ls-fill: rgb(255 255 255 / .06);
+    --ls-pill: linear-gradient(180deg, rgb(255 255 255 / .15), rgb(255 255 255 / .08));
+    --ls-pill-rim: inset 0 1px 0 rgb(255 255 255 / .24), inset 0 0 0 1px rgb(255 255 255 / .06);
+    --ls-cur-ink: var(--acc);
+    --ls-shadow: 24px 0 48px -28px rgb(0 0 0 / .55);
+  }
+  html.ls-pinned:not(.native):not(#_) body.powa-app { --ls-w: var(--ls-open); }
+
+  /* ---------- the page makes room for the rail, or for the pinned sidebar ---------- */
+  html:not(.native):not(#_) body.powa-app .dash-shell { grid-template-columns: var(--ls-w) 1fr; }
+  /* the glass window (lifter-glass.css) starts 8 px past the sidebar, folded or pinned */
+  html.lg:not(.native):not(#_) body.powa-app .dash-main::before { left: calc(var(--ls-w) + 8px); }
+
+  /* ---------- the sidebar ---------- */
+  html:not(.native):not(#_) body.powa-app .sidebar {
+    position: sticky; top: var(--nav-h, 69px); z-index: 40;   /* over the page, under every sheet, toast and bar (they live outside .dash-shell) */
+    align-self: start; justify-self: start;
+    width: var(--ls-open); height: calc(100vh - var(--nav-h, 69px));
+    padding: 14px var(--ls-pad) 16px;
+    border-right: 0;
+    /* its edge: one hairline that rides with the fold (the background never scrolls with the rows) */
+    background: linear-gradient(var(--ls-edge), var(--ls-edge)) no-repeat calc(var(--ls-rail) - 1px) 0 / 1px 100%, var(--ls-bg);
+    overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+    clip-path: inset(0 calc(100% - var(--ls-rail)) 0 0);
+    transition: clip-path var(--ls-out) var(--ls-ease), background-position var(--ls-out) var(--ls-ease);
+  }
+  html:not(.native):not(#_) body.powa-app .sidebar::-webkit-scrollbar { display: none; }
+  html:not(.native):not(#_) body.powa-app .sidebar.is-open,
+  html.ls-pinned:not(.native):not(#_) body.powa-app .sidebar {
+    clip-path: inset(0 -48px 0 0);
+    background-position: calc(100% - 1px) 0, 0 0;
+    transition-duration: var(--ls-in);
+  }
+  /* open over the page: a heavier sheet and a drop to its right; pinned it is part of the layout and casts none */
+  html:not(.ls-pinned):not(.native):not(#_) body.powa-app .sidebar.is-open {
+    background: linear-gradient(var(--ls-edge), var(--ls-edge)) no-repeat calc(100% - 1px) 0 / 1px 100%, var(--ls-bg-open);
+    box-shadow: var(--ls-shadow);
+  }
+  html.lg:not(.ls-pinned):not(.native):not(#_) body.powa-app .sidebar.is-open { -webkit-backdrop-filter: blur(30px) saturate(165%); backdrop-filter: blur(30px) saturate(165%); }
+
+  html:not(.native):not(#_) body.powa-app .sidebar .dash-tablist { gap: 0; }
+
+  /* ---------- a row: a place, the pin, the tour, a Go to row ---------- */
+  html:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab, .ls-it) {
+    position: relative; isolation: isolate; display: flex; align-items: center; gap: var(--ls-gap);
+    width: 100%; min-height: 40px; margin: 0 0 2px; padding: 0 var(--ls-it-pad);
+    border: 0; border-radius: var(--ls-r); background: transparent; box-shadow: none;
+    color: var(--text-2); font-family: inherit; font-size: 15px; font-weight: 550; line-height: 1.2; text-align: left;
+    white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    transition: color .15s ease, transform .1s cubic-bezier(.23, 1, .32, 1);
+  }
+  html:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab, .ls-it):active { transform: scale(.98); }
+  html:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab, .ls-it):focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+  /* the fill: a tile round the icon on the rail, the whole row open */
+  html:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab, .ls-it)::before {
+    content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: var(--ls-tile); z-index: -1;
+    border-radius: var(--ls-r); background: transparent; box-shadow: none;
+    transition: width var(--ls-out) var(--ls-ease), background-color .12s ease;
+  }
+  html:not(.native):not(#_) body.powa-app .sidebar.is-open :is(.sidebar-tab, .ls-it)::before,
+  html.ls-pinned:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab, .ls-it)::before { width: 100%; transition-duration: var(--ls-in), .12s; }
+  html:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab, .ls-it) svg { width: var(--ls-icon); height: var(--ls-icon); flex: none; opacity: 1; color: var(--text-3); }
+  html:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab > span:not(.tab-dot):not(.lib-badge), .ls-it > span) { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+  /* the current place: the pill, its icon in the screen's hue (dark) or ink (light) */
+  html:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab.is-current { color: var(--text); font-weight: 650; }
+  html:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab.is-current::before { background: var(--ls-pill); box-shadow: var(--ls-pill-rim); }
+  html:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab.is-current svg { color: var(--ls-cur-ink); }
+  /* on a sub-screen the parent's pill is the rail's; open, the Go to row you are on carries it instead */
+  html:not(.native):not(#_) body.powa-app .sidebar.is-open .sidebar-tab.ls-via,
+  html.ls-pinned:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab.ls-via { color: var(--text-2); font-weight: 550; }
+  html:not(.native):not(#_) body.powa-app .sidebar.is-open .sidebar-tab.ls-via::before,
+  html.ls-pinned:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab.ls-via::before { background: transparent; box-shadow: none; }
+  html:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab[data-parent].active { color: var(--text); font-weight: 650; }
+  html:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab[data-parent].active::before { background: var(--ls-pill); box-shadow: var(--ls-pill-rim); }
+  @media (hover: hover) and (pointer: fine) {
+    html:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab, .ls-it):hover { color: var(--text); }
+    html:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab:not(.is-current):not(.active), .ls-it):hover::before { background: var(--ls-fill); }
+    html:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab, .ls-it):hover svg { color: var(--text-2); }
+    html:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab.is-current:hover svg { color: var(--ls-cur-ink); }
+  }
+
+  /* the words, the Go to heading, a count: only while open. They go at once on the fold and come in just behind the
+     opening edge; one line each, the row never changes width */
+  html:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab > span:not(.tab-dot), .ls-it > span, .ls-goto-h) {
+    opacity: 0; transition: opacity var(--ls-fade-out) ease-out;
+  }
+  html:not(.native):not(#_) body.powa-app .sidebar.is-open :is(.sidebar-tab > span:not(.tab-dot), .ls-it > span, .ls-goto-h),
+  html.ls-pinned:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab > span:not(.tab-dot), .ls-it > span, .ls-goto-h) {
+    opacity: 1; transition: opacity var(--ls-fade-in) ease-out 50ms;
+  }
+
+  /* the Coach tab's unread dot: on the icon's corner on the rail, at the row's end when open */
+  html:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab .tab-dot {
+    position: absolute; margin: 0; left: calc(var(--ls-it-pad) + var(--ls-icon) - 4px); top: 9px; width: 8px; height: 8px; box-shadow: 0 0 0 2px var(--bg);
+  }
+  html:not(.native):not(#_) body.powa-app .sidebar.is-open .sidebar-tab .tab-dot,
+  html.ls-pinned:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab .tab-dot { left: auto; right: 14px; top: calc(50% - 4px); box-shadow: none; }
+  html:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab .lib-badge { flex: none; margin-left: auto !important; }
+
+  /* ---------- 1. the pin ---------- */
+  html:not(.native):not(#_) body.powa-app .sidebar .ls-top { display: block; margin: 0 0 6px; }
+  html.ls-pinned:not(.native):not(#_) body.powa-app .sidebar .ls-pin svg { color: var(--text); }
+
+  /* ---------- 2. the places (the app's own tabs, in their own order), then Go to: the sub-screens, words only ---------- */
+  html:not(.native):not(#_) body.powa-app .sidebar .ls-goto-h {
+    display: block; order: 1; margin: 18px var(--ls-it-pad) 6px; padding: 0;
+    font-size: 13px; font-weight: 600; line-height: 1; color: var(--text-3); letter-spacing: .01em; white-space: nowrap;
+  }
+  html:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab[data-parent] {
+    display: flex; order: 2; min-height: 36px; padding-left: calc(var(--ls-it-pad) + var(--ls-icon) + var(--ls-gap));
+  }
+  html:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab[data-parent] > svg { display: none; }
+  html:not(.native):not(#_) body.powa-app .sidebar #tab-program[data-parent] { order: 2; }
+  html:not(.native):not(#_) body.powa-app .sidebar #tab-bodyweight[data-parent] { order: 3; }
+  html:not(.native):not(#_) body.powa-app .sidebar #tab-career[data-parent] { order: 4; }
+  html:not(.native):not(#_) body.powa-app .sidebar #tab-library[data-parent] { order: 5; }
+  html:not(.native):not(#_) body.powa-app .sidebar #tab-marketplace[data-parent] { order: 6; }
+  html:not(.native):not(#_) body.powa-app .sidebar #tab-coach[data-parent] { order: 7; }
+  /* folded, Go to leaves the tab order once its words have faded */
+  html:not(.native):not(#_) body.powa-app .sidebar :is(.ls-goto-h, .sidebar-tab[data-parent]) { visibility: hidden; transition: visibility 0s linear var(--ls-fade-out), color .15s ease; }
+  html:not(.native):not(#_) body.powa-app .sidebar.is-open :is(.ls-goto-h, .sidebar-tab[data-parent]),
+  html.ls-pinned:not(.native):not(#_) body.powa-app .sidebar :is(.ls-goto-h, .sidebar-tab[data-parent]) { visibility: visible; transition-delay: 0s; }
+
+  /* ---------- 3. the foot: the tour, then Settings; alerts (a real account that can have them) under it ---------- */
+  html:not(.native):not(#_) body.powa-app .sidebar .ls-foot { display: flex; flex-direction: column; margin-top: auto; padding-top: 16px; }
+  html:not(.native):not(#_) body.powa-app .sidebar .ls-setlist { display: flex; flex-direction: column; }
+  html:not(.native):not(#_) body.powa-app .sidebar #tab-settings { display: flex; }
+  html:not(.native):not(#_) body.powa-app .sidebar .sidebar-foot { margin: 0; padding: 0; border: 0; }
+  html:not(.native):not(#_) body.powa-app .sidebar #notifToggle { width: 100% !important; margin: 2px 0 0 !important; justify-content: flex-start; min-height: 40px; }
+  html:not(.native):not(#_) body.powa-app .sidebar #notifToggle:disabled { opacity: .6; cursor: default; }
+
+  @media (max-height: 720px) {
+    html:not(.native):not(#_) body.powa-app .sidebar :is(.sidebar-tab, .ls-it) { min-height: 36px; }
+    html:not(.native):not(#_) body.powa-app .sidebar .sidebar-tab[data-parent] { min-height: 32px; }
+    html:not(.native):not(#_) body.powa-app .sidebar .ls-goto-h { margin-top: 12px; }
+  }
+
+  /* ---------- Settings, a place of its own here ---------- */
+  html:not(.native):not(#_) body.powa-app #settingsArea { max-width: 640px; }
+  html:not(.native):not(#_) body.powa-app #settingsArea .ls-col:first-child > .you-group:first-child { margin-top: 0; }
+}
+@media (min-width: 1100px) {
+  /* two columns of groups: Settings beside Help and Log out, each at a reading width */
+  html:not(.native):not(#_) body.powa-app #settingsArea { max-width: 1080px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; align-items: start; }
+  html:not(.native):not(#_) body.powa-app #settingsArea .ls-col > .you-group:first-child { margin-top: 0; }
+}
+/* Home's widths (lifter-home.css) are window widths chosen for a 240 px sidebar. Folded, the page is 172 px wider and
+   every one of them has room to spare; pinned it is 8 px narrower, and from 1000 to 1047 px Progress's chart had no
+   room for its range and Open Progress (they ran past the tile): there the chart goes under the numbers, as under 1000. */
+@media (min-width: 1000px) and (max-width: 1047px) {
+  html.ls-pinned:not(.native):not(#_) body.powa-app #homeArea .lh-prog { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+}
+@media (min-width: 901px) and (prefers-reduced-motion: reduce) {
+  html:not(.native):not(#_) body.powa-app .sidebar,
+  html:not(.native):not(#_) body.powa-app .sidebar *,
+  html:not(.native):not(#_) body.powa-app .sidebar *::before { transition-duration: 1ms !important; transition-delay: 0ms !important; }
+}
